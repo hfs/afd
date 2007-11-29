@@ -58,7 +58,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Local functions */
+/* Local functions. */
 static unsigned char       get_key(void);
 static jmp_buf             env_alarm;
 static void                menu(int),
@@ -66,7 +66,7 @@ static void                menu(int),
                            sig_handler(int),
                            sig_alarm(int);
 
-/* Global variables */
+/* Global variables. */
 int                        sys_log_fd = STDERR_FILENO,   /* Not used!    */
                            fsa_fd = -1,
                            fsa_id,
@@ -81,7 +81,7 @@ struct filetransfer_status *fsa;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 
-/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ fsa_view() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ fsa_edit() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {

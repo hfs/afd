@@ -27,8 +27,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int get_arg(int *argc, char *argv[], char *arg,
  **               char *buffer, int buf_length)
- **   int get_arg_array(int  *argc, char *argv[], char *arg,
- **                     char ***buffer, int  *no_of_elements)
+ **   int get_arg_array(int *argc, char *argv[], char *arg,
+ **                     char ***buffer, int *no_of_elements)
  **
  ** DESCRIPTION
  **   The function get_arg() gets the argument 'arg' from the command

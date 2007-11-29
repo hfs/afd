@@ -27,19 +27,18 @@ endif
 INCLUDES                     = -I.. -I../init_afd -I../amg -I../fd\
                                -I../statistics -I../log
 bin_PROGRAMS                 = afdcmd afdcfg afd_hex_print afd_status\
-                               fsa_edit fsa_view fra_view get_dc_data\
+                               fsa_edit fsa_view fra_edit fra_view get_dc_data\
                                get_hostname grib2wmo jid_view set_pw udc
 sbin_PROGRAMS                = cache_spy convert_fsa convert_stat\
                                current_job_list_spy dc_id_spy dir_spy\
-                               $(DUPCHECK) file_dir_check file_mask_list_spy\
+                               $(DUPCHECK) file_mask_list_spy\
                                gen_file queue_spy set_counter rm_job\
-                               show_exec_stat view_ls_data
+                               view_ls_data
 EXTRA_PROGRAMS               = bfc binfc byte_order convert_jid count_burst\
                                del_cache $(EXTRA_DUPCHECK) get_counter\
-                               force_archive_check get_full_date\
-                               get_file_size gts2tiff linger reset_fsa\
-                               rdu sysconf tiff_sniffer watch_dir fra_version\
-                               convert_ls_data view_error_queue
+                               get_full_date get_file_size gts2tiff linger\
+                               reset_fsa rdu sysconf tiff_sniffer watch_dir\
+                               fra_version convert_ls_data view_error_queue
 MAINTAINERCLEANFILES         = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES                   = gmon.out core core.*
 afdcmd_SOURCES               = afdcmd.c
@@ -74,20 +73,18 @@ dir_spy_SOURCES              = dir_spy.c
 dir_spy_LDADD                = ../common/libafd.a
 dup_spy_SOURCES              = dup_spy.c
 dup_spy_LDADD                = ../common/libafd.a
-file_dir_check_SOURCES       = file_dir_check.c
-file_dir_check_LDADD         = ../common/libafd.a
 file_mask_list_spy_SOURCES   = file_mask_list_spy.c
 file_mask_list_spy_LDADD     = ../common/libafd.a
-force_archive_check_SOURCES  = force_archive_check.c
-force_archive_check_LDADD    = ../common/libafd.a
+fsa_edit_SOURCES             = fsa_edit.c
+fsa_edit_LDADD               = ../common/libafd.a
 fsa_view_SOURCES             = fsa_view.c
 fsa_view_LDADD               = ../common/libafd.a
 fra_version_SOURCES          = fra_version.c
 fra_version_LDADD            = ../common/libafd.a
+fra_edit_SOURCES             = fra_edit.c
+fra_edit_LDADD               = ../common/libafd.a
 fra_view_SOURCES             = fra_view.c
 fra_view_LDADD               = ../common/libafd.a
-fsa_edit_SOURCES             = fsa_edit.c
-fsa_edit_LDADD               = ../common/libafd.a
 gen_file_SOURCES             = gen_file.c
 get_counter_SOURCES          = get_counter.c
 get_counter_LDADD            = ../common/libafd.a
@@ -118,8 +115,6 @@ set_counter_SOURCES          = set_counter.c
 set_counter_LDADD            = ../common/libafd.a
 set_pw_SOURCES               = set_pw.c
 set_pw_LDADD                 = ../common/libafd.a
-show_exec_stat_SOURCES       = show_exec_stat.c
-show_exec_stat_LDADD         = ../common/libafd.a
 sysconf_SOURCES              = sysconf.c
 sysconf_LDADD                = ../common/libafd.a
 tiff_sniffer_SOURCES         = tiff_sniffer.c

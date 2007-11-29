@@ -172,10 +172,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Create managing widget */
+   /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform_w", NULL, 0);
 
-   /* Prepare the font */
+   /* Prepare the font. */
    entry = XmFontListEntryLoad(XtDisplay(appshell), font_name,
                                XmFONT_IS_FONT, "TAG1");
    fontlist = XmFontListAppendEntry(NULL, entry);
@@ -323,7 +323,7 @@ main(int argc, char *argv[])
                       _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
 
@@ -331,17 +331,16 @@ main(int argc, char *argv[])
    if ((signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set signal handler's for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set signal handler's for %s : %s",
                  SHOW_CMD, strerror(errno));
    }
 
    xexec_cmd(cmd);
 
-   /* We want the keyboard focus on the cmd output */
+   /* We want the keyboard focus on the cmd output. */
    XmProcessTraversal(cmd_output, XmTRAVERSE_CURRENT);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -446,7 +445,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    title_cmd[length] = ' ';
    title_cmd[length + 1] = '\0';
 
-   /* Cut out target hostname */
+   /* Cut out target hostname. */
    while (*ptr != '\0')
    {
       ptr++;

@@ -1,4 +1,4 @@
-Summary: A file distribution system
+Summary: A file distribution and fetching system
 Name: afd
 Version: @VERSION@
 Release: 1
@@ -7,7 +7,6 @@ Group: Applications/Communications
 BuildRoot: %{_builddir}/%{name}-root
 Prefix: @prefix@
 Source0: %{name}-%{version}.tar.bz2
-Source1: ftp://ftp.dwd.de/pub/afd/%{name}-%{version}.tar.bz2
 Requires: @REQUIRES@
 BuildRequires: @BUILD_REQUIRES@
 URL: http://www.dwd.de/AFD/
@@ -15,9 +14,9 @@ URL: http://www.dwd.de/AFD/
 %description
 The Automatic File Distributor provides a framework for very flexible,
 non-stop, log and debug-able delivery of an arbitrary amount of files to
-multiple recipients as expressed in URLs (currently mailing and ftp
-supported with the mailto://user@domain and ftp://user:password@host
-URL conventions).
+multiple recipients as expressed in URLs (currently mailing, ftp, ftps,
+sftp and http supported with the mailto://user@domain and
+ftp://user:password@host URL conventions).
 
 %prep
 %setup -n %{name}-%{version}
@@ -63,7 +62,9 @@ else
 fi
 make DESTDIR=$RPM_BUILD_ROOT install-strip
 install -p -m755 scripts/afd $RPM_BUILD_ROOT/@INITDIR@
+install -p -m755 scripts/afdmon $RPM_BUILD_ROOT/@INITDIR@
 install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT/@SYSCONFIGDIR@/afd
+install -p -m644 scripts/afdmon.sysconfig $RPM_BUILD_ROOT/@SYSCONFIGDIR@/afdmon
 install -p -m644 etc/AFD_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/DIR_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/host.info.sample $RPM_BUILD_ROOT/%{prefix}/etc
@@ -71,6 +72,13 @@ install -p -m644 etc/INFO-LOOP.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/rename.rule.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/afd.name.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/afd.users.sample $RPM_BUILD_ROOT/%{prefix}/etc
+
+@GZIP_CMD@ -9 doc/man/*
+mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man1
+install -p -m644 doc/man/afdcmd.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
+install -p -m644 doc/man/afdcfg.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
+install -p -m644 doc/man/afd.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
+rm -fr doc/man
 
 
 %clean
@@ -87,9 +95,11 @@ then
    if [ -x sbin/chkconfig ]
    then
       sbin/chkconfig --add %{name}
+      sbin/chkconfig --add afdmon
    fi
 else
    /etc/init.d/afd condrestart > /dev/null 2>&1 || :
+   /etc/init.d/afdmon condrestart > /dev/null 2>&1 || :
 fi
 
 %pre
@@ -117,6 +127,28 @@ then
          fi
       done
    fi
+   if [ -r @SYSCONFIGDIR@/afdmon ]
+   then
+      AFDMON_USERS="`grep \^AFDMON_USER_ @SYSCONFIGDIR@/afdmon | cut -d '=' -f2` `grep \^AFD_HA_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2`"
+   else
+      AFDMON_USERS=""
+   fi
+   if [ ! "$AFDMON_USERS" = "" ]
+   then
+      for afduser in $AFDMON_USERS
+      do
+         su - $afduser -c "mafd -c" > /dev/null 2>&1
+         if [ "$?" = 5 ]
+         then
+            touch var/lock/subsys/restart_afdmon.$afduser
+         fi
+         su - $afduser -c "mafd -S"
+         if [ $? -eq 0 ]
+         then
+            rm -f /var/lock/subsys/afdmon.$afduser
+         fi
+      done
+   fi
 fi
 
 %preun
@@ -140,14 +172,34 @@ then
    then
       sbin/chkconfig --del %{name}
    fi
+   @INITDIR@/afdmon stop > /dev/null 2>&1 || :
+   if [ -r @SYSCONFIGDIR@/afdmon ]
+   then
+      AFDMON_HA_USERS="`grep \^AFDMON_HA_USER_ @SYSCONFIGDIR@/afdmon | cut -d '=' -f2`"
+   else
+      AFDMON_HA_USERS=""
+   fi
+   if [ ! "$AFDMON_HA_USERS" = "" ]
+   then
+      for afduser in $AFDMON_HA_USERS
+      do
+         su - $afduser -c "mafd -S"
+      done
+   fi
+   if [ -x sbin/chkconfig ]
+   then
+      sbin/chkconfig --del afdmon
+   fi
 fi
 exit 0
 
 %files
 %config(noreplace) @SYSCONFIGDIR@/afd
+%config(noreplace) @SYSCONFIGDIR@/afdmon
 %defattr(-,root,root)
 %doc COPYING CREDITS INSTALL KNOWN-BUGS README.configure THANKS TODO changes-1.2.x-1.3.x
 %doc doc/*
+%{_mandir}/man1/*
 %defattr(-,@BINARY_OWNER@,@BINARY_GROUP@)
 %dir %{prefix}/bin
 %{prefix}/bin/*
@@ -165,8 +217,12 @@ exit 0
 %{prefix}/etc/DIR_CONFIG.sample
 %defattr(755,root,root)
 @INITDIR@/afd
+@INITDIR@/afdmon
 
 %changelog
+*Wed Aug 08 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+- Added AFD Monitor boot scripts.
+
 *Thu Nov 16 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
 - Don't rely on the lock file in /var/lock/subsys, do a real check if AFD is up.
 - Added support for AFD HA users.

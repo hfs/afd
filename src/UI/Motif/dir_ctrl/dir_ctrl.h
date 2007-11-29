@@ -21,7 +21,7 @@
 #define __dir_ctrl_h
 
 #include <time.h>                       /* clock_t                       */
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define DEFAULT_NO_OF_ROWS             50
 #define BAR_LENGTH_MODIFIER            7

@@ -20,7 +20,7 @@
 #ifndef __show_queue_h
 #define __show_queue_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* What information should be displayed */
 #define SHOW_INPUT              1      /* Files queued, due to error or */

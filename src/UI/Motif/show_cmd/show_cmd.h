@@ -20,7 +20,7 @@
 #ifndef __show_cmd_h
 #define __show_cmd_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define MAX_TITLE_CMD_LENGTH 20
 

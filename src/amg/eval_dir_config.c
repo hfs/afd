@@ -123,8 +123,8 @@ DESCR__E_M3
 #ifdef HAVE_MMAP
 #include <sys/mman.h>               /* mmap(), munmap()                  */
 #endif
+#include <pwd.h>                    /* getpwuid(), getpwnam()            */
 #include <unistd.h>                 /* R_OK, W_OK, X_OK                  */
-#include <pwd.h>                    /* getpwnam()                        */
 #include <errno.h>
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -2201,7 +2201,7 @@ check_dummy_line:
        */
       for (i = 0; i < no_of_local_dirs; i++)
       {
-         if (dd[i].host_alias != '\0')
+         if (dd[i].host_alias[0] != '\0')
          {
             for (j = 0; j < no_of_hosts; j++)
             {
@@ -3116,10 +3116,10 @@ copy_to_file(void)
          }
       }
 #ifdef HAVE_MMAP
-      if ((p_mmap = mmap(0, size, (PROT_READ | PROT_WRITE),
+      if ((p_mmap = mmap(NULL, size, (PROT_READ | PROT_WRITE),
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #else
-      if ((p_mmap = mmap_emu(0, size, (PROT_READ | PROT_WRITE),
+      if ((p_mmap = mmap_emu(NULL, size, (PROT_READ | PROT_WRITE),
                              MAP_SHARED, amg_data_file, 0)) == (caddr_t) -1)
 #endif
       {

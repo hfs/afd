@@ -126,7 +126,7 @@ get_hostname(char *recipient, char *real_hostname)
 
    if (*ptr == '@')
    {
-      /* Store the real_hostname */
+      /* Store the real_hostname. */
       ptr++;
       i = 0;
       while ((*ptr != '\0') &&

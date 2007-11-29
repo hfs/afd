@@ -51,8 +51,7 @@ DESCR__E_M3
 #include "handle_event.h"
 
 /* External global variables. */
-extern Widget                     appshell,
-                                  text_w;
+extern Widget                     text_w;
 extern int                        acknowledge_type,
                                   fra_fd,
                                   no_of_alias,
@@ -152,7 +151,7 @@ set_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             int flag_changed = NO;
 
-            if ((fsa[pos].error_counter >= fsa[pos].max_errors) ||
+            if ((fsa[pos].error_counter > 0) ||
                 (acknowledge_type == UNSET_SELECT))
             {
                if (acknowledge_type == ACKNOWLEDGE_SELECT)
@@ -255,7 +254,7 @@ set_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             int flag_changed = NO;
 
-            if ((fra[pos].error_counter >= fra[pos].max_errors) ||
+            if ((fra[pos].error_counter > 0) ||
                 (acknowledge_type == UNSET_SELECT))
             {
                if (acknowledge_type == ACKNOWLEDGE_SELECT)
@@ -354,14 +353,15 @@ set_button(Widget w, XtPointer client_data, XtPointer call_data)
       {
          if (flags_unchangeable > 0)
          {
-            xrec(appshell, INFO_DIALOG,
-                 "Unset acknowledge/offline for %d instances, %d already unset.",
-                 flags_changed, flags_unchangeable);
+            (void)xrec(INFO_DIALOG,
+                       "Unset acknowledge/offline for %d instances, %d already unset.",
+                       flags_changed, flags_unchangeable);
          }
          else
          {
-            xrec(appshell, INFO_DIALOG,
-                 "Unset acknowledge/offline for %d instances.", flags_changed);
+            (void)xrec(INFO_DIALOG,
+                       "Unset acknowledge/offline for %d instances.",
+                       flags_changed);
          }
       }
       else
@@ -370,29 +370,30 @@ set_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             if (not_enough_errors > 0)
             {
-               xrec(appshell, INFO_DIALOG,
-                    "Set acknowledge/offline for %d instances, %d already set. For %d there are not enough errors.",
-                    flags_changed, flags_unchangeable, not_enough_errors);
+               (void)xrec(INFO_DIALOG,
+                          "Set acknowledge/offline for %d instances, %d already set. For %d there are not enough errors.",
+                          flags_changed, flags_unchangeable, not_enough_errors);
             }
             else
             {
-               xrec(appshell, INFO_DIALOG,
-                    "Set acknowledge/offline for %d instances, %d already set.",
-                    flags_changed, flags_unchangeable);
+               (void)xrec(INFO_DIALOG,
+                          "Set acknowledge/offline for %d instances, %d already set.",
+                          flags_changed, flags_unchangeable);
             }
          }
          else
          {
             if (not_enough_errors > 0)
             {
-               xrec(appshell, INFO_DIALOG,
-                    "Set acknowledge/offline for %d instances. For %d there are not enough errors.",
-                    flags_changed, not_enough_errors);
+               (void)xrec(INFO_DIALOG,
+                          "Set acknowledge/offline for %d instances. For %d there are not enough errors.",
+                          flags_changed, not_enough_errors);
             }
             else
             {
-               xrec(appshell, INFO_DIALOG,
-                    "Set acknowledge/offline for %d instances.", flags_changed);
+               (void)xrec(INFO_DIALOG,
+                          "Set acknowledge/offline for %d instances.",
+                          flags_changed);
             }
          }
       }
@@ -401,37 +402,37 @@ set_button(Widget w, XtPointer client_data, XtPointer call_data)
         {
            if (acknowledge_type == UNSET_SELECT)
            {
-              xrec(appshell, INFO_DIALOG,
-                   "Acknowledge/offline for %d instances already unset.",
-                   flags_unchangeable);
+              (void)xrec(INFO_DIALOG,
+                         "Acknowledge/offline for %d instances already unset.",
+                         flags_unchangeable);
            }
            else
            {
               if (not_enough_errors > 0)
               {
-                 xrec(appshell, INFO_DIALOG,
-                      "Acknowledge/offline for %d instances already set. For %d there are not enough errors.",
-                      flags_unchangeable, not_enough_errors);
+                 (void)xrec(INFO_DIALOG,
+                            "Acknowledge/offline for %d instances already set. For %d there are not enough errors.",
+                            flags_unchangeable, not_enough_errors);
               }
               else
               {
                  if (reason_str == NULL)
                  {
-                    xrec(appshell, INFO_DIALOG,
-                         "Acknowledge/offline for %d instances already set.",
-                         flags_unchangeable);
+                    (void)xrec(INFO_DIALOG,
+                               "Acknowledge/offline for %d instances already set.",
+                               flags_unchangeable);
                  }
               }
            }
         }
    else if (not_enough_errors > 0)
         {
-           xrec(appshell, INFO_DIALOG,
-                "Not enough errors for %d instances.", not_enough_errors);
+           (void)xrec(INFO_DIALOG,
+                      "Not enough errors for %d instances.", not_enough_errors);
         }
    else if ((reason_str == NULL) || (acknowledge_type == UNSET_SELECT))
         {
-           xrec(appshell, INFO_DIALOG, "No changes.");
+           (void)xrec(INFO_DIALOG, "No changes.");
         }
 
    return;

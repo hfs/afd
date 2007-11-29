@@ -58,7 +58,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern char                       *p_work_dir;
 extern struct fileretrieve_status *fra;
 
@@ -115,7 +115,7 @@ check_list(struct directory_entry *p_de,
       {
          p_de->rl_size = stat_buf.st_size;
       }
-      if ((ptr = mmap(0, p_de->rl_size, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap(NULL, p_de->rl_size, (PROT_READ | PROT_WRITE),
                       MAP_SHARED, p_de->rl_fd, 0)) == (caddr_t) -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -193,7 +193,7 @@ check_list(struct directory_entry *p_de,
                              list_file, strerror(errno));
                   exit(INCORRECT);
                }
-               if ((ptr = mmap(0, p_de->rl_size, (PROT_READ | PROT_WRITE),
+               if ((ptr = mmap(NULL, p_de->rl_size, (PROT_READ | PROT_WRITE),
                                MAP_SHARED, p_de->rl_fd, 0)) == (caddr_t) -1)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,

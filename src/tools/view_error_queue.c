@@ -46,8 +46,9 @@ DESCR__E_M1
 #include <unistd.h>
 #include "version.h"
 
-/* Global variables */
-int        sys_log_fd = STDERR_FILENO;
+/* Global variables. */
+int        event_log_fd = STDERR_FILENO,
+           sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
 

@@ -72,7 +72,6 @@ static char *tmp_filter = NULL;
 
 /* Local function prototypes. */
 static int  pmatch2(char const *, char const *, time_t *);
-static void expand_filter(char *, time_t);
 
 
 /*################################ pmatch() #############################*/
@@ -175,19 +174,20 @@ pmatch2(char const *p, char const *s, time_t *pmatch_time)
            }
       else if ((c == '%') && ((*p == 't') || (*p == 'T') || (*p == 'h')))
            {
-              expand_filter((char *)(p - 1),
-                            (pmatch_time == NULL) ? time(NULL) : *pmatch_time);
-              if (tmp_filter == NULL)
+              if ((tmp_filter != NULL) ||
+                  ((tmp_filter = malloc(MAX_FILENAME_LENGTH)) != NULL))
+              {
+                 expand_filter((char *)(p - 1), tmp_filter,
+                               (pmatch_time == NULL) ? time(NULL) : *pmatch_time);
+                 p = tmp_filter;
+              }
+              else
               {
                  /* We failed to allocate memory, lets ignore expanding. */
                  if (c != *s++)
                  {
                     return(-1);
                  }
-              }
-              else
-              {
-                 p = tmp_filter;
               }
            }
            else
@@ -203,243 +203,240 @@ pmatch2(char const *p, char const *s, time_t *pmatch_time)
 }
 
 
-/*--------------------------- expand_filter() ---------------------------*/
-static void
-expand_filter(char *orig_filter, time_t check_time)
+/*########################### expand_filter() ###########################*/
+void
+expand_filter(char *orig_filter, char *tmp_filter, time_t check_time)
 {
-   if ((tmp_filter != NULL) ||
-       ((tmp_filter = malloc(MAX_FILENAME_LENGTH)) != NULL))
+   time_t time_modifier = 0;
+   char   *rptr,
+          time_mod_sign = '+',
+          *wptr;
+
+   rptr = orig_filter;
+   wptr = tmp_filter;
+   while ((*rptr != '\0') && (wptr < (tmp_filter + MAX_FILENAME_LENGTH - 1)))
    {
-      time_t time_modifier = 0;
-      char   *rptr,
-             time_mod_sign = '+',
-             *wptr;
-
-      rptr = orig_filter;
-      wptr = tmp_filter;
-      while ((*rptr != '\0') && (wptr < (tmp_filter + MAX_FILENAME_LENGTH - 1)))
+      if ((*rptr == '%') && ((*(rptr + 1) == 't') || (*(rptr + 1) == 'T') ||
+          (*(rptr + 1) == 'h')) &&
+          ((rptr == orig_filter) || ((*(rptr - 1) != '\\'))))
       {
-         if ((*rptr == '%') && ((*(rptr + 1) == 't') || (*(rptr + 1) == 'T') ||
-             (*(rptr + 1) == 'h')) &&
-             ((rptr == orig_filter) || ((*(rptr - 1) != '\\'))))
+         if (*(rptr + 1) == 't')
          {
-            if (*(rptr + 1) == 't')
+            time_t time_buf;
+
+            time_buf = check_time;
+
+            if (time_modifier > 0)
             {
-               time_t time_buf;
-
-               time_buf = check_time;
-
-               if (time_modifier > 0)
+               switch (time_mod_sign)
                {
-                  switch (time_mod_sign)
-                  {
-                     case '-' :
-                        time_buf = time_buf - time_modifier;
-                        break;
-                     case '*' :
-                     time_buf = time_buf * time_modifier;
-                        break;
-                     case '/' :
-                        time_buf = time_buf / time_modifier;
-                        break;
-                     case '%' :
-                        time_buf = time_buf % time_modifier;
-                        break;
-                     case '+' :
-                     default :
-                        time_buf = time_buf + time_modifier;
-                        break;
-                  }
-               }
-               switch (*(rptr + 2))
-               {
-                  case 'a': /* short day of the week 'Tue' */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%a", localtime(&time_buf));
+                  case '-' :
+                     time_buf = time_buf - time_modifier;
                      break;
-                  case 'b': /* short month 'Jan' */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%b", localtime(&time_buf));
+                  case '*' :
+                  time_buf = time_buf * time_modifier;
                      break;
-                  case 'j': /* day of year [001,366] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%j", localtime(&time_buf));
+                  case '/' :
+                     time_buf = time_buf / time_modifier;
                      break;
-                  case 'd': /* day of month [01,31] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%d", localtime(&time_buf));
+                  case '%' :
+                     time_buf = time_buf % time_modifier;
                      break;
-                  case 'M': /* minute [00,59] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%M", localtime(&time_buf));
-                     break;
-                  case 'm': /* month [01,12] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%m", localtime(&time_buf));
-                     break;
-                  case 'y': /* year 2 chars [01,99] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%y", localtime(&time_buf));
-                     break;
-                  case 'H': /* hour [00,23] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%H", localtime(&time_buf));
-                     break;
-                  case 'S': /* second [00,59] */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%S", localtime(&time_buf));
-                     break;
-                  case 'Y': /* year 4 chars 2002 */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%Y", localtime(&time_buf));
-                     break;
-                  case 'A': /* long day of the week 'Tuesday' */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%A", localtime(&time_buf));
-                     break;
-                  case 'B': /* month 'January' */
-                     wptr += strftime(wptr,
-                                      (tmp_filter + MAX_FILENAME_LENGTH - wptr),
-                                      "%B", localtime(&time_buf));
-                     break;
-                  case 'U': /* Unix time. */
-#if SIZEOF_TIME_T == 4
-                     wptr += sprintf(wptr, "%ld", (pri_time_t)time_buf);
-#else
-                     wptr += sprintf(wptr, "%lld", (pri_time_t)time_buf);
-#endif
-                     break;
+                  case '+' :
                   default :
-                     *wptr = '%';
-                     *(wptr + 1) = 't';
-                     *(wptr + 2) = *(rptr + 2);
-                     wptr += 3;
+                     time_buf = time_buf + time_modifier;
                      break;
                }
-               rptr += 3;
             }
-            else if (*(rptr + 1) == 'T')
-                 {
-                    int  m,
-                         time_unit;
-                    char string[MAX_INT_LENGTH + 1];
+            switch (*(rptr + 2))
+            {
+               case 'a': /* short day of the week 'Tue' */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%a", localtime(&time_buf));
+                  break;
+               case 'b': /* short month 'Jan' */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%b", localtime(&time_buf));
+                  break;
+               case 'j': /* day of year [001,366] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%j", localtime(&time_buf));
+                  break;
+               case 'd': /* day of month [01,31] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%d", localtime(&time_buf));
+                  break;
+               case 'M': /* minute [00,59] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%M", localtime(&time_buf));
+                  break;
+               case 'm': /* month [01,12] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%m", localtime(&time_buf));
+                  break;
+               case 'y': /* year 2 chars [01,99] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%y", localtime(&time_buf));
+                  break;
+               case 'H': /* hour [00,23] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%H", localtime(&time_buf));
+                  break;
+               case 'S': /* second [00,59] */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%S", localtime(&time_buf));
+                  break;
+               case 'Y': /* year 4 chars 2002 */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%Y", localtime(&time_buf));
+                  break;
+               case 'A': /* long day of the week 'Tuesday' */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%A", localtime(&time_buf));
+                  break;
+               case 'B': /* month 'January' */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%B", localtime(&time_buf));
+                  break;
+               case 'U': /* Unix time. */
+#if SIZEOF_TIME_T == 4
+                  wptr += sprintf(wptr, "%ld", (pri_time_t)time_buf);
+#else
+                  wptr += sprintf(wptr, "%lld", (pri_time_t)time_buf);
+#endif
+                  break;
+               default :
+                  *wptr = '%';
+                  *(wptr + 1) = 't';
+                  *(wptr + 2) = *(rptr + 2);
+                  wptr += 3;
+                  break;
+            }
+            rptr += 3;
+         }
+         else if (*(rptr + 1) == 'T')
+              {
+                 int  m,
+                      time_unit;
+                 char string[MAX_INT_LENGTH + 1];
 
-                    rptr += 2;
-                    switch (*rptr)
+                 rptr += 2;
+                 switch (*rptr)
+                 {
+                    case '+' :
+                    case '-' :
+                    case '*' :
+                    case '/' :
+                    case '%' :
+                       time_mod_sign = *rptr;
+                       rptr++;
+                       break;
+                    default  :
+                       time_mod_sign = '+';
+                       break;
+                 }
+                 m = 0;
+                 while ((isdigit((int)(*rptr))) && (m < MAX_INT_LENGTH))
+                 {
+                    string[m++] = *rptr++;
+                 }
+                 if ((m > 0) && (m < MAX_INT_LENGTH))
+                 {
+                    string[m] = '\0';
+                    time_modifier = atoi(string);
+                 }
+                 else
+                 {
+                    if (m == MAX_INT_LENGTH)
                     {
-                       case '+' :
-                       case '-' :
-                       case '*' :
-                       case '/' :
-                       case '%' :
-                          time_mod_sign = *rptr;
-                          rptr++;
-                          break;
-                       default  :
-                          time_mod_sign = '+';
-                          break;
-                    }
-                    m = 0;
-                    while ((isdigit((int)(*rptr))) && (m < MAX_INT_LENGTH))
-                    {
-                       string[m++] = *rptr++;
-                    }
-                    if ((m > 0) && (m < MAX_INT_LENGTH))
-                    {
-                       string[m] = '\0';
-                       time_modifier = atoi(string);
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "The time modifier specified in the filter %s is to long.",
+                                  orig_filter);
                     }
                     else
                     {
-                       if (m == MAX_INT_LENGTH)
-                       {
-                          system_log(WARN_SIGN, __FILE__, __LINE__,
-                                     "The time modifier specified in the filter %s is to long.",
-                                     orig_filter);
-                       }
-                       else
-                       {
-                          system_log(WARN_SIGN, __FILE__, __LINE__,
-                                     "There is no time modifier specified in filter %s",
-                                     orig_filter);
-                       }
-                       time_modifier = 0;
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "There is no time modifier specified in filter %s",
+                                  orig_filter);
                     }
-                    switch (*rptr)
-                    {
-                       case 'S' : /* Second */
-                          time_unit = 1;
-                          rptr++;
-                          break;
-                       case 'M' : /* Minute */
-                          time_unit = 60;
-                          rptr++;
-                          break;
-                       case 'H' : /* Hour */
-                          time_unit = 3600;
-                          rptr++;
-                          break;
-                       case 'd' : /* Day */
-                          time_unit = 86400;
-                          rptr++;
-                          break;
-                       default :
-                          time_unit = 1;
-                          break;
-                    }
-                    if (time_modifier > 0)
-                    {
-                       time_modifier = time_modifier * time_unit;
-                    }
+                    time_modifier = 0;
                  }
-                 else /* It must be the hostname modifier. */
+                 switch (*rptr)
                  {
+                    case 'S' : /* Second */
+                       time_unit = 1;
+                       rptr++;
+                       break;
+                    case 'M' : /* Minute */
+                       time_unit = 60;
+                       rptr++;
+                       break;
+                    case 'H' : /* Hour */
+                       time_unit = 3600;
+                       rptr++;
+                       break;
+                    case 'd' : /* Day */
+                       time_unit = 86400;
+                       rptr++;
+                       break;
+                    default :
+                       time_unit = 1;
+                       break;
+                 }
+                 if (time_modifier > 0)
+                 {
+                    time_modifier = time_modifier * time_unit;
+                 }
+              }
+              else /* It must be the hostname modifier. */
+              {
 #ifdef HAVE_GETHOSTNAME
-                    char hostname[40];
+                 char hostname[40];
 
-                    if (gethostname(hostname, 40) == -1)
-                    {
+                 if (gethostname(hostname, 40) == -1)
+                 {
 #endif
-                       char *p_hostname;
+                    char *p_hostname;
 
-                       if ((p_hostname = getenv("HOSTNAME")) != NULL)
-                       {
-                          wptr += sprintf(wptr, "%s", p_hostname);
-                       }
-                       else
-                       {
-                          *wptr = '%';
-                          *(wptr + 1) = 'h';
-                          wptr += 2;
-                       }
-#ifdef HAVE_GETHOSTNAME
+                    if ((p_hostname = getenv("HOSTNAME")) != NULL)
+                    {
+                       wptr += sprintf(wptr, "%s", p_hostname);
                     }
                     else
                     {
-                       wptr += sprintf(wptr, "%s", hostname);
+                       *wptr = '%';
+                       *(wptr + 1) = 'h';
+                       wptr += 2;
                     }
-#endif
-                    rptr += 2;
+#ifdef HAVE_GETHOSTNAME
                  }
-         }
-         else
-         {
-            *wptr = *rptr;
-            wptr++; rptr++;
-         }
+                 else
+                 {
+                    wptr += sprintf(wptr, "%s", hostname);
+                 }
+#endif
+                 rptr += 2;
+              }
       }
-      *wptr = '\0';
+      else
+      {
+         *wptr = *rptr;
+         wptr++; rptr++;
+      }
    }
+   *wptr = '\0';
+
    return;
 }

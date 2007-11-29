@@ -56,11 +56,11 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                 /* mmap()                          */
+# include <sys/mman.h>                /* mmap()                          */
 #endif
 #include <unistd.h>                   /* sysconf()                       */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                    /* O_RDWR, O_CREAT, O_WRONLY, etc  */
+# include <fcntl.h>                   /* O_RDWR, O_CREAT, O_WRONLY, etc  */
 #endif
 #include <errno.h>
 #include "amgdefs.h"
@@ -348,10 +348,10 @@ convert_fsa(int           old_fsa_fd,
          if (stat_buf.st_size > 0)
          {
 #ifdef HAVE_MMAP
-            if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+            if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                             MAP_SHARED, old_fsa_fd, 0)) == (caddr_t) -1)
 #else
-            if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+            if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                                 MAP_SHARED, old_fsa_stat, 0)) == (caddr_t) -1)
 #endif
             {
@@ -588,10 +588,12 @@ convert_fsa(int           old_fsa_fd,
               if (stat_buf.st_size > 0)
               {
 #ifdef HAVE_MMAP
-                 if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                 if ((ptr = mmap(NULL, stat_buf.st_size,
+                                 (PROT_READ | PROT_WRITE),
                                  MAP_SHARED, old_fsa_fd, 0)) == (caddr_t) -1)
 #else
-                 if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                 if ((ptr = mmap_emu(NULL, stat_buf.st_size,
+                                     (PROT_READ | PROT_WRITE),
                                      MAP_SHARED, old_fsa_stat, 0)) == (caddr_t) -1)
 #endif
                  {
@@ -838,10 +840,12 @@ convert_fsa(int           old_fsa_fd,
               if (stat_buf.st_size > 0)
               {
 #ifdef HAVE_MMAP
-                 if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                 if ((ptr = mmap(NULL, stat_buf.st_size,
+                                 (PROT_READ | PROT_WRITE),
                                  MAP_SHARED, old_fsa_fd, 0)) == (caddr_t) -1)
 #else
-                 if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                 if ((ptr = mmap_emu(NULL, stat_buf.st_size,
+                                     (PROT_READ | PROT_WRITE),
                                      MAP_SHARED, old_fsa_stat, 0)) == (caddr_t) -1)
 #endif
                  {

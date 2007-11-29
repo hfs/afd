@@ -425,7 +425,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
          {
             rl_size = stat_buf.st_size;
          }
-         if ((ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
+         if ((ptr = mmap(NULL, rl_size, (PROT_READ | PROT_WRITE),
                          MAP_SHARED, rl_fd, 0)) == (caddr_t) -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -514,8 +514,9 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                         sftp_quit();
                         exit(INCORRECT);
                      }
-                     if ((new_ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
-                                         MAP_SHARED, new_rl_fd, 0)) == (caddr_t) -1)
+                     if ((new_ptr = mmap(NULL, rl_size,
+                                         (PROT_READ | PROT_WRITE), MAP_SHARED,
+                                         new_rl_fd, 0)) == (caddr_t) -1)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "Failed to mmap() to `%s' : %s",
@@ -639,8 +640,10 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                              sftp_quit();
                              exit(INCORRECT);
                           }
-                          if ((new_ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
-                                              MAP_SHARED, new_rl_fd, 0)) == (caddr_t) -1)
+                          if ((new_ptr = mmap(NULL, rl_size,
+                                              (PROT_READ | PROT_WRITE),
+                                              MAP_SHARED, new_rl_fd,
+                                              0)) == (caddr_t) -1)
                           {
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to mmap() to `%s' : %s",
@@ -774,8 +777,8 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                              sftp_quit();
                              exit(INCORRECT);
                           }
-                          if ((ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
-                                          MAP_SHARED,
+                          if ((ptr = mmap(NULL, rl_size,
+                                          (PROT_READ | PROT_WRITE), MAP_SHARED,
                                           rl_fd, 0)) == (caddr_t) -1)
                           {
                              system_log(ERROR_SIGN, __FILE__, __LINE__,

@@ -195,10 +195,10 @@ create_fra(int no_of_dirs)
             else
             {
 #ifdef HAVE_MMAP
-               if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+               if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                                MAP_SHARED, old_fra_fd, 0)) == (caddr_t) -1)
 #else
-               if ((ptr = mmap_emu(0, stat_buf.st_size,
+               if ((ptr = mmap_emu(NULL, stat_buf.st_size,
                                    (PROT_READ | PROT_WRITE),
                                    MAP_SHARED, old_fra_stat, 0)) == (caddr_t) -1)
 #endif
@@ -340,10 +340,10 @@ create_fra(int no_of_dirs)
    }
 
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, fra_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap(NULL, fra_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    fra_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(0, fra_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap_emu(NULL, fra_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        new_fra_stat, 0)) == (caddr_t) -1)
 #endif
    {
@@ -546,8 +546,9 @@ create_fra(int no_of_dirs)
                 ((fra[i].warn_time < 1) ||
                  ((current_time - fra[i].last_retrieval) < fra[i].warn_time)))
             {
-               fra[i].dir_flag ^= WARN_TIME_REACHED;
+               fra[i].dir_flag &= ~WARN_TIME_REACHED;
                SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
+               error_action(fra[i].dir_alias, "stop", DIR_WARN_ACTION);
             }
 #ifdef WITH_INOTIFY
             if ((fra[i].dir_flag & INOTIFY_RENAME) &&

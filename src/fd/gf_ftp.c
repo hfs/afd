@@ -98,7 +98,7 @@ struct fileretrieve_status *fra;
 struct job                 db;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local function prototypes. */
 static int                 ftp_timeup(void);
 static void                gf_ftp_exit(void),
                            sig_bus(int),
@@ -140,7 +140,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(gf_ftp_exit) != 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -148,7 +148,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    p_work_dir = work_dir;
    init_gf(argc, argv, FTP_FLAG);
    msg_str[0] = '\0';
@@ -226,7 +226,7 @@ main(int argc, char *argv[])
                    db.mode_str, db.hostname, db.port);
    }
 
-   /* Connect to remote FTP-server */
+   /* Connect to remote FTP-server. */
    if (((status = ftp_connect(db.hostname, db.port)) != SUCCESS) &&
        (status != 230))
    {
@@ -271,7 +271,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Login */
+   /* Login. */
    if (status != 230) /* We are not already logged in! */
    {
       if (fsa->proxy_name[0] == '\0')
@@ -302,7 +302,7 @@ main(int argc, char *argv[])
             }
          }
 
-         /* Send password (if required) */
+         /* Send password (if required). */
          if (status != 230)
          {
             if ((status = ftp_pass(db.password)) != SUCCESS)
@@ -352,7 +352,7 @@ main(int argc, char *argv[])
 
    if (db.transfer_mode != 'N')
    {
-      /* Set transfer mode */
+      /* Set transfer mode. */
       if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -371,7 +371,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Change directory if necessary */
+   /* Change directory if necessary. */
    if (db.target_dir[0] != '\0')
    {
       if ((status = ftp_cd(db.target_dir, NO)) != SUCCESS)
@@ -425,7 +425,7 @@ main(int argc, char *argv[])
             unlock_region(fsa_fd, db.lock_offset + LOCK_CON);
 #endif
 
-            /* Number of connections */
+            /* Number of connections. */
             fsa->connections += 1;
 
             /* Total file counter */
@@ -745,7 +745,7 @@ main(int argc, char *argv[])
                      fsa->job_status[(int)db.job_no].file_size_in_use = 0;
                      fsa->job_status[(int)db.job_no].file_size_in_use_done = 0;
 
-                     /* Total file counter */
+                     /* Total file counter. */
                      fsa->total_file_counter -= 1;
 #ifdef _VERIFY_FSA
                      if (fsa->total_file_counter < 0)
@@ -764,7 +764,7 @@ main(int argc, char *argv[])
                      }
 #endif
 
-                     /* Total file size */
+                     /* Total file size. */
                      if ((rl[i].size != -1) && (bytes_done > 0))
                      {
                         /*
@@ -817,10 +817,10 @@ main(int argc, char *argv[])
 #endif
                      }
 
-                     /* File counter done */
+                     /* File counter done. */
                      fsa->file_counter_done += 1;
 
-                     /* Number of bytes send */
+                     /* Number of bytes send. */
                      fsa->bytes_send += bytes_done;
 #ifdef LOCK_DEBUG
                      unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
@@ -839,9 +839,13 @@ main(int argc, char *argv[])
                         fra[db.fra_pos].error_counter = 0;
                         if (fra[db.fra_pos].dir_flag & DIR_ERROR_SET)
                         {
-                           fra[db.fra_pos].dir_flag ^= DIR_ERROR_SET;
+                           fra[db.fra_pos].dir_flag &= ~DIR_ERROR_SET;
                            SET_DIR_STATUS(fra[db.fra_pos].dir_flag,
                                           fra[db.fra_pos].dir_status);
+                           error_action(fra[db.fra_pos].dir_alias, "start",
+                                        DIR_ERROR_ACTION);
+                           event_log(0L, EC_DIR, ET_EXT, EA_ERROR_START, "%s",
+                                     fra[db.fra_pos].dir_alias);
                         }
                         unlock_region(fra_fd,
 #ifdef LOCK_DEBUG
@@ -942,7 +946,7 @@ main(int argc, char *argv[])
                            {
                               fsa->host_status &= ~EVENT_STATUS_FLAGS;
                            }
-                           error_action(fsa->host_alias, "stop");
+                           error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
                            event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                                      fsa->host_alias);
                            if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
@@ -1084,7 +1088,7 @@ gf_ftp_exit(void)
 #ifdef _FIFO_DEBUG
       char  cmd[2];
 #endif
-      /* Tell FD we are finished */
+      /* Tell FD we are finished. */
 #ifdef _FIFO_DEBUG
       cmd[0] = ACKN; cmd[1] = '\0';
       show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
@@ -1121,7 +1125,8 @@ ftp_timeup(void)
    {
       db.keep_connected = fra[db.fra_pos].keep_connected;
    }
-   else if (fsa->keep_connected > 0)
+   else if ((fsa->keep_connected > 0) &&
+            ((fsa->special_flag & KEEP_CON_NO_FETCH) == 0))
         {
            db.keep_connected = fsa->keep_connected;
         }
@@ -1168,9 +1173,15 @@ ftp_timeup(void)
    {
       sleeptime = timeup - now;
    }
+   fsa->job_status[(int)db.job_no].unique_name[2] = 5;
    do
    {
       (void)sleep(sleeptime);
+      if (fsa->job_status[(int)db.job_no].unique_name[2] == 6)
+      {
+         fsa->job_status[(int)db.job_no].unique_name[2] = '\0';
+         return(INCORRECT);
+      }
       now = time(NULL);
       if (now < timeup)
       {

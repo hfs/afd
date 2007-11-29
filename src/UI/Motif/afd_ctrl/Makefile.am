@@ -19,8 +19,9 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = afd_ctrl.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../log -I../show_log
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../log\
+                       -I../show_log
 bin_PROGRAMS         = afd_ctrl
 afd_ctrl_SOURCES     = afd_ctrl.c\
                        calc_but_coord.c\
@@ -31,6 +32,7 @@ afd_ctrl_SOURCES     = afd_ctrl.c\
                        draw_line.c\
                        draw_tv_line.c\
                        error_history.c\
+                       event_reason.c\
                        expose_handler.c\
                        find_host_dialog.c\
 		       get_line_pos.c\
@@ -44,8 +46,9 @@ afd_ctrl_SOURCES     = afd_ctrl.c\
                        setup_window.c\
                        tv_window_size.c\
                        window_size.c
-afd_ctrl_LDADD       = @AFD_MATH_LIB@ ../common/libxafd.a\
-                       ../../../common/libafd.a @AFD_MOTIF_LIBS@
+afd_ctrl_LDADD       = @AFD_MATH_LIB@ ../common/libmotifafd.a\
+                       ../../common/libuiafd.a ../../../common/libafd.a\
+                       @AFD_MOTIF_LIBS@
 
 if WITH_SETUID_PROGS
 install-exec-local:

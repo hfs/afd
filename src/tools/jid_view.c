@@ -25,7 +25,7 @@ DESCR__S_M1
  **   jid_view - shows all jobs that are held by the AFD
  **
  ** SYNOPSIS
- **   jid_view [-w <AFD work dir>] [--version] [-f] [<job no>]
+ **   jid_view [-w <AFD work dir>] [--version] [<job ID> [...<job ID n>]]
  **
  ** DESCRIPTION
  **
@@ -40,6 +40,8 @@ DESCR__S_M1
  **   24.06.2000 H.Kiehl Completely revised.
  **   30.12.2003 H.Kiehl File masks are now in a seperate file.
  **   05.01.2004 H.Kiehl Show DIR_CONFIG ID.
+ **   12.09.2007 H.Kiehl Show directory name and make it possible to
+ **                      supply multiple job ID's.
  **
  */
 DESCR__E_M1
@@ -65,74 +67,67 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   int                 fd,
-                       fml_offset,
-                       i, j,
-                       mask_offset,
-                       no_of_file_masks_id,
-                       no_of_job_ids,
-                       search_id;
-   unsigned int        job_id;
-   off_t               fmd_size,
-                       jid_size;
-   char                file[MAX_PATH_LENGTH],
-                       *fmd = NULL,
-                       option_buffer[MAX_OPTION_LENGTH],
-                       *ptr,
-                       work_dir[MAX_PATH_LENGTH];
-   struct stat         stat_buf;
-   struct job_id_data *jd;
+   int                  fd,
+                        fml_offset,
+                        i, j,
+                        mask_offset,
+                        no_of_dir_names,
+                        no_of_file_masks_id,
+                        no_of_job_ids,
+                        no_of_search_ids,
+                        search_id;
+   unsigned int         *job_id;
+   off_t                dnb_size,
+                        fmd_size,
+                        jid_size;
+   char                 file[MAX_PATH_LENGTH],
+                        *fmd = NULL,
+                        option_buffer[MAX_OPTION_LENGTH],
+                        *ptr,
+                        work_dir[MAX_PATH_LENGTH];
+   struct stat          stat_buf;
+   struct job_id_data  *jd;
+   struct dir_name_buf *dnb;
+
+   if ((get_arg(&argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(&argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(&argc, argv, "--help", NULL, 0) == SUCCESS))
+   {
+      (void)fprintf(stdout,
+                    "Usage: %s [-w <AFD work dir>] [--version] [<job ID> [...<job ID n>]]\n",
+                    argv[0]);
+      exit(SUCCESS);
+   }
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
    }
-   if (get_arg(&argc, argv, "-f", NULL, 0) == SUCCESS)
+   if (argc > 1)
    {
-      (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, FILE_MASK_FILE);
-      if ((fd = open(file, O_RDONLY)) == -1)
+      no_of_search_ids = argc - 1;
+      if ((job_id = malloc(no_of_search_ids * sizeof(unsigned int))) != NULL)
       {
-         (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
-                       file, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
+         for (i = 0; i < no_of_search_ids; i++)
+         {
+            job_id[i] = (unsigned int)strtoul(argv[i + 1], (char **)NULL, 16);
+         }
       }
-
-      if (fstat(fd, &stat_buf) == -1)
+      else
       {
-         (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
-                       file, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
+         (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
       }
-
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
-                      MAP_SHARED, fd, 0)) == (caddr_t)-1)
-      {
-         (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
-                       file, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      no_of_file_masks_id = *(int *)ptr;
-      ptr += AFD_WORD_OFFSET;
-      fmd = ptr;
-      (void)close(fd);
-      fmd_size = stat_buf.st_size;
-      fml_offset = sizeof(int) + sizeof(int);
-      mask_offset = fml_offset + sizeof(int) + sizeof(unsigned int) +
-                    sizeof(unsigned char);
-   }
-   if (argc == 2)
-   {
-      job_id = (unsigned int)strtoul(argv[1], (char **)NULL, 16);
-      search_id = YES;
    }
    else
    {
-      search_id = NO;
+      job_id = NULL;
    }
 
+   /* Map to JID file. */
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
    if ((fd = open(file, O_RDONLY)) == -1)
    {
@@ -148,23 +143,132 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+#ifdef HAVE_MMAP
+   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
+#else
+   if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
+                       MAP_SHARED, file, 0)) == (caddr_t)-1)
+#endif
    {
       (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+   if (close(fd) == -1)
+   {
+      (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+                    file, strerror(errno), __FILE__, __LINE__);
    }
    no_of_job_ids = *(int *)ptr;
    ptr += AFD_WORD_OFFSET;
    jd = (struct job_id_data *)ptr;
    jid_size = stat_buf.st_size;
 
+   /* Map to file mask file. */
+   (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, FILE_MASK_FILE);
+   if ((fd = open(file, O_RDONLY)) == -1)
+   {
+      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+                    file, strerror(errno), __FILE__, __LINE__);
+   }
+   else
+   {
+      if (fstat(fd, &stat_buf) == -1)
+      {
+         (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+                       file, strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+#ifdef HAVE_MMAP
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                         MAP_SHARED, fd, 0)) == (caddr_t)-1)
+#else
+         if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
+                             MAP_SHARED, file, 0)) == (caddr_t)-1)
+#endif
+         {
+            (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+                          file, strerror(errno), __FILE__, __LINE__);
+            fmd = NULL;
+         }
+         else
+         {
+            no_of_file_masks_id = *(int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            fmd = ptr;
+            fmd_size = stat_buf.st_size;
+            fml_offset = sizeof(int) + sizeof(int);
+            mask_offset = fml_offset + sizeof(int) + sizeof(unsigned int) +
+                          sizeof(unsigned char);
+         }
+      }
+
+      if (close(fd) == -1)
+      {
+         (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+                       file, strerror(errno), __FILE__, __LINE__);
+      }
+   }
+
+   /* Map to directory_names file. */
+   (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DIR_NAME_FILE);
+   if ((fd = open(file, O_RDONLY)) == -1)
+   {
+      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+                    file, strerror(errno), __FILE__, __LINE__);
+   }
+   else
+   {
+      if (fstat(fd, &stat_buf) == -1)
+      {
+         (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+                       file, strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+#ifdef HAVE_MMAP
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                         MAP_SHARED, fd, 0)) == (caddr_t)-1)
+#else
+         if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
+                             MAP_SHARED, file, 0)) == (caddr_t)-1)
+#endif
+         {
+            (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+                          file, strerror(errno), __FILE__, __LINE__);
+            dnb = NULL;
+         }
+         else
+         {
+            no_of_dir_names = *(int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            dnb = (struct dir_name_buf *)ptr;
+            dnb_size = stat_buf.st_size;
+         }
+      }
+
+      if (close(fd) == -1)
+      {
+         (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+                       file, strerror(errno), __FILE__, __LINE__);
+      }
+   }
+
+
    if (no_of_job_ids > 0)
    {
       for (i = 0; i < no_of_job_ids; i++)
       {
-         if ((search_id == NO) || (job_id == jd[i].job_id))
+         for (j = 0; j < no_of_search_ids; j++)
+         {
+            if (job_id[j] == jd[i].job_id)
+            {
+               break;
+            }
+         }
+         if ((job_id == NULL) || (job_id[j] == jd[i].job_id))
          {
             (void)fprintf(stdout, "Job-ID       : %x\n", jd[i].job_id);
             (void)fprintf(stdout, "Dir-ID       : %x\n", jd[i].dir_id);
@@ -173,6 +277,18 @@ main(int argc, char *argv[])
             (void)fprintf(stdout, "Dir position : %d\n", jd[i].dir_id_pos);
             (void)fprintf(stdout, "Priority     : %c\n", jd[i].priority);
             (void)fprintf(stdout, "Hostalias    : %s\n", jd[i].host_alias);
+            if (dnb != NULL)
+            {
+               for (j = 0; j < no_of_dir_names; j++)
+               {
+                  if (dnb[j].dir_id == jd[i].dir_id)
+                  {
+                     (void)fprintf(stdout, "Directory    : %s\n",
+                                   dnb[j].orig_dir_name);
+                     break;
+                  }
+               }
+            }
             if (fmd != NULL)
             {
                int j;
@@ -275,14 +391,20 @@ main(int argc, char *argv[])
 
    if (fmd != NULL)
    {
-      fmd -= AFD_WORD_OFFSET;
-      if (munmap(fmd, fmd_size) == -1)
+      if (munmap((char *)fmd - AFD_WORD_OFFSET, fmd_size) == -1)
       {
          (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
                        FILE_MASK_FILE, strerror(errno), __FILE__, __LINE__);
       }
    }
-   ptr -= AFD_WORD_OFFSET;
+   if (dnb != NULL)
+   {
+      if (munmap((char *)dnb - AFD_WORD_OFFSET, dnb_size) == -1)
+      {
+         (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
+                       DIR_NAME_FILE, strerror(errno), __FILE__, __LINE__);
+      }
+   }
    if (munmap((char *)jd - AFD_WORD_OFFSET, jid_size) == -1)
    {
       (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",

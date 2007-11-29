@@ -152,9 +152,9 @@ am_sf_ftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	handle_proxy.$(OBJEXT) init_sf.$(OBJEXT) \
 	init_sf_burst2.$(OBJEXT) limit_transfer_rate.$(OBJEXT) \
-	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_ftp.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
-	trans_log.$(OBJEXT)
+	noop_wrapper_ftp.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
+	reset_fsa.$(OBJEXT) sf_ftp.$(OBJEXT) trans_db_log.$(OBJEXT) \
+	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
 sf_ftp_OBJECTS = $(am_sf_ftp_OBJECTS)
 @WITH_MISC_LIB_TRUE@am__DEPENDENCIES_1 = ../misc/libmisc.a
 sf_ftp_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -166,9 +166,9 @@ am__objects_4 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	handle_proxy.$(OBJEXT) init_sf.$(OBJEXT) \
 	init_sf_burst2.$(OBJEXT) limit_transfer_rate.$(OBJEXT) \
-	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_ftp.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
-	trans_log.$(OBJEXT)
+	noop_wrapper_ftp.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
+	reset_fsa.$(OBJEXT) sf_ftp.$(OBJEXT) trans_db_log.$(OBJEXT) \
+	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
 am_sf_ftp_trace_OBJECTS = $(am__objects_4) trace_log.$(OBJEXT)
 sf_ftp_trace_OBJECTS = $(am_sf_ftp_trace_OBJECTS)
 sf_ftp_trace_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -179,9 +179,10 @@ am_sf_http_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_http.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	sf_http.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 sf_http_OBJECTS = $(am_sf_http_OBJECTS)
 sf_http_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	../protocols/libprotocols.a ../common/libafd.a
@@ -191,9 +192,10 @@ am__objects_5 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_http.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	sf_http.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 am_sf_http_trace_OBJECTS = $(am__objects_5) trace_log.$(OBJEXT)
 sf_http_trace_OBJECTS = $(am_sf_http_trace_OBJECTS)
 sf_http_trace_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -204,9 +206,9 @@ am_sf_loc_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_loc.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
-	trans_log.$(OBJEXT)
+	noop_wrapper_dummy.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
+	reset_fsa.$(OBJEXT) sf_loc.$(OBJEXT) trans_db_log.$(OBJEXT) \
+	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
 sf_loc_OBJECTS = $(am_sf_loc_OBJECTS)
 sf_loc_DEPENDENCIES = ../common/libafd.a
 am_sf_map_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
@@ -214,8 +216,9 @@ am_sf_map_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	eval_recipient.$(OBJEXT) fsa_attach_pos.$(OBJEXT) \
 	get_file_names.$(OBJEXT) get_group_list.$(OBJEXT) \
 	gsf_check_fsa.$(OBJEXT) init_sf.$(OBJEXT) \
-	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_map.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_log.$(OBJEXT)
+	noop_wrapper_dummy.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
+	reset_fsa.$(OBJEXT) sf_map.$(OBJEXT) trans_db_log.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 sf_map_OBJECTS = $(am_sf_map_OBJECTS)
 sf_map_DEPENDENCIES = ../common/libafd.a
 am_sf_scp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
@@ -224,9 +227,10 @@ am_sf_scp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_scp.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_scp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 sf_scp_OBJECTS = $(am_sf_scp_OBJECTS)
 sf_scp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
 am__objects_6 = append.$(OBJEXT) archive_file.$(OBJEXT) \
@@ -235,9 +239,10 @@ am__objects_6 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_scp.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_scp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 am_sf_scp_trace_OBJECTS = $(am__objects_6) trace_log.$(OBJEXT)
 sf_scp_trace_OBJECTS = $(am_sf_scp_trace_OBJECTS)
 sf_scp_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
@@ -248,9 +253,10 @@ am_sf_sftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_sftp.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_sftp.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	sf_sftp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 sf_sftp_OBJECTS = $(am_sf_sftp_OBJECTS)
 sf_sftp_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	../protocols/libprotocols.a ../common/libafd.a
@@ -260,9 +266,10 @@ am__objects_7 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_sftp.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_sftp.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	sf_sftp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 am_sf_sftp_trace_OBJECTS = $(am__objects_7) trace_log.$(OBJEXT)
 sf_sftp_trace_OBJECTS = $(am_sf_sftp_trace_OBJECTS)
 sf_sftp_trace_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -272,9 +279,10 @@ am_sf_smtp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	eval_recipient.$(OBJEXT) fsa_attach_pos.$(OBJEXT) \
 	get_file_names.$(OBJEXT) get_group_list.$(OBJEXT) \
 	gsf_check_fsa.$(OBJEXT) init_sf.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_smtp.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	sf_smtp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 sf_smtp_OBJECTS = $(am_sf_smtp_OBJECTS)
 sf_smtp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
 am__objects_8 = append.$(OBJEXT) archive_file.$(OBJEXT) \
@@ -282,9 +290,10 @@ am__objects_8 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	eval_recipient.$(OBJEXT) fsa_attach_pos.$(OBJEXT) \
 	get_file_names.$(OBJEXT) get_group_list.$(OBJEXT) \
 	gsf_check_fsa.$(OBJEXT) init_sf.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
-	reset_fsa.$(OBJEXT) sf_smtp.$(OBJEXT) trans_db_log.$(OBJEXT) \
-	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	sf_smtp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	trans_log.$(OBJEXT)
 am_sf_smtp_trace_OBJECTS = $(am__objects_8) trace_log.$(OBJEXT)
 sf_smtp_trace_OBJECTS = $(am_sf_smtp_trace_OBJECTS)
 sf_smtp_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
@@ -296,9 +305,9 @@ am_sf_wmo_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) next_wmo_counter.$(OBJEXT) \
-	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_wmo.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
-	trans_log.$(OBJEXT)
+	noop_wrapper_dummy.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
+	reset_fsa.$(OBJEXT) sf_wmo.$(OBJEXT) trans_db_log.$(OBJEXT) \
+	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
 sf_wmo_OBJECTS = $(am_sf_wmo_OBJECTS)
 sf_wmo_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
 am__objects_9 = append.$(OBJEXT) archive_file.$(OBJEXT) \
@@ -308,9 +317,9 @@ am__objects_9 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) next_wmo_counter.$(OBJEXT) \
-	output_log_ptrs.$(OBJEXT) reset_fsa.$(OBJEXT) sf_wmo.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
-	trans_log.$(OBJEXT)
+	noop_wrapper_dummy.$(OBJEXT) output_log_ptrs.$(OBJEXT) \
+	reset_fsa.$(OBJEXT) sf_wmo.$(OBJEXT) trans_db_log.$(OBJEXT) \
+	trans_exec.$(OBJEXT) trans_log.$(OBJEXT)
 am_sf_wmo_trace_OBJECTS = $(am__objects_9) trace_log.$(OBJEXT)
 sf_wmo_trace_OBJECTS = $(am_sf_wmo_trace_OBJECTS)
 sf_wmo_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
@@ -345,7 +354,7 @@ ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
-AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
+AFD_GTK_CFLAGS = @AFD_GTK_CFLAGS@
 AFD_GTK_LIBS = @AFD_GTK_LIBS@
 AFD_MAP_LIBS = @AFD_MAP_LIBS@
 AFD_MATH_LIB = @AFD_MATH_LIB@
@@ -383,6 +392,7 @@ ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
 ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
+GZIP_CMD = @GZIP_CMD@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
@@ -407,6 +417,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PKG_CONFIG = @PKG_CONFIG@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
@@ -457,6 +468,7 @@ ac_configure_args = @ac_configure_args@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
+ac_pt_PKG_CONFIG = @ac_pt_PKG_CONFIG@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -545,6 +557,7 @@ sf_ftp_SOURCES = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_ftp.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_ftp.c\
@@ -574,6 +587,7 @@ sf_http_SOURCES = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_http.c\
@@ -603,6 +617,7 @@ sf_sftp_SOURCES = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_sftp.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_sftp.c\
@@ -630,6 +645,7 @@ sf_smtp_SOURCES = append.c\
                         gsf_check_fsa.c\
                         init_sf.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_smtp.c\
@@ -657,6 +673,7 @@ sf_scp_SOURCES = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_scp.c\
@@ -685,6 +702,7 @@ sf_wmo_SOURCES = append.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
                         next_wmo_counter.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_wmo.c\
@@ -709,6 +727,7 @@ sf_map_SOURCES = append.c\
                         get_group_list.c\
                         gsf_check_fsa.c\
                         init_sf.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_map.c\
@@ -728,6 +747,7 @@ sf_loc_SOURCES = append.c\
                         gsf_check_fsa.c\
                         init_sf.c\
                         init_sf_burst2.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_loc.c\
@@ -968,6 +988,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_job_id.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/manage_trl_process.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/next_wmo_counter.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/noop_wrapper_dummy.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/noop_wrapper_ftp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/noop_wrapper_sftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/output_log_ptrs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/read_current_msg_list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/read_file_mask.Po@am__quote@

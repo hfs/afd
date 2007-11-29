@@ -49,6 +49,10 @@ DESCR__S_M1
  **                   -X      toggle enable/disable host
  **                   -Y      start/stop AMG
  **                   -Z      start/stop FD
+ **                   -k      force file dir check
+ **                   -i      reread local interface file
+ **                   -o      show exec statistics
+ **                   -p      force archive check
  **                   -v      Just print the version number.
  **
  ** DESCRIPTION
@@ -65,6 +69,9 @@ DESCR__S_M1
  **                      wish to start it again error counter is set to zero.
  **   25.01.2005 H.Kiehl Don't start AUTO_PAUSE_QUEUE_STAT when starting
  **                      queue.
+ **   08.11.2007 H.Kiehl Added -i option to reread local interface file.
+ **                      Integrated programs force_archive_check,
+ **                      file_dir_check and show_exec_stat.
  **
  */
 DESCR__E_M1
@@ -79,10 +86,11 @@ DESCR__E_M1
 #include <time.h>                        /* time()                       */
 #include <unistd.h>                      /* STDERR_FILENO                */
 #include <errno.h>
+#include "amgdefs.h"
 #include "permission.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int                        event_log_fd = STDERR_FILENO,
                            sys_log_fd = STDERR_FILENO,
                            fra_fd = -1,
@@ -104,32 +112,36 @@ struct fileretrieve_status *fra;
 struct afd_status          *p_afd_status;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                eval_input(int, char **),
                            usage(char *);
 
-#define START_QUEUE_OPTION       1
-#define STOP_QUEUE_OPTION        2
-#define START_TRANSFER_OPTION    4
-#define STOP_TRANSFER_OPTION     8
-#define ENABLE_DIRECTORY_OPTION  16
-#define DISABLE_DIRECTORY_OPTION 32
-#define ENABLE_HOST_OPTION       64
-#define DISABLE_HOST_OPTION      128
-#define SWITCH_OPTION            256
-#define RETRY_OPTION             512
-#define RESCAN_OPTION            1024
-#define DEBUG_OPTION             2048
-#define TRACE_OPTION             4096
-#define FULL_TRACE_OPTION        8192
-#define START_FD_OPTION          16384
-#define STOP_FD_OPTION           32768
-#define START_AMG_OPTION         65536
-#define STOP_AMG_OPTION          131072
-#define START_STOP_AMG_OPTION    262144
-#define START_STOP_FD_OPTION     524288
-#define TOGGLE_DIRECTORY_OPTION  1048576
-#define TOGGLE_HOST_OPTION       2097152
+#define START_QUEUE_OPTION                 1
+#define STOP_QUEUE_OPTION                  2
+#define START_TRANSFER_OPTION              4
+#define STOP_TRANSFER_OPTION               8
+#define ENABLE_DIRECTORY_OPTION            16
+#define DISABLE_DIRECTORY_OPTION           32
+#define ENABLE_HOST_OPTION                 64
+#define DISABLE_HOST_OPTION                128
+#define SWITCH_OPTION                      256
+#define RETRY_OPTION                       512
+#define RESCAN_OPTION                      1024
+#define DEBUG_OPTION                       2048
+#define TRACE_OPTION                       4096
+#define FULL_TRACE_OPTION                  8192
+#define START_FD_OPTION                    16384
+#define STOP_FD_OPTION                     32768
+#define START_AMG_OPTION                   65536
+#define STOP_AMG_OPTION                    131072
+#define START_STOP_AMG_OPTION              262144
+#define START_STOP_FD_OPTION               524288
+#define TOGGLE_DIRECTORY_OPTION            1048576
+#define TOGGLE_HOST_OPTION                 2097152
+#define FORCE_FILE_DIR_CHECK_OPTION        4194304
+#define REREAD_LOCAL_INTERFACE_FILE_OPTION 8388608
+#define SHOW_EXEC_STAT_OPTION              16777216
+#define FORCE_ARCHIVE_CHECK_OPTION         33554432
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ afdcmd() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -237,14 +249,8 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, CTRL_QUEUE_PERM) == NULL)
                      {
-                        if (options & START_QUEUE_OPTION)
-                        {
-                           options ^= START_QUEUE_OPTION;
-                        }
-                        if (options & STOP_QUEUE_OPTION)
-                        {
-                           options ^= STOP_QUEUE_OPTION;
-                        }
+                        options &= ~START_QUEUE_OPTION;
+                        options &= ~STOP_QUEUE_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to start/stop the queue.\n",
                                       user);
@@ -255,14 +261,8 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, CTRL_TRANSFER_PERM) == NULL)
                      {
-                        if (options & START_TRANSFER_OPTION)
-                        {
-                           options ^= START_TRANSFER_OPTION;
-                        }
-                        if (options & STOP_TRANSFER_OPTION)
-                        {
-                           options ^= STOP_TRANSFER_OPTION;
-                        }
+                        options &= ~START_TRANSFER_OPTION;
+                        options &= ~STOP_TRANSFER_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to start/stop the transfer.\n",
                                       user);
@@ -274,18 +274,9 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, DISABLE_DIR_PERM) == NULL)
                      {
-                        if (options & ENABLE_DIRECTORY_OPTION)
-                        {
-                           options ^= ENABLE_DIRECTORY_OPTION;
-                        }
-                        if (options & DISABLE_DIRECTORY_OPTION)
-                        {
-                           options ^= DISABLE_DIRECTORY_OPTION;
-                        }
-                        if (options & TOGGLE_DIRECTORY_OPTION)
-                        {
-                           options ^= TOGGLE_DIRECTORY_OPTION;
-                        }
+                        options &= ~ENABLE_DIRECTORY_OPTION;
+                        options &= ~DISABLE_DIRECTORY_OPTION;
+                        options &= ~TOGGLE_DIRECTORY_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to enable/disable a directory.\n",
                                       user);
@@ -297,18 +288,9 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, DISABLE_HOST_PERM) == NULL)
                      {
-                        if (options & ENABLE_HOST_OPTION)
-                        {
-                           options ^= ENABLE_HOST_OPTION;
-                        }
-                        if (options & DISABLE_HOST_OPTION)
-                        {
-                           options ^= DISABLE_HOST_OPTION;
-                        }
-                        if (options & TOGGLE_HOST_OPTION)
-                        {
-                           options ^= TOGGLE_HOST_OPTION;
-                        }
+                        options &= ~ENABLE_HOST_OPTION;
+                        options &= ~DISABLE_HOST_OPTION;
+                        options &= ~TOGGLE_HOST_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to enable/disable a host.\n",
                                       user);
@@ -318,7 +300,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, SWITCH_HOST_PERM) == NULL)
                      {
-                        options ^= SWITCH_OPTION;
+                        options &= ~SWITCH_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to switch hosts.\n",
                                       user);
@@ -328,7 +310,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, RETRY_PERM) == NULL)
                      {
-                        options ^= RETRY_OPTION;
+                        options &= ~RETRY_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to retry.\n",
                                       user);
@@ -338,7 +320,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, RESCAN_PERM) == NULL)
                      {
-                        options ^= RESCAN_OPTION;
+                        options &= ~RESCAN_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to rerscan a directory.\n",
                                       user);
@@ -348,7 +330,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, DEBUG_PERM) == NULL)
                      {
-                        options ^= DEBUG_OPTION;
+                        options &= ~DEBUG_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to enable/disable debugging for a host.\n",
                                       user);
@@ -358,7 +340,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, TRACE_PERM) == NULL)
                      {
-                        options ^= TRACE_OPTION;
+                        options &= ~TRACE_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to enable/disable tracing for a host.\n",
                                       user);
@@ -368,7 +350,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, FULL_TRACE_PERM) == NULL)
                      {
-                        options ^= FULL_TRACE_OPTION;
+                        options &= ~FULL_TRACE_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to enable/disable full tracing for a host.\n",
                                       user);
@@ -379,14 +361,8 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, FD_CTRL_PERM) == NULL)
                      {
-                        if (options & START_FD_OPTION)
-                        {
-                           options ^= START_FD_OPTION;
-                        }
-                        if (options & STOP_FD_OPTION)
-                        {
-                           options ^= STOP_FD_OPTION;
-                        }
+                        options &= ~START_FD_OPTION;
+                        options &= ~STOP_FD_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to start/stop the FD.\n",
                                       user);
@@ -397,14 +373,8 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, AMG_CTRL_PERM) == NULL)
                      {
-                        if (options & START_AMG_OPTION)
-                        {
-                           options ^= START_AMG_OPTION;
-                        }
-                        if (options & STOP_AMG_OPTION)
-                        {
-                           options ^= STOP_AMG_OPTION;
-                        }
+                        options &= ~START_AMG_OPTION;
+                        options &= ~STOP_AMG_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to start/stop the AMG.\n",
                                       user);
@@ -414,10 +384,7 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, AMG_CTRL_PERM) == NULL)
                      {
-                        if (options & START_STOP_AMG_OPTION)
-                        {
-                           options ^= START_STOP_AMG_OPTION;
-                        }
+                        options &= ~START_STOP_AMG_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to start/stop the AMG.\n",
                                       user);
@@ -427,12 +394,49 @@ main(int argc, char *argv[])
                   {
                      if (posi(perm_buffer, FD_CTRL_PERM) == NULL)
                      {
-                        if (options & START_STOP_FD_OPTION)
-                        {
-                           options ^= START_STOP_FD_OPTION;
-                        }
+                        options &= ~START_STOP_FD_OPTION;
                         (void)fprintf(stderr,
                                       "User %s not permitted to start/stop the FD.\n",
+                                      user);
+                     }
+                  }
+                  if (options & FORCE_ARCHIVE_CHECK_OPTION)
+                  {
+                     if (posi(perm_buffer, FORCE_AC_PERM) == NULL)
+                     {
+                        options &= ~FORCE_ARCHIVE_CHECK_OPTION;
+                        (void)fprintf(stderr,
+                                      "User %s is not allowed to force a file dir check.\n",
+                                      user);
+                     }
+                  }
+                  if (options & FORCE_FILE_DIR_CHECK_OPTION)
+                  {
+                     if (posi(perm_buffer, FILE_DIR_CHECK_PERM) == NULL)
+                     {
+                        options &= ~FORCE_FILE_DIR_CHECK_OPTION;
+                        (void)fprintf(stderr,
+                                      "User %s is not allowed to force a file dir check.\n",
+                                      user);
+                     }
+                  }
+                  if (options & REREAD_LOCAL_INTERFACE_FILE_OPTION)
+                  {
+                     if (posi(perm_buffer, RR_LC_FILE_PERM) == NULL)
+                     {
+                        options &= ~REREAD_LOCAL_INTERFACE_FILE_OPTION;
+                        (void)fprintf(stderr,
+                                      "User %s not allowed to tell FD to reread the local interface file.\n",
+                                      user);
+                     }
+                  }
+                  if (options & SHOW_EXEC_STAT_OPTION)
+                  {
+                     if (posi(perm_buffer, SHOW_EXEC_STAT_PERM) == NULL)
+                     {
+                        options &= ~SHOW_EXEC_STAT_OPTION;
+                        (void)fprintf(stderr,
+                                      "User %s not allowed to show exec statistics.\n",
                                       user);
                      }
                   }
@@ -756,7 +760,13 @@ main(int argc, char *argv[])
 
       (void)fra_detach();
    }
-   else
+
+   if ((options & START_QUEUE_OPTION) || (options & STOP_QUEUE_OPTION) ||
+       (options & START_TRANSFER_OPTION) || (options & STOP_TRANSFER_OPTION) ||
+       (options & DISABLE_HOST_OPTION) || (options & ENABLE_HOST_OPTION) ||
+       (options & TOGGLE_HOST_OPTION) || (options & SWITCH_OPTION) ||
+       (options & RETRY_OPTION) || (options & DEBUG_OPTION) ||
+       (options & TRACE_OPTION) || (options & FULL_TRACE_OPTION))
    {
       if (fsa_attach() < 0)
       {
@@ -1609,6 +1619,149 @@ main(int argc, char *argv[])
       }
    }
 
+   if ((options & FORCE_FILE_DIR_CHECK_OPTION) ||
+       (options & REREAD_LOCAL_INTERFACE_FILE_OPTION))
+   {
+      int  fd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  fd_cmd_readfd;
+#endif
+      char fd_cmd_fifo[MAX_PATH_LENGTH];
+
+      (void)sprintf(fd_cmd_fifo, "%s%s%s",
+                    p_work_dir, FIFO_DIR, FD_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_readfd, &fd_cmd_fd) == -1)
+#else
+      if ((fd_cmd_fd = open(fd_cmd_fifo, O_RDWR)) == -1)
+#endif
+      {
+         (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                       fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         if (options & FORCE_FILE_DIR_CHECK_OPTION)
+         {
+            if (send_cmd(CHECK_FILE_DIR, fd_cmd_fd) != SUCCESS)
+            {
+               (void)fprintf(stderr,
+                             "Was not able to send command CHECK_FILE_DIR to %s : %s (%s %d)\n",
+                             FD, strerror(errno), __FILE__, __LINE__);
+            }
+         }
+
+         if (options & REREAD_LOCAL_INTERFACE_FILE_OPTION)
+         {
+            if (send_cmd(REREAD_LOC_INTERFACE_FILE, fd_cmd_fd) != SUCCESS)
+            {
+               (void)fprintf(stderr,
+                             "Was not able to send command REREAD_LOC_INTERFACE_FILE to %s : %s (%s %d)\n",
+                             FD, strerror(errno), __FILE__, __LINE__);
+            }
+         }
+
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(fd_cmd_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
+         if (close(fd_cmd_fd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+      }
+   }
+
+   if (options & SHOW_EXEC_STAT_OPTION)
+   {
+      int  dc_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  dc_cmd_readfd;
+#endif
+      char dc_cmd_fifo[MAX_PATH_LENGTH];
+
+      (void)sprintf(dc_cmd_fifo, "%s%s%s",
+                    p_work_dir, FIFO_DIR, DC_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(dc_cmd_fifo, &dc_cmd_readfd, &dc_cmd_fd) == -1)
+#else
+      if ((dc_cmd_fd = open(dc_cmd_fifo, O_RDWR)) == -1)
+#endif
+      {
+         (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                       dc_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         if (send_cmd(SR_EXEC_STAT, dc_cmd_fd) != SUCCESS)
+         {
+            (void)fprintf(stderr,
+                          "Was not able to send command SR_EXEC_STAT to %s : %s (%s %d)\n",
+                          DIR_CHECK, strerror(errno), __FILE__, __LINE__);
+         }
+
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(dc_cmd_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
+         if (close(dc_cmd_fd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+      }
+   }
+
+   if (options & FORCE_ARCHIVE_CHECK_OPTION)
+   {
+      int  ac_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  ac_cmd_readfd;
+#endif
+      char ac_cmd_fifo[MAX_PATH_LENGTH];
+
+      (void)sprintf(ac_cmd_fifo, "%s%s%s",
+                    p_work_dir, FIFO_DIR, DC_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(ac_cmd_fifo, &ac_cmd_readfd, &ac_cmd_fd) == -1)
+#else
+      if ((ac_cmd_fd = open(ac_cmd_fifo, O_RDWR)) == -1)
+#endif
+      {
+         (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                       ac_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         if (send_cmd(RETRY, ac_cmd_fd) != SUCCESS)
+         {
+            (void)fprintf(stderr,
+                          "Was not able to send command RETRY to archive_check : %s (%s %d)\n",
+                          strerror(errno), __FILE__, __LINE__);
+         }
+
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(ac_cmd_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
+         if (close(ac_cmd_fd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+      }
+   }
+
    exit(errors);
 }
 
@@ -1648,6 +1801,10 @@ eval_input(int argc, char *argv[])
    /*         -X : toggle enable/disable host                */
    /*         -Y : start/stop AMG                            */
    /*         -Z : start/stop FD                             */
+   /*         -k : force file dir check                      */
+   /*         -i : reread local interface file               */
+   /*         -o : show exec statistics                      */
+   /*         -p : force archive check                       */
    /*                                                        */
    /**********************************************************/
    while ((--argc > 0) && ((*++argv)[0] == '-'))
@@ -1760,6 +1917,22 @@ eval_input(int argc, char *argv[])
                options ^= START_STOP_FD_OPTION;
                break;
 
+            case 'k': /* Force file dir check */
+               options ^= FORCE_FILE_DIR_CHECK_OPTION;
+               break;
+
+            case 'i': /* Reread local interface file */
+               options ^= REREAD_LOCAL_INTERFACE_FILE_OPTION;
+               break;
+
+            case 'o': /* Show exec statistics */
+               options ^= SHOW_EXEC_STAT_OPTION;
+               break;
+
+            case 'p': /* Force archive check */
+               options ^= FORCE_ARCHIVE_CHECK_OPTION;
+               break;
+
             default : /* Unknown parameter */
 
                (void)fprintf(stderr, "ERROR  : Unknown parameter %c. (%s %d)\n",
@@ -1870,6 +2043,14 @@ usage(char *progname)
                  "               -Y      start/stop AMG\n");
    (void)fprintf(stderr,
                  "               -Z      start/stop FD\n");
+   (void)fprintf(stderr,
+                 "               -k      force file dir check\n");
+   (void)fprintf(stderr,
+                 "               -i      reread local interface file\n");
+   (void)fprintf(stderr,
+                 "               -o      show exec statistics\n");
+   (void)fprintf(stderr,
+                 "               -p      force archive check\n");
    (void)fprintf(stderr,
                  "               -v      just print Version\n");
    return;

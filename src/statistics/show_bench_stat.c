@@ -69,7 +69,7 @@ DESCR__E_M1
 #endif
 #endif
 
-/* Global variables */
+/* Global variables. */
 int            loops,
                loops_to_do,
                no_of_afds,
@@ -83,11 +83,11 @@ char           **p_afd_stat,
 struct afdstat *afd_stat;
 const char     *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Function prototypes */
-static void display_data(double, double, double, double, double, double),
-       summary(int),
-       timeout(int, void (*func)(int)),
-       usage(char *);
+/* Function prototypes. */
+static void    display_data(double, double, double, double, double, double),
+               summary(int),
+               timeout(int, void (*func)(int)),
+               usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -107,7 +107,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Evaluate arguments */
+   /* Evaluate arguments. */
    if (argc < 5)
    {
       usage(argv[0]);
@@ -145,7 +145,7 @@ main(int argc, char *argv[])
       i++;
    } while (i != argc);
 
-   /* Initialize variables */
+   /* Initialize variables. */
    (void)time(&now);
    p_ts = gmtime(&now);
    for (i = 0; i < no_of_afds; i++)
@@ -187,11 +187,11 @@ main(int argc, char *argv[])
 
 #ifdef HAVE_MMAP
       afdstat_size[i] = stat_buf.st_size;
-      if ((p_afd_stat[i] = mmap(0, stat_buf.st_size,
+      if ((p_afd_stat[i] = mmap(NULL, stat_buf.st_size,
                                 PROT_READ, (MAP_FILE | MAP_SHARED),
                                 stat_fd, 0)) == (void *) -1)
 #else
-      if ((p_afd_stat[i] = mmap_emu(0, stat_buf.st_size,
+      if ((p_afd_stat[i] = mmap_emu(NULL, stat_buf.st_size,
                                     PROT_READ, (MAP_FILE | MAP_SHARED),
                                     statistic_file[i], 0)) == (void *) -1)
 #endif
@@ -257,7 +257,7 @@ summary(int dummy)
 {
    register int i, j, k;
 
-   /* Make a summary of everything */
+   /* Make a summary of everything. */
    nfs = nbs = nc = ne = 0.0;
    for (k = 0; k < no_of_afds; k++)
    {

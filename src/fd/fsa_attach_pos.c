@@ -64,7 +64,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                        fsa_fd,
                                   fsa_id,
                                   *p_no_of_hosts;
@@ -171,14 +171,14 @@ fsa_attach_pos(int pos)
       char *ptr;
 
 #ifdef HAVE_MMAP
-      if ((ptr = mmap(0, AFD_WORD_OFFSET, PROT_READ,
+      if ((ptr = mmap(NULL, AFD_WORD_OFFSET, PROT_READ,
 # ifdef _HPUX
                       MAP_PRIVATE, fsa_fd, 0)) == (caddr_t) -1)
 # else
                       MAP_SHARED, fsa_fd, 0)) == (caddr_t) -1)
 # endif
 #else
-      if ((ptr = mmap_emu(0, AFD_WORD_OFFSET, PROT_READ,
+      if ((ptr = mmap_emu(NULL, AFD_WORD_OFFSET, PROT_READ,
                           MAP_SHARED, fsa_stat_file, 0)) == (caddr_t) -1)
 #endif
       {
@@ -241,11 +241,11 @@ fsa_attach_pos(int pos)
                      map_offset = start - page_offset;
 #ifdef HAVE_MMAP
                      fsa_size = sizeof(struct filetransfer_status) + map_offset;
-                     if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE),
+                     if ((ptr = mmap(NULL, fsa_size, (PROT_READ | PROT_WRITE),
                                      MAP_SHARED, fsa_fd,
                                      page_offset)) == (caddr_t) -1)
 #else
-                     if ((ptr = mmap_emu(0, sizeof(struct filetransfer_status) + map_offset,
+                     if ((ptr = mmap_emu(NULL, sizeof(struct filetransfer_status) + map_offset,
                                          (PROT_READ | PROT_WRITE),
                                          MAP_SHARED, fsa_stat_file,
                                          page_offset)) == (caddr_t) -1)

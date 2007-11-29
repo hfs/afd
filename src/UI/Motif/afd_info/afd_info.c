@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -106,7 +106,7 @@ char                       *alias_info_file,
                            host_alias_1[40],
                            host_alias_2[40],
                            *info_data = NULL,
-                           protocol_label_str[60],
+                           protocol_label_str[80],
                            *p_work_dir,
                            label_l[NO_OF_FSA_ROWS][40] =
                            {
@@ -547,7 +547,28 @@ main(int argc, char *argv[])
    length = sprintf(protocol_label_str, "Protocols : ");
    if (fsa[host_position].protocol & FTP_FLAG)
    {
-      length += sprintf(&protocol_label_str[length], "FTP ");
+      if (fsa[host_position].protocol_options & FTP_PASSIVE_MODE)
+      {
+         if (fsa[host_position].protocol_options & FTP_EXTENDED_MODE)
+         {
+            length += sprintf(&protocol_label_str[length], "FTP (ext passive) ");
+         }
+         else
+         {
+            length += sprintf(&protocol_label_str[length], "FTP (passive) ");
+         }
+      }
+      else
+      {
+         if (fsa[host_position].protocol_options & FTP_EXTENDED_MODE)
+         {
+            length += sprintf(&protocol_label_str[length], "FTP (ext active) ");
+         }
+         else
+         {
+            length += sprintf(&protocol_label_str[length], "FTP (active) ");
+         }
+      }
    }
    if (fsa[host_position].protocol & SFTP_FLAG)
    {
@@ -652,7 +673,7 @@ main(int argc, char *argv[])
                                     XmNrightPosition,    20,
                                     NULL);
    XtAddCallback(button, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox);
 
    /* Create log_text as a ScrolledText window */
@@ -834,8 +855,7 @@ init_afd_info(int *argc, char *argv[])
 
    if (atexit(afd_info_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set exit handler for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set exit handler for %s : %s",
                  AFD_INFO, strerror(errno));
    }
    check_window_ids(AFD_INFO);

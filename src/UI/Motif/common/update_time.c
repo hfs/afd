@@ -1,7 +1,7 @@
 /*
  *  update_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ DESCR__E_M3
 
 #include <Xm/Xm.h>
 #include <Xm/Label.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define MAX_TMP_STRING_LENGTH 18
 

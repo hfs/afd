@@ -20,7 +20,7 @@
 #ifndef __show_elog_h
 #define __show_elog_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* What information should be displayed. */
 #define SHOW_CLASS_GLOBAL        1

@@ -1,6 +1,6 @@
 /*
  *  show_dlog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #ifndef __show_dlog_h
 #define __show_dlog_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* What information should be displayed */
 #define SHOW_AGE_OUTPUT            1

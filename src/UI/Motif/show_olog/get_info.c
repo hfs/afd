@@ -65,7 +65,6 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 
 /* External global variables. */
-extern Widget              appshell;
 extern int                 no_of_log_files;
 extern char                *p_work_dir;
 extern struct item_list    *il;
@@ -107,15 +106,13 @@ get_info(int item)
                     JOB_ID_DATA_FILE);
       if ((fd = open(job_id_data_file, O_RDONLY)) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() `%s' : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() `%s' : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to fstat() `%s' : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() `%s' : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -124,11 +121,10 @@ get_info(int item)
       {
          char *ptr;
 
-         if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to mmap() `%s' : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() `%s' : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -140,8 +136,7 @@ get_info(int item)
       }
       else
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Job ID database file is empty. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -152,15 +147,13 @@ get_info(int item)
                     DIR_NAME_FILE);
       if ((fd = open(job_id_data_file, O_RDONLY)) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() `%s' : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() `%s' : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to fstat() `%s' : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() `%s' : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -169,11 +162,10 @@ get_info(int item)
       {
          char *ptr;
 
-         if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to mmap() `%s' : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() `%s' : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -184,8 +176,7 @@ get_info(int item)
       }
       else
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Dirname database file is empty. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -338,16 +329,14 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
                 (long)(il[file_no].line_offset[pos]),
                 SEEK_SET) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "fseek() error : %s (%s %d)\n",
+         (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
          return(INCORRECT);
       }
 
       if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
       {
-         (void)xrec(appshell, WARN_DIALOG,
-                    "fgets() error : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "fgets() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return(INCORRECT);
       }
@@ -463,16 +452,14 @@ get_all(int item)
 
       if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos], SEEK_SET) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "fseek() error : %s (%s %d)\n",
+         (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
          return(0U);
       }
 
       if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
       {
-         (void)xrec(appshell, WARN_DIALOG,
-                    "fgets() error : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "fgets() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return(0U);
       }
@@ -650,8 +637,7 @@ get_job_data(struct job_id_data *p_jd)
       size = strlen(p_jd->soptions);
       if ((id.soptions = calloc(size + 1, sizeof(char))) == NULL)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "calloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }

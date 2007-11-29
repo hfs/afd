@@ -54,7 +54,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "dir_info.h"
 
-/* external global variables */
+/* External global variables. */
 extern int                        fra_pos,
                                   no_of_dirs,
                                   view_passwd;
@@ -67,8 +67,7 @@ extern char                       label_l[NO_OF_LABELS_PER_ROW][22],
 extern Display                    *display;
 extern XtIntervalId               interval_id_dir;
 extern XtAppContext               app;
-extern Widget                     appshell,
-                                  dirname_text_w,
+extern Widget                     dirname_text_w,
 #ifdef WITH_DUP_CHECK
                                   dup_check_w,
 #endif
@@ -83,14 +82,13 @@ extern struct prev_values         prev;
 
 /*############################ update_info() ############################*/
 void
-update_info(w)
-Widget w;
+update_info(Widget w)
 {
    signed char flush = NO;
    char        str_line[MAX_INFO_STRING_LENGTH],
                tmp_str_line[MAX_INFO_STRING_LENGTH];
 
-   /* Check if FRA changed */
+   /* Check if FRA changed. */
    if (check_fra(NO) == YES)
    {
       int i;
@@ -106,7 +104,7 @@ Widget w;
       }
       if (fra_pos == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
+         (void)xrec(FATAL_DIALOG,
                     "Hmmm, looks like dir alias %s is gone. Terminating! (%s %d)",
                     prev.dir_alias, __FILE__, __LINE__);
          return;
@@ -517,7 +515,7 @@ Widget w;
       XFlush(display);
    }
 
-   /* Call update_info() after UPDATE_INTERVAL ms */
+   /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_dir = XtAppAddTimeOut(app, UPDATE_INTERVAL,
                                      (XtTimerCallbackProc)update_info,
                                      NULL);

@@ -1,6 +1,6 @@
 /*
  *  show_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,12 +52,12 @@ DESCR__E_M3
 #include <Xm/PushB.h>
 #include <X11/keysym.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display   *display;
 extern Widget    appshell;
 extern char      font_name[];
@@ -65,7 +65,7 @@ extern int       max_x,
                  max_y;
 extern Dimension button_height;
 
-/* Local global variables */
+/* Local global variables. */
 static int       glyph_height,
                  glyph_width;
 static Widget    infoshell = (Widget)NULL,
@@ -102,10 +102,10 @@ show_info(char *text)
       infoshell = XtVaCreatePopupShell("show_info", topLevelShellWidgetClass,
                                        appshell, NULL);
 
-      /* Create managing widget */
+      /* Create managing widget. */
       form_w = XmCreateForm(infoshell, "infoform", NULL, 0);
 
-      /* Prepare font */
+      /* Prepare font. */
       if ((entry = XmFontListEntryLoad(XtDisplay(form_w), font_name, XmFONT_IS_FONT, "TAG1")) == NULL)
       {
          if ((entry = XmFontListEntryLoad(XtDisplay(form_w), "fixed", XmFONT_IS_FONT, "TAG1")) == NULL)
@@ -182,7 +182,7 @@ show_info(char *text)
                         XmNbottomAttachment,     XmATTACH_FORM,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)close_info_button, 0);
+                    (XtCallbackProc)close_info_button, (XtPointer)0);
       XtManageChild(buttonbox_w);
       XtManageChild(form_w);
 
@@ -198,7 +198,7 @@ show_info(char *text)
       win = XtWindow(infoshell);
    }
 
-   /* Display the info text */
+   /* Display the info text. */
    if (max_y > max_vertical_lines)
    {
       XResizeWindow(display, win,

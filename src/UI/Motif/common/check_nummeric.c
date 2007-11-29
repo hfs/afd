@@ -1,7 +1,7 @@
 /*
  *  check_nummeric.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <ctype.h>
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 
 /*############################ check_nummeric() #########################*/
@@ -64,7 +64,7 @@ check_nummeric(Widget w, XtPointer client_data, XtPointer call_data)
    if (cbs->text->length == 0)
    {
       /* reset pointer because of bug in X11: it must be zero */
-      cbs->text->ptr = 0;
+      cbs->text->ptr = NULL;
    }
    else
    {

@@ -97,7 +97,7 @@ DESCR__E_M1
 #include "amgdefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 #ifdef _DEBUG
 FILE                       *p_debug_file;
 #endif
@@ -109,6 +109,7 @@ int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
                            default_inotify_flag = DEFAULT_INOTIFY_FLAG,
 #endif
                            default_old_file_time = -1,
+                           event_log_fd = STDERR_FILENO,
                            max_process_per_dir = MAX_PROCESS_PER_DIR,
                            *no_of_dir_names,
                            no_of_dirs,
@@ -288,7 +289,7 @@ main(int argc, char *argv[])
       (void)strcat(host_config_file, ETC_DIR);
       (void)strcat(host_config_file, DEFAULT_HOST_CONFIG_FILE);
 
-      /* Initialise variables with default values */
+      /* Initialise variables with default values. */
       (void)strcpy(amg_cmd_fifo, work_dir);
       (void)strcat(amg_cmd_fifo, FIFO_DIR);
       (void)strcpy(dc_cmd_fifo, amg_cmd_fifo);
@@ -688,11 +689,11 @@ main(int argc, char *argv[])
    }
    else
    {
-      /* Process not started */
+      /* Process not started. */
       dc_pid = NOT_RUNNING;
    }
 
-   /* Note time when AMG is started */
+   /* Note time when AMG is started. */
    system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)", AMG, PACKAGE_VERSION);
    system_log(DEBUG_SIGN, NULL, 0,
               "AMG Configuration: Directory rescan time     %d (sec)",
@@ -1296,7 +1297,7 @@ main(int argc, char *argv[])
    } /* for (;;) */
 
 #ifdef _DEBUG
-   /* Don't forget to close debug file */
+   /* Don't forget to close debug file. */
    (void)fclose(p_debug_file);
 #endif
 

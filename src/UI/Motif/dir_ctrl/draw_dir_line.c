@@ -1,6 +1,6 @@
 /*
  *  draw_dir_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,7 +61,6 @@ DESCR__E_M3
 #include "dir_ctrl.h"
 
 extern Display                    *display;
-extern Widget                     appshell;
 extern Window                     label_window,
                                   line_window;
 extern GC                         letter_gc,
@@ -423,8 +422,7 @@ draw_dir_type(int pos, int x, int y)
          break;
 #endif
       default : /* That's not possible! */
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Unknown protocol type %d. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Unknown protocol type %d. (%s %d)",
                     fra[pos].protocol, __FILE__, __LINE__);
          return;
    }
@@ -513,8 +511,7 @@ draw_dir_chars(int pos, char type, int x, int y)
          break;
 
       default : /* That's not possible! */
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Unknown character type %d. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Unknown character type %d. (%s %d)",
                     (int)type, __FILE__, __LINE__);
          return;
    }

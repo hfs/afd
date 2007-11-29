@@ -19,8 +19,9 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = show_queue.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../fd -I../afd_ctrl
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../fd\
+                       -I../afd_ctrl
 bin_PROGRAMS         = show_queue
 show_queue_SOURCES   = callbacks.c\
                        delete_files.c\
@@ -31,7 +32,7 @@ show_queue_SOURCES   = callbacks.c\
                        send_files.c\
                        show_queue.c\
                        view_files.c
-show_queue_LDADD     = ../common/libxafd.a\
+show_queue_LDADD     = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
 
 if WITH_SETUID_PROGS

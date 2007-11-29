@@ -1,6 +1,6 @@
 /*
  *  check_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,6 @@ DESCR__E_M3
 
 extern Display                    *display;
 extern XtAppContext               app;
-extern Widget                     appshell;
 extern int                        no_of_his_log,
                                   glyph_width;
 extern unsigned long              redraw_time_status;
@@ -82,8 +81,7 @@ extern struct filetransfer_status *fsa;
 
 /*########################### check_status() ############################*/
 void
-check_status(w)
-Widget   w;
+check_status(Widget w)
 {
    static int  loop_timer = 0;
    static char blink = TR_BAR;
@@ -203,17 +201,16 @@ Widget   w;
             else
             {
 #ifdef HAVE_MMAP
-               if ((pid_list = mmap(0, stat_buf.st_size,
+               if ((pid_list = mmap(NULL, stat_buf.st_size,
                                     (PROT_READ | PROT_WRITE), MAP_SHARED,
                                     fd, 0)) == (caddr_t) -1)
 #else
-               if ((pid_list = mmap_emu(0, stat_buf.st_size,
+               if ((pid_list = mmap_emu(NULL, stat_buf.st_size,
                                         (PROT_READ | PROT_WRITE), MAP_SHARED,
                                         afd_active_file, 0)) == (caddr_t) -1)
 #endif
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
-                             "mmap() error : %s (%s %d)",
+                  (void)xrec(ERROR_DIALOG, "mmap() error : %s (%s %d)",
                              strerror(errno), __FILE__, __LINE__);
                   pid_list = NULL;
                }

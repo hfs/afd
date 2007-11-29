@@ -1,6 +1,6 @@
 /*
  *  draw_mon_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,6 @@ DESCR__E_M3
 #include "mon_ctrl.h"
 
 extern Display                *display;
-extern Widget                 appshell;
 extern Window                 button_window,
                               label_window,
                               line_window;
@@ -649,8 +648,7 @@ draw_mon_chars(int pos, char type, int x, int y)
          break;
 
       default : /* That's not possible! */
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Unknown character type %d. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Unknown character type %d. (%s %d)",
                     (int)type, __FILE__, __LINE__);
          return;
    }

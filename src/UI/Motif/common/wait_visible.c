@@ -1,6 +1,6 @@
 /*
  *  wait_visible.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 
 /*########################### wait_visible() ############################*/

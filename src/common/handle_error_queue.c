@@ -34,6 +34,10 @@ DESCR__S_M3
  **   int  check_error_queue(unsigned int job_id, int queue_threshold)
  **   int  remove_from_error_queue(unsigned int               job_id,
  **                                struct filetransfer_status *fsa)
+ **   void validate_error_queue(int                        no_of_current_jobs,
+ **                             unsigned int               *cml,
+ **                             int                        no_of_hosts,
+ **                             struct filetransfer_status *fsa)
  **   int  print_error_queue(FILE *fp)
  **
  ** DESCRIPTION
@@ -45,6 +49,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   06.11.2006 H.Kiehl Created
+ **   04.09.2007 H.Kiehl Added function validate_error_queue().
  **
  */
 DESCR__E_M3
@@ -172,11 +177,36 @@ add_to_error_queue(unsigned int               job_id,
       detach = NO;
    }
 
+
+#ifdef LOCK_DEBUG
+   lock_region_w(eq_fd, 1, __FILE__, __LINE__);
+#else
+   lock_region_w(eq_fd, 1);
+#endif
    for (i = 0; i < *no_of_error_ids; i++)
    {
       if (eq[i].job_id == job_id)
       {
-         fsa->host_status |= ERROR_QUEUE_SET;
+         if ((fsa->host_status & ERROR_QUEUE_SET) == 0)
+         {
+            fsa->host_status |= ERROR_QUEUE_SET;
+#ifdef LOCK_DEBUG
+            unlock_region(eq_fd, 1, __FILE__, __LINE__);
+#else
+            unlock_region(eq_fd, 1);
+#endif
+            event_log(0L, EC_HOST, ET_EXT, EA_START_ERROR_QUEUE, "%s%c%x%c%x",
+                      fsa->host_alias, SEPARATOR_CHAR, job_id,
+                      SEPARATOR_CHAR, error_id);
+         }
+         else
+         {
+#ifdef LOCK_DEBUG
+            unlock_region(eq_fd, 1, __FILE__, __LINE__);
+#else
+            unlock_region(eq_fd, 1);
+#endif
+         }
          if (detach == YES)
          {
             (void)detach_error_queue();
@@ -185,12 +215,6 @@ add_to_error_queue(unsigned int               job_id,
          return;
       }
    }
-
-#ifdef LOCK_DEBUG
-   lock_region_w(eq_fd, 1, __FILE__, __LINE__);
-#else
-   lock_region_w(eq_fd, 1);
-#endif
    check_error_queue_space();
    eq[*no_of_error_ids].job_id = job_id;
    eq[*no_of_error_ids].no_to_be_queued = 0;
@@ -216,6 +240,12 @@ add_to_error_queue(unsigned int               job_id,
 
 
 /*######################## check_error_queue() ##########################*/
+/*                         -------------------                           */
+/* NOTE: queue_threshold when set MUST always be larger then             */
+/*       MAX_NO_PARALLEL_JOBS, otherwise it can happen when files are    */
+/*       being deleted due to age limit or duplicate check that the flag */
+/*       ERROR_QUEUE_SET never gets unset!                               */
+/*#######################################################################*/
 int
 check_error_queue(unsigned int job_id, int queue_threshold)
 {
@@ -330,7 +360,7 @@ remove_from_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
             }
             if ((gotcha == NO) && (fsa->host_status & ERROR_QUEUE_SET))
             {
-               fsa->host_status ^= ERROR_QUEUE_SET;
+               fsa->host_status &= ~ERROR_QUEUE_SET;
                event_log(0L, EC_HOST, ET_EXT, EA_STOP_ERROR_QUEUE, "%s%c%x",
                          fsa->host_alias, SEPARATOR_CHAR, job_id);
             }
@@ -374,6 +404,151 @@ remove_from_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
       (void)detach_error_queue();
    }
    return(INCORRECT);
+}
+
+
+/*####################### validate_error_queue() ########################*/
+void
+validate_error_queue(int                        no_of_current_jobs,
+                     unsigned int               *cml,
+                     int                        no_of_hosts,
+                     struct filetransfer_status *fsa)
+{
+   int detach,
+       gotcha,
+       i,
+       j,
+       prev_host_id = -1;
+
+   if (eq_fd == -1)
+   {
+      if (attach_error_queue() == SUCCESS)
+      {
+         detach = YES;
+      }
+      else
+      {
+         return;
+      }
+   }
+   else
+   {
+      detach = NO;
+   }
+
+#ifdef LOCK_DEBUG
+   lock_region_w(eq_fd, 1, __FILE__, __LINE__);
+#else
+   lock_region_w(eq_fd, 1);
+#endif
+
+   for (i = 0; i < *no_of_error_ids; i++)
+   {
+      gotcha = NO;
+      for (j = 0; j < no_of_current_jobs; j++)
+      {
+         if (eq[i].job_id == cml[j])
+         {
+            gotcha = YES;
+            break;
+         }
+      }
+      if (gotcha == NO)
+      {
+         /*
+          * A job that is no longer in the current job list
+          * must be removed.
+          */
+         if (prev_host_id != eq[i].host_id)
+         {
+            prev_host_id = -1;
+            for (j = 0; j < no_of_hosts; j++)
+            {
+               if (fsa[j].host_id == eq[i].host_id)
+               {
+                  prev_host_id = eq[i].host_id;
+                  break;
+               }
+            }
+         }
+         if (prev_host_id == -1)
+         {
+            system_log(DEBUG_SIGN, NULL, 0,
+                       "%u: Removed job %x from error queue, since it was removed from DIR_CONFIG.",
+                       eq[i].host_id, eq[i].job_id);
+         }
+         else
+         {
+            system_log(DEBUG_SIGN, NULL, 0,
+                       "%s: Removed job %x from error queue, since it was removed from DIR_CONFIG.",
+                       fsa[j].host_dsp_name, eq[i].job_id);
+         }
+         if (i != (*no_of_error_ids - 1))
+         {
+            size_t move_size;
+
+            move_size = (*no_of_error_ids - 1 - i) * sizeof(struct error_queue);
+            (void)memmove(&eq[i], &eq[i + 1], move_size);
+            i--;
+         }
+         (*no_of_error_ids)--;
+      }
+      else
+      {
+         /*
+          * Job is still in DIR_CONFIG. Lets see if ERROR_QUEUE_SET flag
+          * is set for this host. If not lets remove this job from the
+          * error queue.
+          */
+         for (j = 0; j < no_of_hosts; j++)
+         {
+            if (fsa[j].host_id == eq[i].host_id)
+            {
+               if ((fsa[j].host_status & ERROR_QUEUE_SET) == 0)
+               {
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%s: Removed job %x from error queue, since the error queue is not set.",
+                             fsa[j].host_dsp_name, eq[i].job_id);
+                  if (i != (*no_of_error_ids - 1))
+                  {
+                     size_t move_size;
+
+                     move_size = (*no_of_error_ids - 1 - i) * sizeof(struct error_queue);
+                     (void)memmove(&eq[i], &eq[i + 1], move_size);
+                     i--;
+                  }
+                  (*no_of_error_ids)--;
+               }
+            }
+         }
+      }
+   }
+   if (*no_of_error_ids == 0)
+   {
+      for (i = 0; i < no_of_hosts; i++)
+      {
+         if (fsa[i].host_status & ERROR_QUEUE_SET)
+         {
+            fsa[i].host_status ^= ERROR_QUEUE_SET;
+            event_log(0L, EC_HOST, ET_AUTO, EA_STOP_ERROR_QUEUE,
+                      "%s%cCorrecting since error queue is empty.",
+                      fsa[i].host_alias, SEPARATOR_CHAR);
+         }
+      }
+   }
+
+#ifdef LOCK_DEBUG
+   unlock_region(eq_fd, 1, __FILE__, __LINE__);
+#else
+   unlock_region(eq_fd, 1);
+#endif
+
+   if (detach == YES)
+   {
+      (void)detach_error_queue();
+   }
+
+   return;
 }
 
 

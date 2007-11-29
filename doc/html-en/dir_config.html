@@ -1,3 +1,4 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <title>DIR_CONFIG (dir_config.html)</title>
@@ -143,14 +144,14 @@ defaults is shown in the table below:
 </p>
 <center><table border>
 <tr>
-   <th width=30%>Option</th>
+   <th width="30%">Option</th>
    <th>Description</th>
    <th>Local Dir</th>
    <th>Remote Dir</th>
    <th>Default</th>
 </tr>
 <tr>
-   <td width=30%><a name="delete_unknown_files">delete unknown files [time in hours]</a></td>
+   <td width="30%"><a name="delete_unknown_files">delete unknown files [time in hours]</a></td>
    <td>Delete all files that are older then the number of hours
        specified with the &lt;old file time&gt; option and are
        not to be distributed. If the optional time in hours is specified
@@ -160,14 +161,14 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>do not delete unknown files</td>
+   <td width="30%">do not delete unknown files</td>
    <td>The opposite of the above option.</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
    <td align=center>X</td>
 </tr>
 <tr>
-   <td width=30%>delete queued files [time in hours]</td>
+   <td width="30%">delete queued files [time in hours]</td>
    <td>Delete all files queued on input that are older then the
        number of hours specified with the &lt;old file time&gt; option
        and are to be distributed. If the optional time in hours is specified
@@ -177,7 +178,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>delete old locked files &lt;time in hours&gt;</td>
+   <td width="30%">delete old locked files &lt;time in hours&gt;</td>
    <td>Delete all old locked files on input that are older then the
        number of hours specified.</td>
    <td align=center>X</td>
@@ -185,7 +186,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>report unknown files</td>
+   <td width="30%">report unknown files</td>
    <td>Any files found in this directory that are not being
        distributed and are older then the number of hours specified
        in the &lt;old file time&gt; option will be reported in the
@@ -195,14 +196,14 @@ defaults is shown in the table below:
    <td align=center>X</td>
 </tr>
 <tr>
-   <td width=30%>do not report unknown files</td>
+   <td width="30%">do not report unknown files</td>
    <td>The opposite of the above option.</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>old file time &lt;value in hours&gt;</td>
+   <td width="30%">old file time &lt;value in hours&gt;</td>
    <td>The age of a file in hours before a file is being reported
        in the system log or being deleted.</td>
    <td align=center>X</td>
@@ -210,7 +211,7 @@ defaults is shown in the table below:
    <td align=center>24</td>
 </tr>
 <tr>
-   <td width=30%>end character &lt;decimal number&gt;</td>
+   <td width="30%">end character &lt;decimal number&gt;</td>
    <td>Sometimes some application may not be able to send files with
        a leading dot and then rename these files after they have send all
        data. With this option AFD will wait until the character specified
@@ -221,7 +222,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>important dir</td>
+   <td width="30%">important dir</td>
    <td>This marks the directory as important. This is useful when you
        have lots of directories that are to be monitored by the AMG
        and/or you have only a slow disk. The process dir_check will now
@@ -235,7 +236,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%><a name="dir_options_time">time &lt;min hour dom month dow&gt;</a></td>
+   <td width="30%"><a name="dir_options_time">time &lt;min hour dom month dow&gt;</a></td>
    <td>With this option it is possible at what interval the directory
        is to be scanned. See <a href="#time">time</a> under options for
        a more detailed description of what each field means.</td>
@@ -244,7 +245,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>do not get dir list</td>
+   <td width="30%">do not get dir list</td>
    <td>Setting this option will disable the directory scanning for
        this directory. This can be used when directory listing are
        not possible or disabled because of security reasons. Currently
@@ -256,7 +257,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>do not remove</td>
+   <td width="30%">do not remove</td>
    <td>By default when AMG will remove all files that it finds in
        the directory being scanned. With this option set it will NOT
        remove these files.</td>
@@ -265,7 +266,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%><a name="store_retrieve_list">store retrieve list [once]</a></td>
+   <td width="30%"><a name="store_retrieve_list">store retrieve list [once]</a></td>
    <td>When the above option &lt;do not remove&gt; is set, it can
        happen that always the same files are being collected by the
        AMG. To avoid this situation this option can be set. Then AMG
@@ -285,7 +286,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>priority &lt;value&gt;</td>
+   <td width="30%">priority &lt;value&gt;</td>
    <td>With this you can give the directory a priority. This option
        is only useful for remote directories, ie. from where the
        files have to be retrieved. 0 is highest priority and 9 is
@@ -295,7 +296,7 @@ defaults is shown in the table below:
    <td align=center>9</td>
 </tr>
 <tr>
-   <td width=30%>force reread</td>
+   <td width="30%">force reread</td>
    <td>Before AFD scans the directory for files it checks if the
        time has changed since the last scan. With this options set
        it will always read the directory. This can be useful for
@@ -307,7 +308,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>max process &lt;value&gt;</td>
+   <td width="30%">max process &lt;value&gt;</td>
    <td>Here you may limit the number of process that the AMG may
        fork to handle files for this directory. AMG will only fork
        a process when using the exec option, or some other option
@@ -317,7 +318,7 @@ defaults is shown in the table below:
    <td align=center>10</td>
 </tr>
 <tr>
-   <td width=30%>ignore size &lt;[=|&gt;|&lt;] value&gt;</td>
+   <td width="30%">ignore size &lt;[=|&gt;|&lt;] value&gt;</td>
    <td>If the files in the directory have the given size they will
        be ignored. A greater or less then sign may also be used to
        ignore files which have a size greater or less then the
@@ -327,7 +328,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>ignore file time &lt;[=|&gt;|&lt;] value&gt;</td>
+   <td width="30%">ignore file time &lt;[=|&gt;|&lt;] value&gt;</td>
    <td>If the difference of the files modification time in the directory
        and the current time is outside the given value, then it will be
        ignored.  A greater or less then sign may also be used.
@@ -340,7 +341,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%><a name="max_files">max files &lt;value&gt;</a></td>
+   <td width="30%"><a name="max_files">max files &lt;value&gt;</a></td>
    <td>The maximum number of files that are copied before they are
        send to the FD. This value is set so that the AFD starts sending
        files as soon as possible even when there are thousands of files
@@ -352,7 +353,7 @@ defaults is shown in the table below:
    <td align=center>100</td>
 </tr>
 <tr>
-   <td width=30%>max size &lt;value&gt;</td>
+   <td width="30%">max size &lt;value&gt;</td>
    <td>The maximum size in Kilobytes that are copied before they are
        send to the FD.</td>
    <td align=center>X</td>
@@ -360,7 +361,7 @@ defaults is shown in the table below:
    <td align=center>100 MB</td>
 </tr>
 <tr>
-   <td width=30%>accept dot files</td>
+   <td width="30%">accept dot files</td>
    <td>Setting this option will enable AFD to retrieve files starting
        with a dot from a remote host. When downloaded the dot will
        be autamatically removed. Use the trans_rename option if you
@@ -370,7 +371,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>wait for &lt;file pattern&gt;</td>
+   <td width="30%">wait for &lt;file pattern&gt;</td>
    <td>With this option it waits for the given file before it
        sends all the other files from this directory.</td>
    <td align=center>X</td>
@@ -378,7 +379,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%><a name="warn_time">warn time &lt;time in seconds&gt;</a></td>
+   <td width="30%"><a name="warn_time">warn time &lt;time in seconds&gt;</a></td>
    <td>When no data has arrived in the directory for the given time
        it will warn in the <a href="log.html#receive_log">RECEIVE_LOG</a>.</td>
    <td align=center>X</td>
@@ -386,7 +387,7 @@ defaults is shown in the table below:
    <td align=center>0 (disabled)</td>
 </tr>
 <tr>
-   <td width=30%>accumulate &lt;number of files&gt;</td>
+   <td width="30%">accumulate &lt;number of files&gt;</td>
    <td>Waits for the given number of files before it accepts files from
        this directory.</td>
    <td align=center>X</td>
@@ -394,7 +395,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>accumulate size &lt;number of bytes&gt;</td>
+   <td width="30%">accumulate size &lt;number of bytes&gt;</td>
    <td>Waits for the given number of bytes before it accepts files from
        this directory.</td>
    <td align=center>X</td>
@@ -402,7 +403,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%><a name="dupcheck_input">dupcheck[ &lt;timeout in secs&gt;[ &lt;check type&gt;[ &lt;action&gt;[ &lt;CRC type&gt;]]]]</a></td>
+   <td width="30%"><a name="dupcheck_input">dupcheck[ &lt;timeout in secs&gt;[ &lt;check type&gt;[ &lt;action&gt;[ &lt;CRC type&gt;]]]]</a></td>
    <td>Performs a duplicate on files that come into this directory. The
        options have the following meaning:
        <table border>
@@ -754,7 +755,7 @@ section. Valid options can be taken from the following table:
 </p>
 <table border>
 <tr>
-   <th width=30%>Option name</th>
+   <th width="30%">Option name</th>
    <th>Description</th>
    <th>AMG</th>
    <th>ftp</th>
@@ -1952,7 +1953,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <th width=30%>Option name</th>
+   <th width="30%">Option name</th>
    <th>Description</th>
    <th>AMG</th>
    <th>ftp</th>
@@ -2177,9 +2178,9 @@ to 30 minutes, it needs to be done asfollows:
                      priority 1
 </pre>
 <hr size=3 noshade>
-<table width=100%>
+<table width="100%">
 <tr>
-   <td width=90%><address><small>
+   <td width="90%"><address><small>
    Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
    Last updated: 14.07.2007

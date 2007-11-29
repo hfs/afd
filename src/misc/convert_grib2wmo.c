@@ -58,7 +58,7 @@ DESCR__E_M3
 
 #define DATA_TYPES 3
 
-/* Global local variables */
+/* Global local variables. */
 static int  id_length[DATA_TYPES] = { 4, 4, 4 },
             end_id_length[DATA_TYPES] = { 4, 4, 4 };
 static char bul_format[DATA_TYPES][5] =
@@ -74,7 +74,7 @@ static char bul_format[DATA_TYPES][5] =
                "7777"
             };
 
-/* Local functions */
+/* Local function prototypes. */
 static char *bin_search_start(char *, off_t, int *, off_t *);
 static int  bin_search_end(char *, char *, size_t);
 
@@ -113,7 +113,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
          {
             char *buffer;
 
-            if ((buffer = mmap(0, stat_buf.st_size, PROT_READ,
+            if ((buffer = mmap(NULL, stat_buf.st_size, PROT_READ,
                                MAP_SHARED, fd, 0)) == (caddr_t) -1)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,

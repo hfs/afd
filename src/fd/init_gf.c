@@ -145,7 +145,8 @@ init_gf(int argc, char *argv[], int protocol)
    {
       db.keep_connected = fra[db.fra_pos].keep_connected;
    }
-   else if (fsa->keep_connected > 0)
+   else if ((fsa->keep_connected > 0) &&
+            ((fsa->special_flag & KEEP_CON_NO_FETCH) == 0))
         {
            db.keep_connected = fsa->keep_connected;
         }

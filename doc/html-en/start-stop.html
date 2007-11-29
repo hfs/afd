@@ -1,3 +1,4 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <title>AFD (start-stop.html)</title>
@@ -12,7 +13,7 @@ used for this task. The program can take the following parameters:
 <pre>
    Usage: afd [-w &lt;AFD working dir&gt;] [-u[ &lt;user&gt;]] [option]
                  -a          only start AFD
-                 -b          Blocks auto restart of AFD
+                 -b          blocks starting of AFD
                  -c          only check if AFD is active
                  -C          check if AFD is active, if not start it
                  -d          only start afd_ctrl dialog
@@ -21,13 +22,13 @@ used for this task. The program can take the following parameters:
                  -i          initialize AFD, by deleting fifodir
                  -I          initialize AFD, by deleting everything
                              except for etc directory
-                 -r          Removes blocking file
+                 -r          removes blocking startup of AFD
                  -s          shutdown AFD
                  -S          silent AFD shutdown
-                 -z          Set shutdown bit
-                 --help      Prints out this syntax
-                 -v          Just print version number
-                 --version   Show current version
+                 -z          set shutdown bit
+                 --help      prints out this syntax
+                 -v          just print version number
+                 --version   show current version
 </pre>
 <p>
 Before starting make sure that you have done the following:
@@ -87,12 +88,12 @@ counter and with this option it checks if this counter is still updated
 by init_afd.
 </p>
 <hr size=3 noshade>
-<table width=100%>
+<table width="100%">
 <tr>
-   <td width=90%><small><address>
-   Copyright &copy; 2005, 2006 by H.Kiehl<br>
+   <td width="90%"><small><address>
+   Copyright &copy; 2005 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 28.08.2006
+   Last updated: 03.08.2007
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

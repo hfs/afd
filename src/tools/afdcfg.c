@@ -384,7 +384,7 @@ main(int argc, char *argv[])
             {
                if (fra[i].dir_flag & WARN_TIME_REACHED)
                {
-                  fra[i].dir_flag ^= WARN_TIME_REACHED;
+                  fra[i].dir_flag &= ~WARN_TIME_REACHED;
                   SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
                }
             }

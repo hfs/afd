@@ -152,7 +152,7 @@ extern struct fileretrieve_status *fra;
 extern struct delete_log          dl;
 #endif
 
-/* Local function prototype */
+/* Local function prototypes. */
 static int                        get_last_char(char *, off_t);
 #ifdef _POSIX_SAVED_IDS
 static int                        check_sgids(gid_t);
@@ -274,6 +274,8 @@ check_files(struct directory_entry *p_de,
             fra[p_de->fra_pos].dir_flag |= DIR_ERROR_SET;
             SET_DIR_STATUS(fra[p_de->fra_pos].dir_flag,
                            fra[p_de->fra_pos].dir_status);
+            error_action(p_de->alias, "start", DIR_ERROR_ACTION);
+            event_log(0L, EC_DIR, ET_EXT, EA_ERROR_START, "%s", p_de->alias);
          }
          unlock_region(fra_fd,
 #ifdef LOCK_DEBUG
@@ -807,7 +809,14 @@ check_files(struct directory_entry *p_de,
                               }
                               else
                               {
-                                 max_file_buffer = fra[p_de->fra_pos].max_copied_files;
+                                 if ((max_file_buffer + FILE_BUFFER_STEP_SIZE) >= fra[p_de->fra_pos].max_copied_files)
+                                 {
+                                    max_file_buffer = fra[p_de->fra_pos].max_copied_files;
+                                 }
+                                 else
+                                 {
+                                    max_file_buffer += FILE_BUFFER_STEP_SIZE;
+                                 }
                               }
                               REALLOC_RT_ARRAY(file_name_pool, max_file_buffer,
                                                MAX_FILENAME_LENGTH, char);
@@ -931,6 +940,52 @@ check_files(struct directory_entry *p_de,
                      }
                   }
 #endif /* WITH_DUP_CHECK */
+               }
+            }
+            else
+            {
+               if ((fra[p_de->fra_pos].delete_files_flag & UNKNOWN_FILES) &&
+                   ((fra[p_de->fra_pos].ignore_size != 0) ||
+                    ((fra[p_de->fra_pos].ignore_file_time != 0) &&
+                     ((fra[p_de->fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) ||
+                      (fra[p_de->fra_pos].gt_lt_sign & IFTIME_EQUAL)))) &&
+                   ((current_time - stat_buf.st_mtime) > fra[p_de->fra_pos].unknown_file_time))
+               {
+                  if (unlink(fullname) == -1)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to unlink() %s : %s",
+                                fullname, strerror(errno));
+                  }
+                  else
+                  {
+#ifdef _DELETE_LOG
+                     size_t dl_real_size;
+
+                     (void)strcpy(dl.file_name, p_dir->d_name);
+                     (void)sprintf(dl.host_name, "%-*s %x",
+                                   MAX_HOSTNAME_LENGTH, "-",
+                                   DEL_UNKNOWN_FILE);
+                     *dl.file_size = stat_buf.st_size;
+                     *dl.job_number = p_de->dir_id;
+                     *dl.file_name_length = strlen(p_dir->d_name);
+                     dl_real_size = *dl.file_name_length + dl.size +
+                                    sprintf((dl.file_name + *dl.file_name_length + 1),
+# if SIZEOF_TIME_T == 4
+                                            "dir_check() >%ld",
+# else
+                                            "dir_check() >%lld",
+# endif
+                                            (pri_time_t)diff_time);
+                     if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "write() error : %s", strerror(errno));
+                     }
+#endif /* _DELETE_LOG */
+                     files_in_dir--;
+                     bytes_in_dir -= stat_buf.st_size;
+                  }
                }
             }
          } /* if (S_ISREG(stat_buf.st_mode)) */
@@ -1211,7 +1266,14 @@ check_files(struct directory_entry *p_de,
                                        }
                                        else
                                        {
-                                          max_file_buffer = fra[p_de->fra_pos].max_copied_files;
+                                          if ((max_file_buffer + FILE_BUFFER_STEP_SIZE) >= fra[p_de->fra_pos].max_copied_files)
+                                          {
+                                             max_file_buffer = fra[p_de->fra_pos].max_copied_files;
+                                          }
+                                          else
+                                          {
+                                             max_file_buffer += FILE_BUFFER_STEP_SIZE;
+                                          }
                                        }
                                        REALLOC_RT_ARRAY(file_name_pool, max_file_buffer,
                                                         MAX_FILENAME_LENGTH, char);
@@ -1371,7 +1433,8 @@ check_files(struct directory_entry *p_de,
                       (fra[p_de->fra_pos].delete_files_flag & UNKNOWN_FILES))
                   {
                      diff_time = current_time - stat_buf.st_mtime;
-                     if (diff_time > fra[p_de->fra_pos].unknown_file_time)
+                     if ((diff_time > fra[p_de->fra_pos].unknown_file_time) &&
+                         (diff_time > DEFAULT_TRANSFER_TIMEOUT))
                      {
                         if (unlink(fullname) == -1)
                         {
@@ -1409,6 +1472,52 @@ check_files(struct directory_entry *p_de,
                            bytes_in_dir -= stat_buf.st_size;
                         }
                      }
+                  }
+               }
+            }
+            else
+            {
+               if ((fra[p_de->fra_pos].delete_files_flag & UNKNOWN_FILES) &&
+                   ((fra[p_de->fra_pos].ignore_size != 0) ||
+                    ((fra[p_de->fra_pos].ignore_file_time != 0) &&
+                     ((fra[p_de->fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) ||
+                      (fra[p_de->fra_pos].gt_lt_sign & IFTIME_EQUAL)))) &&
+                   ((current_time - stat_buf.st_mtime) > fra[p_de->fra_pos].unknown_file_time))
+               {
+                  if (unlink(fullname) == -1)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to unlink() %s : %s",
+                                fullname, strerror(errno));
+                  }
+                  else
+                  {
+#ifdef _DELETE_LOG
+                     size_t dl_real_size;
+
+                     (void)strcpy(dl.file_name, p_dir->d_name);
+                     (void)sprintf(dl.host_name, "%-*s %x",
+                                   MAX_HOSTNAME_LENGTH, "-",
+                                   DEL_UNKNOWN_FILE);
+                     *dl.file_size = stat_buf.st_size;
+                     *dl.job_number = p_de->dir_id;
+                     *dl.file_name_length = strlen(p_dir->d_name);
+                     dl_real_size = *dl.file_name_length + dl.size +
+                                    sprintf((dl.file_name + *dl.file_name_length + 1),
+# if SIZEOF_TIME_T == 4
+                                            "dir_check() >%ld",
+# else
+                                            "dir_check() >%lld",
+# endif
+                                            (pri_time_t)diff_time);
+                     if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "write() error : %s", strerror(errno));
+                     }
+#endif /* _DELETE_LOG */
+                     files_in_dir--;
+                     bytes_in_dir -= stat_buf.st_size;
                   }
                }
             }
@@ -1518,9 +1627,10 @@ done:
          fra[p_de->fra_pos].last_retrieval = current_time;
          if (fra[p_de->fra_pos].dir_flag & WARN_TIME_REACHED)
          {
-            fra[p_de->fra_pos].dir_flag ^= WARN_TIME_REACHED;
+            fra[p_de->fra_pos].dir_flag &= ~WARN_TIME_REACHED;
             SET_DIR_STATUS(fra[p_de->fra_pos].dir_flag,
                            fra[p_de->fra_pos].dir_status);
+            error_action(p_de->alias, "stop", DIR_WARN_ACTION);
          }
          receive_log(INFO_SIGN, NULL, 0, current_time,
 #if SIZEOF_OFF_T == 4
@@ -1535,6 +1645,16 @@ done:
          ABS_REDUCE_QUEUE(p_de->fra_pos, files_copied, *total_file_size);
       }
    }
+#ifdef REPORT_EMPTY_DIR_SCANS
+   else
+   {
+      if ((count_files == YES) || (count_files == PAUSED_REMOTE))
+      {
+         receive_log(INFO_SIGN, NULL, 0, current_time,
+                     "Received 0 files with 0 Bytes.");
+      }
+   }
+#endif
 #ifdef _WITH_PTHREAD
    if ((ret = pthread_mutex_unlock(&fsa_mutex)) != 0)
    {
@@ -1555,9 +1675,11 @@ done:
       fra[p_de->fra_pos].error_counter = 0;
       if (fra[p_de->fra_pos].dir_flag & DIR_ERROR_SET)
       {
-         fra[p_de->fra_pos].dir_flag ^= DIR_ERROR_SET;
+         fra[p_de->fra_pos].dir_flag &= ~DIR_ERROR_SET;
          SET_DIR_STATUS(fra[p_de->fra_pos].dir_flag,
                         fra[p_de->fra_pos].dir_status);
+         error_action(p_de->alias, "stop", DIR_ERROR_ACTION);
+         event_log(0L, EC_DIR, ET_EXT, EA_ERROR_END, "%s", p_de->alias);
       }
       unlock_region(fra_fd,
 #ifdef LOCK_DEBUG

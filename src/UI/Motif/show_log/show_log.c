@@ -97,7 +97,7 @@ XtIntervalId   interval_id_host;
 XmTextPosition wpr_position;
 Cursor         cursor1,
                cursor2;
-Widget         toplevel,
+Widget         appshell,
                log_output,
                counterbox,
                log_scroll_bar,
@@ -228,7 +228,7 @@ main(int argc, char *argv[])
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
-   toplevel = XtAppInitialize(&app, "AFD", NULL, 0,
+   appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
 
    if (euid != ruid)
@@ -245,7 +245,7 @@ main(int argc, char *argv[])
    total_length = 0;
 
    /* Get display pointer. */
-   if ((display = XtDisplay(toplevel)) == NULL)
+   if ((display = XtDisplay(appshell)) == NULL)
    {
       (void)fprintf(stderr,
                     "ERROR   : Could not open Display : %s (%s %d)\n",
@@ -254,10 +254,10 @@ main(int argc, char *argv[])
    }
 
    /* Create managing widget. */
-   form = XmCreateForm(toplevel, "form", NULL, 0);
+   form = XmCreateForm(appshell, "form", NULL, 0);
 
    /* Prepare the font. */
-   entry = XmFontListEntryLoad(XtDisplay(toplevel), font_name,
+   entry = XmFontListEntryLoad(XtDisplay(appshell), font_name,
                                XmFONT_IS_FONT, "TAG1");
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
@@ -766,7 +766,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,   20,
                         NULL);
    XtAddCallback(button, XmNactivateCallback,
-                 (XtCallbackProc)update_button, 0);
+                 (XtCallbackProc)update_button, (XtPointer)0);
    button = XtVaCreateManagedWidget("Close",
                         xmPushButtonWidgetClass, buttonbox,
                         XmNfontList,         fontlist,
@@ -780,7 +780,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,   20,
                         NULL);
    XtAddCallback(button, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox);
 
    /* Create the second horizontal separator. */
@@ -842,20 +842,19 @@ main(int argc, char *argv[])
    XtManageChild(form);
 
 #ifdef WITH_EDITRES
-   XtAddEventHandler(toplevel, (EventMask)0, True, _XEditResCheckMessages, NULL);
+   XtAddEventHandler(appshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
 #endif
 
    /* Realize all widgets. */
-   XtRealizeWidget(toplevel);
-   wait_visible(toplevel);
+   XtRealizeWidget(appshell);
+   wait_visible(appshell);
 
 
    /* Set some signal handlers. */
    if ((signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(toplevel, WARN_DIALOG,
-                 "Failed to set signal handler's for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set signal handler's for %s : %s",
                  SHOW_LOG, strerror(errno));
    }
 
@@ -1047,11 +1046,11 @@ create_cursors(void)
           cursormask;
 
    cursorsrc = XCreateBitmapFromData(display,
-                                     XtWindow(toplevel),
+                                     XtWindow(appshell),
                                      (char *)cursor1_bits,
                                      cursor1_width, cursor1_height);
    cursormask = XCreateBitmapFromData(display,
-                                      XtWindow(toplevel),
+                                      XtWindow(appshell),
                                       (char *)cursormask1_bits,
                                       cursormask1_width, cursormask1_height);
    XParseColor(display, DefaultColormap(display, DefaultScreen(display)),
@@ -1063,11 +1062,11 @@ create_cursors(void)
    XFreePixmap(display, cursorsrc); XFreePixmap(display, cursormask);
 
    cursorsrc = XCreateBitmapFromData(display,
-                                     XtWindow(toplevel),
+                                     XtWindow(appshell),
                                      (char *)cursor2_bits,
                                      cursor2_width, cursor2_height);
    cursormask = XCreateBitmapFromData(display,
-                                      XtWindow(toplevel),
+                                      XtWindow(appshell),
                                       (char *)cursormask2_bits,
                                       cursormask2_width, cursormask2_height);
    XParseColor(display, DefaultColormap(display, DefaultScreen(display)),

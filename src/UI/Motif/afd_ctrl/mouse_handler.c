@@ -131,7 +131,6 @@ extern int                        button_width,
                                   tv_no_of_columns,
                                   tv_no_of_rows,
                                   window_width,
-                                  x_offset_ec,
                                   x_offset_proc;
 extern unsigned int               glyph_width;
 extern XT_PTR_TYPE                current_font,
@@ -374,59 +373,98 @@ input(Widget w, XtPointer client_data, XEvent *event)
                          draw_line_status(pos, 1);
                          XFlush(display);
                       }
-                 else if (line_style & SHOW_CHARACTERS)
-                      {
-                         int i,
-                             x_offset,
-                             y_offset;
-
-                          dummy_length = 0;
-                          for (i = 0; i < column; i++)
-                          {
-                             dummy_length += line_length[i];
-                          }
-                          if (line_style & SHOW_BARS)
-                          {
-                             x_offset_ec = line_length[column] -
-                                           ((3 * glyph_width) +
-                                            (int)max_bar_length);
-                          }
-                          else
-                          {
-                             x_offset_ec = line_length[column] -
-                                           ((3 * glyph_width) + DEFAULT_FRAME_SPACE);
-                          }
-                          x_offset = event->xbutton.x - dummy_length;
-                          y_offset = event->xbutton.y -
-                                     ((event->xbutton.y / line_height) *
-                                     line_height);
-
-#ifdef _DEBUG
-                         (void)fprintf(stderr,
-                                       "x_offset=%d y_offset=%d EC:%d-%d Y:%d-%d\n",
-                                       x_offset, y_offset, x_offset_ec,
-                                       (x_offset_ec + (2 * glyph_width)),
-                                       SPACE_ABOVE_LINE,
-                                       (line_height - SPACE_BELOW_LINE));
-#endif
-                         if (((x_offset > x_offset_ec) &&
-                              (x_offset < (x_offset_ec + (2 * glyph_width))) &&
-                              (fsa[select_no].error_counter > 0)) &&
-                             ((y_offset > SPACE_ABOVE_LINE) &&
-                              (y_offset < (line_height - SPACE_BELOW_LINE))))
-                         {
-                            popup_error_history(event->xbutton.x_root,
-                                                event->xbutton.y_root,
-                                                select_no);
-                         }
-                         else
-                         {
-                            destroy_error_history();
-                         }
-                      }
                       else
                       {
-                         destroy_error_history();
+                         if ((fsa[select_no].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                             (fsa[select_no].host_status & HOST_ERROR_OFFLINE) ||
+                             (fsa[select_no].host_status & HOST_ERROR_ACKNOWLEDGED_T) ||
+                             (fsa[select_no].host_status & HOST_ERROR_OFFLINE_T) ||
+                             ((fsa[select_no].host_status & HOST_ERROR_OFFLINE_STATIC) &&
+                              (fsa[select_no].error_counter > fsa[select_no].max_errors)))
+                         {
+                            int i,
+                                x_offset,
+                                y_offset;
+
+                            dummy_length = 0;
+                            for (i = 0; i < column; i++)
+                            {
+                               dummy_length += line_length[i];
+                            }
+                            x_offset = event->xbutton.x - dummy_length;
+                            y_offset = event->xbutton.y -
+                                       ((event->xbutton.y / line_height) *
+                                       line_height);
+                            if (((x_offset > DEFAULT_FRAME_SPACE) &&
+                                 (x_offset < (DEFAULT_FRAME_SPACE + (MAX_HOSTNAME_LENGTH * glyph_width)))) &&
+                                ((y_offset > SPACE_ABOVE_LINE) &&
+                                 (y_offset < (line_height - SPACE_BELOW_LINE))))
+                            {
+                               popup_event_reason(event->xbutton.x_root,
+                                                  event->xbutton.y_root,
+                                                  select_no);
+                            }
+                            else
+                            {
+                               destroy_event_reason();
+                            }
+                         }
+                         else if ((line_style & SHOW_CHARACTERS) &&
+                                  (fsa[select_no].error_counter > 0))
+                              {
+                                 int i,
+                                     x_offset,
+                                     x_offset_ec,
+                                     y_offset;
+
+                                  dummy_length = 0;
+                                  for (i = 0; i < column; i++)
+                                  {
+                                     dummy_length += line_length[i];
+                                  }
+                                  if (line_style & SHOW_BARS)
+                                  {
+                                     x_offset_ec = line_length[column] -
+                                                   ((3 * glyph_width) +
+                                                    (int)max_bar_length);
+                                  }
+                                  else
+                                  {
+                                     x_offset_ec = line_length[column] -
+                                                   ((3 * glyph_width) + DEFAULT_FRAME_SPACE);
+                                  }
+                                  x_offset = event->xbutton.x - dummy_length;
+                                  y_offset = event->xbutton.y -
+                                             ((event->xbutton.y / line_height) *
+                                             line_height);
+
+#ifdef _DEBUG
+                                 (void)fprintf(stderr,
+                                               "x_offset=%d y_offset=%d EC:%d-%d Y:%d-%d\n",
+                                               x_offset, y_offset, x_offset_ec,
+                                               (x_offset_ec + (2 * glyph_width)),
+                                               SPACE_ABOVE_LINE,
+                                               (line_height - SPACE_BELOW_LINE));
+#endif
+                                 if (((x_offset > x_offset_ec) &&
+                                      (x_offset < (x_offset_ec + (2 * glyph_width)))) &&
+                                     ((y_offset > SPACE_ABOVE_LINE) &&
+                                      (y_offset < (line_height - SPACE_BELOW_LINE))))
+                                 {
+                                    popup_error_history(event->xbutton.x_root,
+                                                        event->xbutton.y_root,
+                                                        select_no);
+                                 }
+                                 else
+                                 {
+                                    destroy_error_history();
+                                 }
+                              }
+                              else
+                              {
+                                 destroy_event_reason();
+                                 destroy_error_history();
+                              }
                       }
 
                  last_motion_pos = select_no;
@@ -560,7 +598,7 @@ input(Widget w, XtPointer client_data, XEvent *event)
                         current_jd_size = new_size;
                         if ((jd = malloc(new_size)) == NULL)
                         {
-                           (void)xrec(appshell, FATAL_DIALOG,
+                           (void)xrec(FATAL_DIALOG,
                                       "malloc() error [%d] : %s [%d] (%s %d)",
                                       new_size, strerror(errno),
                                       errno, __FILE__, __LINE__);
@@ -602,7 +640,7 @@ input(Widget w, XtPointer client_data, XEvent *event)
                               current_jd_size = new_size;
                               if ((jd = realloc(jd, new_size)) == NULL)
                               {
-                                 (void)xrec(appshell, FATAL_DIALOG,
+                                 (void)xrec(FATAL_DIALOG,
                                             "realloc() error [%d] : %s [%d] (%s %d)",
                                             new_size, strerror(errno),
                                             errno, __FILE__, __LINE__);
@@ -869,6 +907,43 @@ short_input(Widget w, XtPointer client_data, XEvent *event)
                             draw_line_status(pos, 1);
                             XFlush(display);
                          }
+                         else
+                         {
+                            if ((fsa[pos].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                                (fsa[pos].host_status & HOST_ERROR_OFFLINE) ||
+                                (fsa[pos].host_status & HOST_ERROR_ACKNOWLEDGED_T) ||
+                                (fsa[pos].host_status & HOST_ERROR_OFFLINE_T) ||
+                                ((fsa[pos].host_status & HOST_ERROR_OFFLINE_STATIC) &&
+                                 (fsa[pos].error_counter > fsa[pos].max_errors)))
+                            {
+                               int x_offset,
+                                   y_offset;
+
+                               x_offset = event->xbutton.x -
+                                          ((event->xbutton.x / (DEFAULT_FRAME_SPACE + (MAX_HOSTNAME_LENGTH * glyph_width))) *
+                                           (DEFAULT_FRAME_SPACE + (MAX_HOSTNAME_LENGTH * glyph_width)));
+                               y_offset = event->xbutton.y -
+                                          ((event->xbutton.y / line_height) *
+                                          line_height);
+                               if (((x_offset > DEFAULT_FRAME_SPACE) &&
+                                    (x_offset < (DEFAULT_FRAME_SPACE + (MAX_HOSTNAME_LENGTH * glyph_width)))) &&
+                                   ((y_offset > SPACE_ABOVE_LINE) &&
+                                    (y_offset < (line_height - SPACE_BELOW_LINE))))
+                               {
+                                  popup_event_reason(event->xbutton.x_root,
+                                                     event->xbutton.y_root,
+                                                     pos);
+                               }
+                               else
+                               {
+                                  destroy_event_reason();
+                               }
+                            }
+                            else
+                            {
+                               destroy_event_reason();
+                            }
+                         }
 
                     last_motion_pos = select_no;
                  }
@@ -996,14 +1071,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
         (sel_typ == PING_SEL) || (sel_typ == TRACEROUTE_SEL) ||
         (sel_typ == LONG_SHORT_SEL)))
    {
-      (void)xrec(appshell, INFO_DIALOG,
+      (void)xrec(INFO_DIALOG,
                  "You must first select a host!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
    RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 2), char);
    if ((args = malloc(new_size)) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
       return;
    }
@@ -1046,14 +1121,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          ehc = eval_host_config(&hosts_found, host_config_file, &hl, NULL, NO);
          if ((ehc == NO) && (no_of_hosts != hosts_found))
          {
-            (void)xrec(appshell, WARN_DIALOG,
+            (void)xrec(WARN_DIALOG,
                        "Hosts found in HOST_CONFIG (%d) and those currently storred (%d) are not the same. Unable to do any changes. (%s %d)",
                        no_of_hosts, hosts_found, __FILE__, __LINE__);
             ehc = YES;
          }
          else if (ehc == YES)
               {
-                 (void)xrec(appshell, WARN_DIALOG,
+                 (void)xrec(WARN_DIALOG,
                             "Unable to retrieve data from HOST_CONFIG, therefore no values changed in it! (%s %d)",
                             __FILE__, __LINE__);
               }
@@ -1345,7 +1420,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
               }
               else
               {
-                 (void)xrec(appshell, INFO_DIALOG,
+                 (void)xrec(INFO_DIALOG,
                             "No job marked. Mark with CTRL + Mouse button 2 or 3.",
                             sel_typ);
               }
@@ -1398,7 +1473,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, EDIT_HC);
          if ((p_user = lock_proc(EDIT_HC_LOCK_ID, YES)) != NULL)
          {
-            (void)xrec(appshell, INFO_DIALOG,
+            (void)xrec(INFO_DIALOG,
                        "Only one user may use this dialog. Currently %s is using it.",
                        p_user);
          }
@@ -1561,8 +1636,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          exit(SUCCESS);
 
       default  :
-         (void)xrec(appshell, WARN_DIALOG,
-                    "Impossible item selection (%d).", sel_typ);
+         (void)xrec(WARN_DIALOG, "Impossible item selection (%d).", sel_typ);
          free(args);
          FREE_RT_ARRAY(hosts)
          return;
@@ -1626,7 +1700,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   else
                   {
-                     (void)xrec(appshell, INFO_DIALOG,
+                     (void)xrec(INFO_DIALOG,
                                 "You do not have the permission to start/stop queue for %s",
                                 fsa[i].host_alias);
                   }
@@ -1656,7 +1730,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                         if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
 #endif
                         {
-                           (void)xrec(appshell, ERROR_DIALOG,
+                           (void)xrec(ERROR_DIALOG,
                                       "Failed to open() %s : %s (%s %d)",
                                       FD_WAKE_UP_FIFO, strerror(errno),
                                       __FILE__, __LINE__);
@@ -1667,7 +1741,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
                            if (write(fd, &dummy, 1) != 1)
                            {
-                              (void)xrec(appshell, ERROR_DIALOG,
+                              (void)xrec(ERROR_DIALOG,
                                          "Failed to write() to %s : %s (%s %d)",
                                          FD_WAKE_UP_FIFO, strerror(errno),
                                          __FILE__, __LINE__);
@@ -1722,7 +1796,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   else
                   {
-                     (void)xrec(appshell, INFO_DIALOG,
+                     (void)xrec(INFO_DIALOG,
                                 "You do not have the permission to start/stop transfer for %s",
                                 fsa[i].host_alias);
                   }
@@ -1745,7 +1819,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      }
                      else
                      {
-                        if (xrec(appshell, QUESTION_DIALOG,
+                        if (xrec(QUESTION_DIALOG,
                                  "Are you shure that you want to disable %s?\nAll jobs for this host will be lost.",
                                  fsa[i].host_dsp_name) == YES)
                         {
@@ -1775,7 +1849,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
 #endif
                            {
-                              (void)xrec(appshell, ERROR_DIALOG,
+                              (void)xrec(ERROR_DIALOG,
                                          "Failed to open() %s : %s (%s %d)",
                                          FD_DELETE_FIFO, strerror(errno),
                                          __FILE__, __LINE__);
@@ -1788,7 +1862,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                               (void)strcpy(&wbuf[1], fsa[i].host_alias);
                               if (write(fd, wbuf, (length + 1)) != (length + 1))
                               {
-                                 (void)xrec(appshell, ERROR_DIALOG,
+                                 (void)xrec(ERROR_DIALOG,
                                             "Failed to write() to %s : %s (%s %d)",
                                             FD_DELETE_FIFO, strerror(errno),
                                             __FILE__, __LINE__);
@@ -1817,7 +1891,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
 #endif
                            {
-                              (void)xrec(appshell, ERROR_DIALOG,
+                              (void)xrec(ERROR_DIALOG,
                                          "Failed to open() %s : %s (%s %d)",
                                          DEL_TIME_JOB_FIFO, strerror(errno),
                                          __FILE__, __LINE__);
@@ -1826,7 +1900,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            {
                               if (write(fd, fsa[i].host_alias, length) != length)
                               {
-                                 (void)xrec(appshell, ERROR_DIALOG,
+                                 (void)xrec(ERROR_DIALOG,
                                             "Failed to write() to %s : %s (%s %d)",
                                             DEL_TIME_JOB_FIFO, strerror(errno),
                                             __FILE__, __LINE__);
@@ -1852,7 +1926,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   else
                   {
-                     (void)xrec(appshell, INFO_DIALOG,
+                     (void)xrec(INFO_DIALOG,
                                 "You do not have the permission to enable/disable %s",
                                 fsa[i].host_alias);
                   }
@@ -1912,7 +1986,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   else
                   {
-                     (void)xrec(appshell, ERROR_DIALOG,
+                     (void)xrec(ERROR_DIALOG,
                                 "Host %s cannot be switched!",
                                 fsa[i].host_dsp_name);
                   }
@@ -1925,7 +1999,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                }
                else
                {
-                  (void)xrec(appshell, INFO_DIALOG,
+                  (void)xrec(INFO_DIALOG,
                              "You do not have the permission to switch %s",
                              fsa[i].host_alias);
                }
@@ -1941,51 +2015,64 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                /* job in the queue.                           */
                if ((fsa[i].special_flag & HOST_DISABLED) == 0)
                {
-                  int  fd;
+                  if ((fsa[i].host_status & STOP_TRANSFER_STAT) == 0)
+                  {
+                     int  fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-                  int  readfd;
+                     int  readfd;
 #endif
-                  char retry_fifo[MAX_PATH_LENGTH];
+                     char retry_fifo[MAX_PATH_LENGTH];
 
-                  (void)sprintf(retry_fifo, "%s%s%s",
-                                p_work_dir, FIFO_DIR, RETRY_FD_FIFO);
+                     (void)sprintf(retry_fifo, "%s%s%s",
+                                   p_work_dir, FIFO_DIR, RETRY_FD_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-                  if (open_fifo_rw(retry_fifo, &readfd, &fd) == -1)
+                     if (open_fifo_rw(retry_fifo, &readfd, &fd) == -1)
 #else
-                  if ((fd = open(retry_fifo, O_RDWR)) == -1)
+                     if ((fd = open(retry_fifo, O_RDWR)) == -1)
 #endif
-                  {
-                     (void)xrec(appshell, ERROR_DIALOG,
-                                "Failed to open() %s : %s (%s %d)",
-                                RETRY_FD_FIFO, strerror(errno),
-                                __FILE__, __LINE__);
-                  }
-                  else
-                  {
-                     event_log(0L, EC_HOST, ET_MAN, EA_RETRY_HOST, "%s%c%s",
-                               fsa[i].host_alias, SEPARATOR_CHAR, user);
-                     if (write(fd, &i, sizeof(int)) != sizeof(int))
                      {
-                        (void)xrec(appshell, ERROR_DIALOG,
-                                   "Failed to write() to %s : %s (%s %d)",
+                        (void)xrec(ERROR_DIALOG,
+                                   "Failed to open() %s : %s (%s %d)",
                                    RETRY_FD_FIFO, strerror(errno),
                                    __FILE__, __LINE__);
                      }
+                     else
+                     {
+                        event_log(0L, EC_HOST, ET_MAN, EA_RETRY_HOST, "%s%c%s",
+                                  fsa[i].host_alias, SEPARATOR_CHAR, user);
+                        if (write(fd, &i, sizeof(int)) != sizeof(int))
+                        {
+                           (void)xrec(ERROR_DIALOG,
+                                      "Failed to write() to %s : %s (%s %d)",
+                                      RETRY_FD_FIFO, strerror(errno),
+                                      __FILE__, __LINE__);
+                        }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-                     if (close(readfd) == -1)
-                     {
-                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                   "Failed to close() FIFO %s (read) : %s",
-                                   RETRY_FD_FIFO, strerror(errno));
-                     }
+                        if (close(readfd) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Failed to close() FIFO %s (read) : %s",
+                                      RETRY_FD_FIFO, strerror(errno));
+                        }
 #endif
-                     if (close(fd) == -1)
-                     {
-                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                   "Failed to close() FIFO %s : %s",
-                                   RETRY_FD_FIFO, strerror(errno));
+                        if (close(fd) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Failed to close() FIFO %s : %s",
+                                      RETRY_FD_FIFO, strerror(errno));
+                        }
                      }
                   }
+                  else
+                  {
+                     (void)xrec(INFO_DIALOG,
+                                "Retry while the transfer for this host is stopped is not possible!");
+                  }
+               }
+               else
+               {
+                  (void)xrec(INFO_DIALOG,
+                             "Retry while the host is disabled is not possible!");
                }
                break;
 
@@ -2238,7 +2325,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                break;
 
             default        :
-               (void)xrec(appshell, WARN_DIALOG,
+               (void)xrec(WARN_DIALOG,
                           "Impossible selection! NOOO this can't be true! (%s %d)",
                           __FILE__, __LINE__);
                free(args);
@@ -2352,7 +2439,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
       case CONTROL_AMG_SEL : /* Start/Stop AMG */
          if (p_afd_status->amg == ON)
          {
-            if (xrec(appshell, QUESTION_DIALOG,
+            if (xrec(QUESTION_DIALOG,
                      "Are you shure that you want to stop %s?", AMG) == YES)
             {
                int  afd_cmd_fd;
@@ -2369,7 +2456,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
 #endif
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Could not open fifo %s : %s (%s %d)",
                              afd_cmd_fifo, strerror(errno),
                              __FILE__, __LINE__);
@@ -2377,7 +2464,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                }
                if (send_cmd(STOP_AMG, afd_cmd_fd) < 0)
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Was not able to stop %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
                }
@@ -2415,15 +2502,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
             if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
 #endif
             {
-               (void)xrec(appshell, ERROR_DIALOG,
-                          "Could not open fifo %s : %s (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Could not open fifo %s : %s (%s %d)",
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
             if (send_cmd(START_AMG, afd_cmd_fd) < 0)
             {
-               (void)xrec(appshell, ERROR_DIALOG,
-                          "Was not able to start %s. (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Was not able to start %s. (%s %d)",
                           AMG, __FILE__, __LINE__);
             }
             else
@@ -2448,7 +2533,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
       case CONTROL_FD_SEL : /* Start/Stop FD */
          if (p_afd_status->fd == ON)
          {
-            if (xrec(appshell, QUESTION_DIALOG,
+            if (xrec(QUESTION_DIALOG,
                      "Are you shure that you want to stop %s?\nNOTE: No more files will be distributed!!!", FD) == YES)
             {
                int  afd_cmd_fd;
@@ -2465,7 +2550,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
 #endif
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Could not open fifo %s : %s (%s %d)",
                              afd_cmd_fifo, strerror(errno),
                              __FILE__, __LINE__);
@@ -2473,8 +2558,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                }
                if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
-                             "Was not able to stop %s. (%s %d)",
+                  (void)xrec(ERROR_DIALOG, "Was not able to stop %s. (%s %d)",
                              FD, __FILE__, __LINE__);
                }
                else
@@ -2511,15 +2595,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
             if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
 #endif
             {
-               (void)xrec(appshell, ERROR_DIALOG,
-                          "Could not open fifo %s : %s (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Could not open fifo %s : %s (%s %d)",
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
             if (send_cmd(START_FD, afd_cmd_fd) < 0)
             {
-               (void)xrec(appshell, ERROR_DIALOG,
-                           "Was not able to start %s. (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Was not able to start %s. (%s %d)",
                            FD, __FILE__, __LINE__);
             }
             else
@@ -2561,8 +2643,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
             if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
 #endif
             {
-               (void)xrec(appshell, ERROR_DIALOG,
-                          "Could not open fifo %s : %s (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Could not open fifo %s : %s (%s %d)",
                           db_update_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
@@ -2572,7 +2653,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                db_update_reply_fd += sizeof(DB_UPDATE_REPLY_FIFO) + MAX_LONG_LONG_LENGTH;
                if ((db_update_reply_fifo = malloc(db_update_reply_fd)) == NULL)
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Failed to allocate %d bytes of memory : %s (%s %d)",
                              db_update_reply_fd, strerror(errno),
                              __FILE__, __LINE__);
@@ -2597,7 +2678,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 #endif
                 (errno != EEXIST))
             {
-               (void)xrec(appshell, ERROR_DIALOG,
+               (void)xrec(ERROR_DIALOG,
                           "Could not create fifo `%s' : %s (%s %d)",
                           db_update_reply_fifo, strerror(errno),
                           __FILE__, __LINE__);
@@ -2614,7 +2695,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
             if ((db_update_reply_fd = open(db_update_reply_fifo, O_RDWR)) == -1)
 #endif
             {
-               (void)xrec(appshell, ERROR_DIALOG,
+               (void)xrec(ERROR_DIALOG,
                           "Could not create fifo `%s' : %s (%s %d)",
                           db_update_reply_fifo, strerror(errno),
                           __FILE__, __LINE__);
@@ -2634,7 +2715,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                (void)memcpy(&buffer[1], &my_pid, SIZEOF_PID_T);
                if (write(db_update_fd, buffer, (1 + SIZEOF_PID_T)) != (1 + SIZEOF_PID_T))
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Was not able to send reread command to %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
                   read_reply_length = 0;
@@ -2651,7 +2732,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                (void)memcpy(&buffer[1], &my_pid, SIZEOF_PID_T);
                if (write(db_update_fd, buffer, (1 + SIZEOF_PID_T)) != (1 + SIZEOF_PID_T))
                {
-                  (void)xrec(appshell, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Was not able to send reread command to %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
                   read_reply_length = 0;
@@ -2706,8 +2787,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
             switch (pid = fork())
             {
                case -1:
-                  (void)xrec(appshell, ERROR_DIALOG,
-                             "Failed to fork() : %s (%s %d)",
+                  (void)xrec(ERROR_DIALOG, "Failed to fork() : %s (%s %d)",
                              strerror(errno), __FILE__, __LINE__);
                   break;
 
@@ -2721,7 +2801,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                default: /* Parent process */
                   if (waitpid(pid, NULL, 0) != pid)
                   {
-                     (void)xrec(appshell, ERROR_DIALOG,
+                     (void)xrec(ERROR_DIALOG,
                                 "Failed to waitpid() : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                   }
@@ -2732,7 +2812,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 	 return;
 
       case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
-         if (xrec(appshell, QUESTION_DIALOG,
+         if (xrec(QUESTION_DIALOG,
                   "Are you shure that you want to do a shutdown?") == YES)
          {
             char *args[7],
@@ -2759,7 +2839,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 	 return;
 
       default  :
-         (void)xrec(appshell, INFO_DIALOG,
+         (void)xrec(INFO_DIALOG,
 #if SIZEOF_LONG == 4
                     "This function [%d] has not yet been implemented.",
 #else
@@ -2826,18 +2906,17 @@ read_reply(XtPointer client_data, int *fd, XtInputId *id)
             }
             if (see_sys_log == YES)
             {
-               (void)xrec(appshell, type,
-                          "%s%s\n--> See %s0 for more details. <--",
+               (void)xrec(type, "%s%s\n--> See %s0 for more details. <--",
                           hc_result_str, dc_result_str, SYSTEM_LOG_NAME);
             }
             else
             {
-               (void)xrec(appshell, type, "%s%s", hc_result_str, dc_result_str);
+               (void)xrec(type, "%s%s", hc_result_str, dc_result_str);
             }
          }
          else
          {
-            (void)xrec(appshell, ERROR_DIALOG,
+            (void)xrec(ERROR_DIALOG,
                        "Unable to evaluate reply since it is to short (%d, should be %d).",
                        n, MAX_UDC_RESPONCE_LENGTH);
          }
@@ -2848,12 +2927,12 @@ read_reply(XtPointer client_data, int *fd, XtInputId *id)
                            &see_sys_log, &type);
          if (see_sys_log == YES)
          {
-            (void)xrec(appshell, type, "%s\n--> See %s0 for more details. <--",
+            (void)xrec(type, "%s\n--> See %s0 for more details. <--",
                        hc_result_str, SYSTEM_LOG_NAME);
          }
          else
          {
-            (void)xrec(appshell, type, "%s", hc_result_str);
+            (void)xrec(type, "%s", hc_result_str);
          }
       }
    }
@@ -2954,11 +3033,10 @@ change_font_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible font selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible font selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
     }
 
@@ -3120,8 +3198,7 @@ change_rows_cb(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       default  :
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
-                    item_no);
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
          return;
    }
 
@@ -3248,11 +3325,10 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
    }
 

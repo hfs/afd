@@ -90,10 +90,10 @@ show_job_list(FILE *p_data)
 
 #ifdef HAVE_MMAP
             job_id_db_size = stat_buf.st_size;
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                             MAP_SHARED, fd, 0)) == (caddr_t)-1)
 #else
-            if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                                 MAP_SHARED, fullname, 0)) == (caddr_t)-1)
 #endif
             {
@@ -132,10 +132,10 @@ show_job_list(FILE *p_data)
                      if (stat_buf.st_size > sizeof(int))
                      {
 #ifdef HAVE_MMAP
-                        if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+                        if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                                         MAP_SHARED, cml_fd, 0)) == (caddr_t)-1)
 #else
-                        if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+                        if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                                             MAP_SHARED, fullname, 0)) == (caddr_t)-1)
 #endif
                         {
@@ -153,13 +153,14 @@ show_job_list(FILE *p_data)
                            {
                               int           gotcha,
                                             i, j;
+                              char          *cjn; /* Current Job Number */
 #ifndef WITHOUT_BLUR_DATA
                               int           offset,
                                             m;
                               unsigned char buffer[3 + MAX_INT_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_HEX_LENGTH + 2 + MAX_RECIPIENT_LENGTH + 2];
 #endif
 
-                              ptr += sizeof(int);
+                              cjn = ptr + sizeof(int);
 
                               (void)fprintf(p_data, "211- AFD current job list:\r\n");
                               (void)fflush(p_data);
@@ -173,7 +174,7 @@ show_job_list(FILE *p_data)
                                  gotcha = NO;
                                  for (j = 0; j < no_of_job_ids; j++)
                                  {
-                                    if (*(int *)ptr == jd[j].job_id)
+                                    if (*(int *)cjn == jd[j].job_id)
                                     {
 #ifdef WITHOUT_BLUR_DATA
                                        (void)fprintf(p_data,
@@ -228,8 +229,8 @@ show_job_list(FILE *p_data)
                                                   "JL %d 0 0 none 0 0\r\n", i);
                                  }
                                  (void)fflush(p_data);
+                                 cjn += sizeof(int);
                               }
-                              ptr -= sizeof(int);
                            }
                            else
                            {

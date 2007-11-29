@@ -54,7 +54,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "afd_info.h"
 
-/* external global variables */
+/* External global variables. */
 extern int                        host_position;
 extern char                       host_name[],
                                   host_alias_1[],
@@ -80,8 +80,7 @@ extern Pixmap                     active_pixmap,
 
 /*############################ update_info() ############################*/
 void
-update_info(w)
-Widget w;
+update_info(Widget w)
 {
    static int  interval = 0;
    signed char flush = NO;
@@ -90,7 +89,7 @@ Widget w;
                tmp_str_line[MAX_INFO_STRING_LENGTH];
    XmString    text;
 
-   /* Check if FSA changed */
+   /* Check if FSA changed. */
    (void)check_fsa(YES);
 
    if (prev.protocol != fsa[host_position].protocol)
@@ -435,7 +434,7 @@ Widget w;
                        NULL);
          XmStringFree(text);
 
-         /* Get IP for the second host */
+         /* Get IP for the second host. */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
              (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
@@ -460,7 +459,7 @@ Widget w;
       flush = YES;
    }
 
-   /* Check if the host have been toggled */
+   /* Check if the host have been toggled. */
    if ((fsa[host_position].host_toggle_str[0] != '\0') &&
        (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
        (passive_pixmap != XmUNSPECIFIED_PIXMAP) &&
@@ -521,7 +520,7 @@ Widget w;
    {
       interval = 0;
 
-      /* Check if the information file for this host has changed */
+      /* Check if the information file for this host has changed. */
       if (check_info_file(host_name) == YES)
       {
          flush = YES;
@@ -533,7 +532,7 @@ Widget w;
       XFlush(display);
    }
 
-   /* Call update_info() after UPDATE_INTERVAL ms */
+   /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_host = XtAppAddTimeOut(app, UPDATE_INTERVAL,
                                       (XtTimerCallbackProc)update_info,
                                       NULL);

@@ -19,13 +19,13 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = show_cmd.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../log -I../afd_ctrl\
-                       -I../../../afd_mon
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../log\
+                       -I../afd_ctrl -I../../../afd_mon
 bin_PROGRAMS         = show_cmd
 show_cmd_SOURCES     = cmd_callbacks.c\
                        xexec_cmd.c\
                        print_data.c\
                        show_cmd.c
-show_cmd_LDADD       = ../common/libxafd.a\
+show_cmd_LDADD       = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

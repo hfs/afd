@@ -54,7 +54,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,

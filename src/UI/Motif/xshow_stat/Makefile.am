@@ -19,8 +19,9 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = xshow_stat.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../afd_ctrl -I../../../statistics -I../../../init_afd
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../afd_ctrl -I../../../statistics\
+                       -I../../../init_afd
 bin_PROGRAMS         = xshow_stat
 xshow_stat_SOURCES   = callbacks.c\
                        draw_stat.c\
@@ -29,5 +30,5 @@ xshow_stat_SOURCES   = callbacks.c\
                        setup_window.c\
                        xshow_stat.c\
                        window_size.c
-xshow_stat_LDADD     = ../common/libxafd.a\
+xshow_stat_LDADD     = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

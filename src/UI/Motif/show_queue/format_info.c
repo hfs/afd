@@ -105,8 +105,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "show_queue.h"
 
-/* External global variables */
-extern Widget                  appshell;
+/* External global variables. */
 extern int                     max_x,
                                max_y;
 extern char                    *p_work_dir;
@@ -150,15 +149,13 @@ format_output_info(char *text, int pos)
                     JOB_ID_DATA_FILE);
       if ((fd = open(fullname, O_RDONLY)) == -1)             
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to fstat() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -167,11 +164,10 @@ format_output_info(char *text, int pos)
       {
          char *ptr;
 
-         if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to mmap() to %s : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -184,8 +180,7 @@ format_output_info(char *text, int pos)
       }
       else
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Job ID database file is empty. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -212,26 +207,23 @@ format_output_info(char *text, int pos)
                        DIR_NAME_FILE);
          if ((fd = open(fullname, O_RDONLY)) == -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to open() <%s> : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
             return;
          }
          if (fstat(fd, &stat_buf) == -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to fstat() <%s> : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
          }
          if (stat_buf.st_size > 0)
          {
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                             MAP_SHARED, fd, 0)) == (caddr_t) -1)
             {
-               (void)xrec(appshell, ERROR_DIALOG,
-                          "Failed to mmap() to <%s> : %s (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                           fullname, strerror(errno), __FILE__, __LINE__);
                (void)close(fd);
                return;
@@ -243,8 +235,7 @@ format_output_info(char *text, int pos)
          }
          else
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Dirname database file is empty. (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                        __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -360,8 +351,7 @@ format_output_info(char *text, int pos)
 
                  if ((p_soptions = malloc(MAX_OPTION_LENGTH)) == NULL)
                  {
-                    (void)xrec(appshell, ERROR_DIALOG,
-                               "malloc() erro : %s (%s %d)",
+                    (void)xrec(ERROR_DIALOG, "malloc() erro : %s (%s %d)",
                                strerror(errno), __FILE__, __LINE__);
                     (void)close(fd);
                     return;
@@ -415,15 +405,13 @@ format_output_info(char *text, int pos)
 
          if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
          {
-            (void)xrec(appshell, INFO_DIALOG,
-                       "munmap() error : %s (%s %d)",
+            (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                        strerror(errno), __FILE__, __LINE__);
          }
       }
       if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) == -1)
       {
-         (void)xrec(appshell, INFO_DIALOG,
-                    "munmap() error : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -472,15 +460,13 @@ format_input_info(char *text, int pos)
                  DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to fstat() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -489,11 +475,10 @@ format_input_info(char *text, int pos)
    {
       char *ptr;
 
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fd, 0)) == (caddr_t) -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to mmap() to <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -505,8 +490,7 @@ format_input_info(char *text, int pos)
    }
    else
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Dirname database file is empty. (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                  __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -549,15 +533,13 @@ format_input_info(char *text, int pos)
                     JOB_ID_DATA_FILE);
       if ((fd = open(fullname, O_RDONLY)) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to fstat() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -566,11 +548,10 @@ format_input_info(char *text, int pos)
       {
          char *ptr;
 
-         if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to mmap() to %s : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -583,8 +564,7 @@ format_input_info(char *text, int pos)
       }
       else
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Job ID database file is empty. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -719,7 +699,7 @@ format_input_info(char *text, int pos)
 
                           if ((p_soptions = malloc(MAX_OPTION_LENGTH)) == NULL)
                           {
-                             (void)xrec(appshell, ERROR_DIALOG,
+                             (void)xrec(ERROR_DIALOG,
                                         "malloc() erro : %s (%s %d)",
                                         strerror(errno), __FILE__, __LINE__);
                              (void)close(fd);
@@ -781,16 +761,14 @@ format_input_info(char *text, int pos)
       }
       if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) == -1)
       {
-         (void)xrec(appshell, INFO_DIALOG,
-                    "munmap() error : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
       *(text + length - 1) = '\0';
    }
    if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
    {
-      (void)xrec(appshell, INFO_DIALOG,
-                 "munmap() error : %s (%s %d)",
+      (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 
@@ -845,15 +823,13 @@ format_retrieve_info(char *text, int pos)
                  DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to fstat() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -862,11 +838,10 @@ format_retrieve_info(char *text, int pos)
    {
       char *ptr;
 
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fd, 0)) == (caddr_t) -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to mmap() to <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -878,8 +853,7 @@ format_retrieve_info(char *text, int pos)
    }
    else
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Dirname database file is empty. (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                  __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -917,8 +891,7 @@ format_retrieve_info(char *text, int pos)
    }
    if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
    {
-      (void)xrec(appshell, INFO_DIALOG,
-                 "munmap() error : %s (%s %d)",
+      (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 

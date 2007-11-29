@@ -1,6 +1,6 @@
 /*
  *  check_info_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,18 +60,18 @@ DESCR__E_M3
 # include <fcntl.h>
 #endif
 #include <errno.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 
-/* External global variables */
+/* External global variables. */
 extern char   *alias_info_file,
               *central_info_file,
               *info_data;
 extern Widget info_w;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void fill_default_info(void);
 
 
@@ -105,10 +105,10 @@ check_info_file(char *alias_name)
             char *ptr;
 
 #ifdef HAVE_MMAP
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                             MAP_SHARED, src_fd, 0)) == (caddr_t) -1)
 #else
-            if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                                 MAP_SHARED, central_info_file, 0)) == (caddr_t) -1)
 #endif
             {
@@ -153,7 +153,7 @@ check_info_file(char *alias_name)
                   }
                   if ((info_data = malloc(length + 1)) == NULL)
                   {
-                     (void)xrec(info_w, FATAL_DIALOG,
+                     (void)xrec(FATAL_DIALOG,
                                 "Failed to allocate memory : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                      return(NO);
@@ -219,8 +219,7 @@ check_info_file(char *alias_name)
          }
          if ((info_data = malloc(stat_buf.st_size + 1)) == NULL)
          {
-            (void)xrec(info_w, FATAL_DIALOG,
-                       "Failed to allocate memory : %s (%s %d)",
+            (void)xrec(FATAL_DIALOG, "Failed to allocate memory : %s (%s %d)",
                        strerror(errno), __FILE__, __LINE__);
             return(NO);
          }
@@ -228,7 +227,7 @@ check_info_file(char *alias_name)
          /* Read file in one chunk. */
          if (read(src_fd, info_data, stat_buf.st_size) != stat_buf.st_size)
          {
-            (void)xrec(info_w, FATAL_DIALOG,
+            (void)xrec(FATAL_DIALOG,
                        "read() error when reading from %s : %s (%s %d)",
                        alias_info_file, strerror(errno), __FILE__, __LINE__);
             return(NO);
@@ -273,13 +272,12 @@ fill_default_info(void)
 {
    if (info_data != NULL)
    {
-      /* Free previous memory chunk */
+      /* Free previous memory chunk. */
       free(info_data);
    }
    if ((info_data = malloc(384)) == NULL)
    {
-      (void)xrec(info_w, FATAL_DIALOG,
-                 "Failed to allocate memory : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to allocate memory : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -287,7 +285,7 @@ fill_default_info(void)
    (void)sprintf(info_data, "\n\n\n\n\n                   %s\n",
                  NO_INFO_AVAILABLE);
 
-   /* Display the information */
+   /* Display the information. */
    XmTextSetString(info_w, NULL);  /* Clears old entry */
    XmTextSetString(info_w, info_data);
 

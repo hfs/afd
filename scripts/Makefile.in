@@ -39,7 +39,8 @@ host_triplet = @host@
 subdir = scripts
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/afd.in $(srcdir)/afd_auto_config.in \
-	$(srcdir)/afdalarm.in $(srcdir)/rafdd_cmd.in \
+	$(srcdir)/afd_unused_infos.in $(srcdir)/afdalarm.in \
+	$(srcdir)/afdmon.in $(srcdir)/rafdd_cmd.in \
 	$(srcdir)/rafdd_cmd_ssh.in $(srcdir)/rmon_ctrl.in \
 	$(srcdir)/rmon_ctrl_ssh.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -58,8 +59,9 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES = afd afd_auto_config afdalarm rafdd_cmd \
-	rafdd_cmd_ssh rmon_ctrl rmon_ctrl_ssh
+CONFIG_CLEAN_FILES = afd afdmon afd_auto_config afdalarm \
+	afd_unused_infos rafdd_cmd rafdd_cmd_ssh rmon_ctrl \
+	rmon_ctrl_ssh
 am__installdirs = "$(DESTDIR)$(bindir)"
 binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 SCRIPTS = $(bin_SCRIPTS)
@@ -67,7 +69,7 @@ SOURCES =
 DIST_SOURCES =
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
-AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
+AFD_GTK_CFLAGS = @AFD_GTK_CFLAGS@
 AFD_GTK_LIBS = @AFD_GTK_LIBS@
 AFD_MAP_LIBS = @AFD_MAP_LIBS@
 AFD_MATH_LIB = @AFD_MATH_LIB@
@@ -105,6 +107,7 @@ ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
 ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
+GZIP_CMD = @GZIP_CMD@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
@@ -129,6 +132,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PKG_CONFIG = @PKG_CONFIG@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
@@ -179,6 +183,7 @@ ac_configure_args = @ac_configure_args@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
+ac_pt_PKG_CONFIG = @ac_pt_PKG_CONFIG@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -218,16 +223,18 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 @WITH_AFD_MON_FALSE@AFD_MON_FILES = 
 @WITH_AFD_MON_TRUE@AFD_MON_FILES = rmon_ctrl rmon_ctrl_ssh
-@WITH_AFD_MON_FALSE@EXTRA_DIST = rafdd_cmd.in rafdd_cmd_ssh.in afdalarm.in afd.in\
-@WITH_AFD_MON_FALSE@                   afd.sysconfig afd_auto_config.in
+@WITH_AFD_MON_FALSE@EXTRA_DIST = rafdd_cmd.in rafdd_cmd_ssh.in afdalarm.in afd.in afdmon.in\
+@WITH_AFD_MON_FALSE@                   afd.sysconfig afdmon.sysconfig afd_auto_config.in\
+@WITH_AFD_MON_FALSE@                   afd_unused_infos.in
 
 @WITH_AFD_MON_TRUE@EXTRA_DIST = rafdd_cmd.in rafdd_cmd_ssh.in rmon_ctrl.in rmon_ctrl_ssh.in\
-@WITH_AFD_MON_TRUE@                   afdalarm.in afd.in afd.sysconfig afd_auto_config.in
+@WITH_AFD_MON_TRUE@                   afdalarm.in afd.in afdmon.in afd.sysconfig afdmon.sysconfig\
+@WITH_AFD_MON_TRUE@                   afd_auto_config.in afd_unused_infos.in
 
 @WITH_AFD_MON_FALSE@EXTRA_SCRIPTS = rmon_ctrl rmon_ctrl_ssh
 MAINTAINERCLEANFILES = Makefile.in
 bin_SCRIPTS = afdalarm afd_auto_config rafdd_cmd rafdd_cmd_ssh\
-                       $(AFD_MON_FILES)
+                       afd_unused_infos $(AFD_MON_FILES)
 
 all: all-am
 
@@ -263,9 +270,13 @@ $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 afd: $(top_builddir)/config.status $(srcdir)/afd.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+afdmon: $(top_builddir)/config.status $(srcdir)/afdmon.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 afd_auto_config: $(top_builddir)/config.status $(srcdir)/afd_auto_config.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 afdalarm: $(top_builddir)/config.status $(srcdir)/afdalarm.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+afd_unused_infos: $(top_builddir)/config.status $(srcdir)/afd_unused_infos.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 rafdd_cmd: $(top_builddir)/config.status $(srcdir)/rafdd_cmd.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@

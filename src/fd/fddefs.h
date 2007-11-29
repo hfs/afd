@@ -22,8 +22,6 @@
 
 #include <time.h>                /* clock_t                              */
 
-#define WITH_SIGNAL_WAKEUP
-
 /* Definitions for group transfer rate limit (gtrl). */
 #define TRL_FILENAME             "group.transfer_rate_limit"
 #define TRL_MEMBER_ID            "members"
@@ -31,7 +29,7 @@
 #define TRL_LIMIT_ID             "limit"
 #define TRL_LIMIT_ID_LENGTH      (sizeof(TRL_LIMIT_ID) - 1)
 
-/* The different types of locking */
+/* The different types of locking. */
 #define MAX_LOCK_FILENAME_LENGTH 32
 #define LOCK_NOTATION_LENGTH     40
 #define LOCK_FILENAME            "CONNECTED______.LCK"
@@ -46,7 +44,7 @@
 # define SSH_PGP_RSA_KEY         4
 #endif
 
-/* Miscellaneous definitions */
+/* Miscellaneous definitions. */
 #define FAILED_TO_CREATE_ARCHIVE_DIR 1 /* If archive_file() fails to     */
                                        /* create the archive directory   */
                                        /* this is set.                   */
@@ -78,11 +76,11 @@
 # define MAX_FINGERPRINT_LENGTH  47
 #endif
 
-/* Definitions of different exit status */
+/* Definitions of different exit status. */
 #define NO_MESSAGE               -2    /* When there are no more jobs to */
                                        /* be done we return this value.  */
 
-/* Exit status of sf_xxx and gf_xxx */
+/* Exit status of sf_xxx and gf_xxx. */
 #define TRANSFER_SUCCESS         0
 #define TRANSFER_SUCCESS_STR     "Transfer success"
 #define CONNECT_ERROR            1
@@ -297,9 +295,10 @@ struct append_data
        };
 #endif /* _NEW_STUFF */
 
-/* Structure that holds the data for one internal messages of the FD */
+/* Structure that holds the data for one internal messages of the FD. */
 #define MSG_QUE_BUF_SIZE 10000
 
+#define BURST_REQUEUE    1
 #define RESEND_JOB       2
 struct queue_buf
        {
@@ -319,6 +318,7 @@ struct queue_buf
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
                                             /*  2    | RESEND_JOB       |*/
+                                            /*  1    | BURST_REQUEUE    |*/
                                             /*+------+------------------+*/
           char          msg_name[MAX_MSG_NAME_LENGTH];
        };
@@ -477,13 +477,21 @@ struct job
           char           lock;           /* The type of lock on the      */
                                          /* remote site. Their are so    */
                                          /* far two possibilities:       */
-                                         /*   DOT - send file name       */
-                                         /*         starting with dot.   */
-                                         /*         Then rename file.    */
-                                         /*   LOCKFILE - Send a lock     */
-                                         /*              file and after  */
-                                         /*              transfer delete */
-                                         /*              lock file.      */
+                                         /*  DOT      - send file name   */
+                                         /*             starting with    */
+                                         /*             dot. Then rename */
+                                         /*             file.            */
+                                         /*  DOT_VMS  - Same as DOT,     */
+                                         /*             however VMS      */
+                                         /*             always puts a dot*/
+                                         /*             to the end as    */
+                                         /*             well. This must  */
+                                         /*             be taken care of.*/
+                                         /*  lockp    - postfix lock.    */
+                                         /*  LOCKFILE - Send a lock      */
+                                         /*             file and after   */
+                                         /*             transfer delete  */
+                                         /*             lock file.       */
           char           rename_file_busy;/* Character to append to file */
                                          /* name when we get file busy   */
                                          /* error when trying to open    */
@@ -675,7 +683,14 @@ struct trl_cache
 /* Function prototypes. */
 extern int   append_compare(char *, char *),
              archive_file(char *, char *, struct job *),
-             check_burst_2(char *, int *, unsigned int *),
+             check_burst_2(char *, int *,
+#ifdef _WITH_INTERRUPT_JOB
+                           int,
+#endif
+#ifndef AFDBENCH_CONFIG
+                           unsigned int *,
+#endif
+                           unsigned int *),
              check_file_dir(int),
              check_fra_fd(void),
              eval_input_gf(int, char **, struct job *),
@@ -694,6 +709,7 @@ extern int   append_compare(char *, char *),
              init_sf(int, char **, char *, int),
              init_sf_burst2(struct job *, char *, unsigned int *),
              lookup_job_id(unsigned int),
+             noop_wrapper(void),
              read_current_msg_list(unsigned int **, int *),
              read_file_mask(char *, int *, struct file_mask **),
              recount_jobs_queued(int),

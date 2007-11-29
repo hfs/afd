@@ -278,10 +278,10 @@ fsa_attach(void)
       }
 
 #ifdef HAVE_MMAP
-      if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                       MAP_SHARED, fsa_fd, 0)) == (caddr_t) -1)
 #else
-      if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                           MAP_SHARED, fsa_stat_file, 0)) == (caddr_t) -1)
 #endif
       {
@@ -471,10 +471,10 @@ fsa_attach_passive(void)
       }
 
 #ifdef HAVE_MMAP
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fsa_fd, 0)) == (caddr_t) -1)
 #else
-      if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                           MAP_SHARED, fsa_stat_file, 0)) == (caddr_t) -1)
 #endif
       {

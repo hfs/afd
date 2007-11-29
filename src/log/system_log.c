@@ -56,7 +56,7 @@ DESCR__E_M1
 #include "logdefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int               bytes_buffered = 0,
                   sys_log_fd = STDERR_FILENO;
 unsigned int      *p_log_counter,
@@ -71,7 +71,7 @@ char              *fifo_buffer,
 struct afd_status *p_afd_status;
 const char        *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local function prototypes. */
 static void       sig_bus(int),
                   sig_segv(int);
 
@@ -115,7 +115,7 @@ main(int argc, char *argv[])
    {
       char system_log_fifo[MAX_PATH_LENGTH];
 
-      /* Initialise variables for fifo stuff */
+      /* Initialise variables for fifo stuff. */
       (void)strcpy(system_log_fifo, work_dir);
       (void)strcat(system_log_fifo, FIFO_DIR);
       (void)strcat(system_log_fifo, SYSTEM_LOG_FIFO);

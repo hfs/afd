@@ -52,12 +52,11 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/List.h>
 #include <Xm/Text.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_queue.h"
 
-/* External global variables */
-extern Widget                  appshell,
-                               listbox_w,
+/* External global variables. */
+extern Widget                  listbox_w,
                                scrollbar_w,
                                statusbox_w,
                                special_button_w,
@@ -90,7 +89,7 @@ display_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc((LINES_BUFFERED + 1) * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -209,13 +208,11 @@ display_data(void)
    } while (lines_displayed < total_no_files);
 
    /* Free all memory. */
-   if (((i % LINES_BUFFERED) != 0) && (i != 0))
+   lines_displayed = i % LINES_BUFFERED;
+   if ((lines_displayed != 0) && (i != 0))
    {
-      int j, rest;
-
-      rest = i % LINES_BUFFERED;
-      XmListAddItemsUnselected(listbox_w, str_list, rest, 0);
-      for (j = 0; j < rest; j++)
+      XmListAddItemsUnselected(listbox_w, str_list, lines_displayed, 0);
+      for (j = 0; j < lines_displayed; j++)
       {
          XmStringFree(str_list[j]);
       }

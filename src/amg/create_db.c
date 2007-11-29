@@ -124,7 +124,7 @@ struct dir_name_buf               *dnb;
 struct passwd_buf                 *pwb;
 
 /* Local function prototypes. */
-static void                       write_current_msg_list(int);
+static void                       write_current_job_list(int);
 
 /* #define _WITH_JOB_LIST_TEST 1 */
 #define POS_STEP_SIZE      20
@@ -152,6 +152,9 @@ create_db(void)
                    dir_counter = 0,
                    no_of_jobs;
    unsigned int    jid_number;
+#ifdef WITH_ERROR_QUEUE
+   unsigned int    *cml;
+#endif
    dev_t           ldv;               /* local device number (filesystem) */
    char            amg_data_file[MAX_PATH_LENGTH],
                    *ptr,
@@ -301,10 +304,10 @@ create_db(void)
    }
    amg_data_size = stat_buf.st_size;
 #ifdef HAVE_MMAP
-   if ((p_mmap = mmap(0, amg_data_size, (PROT_READ | PROT_WRITE),
+   if ((p_mmap = mmap(NULL, amg_data_size, (PROT_READ | PROT_WRITE),
                       MAP_SHARED, amg_data_fd, 0)) == (caddr_t) -1)
 #else
-   if ((p_mmap = mmap_emu(0, amg_data_size, (PROT_READ | PROT_WRITE),
+   if ((p_mmap = mmap_emu(NULL, amg_data_size, (PROT_READ | PROT_WRITE),
                           MAP_SHARED, amg_data_file, 0)) == (caddr_t) -1)
 #endif
    {
@@ -1215,6 +1218,15 @@ create_db(void)
       sort_time_job();
    }
 
+#ifdef WITH_ERROR_QUEUE
+   if ((cml = malloc((no_of_jobs * sizeof(int)))) == NULL)
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s", strerror(errno));
+      exit(INCORRECT);
+   }
+#endif
+
    /* Check for duplicate job entries. */
    for (i = 0; i < no_of_jobs; i++)
    {
@@ -1228,13 +1240,23 @@ create_db(void)
             break;
          }
       }
+#ifdef WITH_ERROR_QUEUE
+      cml[i] = db[i].job_id;
+#endif
    }
 
    /* Write job list file. */
-   write_current_msg_list(no_of_jobs);
+   write_current_job_list(no_of_jobs);
 
    /* Remove old time job directories. */
    check_old_time_jobs(no_of_jobs);
+
+#ifdef WITH_ERROR_QUEUE
+   /* Validate error queue. */
+   validate_error_queue(no_of_jobs, cml, no_of_hosts, fsa);
+
+   free(cml);
+#endif
 
    /* Free all memory. */
    free(tmp_ptr);
@@ -1318,9 +1340,9 @@ create_db(void)
 }
 
 
-/*++++++++++++++++++++++++ write_current_msg_list() +++++++++++++++++++++*/
+/*++++++++++++++++++++++++ write_current_job_list() +++++++++++++++++++++*/
 static void
-write_current_msg_list(int no_of_jobs)
+write_current_job_list(int no_of_jobs)
 {
    int          i,
                 fd;

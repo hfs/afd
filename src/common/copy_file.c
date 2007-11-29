@@ -1,6 +1,6 @@
 /*
  *  copy_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__S_M3
  **   14.01.1996 H.Kiehl Created
  **   03.07.2001 H.Kiehl When copying via mmap(), copy in chunks.
  **   17.07.2001 H.Kiehl Removed mmap() stuff, simplifies porting.
+ **   02.09.2007 H.Kiehl Added copying via splice().
  **
  */
 DESCR__E_M3
@@ -55,9 +56,21 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <stdlib.h>     /* malloc(), free()                              */
 #ifdef HAVE_FCNTL_H
+# ifdef WITH_SPLICE_SUPPORT
+#  define _GNU_SOURCE
+# endif
 #include <fcntl.h>
 #endif
 #include <errno.h>
+
+#ifdef WITH_SPLICE_SUPPORT
+# ifndef SPLICE_F_MOVE
+#  define SPLICE_F_MOVE 0x01
+# endif
+# ifndef SPLICE_F_MORE
+#  define SPLICE_F_MORE 0x04
+# endif
+#endif
 
 
 /*############################# copy_file() #############################*/
@@ -117,6 +130,58 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
          {
             if (p_stat_buf->st_size > 0)
             {
+#ifdef WITH_SPLICE_SUPPORT
+               int fd_pipe[2];
+
+               if (pipe(fd_pipe) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to create pipe for copying : %s",
+                             strerror(errno));
+                  ret = INCORRECT;
+               }
+               else
+               {
+                  long  bytes_read,
+                        bytes_written;
+                  off_t bytes_left;
+
+                  bytes_left = p_stat_buf->st_size;
+                  while (bytes_left)
+                  {
+                     if ((bytes_read = splice(from_fd, NULL, fd_pipe[1], NULL,
+                                              bytes_left,
+                                              SPLICE_F_MOVE | SPLICE_F_MORE)) == -1)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "splice() error : %s", strerror(errno));
+                        ret = INCORRECT;
+                        break;
+                     }
+                     bytes_left -= bytes_read;
+
+                     while (bytes_read)
+                     {
+                        if ((bytes_written = splice(fd_pipe[0], NULL, to_fd,
+                                                    NULL, bytes_read,
+                                                    SPLICE_F_MOVE | SPLICE_F_MORE)) == -1)
+                        {
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      "splice() error : %s", strerror(errno));
+                           ret = INCORRECT;
+                           bytes_left = 0;
+                           break;
+                        }
+                        bytes_read -= bytes_written;
+                     }
+                  }
+                  if ((close(fd_pipe[0]) == -1) || (close(fd_pipe[1]) == -1))
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to close() pipe : %s", strerror(errno));
+                  }
+               }
+#else
                char *buffer;
 
                if ((buffer = malloc(p_stat_buf->st_blksize)) == NULL)
@@ -154,6 +219,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                   } while (bytes_buffered == p_stat_buf->st_blksize);
                   free(buffer);
                }
+#endif /* !WITH_SPLICE_SUPPORT */
             }
             if (close(to_fd) == -1)
             {

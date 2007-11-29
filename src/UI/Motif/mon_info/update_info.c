@@ -54,7 +54,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "mon_info.h"
 
-/* external global variables */
+/* External global variables. */
 extern int                    afd_position;
 extern char                   afd_name[],
                               label_l[NO_OF_MSA_ROWS][21],
@@ -72,15 +72,14 @@ extern struct prev_values     prev;
 
 /*############################ update_info() ############################*/
 void
-update_info(w)
-Widget w;
+update_info(Widget w)
 {
    static int  interval = 0;
    signed char flush = NO;
    char        str_line[MAX_INFO_STRING_LENGTH],
                tmp_str_line[MAX_INFO_STRING_LENGTH];
 
-   /* Check if MSA changed */
+   /* Check if MSA changed. */
    (void)check_msa();
 
    if (prev.afd_toggle != msa[afd_position].afd_toggle)
@@ -219,7 +218,7 @@ Widget w;
       XFlush(display);
    }
 
-   /* Call update_info() after UPDATE_INTERVAL ms */
+   /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_host = XtAppAddTimeOut(app, UPDATE_INTERVAL,
                                       (XtTimerCallbackProc)update_info,
                                       NULL);

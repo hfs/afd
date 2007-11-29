@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        *p_no_of_hosts,
                                   fsa_fd,
                                   no_of_hosts,
@@ -71,7 +71,7 @@ init_sf_burst2(struct job   *p_new_db,
 #ifdef _WITH_BURST_2
    off_t file_size_to_send = 0;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    if (p_new_db != NULL)
    {
       db.archive_time = p_new_db->archive_time;
@@ -199,6 +199,23 @@ init_sf_burst2(struct job   *p_new_db,
       free(p_new_db);
       p_new_db = NULL;
    }
+
+#ifdef WITH_ERROR_QUEUE
+   if ((fsa->host_status & ERROR_QUEUE_SET) &&
+       (check_error_queue(db.job_id, -1) == 1))
+   {
+      /* If error queue flag is not set, set it! */
+      if ((db.special_flag & IN_ERROR_QUEUE) == 0)
+      {
+         db.special_flag |= IN_ERROR_QUEUE;
+      }
+   }
+   else
+   {
+      /* Unset error queue flag. */
+      db.special_flag &= ~IN_ERROR_QUEUE;
+   }
+#endif
 
    if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & DISABLE_ARCHIVE)
    {

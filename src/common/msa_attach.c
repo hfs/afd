@@ -65,7 +65,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "mondefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                    msa_fd,
                               msa_id,
                               no_of_afds;
@@ -91,7 +91,7 @@ msa_attach(void)
                 ulock = {F_UNLCK, SEEK_SET, 0, 1};
    struct stat  stat_buf;
 
-   /* Get absolute path of MSA_ID_FILE */
+   /* Get absolute path of MSA_ID_FILE. */
    (void)strcpy(msa_id_file, p_work_dir);
    (void)strcat(msa_id_file, FIFO_DIR);
    (void)strcpy(msa_stat_file, msa_id_file);
@@ -171,7 +171,7 @@ msa_attach(void)
          }
       }
 
-      /* Check if its locked */
+      /* Check if its locked. */
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -181,7 +181,7 @@ msa_attach(void)
          return(INCORRECT);
       }
 
-      /* Read the msa_id */
+      /* Read the msa_id. */
       if (read(fd, &msa_id, sizeof(int)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -191,7 +191,7 @@ msa_attach(void)
          return(INCORRECT);
       }
 
-      /* Unlock file and close it */
+      /* Unlock file and close it. */
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -255,10 +255,10 @@ msa_attach(void)
       }
 
 #ifdef HAVE_MMAP
-      if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                       MAP_SHARED, msa_fd, 0)) == (caddr_t) -1)
 #else
-      if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                           MAP_SHARED, msa_stat_file, 0)) == (caddr_t) -1)
 #endif
       {
@@ -267,7 +267,7 @@ msa_attach(void)
          return(INCORRECT);
       }
 
-      /* Read number of AFD's */
+      /* Read number of AFD's. */
       no_of_afds = *(int *)ptr;
    } while (no_of_afds <= 0);
 

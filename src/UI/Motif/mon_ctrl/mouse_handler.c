@@ -76,14 +76,13 @@ DESCR__E_M3
 #include "mon_ctrl.h"
 #include "permission.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                 *display;
 extern Widget                  fw[],
                                rw[],
                                hlw[],
                                tw[],
                                lsw[];
-extern Widget                  appshell;
 extern Window                  line_window;
 extern XFontStruct             *font_struct;
 extern GC                      letter_gc,
@@ -138,7 +137,7 @@ extern struct mon_status_area  *msa;
 extern struct mon_control_perm mcp;
 extern struct apps_list        *apps_list;
 
-/* Local global variables */
+/* Local global variables. */
 static int                     in_window = NO;
 
 
@@ -170,7 +169,7 @@ mon_input(Widget      w,
    int        select_no;
    static int last_motion_pos = -1;
 
-   /* Handle any motion event */
+   /* Handle any motion event. */
    if ((event->xany.type == MotionNotify) && (in_window == YES))
    {
       select_no = (event->xbutton.y / line_height) +
@@ -227,7 +226,7 @@ mon_input(Widget      w,
       select_no = (event->xbutton.y / line_height) +
                   ((event->xbutton.x / line_length) * no_of_rows);
 
-      /* Make sure that this field does contain a channel */
+      /* Make sure that this field does contain a channel. */
       if (select_no < no_of_afds)
       {
          if (((event->xkey.state & Mod1Mask) ||
@@ -391,7 +390,7 @@ popup_mon_menu_cb(Widget      w,
       return;
    }
 
-   /* Position the menu where the event occurred */
+   /* Position the menu where the event occurred. */
    XmMenuPosition(popup, (XButtonPressedEvent *) (event));
    XtManageChild(popup);
 
@@ -440,14 +439,14 @@ mon_popup_cb(Widget    w,
         (sel_typ == VIEW_CONNECTION_LOAD_SEL) ||
         (sel_typ == VIEW_TRANSFER_LOAD_SEL)))
    {
-      (void)xrec(appshell, INFO_DIALOG,
+      (void)xrec(INFO_DIALOG,
                  "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
    RT_ARRAY(hosts, no_of_afds, (MAX_AFDNAME_LENGTH + 1), char);
    if ((args = malloc(new_size)) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
       return;
    }
@@ -652,11 +651,10 @@ mon_popup_cb(Widget    w,
          exit(SUCCESS);
 
       default  :
-         (void)xrec(appshell, WARN_DIALOG,
 #if SIZEOF_LONG == 4
-                    "Impossible item selection (%d).", sel_typ);
+         (void)xrec(WARN_DIALOG, "Impossible item selection (%d).", sel_typ);
 #else
-                    "Impossible item selection (%ld).", sel_typ);
+         (void)xrec(WARN_DIALOG, "Impossible item selection (%ld).", sel_typ);
 #endif
          free(args);
          FREE_RT_ARRAY(hosts)
@@ -688,7 +686,7 @@ mon_popup_cb(Widget    w,
     }
 #endif
 
-   /* Set each host */
+   /* Set each host. */
    k = display_error = 0;
    for (i = 0; i < no_of_afds; i++)
    {
@@ -720,7 +718,7 @@ mon_popup_cb(Widget    w,
                      if ((fd = open(retry_fifo, O_RDWR)) == -1)
 #endif
                      {
-                        (void)xrec(appshell, ERROR_DIALOG,
+                        (void)xrec(ERROR_DIALOG,
                                    "Failed to open() %s : %s (%s %d)",
                                    retry_fifo, strerror(errno),
                                    __FILE__, __LINE__);
@@ -729,7 +727,7 @@ mon_popup_cb(Widget    w,
                      {
                         if (write(fd, &i, sizeof(int)) != sizeof(int))
                         {
-                           (void)xrec(appshell, ERROR_DIALOG,
+                           (void)xrec(ERROR_DIALOG,
                                       "Failed to write() to %s : %s (%s %d)",
                                       retry_fifo, strerror(errno),
                                       __FILE__, __LINE__);
@@ -753,7 +751,7 @@ mon_popup_cb(Widget    w,
                }
                else
                {
-                  (void)xrec(appshell, INFO_DIALOG,
+                  (void)xrec(INFO_DIALOG,
                              "You do not have the permission to retry connection to %s",
                              msa[i].afd_alias);
                }
@@ -780,7 +778,7 @@ mon_popup_cb(Widget    w,
                }
                else
                {
-                  (void)xrec(appshell, INFO_DIALOG,
+                  (void)xrec(INFO_DIALOG,
                              "You do not have the permission to switch %s",
                              msa[i].afd_alias);
                }
@@ -807,7 +805,7 @@ mon_popup_cb(Widget    w,
                      if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
 #endif
                      {
-                        (void)xrec(appshell, ERROR_DIALOG,
+                        (void)xrec(ERROR_DIALOG,
                                    "Failed to open() %s : %s (%s %d)",
                                    mon_cmd_fifo, strerror(errno),
                                    __FILE__, __LINE__);
@@ -820,7 +818,7 @@ mon_popup_cb(Widget    w,
                         (void)memcpy(&cmd[1], &i, SIZEOF_INT);
                         if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
                         {
-                           (void)xrec(appshell, ERROR_DIALOG,
+                           (void)xrec(ERROR_DIALOG,
                                       "Failed to write() to %s : %s (%s %d)",
                                       mon_cmd_fifo, strerror(errno),
                                       __FILE__, __LINE__);
@@ -849,9 +847,9 @@ mon_popup_cb(Widget    w,
                   }
                   else
                   {
-                     if (xrec(appshell, QUESTION_DIALOG,
-                         "Are you shure that you want to disable %s\nThis AFD will then not be monitored.",
-                         msa[i].afd_alias) == YES)
+                     if (xrec(QUESTION_DIALOG,
+                              "Are you shure that you want to disable %s\nThis AFD will then not be monitored.",
+                              msa[i].afd_alias) == YES)
                      {
                         int  fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -867,7 +865,7 @@ mon_popup_cb(Widget    w,
                         if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
 #endif
                         {
-                           (void)xrec(appshell, ERROR_DIALOG,
+                           (void)xrec(ERROR_DIALOG,
                                       "Failed to open() %s : %s (%s %d)",
                                       mon_cmd_fifo, strerror(errno),
                                       __FILE__, __LINE__);
@@ -880,7 +878,7 @@ mon_popup_cb(Widget    w,
                            (void)memcpy(&cmd[1], &i, SIZEOF_INT);
                            if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
                            {
-                              (void)xrec(appshell, ERROR_DIALOG,
+                              (void)xrec(ERROR_DIALOG,
                                          "Failed to write() to %s : %s (%s %d)",
                                          mon_cmd_fifo, strerror(errno),
                                          __FILE__, __LINE__);
@@ -911,7 +909,7 @@ mon_popup_cb(Widget    w,
                }
                else
                {
-                  (void)xrec(appshell, INFO_DIALOG,
+                  (void)xrec(INFO_DIALOG,
                              "You do not have the permission to disable %s",
                              msa[i].afd_alias);
                }
@@ -923,14 +921,14 @@ mon_popup_cb(Widget    w,
                k++;
                break;
 
-            case PING_SEL  :   /* Show ping test */
+            case PING_SEL  :   /* Show ping test. */
                (void)sprintf(ptr_ping_cmd, "%s %s\"",
                              msa[i].hostname[(int)msa[i].afd_toggle],
                              msa[i].afd_alias);
                make_xprocess(progname, progname, args, i);
                break;
 
-            case TRACEROUTE_SEL  :   /* Show traceroute test */
+            case TRACEROUTE_SEL  :   /* Show traceroute test. */
                (void)sprintf(ptr_traceroute_cmd, "%s %s\"",
                              msa[i].hostname[(int)msa[i].afd_toggle],
                              msa[i].afd_alias);
@@ -971,7 +969,7 @@ mon_popup_cb(Widget    w,
                break;
 
             default :
-               (void)xrec(appshell, WARN_DIALOG,
+               (void)xrec(WARN_DIALOG,
                           "Impossible selection! NOOO this can't be true! (%s %d)",
                           __FILE__, __LINE__);
                free(args);
@@ -1015,7 +1013,7 @@ mon_popup_cb(Widget    w,
       }
    }
 
-   /* Make sure that all changes are shown */
+   /* Make sure that all changes are shown. */
    XFlush(display);
 
    no_selected = 0;
@@ -1039,13 +1037,13 @@ start_remote_prog(Widget    w,
 
    if ((no_selected == 0) && (no_selected_static == 0))
    {
-      (void)xrec(appshell, INFO_DIALOG,
+      (void)xrec(INFO_DIALOG,
                  "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
    if ((args = malloc(15 * sizeof(char *))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
       return;
    }
@@ -1122,7 +1120,7 @@ start_remote_prog(Widget    w,
 
          switch (item_no)
          {
-            case AFD_CTRL_SEL : /* Remote afd_ctrl */
+            case AFD_CTRL_SEL : /* Remote afd_ctrl. */
                {
                   int offset;
 
@@ -1152,7 +1150,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case S_LOG_SEL : /* Remote System Log */
+            case S_LOG_SEL : /* Remote System Log. */
                args[arg_count + display_offset + 5] = SHOW_LOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1161,7 +1159,7 @@ start_remote_prog(Widget    w,
                args[arg_count + display_offset + 10] = NULL;
                break;
 
-            case E_LOG_SEL : /* Remote Event Log */
+            case E_LOG_SEL : /* Remote Event Log. */
                args[arg_count + display_offset + 5] = SHOW_ELOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1177,7 +1175,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case R_LOG_SEL : /* Remote Receive Log */
+            case R_LOG_SEL : /* Remote Receive Log. */
                args[arg_count + display_offset + 5] = SHOW_LOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1186,7 +1184,7 @@ start_remote_prog(Widget    w,
                args[arg_count + display_offset + 10] = NULL;
                break;
 
-            case T_LOG_SEL : /* Remote Transfer Log */
+            case T_LOG_SEL : /* Remote Transfer Log. */
                args[arg_count + display_offset + 5] = SHOW_LOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1195,7 +1193,7 @@ start_remote_prog(Widget    w,
                args[arg_count + display_offset + 10] = NULL;
                break;
 
-            case I_LOG_SEL : /* Remote Input Log */
+            case I_LOG_SEL : /* Remote Input Log. */
                args[arg_count + display_offset + 5] = SHOW_ILOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1211,7 +1209,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case O_LOG_SEL : /* Remote Output Log */
+            case O_LOG_SEL : /* Remote Output Log. */
                args[arg_count + display_offset + 5] = SHOW_OLOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1227,7 +1225,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case D_LOG_SEL : /* Remote Delete Log */
+            case D_LOG_SEL : /* Remote Delete Log. */
                args[arg_count + display_offset + 5] = SHOW_DLOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
@@ -1243,7 +1241,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case SHOW_QUEUE_SEL : /* View AFD Queue */
+            case SHOW_QUEUE_SEL : /* View AFD Queue. */
                {
                   int offset;
 
@@ -1305,7 +1303,7 @@ start_remote_prog(Widget    w,
                args[arg_count + display_offset + 9] = NULL;
                break;
 
-            case CONTROL_AMG_SEL : /* Start/Stop AMG */
+            case CONTROL_AMG_SEL : /* Start/Stop AMG. */
                {
                   int offset;
 
@@ -1334,7 +1332,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case CONTROL_FD_SEL : /* Start/Stop FD */
+            case CONTROL_FD_SEL : /* Start/Stop FD. */
                {
                   int offset;
 
@@ -1363,7 +1361,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case REREAD_DIR_CONFIG_SEL : /* Reread DIR_CONFIG file */
+            case REREAD_DIR_CONFIG_SEL : /* Reread DIR_CONFIG file. */
                {
                   int offset;
 
@@ -1391,7 +1389,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case REREAD_HOST_CONFIG_SEL : /* Reread HOST_CONFIG file */
+            case REREAD_HOST_CONFIG_SEL : /* Reread HOST_CONFIG file. */
                {
                   int offset;
 
@@ -1419,7 +1417,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case EDIT_HC_SEL : /* Edit HOST_CONFIG file */
+            case EDIT_HC_SEL : /* Edit HOST_CONFIG file. */
                {
                   int offset;
 
@@ -1449,7 +1447,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case DIR_CTRL_SEL : /* dir_control dialog */
+            case DIR_CTRL_SEL : /* Dir_control dialog. */
                {
                   int offset;
 
@@ -1479,7 +1477,7 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case STARTUP_AFD_SEL : /* Startup AFD */
+            case STARTUP_AFD_SEL : /* Startup AFD. */
                {
                   int offset;
 
@@ -1508,7 +1506,7 @@ start_remote_prog(Widget    w,
                }
 	       break;
 
-            case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
+            case SHUTDOWN_AFD_SEL : /* Shutdown AFD. */
                {
                   int offset;
 
@@ -1538,7 +1536,7 @@ start_remote_prog(Widget    w,
 	       break;
 
             default :
-               (void)xrec(appshell, INFO_DIALOG,
+               (void)xrec(INFO_DIALOG,
 #if SIZEOF_LONG == 4
                           "This function [%d] has not yet been implemented.",
 #else
@@ -1551,7 +1549,7 @@ start_remote_prog(Widget    w,
 
          if (msa[i].r_work_dir[0] == '\0')
          {
-            (void)xrec(appshell, WARN_DIALOG,
+            (void)xrec(WARN_DIALOG,
                        "Did not yet receive remote working directory from %s.\nTry again latter.",
                        msa[i].afd_alias);
          }
@@ -1786,7 +1784,7 @@ start_remote_prog(Widget    w,
                XRaiseWindow(display, window_id);
                XSetInputFocus(display, window_id, RevertToParent, CurrentTime);
 #else
-               (void)xrec(appshell, INFO_DIALOG,
+               (void)xrec(INFO_DIALOG,
                           "%s dialog for %s is already open on your display.",
                           (item_no == AFD_CTRL_SEL) ? AFD_CTRL : DIR_CTRL,
                           msa[i].afd_alias);
@@ -1874,11 +1872,10 @@ change_mon_font_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible font selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible font selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
     }
 
@@ -1886,13 +1883,13 @@ change_mon_font_cb(Widget    w,
    (void)fprintf(stderr, "You have chosen: %s\n", font_name);
 #endif
 
-   /* remove old font */
+   /* Remove old font. */
    XFreeFont(display, font_struct);
 
-   /* calculate the new values for global variables */
+   /* Calculate the new values for global variables. */
    setup_mon_window(font_name);
 
-   /* Load the font into the old GC */
+   /* Load the font into the old GC. */
    gc_values.font = font_struct->fid;
    XChangeGC(display, letter_gc, GCFont, &gc_values);
    XChangeGC(display, normal_letter_gc, GCFont, &gc_values);
@@ -1902,22 +1899,22 @@ change_mon_font_cb(Widget    w,
    XChangeGC(display, red_error_letter_gc, GCFont, &gc_values);
    XFlush(display);
 
-   /* resize and redraw window if necessary */
+   /* Resize and redraw window if necessary. */
    if (resize_mon_window() == YES)
    {
       calc_mon_but_coord(window_width);
       XClearWindow(display, line_window);
 
-      /* redraw label */
+      /* Redraw label at top. */
       draw_label_line();
 
-      /* redraw all status lines */
+      /* Redraw all status lines. */
       for (i = 0; i < no_of_afds; i++)
       {
          draw_line_status(i, 1);
       }
 
-      /* redraw buttons */
+      /* Redraw buttons at bottom. */
       draw_mon_button_line();
 
       redraw = YES;
@@ -2020,11 +2017,10 @@ change_mon_rows_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
    }
 
@@ -2043,16 +2039,16 @@ change_mon_rows_cb(Widget    w,
       calc_mon_but_coord(window_width);
       XClearWindow(display, line_window);
 
-      /* redraw label */
+      /* Redraw label line at top. */
       draw_label_line();
 
-      /* redraw all status lines */
+      /* Redraw all status lines. */
       for (i = 0; i < no_of_afds; i++)
       {
          draw_line_status(i, 1);
       }
 
-      /* redraw label */
+      /* Redraw buttons at bottom. */
       draw_mon_button_line();
 
       redraw = YES;
@@ -2099,11 +2095,10 @@ change_mon_style_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
    }
 
@@ -2134,16 +2129,16 @@ change_mon_style_cb(Widget    w,
       calc_mon_but_coord(window_width);
       XClearWindow(display, line_window);
 
-      /* redraw label */
+      /* Redraw label line at top. */
       draw_label_line();
 
-      /* redraw all status lines */
+      /* Redraw all status lines. */
       for (i = 0; i < no_of_afds; i++)
       {
          draw_line_status(i, 1);
       }
 
-      /* redraw label */
+      /* Redraw button line at bottom. */
       draw_mon_button_line();
 
       redraw = YES;
@@ -2214,11 +2209,10 @@ change_mon_history_cb(Widget    w,
 
       default:
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible history selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible history selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible history selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible history selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
    }
 
@@ -2234,10 +2228,10 @@ change_mon_history_cb(Widget    w,
       calc_mon_but_coord(window_width);
       XClearWindow(display, line_window);
 
-      /* redraw label */
+      /* Redraw label line at top. */
       draw_label_line();
 
-      /* redraw all status lines */
+      /* Redraw all status lines. */
       for (i = 0; i < no_of_afds; i++)
       {
          if (his_log_set > 0)
@@ -2248,7 +2242,7 @@ change_mon_history_cb(Widget    w,
          draw_line_status(i, 1);
       }
 
-      /* redraw buttons */
+      /* Redraw buttons at bottom. */
       draw_mon_button_line();
 
       redraw = YES;

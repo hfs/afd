@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -72,7 +72,7 @@ DESCR__E_M1
 #include "amgdefs.h"
 
 
-/* global variables */
+/* Global variables. */
 extern int                    afd_status_fd,
                               max_process,
 #ifndef _WITH_PTHREAD
@@ -354,14 +354,14 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
-   /* Get the fsa_id and no of host of the FSA */
+   /* Get the fsa_id and no of host of the FSA. */
    if (fsa_attach() < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
       exit(INCORRECT);
    }
 
-   /* Open fifos to communicate with AMG */
+   /* Open fifos to communicate with AMG. */
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (open_fifo_rw(dc_resp_fifo, &dc_resp_readfd, write_fd) == -1)
 #else
@@ -433,7 +433,7 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
-   /* Now create the internal database of this process */
+   /* Now create the internal database of this process. */
    no_of_jobs = create_db();
 
 #ifdef _WITH_PTHREAD

@@ -787,7 +787,7 @@ main(int argc, char *argv[])
                                       XmNrightPosition,    20,
                                       NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
    XtManageChild(form_w);
 
@@ -814,7 +814,7 @@ main(int argc, char *argv[])
    /* Write window ID, so dir_ctrl can set focus if it is called again. */
    write_window_id(XtWindow(appshell), getpid(), DIR_INFO);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -865,7 +865,7 @@ init_dir_info(int *argc, char *argv[])
       argc++;
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -974,7 +974,7 @@ init_dir_info(int *argc, char *argv[])
    }
    if (stat_buf.st_size > 0)
    {
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, dnb_fd, 0)) == (caddr_t) -1)
       {
          (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
@@ -1057,8 +1057,7 @@ init_dir_info(int *argc, char *argv[])
    }
    if (atexit(dir_info_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set exit handler for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set exit handler for %s : %s",
                  DIR_INFO, strerror(errno));                            
    }
    check_window_ids(DIR_INFO);

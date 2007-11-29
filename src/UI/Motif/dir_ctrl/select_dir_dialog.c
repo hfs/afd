@@ -1,6 +1,6 @@
 /*
  *  select_dir_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,15 +54,15 @@ DESCR__E_M3
 #include <Xm/PushB.h>
 #include <Xm/ToggleBG.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
 #include "dir_ctrl.h"
 
-/* Global variables */
+/* Global variables. */
 Widget                            findshell = (Widget)NULL;
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
 extern Widget                     appshell;
 extern int                        no_of_dirs,
@@ -72,7 +72,7 @@ extern char                       font_name[];
 extern struct dir_line            *connect_data;
 extern struct fileretrieve_status *fra;
 
-/* Local global variables */
+/* Local global variables. */
 static Widget                     alias_toggle_w,
                                   find_text_w;
 static int                        deselect,
@@ -120,7 +120,7 @@ select_dir_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                                        topLevelShellWidgetClass,
                                        appshell, NULL);
 
-      /* Create managing widget */
+      /* Create managing widget. */
       main_form_w = XmCreateForm(findshell, "main_form", NULL, 0);
 
       /* Prepare font */
@@ -167,7 +167,7 @@ select_dir_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)search_select_dir, 0);
+                    (XtCallbackProc)search_select_dir, (XtPointer)0);
 
       /* Create Done Button. */
       button_w = XtVaCreateManagedWidget("Close",
@@ -183,7 +183,7 @@ select_dir_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)done_button, 0);
+                    (XtCallbackProc)done_button, (XtPointer)0);
       XtManageChild(buttonbox_w);
 
       /*---------------------------------------------------------------*/
@@ -415,9 +415,9 @@ select_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
       default :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible callback %d! (%s %d)\n",
+         (void)xrec(WARN_DIALOG, "Impossible callback %d! (%s %d)\n",
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible callback %ld! (%s %d)\n",
+         (void)xrec(WARN_DIALOG, "Impossible callback %ld! (%s %d)\n",
 #endif
                     (XT_PTR_TYPE)client_data, __FILE__, __LINE__);
          break;

@@ -78,6 +78,7 @@ sf_ftp_SOURCES        = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_ftp.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_ftp.c\
@@ -104,6 +105,7 @@ sf_http_SOURCES       = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_http.c\
@@ -130,6 +132,7 @@ sf_sftp_SOURCES       = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_sftp.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_sftp.c\
@@ -154,6 +157,7 @@ sf_smtp_SOURCES       = append.c\
                         gsf_check_fsa.c\
                         init_sf.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_smtp.c\
@@ -178,6 +182,7 @@ sf_scp_SOURCES        = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_scp.c\
@@ -203,6 +208,7 @@ sf_wmo_SOURCES        = append.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
                         next_wmo_counter.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_wmo.c\
@@ -224,6 +230,7 @@ sf_map_SOURCES        = append.c\
                         get_group_list.c\
                         gsf_check_fsa.c\
                         init_sf.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_map.c\
@@ -242,6 +249,7 @@ sf_loc_SOURCES        = append.c\
                         gsf_check_fsa.c\
                         init_sf.c\
                         init_sf_burst2.c\
+                        noop_wrapper_dummy.c\
                         output_log_ptrs.c\
                         reset_fsa.c\
                         sf_loc.c\

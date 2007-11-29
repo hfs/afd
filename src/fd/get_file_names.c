@@ -290,11 +290,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
             {
                dup_counter++;
                dup_counter_size += stat_buf.st_size;
-            }
-            if ((is_duplicate == YES) && (db.dup_check_flag & DC_WARN))
-            {
-               trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                         "File `%s' is duplicate.", p_dir->d_name);
+               if (db.dup_check_flag & DC_WARN)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                            "File `%s' is duplicate.", p_dir->d_name);
+               }
             }
             if ((is_duplicate == YES) && (db.dup_check_flag & DC_STORE))
             {
@@ -508,7 +508,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #endif
             if ((files_to_send % 20) == 0)
             {
-               /* Increase the space for the file name buffer */
+               /* Increase the space for the file name buffer. */
                new_size = ((files_to_send / 20) + 1) *
                           20 * MAX_FILENAME_LENGTH;
                offset = p_file_name - file_name_buffer;
@@ -522,7 +522,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                }
                p_file_name = file_name_buffer + offset;
 
-               /* Increase the space for the file size buffer */
+               /* Increase the space for the file size buffer. */
                new_size = ((files_to_send / 20) + 1) * 20 * sizeof(off_t);
                offset = (char *)p_file_size - (char *)file_size_buffer;
                if ((file_size_buffer = realloc(file_size_buffer,
@@ -588,7 +588,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                *p_mtime = stat_buf.st_mtime;
 #ifdef _WITH_FILE_NAME_SORTING
             }
-#endif /* _WITH_FILE_NAME_SORTING */
+#endif
             p_file_name += MAX_FILENAME_LENGTH;
             p_file_size++;
             p_mtime++;
@@ -610,11 +610,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    {
       free(mtime_buffer);
    }
-#endif /* _WITH_FILE_NAME_SORTING */
+#endif
 
    if (files_not_send > 0)
    {
-      /* Total file counter */
+      /* Total file counter. */
 #ifdef LOCK_DEBUG
       lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
 #else
@@ -631,7 +631,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       }
 #endif
 
-      /* Total file size */
+      /* Total file size. */
       fsa->total_file_size -= file_size_not_send;
 #ifdef _VERIFY_FSA
       if (fsa->total_file_size < 0)
@@ -720,8 +720,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                 files_not_send, (pri_off_t)file_size_not_send);
 #endif
 #ifdef WITH_ERROR_QUEUE
-      if ((db.special_flag & IN_ERROR_QUEUE) &&
-          (fsa->host_status & ERROR_QUEUE_SET))
+      if ((files_to_send == 0) && (fsa->host_status & ERROR_QUEUE_SET) &&
+          (check_error_queue(db.job_id, -1) == 1))
       {
          (void)remove_from_error_queue(db.job_id, fsa);
       }

@@ -1,6 +1,6 @@
 /*
  *  xrec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   xrec - pops up a message dialog
  **
  ** SYNOPSIS
- **   int xrec(Widget parent, char type, char *fmt, ...)
+ **   int xrec(char type, char *fmt, ...)
  **
  ** DESCRIPTION
  **   This function pops up a message dialog with 'fmt' as contents.
@@ -60,18 +60,19 @@ DESCR__E_M3
 #include <stdlib.h>            /* abort(), exit()                        */
 #include <stdarg.h>
 #include <Xm/MessageB.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
-/* External global variables */
+/* External global variables. */
+extern Widget       appshell;
 extern XtAppContext app;
 
-/* Local function prototype */
+/* Local function prototype. */
 static void         question_callback(Widget, XtPointer, XtPointer);
 
 
 /*############################### xrec() ################################*/
 int
-xrec(Widget parent, char type, char *fmt, ...)
+xrec(char type, char *fmt, ...)
 {
    int      n = 0;
    char     buf[MAX_LINE_LENGTH];
@@ -87,25 +88,25 @@ xrec(Widget parent, char type, char *fmt, ...)
    n++;
    XtSetArg(arg[n], XmNmessageString, xstring);
    n++;
-   dialog = XmCreateMessageDialog(parent, "Message", arg, n);
+   dialog = XmCreateMessageDialog(appshell, "Message", arg, n);
    XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
    switch (type)
    {
-      case INFO_DIALOG    : /* Information and OK button */
+      case INFO_DIALOG    : /* Information and OK button. */
          XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
          XtVaSetValues(dialog,
                        XmNdialogType, XmDIALOG_INFORMATION,
                        NULL);
          break;
 
-      case WARN_DIALOG    : /* Warning message and OK button */
+      case WARN_DIALOG    : /* Warning message and OK button. */
          XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
          XtVaSetValues(dialog,
                        XmNdialogType, XmDIALOG_WARNING,
                        NULL);
          break;
 
-      case ERROR_DIALOG   : /* Error message and OK button */
+      case ERROR_DIALOG   : /* Error message and OK button. */
          XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
          XtVaSetValues(dialog,
                        XmNdialogType, XmDIALOG_ERROR,
@@ -113,7 +114,7 @@ xrec(Widget parent, char type, char *fmt, ...)
          break;
 
       case FATAL_DIALOG   :
-      case ABORT_DIALOG   : /* Fatal error message and OK button */
+      case ABORT_DIALOG   : /* Fatal error message and OK button. */
          {
             static int answer;
 
@@ -134,7 +135,7 @@ xrec(Widget parent, char type, char *fmt, ...)
                XtAppProcessEvent(app, XtIMAll);
             }
             XSync(XtDisplay(dialog), 0);
-            XmUpdateDisplay(parent);
+            XmUpdateDisplay(appshell);
 
             if (type == ABORT_DIALOG)
             {
@@ -146,7 +147,7 @@ xrec(Widget parent, char type, char *fmt, ...)
             }
          }
 
-      case QUESTION_DIALOG: /* Message and YES+NO button */
+      case QUESTION_DIALOG: /* Message and YES+NO button. */
          {
             static int answer;
             XmString   yes_string,
@@ -175,7 +176,7 @@ xrec(Widget parent, char type, char *fmt, ...)
                XtAppProcessEvent(app, XtIMAll);
             }
             XSync(XtDisplay(dialog), 0);
-            XmUpdateDisplay(parent);
+            XmUpdateDisplay(appshell);
 
             return(answer);
          }

@@ -74,7 +74,7 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <errno.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_elog.h"
 
 /* External global variables. */

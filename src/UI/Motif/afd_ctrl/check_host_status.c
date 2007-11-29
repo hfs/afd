@@ -106,8 +106,7 @@ static int                        check_fsa_data(char *),
 
 /*######################### check_host_status() #########################*/
 void
-check_host_status(w)
-Widget   w;
+check_host_status(Widget w)
 {
    unsigned char new_color;
    signed char   flush;
@@ -146,7 +145,7 @@ Widget   w;
       p_feature_flag = (unsigned char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
       if ((new_connect_data = calloc(no_of_hosts, sizeof(struct line))) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -355,7 +354,7 @@ Widget   w;
 
       if ((connect_data = realloc(connect_data, new_size)) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -408,7 +407,7 @@ Widget   w;
                      new_current_jd_size = new_size;
                      if ((new_jd = malloc(new_size)) == NULL)
                      {
-                        (void)xrec(w, FATAL_DIALOG,
+                        (void)xrec(FATAL_DIALOG,
                                    "malloc() error [%d] : %s [%d] (%s %d)",
                                    new_size, strerror(errno), errno,
                                    __FILE__, __LINE__);
@@ -426,7 +425,7 @@ Widget   w;
                              new_current_jd_size = new_size;
                              if ((new_jd = realloc(new_jd, new_size)) == NULL)
                              {
-                                (void)xrec(w, FATAL_DIALOG,
+                                (void)xrec(FATAL_DIALOG,
                                            "realloc() error [%d] : %s [%d] (%s %d)",
                                            new_size, strerror(errno), errno,
                                            __FILE__, __LINE__);
@@ -453,8 +452,7 @@ Widget   w;
                   current_jd_size = new_current_jd_size;
                   if ((jd = realloc(jd, new_size)) == NULL)
                   {
-                     (void)xrec(w, FATAL_DIALOG,
-                                "realloc() error : %s (%s %d)",
+                     (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                      no_of_jobs_selected = 0;
                      return;

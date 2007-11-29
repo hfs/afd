@@ -71,8 +71,7 @@ DESCR__E_M3
 #include <sys/types.h>    /* fd_set                                      */
 #include <sys/time.h>     /* struct timeval                              */
 #ifdef HAVE_SYS_SOCKET_H
-# include <sys/socket.h>  /* socket(), shutdown(), bind(), accept(),     */
-                          /* setsockopt()                                */
+# include <sys/socket.h>  /* socket(), shutdown(), bind(), setsockopt()  */
 #endif
 #ifdef HAVE_NETINET_IN_H
 # include <netinet/in.h>  /* struct in_addr, sockaddr_in, htons()        */
@@ -95,7 +94,7 @@ DESCR__E_M3
 # include <arpa/inet.h>   /* inet_addr()                                 */
 #endif
 #ifdef WITH_SSL
-# include <setjmp.h>      /* setjmp(), longjmp()                         */
+# include <setjmp.h>      /* sigsetjmp(), siglongjmp()                   */
 # include <signal.h>      /* signal()                                    */
 # include <openssl/crypto.h>
 # include <openssl/x509.h>  
@@ -123,7 +122,7 @@ extern long                      transfer_timeout;
 /* Local global variables. */
 static int                       http_fd;
 #ifdef WITH_SSL
-static jmp_buf                   env_alrm;
+static sigjmp_buf                env_alrm;
 static SSL_CTX                   *ssl_ctx;
 #endif
 static struct timeval            timeout;
@@ -318,7 +317,7 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
       }
 
 
-      if (setjmp(env_alrm) != 0)
+      if (sigsetjmp(env_alrm, 1) != 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "http_connect(): SSL_connect() timeout (%ld)",
@@ -920,7 +919,7 @@ http_read(char *block, int blocksize)
                   * this without SSL_MODE_AUTO_RETRY and handle
                   * SSL_ERROR_WANT_READ ourself.
                   */
-                 if (setjmp(env_alrm) != 0)
+                 if (sigsetjmp(env_alrm, 1) != 0)
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "http_read(): SSL_read() timeout (%ld)",
@@ -1124,7 +1123,7 @@ http_chunk_read(char **chunk, int *chunksize)
                         * reimplement this without SSL_MODE_AUTO_RETRY
                         * and handle SSL_ERROR_WANT_READ ourself.
                         */
-                       if (setjmp(env_alrm) != 0)
+                       if (sigsetjmp(env_alrm, 1) != 0)
                        {
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "http_chunk_read(): SSL_read() timeout (%ld)",
@@ -1802,6 +1801,6 @@ read_msg(int *read_length)
 static void
 sig_handler(int signo)
 {
-   longjmp(env_alrm, 1);
+   siglongjmp(env_alrm, 1);
 }
 #endif

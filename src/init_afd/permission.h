@@ -81,6 +81,11 @@
 #define DIR_INFO_PERM        "dir_info"          /* dir_info dialog.     */
 #define DISABLE_DIR_PERM     "disable_dir"       /* Disable directory.   */
 #define RESCAN_PERM          "rescan"            /* Rescan directory.    */
+#define RR_LC_FILE_PERM      "reread_interface_file" /* Reread local     */
+                                                 /* interface file.      */
+#define FILE_DIR_CHECK_PERM  "file_dir_check"    /* Force file dir check.*/
+#define FORCE_AC_PERM        "force_archive_check" /* Force archive      */
+                                                 /* check.               */
 
 #define PERMISSION_DENIED_STR "You are not permitted to use this program."
 

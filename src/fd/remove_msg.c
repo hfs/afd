@@ -1,6 +1,6 @@
 /*
  *  remove_msg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -75,9 +75,13 @@ remove_msg(int qb_pos)
          fra[qb[qb_pos].pos].error_counter = 0;
          if (fra[qb[qb_pos].pos].dir_flag & DIR_ERROR_SET)
          {
-            fra[qb[qb_pos].pos].dir_flag ^= DIR_ERROR_SET;
+            fra[qb[qb_pos].pos].dir_flag &= ~DIR_ERROR_SET;
             SET_DIR_STATUS(fra[qb[qb_pos].pos].dir_flag,
                            fra[qb[qb_pos].pos].dir_status);
+            error_action(fra[qb[qb_pos].pos].dir_alias, "start",
+                         DIR_ERROR_ACTION);
+            event_log(0L, EC_DIR, ET_EXT, EA_ERROR_START, "%s",
+                      fra[qb[qb_pos].pos].dir_alias);
          }
          unlock_region(fra_fd,
 #ifdef LOCK_DEBUG

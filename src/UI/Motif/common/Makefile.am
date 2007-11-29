@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2005 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,34 +16,17 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
-EXTRA_DIST           = sfilter_old.c
-MAINTAINERCLEANFILES = Makefile.in
-noinst_HEADERS       = x_common_defs.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
-                       -I../afd_ctrl -I../show_olog
-lib_LIBRARIES        = libxafd.a
-libxafd_a_SOURCES    = check_host_permissions.c\
-                       check_info_file.c\
-                       check_nummeric.c\
-                       config_log.c\
-                       generic_print.c\
-                       get_current_jid_list.c\
-                       get_file_mask_list.c\
-                       get_ip_no.c\
-                       get_printer_cmd.c\
-                       handle_setup_file.c\
-                       init_color.c\
-                       insert_passwd.c\
-                       locate_xy.c\
-                       lookup_color.c\
-                       make_xprocess.c\
-                       print_file_size.c\
-                       sfilter.c\
-                       show_info.c\
-                       show_message.c\
-                       store_host_names.c\
-                       update_time.c\
-                       wait_visible.c\
-                       window_id.c\
-                       view_data.c\
-                       xrec.c
+MAINTAINERCLEANFILES  = Makefile.in
+noinst_HEADERS        = motif_common_defs.h
+INCLUDES              = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
+                        -I../../common -I../afd_ctrl -I../show_olog
+lib_LIBRARIES         = libmotifafd.a
+libmotifafd_a_SOURCES = check_info_file.c\
+                        check_nummeric.c\
+                        generic_print.c\
+                        make_xprocess.c\
+                        show_info.c\
+                        show_message.c\
+                        update_time.c\
+                        wait_visible.c\
+                        xrec.c

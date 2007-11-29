@@ -160,13 +160,11 @@ DESCR__E_M3
 #define HOST_CONFIG_TEXT_PART2 "#\n\
 # The meaning of each is outlined in more detail below:\n\
 #\n\
-# Alias hostname         - This is the host name that is being displayed\n\
-#                          in the afd_ctrl window and is used in the log\n\
-#                          files. It may only be 8 (MAX_HOSTNAME_LENGTH)\n\
-#                          characters long.\n\
+# Alias hostname         - This is the host name that is being displayed in the\n\
+#                          afd_ctrl window and is used in the log files. It may\n\
+#                          only be 8 (MAX_HOSTNAME_LENGTH) characters long.\n\
 #                          DEFAULT: None (Empty)\n\
-# Real hostname 1        - The real host name or IP number of the primary\n\
-#                          host.\n\
+# Real hostname 1        - The real host name or IP number of the primary host.\n\
 # Real hostname 2        - The real host name or IP number of the secondary\n\
 #                          host.\n\
 # Host toggle            - Host switching information. This string holds the\n\
@@ -178,35 +176,32 @@ DESCR__E_M3
 # Proxy name             - If the remote host can only be reached via a\n\
 #                          proxy, specify the name of the proxy here.\n\
 #                          DEFAULT: None (Empty)\n\
-# Allowed transfers      - The maximum number of parallel transfers for\n\
-#                          this host.\n\
+# Allowed transfers      - The maximum number of parallel transfers for this\n\
+#                          host.\n\
 #                          DEFAULT: 2\n\
-# Max. errors            - If max. errors is reached the destination\n\
-#                          identifier turns 'red'. If error retries\n\
-#                          reaches twice max. errors the queue of this\n\
-#                          host will be paused.\n\
+# Max. errors            - If max. errors is reached the destination identifier\n\
+#                          turns 'red'. If error retries reaches twice max.\n\
+#                          errors the queue of this host will be paused.\n\
 # Retry interval         - If an error occurs, this is the delay (in\n\
 #                          seconds) before another transfer is initiated.\n\
-# Transfer block size    - The size of the blocks being used to send\n\
-#                          files to the remote host (in Bytes).\n\
+# Transfer block size    - The size of the blocks being used to send files\n\
+#                          to the remote host (in Bytes).\n\
 #                          DEFAULT: 1024\n\
-# Successful retries     - This is only used when there is a secondary\n\
-#                          host and automatic switch over is active.\n\
-#                          It is the number of successful transfers to\n\
-#                          the secondary host, before it tries to switch\n\
-#                          back to the main host to see if it is alive\n\
-#                          again.\n\
-# File size offset       - When transmitting large files and the transfer\n\
-#                          gets interrupted, the AFD can append a file\n\
-#                          on the remote site. For this it needs to know\n\
-#                          the file size on the remote site. And to get\n\
-#                          the size it does a dir 'filename' at the remote\n\
-#                          site. Due to different replies of the FTP\n\
-#                          servers, the position of the file size is\n\
-#                          needed. You can easily determine this value\n\
-#                          simply doing an FTP to the remote site and\n\
-#                          a dir and count the spaces to the file size.\n\
-#                          For example:\n\
+# Successful retries     - This is only used when there is a secondary host\n\
+#                          and automatic switch over is active. It is the\n\
+#                          number of successful transfers to the secondary\n\
+#                          host, before it tries to switch back to the main\n\
+#                          host to see if it is alive again.\n\
+# File size offset       - When transmitting large files and the transfer gets\n\
+#                          interrupted, the AFD can append a file on the remote\n\
+#                          site. For this it needs to know the file size on\n\
+#                          the remote site. And to get the size it does a dir\n\
+#                          'filename' at the remote site. Due to different\n\
+#                          replies of the FTP servers, the position of the\n\
+#                          file size is needed. You can easily determine this\n\
+#                          value simply doing an FTP to the remote site and\n\
+#                          a dir and count the spaces to the file size. For\n\
+#                          example:\n\
 #\n\
 #             -rw-r--r--   1 afd      mts-soft   14971 Jan  3 17:16\n\
 #                       ^^^ ^   ^^^^^^        ^^^\n\
@@ -214,20 +209,19 @@ DESCR__E_M3
 #                        |  |     |            |\n\
 #                        1  2     3            4\n\
 #\n\
-#                          You may also put a -2 here, then AFD will try\n\
-#                          to use the FTP SIZE command to get the size of\n\
-#                          the remote file.\n\
+#                          You may also put a -2 here, then AFD will try to use\n\
+#                          the FTP SIZE command to get the size of the remote\n\
+#                          file.\n\
 #                          DEFAULT: -1 (Disabled)\n\
 #\n\
-# Transfer timeout       - The time how long the AFD should wait for a\n\
-#                          reply from the remote site.\n\
+# Transfer timeout       - The time how long the AFD should wait for a reply\n\
+#                          from the remote site.\n\
 #                          DEFAULT: 120\n\
-# Number of no bursts    - This option applies only to FTP transfers.\n\
-#                          A burst is when a new job is appended to a\n\
-#                          transferring job. It can happen that jobs\n\
-#                          get constantly appended while other jobs\n\
-#                          with a higher priority have to wait. Therefor\n\
-#                          it is possible to state the number of\n\
+# Number of no bursts    - This option applies only to FTP transfers. A burst\n\
+#                          is when a new job is appended to a transferring\n\
+#                          job. It can happen that jobs get constantly appended\n\
+#                          while other jobs with a higher priority have to wait.\n\
+#                          Therefor it is possible to state the number of\n\
 #                          connections that may NOT burst.\n\
 #                          DEFAULT: 0\n\
 # Host status            - This indicates the status of the host, currently\n\
@@ -242,10 +236,10 @@ DESCR__E_M3
 #                          7 (64)  - If set and host switching is used\n\
 #                                    this tells that host two is active.\n\
 #                          DEFAULT: 0\n\
-# Protocol options       - To set some protocol specific features for\n\
-#                          this host. The following bits can be set (again\n\
-#                          the values in bracket are the integer values\n\
-#                          that can be set):\n\
+# Protocol options       - To set some protocol specific features for this\n\
+#                          host. The following bits can be set (again the\n\
+#                          values in bracket are the integer values that can\n\
+#                          be set):\n\
 #                          1 (1)   - FTP passive mode\n\
 #                          2 (2)   - Set FTP idle time to transfer timeout\n\
 #                          3 (4)   - Send STAT command to keep control\n\
@@ -258,6 +252,9 @@ DESCR__E_M3
 #                          8 (128) - If set bursting is disabled.\n\
 #                          9 (256) - If set FTP passive mode allows to be\n\
 #                                    redirected to another address.\n\
+#                          10(512) - When set it will replace the given scheme\n\
+#                                    with file if the hostname matches local\n\
+#                                    hostname or one in local_interface.list.\n\
 #                          DEFAULT: 0\n\
 # Transfer rate limit    - The maximum number of kilobytes that may be\n\
 #                          transfered per second.\n\

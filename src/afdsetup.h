@@ -380,7 +380,7 @@
  * error messages.
  * DEFAULT: 10
  *-----------------------------------------------------------------------*/
-#define FD_RESCAN_TIME 10
+#define FD_RESCAN_TIME 10L
 
 /*-----------------------------------------------------------------------*
  * The time interval at which the FD scans remote directories for files

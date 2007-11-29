@@ -17,11 +17,14 @@
 ##                                                          
                       
 SUBDIRS              = filter
-INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd
-EXTRA_PROGRAMS       = arg ahttp ascp bt change_name copy_file create_files\
+INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd -I../log\
+                       -I../afd_mon
+EXTRA_PROGRAMS       = als arg ahttp ascp bt change_name copy_file create_files\
                        encode64 testlock
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES           = gmon.out core core.*
+als_SOURCES          = als.c
+als_LDADD            = ../common/libafd.a
 encode64_SOURCES     = encode64.c\
                        encode_base64.c
 encode64_LDADD       = ../common/libafd.a

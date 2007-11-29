@@ -72,7 +72,7 @@ DESCR__E_M3
 #include <sys/time.h>         /* struct timeval                          */
 #include <sys/wait.h>         /* waitpid()                               */
 #include <sys/stat.h>         /* S_ISUID, S_ISGID, etc                   */
-#include <setjmp.h>           /* setjmp(), longjmp()                     */
+#include <setjmp.h>           /* sigsetjmp(), siglongjmp()               */
 #include <signal.h>           /* signal(), kill()                        */
 #include <unistd.h>           /* select(), write(), close()              */
 #include <errno.h>
@@ -91,7 +91,7 @@ extern struct job db;
 /* Local global variables. */
 static int        data_fd = -1;
 static pid_t      data_pid = -1;
-static jmp_buf    env_alrm;
+static sigjmp_buf env_alrm;
 
 /* Local function prototypes. */
 static void       sig_handler(int);
@@ -242,7 +242,7 @@ scp_write(char *block, int size)
                         strerror(errno));
               return(INCORRECT);
            }
-           if (setjmp(env_alrm) != 0)
+           if (sigsetjmp(env_alrm, 1) != 0)
            {
               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                         "scp_write(): write() timeout (%ld)", transfer_timeout);
@@ -367,5 +367,5 @@ scp_quit(void)
 static void
 sig_handler(int signo)
 {
-   longjmp(env_alrm, 1);
+   siglongjmp(env_alrm, 1);
 }

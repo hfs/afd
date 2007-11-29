@@ -577,7 +577,7 @@ retry:
          }
       }
       mdb[mdb_position].type = sheme;
-      mdb[*no_msg_cached - 1].port = port;
+      mdb[mdb_position].port = port;
       mdb[mdb_position].msg_time = msg_mtime;
       /*
        * NOTE: Do NOT initialize last_transfer_time! This could

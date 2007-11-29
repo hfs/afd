@@ -66,49 +66,54 @@ DESCR__E_M3
 #include "permission.h"
 #include "amgdefs.h"
 
-/* Global variables */
-unsigned int               *current_jid_list;
-int                        fra_fd = -1,
-                           fra_id,
-                           fsa_fd = -1,
-                           fsa_id,
-                           no_of_current_jobs,
-                           no_of_dirs,
-                           no_of_hosts,
-                           sys_log_fd,
-                           view_passwd = NO;
+/* Global variables. */
+unsigned int                  *current_jid_list;
+int                           fra_fd = -1,
+                              fra_id,
+                              fsa_fd = -1,
+                              fsa_id,
+                              no_of_current_jobs,
+                              no_of_dirs,
+                              no_of_hosts,
+                              sys_log_fd,
+                              view_passwd = NO;
 #ifdef HAVE_MMAP
-off_t                      fra_size,
-                           fsa_size;
+off_t                         fra_size,
+                              fsa_size;
 #endif
-char                       *p_work_dir;
-struct filetransfer_status *fsa;
-struct fileretrieve_status *fra;
-const char                 *sys_log_name = SYSTEM_LOG_FIFO;
+char                          *p_work_dir;
+struct filetransfer_status    *fsa;
+struct fileretrieve_status    *fra;
+const char                    *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local global variables. */
-static int                 no_of_dirs_in_dnb,
-                           no_of_file_mask_ids,
-                           no_of_job_ids,
-                           no_of_passwd;
-static char                *fmd = NULL,
-                           *fmd_end;
-static struct job_id_data  *jd = NULL;
-static struct dir_name_buf *dnb = NULL;
-static struct passwd_buf   *pwb = NULL;
+static int                    no_of_dc_ids,
+                              no_of_dirs_in_dnb,
+                              no_of_file_mask_ids,
+                              no_of_gotchas,
+                              no_of_job_ids,
+                              no_of_passwd;
+static unsigned int           *gl; /* Gotcha List */
+static char                   *fmd = NULL,
+                              *fmd_end;
+static struct job_id_data     *jd = NULL;
+static struct dir_config_list *dcl = NULL;
+static struct dir_name_buf    *dnb = NULL;
+static struct passwd_buf      *pwb = NULL;
 
 /* Local function prototypes. */
-static void                check_dir_options(int),
-                           get_dc_data(char *, char *),
-                           print_recipient(char *),
-                           show_data(struct job_id_data *, char *, char *,
-                                     int, struct passwd_buf *, int),
-                           show_dir_data(int),
-                           usage(FILE *, char *);
-static int                 get_current_jid_list(void),
-                           same_directory(int *, unsigned int),
-                           same_file_filter(int *, unsigned int, unsigned int),
-                           same_options(int *, unsigned int, unsigned int);
+static void                   check_dir_options(int),
+                              get_dc_data(char *, char *),
+                              print_recipient(char *),
+                              show_data(struct job_id_data *, char *, char *,
+                                        int, struct passwd_buf *, int),
+                              show_dir_data(int, int),
+                              usage(FILE *, char *);
+static int                    get_current_jid_list(void),
+                              same_directory(int *, unsigned int),
+                              same_file_filter(int *, unsigned int,
+                                               unsigned int),
+                              same_options(int *, unsigned int, unsigned int);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -243,21 +248,23 @@ main(int argc, char *argv[])
 static void
 get_dc_data(char *host_name, char *dir_alias)
 {
-   int         dnb_fd,
+   int         dcl_fd,
+               dnb_fd,
                fmd_fd,
                i,
                j,
                jd_fd,
                position,
                pwb_fd;
-   size_t      dnb_size = 0,
+   size_t      dcl_size = 0,
+               dnb_size = 0,
                fmd_size = 0,
                jid_size = 0,
                pwb_size = 0;
-   char        job_id_data_file[MAX_PATH_LENGTH];
+   char        file[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   /* First check if the host is in the FSA */
+   /* First check if the host is in the FSA. */
    if ((host_name[0] != '\0') &&
        ((position = get_host_position(fsa, host_name, no_of_hosts)) == INCORRECT))
    {
@@ -278,13 +285,12 @@ get_dc_data(char *host_name, char *dir_alias)
    }
 
    /* Map to JID database. */
-   (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
-                 JOB_ID_DATA_FILE);
-   if ((jd_fd = open(job_id_data_file, O_RDONLY)) == -1)
+   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
+   if ((jd_fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr,
                  "Failed to open() %s : %s (%s %d)",
-                 job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                 file, strerror(errno), __FILE__, __LINE__);
       if (current_jid_list != NULL)
       {
          free(current_jid_list);
@@ -294,7 +300,7 @@ get_dc_data(char *host_name, char *dir_alias)
    if (fstat(jd_fd, &stat_buf) == -1)
    {
       (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
-                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                    file, strerror(errno), __FILE__, __LINE__);
       (void)close(jd_fd);
       if (current_jid_list != NULL)
       {
@@ -307,11 +313,11 @@ get_dc_data(char *host_name, char *dir_alias)
       char *ptr;
 
       jid_size = stat_buf.st_size;
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
       {
          (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
-                       job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                       file, strerror(errno), __FILE__, __LINE__);
          (void)close(jd_fd);
          if (current_jid_list != NULL)
          {
@@ -341,12 +347,11 @@ get_dc_data(char *host_name, char *dir_alias)
    }
 
    /* Map to directory name buffer. */
-   (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
-                 DIR_NAME_FILE);
-   if ((dnb_fd = open(job_id_data_file, O_RDONLY)) == -1)
+   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, DIR_NAME_FILE);
+   if ((dnb_fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                    file, strerror(errno), __FILE__, __LINE__);
       if (current_jid_list != NULL)
       {
          free(current_jid_list);
@@ -364,7 +369,7 @@ get_dc_data(char *host_name, char *dir_alias)
    if (fstat(dnb_fd, &stat_buf) == -1)
    {
       (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
-                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                    file, strerror(errno), __FILE__, __LINE__);
       (void)close(dnb_fd);
       if (current_jid_list != NULL)
       {
@@ -385,11 +390,11 @@ get_dc_data(char *host_name, char *dir_alias)
       char *ptr;
 
       dnb_size = stat_buf.st_size;
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, dnb_fd, 0)) == (caddr_t) -1)
       {
          (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
-                       job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                       file, strerror(errno), __FILE__, __LINE__);
          (void)close(dnb_fd);
          if (current_jid_list != NULL)
          {
@@ -435,9 +440,8 @@ get_dc_data(char *host_name, char *dir_alias)
    }
 
    /* Map to file mask database. */
-   (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
-                 FILE_MASK_FILE);
-   if ((fmd_fd = open(job_id_data_file, O_RDONLY)) != -1)
+   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, FILE_MASK_FILE);
+   if ((fmd_fd = open(file, O_RDONLY)) != -1)
    {
       if (fstat(fmd_fd, &stat_buf) != -1)
       {
@@ -445,7 +449,7 @@ get_dc_data(char *host_name, char *dir_alias)
          {
             char *ptr;
 
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                             MAP_SHARED, fmd_fd, 0)) != (caddr_t) -1)
             {
                fmd_size = stat_buf.st_size;
@@ -457,7 +461,7 @@ get_dc_data(char *host_name, char *dir_alias)
             else
             {
                (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
-                             job_id_data_file, strerror(errno),
+                             file, strerror(errno),
                              __FILE__, __LINE__);
             }
          }
@@ -470,7 +474,7 @@ get_dc_data(char *host_name, char *dir_alias)
       else
       {
          (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
-                       job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                       file, strerror(errno), __FILE__, __LINE__);
       }
       if (close(fmd_fd) == -1)
       {
@@ -481,13 +485,12 @@ get_dc_data(char *host_name, char *dir_alias)
    else
    {
       (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                    file, strerror(errno), __FILE__, __LINE__);
    }
 
    /* Map to password buffer. */
-   (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
-                 PWB_DATA_FILE);
-   if ((pwb_fd = open(job_id_data_file, O_RDONLY)) != -1)
+   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, PWB_DATA_FILE);
+   if ((pwb_fd = open(file, O_RDONLY)) != -1)
    {
       if (fstat(pwb_fd, &stat_buf) != -1)
       {
@@ -495,7 +498,7 @@ get_dc_data(char *host_name, char *dir_alias)
          {
             char *ptr;
 
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                             MAP_SHARED, dnb_fd, 0)) != (caddr_t) -1)
             {
                pwb_size = stat_buf.st_size;
@@ -506,7 +509,7 @@ get_dc_data(char *host_name, char *dir_alias)
             else
             {
                (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
-                             job_id_data_file, strerror(errno),
+                             file, strerror(errno),
                              __FILE__, __LINE__);
             }
          }
@@ -519,7 +522,7 @@ get_dc_data(char *host_name, char *dir_alias)
       else
       {
          (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
-                       job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                       file, strerror(errno), __FILE__, __LINE__);
       }
       if (close(pwb_fd) == -1)
       {
@@ -530,7 +533,55 @@ get_dc_data(char *host_name, char *dir_alias)
    else
    {
       (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                    file, strerror(errno), __FILE__, __LINE__);
+   }
+
+   /* Map to DIR_CONFIG name database. */
+   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, DC_LIST_FILE);
+   if ((dcl_fd = open(file, O_RDONLY)) != -1)
+   {
+      if (fstat(dcl_fd, &stat_buf) != -1)
+      {
+         if (stat_buf.st_size > 0)
+         {
+            char *ptr;
+
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                            MAP_SHARED, dcl_fd, 0)) != (caddr_t) -1)
+            {
+               dcl_size = stat_buf.st_size;
+               no_of_dc_ids = *(int *)ptr;
+               ptr += AFD_WORD_OFFSET;
+               dcl = (struct dir_config_list *)ptr;
+            }
+            else
+            {
+               (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
+                             file, strerror(errno),
+                             __FILE__, __LINE__);
+            }
+         }
+         else
+         {
+            (void)fprintf(stderr, "File mask database file is empty. (%s %d)\n",
+                          __FILE__, __LINE__);
+         }
+      }
+      else
+      {
+         (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+                       file, strerror(errno), __FILE__, __LINE__);
+      }
+      if (close(dcl_fd) == -1)
+      {
+         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+      }
+   }
+   else
+   {
+      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                    file, strerror(errno), __FILE__, __LINE__);
    }
 
    /*
@@ -548,7 +599,7 @@ get_dc_data(char *host_name, char *dir_alias)
       {
          for (i = 0; i < no_of_dirs_in_dnb; i++)
          {
-            show_dir_data(i);
+            show_dir_data(i, -1);
          }
       }
       else
@@ -561,7 +612,7 @@ get_dc_data(char *host_name, char *dir_alias)
                {
                   if (dnb[j].dir_id == fra[i].dir_id)
                   {
-                     show_dir_data(j);
+                     show_dir_data(j, i);
                      break;
                   }
                }
@@ -586,7 +637,7 @@ get_dc_data(char *host_name, char *dir_alias)
                {
                   if (dnb[j].dir_id == fra[i].dir_id)
                   {
-                     show_dir_data(j);
+                     show_dir_data(j, i);
                      break;
                   }
                }
@@ -618,6 +669,14 @@ get_dc_data(char *host_name, char *dir_alias)
    if (current_jid_list != NULL)
    {
       free(current_jid_list);
+   }
+   if (dcl_size > 0)
+   {
+      if (munmap(((char *)dcl - AFD_WORD_OFFSET), dcl_size) < 0)
+      {
+         (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+      }
    }
    if (pwb_size > 0)
    {
@@ -672,6 +731,19 @@ show_data(struct job_id_data *p_jd,
    char               value[MAX_PATH_LENGTH];
    struct dir_options d_o;
 
+   if (no_of_dc_ids > 1)
+   {
+      for (i = 0; i < no_of_dc_ids; i++)
+      {
+         if (dcl[i].dc_id == p_jd->dir_config_id)
+         {
+            (void)fprintf(stdout, "DIR_CONFIG    : %s\n",
+                          dcl[i].dir_config_file);
+            break;
+         }
+      }
+   }
+
    (void)fprintf(stdout, "%s%s\n", VIEW_DC_DIR_IDENTIFIER, dir_name);
 
    get_dir_options(p_jd->dir_id, &d_o);
@@ -679,7 +751,7 @@ show_data(struct job_id_data *p_jd,
    {
       (void)strcpy(value, d_o.url);
       print_recipient(value);
-      fprintf(stdout, "DIR-URL       : %s\n", value);
+      (void)fprintf(stdout, "DIR-URL       : %s\n", value);
    }
 
    for (i = 0; i < no_of_dirs; i++)
@@ -798,7 +870,7 @@ show_data(struct job_id_data *p_jd,
          }
          value[counter] = '\0';
          (void)fprintf(stdout, "                %s\n", value);
-         if (ptr == '\0')
+         if (*ptr == '\0')
          {
             break;
          }
@@ -818,10 +890,9 @@ show_data(struct job_id_data *p_jd,
 
 /*++++++++++++++++++++++++++ show_dir_data() ++++++++++++++++++++++++++++*/
 static void
-show_dir_data(int dir_pos)
+show_dir_data(int dir_pos, int fra_pos)
 {
    int  fml_offset,
-        fra_pos = -1,
         i, j,
         job_pos = -1,
         mask_offset;
@@ -847,20 +918,31 @@ show_dir_data(int dir_pos)
       /* This directory is no longer in the current FSA. */
       return;
    }
-   for (i = 0; i < no_of_dirs; i++)
-   {
-      if (fra[i].dir_id == dnb[dir_pos].dir_id)
-      {
-         fra_pos = i;
-         break;
-      }
-   }
    if (fra_pos == -1)
    {
-      (void)fprintf(stderr, "Failed to locate `%s' in FRA!\n",
-                    dnb[dir_pos].orig_dir_name);
+      for (i = 0; i < no_of_dirs; i++)
+      {
+         if (fra[i].dir_id == dnb[dir_pos].dir_id)
+         {
+            fra_pos = i;
+            break;
+         }
+      }
+      if (fra_pos == -1)
+      {
+         (void)fprintf(stderr, "Failed to locate `%s' in FRA!\n",
+                       dnb[dir_pos].orig_dir_name);
+         exit(INCORRECT);
+      }
+   }
+
+   if ((gl = malloc((no_of_job_ids * sizeof(unsigned int)))) == NULL)
+   {
+      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+   no_of_gotchas = 0;
 
    /* Directory entry. */
    (void)strcpy(value, dnb[dir_pos].orig_dir_name);
@@ -949,7 +1031,7 @@ show_dir_data(int dir_pos)
             }
          }
 
-         /* Show all FD options */
+         /* Show all FD options. */
          if (jd[job_pos].no_of_soptions > 0)
          {
             int  counter = 0;
@@ -965,7 +1047,7 @@ show_dir_data(int dir_pos)
                }
                value[counter] = '\0';
                (void)fprintf(stdout, "         %s\n", value);
-               if (ptr == '\0')
+               if (*ptr == '\0')
                {
                   break;
                }
@@ -976,6 +1058,8 @@ show_dir_data(int dir_pos)
       } while (same_file_filter(&job_pos, jd[job_pos].file_mask_id, jd[job_pos].dir_id));
    } while (same_directory(&job_pos, jd[job_pos].dir_id));
 
+   free(gl);
+
    return;
 }
 
@@ -984,18 +1068,32 @@ show_dir_data(int dir_pos)
 static int
 same_directory(int *jd_pos, unsigned int dir_id)
 {
-   int i, j;
+   int i,
+       in_gotcha_list,
+       j;
 
-   for (i = (*jd_pos + 1); i < no_of_job_ids; i++)
+   for (i = 0; i < no_of_job_ids; i++)
    {
-      if (jd[i].dir_id == dir_id)
+      in_gotcha_list = NO;
+      for (j = 0; j < no_of_gotchas; j++)
       {
-         for (j = 0; j < no_of_current_jobs; j++)
+         if (gl[j] == jd[i].job_id)
          {
-            if (jd[i].job_id == current_jid_list[j])
+            in_gotcha_list = YES;
+            break;
+         }
+      }
+      if (in_gotcha_list == NO)
+      {
+         if (jd[i].dir_id == dir_id)
+         {
+            for (j = 0; j < no_of_current_jobs; j++)
             {
-               *jd_pos = i;
-               return(1);
+               if (jd[i].job_id == current_jid_list[j])
+               {
+                  *jd_pos = i;
+                  return(1);
+               }
             }
          }
       }
@@ -1008,18 +1106,32 @@ same_directory(int *jd_pos, unsigned int dir_id)
 static int
 same_file_filter(int *jd_pos, unsigned int file_mask_id, unsigned int dir_id)
 {
-   int i, j;
+   int i,
+       in_gotcha_list,
+       j;
 
    for (i = (*jd_pos + 1); i < no_of_job_ids; i++)
    {
-      if ((jd[i].dir_id == dir_id) && (jd[i].file_mask_id == file_mask_id))
+      in_gotcha_list = NO;
+      for (j = 0; j < no_of_gotchas; j++)
       {
-         for (j = 0; j < no_of_current_jobs; j++)
+         if (gl[j] == jd[i].job_id)
          {
-            if (jd[i].job_id == current_jid_list[j])
+            in_gotcha_list = YES;
+            break;
+         }
+      }
+      if (in_gotcha_list == NO)
+      {
+         if ((jd[i].dir_id == dir_id) && (jd[i].file_mask_id == file_mask_id))
+         {
+            for (j = 0; j < no_of_current_jobs; j++)
             {
-               *jd_pos = i;
-               return(1);
+               if (jd[i].job_id == current_jid_list[j])
+               {
+                  *jd_pos = i;
+                  return(1);
+               }
             }
          }
       }
@@ -1035,6 +1147,8 @@ same_options(int *jd_pos, unsigned int dir_id, unsigned int file_mask_id)
    int current_jd_pos,
        i, j;
 
+   gl[no_of_gotchas] = jd[*jd_pos].job_id;
+   no_of_gotchas++;
    current_jd_pos = *jd_pos;
    for (i = (*jd_pos + 1); i < no_of_job_ids; i++)
    {
@@ -1138,7 +1252,7 @@ get_current_jid_list(void)
       return(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,

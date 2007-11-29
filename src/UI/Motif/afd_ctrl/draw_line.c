@@ -74,7 +74,6 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 
 extern Display                    *display;
-extern Widget                     appshell;
 extern Window                     label_window,
                                   line_window,
                                   button_window,
@@ -1133,8 +1132,7 @@ draw_chars(int pos, char type, int x, int y, int column)
          break;
 
       default : /* That's not possible! */
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Unknown character type %d. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Unknown character type %d. (%s %d)",
                     (int)type, __FILE__, __LINE__);
          return;
    }

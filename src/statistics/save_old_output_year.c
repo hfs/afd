@@ -64,7 +64,7 @@ DESCR__E_M3
 #endif
 #endif
 
-/* Global external variables */
+/* Global external variables. */
 extern int            no_of_hosts,
                       sys_log_fd;
 extern char           statistic_file[MAX_PATH_LENGTH],
@@ -153,7 +153,7 @@ save_old_output_year(int new_year)
       (void)close(old_year_fd);
       return;
    }
-   if ((ptr = mmap(0, old_year_stat_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, old_year_stat_size, (PROT_READ | PROT_WRITE),
                    (MAP_FILE | MAP_SHARED),
                    old_year_fd, 0)) == (caddr_t) -1)
    {

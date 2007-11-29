@@ -1,3 +1,4 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <title>AFD (edit_hc.html)</title>
@@ -41,11 +42,16 @@ only possible to have one of this dialog open at the same time.
 </tr>
 <tr>
    <td>&nbsp<b>3</b>&nbsp</td>
-   <td>Real Hostname</td>
+   <td><a name="real_hostname">Real Hostname</a></td>
    <td>Here you may specify the real host name or IP number. This has the
        advantage that you can give remote hosts names that are not in
        the local /etc/hosts file or the name server. If a secondary host
-       is available, the second host field will be active.</td>
+       is available, the second host field will be active. When the toggle
+       button at the bottom of this boxed is set and the active real hostname
+       matches that of the current (ie. the host where AFD is running) or if
+       it matches any of the entries in <a href="local_interface.html">
+       $AFD_WORK_DIR/etc/local_interface.list</a> it will use scheme
+       'file' to deliver the data.</td>
 </tr>
 <tr>
    <td>&nbsp<b>4</b>&nbsp</td>
@@ -60,6 +66,12 @@ only possible to have one of this dialog open at the same time.
           <td>Retry interval</td>
           <td>If an error occurs, this is the delay (in seconds) before
               another transfer is initiated.</td>
+       </tr>
+       <tr>
+          <td>Ignore errors+warnings</td>
+          <td>If set, errors and warnings for this host will be set to
+              offline. If the value of 'Maximum errors' is reached the
+              host will turn 'blue'.</td>
        </tr>
        <tr>
           <td>Maximum errors</td>
@@ -79,8 +91,10 @@ only possible to have one of this dialog open at the same time.
        <tr>
           <td>Keep connected</td>
           <td>The number of seconds that the connection should be kept
-              open after a directory listing or sending files. This currently
-              only works for retrieving jobs.</td>
+              open for retrieving and sending files, when the toggle
+              button 'Both' is set. If the toggle button 'Fetch' is set,
+              this value is only set when retrieving files. When 'Send'
+              is set the value is only valid for sending files.</td>
        </tr>
        </table>
    </td>
@@ -310,12 +324,12 @@ only possible to have one of this dialog open at the same time.
 </table>
 </center>
 <hr size=3 noshade>
-<table width=100%>
+<table width="100%">
 <tr>
-   <td width=90%><address><small>
+   <td width="90%"><address><small>
    Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 24.03.2007
+   Last updated: 12.11.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

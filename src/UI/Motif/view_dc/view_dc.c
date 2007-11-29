@@ -97,7 +97,7 @@ static char  *view_buffer = NULL;
 static int   max_x,
              max_y;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void  init_view_dc(int *, char **),
              usage(char *),
              view_dc_exit(void);
@@ -239,7 +239,7 @@ main(int argc, char *argv[])
                                       XmNrightPosition,    20,
                                       NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
    /* Create DIR_CONFIG data as a ScrolledText window. */
@@ -303,7 +303,7 @@ main(int argc, char *argv[])
    /* Write window ID, so afd_ctrl can set focus if it is called again. */
    write_window_id(XtWindow(appshell), getpid(), VIEW_DC);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -582,8 +582,7 @@ init_view_dc(int *argc, char *argv[])
 
    if (atexit(view_dc_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set exit handler for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set exit handler for %s : %s",
                  VIEW_DC, strerror(errno));
    }
    check_window_ids(VIEW_DC);

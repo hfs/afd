@@ -63,7 +63,9 @@ DESCR__E_M3
 #define NO_OF_COLUMNS 3
 
 /* Global variables. */
-Widget              selectshell = (Widget)NULL;
+int                 toggle_counter;
+Widget              selectshell = (Widget)NULL,
+                    *toggle_w = NULL;
 
 /* External global variables. */
 extern unsigned int ea_toggles_set_1,
@@ -74,6 +76,7 @@ extern char         font_name[];
 
 /* Local function prototypes. */
 static void         done_button(Widget, XtPointer, XtPointer),
+                    ea_toggle_all(Widget, XtPointer, XtPointer),
                     ea_toggled(Widget, XtPointer, XtPointer);
 
 
@@ -99,8 +102,7 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
                       criteriabox_w,
                       frame_w,
                       main_form_w,
-                      separator_w,
-                      toggle_w;
+                      separator_w;
       Arg             args[6];
       Cardinal        argcount;
       XmFontList      p_fontlist;
@@ -143,8 +145,8 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
       argcount++;
       buttonbox_w = XmCreateForm(main_form_w, "buttonbox", args, argcount);
 
-      /* Create Close Button. */
-      button_w = XtVaCreateManagedWidget("Close",
+      /* Create Toggle All Button. */
+      button_w = XtVaCreateManagedWidget("Toggle all",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             p_fontlist,
                         XmNtopAttachment,        XmATTACH_POSITION,
@@ -152,12 +154,28 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNleftAttachment,       XmATTACH_POSITION,
                         XmNleftPosition,         1,
                         XmNrightAttachment,      XmATTACH_POSITION,
+                        XmNrightPosition,        10,
+                        XmNbottomAttachment,     XmATTACH_POSITION,
+                        XmNbottomPosition,       20,
+                        NULL);
+      XtAddCallback(button_w, XmNactivateCallback,
+                    (XtCallbackProc)ea_toggle_all, (XtPointer)0);
+
+      /* Create Close Button. */
+      button_w = XtVaCreateManagedWidget("Close",
+                        xmPushButtonWidgetClass, buttonbox_w,
+                        XmNfontList,             p_fontlist,
+                        XmNtopAttachment,        XmATTACH_POSITION,
+                        XmNtopPosition,          1,
+                        XmNleftAttachment,       XmATTACH_POSITION,
+                        XmNleftPosition,         10,
+                        XmNrightAttachment,      XmATTACH_POSITION,
                         XmNrightPosition,        20,
                         XmNbottomAttachment,     XmATTACH_POSITION,
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)done_button, 0);
+                    (XtCallbackProc)done_button, (XtPointer)0);
       XtManageChild(buttonbox_w);
 
       /*---------------------------------------------------------------*/
@@ -224,6 +242,14 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
       /*---------------------------------------------------------------*/
       /*                    All toggle event actions                   */
       /*---------------------------------------------------------------*/
+      if ((toggle_w == NULL) &&
+          ((toggle_w = malloc(((sizeof(eastr) / sizeof(*eastr)) * sizeof(Widget)))) == NULL))
+      {
+         (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      toggle_counter = 0;
       for (i = 0; i < NO_OF_COLUMNS; i++)
       {
          for (j = 0; j < no_of_rows; j++)
@@ -231,7 +257,7 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
             ea_pos = (i * no_of_rows) + j + 1;
             if (ea_pos < (sizeof(eastr) / sizeof(*eastr)))
             {
-               toggle_w = XtVaCreateManagedWidget(eastr[ea_pos],
+               toggle_w[toggle_counter] = XtVaCreateManagedWidget(eastr[ea_pos],
                            xmToggleButtonGadgetClass, criteriabox_w,
                            XmNfontList,               p_fontlist,
                            XmNset,                    True,
@@ -245,8 +271,9 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
                            XmNrightAttachment,        XmATTACH_POSITION,
                            XmNrightPosition,          ((i + 1) * column_width),
                            NULL);
-               XtAddCallback(toggle_w, XmNvalueChangedCallback,
+               XtAddCallback(toggle_w[toggle_counter], XmNvalueChangedCallback,
                              (XtCallbackProc)ea_toggled, (XtPointer)ea_pos);
+               toggle_counter++;
             }
          }
       }
@@ -259,6 +286,46 @@ select_event_actions(Widget w, XtPointer client_data, XtPointer call_data)
 #endif
    }
    XtPopup(selectshell, XtGrabNone);
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++ ea_toggle_all() ++++++++++++++++++++++++++++*/
+static void
+ea_toggle_all(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   int     i;
+   Boolean set_toggle;
+
+   ea_toggles_set_1 = ~ea_toggles_set_1;
+   ea_toggles_set_2 = ~ea_toggles_set_2;
+   for (i = 1; i < (toggle_counter + 1); i++)
+   {
+      if (i < EA_START_TRANSFER)
+      {
+         if (ea_toggles_set_1 & (1 << i))
+         {
+            set_toggle = True;
+         }
+         else
+         {
+            set_toggle = False;
+         }
+      }
+      else
+      {
+         if (ea_toggles_set_2 & (1 << (i - EA_DISABLE_HOST)))
+         {
+            set_toggle = True;
+         }
+         else
+         {
+            set_toggle = False;
+         }
+      }
+      XmToggleButtonGadgetSetState(toggle_w[i - 1], set_toggle, False);
+   }
 
    return;
 }

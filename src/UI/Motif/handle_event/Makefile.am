@@ -19,10 +19,10 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = handle_event.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../afd_ctrl -I../../../init_afd
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../afd_ctrl -I../../../init_afd
 bin_PROGRAMS         = handle_event
 handle_event_SOURCES = callbacks.c\
                        handle_event.c
-handle_event_LDADD   = ../common/libxafd.a\
+handle_event_LDADD   = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

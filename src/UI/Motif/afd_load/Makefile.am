@@ -20,8 +20,8 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = afd_load.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ @AFD_XAW_INCLUDES@  -I../../..\
-                       -I../common -I../../../init_afd -I../../../statistics\
-                       -I../afd_ctrl
+                       -I../../common -I../common -I../../../init_afd\
+                       -I../../../statistics -I../afd_ctrl
 bin_PROGRAMS         = afd_load
 afd_load_SOURCES     = afd_load.c\
                        afd_load_callbacks.c

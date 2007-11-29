@@ -95,6 +95,7 @@ int                        counter_fd = -1,     /* NOT USED */
                            *p_no_of_hosts = NULL,
                            fsa_id,
                            fsa_fd = -1,
+                           prev_no_of_files_done = 0,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
@@ -112,6 +113,7 @@ unsigned int               burst_2_counter = 0;
 off_t                      fsa_size;
 #endif
 off_t                      *file_size_buffer = NULL;
+u_off_t                    prev_file_size_done = 0;
 long                       transfer_timeout;
 char                       *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
@@ -889,9 +891,22 @@ main(int argc, char *argv[])
          }
          else
          {
+#ifdef WITH_UNLINK_DELAY
+            int unlink_loops = 0;
+
+try_again_unlink:
+#endif
             /* Delete the file we just have send */
             if (unlink(fullname) == -1)
             {
+#ifdef WITH_UNLINK_DELAY
+               if ((errno == EBUSY) && (unlink_loops < 20))
+               {
+                  (void)my_usleep(100000L);
+                  unlink_loops++;
+                  goto try_again_unlink;
+               }
+#endif
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Could not unlink() local file %s after sending it successfully : %s",
                           fullname, strerror(errno));
@@ -1018,7 +1033,7 @@ main(int argc, char *argv[])
                {
                   fsa->host_status &= ~EVENT_STATUS_FLAGS;
                }
-               error_action(fsa->host_alias, "stop");
+               error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
                event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                          fsa->host_alias);
                if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
@@ -1073,7 +1088,14 @@ main(int argc, char *argv[])
 
 #ifdef _WITH_BURST_2
       burst_2_counter++;
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, NULL)) == YES);
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
+# ifdef _WITH_INTERRUPT_JOB
+                                     0,
+# endif
+# ifndef AFDBENCH_CONFIG
+                                     NULL,
+# endif
+                                     NULL)) == YES);
    burst_2_counter--;
 
    if (cb2_ret == NEITHER)
@@ -1120,8 +1142,14 @@ sf_wmo_exit(void)
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      if ((fsa->job_status[(int)db.job_no].file_size_done > 0) ||
-          (fsa->job_status[(int)db.job_no].no_of_files_done > 0))
+      int     diff_no_of_files_done;
+      u_off_t diff_file_size_done;
+
+      diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                              prev_no_of_files_done;
+      diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                            prev_file_size_done;
+      if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
 #ifdef _WITH_BURST_2
 # if SIZEOF_OFF_T == 4
@@ -1129,8 +1157,7 @@ sf_wmo_exit(void)
 # else
          fd = sprintf(sf_fin_fifo, "%llu Bytes send in %d file(s).",
 # endif
-                      fsa->job_status[(int)db.job_no].file_size_done,
-                      fsa->job_status[(int)db.job_no].no_of_files_done);
+                      diff_file_size_done, diff_no_of_files_done);
          if (burst_2_counter == 1)
          {
             (void)strcpy(&sf_fin_fifo[fd], " [BURST]");
@@ -1147,8 +1174,7 @@ sf_wmo_exit(void)
 # else
          trans_log(INFO_SIGN, NULL, 0, NULL, "%llu Bytes copied in %d file(s).",
 # endif
-                   fsa->job_status[(int)db.job_no].file_size_done,
-                   fsa->job_status[(int)db.job_no].no_of_files_done);
+                   diff_file_size_done, diff_no_of_files_done);
 #endif /* _WITH_BURST_2 */
       }
       reset_fsa((struct job *)&db, exitflag);
@@ -1228,8 +1254,15 @@ sig_bus(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   exit(GOT_KILLED);
+   exitflag = 0;
+   if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
+   {
+      exit(SUCCESS);
+   }
+   else
+   {
+      exit(GOT_KILLED);
+   }
 }
 
 
@@ -1237,7 +1270,6 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }
 #endif /* _WITH_WMO_SUPPORT */

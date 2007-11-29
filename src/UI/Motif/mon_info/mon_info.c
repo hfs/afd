@@ -1,6 +1,6 @@
 /*
  *  mon_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,7 @@ DESCR__E_M1
 #include "mon_info.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 Display                *display;
 XtAppContext           app;
 XtIntervalId           interval_id_host;
@@ -166,7 +166,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    p_work_dir = work_dir;
    init_mon_info(&argc, argv);
 
@@ -268,7 +268,7 @@ main(int argc, char *argv[])
    }
    XtManageChild(rowcol1_w);
 
-   /* Fill up the text widget with some values */
+   /* Fill up the text widget with some values. */
    (void)sprintf(str_line, "%*s", MON_INFO_LENGTH,
                  prev.real_hostname[(int)prev.afd_toggle]);
    XmTextSetString(text_wl[0], str_line);
@@ -300,7 +300,7 @@ main(int argc, char *argv[])
         }
    XmTextSetString(text_wl[5], str_line);
 
-   /* Create the first horizontal separator */
+   /* Create the first horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
    argcount++;
@@ -315,7 +315,7 @@ main(int argc, char *argv[])
    h_separator1_w = XmCreateSeparator(form_w, "h_separator1_w", args, argcount);
    XtManageChild(h_separator1_w);
 
-   /* Create the vertical separator */
+   /* Create the vertical separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -378,7 +378,7 @@ main(int argc, char *argv[])
    }
    XtManageChild(rowcol2_w);
 
-   /* Fill up the text widget with some values */
+   /* Fill up the text widget with some values. */
    get_ip_no(msa[afd_position].hostname[(int)prev.afd_toggle], tmp_str_line);
    (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, tmp_str_line);
    XmTextSetString(text_wr[0], str_line);
@@ -404,7 +404,7 @@ main(int argc, char *argv[])
    argcount++;
    buttonbox_w = XmCreateForm(form_w, "buttonbox", args, argcount);
 
-   /* Create the second horizontal separator */
+   /* Create the second horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -432,10 +432,10 @@ main(int argc, char *argv[])
                                       XmNrightPosition,    20,
                                       NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
-   /* Create log_text as a ScrolledText window */
+   /* Create log_text as a ScrolledText window. */
    argcount = 0;
    XtSetArg(args[argcount], XmNfontList,               fontlist);
    argcount++;
@@ -479,7 +479,7 @@ main(int argc, char *argv[])
    XtManageChild(info_w);
    XtManageChild(form_w);
 
-   /* Free font list */
+   /* Free font list. */
    XmFontListFree(fontlist);
 
 #ifdef WITH_EDITRES
@@ -487,25 +487,25 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
    wait_visible(appshell);
 
-   /* Read and display the information file */
+   /* Read and display the information file. */
    check_info_file(afd_name);
 
-   /* Call update_info() after UPDATE_INTERVAL ms */
+   /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_host = XtAppAddTimeOut(app, UPDATE_INTERVAL,
                                       (XtTimerCallbackProc)update_info,
                                       form_w);
 
-   /* We want the keyboard focus on the Done button */
+   /* We want the keyboard focus on the Done button. */
    XmProcessTraversal(button_w, XmTRAVERSE_CURRENT);
 
    /* Write window ID, so mon_ctrl can set focus if it is called again. */
    write_window_id(XtWindow(appshell), getpid(), MON_INFO);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -543,7 +543,7 @@ init_mon_info(int *argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Attach to the MSA */
+   /* Attach to the MSA. */
    if (msa_attach() < 0)
    {
       (void)fprintf(stderr, "Failed to attach to MSA. (%s %d)\n",
@@ -566,7 +566,7 @@ init_mon_info(int *argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialize values in MSA structure */
+   /* Initialize values in MSA structure. */
    (void)strcpy(prev.real_hostname[0], msa[afd_position].hostname[0]);
    (void)strcpy(prev.real_hostname[1], msa[afd_position].hostname[1]);
    (void)strcpy(prev.r_work_dir, msa[afd_position].r_work_dir);
@@ -605,8 +605,7 @@ init_mon_info(int *argc, char *argv[])
 
    if (atexit(mon_info_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set exit handler for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set exit handler for %s : %s",
                  MON_INFO, strerror(errno));
    }
    check_window_ids(MON_INFO);

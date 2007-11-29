@@ -20,7 +20,7 @@
 #ifndef __show_log_h
 #define __show_log_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define _WITH_SEARCH_FUNCTION
 

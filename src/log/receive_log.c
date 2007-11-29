@@ -56,7 +56,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* External global variables */
+/* External global variables. */
 int               sys_log_fd = STDERR_FILENO;
 char              *iobuf = NULL,
                   *p_work_dir;
@@ -168,7 +168,7 @@ main(int argc, char *argv[])
       fifo_size = DEFAULT_FIFO_SIZE;
    }
 
-   /* Now lets allocate memory for the fifo buffer */
+   /* Now lets allocate memory for the fifo buffer. */
    if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -342,18 +342,25 @@ main(int argc, char *argv[])
                           }
                           switch (msg_str[LOG_SIGN_POSITION])
                           {
-                             case 'I' : p_log_fifo[log_pos] = INFO_ID;
-                                        break;
-                             case 'W' : p_log_fifo[log_pos] = WARNING_ID;
-                                        break;
-                             case 'E' : p_log_fifo[log_pos] = ERROR_ID;
-                                        break;
+                             case 'I' : /* Info */
+                                p_log_fifo[log_pos] = INFO_ID;
+                                break;
+                             case 'O' : /* Error/Warn Offline, NOT vissible!!! */
+                                break;
+                             case 'W' : /* Warn */
+                                p_log_fifo[log_pos] = WARNING_ID;
+                                break;
+                             case 'E' : /* Error */
+                                p_log_fifo[log_pos] = ERROR_ID;
+                                break;
                              case 'D' : /* Debug is NOT made vissible!!! */
-                                        break;
-                             case 'F' : p_log_fifo[log_pos] = FAULTY_ID;
-                                        break;
-                             default  : p_log_fifo[log_pos] = CHAR_BACKGROUND;
-                                        break;
+                                break;
+                             case 'F' : /* Faulty */
+                                p_log_fifo[log_pos] = FAULTY_ID;
+                                break;
+                             default  : /* Unknown */
+                                p_log_fifo[log_pos] = CHAR_BACKGROUND;
+                                break;
                           }
                           if (msg_str[LOG_SIGN_POSITION] != 'D')
                           {

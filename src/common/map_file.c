@@ -117,5 +117,5 @@ map_file(char *file, int *fd, struct stat *p_stat_buf, int flags, ...)
       return((caddr_t)-1);
    }
 
-   return(mmap(0, p_stat_buf->st_size, prot, MAP_SHARED, *fd, 0));
+   return(mmap(NULL, p_stat_buf->st_size, prot, MAP_SHARED, *fd, 0));
 }

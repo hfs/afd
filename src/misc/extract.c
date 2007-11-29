@@ -103,7 +103,7 @@ DESCR__E_M3
 #define MAP_FILE 0  /* All others do not need it */
 #endif
 
-/* Local global variables */
+/* Local global variables. */
 static int            counter_fd,
                       extract_options;
 static mode_t         file_mode;
@@ -118,7 +118,7 @@ static char           *extract_p_filter,
                       *p_file_name,
                       *p_orig_name;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void           ascii_sohetx(char *, off_t, char *),
                       two_byte_vax(char *, off_t),
                       two_byte_vax_swap(char *, off_t),
@@ -131,7 +131,7 @@ static int            write_file(char *, unsigned int, int),
                       *p_files_to_send;
 static off_t          *p_file_size;
 
-/* Local definitions */
+/* Local definitions. */
 #define MAX_WMO_HEADER_LENGTH 25
 
 
@@ -195,10 +195,11 @@ extract(char           *file_name,
    file_mode = stat_buf.st_mode;
 
 #ifdef HAVE_MMAP
-   if ((src_ptr = mmap(0, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
+   if ((src_ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                       (MAP_FILE | MAP_SHARED),
                        from_fd, 0)) == (caddr_t) -1)
 #else
-   if ((src_ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+   if ((src_ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                            (MAP_FILE | MAP_SHARED),
                            fullname, 0)) == (caddr_t) -1)
 #endif

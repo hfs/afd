@@ -159,7 +159,7 @@ handle_request(int  sock_sd,
    {
       (void)my_usleep(100000L);
       status++;
-      if ((status > 1) && (status % 100))
+      if ((status > 1) && ((status % 100) == 0))
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Timeout arrived for waiting for AMG to finish writting to JID structure.");

@@ -73,13 +73,13 @@ DESCR__E_M3
 
 /* #define WITH_RESEND_DEBUG 1 */
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
-extern Widget           appshell,
+extern Widget           appshell, /* CHECK_INTERRUPT() */
+                        listbox_w,
                         special_button_w,
                         scrollbar_w,
-                        statusbox_w,
-                        listbox_w;
+                        statusbox_w;
 extern int              items_selected,
                         no_of_log_files,
                         special_button_flag;
@@ -88,7 +88,7 @@ extern struct item_list *il;
 extern struct info_data id;
 extern struct sol_perm  perm;
 
-/* Global variables */
+/* Global variables. */
 int                     fsa_fd = -1,
                         fsa_id,
                         no_of_hosts,
@@ -98,7 +98,7 @@ off_t                   fsa_size;
 #endif
 struct filetransfer_status *fsa;
 
-/* Local global variables */
+/* Local global variables. */
 static int              max_copied_files,
                         overwrite;
 static char             archive_dir[MAX_PATH_LENGTH],
@@ -107,7 +107,7 @@ static char             archive_dir[MAX_PATH_LENGTH],
                         *p_dest_dir_end = NULL,
                         dest_dir[MAX_PATH_LENGTH];
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int              get_archive_data(int, int),
                         send_new_message(char *, time_t, unsigned short,
                                          unsigned int, unsigned int, char,
@@ -157,7 +157,7 @@ resend_files(int no_selected, int *select_list)
    if (((rl = calloc(no_selected, sizeof(struct resend_list))) == NULL) ||
        ((select_done_list = calloc(no_selected, sizeof(int))) == NULL))
    {
-      (void)xrec(appshell, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -165,8 +165,7 @@ resend_files(int no_selected, int *select_list)
    /* Open counter file, so we can create new unique name. */
    if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
    {
-      (void)xrec(appshell, FATAL_DIALOG,
-                 "Failed to open counter file. (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to open counter file. (%s %d)",
                  __FILE__, __LINE__);
       free((void *)rl);
       return;
@@ -175,7 +174,7 @@ resend_files(int no_selected, int *select_list)
    /* See how many files we may copy in one go. */
    get_afd_config_value();
 
-   /* Prepare the archive directory name */
+   /* Prepare the archive directory name. */
    p_archive_name = archive_dir;
    p_archive_name += sprintf(archive_dir, "%s%s/",
                              p_work_dir, AFD_ARCHIVE_DIR);
@@ -183,10 +182,10 @@ resend_files(int no_selected, int *select_list)
    p_msg_name += sprintf(dest_dir, "%s%s%s/",
                          p_work_dir, AFD_FILE_DIR, OUTGOING_DIR);
 
-   /* Get the fsa_id and no of host of the FSA */
+   /* Get the fsa_id and no of host of the FSA. */
    if (fsa_attach() < 0)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to attach to FSA. (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to attach to FSA. (%s %d)",
                  __FILE__, __LINE__);
       return;
    }
@@ -237,8 +236,7 @@ resend_files(int no_selected, int *select_list)
 
             if (fseek(il[rl[i].file_no].fp, (long)il[rl[i].file_no].offset[rl[i].pos], SEEK_SET) == -1)
             {
-               (void)xrec(appshell, FATAL_DIALOG,
-                          "fseek() error : %s (%s %d)\n",
+               (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)\n",
                           strerror(errno), __FILE__, __LINE__);
                free((void *)rl);
                free((void *)select_done_list);
@@ -320,7 +318,7 @@ resend_files(int no_selected, int *select_list)
                                           max_copied_files,
                                           total_file_size) < 0)
                      {
-                        (void)xrec(appshell, FATAL_DIALOG,
+                        (void)xrec(FATAL_DIALOG,
                                    "Failed to create message : (%s %d)",
                                    __FILE__, __LINE__);
                         write_fsa(NO, max_copied_files, total_file_size);
@@ -330,7 +328,7 @@ resend_files(int no_selected, int *select_list)
                         return;
                      }
 
-                     /* Deselect all those that where resend */
+                     /* Deselect all those that where resend. */
                      for (m = 0; m < select_done; m++)
                      {
                         XmListDeselectPos(listbox_w, select_done_list[m]);
@@ -343,7 +341,7 @@ resend_files(int no_selected, int *select_list)
                      total_file_size = 0;
                   }
 
-                  /* Create a new directory */
+                  /* Create a new directory. */
                   creation_time = time(NULL);
                   *p_msg_name = '\0';
                   split_job_counter = 0;
@@ -351,7 +349,7 @@ resend_files(int no_selected, int *select_list)
                                   current_job_id, &split_job_counter,
                                   &unique_number, p_msg_name, counter_fd) < 0)
                   {
-                     (void)xrec(appshell, FATAL_DIALOG,
+                     (void)xrec(FATAL_DIALOG,
                                 "Failed to create a unique directory : (%s %d)",
                                 __FILE__, __LINE__);
                      free((void *)rl);
@@ -405,8 +403,7 @@ resend_files(int no_selected, int *select_list)
                               split_job_counter, last_job_id, id.priority,
                               select_done, total_file_size) < 0)
          {
-            (void)xrec(appshell, FATAL_DIALOG,
-                       "Failed to create message : (%s %d)",
+            (void)xrec(FATAL_DIALOG, "Failed to create message : (%s %d)",
                        __FILE__, __LINE__);
             write_fsa(NO, select_done, total_file_size);
             free((void *)rl);
@@ -415,7 +412,7 @@ resend_files(int no_selected, int *select_list)
             return;
          }
 
-         /* Deselect all those that where resend */
+         /* Deselect all those that where resend. */
          for (m = 0; m < select_done; m++)
          {
             XmListDeselectPos(listbox_w, select_done_list[m]);
@@ -516,13 +513,13 @@ resend_files(int no_selected, int *select_list)
 
    if (close(counter_fd) == -1)
    {
-      (void)xrec(appshell, WARN_DIALOG, "close() error : %s (%s %d)",
+      (void)xrec(WARN_DIALOG, "close() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 
    if (fsa_detach(NO) < 0)
    {
-      (void)xrec(appshell, WARN_DIALOG, "Failed to detach from FSA. (%s %d)",
+      (void)xrec(WARN_DIALOG, "Failed to detach from FSA. (%s %d)",
                  __FILE__, __LINE__);
    }
 
@@ -551,13 +548,13 @@ get_archive_data(int pos, int file_no)
 
    if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos], SEEK_SET) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fseek() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
    if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fgets() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fgets() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
@@ -662,7 +659,7 @@ send_new_message(char           *p_msg_name,
    }
    if (*ptr != '/')
    {
-      (void)xrec(appshell, ERROR_DIALOG,
+      (void)xrec(ERROR_DIALOG,
                  "Unable to find directory number in `%s' (%s %d)",
                  p_msg_name, __FILE__, __LINE__);
       return(INCORRECT);
@@ -682,7 +679,7 @@ send_new_message(char           *p_msg_name,
    if ((fd = open(msg_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)xrec(appshell, ERROR_DIALOG, "Could not open %s : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Could not open %s : %s (%s %d)",
                  msg_fifo, strerror(errno), __FILE__, __LINE__);
       ret = INCORRECT;
    }
@@ -692,13 +689,25 @@ send_new_message(char           *p_msg_name,
 
       /* Fill fifo buffer with data. */
       *(time_t *)(fifo_buffer) = creation_time;
+#if SIZEOF_TIME_T == 4
       *(unsigned int *)(fifo_buffer + sizeof(time_t)) = job_id;
-      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int)) = split_job_counter;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) +
+                        sizeof(unsigned int)) = split_job_counter;
       *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                         sizeof(unsigned int)) = files_to_send;
       *(off_t *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                  sizeof(unsigned int) +
                  sizeof(unsigned int)) = file_size_to_send;
+#else
+      *(off_t *)(fifo_buffer + sizeof(time_t)) = file_size_to_send;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) +
+                        sizeof(off_t)) = job_id;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(off_t) +
+                        sizeof(unsigned int)) = split_job_counter;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(off_t) +
+                        sizeof(unsigned int) +
+                        sizeof(unsigned int)) = files_to_send;
+#endif
       *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                           sizeof(unsigned int) + sizeof(unsigned int) +
                           sizeof(off_t)) = dir_no;
@@ -717,8 +726,7 @@ send_new_message(char           *p_msg_name,
       /* Send the message. */
       if (write(fd, fifo_buffer, MAX_BIN_MSG_LENGTH) != MAX_BIN_MSG_LENGTH)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Could not write to %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Could not write to %s : %s (%s %d)",
                     msg_fifo, strerror(errno), __FILE__, __LINE__);
          ret = INCORRECT;
       }
@@ -730,13 +738,13 @@ send_new_message(char           *p_msg_name,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
       if (close(readfd) == -1)
       {
-         (void)xrec(appshell, WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
                     msg_fifo, strerror(errno), __FILE__, __LINE__);
       }
 #endif
       if (close(fd) == -1)
       {
-         (void)xrec(appshell, WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
                     msg_fifo, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -979,18 +987,18 @@ write_fsa(int add, int files_to_send, off_t file_size_to_send)
 #endif
             if (add == YES)
             {
-                /* Total file counter */
+                /* Total file counter. */
                 fsa[position].total_file_counter += files_to_send;
 
-                /* Total file size */
+                /* Total file size. */
                 fsa[position].total_file_size += file_size_to_send;
             }
             else
             {
-                /* Total file counter */
+                /* Total file counter. */
                 fsa[position].total_file_counter -= files_to_send;
 
-                /* Total file size */
+                /* Total file size. */
                 fsa[position].total_file_size -= file_size_to_send;
             }
 #ifdef LOCK_DEBUG

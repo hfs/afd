@@ -136,5 +136,5 @@ mmap_resize(int fd, void *area, size_t new_size)
            }
         }
 
-   return(mmap(0, new_size, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, 0));
+   return(mmap(NULL, new_size, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, 0));
 }

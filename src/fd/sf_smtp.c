@@ -91,7 +91,7 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _OUTPUT_LOG
-#include <sys/times.h>                 /* times(), struct tms            */
+# include <sys/times.h>                /* times(), struct tms            */
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
@@ -142,7 +142,7 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions. */
+/* Local function prototypes. */
 static void                sf_smtp_exit(void),
                            sig_bus(int),
                            sig_segv(int),
@@ -225,7 +225,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(sf_smtp_exit) != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -312,6 +312,69 @@ main(int argc, char *argv[])
    {
       (void)strcpy(db.smtp_server, SMTP_HOST_NAME);
    }
+   else
+   {
+      if (db.special_flag & SMTP_SERVER_NAME_IN_MESSAGE)
+      {
+         if (db.toggle_host == YES)
+         {
+            if (fsa->host_toggle == HOST_ONE)
+            {
+               (void)strcpy(db.smtp_server, fsa->real_hostname[HOST_TWO - 1]);
+            }
+            else
+            {
+               (void)strcpy(db.smtp_server, fsa->real_hostname[HOST_ONE - 1]);
+            }
+         }
+         else
+         {
+            (void)strcpy(db.smtp_server, fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+         }
+      }
+   }
+
+
+#ifdef TEST_WITHOUT_SENDING
+   if ((db.special_flag & SMTP_SERVER_NAME_IN_MESSAGE) == 0)
+   {
+      if (db.toggle_host == YES)
+      {
+         if (fsa->host_toggle == HOST_ONE)
+         {
+            (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
+         }
+         else
+         {
+            (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
+         }
+      }
+      else
+      {
+         (void)strcpy(db.hostname,
+                      fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+      }
+   }
+   remote_user[0] = '\0';
+   if (((db.special_flag & FILE_NAME_IS_USER) == 0) &&
+       ((db.special_flag & FILE_NAME_IS_TARGET) == 0) &&
+       (db.group_list == NULL))
+   {
+      (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
+   }
+   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+              "Connecting to %s, mail address : %s",
+              db.smtp_server, remote_user);
+   if (rec_rmdir(file_path) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to remove directory `%s' : %s",
+                 file_path, strerror(errno));
+   }
+
+   exitflag = 0;
+   exit(TRANSFER_SUCCESS);
+#endif /* TEST_WITHOUT_SENDING */
 
    /* Connect to remote SMTP-server. */
    if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
@@ -1106,7 +1169,7 @@ main(int argc, char *argv[])
          int  length = 0;
          char content_type[MAX_CONTENT_TYPE_LENGTH];
 
-         /* Write boundary */
+         /* Write boundary. */
          if (db.trans_rename_rule[0] != '\0')
          {
             int  k;
@@ -1610,9 +1673,22 @@ main(int argc, char *argv[])
       }
       else
       {
-         /* Delete the file we just have send */
+#ifdef WITH_UNLINK_DELAY
+         int unlink_loops = 0;
+
+try_again_unlink:
+#endif
+         /* Delete the file we just have send. */
          if (unlink(fullname) < 0)
          {
+#ifdef WITH_UNLINK_DELAY
+            if ((errno == EBUSY) && (unlink_loops < 20))
+            {
+               (void)my_usleep(100000L);
+               unlink_loops++;
+               goto try_again_unlink;
+            }
+#endif
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not unlink() local file %s after sending it successfully : %s",
                        strerror(errno), fullname);
@@ -1741,7 +1817,7 @@ main(int argc, char *argv[])
             {
                fsa->host_status &= ~EVENT_STATUS_FLAGS;
             }
-            error_action(fsa->host_alias, "stop");
+            error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
             event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                       fsa->host_alias);
             if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
@@ -1775,7 +1851,7 @@ main(int argc, char *argv[])
 
    free(buffer);
 
-   /* Logout again */
+   /* Logout again. */
    if ((status = smtp_quit()) != SUCCESS)
    {
       trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
@@ -1796,7 +1872,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Don't need the ASCII buffer */
+   /* Don't need the ASCII buffer. */
    free(smtp_buffer);
 
    /*
@@ -1925,8 +2001,15 @@ sig_bus(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   exit(GOT_KILLED);
+   exitflag = 0;
+   if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
+   {
+      exit(SUCCESS);
+   }
+   else
+   {
+      exit(GOT_KILLED);
+   }
 }
 
 
@@ -1934,6 +2017,5 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }

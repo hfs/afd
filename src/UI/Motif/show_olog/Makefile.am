@@ -19,9 +19,9 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = show_olog.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../log -I../../../fd\
-                       -I../../../amg -I../afd_ctrl
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../log\
+                       -I../../../fd -I../../../amg -I../afd_ctrl
 bin_PROGRAMS         = show_olog
 show_olog_SOURCES    = calculate_summary.c\
                        callbacks.c\
@@ -33,7 +33,7 @@ show_olog_SOURCES    = calculate_summary.c\
                        send_files.c\
                        show_olog.c\
                        view_files.c
-show_olog_LDADD      = ../common/libxafd.a\
+show_olog_LDADD      = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
 
 if WITH_SETUID_PROGS

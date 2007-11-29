@@ -1688,7 +1688,8 @@ eval_host_config(int              *hosts_found,
        * have different values. So we must do this check here.
        */
       if (((*hl)[host_counter].protocol_options != 0) &&
-          (((*hl)[host_counter].protocol_options > (FTP_ALLOW_DATA_REDIRECT |
+          (((*hl)[host_counter].protocol_options > (FILE_WHEN_LOCAL_FLAG|
+                                                    FTP_ALLOW_DATA_REDIRECT |
 #ifdef _WITH_BURST_2
                                                     DISABLE_BURSTING |
 #endif
@@ -1708,7 +1709,8 @@ eval_host_config(int              *hosts_found,
                     "Unknown protocol option <%d> for host %s, largest value is %d and smallest %d.",
                     (*hl)[host_counter].protocol_options,
                     (*hl)[host_counter].host_alias,
-                    (FTP_ALLOW_DATA_REDIRECT |
+                    (FILE_WHEN_LOCAL_FLAG |
+                     FTP_ALLOW_DATA_REDIRECT |
 #ifdef _WITH_BURST_2
                      DISABLE_BURSTING |
 #endif

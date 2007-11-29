@@ -82,13 +82,19 @@ DESCR__E_M3
 #include <stdio.h>                   /* NULL                             */
 #include <string.h>                  /* strcpy()                         */
 #include <stdlib.h>                  /* atoi(), getenv()                 */
+#include <sys/types.h>
+#include <pwd.h>                     /* getpwuid(), getpwnam()           */
 #include <ctype.h>                   /* isdigit(), tolower(), isxdigit() */
 #include <time.h>                    /* time(), strftime()               */
 #include <unistd.h>                  /* gethostname()                    */
+#include <errno.h>
 #include "fddefs.h"
 
 /* Global variables. */
 extern struct filetransfer_status *fsa;
+
+/* Local function prototypes. */
+static void                       expand_path(char *, char *);
 
 
 /*########################## eval_recipient() ###########################*/
@@ -98,10 +104,27 @@ eval_recipient(char       *recipient,
                char       *full_msg_path,
                time_t     next_check_time)
 {
+   int  transform;
    char *ptr,
         *ptr_tmp;
 
    ptr = recipient;
+   if (p_db->protocol & LOC_FLAG)
+   {
+      if ((*ptr == 'f') && (*(ptr + 1) == 'i') && (*(ptr + 2) == 'l') &&
+          (*(ptr + 3) == 'e') && (*(ptr + 4) == ':'))
+      {
+         transform = NO;
+      }
+      else
+      {
+         transform = YES;
+      }
+   }
+   else
+   {
+      transform = NO;
+   }
    while ((*ptr != ':') && (*ptr != '\0'))
    {
       /* The scheme is not necessary since we know the */
@@ -125,7 +148,6 @@ eval_recipient(char       *recipient,
       register int i;
 
       ptr += 3; /* Away with '://' */
-
       if (*ptr == MAIL_GROUP_IDENTIFIER)
       {
          ptr++;
@@ -793,7 +815,7 @@ eval_recipient(char       *recipient,
             return(INCORRECT);
          }
          if ((i > 0) && (p_db->target_dir[i - 1] != '/') &&
-             (fsa->protocol & HTTP_FLAG))
+             (p_db->protocol & HTTP_FLAG))
          {
             p_db->target_dir[i] = '/';
             i++;
@@ -802,7 +824,7 @@ eval_recipient(char       *recipient,
       }
       else
       {
-         if (fsa->protocol & HTTP_FLAG)
+         if (p_db->protocol & HTTP_FLAG)
          {
             p_db->target_dir[0] = '/';
             p_db->target_dir[1] = '\0';
@@ -813,7 +835,12 @@ eval_recipient(char       *recipient,
          }
       }
 
-      /* Save the type code (FTP) or the server name (SMTP) */
+      if ((transform == YES) && (p_db->target_dir[0] != '/'))
+      {
+         expand_path(p_db->user, p_db->target_dir);
+      }
+
+      /* Save the type code (FTP) or the server name (SMTP). */
       if (*ptr == ';')
       {
          int count = 0;
@@ -1008,4 +1035,65 @@ eval_recipient(char       *recipient,
    }
 
    return(SUCCESS);
+}
+
+
+/*++++++++++++++++++++++++++++ expand_path() ++++++++++++++++++++++++++++*/
+static void
+expand_path(char *user, char *path)
+{
+   struct passwd *pwd;
+
+   if (user[0] == '\0')
+   {
+      pwd = getpwuid(getuid());
+   }
+   else
+   {
+      pwd = getpwnam(user);
+   }
+   if (pwd == NULL)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Cannot find users %s working directory in /etc/passwd : %s",
+                 user, strerror(errno));
+   }
+   else
+   {
+      if (*path != '\0')
+      {
+         char *ptr,
+              tmp_path[MAX_PATH_LENGTH];
+
+         (void)strcpy(tmp_path, path);
+         (void)strcpy(path, pwd->pw_dir);
+
+         ptr = path + (strlen(path) - 1);
+         if (ptr > path)
+         {
+            if (*ptr != '/')
+            {
+               *(ptr + 1) = '/';
+               ptr += 2;
+            }
+            else
+            {
+               ptr++;
+            }
+         }
+         else
+         {
+            ptr = path;
+            *ptr = '/';
+            ptr++;
+         }
+         (void)strcpy(ptr, tmp_path);
+      }
+      else
+      {
+         (void)strcpy(path, pwd->pw_dir);
+      }
+   }
+
+   return;
 }

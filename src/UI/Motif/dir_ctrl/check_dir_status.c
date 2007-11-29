@@ -83,8 +83,7 @@ static int                        check_fra_data(char *),
 
 /*######################### check_dir_status() ##########################*/
 void
-check_dir_status(w)
-Widget   w;
+check_dir_status(Widget w)
 {
    signed char   flush;
    int           i,
@@ -120,7 +119,7 @@ Widget   w;
       if ((new_connect_data = calloc(no_of_dirs,
                                      sizeof(struct dir_line))) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -277,7 +276,7 @@ Widget   w;
 
       if ((connect_data = realloc(connect_data, new_size)) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }

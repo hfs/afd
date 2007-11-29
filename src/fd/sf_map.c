@@ -581,9 +581,22 @@ main(int argc, char *argv[])
       }
       else
       {
-         /* Delete the file we just have copied */
+#ifdef WITH_UNLINK_DELAY
+         int unlink_loops = 0;
+
+try_again_unlink:
+#endif
+         /* Delete the file we just have copied. */
          if (unlink(source_file) < 0)
          {
+#ifdef WITH_UNLINK_DELAY
+            if ((errno == EBUSY) && (unlink_loops < 20))
+            {
+               (void)my_usleep(100000L);
+               unlink_loops++;
+               goto try_again_unlink;
+            }
+#endif
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not unlink() local file `%s' after copying it successfully : %s",
                        source_file, strerror(errno));
@@ -710,7 +723,7 @@ main(int argc, char *argv[])
             {
                fsa->host_status &= ~EVENT_STATUS_FLAGS;
             }
-            error_action(fsa->host_alias, "stop");
+            error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
             event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                       fsa->host_alias);
             if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
@@ -860,8 +873,15 @@ sig_handler(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   exit(GOT_KILLED);
+   exitflag = 0;
+   if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
+   {
+      exit(SUCCESS);
+   }
+   else
+   {
+      exit(GOT_KILLED);
+   }
 }
 
 
@@ -869,7 +889,6 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }
 #endif /* _WITH_MAP_SUPPORT */

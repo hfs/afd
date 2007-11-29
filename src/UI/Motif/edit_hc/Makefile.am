@@ -20,16 +20,16 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = edit_hc.h no_source.h no_source_mask.h source.h\
                        source_mask.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../amg -I../../../log\
-                       -I../afd_ctrl
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../amg\
+                       -I../../../log -I../afd_ctrl
 bin_PROGRAMS         = edit_hc
 edit_hc_SOURCES      = accept_drop.c\
                        edit_hc.c\
                        edit_hc_callbacks.c\
                        remove_host.c\
                        start_drag.c
-edit_hc_LDADD        = ../common/libxafd.a\
+edit_hc_LDADD        = ../common/libmotifafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
 
 if WITH_SETUID_PROGS

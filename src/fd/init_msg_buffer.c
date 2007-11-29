@@ -76,7 +76,7 @@ DESCR__E_M3
 #include "fddefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern int                        mdb_fd,
                                   qb_fd,
 #ifdef _OUTPUT_LOG
@@ -97,7 +97,7 @@ extern struct connection          *connection;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 
-/* Local global variables */
+/* Local global variables. */
 static int                        file_mask_to_remove,
                                   *no_of_job_ids,
                                   removed_jobs,
@@ -107,7 +107,7 @@ static unsigned int               *fmtrl, /* file mask to remove list */
                                   *rml;   /* removed message list */
 static struct job_id_data         *jd;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                       remove_jobs(int, off_t *, char *),
                                   sort_array(int);
 static int                        list_job_to_remove(int, int,
@@ -533,19 +533,6 @@ stat_again:
                /*
                 * Yup, we can remove this job.
                 */
-#ifdef WITH_ERROR_QUEUE
-               if ((gotcha == NO) || (gotcha == NEITHER))
-               {
-                  if ((i < *no_msg_cached) && (mdb[i].in_current_fsa == YES))
-                  {
-                     if (fsa[mdb[i].fsa_pos].host_status & ERROR_QUEUE_SET)
-                     {
-                        (void)remove_from_error_queue(job_id,
-                                                      &fsa[mdb[i].fsa_pos]);
-                     }
-                  }
-               }
-#endif
                if (gotcha == NO)
                {
                   if (i == *no_msg_cached)
@@ -628,7 +615,7 @@ stat_again:
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                 "Hmm. Host position for `%s' is incorrect!? Correcting %d->%d",
                                 mdb[i].host_name, mdb[i].fsa_pos, new_pos);
-#endif /* _DEBUG */
+#endif
                      mdb[i].fsa_pos = new_pos;
                   }
                }
@@ -655,23 +642,13 @@ stat_again:
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
                              "Hmm. Host position for `%s' is incorrect!? Correcting %d->%d",
                              mdb[i].host_name, mdb[i].fsa_pos, new_pos);
-#endif /* _DEBUG */
+#endif
                   mdb[i].fsa_pos = new_pos;
                }
             }
 
             if (remove_flag == YES)
             {
-#ifdef WITH_ERROR_QUEUE
-               if (mdb[i].fsa_pos != -1)
-               {
-                  if (fsa[mdb[i].fsa_pos].host_status & ERROR_QUEUE_SET)
-                  {
-                     (void)remove_from_error_queue(mdb[i].job_id,
-                                                   &fsa[mdb[i].fsa_pos]);
-                  }
-               }
-#endif
                (void)sprintf(p_msg_dir, "%x", mdb[i].job_id);
                if (list_job_to_remove(i, jd_fd, jd, mdb[i].job_id) == SUCCESS)
                {
@@ -845,6 +822,14 @@ list_job_to_remove(int                cache_pos,
                         }
                         calc_trl_per_process(connection[qb[j].connect_pos].fsa_pos);
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].proc_id = -1;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].connect_status = DISCONNECT;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].no_of_files_done = 0;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_done = 0;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].no_of_files = 0;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size = 0;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use = 0;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use_done = 0;
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[0] = '\0';
 #ifdef _WITH_BURST_2
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].unique_name[0] = '\0';
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].job_id = NO_ID;

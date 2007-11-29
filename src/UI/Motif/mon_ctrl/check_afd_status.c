@@ -1,7 +1,7 @@
 /*
  *  check_afd_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,15 +78,14 @@ extern struct apps_list       *apps_list;
 extern struct mon_line        *connect_data;
 extern struct mon_status_area *msa;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                    check_msa_data(char *),
                               check_disp_data(char *, int);
 
 
 /*######################### check_afd_status() ##########################*/
 void
-check_afd_status(w)
-Widget   w;
+check_afd_status(Widget w)
 {
    signed char flush;
    int         draw_identifier,
@@ -100,7 +99,7 @@ Widget   w;
                old_bar_length,
                redraw_everything = NO;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    location_where_changed = no_of_afds + 10;
    flush = NO;
 
@@ -116,7 +115,7 @@ Widget   w;
       if ((new_connect_data = calloc(no_of_afds,
                                      sizeof(struct mon_line))) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -147,9 +146,9 @@ Widget   w;
             (void)memcpy(&new_connect_data[i], &connect_data[pos],
                          sizeof(struct mon_line));
          }
-         else /* A new host has been added */
+         else /* A new host has been added. */
          {
-            /* Initialise values for new host */
+            /* Initialise values for new host. */
             (void)strcpy(new_connect_data[i].afd_alias, msa[i].afd_alias);
             new_connect_data[i].afd_toggle = msa[i].afd_toggle;
             new_connect_data[i].afd_alias_length = strlen(new_connect_data[i].afd_alias);
@@ -321,7 +320,7 @@ Widget   w;
 
       if ((connect_data = realloc(connect_data, new_size)) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -332,7 +331,7 @@ Widget   w;
 
       free(new_connect_data);
 
-      /* Resize window if necessary */
+      /* Resize window if necessary. */
       if ((redraw_everything = resize_mon_window()) == YES)
       {
          if (no_of_columns != 0)
@@ -352,7 +351,7 @@ Widget   w;
       flush = YES;
    } /* if (check_msa() == YES) */
 
-   /* Change information for each remote AFD if necessary */
+   /* Change information for each remote AFD if necessary. */
    for (i = 0; i < no_of_afds; i++)
    {
       x = y = -1;
@@ -973,7 +972,7 @@ Widget   w;
          }
       }
 
-      /* Redraw the line */
+      /* Redraw the line. */
       if (i >= location_where_changed)
       {
 #ifdef _DEBUG
@@ -997,7 +996,7 @@ Widget   w;
       flush = YES;
    }
 
-   /* Make sure all changes are shown */
+   /* Make sure all changes are shown. */
    if ((flush == YES) || (flush == YUP))
    {
       XFlush(display);
@@ -1018,7 +1017,7 @@ Widget   w;
 #endif
    }
 
-   /* Redraw every redraw_time_line ms */
+   /* Redraw every redraw_time_line ms. */
    interval_id_afd = XtAppAddTimeOut(app, redraw_time_line,
                                      (XtTimerCallbackProc)check_afd_status, w);
  

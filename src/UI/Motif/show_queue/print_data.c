@@ -52,10 +52,10 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/List.h>
 #include <errno.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_queue.h"
 
-/* External global variables */
+/* External global variables. */
 extern Widget       listbox_w,
                     printshell,
                     statusbox_w,

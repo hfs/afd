@@ -55,17 +55,17 @@ DESCR__E_M3
 #include <stdlib.h>       /* malloc(), realloc(), free(), strtod()       */
 #include <time.h>         /* time()                                      */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <unistd.h>       /* close()                                     */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>     /* mmap(), munmap()                            */
-#ifndef MAP_FILE          /* Required for BSD          */
-#define MAP_FILE 0        /* All others do not need it */
-#endif
+# include <sys/mman.h>    /* mmap(), munmap()                            */
+# ifndef MAP_FILE         /* Required for BSD          */
+#  define MAP_FILE 0      /* All others do not need it */
+# endif
 #endif
 #include <errno.h>
 
@@ -77,10 +77,10 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "show_dlog.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
 extern Window           main_window;
-extern Widget           appshell,
+extern Widget           appshell, /* CHECK_INTERRUPT() */
                         listbox_w,
                         scrollbar_w,
                         special_button_w,
@@ -129,7 +129,7 @@ static char             *p_file_name,
 static XmStringTable    str_list;
 
 #ifdef _DELETE_LOG
-/* Local function prototypes */
+/* Local function prototypes. */
 static char   *search_time(char *, time_t, time_t, time_t, size_t);
 static void   display_data(int, time_t, time_t),
               extract_data(char *, int),
@@ -156,8 +156,7 @@ static void   display_data(int, time_t, time_t),
                   ((il[file_no].line_offset = realloc(il[file_no].line_offset, new_int_size)) == NULL) ||\
                   ((il[file_no].input_id = realloc(il[file_no].input_id, new_char_size)) == NULL))       \
               {                                                  \
-                 (void)xrec(appshell, FATAL_DIALOG,              \
-                            "realloc() error : %s (%s %d)",      \
+                 (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",\
                             strerror(errno), __FILE__, __LINE__);\
                  return;                                         \
               }                                                  \
@@ -836,16 +835,16 @@ get_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc(LINES_BUFFERED * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
 
-   /* Allocate memory for item list */
+   /* Allocate memory for item list. */
    no_of_log_files = start_file_no - end_file_no + 1;
    if ((il = malloc((no_of_log_files + 1) * sizeof(struct item_list))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -959,7 +958,7 @@ extract_data(char *current_log_file, int file_no)
       }
       else
       {
-         (void)xrec(appshell, WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -973,21 +972,21 @@ extract_data(char *current_log_file, int file_no)
 
    if ((fd = open(current_log_file, O_RDONLY)) < 0)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if ((il[file_no].fp = fdopen(fd, "r")) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fdopen() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fdopen() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
 #ifdef HAVE_MMAP
-   if ((src = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((src = mmap(NULL, stat_buf.st_size, PROT_READ,
                    (MAP_FILE | MAP_SHARED), fd, 0)) == (caddr_t) -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to mmap() %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to mmap() %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -995,14 +994,14 @@ extract_data(char *current_log_file, int file_no)
 #else
    if ((src = malloc(stat_buf.st_size)) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
    }
    if (read(fd, src, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to read() from %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to read() from %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       free(src);
       (void)close(fd);
@@ -1076,7 +1075,7 @@ extract_data(char *current_log_file, int file_no)
 #ifdef HAVE_MMAP
       if (munmap(src, stat_buf.st_size) < 0)
       {
-         (void)xrec(appshell, ERROR_DIALOG, "munmap() error : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
 #else
@@ -1132,8 +1131,7 @@ extract_data(char *current_log_file, int file_no)
         }
         else
         {
-           (void)xrec(appshell, FATAL_DIALOG,
-                      "What's this!? Impossible! (%s %d)",
+           (void)xrec(FATAL_DIALOG, "What's this!? Impossible! (%s %d)",
                       __FILE__, __LINE__);
            return;
         }
@@ -1142,7 +1140,7 @@ extract_data(char *current_log_file, int file_no)
 #ifdef HAVE_MMAP
    if (munmap(src, stat_buf.st_size) < 0)
    {
-      (void)xrec(appshell, ERROR_DIALOG, "munmap() error : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 #else

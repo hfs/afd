@@ -176,5 +176,5 @@ attach_buf(char   *file,
       new_size = stat_buf.st_size;
    }
 
-   return(mmap(0, new_size, (PROT_READ | PROT_WRITE), MAP_SHARED, *fd, 0));
+   return(mmap(NULL, new_size, (PROT_READ | PROT_WRITE), MAP_SHARED, *fd, 0));
 }

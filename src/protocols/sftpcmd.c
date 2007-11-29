@@ -34,6 +34,7 @@ DESCR__S_M3
  **   int          sftp_flush(void)
  **   int          sftp_mkdir(char *directory)
  **   int          sftp_move(char *from, char *to, int create_dir)
+ **   int          sftp_noop(void)
  **   int          sftp_open_dir(char *dirname, char debug)
  **   int          sftp_open_file(char *filename, off_t size, mode_t *mode,
  **                               char debug)
@@ -89,7 +90,7 @@ DESCR__E_M3
 #include <sys/time.h>         /* struct timeval                          */
 #include <sys/wait.h>         /* waitpid()                               */
 #include <sys/stat.h>         /* S_ISUID, S_ISGID, etc                   */
-#include <setjmp.h>           /* setjmp(), longjmp()                     */
+#include <setjmp.h>           /* sigsetjmp(), siglongjmp()               */
 #include <signal.h>           /* signal(), kill()                        */
 #include <unistd.h>           /* select(), exit(), write(), read(),      */
                               /* close()                                 */
@@ -100,19 +101,19 @@ DESCR__E_M3
 #include "fddefs.h"           /* struct job                              */
 
 
-/* External global variables */
+/* External global variables. */
 extern int                      timeout_flag;
 extern char                     msg_str[];
 extern long                     transfer_timeout;
 extern char                     tr_hostname[];
 extern struct job               db;
 
-/* Local global variables */
+/* Local global variables. */
 static int                      byte_order = 1,
                                 data_fd = -1;
 static pid_t                    data_pid = -1;
 static char                     *msg = NULL;
-static jmp_buf                  env_alrm;
+static sigjmp_buf               env_alrm;
 static struct sftp_connect_data scd;
 
 /* Local function prototypes. */
@@ -1524,6 +1525,17 @@ sftp_dele(char *filename)
 }
 
 
+/*############################# sftp_noop() #############################*/
+int
+sftp_noop(void)
+{
+   /* I do not know of a better way. SFTP does not support */
+   /* a NOOP command, so lets just do a stat() on the      */
+   /* current working directory.                           */
+   return(sftp_stat(".", NULL));
+}
+
+
 /*############################# sftp_quit() #############################*/
 void
 sftp_quit(void)
@@ -1893,7 +1905,7 @@ write_msg(char *block, int size)
    fd_set         wset;
    struct timeval timeout;
 
-   /* Initialise descriptor set */
+   /* Initialise descriptor set. */
    FD_ZERO(&wset);
 
    ptr = block;
@@ -1909,7 +1921,7 @@ write_msg(char *block, int size)
 
       if (status == 0)
       {
-         /* timeout has arrived */
+         /* Timeout has arrived. */
          timeout_flag = ON;
          return(INCORRECT);
       }
@@ -1925,7 +1937,7 @@ write_msg(char *block, int size)
                            strerror(errno));
                  return(INCORRECT);
               }
-              if (setjmp(env_alrm) != 0)
+              if (sigsetjmp(env_alrm, 1) != 0)
               {
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                            "write_msg(): write() timeout (%ld)",
@@ -2032,7 +2044,7 @@ read_msg(char *block, int blocksize)
    FD_ZERO(&rset);
    do
    {
-      /* Initialise descriptor set */
+      /* Initialise descriptor set. */
       FD_SET(data_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = transfer_timeout;
@@ -2051,7 +2063,7 @@ read_msg(char *block, int blocksize)
                       strerror(errno));
             return(INCORRECT);
          }
-         if (setjmp(env_alrm) != 0)
+         if (sigsetjmp(env_alrm, 1) != 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "read_msg(): read() timeout (%ld)",
@@ -2782,5 +2794,5 @@ is_with_path(char *name)
 static void
 sig_handler(int signo)
 {
-   longjmp(env_alrm, 1);
+   siglongjmp(env_alrm, 1);
 }

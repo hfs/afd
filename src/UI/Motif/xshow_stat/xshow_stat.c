@@ -1,6 +1,6 @@
 /*
  *  xshow_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ DESCR__E_M1
 #include <string.h>
 #include <time.h>
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <ctype.h>
 #include <sys/types.h>
@@ -70,7 +70,7 @@ DESCR__E_M1
 #include <Xm/CascadeB.h>
 #include <Xm/PushB.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 
 #ifndef MAP_FILE    /* Required for BSD          */
@@ -127,7 +127,7 @@ unsigned long  color_pool[COLOR_POOL_SIZE];
 struct afdstat *stat_db;
 const char     *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void    init_show_stat(int *, char **, char *, char *),
                sig_bus(int),
                sig_exit(int),
@@ -159,7 +159,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    p_work_dir = work_dir;
    init_show_stat(&argc, argv, font_name, window_title);
 
@@ -193,7 +193,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Get display pointer */
+   /* Get display pointer. */
    if ((display = XtDisplay(appshell)) == NULL)
    {
       (void)fprintf(stderr,
@@ -215,7 +215,7 @@ main(int argc, char *argv[])
    /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
 
-   /* Setup colors */
+   /* Setup colors. */
    default_cmap = DefaultColormap(display, DefaultScreen(display));
    init_color(XtDisplay(appshell));
 
@@ -239,7 +239,7 @@ main(int argc, char *argv[])
                                      XmNbottomAttachment, XmATTACH_FORM,
                                      NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
    /*--------------------------------------------------------------------*/
@@ -286,7 +286,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)expose_handler_stat, NULL);
    XtManageChild(mainform_w);
 
-   /* Initialise the GC's */
+   /* Initialise the GC's. */
    init_gcs();
 
 #ifdef WITH_EDITRES
@@ -294,7 +294,7 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    /* Set some signal handlers. */
@@ -304,7 +304,7 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(appshell, WARN_DIALOG,
+      (void)xrec(WARN_DIALOG,
                  "Failed to set signal handlers for xshow_stat : %s",
                  strerror(errno));
    }
@@ -397,7 +397,7 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
       time_type = YEAR_STAT;
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -477,7 +477,7 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
                     statistic_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
+   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
                    stat_fd, 0)) == (caddr_t) -1)
    {
       (void)fprintf(stderr, "ERROR   : Failed to mmap() %s : %s (%s %d)\n",
@@ -493,7 +493,7 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
                     statistic_file, strerror(errno), __FILE__, __LINE__);
    }
 
-   /* Collect all hostnames */
+   /* Collect all hostnames. */
    host_counter = *argc - 1;
    if (host_counter > 0)
    {

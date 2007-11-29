@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,15 +50,15 @@ DESCR__E_M3
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #include <errno.h>
 #include "amgdefs.h"
 
-extern int  receive_log_fd;
-extern char *p_dir_alias;
+extern int                        receive_log_fd;
+extern struct fileretrieve_status *p_fra;
 
 #define DIR_ALIAS_OFFSET 16
 
@@ -71,7 +71,7 @@ receive_log(char   *sign,
             time_t current_time,
             char   *fmt, ...)
 {
-   char      *ptr = p_dir_alias;
+   char      *ptr = p_fra->dir_alias;
    size_t    length = DIR_ALIAS_OFFSET;
    char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
    va_list   ap;
@@ -95,7 +95,16 @@ receive_log(char   *sign,
    buf[10] = (p_ts->tm_sec % 10) + '0';
    buf[11] = ' ';
    buf[12] = sign[0];
-   buf[13] = sign[1];
+   if (((sign[1] == 'E') || (sign[1] == 'W')) &&
+        ((p_fra->dir_flag & DIR_ERROR_OFFLINE) ||
+         (p_fra->dir_flag & DIR_ERROR_OFFL_T)))
+   {
+      buf[13] = 'O';
+   }
+   else
+   {
+      buf[13] = sign[1];
+   }
    buf[14] = sign[2];
    buf[15] = ' ';
 

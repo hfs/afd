@@ -54,7 +54,7 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,
@@ -112,13 +112,13 @@ main(int argc, char *argv[])
 
    if (*no_msg_cached > 0)
    {
-      (void)fprintf(stdout, "Pos  Hostname FSA-pos Job-ID      msg-time    last-trans  Age-limit Type in FSA\n");
+      (void)fprintf(stdout, "Pos  Hostname FSA-pos Job-ID      msg-time    last-trans  Age-limit Typ inFSA Port\n");
       for (i = 0; i < *no_msg_cached; i++)
       {
 #if SIZEOF_TIME_T == 4
-         (void)fprintf(stdout, "%-4d %-*s %-7d %-11x %-11ld %-11ld %-9u %-4d %-4d\n",
+         (void)fprintf(stdout, "%-4d %-*s %-7d %-11x %-11ld %-11ld %-9u %-3d %-4d %d\n",
 #else
-         (void)fprintf(stdout, "%-4d %-*s %-7d %-11x %-11lld %-11lld %-9u %-4d %-4d\n",
+         (void)fprintf(stdout, "%-4d %-*s %-7d %-11x %-11lld %-11lld %-9u %-3d %-4d %d\n",
 #endif
                        i, MAX_HOSTNAME_LENGTH, mb[i].host_name,
                        mb[i].fsa_pos,
@@ -127,7 +127,8 @@ main(int argc, char *argv[])
                        (pri_time_t)mb[i].last_transfer_time,
                        mb[i].age_limit,
                        (int)mb[i].type,
-                       (int)mb[i].in_current_fsa);
+                       (int)mb[i].in_current_fsa,
+                       mb[i].port);
       }
    }
    else

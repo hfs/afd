@@ -61,7 +61,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* Global varaibles */
+/* Global varaibles. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -200,10 +200,10 @@ main(int argc, char *argv[])
          }
 
 #ifdef HAVE_MMAP
-         if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+         if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                          MAP_SHARED, old_fsa_fd, 0)) == (caddr_t) -1)
 #else
-         if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+         if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                              MAP_SHARED, old_fsa_stat, 0)) == (caddr_t) -1)
 #endif
          {
@@ -254,10 +254,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap(NULL, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    fsa_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap_emu(NULL, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        new_fsa_stat, 0)) == (caddr_t) -1)
 #endif
    {

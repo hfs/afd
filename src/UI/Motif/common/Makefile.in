@@ -68,22 +68,14 @@ libLIBRARIES_INSTALL = $(INSTALL_DATA)
 LIBRARIES = $(lib_LIBRARIES)
 AR = ar
 ARFLAGS = cru
-libxafd_a_AR = $(AR) $(ARFLAGS)
-libxafd_a_LIBADD =
-am_libxafd_a_OBJECTS = check_host_permissions.$(OBJEXT) \
-	check_info_file.$(OBJEXT) check_nummeric.$(OBJEXT) \
-	config_log.$(OBJEXT) generic_print.$(OBJEXT) \
-	get_current_jid_list.$(OBJEXT) get_file_mask_list.$(OBJEXT) \
-	get_ip_no.$(OBJEXT) get_printer_cmd.$(OBJEXT) \
-	handle_setup_file.$(OBJEXT) init_color.$(OBJEXT) \
-	insert_passwd.$(OBJEXT) locate_xy.$(OBJEXT) \
-	lookup_color.$(OBJEXT) make_xprocess.$(OBJEXT) \
-	print_file_size.$(OBJEXT) sfilter.$(OBJEXT) \
-	show_info.$(OBJEXT) show_message.$(OBJEXT) \
-	store_host_names.$(OBJEXT) update_time.$(OBJEXT) \
-	wait_visible.$(OBJEXT) window_id.$(OBJEXT) view_data.$(OBJEXT) \
-	xrec.$(OBJEXT)
-libxafd_a_OBJECTS = $(am_libxafd_a_OBJECTS)
+libmotifafd_a_AR = $(AR) $(ARFLAGS)
+libmotifafd_a_LIBADD =
+am_libmotifafd_a_OBJECTS = check_info_file.$(OBJEXT) \
+	check_nummeric.$(OBJEXT) generic_print.$(OBJEXT) \
+	make_xprocess.$(OBJEXT) show_info.$(OBJEXT) \
+	show_message.$(OBJEXT) update_time.$(OBJEXT) \
+	wait_visible.$(OBJEXT) xrec.$(OBJEXT)
+libmotifafd_a_OBJECTS = $(am_libmotifafd_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/ac-tools/depcomp
 am__depfiles_maybe = depfiles
@@ -91,14 +83,14 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(libxafd_a_SOURCES)
-DIST_SOURCES = $(libxafd_a_SOURCES)
+SOURCES = $(libmotifafd_a_SOURCES)
+DIST_SOURCES = $(libmotifafd_a_SOURCES)
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
-AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
+AFD_GTK_CFLAGS = @AFD_GTK_CFLAGS@
 AFD_GTK_LIBS = @AFD_GTK_LIBS@
 AFD_MAP_LIBS = @AFD_MAP_LIBS@
 AFD_MATH_LIB = @AFD_MATH_LIB@
@@ -136,6 +128,7 @@ ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
 ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
+GZIP_CMD = @GZIP_CMD@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
@@ -160,6 +153,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PKG_CONFIG = @PKG_CONFIG@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
@@ -210,6 +204,7 @@ ac_configure_args = @ac_configure_args@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
+ac_pt_PKG_CONFIG = @ac_pt_PKG_CONFIG@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -247,38 +242,21 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-EXTRA_DIST = sfilter_old.c
 MAINTAINERCLEANFILES = Makefile.in
-noinst_HEADERS = x_common_defs.h
+noinst_HEADERS = motif_common_defs.h
 INCLUDES = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
-                       -I../afd_ctrl -I../show_olog
+                        -I../../common -I../afd_ctrl -I../show_olog
 
-lib_LIBRARIES = libxafd.a
-libxafd_a_SOURCES = check_host_permissions.c\
-                       check_info_file.c\
-                       check_nummeric.c\
-                       config_log.c\
-                       generic_print.c\
-                       get_current_jid_list.c\
-                       get_file_mask_list.c\
-                       get_ip_no.c\
-                       get_printer_cmd.c\
-                       handle_setup_file.c\
-                       init_color.c\
-                       insert_passwd.c\
-                       locate_xy.c\
-                       lookup_color.c\
-                       make_xprocess.c\
-                       print_file_size.c\
-                       sfilter.c\
-                       show_info.c\
-                       show_message.c\
-                       store_host_names.c\
-                       update_time.c\
-                       wait_visible.c\
-                       window_id.c\
-                       view_data.c\
-                       xrec.c
+lib_LIBRARIES = libmotifafd.a
+libmotifafd_a_SOURCES = check_info_file.c\
+                        check_nummeric.c\
+                        generic_print.c\
+                        make_xprocess.c\
+                        show_info.c\
+                        show_message.c\
+                        update_time.c\
+                        wait_visible.c\
+                        xrec.c
 
 all: all-am
 
@@ -342,10 +320,10 @@ uninstall-libLIBRARIES:
 
 clean-libLIBRARIES:
 	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
-libxafd.a: $(libxafd_a_OBJECTS) $(libxafd_a_DEPENDENCIES) 
-	-rm -f libxafd.a
-	$(libxafd_a_AR) libxafd.a $(libxafd_a_OBJECTS) $(libxafd_a_LIBADD)
-	$(RANLIB) libxafd.a
+libmotifafd.a: $(libmotifafd_a_OBJECTS) $(libmotifafd_a_DEPENDENCIES) 
+	-rm -f libmotifafd.a
+	$(libmotifafd_a_AR) libmotifafd.a $(libmotifafd_a_OBJECTS) $(libmotifafd_a_LIBADD)
+	$(RANLIB) libmotifafd.a
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -353,30 +331,14 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_host_permissions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_info_file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_nummeric.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/generic_print.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_current_jid_list.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_file_mask_list.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_ip_no.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_printer_cmd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_setup_file.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_color.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insert_passwd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/locate_xy.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_color.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/make_xprocess.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/print_file_size.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sfilter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_info.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_message.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/store_host_names.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/update_time.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_data.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wait_visible.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/window_id.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xrec.Po@am__quote@
 
 .c.o:

@@ -1,6 +1,6 @@
 /*
  *  log_callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -188,7 +188,7 @@ search_text(Widget w, XtPointer client_data, XtPointer call_data)
          length = strlen(search_str) + 1;
          if ((last_search_str = malloc(length)) == NULL)
          {
-            (void)xrec(w, FATAL_DIALOG,
+            (void)xrec(FATAL_DIALOG,
                        "Could not malloc() %d Bytes : %s (%s %d)",
                        length, strerror(errno), __FILE__, __LINE__);
             return;
@@ -206,7 +206,7 @@ search_text(Widget w, XtPointer client_data, XtPointer call_data)
             free(last_search_str);
             if ((last_search_str = malloc(length)) == NULL)
             {
-               (void)xrec(w, FATAL_DIALOG,
+               (void)xrec(FATAL_DIALOG,
                           "Could not malloc() %d Bytes : %s (%s %d)",
                           length, strerror(errno), __FILE__, __LINE__);
                return;
@@ -283,7 +283,7 @@ update_button(Widget w, XtPointer client_data, XtPointer call_data)
 
          if (errno != ENOENT)
          {
-            (void)xrec(w, FATAL_DIALOG, "Could not fopen() %s : %s (%s %d)",
+            (void)xrec(FATAL_DIALOG, "Could not fopen() %s : %s (%s %d)",
                        log_file, strerror(errno), __FILE__, __LINE__);
             return;
          }

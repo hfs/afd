@@ -1,6 +1,6 @@
 /*
  *  log_filter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,9 +50,9 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>                    /* strncmp()                      */
 #include "show_log.h"
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
-/* local functions */
+/* Local function protoypes. */
 static char *find(char *, register char *, register int);
 
 

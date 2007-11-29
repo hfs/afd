@@ -60,6 +60,8 @@
                                   FIFO for reading and writting. With this
                                   option set AFD will use two file descriptors
                                   one for reading and one for writting.
+--disable-report_empty_dir_scan - Disables reporting of empty directory scans.
+                                  [Default: enabled]
 --enable-afdbench-settings      - Enables settings for running afdbench.
                                   [Default: disabled]
 --enable-setuid_progs           - Enables setting setuid flag for the
@@ -109,8 +111,20 @@
                                   [Default: disabled]
 --enable-show_exec_times        - Show exec times after rereading DIR_CONFIG.
                                   [Default: disabled]
---enable-sendfile_support       - Enables sendfile() support. This has
-                                  currently only been tested for linux.
+--enable-sendfile_support       - Enables sendfile() support. This is more
+                                  efficient then the usual combination of
+                                  read() and write(), since copying is done
+                                  within the kernel and no data needs to be
+                                  copied from/to user space (zero copy). It
+                                  has currently only been tested for linux.
+                                  [Default: disabled]
+--enable-splice_support         - Enables splice() support. When copying
+                                  files the splice() system call is being used.
+                                  splice() moves data between two file
+                                  descriptors without copying between kernel
+                                  address space and user address space.
+                                  splice() is only available for linux as of
+                                  kernel 2.6.17 (tested it only as of 2.6.23).
                                   [Default: disabled]
 --enable-readyfile              - Enables support for FSS ready files. Only
                                   used within the German Weather Service (DWD).

@@ -34,7 +34,7 @@
 #define DEFAULT_PRIORITY           '9'  /* When priority is not          */
                                         /* specified, assume this value. */
 
-/* Definitions of maximum values */
+/* Definitions of maximum values. */
 #define MAX_HOLDING_TIME           24   /* The maximum time that a file  */
                                         /* can be held before it gets    */
                                         /* deleted.                      */
@@ -70,6 +70,7 @@
                                         /* job_id_data structure.        */
 #define TIME_JOB_STEP_SIZE         10
 #define FILE_NAME_STEP_SIZE        20
+#define FILE_BUFFER_STEP_SIZE      50
 
 /* Definitions of identifiers in options. */
 #define TIME_NO_COLLECT_ID         "time no collect"
@@ -284,7 +285,7 @@ struct p_array
        };
 #endif
 
-/* Structure that holds one directory entry of the AMG database */
+/* Structure that holds one directory entry of the AMG database. */
 struct dest_group
        {
           char  dest_group_name[MAX_GROUP_NAME_LENGTH];
@@ -487,7 +488,7 @@ struct dir_data
 #define DO_NOT_LINK_FILES   32
 #define DELETE_ALL_FILES    64
 
-/* Structure that holds a single job for process dir_check */
+/* Structure that holds a single job for process dir_check. */
 struct instant_db
        {
           unsigned int  job_id;        /* Since each host can have       */
@@ -549,7 +550,7 @@ struct instant_db
           char          priority;      /* Priority of job.               */
        };
 
-/* Structure that holds all file information for one directory */
+/* Structure that holds all file information for one directory. */
 struct file_mask_entry
        {
           int  nfm;                          /* Number of file masks     */

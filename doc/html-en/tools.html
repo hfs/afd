@@ -1,3 +1,4 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <title>AFD (tools.html)</title>
@@ -44,6 +45,10 @@ any parameters it will show all commands it knows:
                   -A      stop AMG
                   -Y      start/stop AMG
                   -Z      start/stop FD
+                  -k      force file dir check
+                  -i      reread local interface file
+                  -o      show exec statistics
+                  -p      force archive check
                   -v      just print Version
 </pre>
 <p>
@@ -106,7 +111,7 @@ Transfer timeout     : 120
 File size offset     : -2
 Successful retries   : 0
 MaxSuccessful ret.   : 10
-Special flag ( 64)   : HOST_IN_DIR_CONFIG NO_BURST=0
+Special flag ( 64)   : HOST_IN_DIR_CONFIG
 Error counter        : 0
 Total errors         : 7
 Max. errors          : 10
@@ -553,7 +558,9 @@ user interaction, so it can be used from any shell scripts or programs such as
          12 - Failed to close remote file.
          13 - Failed to rename remote file.
          14 - Remote directory could not be set.
-         20 - FTP-timeout.
+         20 - Operation received timeout.
+         28 - Connection reset by peer.
+         29 - Connection refused.
          30 - Could not open source file.
          31 - Failed to read source file.
          17 - System error stat().
@@ -606,7 +613,9 @@ user interaction, so it can be used from any shell scripts or programs such as
          12 - Failed to close remote file.
          13 - Failed to rename remote file.
          14 - Remote directory could not be set.
-         20 - FTP-timeout.
+         20 - Operation received timeout.
+         28 - Connection reset by peer.
+         29 - Connection refused.
          30 - Could not open source file.
          31 - Failed to read source file.
          17 - System error stat().
@@ -615,12 +624,12 @@ user interaction, so it can be used from any shell scripts or programs such as
          60 - Syntax wrong.
 </pre>
 <hr size=3 noshade>
-<table width=100%>
+<table width="100%">
 <tr>
-   <td width=90%><address><small>
+   <td width="90%"><address><small>
    Copyright &copy; 2001 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 22.07.2007
+   Last updated: 12.11.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

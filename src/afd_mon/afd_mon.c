@@ -516,7 +516,7 @@ main(int argc, char *argv[])
                  system_log(INFO_SIGN, NULL, 0, "Rereading AFD_MON_CONFIG.");
                  afd_mon_db_time = stat_buf.st_mtime;
 
-                 /* Kill all process */
+                 /* Kill all process. */
                  stop_process(-1, NO);
 
                  if (msa_detach() != SUCCESS)
@@ -533,7 +533,7 @@ main(int argc, char *argv[])
                     exit(INCORRECT);
                  }
 
-                 /* Start all process */
+                 /* Start all process. */
                  start_all();
 
                  mon_active();
@@ -691,7 +691,7 @@ eval_cmd_buffer(char *buffer, int bytes_read, int *bytes_buffered)
             }
             break;
 
-         default        : /* Reading garbage from fifo */
+         default        : /* Reading garbage from fifo. */
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Reading garbage on fifo %s [%d]. Ignoring.",
                        MON_CMD_FIFO, (int)buffer[count]);
@@ -932,7 +932,8 @@ zombie_check(time_t now)
        * Lets check if we need to restart any log process at a given
        * time.
        */
-      if ((pl[i].log_pid == -1) && (pl[i].next_retry_time_log != 0L) &&
+      if ((msa[i].connect_status != DISABLED) && (pl[i].log_pid == -1) &&
+          (pl[i].next_retry_time_log != 0L) &&
           (now > pl[i].next_retry_time_log))
       {
          start_log_process(i, msa[i].log_capabilities);

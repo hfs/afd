@@ -1,6 +1,6 @@
 /*
  *  xsend_file.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #ifndef __xsend_file_h
 #define __xsend_file_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* Definitions for sending files. */
 #define SET_ASCII               'A'

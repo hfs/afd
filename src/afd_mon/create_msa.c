@@ -66,18 +66,18 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap(), munmap()                  */
+# include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
 #include <unistd.h>                 /* read(), write(), close(), lseek() */
 #include <errno.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "mondefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern char                   *p_work_dir;
 extern int                    msa_fd,
                               msa_id,
@@ -200,10 +200,10 @@ create_msa(void)
             else
             {
 #ifdef HAVE_MMAP
-               if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+               if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                                MAP_SHARED, old_msa_fd, 0)) == (caddr_t) -1)
 #else
-               if ((ptr = mmap_emu(0, stat_buf.st_size,
+               if ((ptr = mmap_emu(NULL, stat_buf.st_size,
                                    (PROT_READ | PROT_WRITE),
                                    MAP_SHARED, old_msa_stat, 0)) == (caddr_t) -1)
 #endif
@@ -329,7 +329,7 @@ create_msa(void)
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, msa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap(NULL, msa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    msa_fd, 0)) == (caddr_t) -1)
 #else
    if ((ptr = mmap_emu(0, msa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
@@ -341,10 +341,10 @@ create_msa(void)
       exit(INCORRECT);
    }
 
-   /* Write number of AFD's to new memory mapped region */
+   /* Write number of AFD's to new memory mapped region. */
    *(int*)ptr = no_of_afds;
 
-   /* Reposition msa pointer after no_of_afds */
+   /* Reposition msa pointer after no_of_afds. */
    ptr += AFD_WORD_OFFSET;
    msa = (struct mon_status_area *)ptr;
 
@@ -642,7 +642,7 @@ create_msa(void)
     * Copy the new msa_id into the locked MSA_ID_FILE file, unlock
     * and close the file.
     */
-   /* Go to beginning in file */
+   /* Go to beginning in file. */
    if (lseek(fd, 0, SEEK_SET) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -650,7 +650,7 @@ create_msa(void)
                  msa_id_file, strerror(errno));
    }
 
-   /* Write new value into MSA_ID_FILE file */
+   /* Write new value into MSA_ID_FILE file. */
    if (write(fd, &msa_id, sizeof(int)) != sizeof(int))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -658,7 +658,7 @@ create_msa(void)
       exit(INCORRECT);
    }
 
-   /* Unlock file which holds the msa_id */
+   /* Unlock file which holds the msa_id. */
    if (fcntl(fd, F_SETLKW, &ulock) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -666,14 +666,14 @@ create_msa(void)
       exit(INCORRECT);
    }
 
-   /* Close the MSA ID file */
+   /* Close the MSA ID file. */
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
 
-   /* Close file with new MSA */
+   /* Close file with new MSA. */
    if (close(msa_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -681,7 +681,7 @@ create_msa(void)
    }
    msa_fd = -1;
 
-   /* Close old MSA file */
+   /* Close old MSA file. */
    if (old_msa_fd != -1)
    {
       if (close(old_msa_fd) == -1)

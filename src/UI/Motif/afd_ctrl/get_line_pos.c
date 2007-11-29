@@ -45,7 +45,6 @@ DESCR__E_M3
 
 #include "afd_ctrl.h"
 
-extern Widget      appshell;
 extern int         no_of_hosts;
 extern struct line *connect_data;
 
@@ -65,7 +64,7 @@ get_long_pos(int select_no, int verbose)
    }
    if (verbose == YES)
    {
-      (void)xrec(appshell, INFO_DIALOG,
+      (void)xrec(INFO_DIALOG,
                  "Hmmm, unable to get long position for %d.", select_no);
    }
    return(-1);
@@ -87,7 +86,7 @@ get_short_pos(int select_no, int verbose)
    }
    if (verbose == YES)
    {
-      (void)xrec(appshell, INFO_DIALOG,
+      (void)xrec(INFO_DIALOG,
                  "Hmmm, unable to get short position for %d.", select_no);
    }
    return(-1);

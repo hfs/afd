@@ -57,6 +57,7 @@ DESCR__S_M1
  **   07.10.1999 H.Kiehl Added option to force a copy.
  **   09.07.2000 H.Kiehl Cleaned up log output to reduce code size.
  **   03.03.2004 H.Kiehl Create target directory if it does not exist.
+ **   02.09.2007 H.Kiehl Added copying via splice().
  **
  */
 DESCR__E_M1
@@ -68,14 +69,28 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <sys/time.h>                  /* struct timeval                 */
 #ifdef _OUTPUT_LOG
-#include <sys/times.h>                 /* times(), struct tms            */
+# include <sys/times.h>                /* times(), struct tms            */
 #endif
-#include <fcntl.h>
+#ifdef HAVE_FCNTL_H
+# ifdef WITH_SPLICE_SUPPORT
+#  define _GNU_SOURCE
+# endif
+# include <fcntl.h>
+#endif
 #include <signal.h>                    /* signal()                       */
 #include <unistd.h>                    /* unlink(), alarm()              */
 #include <errno.h>
 #include "fddefs.h"
 #include "version.h"
+
+#ifdef WITH_SPLICE_SUPPORT
+# ifndef SPLICE_F_MOVE
+#  define SPLICE_F_MOVE 0x01
+# endif
+# ifndef SPLICE_F_MORE
+#  define SPLICE_F_MORE 0x04
+# endif
+#endif
 
 /* Global variables. */
 int                        event_log_fd = STDERR_FILENO,
@@ -86,6 +101,7 @@ int                        event_log_fd = STDERR_FILENO,
                            *p_no_of_hosts = NULL,
                            fsa_id,
                            fsa_fd = -1,
+                           prev_no_of_files_done = 0,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag = OFF,
                            transfer_log_fd = STDERR_FILENO,
@@ -104,6 +120,7 @@ long                       transfer_timeout; /* Not used [init_sf()]    */
 off_t                      fsa_size;
 #endif
 off_t                      *file_size_buffer;
+u_off_t                    prev_file_size_done = 0;
 char                       *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            *del_file_name_buffer = NULL,
@@ -117,12 +134,12 @@ struct delete_log          dl;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local functions. */
-static int  copy_file_mkdir(char *, char*);
-static void sf_loc_exit(void),
-            sig_bus(int),
-            sig_segv(int),
-            sig_kill(int),
-            sig_exit(int);
+static int                 copy_file_mkdir(char *, char*);
+static void                sf_loc_exit(void),
+                           sig_bus(int),
+                           sig_segv(int),
+                           sig_kill(int),
+                           sig_exit(int);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -193,7 +210,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(sf_loc_exit) != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -201,7 +218,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    p_work_dir = work_dir;
    files_to_send = init_sf(argc, argv, file_path, LOC_FLAG);
    p_db = &db;
@@ -267,7 +284,7 @@ main(int argc, char *argv[])
       /* If we send a lockfile, do it now. */
       if (db.lock == LOCKFILE)
       {
-         /* Create lock file in directory */
+         /* Create lock file in directory. */
          if ((fd = open(db.lock_file_name, (O_WRONLY | O_CREAT | O_TRUNC),
                         (S_IRUSR | S_IWUSR))) == -1)
          {
@@ -361,6 +378,7 @@ main(int argc, char *argv[])
                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                       "Failed to mkdir() `%s' error : %s",
                                       db.target_dir, strerror(errno));
+                            ret = MOVE_ERROR;
                          }
                     else if (ret == STAT_ERROR)
                          {
@@ -371,6 +389,7 @@ main(int argc, char *argv[])
                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                       "Failed to stat() `%s' error : %s",
                                       db.target_dir, strerror(errno));
+                            ret = MOVE_ERROR;
                          }
                     else if (ret == NO_ACCESS)
                          {
@@ -421,7 +440,7 @@ main(int argc, char *argv[])
          lfs = NO;
       }
 
-      /* Prepare pointers and directory name */
+      /* Prepare pointers and directory name. */
       (void)strcpy(source_file, file_path);
       p_source_file = source_file + strlen(source_file);
       *p_source_file++ = '/';
@@ -443,12 +462,12 @@ main(int argc, char *argv[])
          p_to_name = ff_name;
       }
 
-      /* Copy all files */
+      /* Copy all files. */
       p_file_name_buffer = file_name_buffer;
       p_file_size_buffer = file_size_buffer;
       for (i = 0; i < files_to_send; i++)
       {
-         /* Get the the name of the file we want to send next */
+         /* Get the the name of the file we want to send next. */
          *p_ff_name = '\0';
          (void)strcat(ff_name, p_file_name_buffer);
          (void)strcpy(file_name, p_file_name_buffer);
@@ -705,8 +724,7 @@ main(int argc, char *argv[])
             }
             if (rename(if_name, ff_name) == -1)
             {
-               if ((errno == ENOENT) &&
-                   (db.special_flag & CREATE_TARGET_DIR))
+               if ((errno == ENOENT) && (db.special_flag & CREATE_TARGET_DIR))
                {
                   char *p_file = ff_name;
 
@@ -894,7 +912,7 @@ main(int argc, char *argv[])
             }
 #endif
 
-            /* Total file size */
+            /* Total file size. */
             fsa->total_file_size -= *p_file_size_buffer;
 #ifdef _VERIFY_FSA
             if (fsa->total_file_size < 0)
@@ -926,10 +944,10 @@ main(int argc, char *argv[])
                  }
 #endif
 
-            /* File counter done */
+            /* File counter done. */
             fsa->file_counter_done += 1;
 
-            /* Number of bytes send */
+            /* Number of bytes send. */
             fsa->bytes_send += *p_file_size_buffer;
             fsa->job_status[(int)db.job_no].bytes_send += *p_file_size_buffer;
 #ifdef LOCK_DEBUG
@@ -944,10 +962,10 @@ main(int argc, char *argv[])
          {
             trans_exec(file_path, ff_name, p_file_name_buffer);
          }
-#endif /* _WITH_TRANS_EXEC */
+#endif
 
 
-         /* Now archive file if necessary */
+         /* Now archive file if necessary. */
          if ((db.archive_time > 0) &&
              (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
          {
@@ -1058,9 +1076,22 @@ main(int argc, char *argv[])
          }
          else
          {
-            /* Delete the file we just have copied */
+#ifdef WITH_UNLINK_DELAY
+            int unlink_loops = 0;
+
+try_again_unlink:
+#endif
+            /* Delete the file we just have copied. */
             if (unlink(source_file) == -1)
             {
+#ifdef WITH_UNLINK_DELAY
+               if ((errno == EBUSY) && (unlink_loops < 20))
+               {
+                  (void)my_usleep(100000L);
+                  unlink_loops++;
+                  goto try_again_unlink;
+               }
+#endif
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Could not unlink() local file %s after copying it successfully : %s",
                           source_file, strerror(errno));
@@ -1103,9 +1134,8 @@ main(int argc, char *argv[])
          }
 
          /*
-          * After each successful transfer set error
-          * counter to zero, so that other jobs can be
-          * started.
+          * After each successful transfer set error counter to zero,
+          * so that other jobs can be started.
           */
          if (fsa->error_counter > 0)
          {
@@ -1199,7 +1229,7 @@ main(int argc, char *argv[])
                {
                   fsa->host_status &= ~EVENT_STATUS_FLAGS;
                }
-               error_action(fsa->host_alias, "stop");
+               error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
                event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                          fsa->host_alias);
                if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
@@ -1231,7 +1261,7 @@ main(int argc, char *argv[])
          p_file_size_buffer++;
       } /* for (i = 0; i < files_to_send; i++) */
 
-      /* Do not forget to remove lock file if we have created one */
+      /* Do not forget to remove lock file if we have created one. */
       if ((db.lock == LOCKFILE) && (fsa->active_transfers == 1))
       {
          if (unlink(db.lock_file_name) == -1)
@@ -1263,7 +1293,14 @@ main(int argc, char *argv[])
 
 #ifdef _WITH_BURST_2
       burst_2_counter++;
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, NULL)) == YES);
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
+# ifdef _WITH_INTERRUPT_JOB
+                                     0,
+# endif
+# ifndef AFDBENCH_CONFIG
+                                     NULL,
+# endif
+                                     NULL)) == YES);
    burst_2_counter--;
 
    if (cb2_ret == NEITHER)
@@ -1432,6 +1469,58 @@ copy_file_mkdir(char *from, char *to)
          {
             if (stat_buf.st_size > 0)
             {
+#ifdef WITH_SPLICE_SUPPORT
+               int fd_pipe[2];
+
+               if (pipe(fd_pipe) == -1)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                            "Failed to create pipe for copying : %s",
+                            strerror(errno));
+                  ret = MOVE_ERROR;
+               }
+               else
+               {
+                  long  bytes_read,
+                        bytes_written;
+                  off_t bytes_left;
+
+                  bytes_left = stat_buf.st_size;
+                  while (bytes_left)
+                  {
+                     if ((bytes_read = splice(from_fd, NULL, fd_pipe[1], NULL,
+                                              bytes_left,
+                                              SPLICE_F_MOVE | SPLICE_F_MORE)) == -1)
+                     {
+                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                  "splice() error : %s", strerror(errno));
+                        ret = MOVE_ERROR;
+                        break;
+                     }
+                     bytes_left -= bytes_read;
+
+                     while (bytes_read)
+                     {
+                        if ((bytes_written = splice(fd_pipe[0], NULL, to_fd,
+                                                    NULL, bytes_read,
+                                                    SPLICE_F_MOVE | SPLICE_F_MORE)) == -1)
+                        {
+                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                     "splice() error : %s", strerror(errno));
+                           ret = MOVE_ERROR;
+                           bytes_left = 0;
+                           break;
+                        }
+                        bytes_read -= bytes_written;
+                     }
+                  }
+                  if ((close(fd_pipe[0]) == -1) || (close(fd_pipe[1]) == -1))
+                  {
+                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                               "Failed to close() pipe : %s", strerror(errno));
+                  }
+               }
+#else
                char *buffer;
 
                if ((buffer = malloc(stat_buf.st_blksize)) == NULL)
@@ -1469,6 +1558,7 @@ copy_file_mkdir(char *from, char *to)
                   } while (bytes_buffered == stat_buf.st_blksize);
                   free(buffer);
                }
+#endif /* !WITH_SPLICE_SUPPORT */
             }
             if (close(to_fd) == -1)
             {
@@ -1500,17 +1590,22 @@ sf_loc_exit(void)
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      if ((fsa->job_status[(int)db.job_no].file_size_done > 0) ||
-          (fsa->job_status[(int)db.job_no].no_of_files_done > 0))
+      int     diff_no_of_files_done;
+      u_off_t diff_file_size_done;
+
+      diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                              prev_no_of_files_done;
+      diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                            prev_file_size_done;
+      if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
 #ifdef _WITH_BURST_2
 # if SIZEOF_OFF_T == 4
-         fd = sprintf(sf_fin_fifo, "%lu Bytes copied in %d file(s).",
+         fd = sprintf(sf_fin_fifo, "%lu Bytes copied/moved in %d file(s).",
 # else
-         fd = sprintf(sf_fin_fifo, "%llu Bytes copied in %d file(s).",
+         fd = sprintf(sf_fin_fifo, "%llu Bytes copied/moved in %d file(s).",
 # endif
-                      fsa->job_status[(int)db.job_no].file_size_done,
-                      fsa->job_status[(int)db.job_no].no_of_files_done);
+                      diff_file_size_done, diff_no_of_files_done);
          if (burst_2_counter == 1)
          {
             (void)strcpy(&sf_fin_fifo[fd], " [BURST]");
@@ -1523,12 +1618,11 @@ sf_loc_exit(void)
          trans_log(INFO_SIGN, NULL, 0, NULL, "%s", sf_fin_fifo);
 #else
 # if SIZEOF_OFF_T == 4
-         trans_log(INFO_SIGN, NULL, 0, NULL, "%lu Bytes copied in %d file(s).",
+         trans_log(INFO_SIGN, NULL, 0, NULL, "%lu Bytes copied/moved in %d file(s).",
 # else
-         trans_log(INFO_SIGN, NULL, 0, NULL, "%llu Bytes copied in %d file(s).",
+         trans_log(INFO_SIGN, NULL, 0, NULL, "%llu Bytes copied/moved in %d file(s).",
 # endif
-                   fsa->job_status[(int)db.job_no].file_size_done,
-                   fsa->job_status[(int)db.job_no].no_of_files_done);
+                   diff_file_size_done, diff_no_of_files_done);
 #endif /* _WITH_BURST_2 */
       }
       reset_fsa((struct job *)&db, exitflag);
@@ -1608,8 +1702,15 @@ sig_bus(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   exit(GOT_KILLED);
+   exitflag = 0;
+   if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
+   {
+      exit(SUCCESS);
+   }
+   else
+   {
+      exit(GOT_KILLED);
+   }
 }
 
 
@@ -1617,6 +1718,5 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }

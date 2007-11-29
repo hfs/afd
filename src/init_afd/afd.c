@@ -28,7 +28,7 @@ DESCR__S_M1
  ** SYNOPSIS
  **   afd [options]
  **          -a            only start AFD
- **          -b            Blocks auto restart of AFD
+ **          -b            Blocks starting of AFD
  **          -c            only check if AFD is active
  **          -C            check if AFD is active, if not start it
  **          -d            only start afd_ctrl dialog
@@ -38,7 +38,7 @@ DESCR__S_M1
  **          -I            initialize AFD, by deleting everything except for
  **                        the etc directory
  **          -p <role>     use the given user role
- **          -r            Removes blocking file
+ **          -r            remove blocking startup of AFD
  **          -s            shutdown AFD
  **          -S            silent AFD shutdown
  **          -u[ <user>]   different user
@@ -115,7 +115,7 @@ DESCR__E_M1
 #include "amgdefs.h"
 #include "statdefs.h"
 
-/* Some local definitions */
+/* Some local definitions. */
 #define AFD_ONLY                  1
 #define AFD_CHECK_ONLY            2
 #define AFD_CHECK                 3
@@ -156,6 +156,7 @@ main(int argc, char *argv[])
                startup_perm,
                shutdown_perm,
                user_offset;
+   long        default_heartbeat_timeout;
    char        *perm_buffer,
                work_dir[MAX_PATH_LENGTH],
                auto_block_file[MAX_PATH_LENGTH],
@@ -276,9 +277,12 @@ main(int argc, char *argv[])
          exit(INCORRECT);
    }
 
-   if (argc <= 2)
+   if (argc <= 3)
    {
-      if (argc == 2)
+      if ((argc == 2) ||
+          ((argc == 3) && (argv[1][0] == '-') &&
+           ((argv[1][1] == 'C') || (argv[1][1] == 'c')) &&
+           (argv[1][2] == '\0')))
       {
          if (strcmp(argv[1], "-a") == 0) /* Start AFD */
          {
@@ -297,6 +301,14 @@ main(int argc, char *argv[])
          else if (strcmp(argv[1], "-c") == 0) /* Only check if AFD is active */
               {
                  start_up = AFD_CHECK_ONLY;
+                 if (argc == 3)
+                 {
+                    default_heartbeat_timeout = atol(argv[2]);
+                 }
+                 else
+                 {
+                    default_heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
+                 }
               }
          else if (strcmp(argv[1], "-C") == 0) /* Only check if AFD is active */
               {
@@ -307,6 +319,14 @@ main(int argc, char *argv[])
                     exit(INCORRECT);
                  }
                  start_up = AFD_CHECK;
+                 if (argc == 3)
+                 {
+                    default_heartbeat_timeout = atol(argv[2]);
+                 }
+                 else
+                 {
+                    default_heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
+                 }
               }
          else if (strcmp(argv[1], "-d") == 0) /* Start afd_ctrl */
               {
@@ -321,6 +341,14 @@ main(int argc, char *argv[])
          else if (strcmp(argv[1], "-h") == 0) /* Only check for heartbeat. */
               {
                  start_up = AFD_HEARTBEAT_CHECK_ONLY;
+                 if (argc == 3)
+                 {
+                    default_heartbeat_timeout = atol(argv[2]);
+                 }
+                 else
+                 {
+                    default_heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
+                 }
               }
          else if (strcmp(argv[1], "-H") == 0) /* If there is no heartbeat start AFD. */
               {
@@ -331,6 +359,14 @@ main(int argc, char *argv[])
                     exit(INCORRECT);
                  }
                  start_up = AFD_HEARTBEAT_CHECK;
+                 if (argc == 3)
+                 {
+                    default_heartbeat_timeout = atol(argv[2]);
+                 }
+                 else
+                 {
+                    default_heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
+                 }
               }
          else if (strcmp(argv[1], "-i") == 0) /* Initialize AFD. */
               {
@@ -637,7 +673,7 @@ main(int argc, char *argv[])
               exit(INCORRECT);
            }
 
-           if (check_afd_heartbeat(25L, NO) == 1)
+           if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, NO) == 1)
            {
               (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
               exit(AFD_IS_ACTIVE);
@@ -657,7 +693,7 @@ main(int argc, char *argv[])
            if ((start_up == AFD_CHECK_ONLY) ||
                (start_up == AFD_HEARTBEAT_CHECK_ONLY))
            {
-              if (check_afd_heartbeat(25L, NO) == 1)
+              if (check_afd_heartbeat(default_heartbeat_timeout, NO) == 1)
               {
                  (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
                  exit(AFD_IS_ACTIVE);
@@ -665,7 +701,7 @@ main(int argc, char *argv[])
            }
            else
            {
-              if (check_afd_heartbeat(25L, YES) == 1)
+              if (check_afd_heartbeat(default_heartbeat_timeout, YES) == 1)
               {
                  (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
                  exit(AFD_IS_ACTIVE);
@@ -743,7 +779,7 @@ main(int argc, char *argv[])
         }
    else if ((start_up == AFD_INITIALIZE) || (start_up == AFD_FULL_INITIALIZE))
         {
-           if (check_afd_heartbeat(25L, NO) == 1)
+           if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, NO) == 1)
            {
               (void)fprintf(stderr,
                             "ERROR   : AFD is still active, unable to initialize.\n");
@@ -849,7 +885,7 @@ main(int argc, char *argv[])
    }
 
    /* Is another AFD active in this directory? */
-   if (check_afd_heartbeat(25L, YES) == 1)
+   if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, YES) == 1)
    {
       /* Another AFD is active. Only start afd_ctrl. */
       (void)strcpy(exec_cmd, AFD_CTRL);
@@ -1137,7 +1173,7 @@ usage(char *progname)
 {
    (void)fprintf(stderr, "Usage: %s[ -w <AFD working dir>][ -p <role>][ -u[ <user>]] [option]\n", progname);
    (void)fprintf(stderr, "              -a          only start AFD\n");
-   (void)fprintf(stderr, "              -b          Blocks auto restart of AFD\n");
+   (void)fprintf(stderr, "              -b          blocks starting of AFD\n");
    (void)fprintf(stderr, "              -c          only check if AFD is active\n");
    (void)fprintf(stderr, "              -C          check if AFD is active, if not start it\n");
    (void)fprintf(stderr, "              -d          only start afd_ctrl dialog\n");
@@ -1146,13 +1182,13 @@ usage(char *progname)
    (void)fprintf(stderr, "              -i          initialize AFD, by deleting fifodir\n");
    (void)fprintf(stderr, "              -I          initialize AFD, by deleting everything\n");
    (void)fprintf(stderr, "                          except for etc directory\n");
-   (void)fprintf(stderr, "              -r          Removes blocking file\n");
+   (void)fprintf(stderr, "              -r          removes blocking startup of AFD\n");
    (void)fprintf(stderr, "              -s          shutdown AFD\n");
    (void)fprintf(stderr, "              -S          silent AFD shutdown\n");
-   (void)fprintf(stderr, "              -z          Set shutdown bit\n");
-   (void)fprintf(stderr, "              --help      Prints out this syntax\n");
-   (void)fprintf(stderr, "              -v          Just print version number\n");
-   (void)fprintf(stderr, "              --version   Show current version\n");
+   (void)fprintf(stderr, "              -z          set shutdown bit\n");
+   (void)fprintf(stderr, "              --help      prints out this syntax\n");
+   (void)fprintf(stderr, "              -v          just print version number\n");
+   (void)fprintf(stderr, "              --version   show current version\n");
 
    return;
 }

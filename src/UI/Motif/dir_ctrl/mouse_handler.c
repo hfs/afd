@@ -71,13 +71,12 @@ DESCR__E_M3
 #include "dir_ctrl.h"
 #include "permission.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
 extern Widget                     fw[],
                                   rw[],
                                   tw[],
                                   lsw[];
-extern Widget                     appshell;
 extern Window                     line_window;
 extern XFontStruct                *font_struct;
 extern GC                         letter_gc,
@@ -129,7 +128,7 @@ off_t                             fsa_size;
 #endif
 struct filetransfer_status        *fsa;
 
-/* Local global variables */
+/* Local global variables. */
 static int                        in_window = NO;
 
 
@@ -161,7 +160,7 @@ dir_input(Widget      w,
    int        select_no;
    static int last_motion_pos = -1;
 
-   /* Handle any motion event */
+   /* Handle any motion event. */
    if ((event->xany.type == MotionNotify) && (in_window == YES))
    {
       select_no = (event->xbutton.y / line_height) +
@@ -345,7 +344,7 @@ popup_dir_menu_cb(Widget      w,
       return;
    }
 
-   /* Position the menu where the event occurred */
+   /* Position the menu where the event occurred. */
    XmMenuPosition(popup, (XButtonPressedEvent *) (event));
    XtManageChild(popup);
 
@@ -395,7 +394,7 @@ dir_popup_cb(Widget    w,
         (sel_typ == DIR_RESCAN_SEL) || (sel_typ == DIR_VIEW_DC_SEL) ||
         (sel_typ == DIR_HANDLE_EVENT_SEL)))
    {
-      (void)xrec(appshell, INFO_DIALOG,
+      (void)xrec(INFO_DIALOG,
                  "You must first select a directory!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
@@ -403,7 +402,7 @@ dir_popup_cb(Widget    w,
    RT_ARRAY(hosts, no_of_dirs, (MAX_HOSTNAME_LENGTH + 1), char);
    if ((args = malloc(new_size)) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
       return;
    }
@@ -740,11 +739,10 @@ dir_popup_cb(Widget    w,
          exit(SUCCESS);
 
       default  :
-         (void)xrec(appshell, WARN_DIALOG,
 #if SIZEOF_LONG == 4
-                    "Impossible item selection (%d).", sel_typ);
+         (void)xrec(WARN_DIALOG, "Impossible item selection (%d).", sel_typ);
 #else
-                    "Impossible item selection (%ld).", sel_typ);
+         (void)xrec(WARN_DIALOG, "Impossible item selection (%ld).", sel_typ);
 #endif
          free(args);
          FREE_RT_ARRAY(dirs)
@@ -781,7 +779,7 @@ dir_popup_cb(Widget    w,
    {
       if (fsa_attach() == INCORRECT)
       {
-         (void)xrec(appshell, FATAL_DIALOG, "Failed to attach to FSA! (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to attach to FSA! (%s %d)",
                     __FILE__, __LINE__);
          return;
       }
@@ -816,9 +814,9 @@ dir_popup_cb(Widget    w,
                }
                else
                {
-                  if (xrec(appshell, QUESTION_DIALOG,
-                      "Are you shure that you want to disable %s\nThis directory will then not be monitored.",
-                      fra[i].dir_alias) == YES)
+                  if (xrec(QUESTION_DIALOG,
+                           "Are you shure that you want to disable %s\nThis directory will then not be monitored.",
+                           fra[i].dir_alias) == YES)
                   {
                      fra[i].dir_flag ^= DIR_DISABLED;
                      SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
@@ -842,7 +840,7 @@ dir_popup_cb(Widget    w,
                         if ((fd = open(fd_delete_fifo, O_RDWR)) == -1)
 #endif
                         {
-                           (void)xrec(appshell, ERROR_DIALOG,
+                           (void)xrec(ERROR_DIALOG,
                                       "Failed to open() %s : %s (%s %d)",
                                       FD_DELETE_FIFO, strerror(errno),
                                       __FILE__, __LINE__);
@@ -857,7 +855,7 @@ dir_popup_cb(Widget    w,
                            length = 1 + strlen(fra[i].dir_alias) + 1;
                            if (write(fd, wbuf, length) != length)
                            {
-                              (void)xrec(appshell, ERROR_DIALOG,
+                              (void)xrec(ERROR_DIALOG,
                                          "Failed to write() to %s : %s (%s %d)",
                                          FD_DELETE_FIFO, strerror(errno),
                                          __FILE__, __LINE__);
@@ -1030,7 +1028,7 @@ dir_popup_cb(Widget    w,
                break;
 
             default :
-               (void)xrec(appshell, WARN_DIALOG,
+               (void)xrec(WARN_DIALOG,
                           "Impossible selection! NOOO this can't be true! (%s %d)",
                           __FILE__, __LINE__);
                free(args);
@@ -1057,14 +1055,14 @@ dir_popup_cb(Widget    w,
       if ((fd_cmd_fd = open(fd_cmd_fifo, O_RDWR)) == -1)
 #endif
       {
-         (void)xrec(appshell, WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
                     fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       }
       else
       {
          if (send_cmd(FORCE_REMOTE_DIR_CHECK, fd_cmd_fd) != SUCCESS)
          {
-            (void)xrec(appshell, WARN_DIALOG, "write() error : %s (%s %d)",
+            (void)xrec(WARN_DIALOG, "write() error : %s (%s %d)",
                        strerror(errno), __FILE__, __LINE__);
          }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -1128,7 +1126,7 @@ dir_popup_cb(Widget    w,
       }
    }
 
-   /* Make sure that all changes are shown */
+   /* Make sure that all changes are shown. */
    XFlush(display);
 
    no_selected = 0;
@@ -1210,11 +1208,10 @@ change_dir_font_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible font selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible font selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
     }
 
@@ -1222,13 +1219,13 @@ change_dir_font_cb(Widget    w,
    (void)fprintf(stderr, "You have chosen: %s\n", font_name);
 #endif
 
-   /* remove old font */
+   /* Remove old font. */
    XFreeFont(display, font_struct);
 
    /* calculate the new values for global variables */
    setup_dir_window(font_name);
 
-   /* Load the font into the old GC */
+   /* Load the font into the old GC. */
    gc_values.font = font_struct->fid;
    XChangeGC(display, letter_gc, GCFont, &gc_values);
    XChangeGC(display, normal_letter_gc, GCFont, &gc_values);
@@ -1237,15 +1234,15 @@ change_dir_font_cb(Widget    w,
    XChangeGC(display, red_color_letter_gc, GCFont, &gc_values);
    XFlush(display);
 
-   /* resize and redraw window if necessary */
+   /* Resize and redraw window if necessary. */
    if (resize_dir_window() == YES)
    {
       XClearWindow(display, line_window);
 
-      /* redraw label */
+      /* Redraw label. */
       draw_dir_label_line();
 
-      /* redraw all status lines */
+      /* Redraw all status lines. */
       for (i = 0; i < no_of_dirs; i++)
       {
          draw_dir_line_status(i, 1);
@@ -1351,11 +1348,10 @@ change_dir_rows_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
    }
 
@@ -1426,11 +1422,10 @@ change_dir_style_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%ld).",
+         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
 #endif
-                    item_no);
          return;
    }
 
@@ -1460,10 +1455,10 @@ change_dir_style_cb(Widget    w,
    {
       XClearWindow(display, line_window);
 
-      /* redraw label */
+      /* Redraw label. */
       draw_dir_label_line();
 
-      /* redraw all status lines */
+      /* Redraw all status lines. */
       for (i = 0; i < no_of_dirs; i++)
       {
          draw_dir_line_status(i, 1);

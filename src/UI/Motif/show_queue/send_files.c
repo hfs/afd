@@ -58,10 +58,9 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "show_queue.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                 *display;
-extern Widget                  appshell,
-                               listbox_w,
+extern Widget                  listbox_w,
                                statusbox_w;
 extern XT_PTR_TYPE             toggles_set;
 extern char                    font_name[],
@@ -107,15 +106,13 @@ send_files(int no_selected, int *select_list)
                  DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to fstat() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -124,11 +121,10 @@ send_files(int no_selected, int *select_list)
    {
       char *ptr;
 
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fd, 0)) == (caddr_t) -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to mmap() to <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -140,8 +136,7 @@ send_files(int no_selected, int *select_list)
    }
    else
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Dirname database file is empty. (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                  __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -280,7 +275,7 @@ send_files(int no_selected, int *select_list)
 
    if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
    {
-      (void)xrec(appshell, INFO_DIALOG, "munmap() error : %s (%s %d)",
+      (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 

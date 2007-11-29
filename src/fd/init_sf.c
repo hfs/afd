@@ -58,7 +58,7 @@ DESCR__E_M3
 #include "wmodefs.h"
 #endif
 
-/* External global variables */
+/* External global variables. */
 extern int                        exitflag,
                                   fsa_fd,
                                   no_of_hosts,
@@ -75,7 +75,7 @@ extern struct job                 db;
 extern struct delete_log          dl;
 #endif
 
-/* Global variables */
+/* Global variables. */
 int                               no_of_rule_headers;
 
 
@@ -89,7 +89,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    char       gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
    struct job *p_db;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    p_db = &db;
    (void)memset(&db, 0, sizeof(struct job));
    if (protocol & FTP_FLAG)
@@ -223,7 +223,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       db.transfer_mode = 'N';
    }
-   if (fsa->keep_connected > 0)
+   if ((fsa->keep_connected > 0) &&
+       ((fsa->special_flag & KEEP_CON_NO_SEND) == 0))
    {
       db.keep_connected = fsa->keep_connected;
    }
@@ -245,7 +246,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       db.rcvbuf_size = fsa->sockrcv_bufsize;
    }
 
-   /* Open/create log fifos */
+   /* Open/create log fifos. */
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, TRANSFER_LOG_FIFO);

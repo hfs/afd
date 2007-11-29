@@ -19,10 +19,10 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = view_dc.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../afd_ctrl -I../../../init_afd
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../afd_ctrl -I../../../init_afd
 bin_PROGRAMS         = view_dc
 view_dc_SOURCES      = callbacks.c\
                        view_dc.c
-view_dc_LDADD        = ../common/libxafd.a\
+view_dc_LDADD        = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

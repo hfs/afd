@@ -421,7 +421,7 @@ struct process_list
                                                  /* restarted.          */
        };
 
-/* Function prototypes */
+/* Function prototypes. */
 int   attach_afd_mon_status(void),
       check_mon(long),
       detach_afd_mon_status(void),

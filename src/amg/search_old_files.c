@@ -76,10 +76,10 @@ DESCR__E_M3
 extern int                        fra_fd,
                                   no_of_local_dirs,
                                   no_of_hosts;
-extern char                       *p_dir_alias;
 extern struct directory_entry     *de;
 extern struct filetransfer_status *fsa;
-extern struct fileretrieve_status *fra;
+extern struct fileretrieve_status *fra,
+                                  *p_fra;
 #ifdef _DELETE_LOG
 extern struct delete_log          dl;
 #endif
@@ -439,7 +439,7 @@ search_old_files(time_t current_time)
                 (fra[de[i].fra_pos].report_unknown_files == YES) &&
                 ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0))
             {
-               p_dir_alias = de[i].alias;
+               p_fra = &fra[de[i].fra_pos];
                if (file_size >= 1073741824)
                {
                   receive_log(WARN_SIGN, NULL, 0, current_time,
@@ -476,7 +476,7 @@ search_old_files(time_t current_time)
             }
             if (junk_files > 0)
             {
-               p_dir_alias = de[i].alias;
+               p_fra = &fra[de[i].fra_pos];
                receive_log(DEBUG_SIGN, NULL, 0, current_time,
                            "Deleted %d file(s) (>%dh) that where of length 0 or had a leading dot, in %s",
                            junk_files,

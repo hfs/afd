@@ -123,10 +123,10 @@ attach_afd_status(int *fd)
       return(INCORRECT);
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    *ptr_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        afd_status_file, 0)) == (caddr_t) -1)
 #endif
    {

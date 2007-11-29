@@ -29,6 +29,8 @@
           |manual|enable directory  |<dir alias> |<user>[|<reason>]
           |manual|disable directory |<dir alias> |<user>[|<reason>]
           |manual|rescan directory  |<dir alias> |<user>
+          |auto  |Error action start|<dir alias> |<ret code>
+          |auto  |Error action stop |<dir alias> |<ret code>
 ----------+------+------------------+------------+-----------------------------
 production|extern|production error  |<dir alias> |<error id>
           |extern|production error  |<host alias>|<error id>

@@ -20,8 +20,8 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = cursor1.h cursor2.h cursormask1.h cursormask2.h\
                        show_log.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../log\
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../log\
                        -I../afd_ctrl -I../../../afd_mon
 bin_PROGRAMS         = show_log
 show_log_SOURCES     = check_log.c\
@@ -29,5 +29,5 @@ show_log_SOURCES     = check_log.c\
                        log_callbacks.c\
                        log_filter.c\
                        show_log.c
-show_log_LDADD       = ../common/libxafd.a\
+show_log_LDADD       = ../common/libmotifafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

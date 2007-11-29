@@ -1,6 +1,6 @@
 /*
  *  afd_load.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #ifndef __afd_load_h
 #define __afd_load_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define FILE_CHART              0
 #define KBYTE_CHART             1

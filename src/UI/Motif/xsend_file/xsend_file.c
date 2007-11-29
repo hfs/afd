@@ -80,12 +80,13 @@ DESCR__E_M1
 #endif
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 Display          *display;
 XmTextPosition   wpr_position;
 XtInputId        cmd_input_id;
 XtAppContext     app;
 Widget           active_passive_w,
+                 ap_radio_box_w,
                  attach_file_w,
                  appshell,
                  cmd_output,
@@ -124,7 +125,7 @@ char             file_name_file[MAX_PATH_LENGTH],
 struct send_data *db;
 const char       *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local function prototypes. */
 static void      init_xsend_file(int *, char **, char *, char *),
                  sig_bus(int),
                  sig_exit(int),
@@ -902,7 +903,7 @@ main(int argc, char *argv[])
       XtSetSensitive(lock_box_w, False);
    }
 
-      /* Text box to enter the prefix. */
+   /* Text box to enter the prefix. */
    prefix_w = XtVaCreateManagedWidget("",
                         xmTextWidgetClass,   optionbox_w,
                         XmNfontList,         fontlist,
@@ -1024,22 +1025,22 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNnumColumns,     1);
    argcount++;
-   button_w = XmCreateRadioBox(optionbox_w, "radiobox", args, argcount);
+   ap_radio_box_w = XmCreateRadioBox(optionbox_w, "radiobox", args, argcount);
    radio_w = XtVaCreateManagedWidget("Active",
-                        xmToggleButtonGadgetClass, button_w,
+                        xmToggleButtonGadgetClass, ap_radio_box_w,
                         XmNfontList,               fontlist,
                         XmNset,                    True,
                         NULL);
    XtAddCallback(radio_w, XmNdisarmCallback,
                  (XtCallbackProc)active_passive_radio, (XtPointer)SET_ACTIVE);
    radio_w = XtVaCreateManagedWidget("Passive",
-                        xmToggleButtonGadgetClass, button_w,
+                        xmToggleButtonGadgetClass, ap_radio_box_w,
                         XmNfontList,               fontlist,
                         XmNset,                    False,
                         NULL);
    XtAddCallback(radio_w, XmNdisarmCallback,
                  (XtCallbackProc)active_passive_radio, (XtPointer)SET_PASSIVE);
-   XtManageChild(button_w);
+   XtManageChild(ap_radio_box_w);
    XtManageChild(active_passive_w);
    db->mode_flag = ACTIVE_MODE;
    if (db->protocol != FTP)
@@ -1059,7 +1060,7 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       active_passive_w);
+   XtSetArg(args[argcount], XmNleftWidget,       ap_radio_box_w);
    argcount++;
    separator_w = XmCreateSeparator(optionbox_w, "separator", args, argcount);
    XtManageChild(separator_w);
@@ -1151,7 +1152,7 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    if (db->port > 0)
@@ -1183,22 +1184,20 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set signal handler's for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set signal handler's for %s : %s",
                  XSEND_FILE, strerror(errno));
    }
 
    if (atexit(xsend_file_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set exit handler for %s : %s\n",
+      (void)xrec(WARN_DIALOG, "Failed to set exit handler for %s : %s\n",
                  XSEND_FILE, strerror(errno));
    }
 
-   /* We want the keyboard focus on the cmd output */
+   /* We want the keyboard focus on the cmd output. */
    XmProcessTraversal(cmd_output, XmTRAVERSE_CURRENT);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -1296,8 +1295,7 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "Usage: %s [options] <file name file>\n",
-                 progname);
+                 "Usage: %s [options] <file name file>\n", progname);
    (void)fprintf(stderr, "              --version\n");
    (void)fprintf(stderr, "              -f <font name>\n");
    return;

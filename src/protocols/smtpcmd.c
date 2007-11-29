@@ -115,7 +115,7 @@ DESCR__E_M3
 #include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>        /* fd_set                                  */
 #include <sys/time.h>         /* struct timeval                          */
-#include <sys/socket.h>       /* socket(), shutdown(), bind(), accept(), */
+#include <sys/socket.h>       /* socket(), shutdown(), bind(),           */
                               /* setsockopt()                            */
 #include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
 #include <netdb.h>            /* struct hostent, gethostbyname()         */
@@ -127,7 +127,7 @@ DESCR__E_M3
 #include "smtpdefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern int                timeout_flag;
 extern char               msg_str[],
                           tr_hostname[];
@@ -138,13 +138,13 @@ extern int                h_nerr;          /* for gethostbyname()        */
 extern long               transfer_timeout;
 extern struct job         db;
 
-/* Local global variables */
+/* Local global variables. */
 static int                smtp_fd;
 static FILE               *smtp_fp;
 static struct sockaddr_in ctrl;
 static struct timeval     timeout;
 
-/* Local functions */
+/* Local function prototypes. */
 static int                get_reply(FILE *),
                           read_msg(void);
 
@@ -364,7 +364,7 @@ smtp_write(char *block, char *buffer, int size)
    char   *ptr = block;
    fd_set wset;
 
-   /* Initialise descriptor set */
+   /* Initialise descriptor set. */
    FD_ZERO(&wset);
    FD_SET(smtp_fd, &wset);
    timeout.tv_usec = 0L;

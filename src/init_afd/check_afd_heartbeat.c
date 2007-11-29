@@ -57,10 +57,10 @@ DESCR__E_M3
 #include <fcntl.h>               /* O_RDWR                               */
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern char afd_active_file[];
 
-/* Local functions */
+/* Local function prototype. */
 static void kill_jobs(off_t);
 
 
@@ -86,10 +86,10 @@ check_afd_heartbeat(long wait_time, int remove_process)
          char *ptr;
 
 #ifdef HAVE_MMAP
-         if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+         if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                          MAP_SHARED, afd_active_fd, 0)) == (caddr_t) -1)
 #else
-         if ((ptr = mmap_emu(0, stat_buf.st_size,
+         if ((ptr = mmap_emu(NULL, stat_buf.st_size,
                              (PROT_READ | PROT_WRITE),
                              MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1) 
 #endif

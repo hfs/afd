@@ -77,18 +77,18 @@ DESCR__E_M3
 
 #define ARCHIVE_FULL -3
 #ifdef _ARCHIVE_TEST
-#define LINKY_MAX  10
+# define LINKY_MAX  10
 #endif
 
-/* External global variables */
+/* External global variables. */
 extern char   *p_work_dir;
 
-/* Local variables */
+/* Local variables. */
 static time_t archive_start_time = 0L;
 static long   link_max = 0L;
 
-/* Local functions */
-static int    create_archive_dir(char *, time_t, unsigned int, char *),
+/* Local functions. */
+static int    create_archive_dir(char *, time_t, time_t, unsigned int, char *),
               get_archive_dir_number(char *);
 
 
@@ -99,13 +99,15 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
              struct job *p_db)       /* Holds all data of current        */
                                      /* transferring job.                */
 {
-   time_t diff_time;
+   time_t diff_time,
+          now;
    char   newname[MAX_PATH_LENGTH],
           oldname[MAX_PATH_LENGTH],
           *ptr,
           *tmp_ptr;
 
-   diff_time = time(NULL) - archive_start_time;
+   now = time(NULL);
+   diff_time = now - archive_start_time;
    if ((p_db->archive_dir[0] == '\0') || (diff_time > ARCHIVE_STEP_TIME))
    {
       int         i = 0,
@@ -153,7 +155,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       *(ptr + 2) = '/';
       *(ptr + 3) = '\0';
       length = 3;
-      if (stat(p_db->archive_dir, &stat_buf) < 0)
+      if (access(p_db->archive_dir, F_OK) != 0)
       {
          *tmp_ptr = '\0';
          if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
@@ -222,7 +224,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          length = sprintf(ptr, "/%x/", dir_number);
       }
 
-      while (create_archive_dir(p_db->archive_dir, p_db->archive_time,
+      while (create_archive_dir(p_db->archive_dir, p_db->archive_time, now,
                                 p_db->job_id, ptr + length) != 0)
       {
          if (errno == EEXIST)
@@ -251,7 +253,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                  }
                  length = sprintf(ptr, "/%x/", dir_number);
               }
-         else if (errno == ENOSPC) /* No space left on device */
+         else if (errno == ENOSPC) /* No space left on device. */
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to create unique name. Disk full.");
@@ -269,7 +271,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       }
    }
 
-   /* Move file to archive directory */
+   /* Move file to archive directory. */
    (void)strcpy(newname, p_db->archive_dir);
    ptr = newname + strlen(newname);
    *ptr = '/';
@@ -371,8 +373,6 @@ get_archive_dir_number(char *directory)
 
    if (link_max == 0L)
    {
-      if ((link_max = pathconf(directory, _PC_LINK_MAX)) == -1)
-      {
 #ifdef _ARCHIVE_TEST
       link_max = LINKY_MAX;
 #else
@@ -386,8 +386,7 @@ get_archive_dir_number(char *directory)
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "pathconf() error for _PC_LINK_MAX : %s", strerror(errno));
       }
-#endif /* _ARCHIVE_TEST */
-      }
+#endif
    }
    length = strlen(directory);
    (void)memcpy(fulldir, directory, length);
@@ -462,10 +461,11 @@ get_archive_dir_number(char *directory)
 static int
 create_archive_dir(char         *p_path,
                    time_t       archive_time,
+                   time_t       now,
                    unsigned int job_id,
                    char         *msg_name)
 {
-   archive_start_time = time(NULL);
+   archive_start_time = now;
 #if SIZEOF_TIME_T == 4
    (void)sprintf(msg_name, "%lx_%x",
 #else

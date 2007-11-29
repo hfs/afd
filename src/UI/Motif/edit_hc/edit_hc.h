@@ -22,7 +22,7 @@
 #define __edit_hc_h
 
 #include <Xm/DragDrop.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define MAXARGS                20
 #define SIDE_OFFSET            4
@@ -44,6 +44,10 @@
 #ifdef WITH_DUP_CHECK
 # define DC_TIMEOUT            14
 #endif
+
+#define KC_BOTH_SEL            1
+#define KC_FETCH_ONLY_SEL      2
+#define KC_SEND_ONLY_SEL       3
 
 #define FTP_ACTIVE_MODE_SEL    1
 #define FTP_PASSIVE_MODE_SEL   2
@@ -116,8 +120,10 @@
 #endif
 #define FTP_PASSIVE_REDIRECT_CHANGED  2
 #define ERROR_OFFLINE_STATIC_CHANGED  4
+#define KC_DIRECTION_CHANGED          8
+#define FILE_WHEN_LOCAL_CHANGED       16
 
-/* Structure holding all changed entries of one host */
+/* Structure holding all changed entries of one host. */
 struct changed_entry
        {
           unsigned int  value_changed;
@@ -125,6 +131,7 @@ struct changed_entry
           char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
           char          host_toggle[2][1];
           char          proxy_name[MAX_PROXY_NAME_LENGTH + 1];
+          unsigned char special_flag;
           off_t         transfer_rate_limit;
           long          transfer_timeout;
           int           retry_interval;
@@ -174,7 +181,7 @@ struct file_size_offset
           Widget      option_menu_w;
        };
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int  remove_host(char *);
 extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             close_button(Widget, XtPointer, XtPointer),
@@ -186,6 +193,7 @@ extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             fso_option_changed(Widget, XtPointer, XtPointer),
             ftp_mode_radio_button(Widget, XtPointer, XtPointer),
             host_switch_toggle(Widget, XtPointer, XtPointer),
+            kc_radio_button(Widget, XtPointer, XtPointer),
             leave_notify(Widget, XtPointer, XtPointer),
             nob_option_changed(Widget, XtPointer, XtPointer),
             pt_option_changed(Widget, XtPointer, XtPointer),

@@ -20,7 +20,7 @@
 #ifndef __mon_ctrl_h
 #define __mon_ctrl_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "mondefs.h"
 
 #define BAR_LENGTH_MODIFIER            7

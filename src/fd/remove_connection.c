@@ -1,6 +1,6 @@
 /*
  *  remove_connection.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ DESCR__E_M3
 
 /* #define WITH_MULTI_FSA_CHECKS */
 
-/* External global variables */
+/* External global variables. */
 extern int                        fsa_fd,
                                   fra_fd,
                                   no_of_trl_groups;
@@ -84,7 +84,7 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
       }
 #endif /* WITH_MULTI_FSA_CHECKS */
 
-      /* Decrease number of active transfers to this host in FSA */
+      /* Decrease number of active transfers to this host in FSA. */
       if (faulty == YES)
       {
          off_t lock_offset;
@@ -114,6 +114,10 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
 #else
                           (char *)&fra[p_con->fra_pos].error_counter - (char *)fra);
 #endif
+            error_action(fra[p_con->fra_pos].dir_alias, "stop",
+                         DIR_ERROR_ACTION);
+            event_log(now, EC_DIR, ET_EXT, EA_ERROR_END, "%s",
+                      fra[p_con->fra_pos].dir_alias);
          }
 
 #ifdef LOCK_DEBUG
@@ -124,7 +128,7 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
          fsa[p_con->fsa_pos].error_counter += 1;
          fsa[p_con->fsa_pos].total_errors += 1;
 
-         /* Check if we need to toggle hosts */
+         /* Check if we need to toggle hosts. */
          if (fsa[p_con->fsa_pos].auto_toggle == ON)
          {
             if ((fsa[p_con->fsa_pos].error_counter == fsa[p_con->fsa_pos].max_errors) &&

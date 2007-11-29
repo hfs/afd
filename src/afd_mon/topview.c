@@ -65,7 +65,7 @@ char                   *p_work_dir;
 struct mon_status_area *msa;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
-/* Local functions */
+/* Local functions. */
 static void            print_data(int, int),
                        usage(char *);
 

@@ -1,6 +1,6 @@
 /*
  *  show_dlog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ DESCR__E_M1
 # include <X11/Xmu/Editres.h>
 #endif
 
-/* Global variables */
+/* Global variables. */
 Display                    *display;
 XtAppContext               app;
 Widget                     appshell,
@@ -134,7 +134,7 @@ struct sol_perm            perm;
 struct fileretrieve_status *fra;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                init_show_dlog(int *, char **),
                            eval_permissions(char *),
                            sig_bus(int),
@@ -204,7 +204,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    p_work_dir = work_dir;
    init_show_dlog(&argc, argv);
 
@@ -249,10 +249,10 @@ main(int argc, char *argv[])
 
    display = XtDisplay(appshell);
 
-   /* Create managing widget */
+   /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
 
-   /* Prepare font */
+   /* Prepare font. */
    if ((entry = XmFontListEntryLoad(XtDisplay(mainform_w), font_name,
                                     XmFONT_IS_FONT, "TAG1")) == NULL)
    {
@@ -731,7 +731,7 @@ main(int argc, char *argv[])
 
    XtManageChild(selectionbox_w);
 
-   /* Label radiobox_w */
+   /* Label radiobox_w. */
    XtVaCreateManagedWidget("File name :",
                         xmLabelGadgetClass,  selectionbox_w,
                         XmNfontList,         fontlist,
@@ -813,7 +813,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,       30,
                         NULL);
    XtAddCallback(special_button_w, XmNactivateCallback,
-                 (XtCallbackProc)search_button, 0);
+                 (XtCallbackProc)search_button, (XtPointer)0);
    button_w = XtVaCreateManagedWidget("Print",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
@@ -827,7 +827,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,       30,
                         NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)print_button, 0);
+                 (XtCallbackProc)print_button, (XtPointer)0);
    button_w = XtVaCreateManagedWidget("Close",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
@@ -841,7 +841,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,       30,
                         NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
 /*-----------------------------------------------------------------------*/
@@ -940,10 +940,10 @@ main(int argc, char *argv[])
    XtAddEventHandler(listbox_w, ButtonPressMask, False,
                      (XtEventHandler)info_click, (XtPointer)NULL);
    XtAddCallback(listbox_w, XmNextendedSelectionCallback,
-                 (XtCallbackProc)item_selection, 0);
+                 (XtCallbackProc)item_selection, (XtPointer)0);
    XtManageChild(mainform_w);
 
-   /* Free font list */
+   /* Free font list. */
    XmFontListFree(fontlist);
 
    /* Disallow user to change window width. */
@@ -957,22 +957,21 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Start clock */
+   /* Start clock. */
    update_time((XtPointer)currenttime_w, (XtIntervalId)NULL);
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    /* Set some signal handlers. */
    if ((signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set signal handler's for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set signal handler's for %s : %s",
                  SHOW_DLOG, strerror(errno));
    }
 
-   /* We want the keyboard focus on the start time */
+   /* We want the keyboard focus on the start time. */
    XmProcessTraversal(start_time_w, XmTRAVERSE_CURRENT);
 
 #ifdef _WITH_FANCY_TRAVERSE
@@ -989,7 +988,7 @@ main(int argc, char *argv[])
    XtVaGetValues(XtParent(listbox_w), XmNverticalScrollBar,
                  &scrollbar_w, NULL);
    XtAddCallback(scrollbar_w, XmNdragCallback,
-                 (XtCallbackProc)scrollbar_moved, 0);
+                 (XtCallbackProc)scrollbar_moved, (XtPointer)0);
    XtVaGetValues(buttonbox_w, XmNheight, &button_height, NULL);
 
    /* Write heading. */
@@ -1048,7 +1047,7 @@ main(int argc, char *argv[])
    /* Get Window for resizing the main window. */
    main_window = XtWindow(appshell);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -1091,7 +1090,7 @@ init_show_dlog(int *argc, char *argv[])
       no_of_search_dirs = 0;
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -1131,7 +1130,7 @@ init_show_dlog(int *argc, char *argv[])
          exit(INCORRECT);
    }
 
-   /* Collect all hostnames */
+   /* Collect all hostnames. */
    no_of_search_hosts = *argc - 1;
    if (no_of_search_hosts > 0)
    {

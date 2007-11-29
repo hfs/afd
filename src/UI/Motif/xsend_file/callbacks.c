@@ -62,13 +62,14 @@ DESCR__E_M3
 # include "wmodefs.h"
 #endif
 
-/* External global variables */
+/* External global variables. */
 extern char             cmd[];
 extern pid_t            cmd_pid;
 extern int              button_flag,
                         cmd_fd;
 extern Display          *display;
 extern Widget           active_passive_w,
+                        ap_radio_box_w,
                         attach_file_w,
                         cmd_output,
                         create_target_dir_w,
@@ -549,6 +550,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(timeout_label_w, True);
          XtSetSensitive(timeout_w, True);
          XtSetSensitive(active_passive_w, True);
+         XtSetSensitive(ap_radio_box_w, True);
          XtSetSensitive(attach_file_w, False);
          XtSetSensitive(mode_box_w, True);
          XtSetSensitive(lock_box_w, True);
@@ -658,6 +660,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(timeout_label_w, True);
          XtSetSensitive(timeout_w, True);
          XtSetSensitive(active_passive_w, False);
+         XtSetSensitive(ap_radio_box_w, False);
          XtSetSensitive(attach_file_w, True);
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, False);
@@ -689,6 +692,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(timeout_label_w, False);
          XtSetSensitive(timeout_w, False);
          XtSetSensitive(active_passive_w, False);
+         XtSetSensitive(ap_radio_box_w, False);
          XtSetSensitive(attach_file_w, False);
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, True);
@@ -713,6 +717,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(timeout_label_w, True);
          XtSetSensitive(timeout_w, True);
          XtSetSensitive(active_passive_w, False);
+         XtSetSensitive(ap_radio_box_w, False);
          XtSetSensitive(attach_file_w, False);
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, True);
@@ -746,6 +751,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(timeout_label_w, True);
          XtSetSensitive(timeout_w, True);
          XtSetSensitive(active_passive_w, False);
+         XtSetSensitive(ap_radio_box_w, False);
          XtSetSensitive(attach_file_w, False);
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, False);
@@ -779,6 +785,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(timeout_label_w, False);
          XtSetSensitive(timeout_w, False);
          XtSetSensitive(active_passive_w, False);
+         XtSetSensitive(ap_radio_box_w, False);
          XtSetSensitive(attach_file_w, False);
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, False);
@@ -806,11 +813,25 @@ send_save_input(Widget w, XtPointer client_data, XtPointer call_data)
    switch (type)
    {
       case HOSTNAME_NO_ENTER :
-         (void)strcpy(db->hostname, value);
+         if (db->protocol == SMTP)
+         {
+            (void)strcpy(db->smtp_server, value);
+         }
+         else
+         {
+            (void)strcpy(db->hostname, value);
+         }
          break;
 
       case HOSTNAME_ENTER :
-         (void)strcpy(db->hostname, value);
+         if (db->protocol == SMTP)
+         {
+            (void)strcpy(db->smtp_server, value);
+         }
+         else
+         {
+            (void)strcpy(db->hostname, value);
+         }
          reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;

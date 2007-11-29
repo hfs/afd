@@ -105,6 +105,9 @@ extern Widget                     active_mode_w,
                                   host_list_w,
                                   host_switch_toggle_w,
                                   ignore_errors_toggle_w,
+                                  kc_both_w,
+                                  kc_fetch_w,
+                                  kc_send_w,
                                   keep_connected_w,
                                   max_errors_w,
                                   mode_label_w,
@@ -129,7 +132,8 @@ extern Widget                     active_mode_w,
                                   successful_retries_w,
                                   transfer_timeout_w,
                                   transfer_rate_limit_label_w,
-                                  transfer_rate_limit_w;
+                                  transfer_rate_limit_w,
+                                  use_file_when_local_w;
 extern XtInputId                  db_update_cmd_id;
 extern int                        fsa_id,
                                   host_alias_order_change,
@@ -170,7 +174,7 @@ close_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       if ((ce[i].value_changed != 0) || (ce[i].value_changed2 != 0))
       {
-         if (xrec(w, QUESTION_DIALOG,
+         if (xrec(QUESTION_DIALOG,
                   "There are unsaved changes!\nDo you want to discarde these?") != YES)
          {
             return;
@@ -208,7 +212,7 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
          if ((fsa_pos = get_host_position(fsa, host_selected,
                                           no_of_hosts)) < 0)
          {
-            (void)xrec(w, WARN_DIALOG,
+            (void)xrec(WARN_DIALOG,
                        "Could not find host %s in FSA. Assume it has already been removed. (%s %d)",
                        host_selected, __FILE__, __LINE__);
          }
@@ -216,13 +220,13 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             if (fsa[fsa_pos].special_flag & HOST_IN_DIR_CONFIG)
             {
-               (void)xrec(w, WARN_DIALOG,
+               (void)xrec(WARN_DIALOG,
                           "Host %s is still in the DIR_CONFIG. Will NOT remove it! (%s %d)",
                           host_selected, __FILE__, __LINE__);
             }
             else
             {
-               if (xrec(w, QUESTION_DIALOG,
+               if (xrec(QUESTION_DIALOG,
                         "Removing host %s will destroy all statistic information for it!\nAre you really sure?",
                         host_selected) == YES)
                {
@@ -259,10 +263,8 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
 #endif
           (errno != EEXIST))
       {
-         (void)xrec(w, ERROR_DIALOG,
-                    "Could not create fifo `%s' : %s (%s %d)",
-                    db_update_reply_fifo, strerror(errno),
-                    __FILE__, __LINE__);
+         (void)xrec(ERROR_DIALOG, "Could not create fifo `%s' : %s (%s %d)",
+                    db_update_reply_fifo, strerror(errno), __FILE__, __LINE__);
       }
       else
       {
@@ -280,7 +282,7 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
          if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
 #endif
          {
-            (void)xrec(w, ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                        db_update_fifo, strerror(errno), __FILE__, __LINE__);
          }
          else
@@ -296,7 +298,7 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
             if ((db_update_reply_fd = open(db_update_reply_fifo, O_RDWR)) == -1)
 #endif
             {
-               (void)xrec(w, ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
+               (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                           db_update_reply_fifo, strerror(errno),
                           __FILE__, __LINE__);
             }
@@ -308,7 +310,7 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
                (void)memcpy(&buffer[1], &my_pid, SIZEOF_PID_T);
                if (write(db_update_fd, buffer, (1 + SIZEOF_PID_T)) != (1 + SIZEOF_PID_T))
                {
-                  (void)xrec(w, ERROR_DIALOG,
+                  (void)xrec(ERROR_DIALOG,
                              "Failed to REREAD_HOST_CONFIG message to AMG : %s (%s %d)",
                              strerror(errno), __FILE__, __LINE__);
                }
@@ -410,12 +412,12 @@ read_reply(XtPointer client_data, int *fd, XtInputId *id)
                         &see_sys_log, &type);
       if (see_sys_log == YES)
       {
-         (void)xrec(appshell, type, "%s\n--> See %s0 for more details. <--",
+         (void)xrec(type, "%s\n--> See %s0 for more details. <--",
                     hc_result_str, SYSTEM_LOG_NAME);
       }
       else
       {
-         (void)xrec(appshell, type, "%s", hc_result_str);
+         (void)xrec(type, "%s", hc_result_str);
       }
 
    }
@@ -573,11 +575,10 @@ host_switch_toggle(Widget w, XtPointer client_data, XtPointer call_data)
         }
         else
         {
-            (void)xrec(w, WARN_DIALOG,
 #if SIZEOF_LONG == 4
-                       "Unknown toggle set [%d] : (%s %d)",
+            (void)xrec(WARN_DIALOG, "Unknown toggle set [%d] : (%s %d)",
 #else
-                       "Unknown toggle set [%ld] : (%s %d)",
+            (void)xrec(WARN_DIALOG, "Unknown toggle set [%ld] : (%s %d)",
 #endif
                        toggles_set, __FILE__, __LINE__);
         }
@@ -754,6 +755,31 @@ dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
    return;
 }
 #endif /* WITH_DUP_CHECK */
+
+
+/*########################## kc_radio_button() ##########################*/
+void
+kc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   ce[cur_pos].value_changed2 |= KC_DIRECTION_CHANGED;
+   if ((XT_PTR_TYPE)client_data == KC_BOTH_SEL)
+   {
+      ce[cur_pos].special_flag &= ~KEEP_CON_NO_SEND;
+      ce[cur_pos].special_flag &= ~KEEP_CON_NO_FETCH;
+   }
+   else if ((XT_PTR_TYPE)client_data == KC_FETCH_ONLY_SEL)
+        {
+           ce[cur_pos].special_flag |= KEEP_CON_NO_SEND;
+           ce[cur_pos].special_flag &= ~KEEP_CON_NO_FETCH;
+        }
+        else
+        {
+           ce[cur_pos].special_flag &= ~KEEP_CON_NO_SEND;
+           ce[cur_pos].special_flag |= KEEP_CON_NO_FETCH;
+        }
+
+   return;
+}
 
 
 /*########################### toggle_button() ###########################*/
@@ -939,7 +965,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                   ce[cur_pos].proxy_name[MAX_PROXY_NAME_LENGTH] = '\0';
                   XmTextSetString(w, ce[cur_pos].proxy_name);
                   XFlush(display);
-                  (void)xrec(w, INFO_DIALOG,
+                  (void)xrec(INFO_DIALOG,
                              "Proxy length to long. Cutting off extra length.");
                }
                else
@@ -1090,7 +1116,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
    (void)strcpy(last_selected_host, host_selected);
    if ((cur_pos = get_host_position(fsa, host_selected, no_of_hosts)) < 0)
    {
-      (void)xrec(w, FATAL_DIALOG,
+      (void)xrec(FATAL_DIALOG,
                  "AAAaaaarrrrghhhh!!! Could not find host %s in FSA. (%s %d)",
                  host_selected, __FILE__, __LINE__);
       return;
@@ -1126,6 +1152,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(host_switch_toggle_w, True);
          XtSetSensitive(real_hostname_1_w, True);
          XtSetSensitive(transfer_timeout_w, True);
+         XtSetSensitive(use_file_when_local_w, True);
 
          /* Activate/Deactivate 2nd host name string. */
          if (fsa[cur_pos].host_toggle_str[0] == '\0')
@@ -1199,6 +1226,29 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             tmp_ptr = fsa[cur_pos].real_hostname[1];
          }
          XtVaSetValues(real_hostname_2_w, XmNvalue, tmp_ptr, NULL);
+
+         if (ce[cur_pos].value_changed2 & FILE_WHEN_LOCAL_CHANGED)
+         {
+            if (fsa[cur_pos].protocol_options & FILE_WHEN_LOCAL_FLAG)
+            {
+               XtVaSetValues(use_file_when_local_w, XmNset, False, NULL);
+            }
+            else
+            {
+               XtVaSetValues(use_file_when_local_w, XmNset, True, NULL);
+            }
+         }
+         else
+         {
+            if (fsa[cur_pos].protocol_options & FILE_WHEN_LOCAL_FLAG)
+            {
+               XtVaSetValues(use_file_when_local_w, XmNset, True, NULL);
+            }
+            else
+            {
+               XtVaSetValues(use_file_when_local_w, XmNset, False, NULL);
+            }
+         }
 
          if (ce[cur_pos].value_changed & TRANSFER_TIMEOUT_CHANGED)
          {
@@ -1341,6 +1391,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(host_1_w, False);
          XtSetSensitive(host_2_label_w, False);
          XtSetSensitive(host_2_w, False);
+         XtSetSensitive(use_file_when_local_w, False);
          XtSetSensitive(auto_toggle_w, False);
          XtSetSensitive(real_hostname_1_w, False);
          XtSetSensitive(real_hostname_2_w, False);
@@ -1548,6 +1599,29 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          (void)sprintf(numeric_str, "%u", fsa[cur_pos].keep_connected);
       }
       XtVaSetValues(keep_connected_w, XmNvalue, numeric_str, NULL);
+
+      if ((ce[cur_pos].value_changed2 & KC_DIRECTION_CHANGED) == 0)
+      {
+         if (((fsa[cur_pos].special_flag & KEEP_CON_NO_FETCH) == 0) &&
+             ((fsa[cur_pos].special_flag & KEEP_CON_NO_SEND) == 0))
+         {
+            XtVaSetValues(kc_both_w, XmNset, True, NULL);
+            XtVaSetValues(kc_fetch_w, XmNset, False, NULL);
+            XtVaSetValues(kc_send_w, XmNset, False, NULL);
+         }
+         else if (fsa[cur_pos].special_flag & KEEP_CON_NO_FETCH)
+              {
+                 XtVaSetValues(kc_both_w, XmNset, False, NULL);
+                 XtVaSetValues(kc_fetch_w, XmNset, False, NULL);
+                 XtVaSetValues(kc_send_w, XmNset, True, NULL);
+              }
+              else
+              {
+                 XtVaSetValues(kc_both_w, XmNset, False, NULL);
+                 XtVaSetValues(kc_fetch_w, XmNset, True, NULL);
+                 XtVaSetValues(kc_send_w, XmNset, False, NULL);
+              }
+      }
 
 #ifdef WITH_DUP_CHECK
       if (((ce[cur_pos].value_changed & DC_TYPE_CHANGED) == 0) &&
@@ -1905,7 +1979,8 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "%s was using edit_hc while someone changed the DIR_CONFIG!",
                  user);
-      (void)xrec(w, FATAL_DIALOG, "DO NOT EDIT THE DIR_CONFIG FILE WHILE USING edit_hc!!!!");
+      (void)xrec(FATAL_DIALOG,
+                 "DO NOT EDIT THE DIR_CONFIG FILE WHILE USING edit_hc!!!!");
       return;
    }
 
@@ -2075,6 +2150,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             }
             changes++;
          }
+         if (ce[i].value_changed2 & FILE_WHEN_LOCAL_CHANGED)
+         {
+            fsa[i].protocol_options ^= FILE_WHEN_LOCAL_FLAG;
+            changes++;
+         }
          if (ce[i].value_changed & TRANSFER_TIMEOUT_CHANGED)
          {
             fsa[i].transfer_timeout = ce[i].transfer_timeout;
@@ -2103,6 +2183,28 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             fsa[i].keep_connected = ce[i].keep_connected;
             ce[i].keep_connected = 0;
+            changes++;
+         }
+         if (ce[i].value_changed2 & KC_DIRECTION_CHANGED)
+         {
+            if (((ce[i].special_flag & KEEP_CON_NO_FETCH) == 0) &&
+                ((ce[i].special_flag & KEEP_CON_NO_SEND) == 0))
+            {
+               fsa[i].special_flag &= ~KEEP_CON_NO_FETCH;
+               fsa[i].special_flag &= ~KEEP_CON_NO_SEND;
+            }
+            else if (ce[i].special_flag & KEEP_CON_NO_FETCH)
+                 {
+                    fsa[i].special_flag |= KEEP_CON_NO_FETCH;
+                    fsa[i].special_flag &= ~KEEP_CON_NO_SEND;
+                 }
+                 else
+                 {
+                    fsa[i].special_flag &= ~KEEP_CON_NO_FETCH;
+                    fsa[i].special_flag |= KEEP_CON_NO_SEND;
+                 }
+            ce[i].special_flag &= ~KEEP_CON_NO_FETCH;
+            ce[i].special_flag &= ~KEEP_CON_NO_SEND;
             changes++;
          }
          if (ce[i].value_changed & TRANSFER_RATE_LIMIT_CHANGED)
@@ -2419,7 +2521,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     NULL);
       if ((p_host_names = malloc(new_size)) == NULL)
       {
-         (void)xrec(w, FATAL_DIALOG, "malloc() error [%d Bytes] : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "malloc() error [%d Bytes] : %s (%s %d)",
                     new_size, strerror(errno), __FILE__, __LINE__);
          if (host_list != NULL)
          {
@@ -2530,16 +2632,14 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
 #endif
       {
-         (void)xrec(w, WARN_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
-                    db_update_fifo, strerror(errno),
-                    __FILE__, __LINE__);
+         (void)xrec(WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
+                    db_update_fifo, strerror(errno), __FILE__, __LINE__);
       }
       else
       {
          if ((ret = send_cmd(HOST_CONFIG_UPDATE, db_update_fd)) != SUCCESS)
          {
-            (void)xrec(w, ERROR_DIALOG,
+            (void)xrec(ERROR_DIALOG,
                        "Failed to send update message to AMG : %s (%s %d)",
                        strerror(-ret), __FILE__, __LINE__);
          }

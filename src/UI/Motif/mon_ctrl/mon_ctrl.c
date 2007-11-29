@@ -477,15 +477,14 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set signal handlers for mon_ctrl : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set signal handlers for mon_ctrl : %s",
                  strerror(errno));
    }
 
    /* Exit handler so we can close applications that the user started. */
    if (atexit(mon_ctrl_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
+      (void)xrec(WARN_DIALOG,
                  "Failed to set exit handler for mon_ctrl : %s\n\nWill not be able to close applications when terminating.",
                  strerror(errno));
    }
@@ -2355,11 +2354,10 @@ mon_ctrl_exit(void)
       {
          if (kill(apps_list[i].pid, SIGINT) < 0)
          {
-            (void)xrec(appshell, WARN_DIALOG,
 #if SIZEOF_PID_T == 4
-                       "Failed to kill() process %s (%d) : %s",
+            (void)xrec(WARN_DIALOG, "Failed to kill() process %s (%d) : %s",
 #else
-                       "Failed to kill() process %s (%lld) : %s",
+            (void)xrec(WARN_DIALOG, "Failed to kill() process %s (%lld) : %s",
 #endif
                        apps_list[i].progname, (pri_pid_t)apps_list[i].pid,
                        strerror(errno));

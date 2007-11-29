@@ -19,13 +19,14 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = show_elog.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../log -I../afd_ctrl
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../log\
+                       -I../afd_ctrl
 bin_PROGRAMS         = show_elog
 show_elog_SOURCES    = callbacks.c\
                        get_data.c\
                        print_data.c\
                        select_event_actions.c\
                        show_elog.c
-show_elog_LDADD      = ../common/libxafd.a\
+show_elog_LDADD      = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

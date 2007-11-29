@@ -71,7 +71,7 @@ extern XtIntervalId   interval_id_host;
 extern XmTextPosition wpr_position;
 extern Cursor         cursor1,
                       cursor2;
-extern Widget         toplevel,
+extern Widget         appshell,
                       counterbox,
                       log_scroll_bar;
 extern int            current_log_number,
@@ -88,7 +88,7 @@ extern char           log_dir[MAX_PATH_LENGTH],
 extern FILE           *p_log_file;
 static int            first_time = YES;
 
-/* Local function */
+/* Local function. */
 static void           display_data(Widget, int *, int *, int *,
                                    unsigned int *, char *);
 
@@ -97,8 +97,7 @@ static void           display_data(Widget, int *, int *, int *,
 
 /*############################# check_log() #############################*/
 void
-check_log(w)
-Widget w;
+check_log(Widget w)
 {
 #ifdef _SLOW_COUNTER
    static int old_line_counter = 0;
@@ -119,7 +118,7 @@ Widget w;
 
       if ((line_buffer = malloc(MAX_LINE_LENGTH * MAX_LINES_IN_ONE_GO)) == NULL)
       {
-         (void)xrec(toplevel, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -189,7 +188,7 @@ Widget w;
             }
          }
       }
-      else /* We are searching for ALL hosts */
+      else /* We are searching for ALL hosts. */
       {
          while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
          {
@@ -288,7 +287,7 @@ Widget w;
             p_log_file = NULL;
          }
 
-         /* Lets see if there is a new log file */
+         /* Lets see if there is a new log file. */
          if ((p_log_file = fopen(log_file, "r")) != NULL)
          {
 #ifdef _SLOW_COUNTER
@@ -306,19 +305,19 @@ Widget w;
       }
    }
 
-   /* Reset cursor and ignore any events that might have occurred */
+   /* Reset cursor and ignore any events that might have occurred. */
    if (locked == 1)
    {
       XSetWindowAttributes attrs;
       XEvent               event;
 
       attrs.cursor = None;
-      XChangeWindowAttributes(display, XtWindow(toplevel),
+      XChangeWindowAttributes(display, XtWindow(appshell),
                               CWCursor, &attrs);
       XFlush(display);
 
       /* Get rid of all events that have occurred */
-      while (XCheckMaskEvent(XtDisplay(toplevel),
+      while (XCheckMaskEvent(XtDisplay(appshell),
                              ButtonPressMask | ButtonReleaseMask |
                              ButtonMotionMask | PointerMotionMask |
                              KeyPressMask, &event) == True)
@@ -369,10 +368,10 @@ display_data(Widget       w,
       {
          *locked = 1;
          attrs.cursor = cursor2;
-         XChangeWindowAttributes(display, XtWindow(toplevel), CWCursor, &attrs);
+         XChangeWindowAttributes(display, XtWindow(appshell), CWCursor, &attrs);
       }
       XFlush(display);
-      XmUpdateDisplay(toplevel);
+      XmUpdateDisplay(appshell);
    }
    if ((*cursor_counter % FALLING_SAND_SPEED) == 0)
    {
@@ -386,7 +385,7 @@ display_data(Widget       w,
          tflag = 0;
          attrs.cursor = cursor2;
       }
-      XChangeWindowAttributes(display, XtWindow(toplevel), CWCursor, &attrs);
+      XChangeWindowAttributes(display, XtWindow(appshell), CWCursor, &attrs);
    }
    (*lock_counter)++; (*cursor_counter)++;
 

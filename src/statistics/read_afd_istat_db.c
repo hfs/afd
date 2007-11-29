@@ -64,7 +64,7 @@ DESCR__E_M3
 #endif
 #endif
 
-/* Global external variables */
+/* Global external variables. */
 extern int                        sys_log_fd,
                                   lock_fd;
 extern size_t                     istat_db_size;
@@ -145,7 +145,7 @@ read_afd_istat_db(int no_of_dirs)
          }
 
 #ifdef HAVE_MMAP
-         if ((old_ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+         if ((old_ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                              (MAP_FILE | MAP_SHARED),
                              old_status_fd, 0)) == (caddr_t) -1)
          {
@@ -216,7 +216,7 @@ read_afd_istat_db(int no_of_dirs)
                 new_istatistic_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((ptr = mmap(0, istat_db_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, istat_db_size, (PROT_READ | PROT_WRITE),
                    (MAP_FILE | MAP_SHARED),
                    new_status_fd, 0)) == (caddr_t) -1)
    {

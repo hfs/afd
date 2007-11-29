@@ -1,6 +1,6 @@
 /*
  *  xshow_stat.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #ifndef __xshow_stat_h
 #define __xshow_stat_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* What statistics can be displayed. */
 #define SHOW_KBYTE_STAT         0

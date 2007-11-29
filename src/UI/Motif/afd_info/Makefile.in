@@ -64,7 +64,8 @@ PROGRAMS = $(bin_PROGRAMS)
 am_afd_info_OBJECTS = afd_info.$(OBJEXT) info_callbacks.$(OBJEXT) \
 	update_info.$(OBJEXT)
 afd_info_OBJECTS = $(am_afd_info_OBJECTS)
-afd_info_DEPENDENCIES = ../common/libxafd.a ../../../common/libafd.a
+afd_info_DEPENDENCIES = ../common/libmotifafd.a \
+	../../common/libuiafd.a ../../../common/libafd.a
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/ac-tools/depcomp
 am__depfiles_maybe = depfiles
@@ -79,7 +80,7 @@ ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
-AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
+AFD_GTK_CFLAGS = @AFD_GTK_CFLAGS@
 AFD_GTK_LIBS = @AFD_GTK_LIBS@
 AFD_MAP_LIBS = @AFD_MAP_LIBS@
 AFD_MATH_LIB = @AFD_MATH_LIB@
@@ -117,6 +118,7 @@ ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
 ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
+GZIP_CMD = @GZIP_CMD@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
@@ -141,6 +143,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PKG_CONFIG = @PKG_CONFIG@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
@@ -191,6 +194,7 @@ ac_configure_args = @ac_configure_args@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
+ac_pt_PKG_CONFIG = @ac_pt_PKG_CONFIG@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -231,14 +235,14 @@ target_alias = @target_alias@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES = gmon.out core core.*
 noinst_HEADERS = active_passive.h afd_info.h
-INCLUDES = @AFD_MOTIF_INCLUDES@ -I../common -I../../..\
-                       -I../afd_ctrl -I../../../init_afd
+INCLUDES = @AFD_MOTIF_INCLUDES@ -I../../common -I../common\
+                       -I../../.. -I../afd_ctrl -I../../../init_afd
 
 afd_info_SOURCES = afd_info.c\
                        info_callbacks.c\
                        update_info.c
 
-afd_info_LDADD = ../common/libxafd.a\
+afd_info_LDADD = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
 
 all: all-am

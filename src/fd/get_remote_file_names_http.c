@@ -216,6 +216,7 @@ get_remote_file_names_http(off_t *file_size_to_retrieve)
              i,
              j,
              status;
+   time_t    now;
    struct tm *p_tm;
 
    /* Get all file masks for this directory. */
@@ -235,13 +236,19 @@ get_remote_file_names_http(off_t *file_size_to_retrieve)
    {
       /* Note: FTP returns GMT so we need to convert this to GMT! */
       current_time = time(NULL);
+      now = current_time;
       p_tm = gmtime(&current_time);
       current_time = mktime(p_tm);
+   }
+   else
+   {
+      now = 0;
    }
 
    /*
     * First determine if user wants to try and get a filename
-    * listing. This is done by putting a / to the end of path.
+    * listing. This can be done by setting the diretory option
+    * 'do not get dir list' in DIR_CONFIG.
     */
    *file_size_to_retrieve = 0;
    if ((fra[db.fra_pos].dir_flag & DONT_GET_DIR_LIST) == 0)
@@ -427,14 +434,25 @@ get_remote_file_names_http(off_t *file_size_to_retrieve)
    {
       time_t file_mtime;
       off_t  file_size;
-      char   *p_mask;
+      char   *p_mask,
+             tmp_mask[MAX_FILENAME_LENGTH];
+
+      if (now == 0)
+      {
+         now = time(NULL);
+      }
 
       for (i = 0; i < nfg; i++)
       {
          p_mask = fml[i].file_list;
          for (j = 0; j < fml[i].fc; j++)
          {
-            if ((status = http_head(db.hostname, db.target_dir, p_mask,
+            /*
+             * We cannot just take the mask as is. We must check if we
+             * need to expand the mask and then use the expansion.
+             */
+            expand_filter(p_mask, tmp_mask, now);
+            if ((status = http_head(db.hostname, db.target_dir, tmp_mask,
                                     &file_size, &file_mtime)) == SUCCESS)
             {
                off_t exact_size;
@@ -455,7 +473,7 @@ get_remote_file_names_http(off_t *file_size_to_retrieve)
                                "Date for %s is %lld, size = %lld bytes.",
 # endif
 #endif
-                               p_mask, (pri_time_t)file_mtime,
+                               tmp_mask, (pri_time_t)file_mtime,
                                (pri_off_t)file_size);
                }
                if (file_size == -1)
@@ -466,7 +484,7 @@ get_remote_file_names_http(off_t *file_size_to_retrieve)
                {
                   exact_size = 1;
                }
-               if (check_list(p_mask, file_mtime, exact_size, file_size,
+               if (check_list(tmp_mask, file_mtime, exact_size, file_size,
                               file_size_to_retrieve) == 0)
                {
                   files_to_retrieve++;
@@ -1103,7 +1121,7 @@ check_list(char   *file,
             exit(INCORRECT);
          }
 #else
-         if ((ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
+         if ((ptr = mmap(NULL, rl_size, (PROT_READ | PROT_WRITE),
                          MAP_SHARED, rl_fd, 0)) == (caddr_t) -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1186,7 +1204,7 @@ check_list(char   *file,
                      http_quit();
                      exit(INCORRECT);
                   }
-                  if ((ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
+                  if ((ptr = mmap(NULL, rl_size, (PROT_READ | PROT_WRITE),
                                   MAP_SHARED, rl_fd, 0)) == (caddr_t) -1)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1478,7 +1496,7 @@ check_list(char   *file,
 
 /*++++++++++++++++++++++++++ remove_ls_data() +++++++++++++++++++++++++++*/
 static void
-remove_ls_data()
+remove_ls_data(void)
 {
    if ((fra[db.fra_pos].stupid_mode != YES) &&
        (fra[db.fra_pos].remove == NO))

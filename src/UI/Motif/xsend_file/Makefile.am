@@ -19,13 +19,13 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = xsend_file.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../protocols\
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../../../init_afd -I../../../protocols\
                        -I../../../log -I../afd_ctrl
 bin_PROGRAMS         = xsend_file
 xsend_file_SOURCES   = callbacks.c\
                        create_url_file.c\
                        send_file.c\
                        xsend_file.c
-xsend_file_LDADD     = ../common/libxafd.a\
+xsend_file_LDADD     = ../common/libmotifafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

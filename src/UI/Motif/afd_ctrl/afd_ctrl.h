@@ -21,7 +21,7 @@
 #define __afd_ctrl_h
 
 #include <time.h>                       /* clock_t                       */
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define MAX_STRING_LENGTH               20
 #define DEFAULT_NO_OF_ROWS              50
@@ -34,6 +34,8 @@
 #define PRINTER_INFO_LENGTH             40
 
 #define MAX_NO_OF_DETAILED_TRANSFERS    60
+
+#define STATIC_EVENT_REASON             "Host error/warning set offline by admin."
 
 /* Definitions for the menu bar items. */
 #define HOST_W                          0
@@ -104,7 +106,7 @@
 /*         afd_ctrl.h        0 - 39                    */
 /*         mon_ctrl.h       40 - 69                    */
 /*         dir_ctrl.h       70 - 99                    */
-/*         x_common_defs.h 100 onwards.                */
+/*         ui_common_defs.h 100 onwards.               */
 
 /* Bar types. */
 #define ERROR_BAR_NO                    0
@@ -129,13 +131,6 @@
 #define RECEIVE_LOG_INDICATOR           0
 #define SYS_LOG_INDICATOR               1
 #define TRANS_LOG_INDICATOR             2
-
-/* Bits to indicate the line style. The first two bits are not used */
-/* and are kept for backwards compatibility.                        */
-#define SHOW_LEDS                       4
-#define SHOW_JOBS                       8
-#define SHOW_CHARACTERS                 16
-#define SHOW_BARS                       32
 
 #define LEDS_STYLE_W                    0
 #define JOBS_STYLE_W                    1
@@ -280,7 +275,7 @@ struct job_data
           size_t        filename_compare_length;
        };
 
-/* Function Prototypes */
+/* Function Prototypes. */
 extern void        calc_but_coord(int),
                    change_font_cb(Widget, XtPointer, XtPointer),
                    change_rows_cb(Widget, XtPointer, XtPointer),
@@ -291,6 +286,7 @@ extern void        calc_but_coord(int),
                    control_cb(Widget, XtPointer, XtPointer),
                    create_tv_window(void),
                    destroy_error_history(void),
+                   destroy_event_reason(void),
                    expose_handler_button(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
                    expose_handler_label(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
                    expose_handler_line(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
@@ -329,6 +325,7 @@ extern void        calc_but_coord(int),
                    locate_xy_short(int, int *, int *),
                    popup_cb(Widget, XtPointer, XtPointer),
                    popup_error_history(int, int, int),
+                   popup_event_reason(int, int, int),
                    popup_menu_cb(Widget, XtPointer, XEvent *),
                    save_setup_cb(Widget, XtPointer, XtPointer),
                    select_host_dialog(Widget, XtPointer, XtPointer),

@@ -44,7 +44,7 @@ DESCR__E_M3
 
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        max_connections,
                                   no_of_dirs,
                                   no_of_hosts;
@@ -57,20 +57,54 @@ extern struct connection          *connection;
 void
 get_new_positions(void)
 {
+   int          old_pos;
    register int i;
 
    for (i = 0; i < max_connections; i++)
    {
       if (connection[i].pid > 0)
       {
+         old_pos = connection[i].fsa_pos;
          if ((connection[i].fsa_pos = get_host_position(fsa,
                                                         connection[i].hostname,
                                                         no_of_hosts)) < 0)
          {
+            /*
+             * Hmm, not sure what is the best strategy. We have
+             * two options. One is to kill the job and remove
+             * all data. Second one is to finish this job
+             * until it is done. At first glance it looks as
+             * if the first is the correct solution. It has
+             * however the big disadvantage that when a user
+             * changes the alias name of the host, the data is
+             * lost. For this reason the second option was
+             * implemented. This has the disadvantage that since
+             * we cannot differentiate here if we realy deleted a
+             * host or just renamed it we must continue sending
+             * data to this host, even if the host has been
+             * deleted by the user. We do this by putting this
+             * host at the end of the FSA that is not visible to
+             * the user. We hide it from the user.
+             */
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
                        "Hmm. Failed to locate host <%s> for connection job %d [pid = %d] has been removed. Writing data to end of FSA 8-(",
                        connection[i].hostname, i, connection[i].pid);
             connection[i].fsa_pos = no_of_hosts;
+            fsa[connection[i].fsa_pos].keep_connected = 0;
+
+            /*
+             * Since we now have moved the complete job
+             * to the end of the FSA, we need to free up
+             * the old FSA position for new jobs. Otherwise
+             * it can happen that function get_free_disp_pos()
+             * will not find a free slot and no more data
+             * is distributed for this host.
+             */
+            fsa[old_pos].job_status[connection[i].job_no].proc_id = -1;
+#ifdef _WITH_BURST_2
+            fsa[old_pos].job_status[connection[i].job_no].unique_name[0] = '\0';
+            fsa[old_pos].job_status[connection[i].job_no].job_id = NO_ID;
+#endif
          }
          if (connection[i].msg_name[0] == '\0')
          {

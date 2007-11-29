@@ -265,7 +265,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",

@@ -68,19 +68,19 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/List.h>
 #include <Xm/Text.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_queue.h"
 #include "fddefs.h"
 
 #define _WITH_HEAPSORT
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
-extern Widget                     appshell,
+extern Widget                     appshell, /* CHECK_INTERRUPT() */
                                   listbox_w,
                                   scrollbar_w,
-                                  statusbox_w,
                                   special_button_w,
+                                  statusbox_w,
                                   summarybox_w;
 extern int                        radio_set,
                                   gt_lt_sign,
@@ -117,7 +117,7 @@ static char                       limit_reached;
 static struct dir_name_buf        *dnb;
 static struct job_id_data         *jd;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                       get_all_input_files(void),
                                   get_input_files(void),
                                   get_output_files(void),
@@ -156,15 +156,13 @@ get_data(void)
                  DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to fstat() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -174,15 +172,14 @@ get_data(void)
       char *ptr;
 
 #ifdef HAVE_MMAP
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #else
-      if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fullname, 0)) == (caddr_t) -1)
 #endif
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to mmap() to <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -195,8 +192,7 @@ get_data(void)
    }
    else
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Dirname database file is empty. (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                  __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -209,15 +205,13 @@ get_data(void)
                     JOB_ID_DATA_FILE);
       if ((fd = open(fullname, O_RDONLY)) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to fstat() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -227,15 +221,14 @@ get_data(void)
          char *ptr;
 
 #ifdef HAVE_MMAP
-         if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #else
-         if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+         if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                          MAP_SHARED, fullname, 0)) == (caddr_t) -1)
 #endif
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to mmap() to %s : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -248,8 +241,7 @@ get_data(void)
       }
       else
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Job ID database file is empty. (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -268,7 +260,7 @@ get_data(void)
 
    if (fra_attach_passive() != SUCCESS)
    {
-      (void)xrec(appshell, FATAL_DIALOG,
+      (void)xrec(FATAL_DIALOG,
                  "Failed to attach to FRA (%s %d)", __FILE__, __LINE__);
    }
 
@@ -342,8 +334,7 @@ get_data(void)
    if (munmap_emu(((char *)dnb - AFD_WORD_OFFSET)) == -1)
 #endif
    {
-      (void)xrec(appshell, INFO_DIALOG,
-                 "munmap() error : %s (%s %d)",
+      (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
    if ((toggles_set & SHOW_OUTPUT) || (toggles_set & SHOW_UNSENT_INPUT) ||
@@ -355,8 +346,7 @@ get_data(void)
       if (munmap_emu(((char *)jd - AFD_WORD_OFFSET)) == -1)
 #endif
       {
-         (void)xrec(appshell, INFO_DIALOG,
-                    "munmap() error : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -381,8 +371,7 @@ get_output_files(void)
    (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
    if ((fd = open(fullname, O_RDWR)) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
    }
    else
@@ -391,8 +380,7 @@ get_output_files(void)
 
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to fstat() <%s> : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
       }
       else
@@ -403,16 +391,14 @@ get_output_files(void)
 
             if ((buffer = malloc(stat_buf.st_size)) == NULL)
             {
-               (void)xrec(appshell, FATAL_DIALOG,
-                          "malloc() error : %s (%s %d)",
+               (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                           strerror(errno), __FILE__, __LINE__);
             }
             else
             {
                if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
                {
-                  (void)xrec(appshell, FATAL_DIALOG,
-                             "Failed to read() <%s> : %s (%s %d)",
+                  (void)xrec(FATAL_DIALOG, "Failed to read() <%s> : %s (%s %d)",
                              fullname, strerror(errno), __FILE__, __LINE__);
                }
                else
@@ -535,8 +521,7 @@ get_output_files(void)
 
       if (close(fd) == -1)
       {
-         (void)xrec(appshell, INFO_DIALOG,
-                    "Failed to close() <%s> : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "Failed to close() <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -556,8 +541,7 @@ get_retrieve_jobs(void)
    (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
    if ((fd = open(fullname, O_RDWR)) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
    }
    else
@@ -566,8 +550,7 @@ get_retrieve_jobs(void)
 
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to fstat() <%s> : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
       }
       else
@@ -578,16 +561,14 @@ get_retrieve_jobs(void)
 
             if ((buffer = malloc(stat_buf.st_size)) == NULL)
             {
-               (void)xrec(appshell, FATAL_DIALOG,
-                          "malloc() error : %s (%s %d)",
+               (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                           strerror(errno), __FILE__, __LINE__);
             }
             else
             {
                if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
                {
-                  (void)xrec(appshell, FATAL_DIALOG,
-                             "Failed to read() <%s> : %s (%s %d)",
+                  (void)xrec(FATAL_DIALOG, "Failed to read() <%s> : %s (%s %d)",
                              fullname, strerror(errno), __FILE__, __LINE__);
                }
                else
@@ -688,9 +669,10 @@ get_retrieve_jobs(void)
                                  {
                                     if ((qfl = malloc(new_size)) == NULL)
                                     {
-                                       (void)xrec(appshell, FATAL_DIALOG,
+                                       (void)xrec(FATAL_DIALOG,
                                                   "malloc() error : %s (%s %d)",
-                                                  strerror(errno), __FILE__, __LINE__);
+                                                  strerror(errno),
+                                                  __FILE__, __LINE__);
                                        return;
                                     }
                                  }
@@ -698,16 +680,17 @@ get_retrieve_jobs(void)
                                  {
                                     if ((qfl = realloc((char *)qfl, new_size)) == NULL)
                                     {
-                                       (void)xrec(appshell, FATAL_DIALOG,
+                                       (void)xrec(FATAL_DIALOG,
                                                   "realloc() error : %s (%s %d)",
-                                                  strerror(errno), __FILE__, __LINE__);
+                                                  strerror(errno),
+                                                  __FILE__, __LINE__);
                                        return;
                                     }
                                  }
                               }
                               if ((qfl[total_no_files].file_name = malloc(1)) == NULL)
                               {
-                                 (void)xrec(appshell, FATAL_DIALOG,
+                                 (void)xrec(FATAL_DIALOG,
                                             "malloc() error : %s (%s %d)",
                                             strerror(errno), __FILE__, __LINE__);
                                  return;
@@ -754,8 +737,7 @@ get_retrieve_jobs(void)
 
       if (close(fd) == -1)
       {
-         (void)xrec(appshell, INFO_DIALOG,
-                    "Failed to close() <%s> : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "Failed to close() <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -858,8 +840,7 @@ get_input_files(void)
             }
             if (closedir(dp) == -1)
             {
-               (void)xrec(appshell, INFO_DIALOG,
-                          "Failed to closedir() `%s' : %s (%s %d)",
+               (void)xrec(INFO_DIALOG, "Failed to closedir() `%s' : %s (%s %d)",
                           dnb[i].dir_name, strerror(errno), __FILE__, __LINE__);
             }
          }
@@ -1056,8 +1037,7 @@ get_time_jobs(void)
       }
       if (closedir(dp) == -1)
       {
-         (void)xrec(appshell, INFO_DIALOG,
-                    "Failed to closedir() `%s' : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "Failed to closedir() `%s' : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -1269,7 +1249,7 @@ insert_file(char         *queue_dir,
                            {
                               if ((qfl = malloc(new_size)) == NULL)
                               {
-                                 (void)xrec(appshell, FATAL_DIALOG,
+                                 (void)xrec(FATAL_DIALOG,
                                             "malloc() error : %s (%s %d)",
                                             strerror(errno), __FILE__, __LINE__);
                                  return;
@@ -1279,7 +1259,7 @@ insert_file(char         *queue_dir,
                            {
                               if ((qfl = realloc((char *)qfl, new_size)) == NULL)
                               {
-                                 (void)xrec(appshell, FATAL_DIALOG,
+                                 (void)xrec(FATAL_DIALOG,
                                             "realloc() error : %s (%s %d)",
                                             strerror(errno), __FILE__, __LINE__);
                                  return;
@@ -1288,7 +1268,7 @@ insert_file(char         *queue_dir,
                         }
                         if ((qfl[total_no_files].file_name = malloc(strlen(dirp->d_name) + 1)) == NULL)
                         {
-                           (void)xrec(appshell, FATAL_DIALOG,
+                           (void)xrec(FATAL_DIALOG,
                                       "malloc() error : %s (%s %d)",
                                       strerror(errno), __FILE__, __LINE__);
                            return;
@@ -1319,7 +1299,7 @@ insert_file(char         *queue_dir,
                               {
                                  if ((qtb = malloc(new_size)) == NULL)
                                  {
-                                    (void)xrec(appshell, FATAL_DIALOG,
+                                    (void)xrec(FATAL_DIALOG,
                                                "malloc() error : %s (%s %d)",
                                                strerror(errno),
                                                __FILE__, __LINE__);
@@ -1330,7 +1310,7 @@ insert_file(char         *queue_dir,
                               {
                                  if ((qtb = realloc((char *)qtb, new_size)) == NULL)
                                  {
-                                    (void)xrec(appshell, FATAL_DIALOG,
+                                    (void)xrec(FATAL_DIALOG,
                                                "realloc() error : %s (%s %d)",
                                                strerror(errno),
                                                __FILE__, __LINE__);
@@ -1381,9 +1361,8 @@ insert_file(char         *queue_dir,
       if (closedir(dpfile) == -1)
       {
          *ptr_file = '\0';
-         (void)xrec(appshell, INFO_DIALOG,
-                    "Failed to closedir() `%s' : %s (%s %d)", queue_dir,
-                    strerror(errno), __FILE__, __LINE__);
+         (void)xrec(INFO_DIALOG, "Failed to closedir() `%s' : %s (%s %d)",
+                    queue_dir, strerror(errno), __FILE__, __LINE__);
       }
    }
    return;

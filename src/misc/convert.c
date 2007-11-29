@@ -136,10 +136,10 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
    }
 
 #ifdef HAVE_MMAP
-   if ((src_ptr = mmap(0, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
+   if ((src_ptr = mmap(NULL, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
                        from_fd, 0)) == (caddr_t) -1)
 #else
-   if ((src_ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+   if ((src_ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                            (MAP_FILE | MAP_SHARED),
                            fullname, 0)) == (caddr_t) -1)
 #endif

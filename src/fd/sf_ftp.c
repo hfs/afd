@@ -84,15 +84,15 @@ DESCR__E_M1
 #include <stdlib.h>                    /* malloc(), free(), abort()      */
 #include <ctype.h>                     /* isdigit()                      */
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-#include <time.h>
+# include <time.h>
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _OUTPUT_LOG
-#include <sys/times.h>                 /* times()                        */
+# include <sys/times.h>                /* times()                        */
 #endif
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
@@ -102,10 +102,10 @@ DESCR__E_M1
 #include "ftpdefs.h"
 #include "version.h"
 #ifdef WITH_EUMETSAT_HEADERS
-#include "eumetsat_header_defs.h"
+# include "eumetsat_header_defs.h"
 #endif
 
-/* Global variables */
+/* Global variables. */
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
@@ -113,6 +113,7 @@ int                        event_log_fd = STDERR_FILENO,
                            *p_no_of_hosts = NULL,
                            fsa_id,
                            fsa_fd = -1,
+                           prev_no_of_files_done = 0,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
@@ -126,12 +127,13 @@ int                        event_log_fd = STDERR_FILENO,
 #ifdef _WITH_BURST_2
 unsigned int               burst_2_counter = 0,
                            total_append_count = 0;
-#endif /* _WITH_BURST_2 */
+#endif
 #ifdef HAVE_MMAP
 off_t                      fsa_size;
 #endif
 off_t                      append_offset = 0,
                            *file_size_buffer = NULL;
+u_off_t                    prev_file_size_done = 0;
 long                       transfer_timeout;
 char                       *del_file_name_buffer = NULL,
                            *file_name_buffer = NULL,
@@ -147,7 +149,7 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local functions. */
 static void                sf_ftp_exit(void),
                            sig_bus(int),
                            sig_segv(int),
@@ -242,7 +244,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(sf_ftp_exit) != 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -250,7 +252,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    p_work_dir = work_dir;
    files_to_send = init_sf(argc, argv, file_path, FTP_FLAG);
    p_db = &db;
@@ -925,7 +927,7 @@ main(int argc, char *argv[])
       /* If we send a lock file, do it now. */
       if (db.lock == LOCKFILE)
       {
-         /* Create lock file on remote host */
+         /* Create lock file on remote host. */
          msg_str[0] = '\0';
          if ((status = ftp_data(db.lock_file_name, 0, db.mode_flag,
                                 DATA_WRITE, 0)) != SUCCESS)
@@ -966,7 +968,7 @@ main(int argc, char *argv[])
          }
 #endif
 
-         /* Close remote lock file */
+         /* Close remote lock file. */
          if ((status = ftp_close_data()) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -1416,7 +1418,8 @@ main(int argc, char *argv[])
             {
                if ((db.rename_file_busy != '\0') && (timeout_flag != ON) &&
                    (msg_str[0] != '\0') &&
-                   (posi(msg_str, "Cannot open or remove a file containing a running program.") != NULL))
+                   ((posi(msg_str, "Cannot open or remove a file containing a running program.") != NULL) ||
+                    (posi(msg_str, "Cannot STOR. No permission.") != NULL)))
                {
                   size_t length = strlen(p_initial_filename);
 
@@ -1493,7 +1496,7 @@ main(int argc, char *argv[])
             }
 #endif
 
-            /* Open local file */
+            /* Open local file. */
 #ifdef O_LARGEFILE
             if ((fd = open(fullname, O_RDONLY | O_LARGEFILE)) == -1)
 #else
@@ -2177,7 +2180,7 @@ main(int argc, char *argv[])
             }
          } /* if (append_offset < p_file_size_buffer) */
 
-         /* If we used dot notation, don't forget to rename */
+         /* If we used dot notation, don't forget to rename. */
          if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
              (db.special_flag & SEQUENCE_LOCKING) ||
              (db.trans_rename_rule[0] != '\0'))
@@ -2244,10 +2247,10 @@ main(int argc, char *argv[])
                  ready_file_name[MAX_FILENAME_LENGTH],
                  ready_file_buffer[MAX_PATH_LENGTH + 25];
 
-            /* Generate the name for the ready file */
+            /* Generate the name for the ready file. */
             (void)sprintf(ready_file_name, "%s_rdy", final_filename);
 
-            /* Open ready file on remote site */
+            /* Open ready file on remote site. */
             msg_str[0] = '\0';
             if ((status = ftp_data(ready_file_name, append_offset,
                                    db.mode_flag, DATA_WRITE,
@@ -2289,7 +2292,7 @@ main(int argc, char *argv[])
             }
 # endif
 
-            /* Create contents for ready file */
+            /* Create contents for ready file. */
             if (db.lock == READY_A_FILE)
             {
                file_type = 'A';
@@ -2338,7 +2341,7 @@ main(int argc, char *argv[])
                exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
 
-            /* Close remote ready file */
+            /* Close remote ready file. */
             if ((status = ftp_close_data()) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -2594,9 +2597,22 @@ main(int argc, char *argv[])
          }
          else
          {
-            /* Delete the file we just have send */
+#ifdef WITH_UNLINK_DELAY
+            int unlink_loops = 0;
+
+try_again_unlink:
+#endif
+            /* Delete the file we just have send. */
             if (unlink(fullname) == -1)
             {
+#ifdef WITH_UNLINK_DELAY
+               if ((errno == EBUSY) && (unlink_loops < 20))
+               {
+                  (void)my_usleep(100000L);
+                  unlink_loops++;
+                  goto try_again_unlink;
+               }
+#endif
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Could not unlink() local file `%s' after sending it successfully : %s",
                           fullname, strerror(errno));
@@ -2734,7 +2750,7 @@ main(int argc, char *argv[])
                {
                   fsa->host_status &= ~EVENT_STATUS_FLAGS;
                }
-               error_action(fsa->host_alias, "stop");
+               error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
                event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                          fsa->host_alias);
                if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
@@ -2832,11 +2848,14 @@ main(int argc, char *argv[])
       burst_2_counter++;
       total_append_count += append_count;
       append_count = 0;
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
 # ifdef _WITH_INTERRUPT_JOB
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, interrupt, &values_changed)) == YES);
-# else
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, &values_changed)) == YES);
+                                     interrupt,
 # endif
+# ifndef AFDBENCH_CONFIG
+                                     &total_append_count,
+# endif
+                                     &values_changed)) == YES);
    burst_2_counter--;
 
    if (cb2_ret == NEITHER)
@@ -2896,16 +2915,21 @@ sf_ftp_exit(void)
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      if ((fsa->job_status[(int)db.job_no].file_size_done > 0) ||
-          (fsa->job_status[(int)db.job_no].no_of_files_done > 0))
+      int     diff_no_of_files_done;
+      u_off_t diff_file_size_done;
+
+      diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                              prev_no_of_files_done;
+      diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                            prev_file_size_done;
+      if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
 #if SIZEOF_OFF_T == 4
          fd = sprintf(sf_fin_fifo, "%lu Bytes send in %d file(s).",
 #else
          fd = sprintf(sf_fin_fifo, "%llu Bytes send in %d file(s).",
 #endif
-                      fsa->job_status[(int)db.job_no].file_size_done,
-                      fsa->job_status[(int)db.job_no].no_of_files_done);
+                      diff_file_size_done, diff_no_of_files_done);
 
 #ifdef _WITH_BURST_2
          if (total_append_count == 1)
@@ -3030,7 +3054,14 @@ static void
 sig_kill(int signo)
 {
    exitflag = 0;
-   exit(GOT_KILLED);
+   if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
+   {
+      exit(SUCCESS);
+   }
+   else
+   {
+      exit(GOT_KILLED);
+   }
 }
 
 

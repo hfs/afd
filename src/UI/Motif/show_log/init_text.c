@@ -66,7 +66,7 @@ DESCR__E_M1
 extern Display        *display;
 extern XtAppContext   app;
 extern Cursor         cursor1;
-extern Widget         toplevel,
+extern Widget         appshell,
                       log_output;
 extern XmTextPosition wpr_position;
 extern int            current_log_number,
@@ -110,8 +110,7 @@ init_text(void)
          {
             if (errno != ENOENT)
             {
-               (void)xrec(toplevel, FATAL_DIALOG,
-                          "Could not fopen() %s : %s (%s %d)",
+               (void)xrec(FATAL_DIALOG, "Could not fopen() %s : %s (%s %d)",
                           log_file, strerror(errno), __FILE__, __LINE__);
                return;
             }
@@ -169,7 +168,7 @@ read_text(void)
 
    if (fstat(fd, &stat_buf) < 0)
    {
-      (void)xrec(toplevel, FATAL_DIALOG, "fstat() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fstat() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -178,42 +177,41 @@ read_text(void)
    {
       /* Change cursor to indicate we are doing something */
       attrs.cursor = cursor1;
-      XChangeWindowAttributes(display, XtWindow(toplevel), CWCursor, &attrs);
+      XChangeWindowAttributes(display, XtWindow(appshell), CWCursor, &attrs);
       XFlush(display);
 
       /* Copy file to memory */
 #ifdef HAVE_MMAP
       if (lseek(fd, stat_buf.st_size, SEEK_SET) == -1)
       {
-         (void)xrec(toplevel, FATAL_DIALOG, "lseek() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "lseek() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
-      if ((src = mmap(0, stat_buf.st_size, PROT_READ, MAP_SHARED,
+      if ((src = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_SHARED,
                       fd, 0)) == (caddr_t) -1)
       {
-         (void)xrec(toplevel, FATAL_DIALOG, "mmap() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "mmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
 #else
       if ((src = calloc(stat_buf.st_size, sizeof(char))) == NULL)
       {
-         (void)xrec(toplevel, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (read(fd, src, stat_buf.st_size) != stat_buf.st_size)
       {
-         (void)xrec(toplevel, FATAL_DIALOG, "read() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "read() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
 #endif
       if ((dst = malloc(stat_buf.st_size + 1)) == NULL)
       {
-         (void)xrec(toplevel, FATAL_DIALOG,
-                    "malloc() error [%d bytes] : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "malloc() error [%d bytes] : %s (%s %d)",
                     stat_buf.st_size + 1, strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -448,7 +446,7 @@ read_text(void)
 #ifdef HAVE_MMAP
       if (munmap(src, stat_buf.st_size) < 0)
       {
-         (void)xrec(toplevel, WARN_DIALOG, "munmap() error : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
 #else
@@ -466,10 +464,10 @@ read_text(void)
       }
 
       attrs.cursor = None;
-      XChangeWindowAttributes(display, XtWindow(toplevel), CWCursor, &attrs);
+      XChangeWindowAttributes(display, XtWindow(appshell), CWCursor, &attrs);
       XFlush(display);
 
-      /* Get rid of all events that have occurred */
+      /* Get rid of all events that have occurred. */
       XSync(display, False);
       while (XCheckMaskEvent(display,
                              ButtonPressMask | ButtonReleaseMask |

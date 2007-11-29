@@ -1,6 +1,6 @@
 /*
  *  handle_delete_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -499,8 +499,12 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                                                      fsa[mdb[qb[i].pos].fsa_pos].jobs_queued--;
                                                      if (i != (*no_msg_queued - 1))
                                                      {
-                                                        (void)memmove(&qb[i], &qb[i + 1],
-                                                                      sizeof(struct queue_buf));
+                                                        size_t move_size;
+
+                                                        move_size = (*no_msg_queued - (i + 1)) * sizeof(struct queue_buf);
+                                                        (void)memmove(&qb[i],
+                                                                      &qb[i + 1],
+                                                                      move_size);
                                                      }
                                                      (*no_msg_queued)--;
                                                   }
@@ -804,8 +808,10 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
    fra[fra_pos].error_counter = 0;
    if (fra[fra_pos].dir_flag & DIR_ERROR_SET)
    {
-      fra[fra_pos].dir_flag ^= DIR_ERROR_SET;
+      fra[fra_pos].dir_flag &= ~DIR_ERROR_SET;
       SET_DIR_STATUS(fra[fra_pos].dir_flag, fra[fra_pos].dir_status);
+      error_action(fra[fra_pos].dir_alias, "stop", DIR_ERROR_ACTION);
+      event_log(now, EC_DIR, ET_EXT, EA_ERROR_END, "%s", fra[fra_pos].dir_alias);
    }
    unlock_region(fra_fd,
 #ifdef LOCK_DEBUG
@@ -828,7 +834,10 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
    fra[fra_pos].queued = NO;
    if (pos != (*no_msg_queued - 1))
    {
-      (void)memmove(&qb[pos], &qb[pos + 1], sizeof(struct queue_buf));
+      size_t move_size;
+
+      move_size = (*no_msg_queued - (pos + 1)) * sizeof(struct queue_buf);
+      (void)memmove(&qb[pos], &qb[pos + 1], move_size);
    }
    (*no_msg_queued)--;
 

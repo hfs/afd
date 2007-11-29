@@ -25,7 +25,7 @@ DESCR__S_M3
  **   error_action - call a script and execute it if it exists
  **
  ** SYNOPSIS
- **   void error_action(char *alias_name, char *action)
+ **   void error_action(char *alias_name, char *action, int type)
  **
  ** DESCRIPTION
  **
@@ -37,6 +37,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   11.02.2005 H.Kiehl Created
+ **   23.11.2007 H.Kiehl Added warn and error action for directories.
  **
  */
 DESCR__E_M3
@@ -51,18 +52,36 @@ DESCR__E_M3
 #include <unistd.h>
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
 /*########################### error_action() ############################*/
 void
-error_action(char *alias_name, char *action)
+error_action(char *alias_name, char *action, int type)
 {
+   int  event_class;
    char fullname[MAX_PATH_LENGTH];
 
-   (void)sprintf(fullname, "%s%s%s/%s",
-                 p_work_dir, ETC_DIR, ERROR_ACTION_DIR, alias_name);
+   if (type == HOST_ERROR_ACTION)
+   {
+      (void)sprintf(fullname, "%s%s%s/%s",
+                    p_work_dir, ETC_DIR, ERROR_ACTION_DIR, alias_name);
+      event_class = EC_HOST;
+   }
+   else if (type == DIR_WARN_ACTION)
+        {
+           (void)sprintf(fullname, "%s%s%s/%s",
+                         p_work_dir, ETC_DIR, DIR_WARN_ACTION_DIR, alias_name);
+           event_class = EC_DIR;
+        }
+        else
+        {
+           (void)sprintf(fullname, "%s%s%s/%s",
+                         p_work_dir, ETC_DIR, DIR_ERROR_ACTION_DIR, alias_name);
+           event_class = EC_DIR;
+        }
+
    if (eaccess(fullname, X_OK) == 0)
    {
       int   status;
@@ -75,7 +94,7 @@ error_action(char *alias_name, char *action)
                     "Could not create a new process : %s", strerror(errno));
          return;
       }
-      else if (pid == 0) /* First child process */
+      else if (pid == 0) /* Child process. */
            {
               if ((pid = fork()) < 0)
               {
@@ -131,15 +150,14 @@ error_action(char *alias_name, char *action)
       if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'a') &&
           (action[3] == 'r') && (action[4] == 't') && (action[5] == '\0'))
       {
-         event_log(0L, EC_HOST, ET_AUTO, EA_EXEC_ERROR_ACTION_START, "%s%c%s",
-                   alias_name, SEPARATOR_CHAR, reason_str);
+         event_log(0L, event_class, ET_AUTO, EA_EXEC_ERROR_ACTION_START,
+                   "%s%c%s", alias_name, SEPARATOR_CHAR, reason_str);
       }
       else if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'o') &&
                (action[3] == 'p') && (action[4] == '\0'))
            {
-              event_log(0L, EC_HOST, ET_AUTO, EA_EXEC_ERROR_ACTION_STOP,
-                        "%s%c%s",
-                        alias_name, SEPARATOR_CHAR, reason_str);
+              event_log(0L, event_class, ET_AUTO, EA_EXEC_ERROR_ACTION_STOP,
+                        "%s%c%s", alias_name, SEPARATOR_CHAR, reason_str);
            }
    }
    return;

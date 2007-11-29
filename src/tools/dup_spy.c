@@ -54,7 +54,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -110,10 +110,10 @@ main(int argc, char *argv[])
    }
 
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
 #else
-   if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+   if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                        MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
    {

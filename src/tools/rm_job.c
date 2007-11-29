@@ -59,7 +59,7 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int                        event_log_fd = STDERR_FILENO,
                            fsa_fd = -1,
                            fsa_id,
@@ -77,7 +77,7 @@ struct msg_cache_buf       *mdb;
 struct filetransfer_status *fsa;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                attach_to_queue_buffer(void),
                            remove_job(char *, int);
 
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
@@ -113,7 +113,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Attach to FSA and the AFD Status Area */
+   /* Attach to FSA and the AFD Status Area. */
    if (fsa_attach() < 0)
    {
       (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
@@ -246,7 +246,7 @@ attach_to_queue_buffer(void)
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,
@@ -275,7 +275,7 @@ attach_to_queue_buffer(void)
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,
@@ -380,7 +380,7 @@ remove_job(char *del_dir, int fsa_pos)
 #endif
       off_t        lock_offset;
 
-      /* Total file counter */
+      /* Total file counter. */
       lock_offset = AFD_WORD_OFFSET +
                     (fsa_pos * sizeof(struct filetransfer_status));
 #ifdef LOCK_DEBUG
@@ -399,7 +399,7 @@ remove_job(char *del_dir, int fsa_pos)
       }
 #endif
 
-      /* Total file size */
+      /* Total file size. */
 #ifdef _VERIFY_FSA
       off_t_variable = fsa[fsa_pos].total_file_size;
 #endif

@@ -531,7 +531,7 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, " SUM_VAL_INITIALIZED");
       }
       (void)fprintf(stdout, "\n");
-      if (msa[j].convert_username[0][0] != '\0')
+      if (msa[j].convert_username[0][0][0] != '\0')
       {
          (void)fprintf(stdout, "Convert user name  : %s -> %s\n",
                        msa[j].convert_username[0][0],

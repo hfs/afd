@@ -1,21 +1,23 @@
 .\" Process this file with
 .\" groff -man -Tascii afdcmd.1
 .\"
-.TH AFDCMD 1 "JANUARY 2003" AFD "User Manuals"
+.TH AFDCMD 1 "JULY 2007" AFD "AFD"
 .SH NAME
 afdcmd \- send commands to the AFD
 .SH SYNOPSIS
 .B afdcmd [-w
 .I working directory
-.B ] [-u[
+.B ] [-p[
+.I role
+.B ]] [-u[
 .I user
-.B ] [-aAbBdeEfFqQrRstTvWXYZ]
+.B ]] [-aAbBdeEfFqQrRstTvWXYZ]
 .I hostname|directory|position
 .SH DESCRIPTION
 With the command
 .B afdcmd
 it is possible to issue most commands that can be issued with
-the afd_ctrl dialog on a per host basis.
+the afd_ctrl and dir_ctrl dialog on a per host or directory basis.
 .SH FSA OPTIONS
 .IP -q
 start the input queue

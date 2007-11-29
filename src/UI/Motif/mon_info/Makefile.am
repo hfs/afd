@@ -19,11 +19,12 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = mon_info.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../afd_ctrl -I../../../afd_mon -I../../../init_afd
+INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+                       -I../common -I../afd_ctrl -I../../../afd_mon\
+                       -I../../../init_afd
 bin_PROGRAMS         = mon_info
 mon_info_SOURCES     = mon_info.c\
                        info_callbacks.c\
                        update_info.c
-mon_info_LDADD       = ../common/libxafd.a\
+mon_info_LDADD       = ../common/libmotifafd.a ../../common/libuiafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

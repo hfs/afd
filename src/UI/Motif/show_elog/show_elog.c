@@ -743,7 +743,7 @@ main(int argc, char *argv[])
                         XmNbottomAttachment,     XmATTACH_FORM,
                         NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)select_event_actions, 0);
+                 (XtCallbackProc)select_event_actions, (XtPointer)0);
 
    XtManageChild(criteriabox_w);
 
@@ -823,7 +823,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,       30,
                         NULL);
    XtAddCallback(special_button_w, XmNactivateCallback,
-                 (XtCallbackProc)search_button, 0);
+                 (XtCallbackProc)search_button, (XtPointer)0);
    print_button_w = XtVaCreateManagedWidget("Print",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
@@ -851,7 +851,7 @@ main(int argc, char *argv[])
                         XmNbottomPosition,       30,
                         NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
 /*-----------------------------------------------------------------------*/
@@ -952,8 +952,7 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set signal handler's for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set signal handler's for %s : %s",
                  SHOW_QUEUE, strerror(errno));
    }
 
@@ -973,7 +972,7 @@ main(int argc, char *argv[])
    /* Get widget ID of the scrollbar. */
    XtVaGetValues(XtParent(outputbox_w), XmNverticalScrollBar, &scrollbar_w, NULL);
    XtAddCallback(scrollbar_w, XmNdragCallback,
-                 (XtCallbackProc)scrollbar_moved, 0);
+                 (XtCallbackProc)scrollbar_moved, (XtPointer)0);
    XtVaGetValues(buttonbox_w, XmNheight, &button_height, NULL);
 
    /* Write selected dir and host alias names. */

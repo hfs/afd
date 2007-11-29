@@ -1,6 +1,6 @@
 /*
  *  select_afd_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -178,7 +178,7 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)search_select_afd, 0);
+                    (XtCallbackProc)search_select_afd, (XtPointer)0);
 
       /* Create Done Button. */
       button_w = XtVaCreateManagedWidget("Close",
@@ -194,7 +194,7 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)done_button, 0);
+                    (XtCallbackProc)done_button, (XtPointer)0);
       XtManageChild(buttonbox_w);
 
       /*---------------------------------------------------------------*/
@@ -468,9 +468,9 @@ select_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
       default :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible callback %d! (%s %d)\n",
+         (void)xrec(WARN_DIALOG, "Impossible callback %d! (%s %d)\n",
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible callback %ld! (%s %d)\n",
+         (void)xrec(WARN_DIALOG, "Impossible callback %ld! (%s %d)\n",
 #endif
                     (XT_PTR_TYPE)client_data, __FILE__, __LINE__);
          break;

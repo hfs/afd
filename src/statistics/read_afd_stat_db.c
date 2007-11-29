@@ -47,13 +47,13 @@ DESCR__E_M3
 #include <string.h>          /* strcpy(), strerror(), memcpy(), memset() */
 #include <time.h>            /* time()                                   */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>        /* struct tm                                */
+# include <sys/time.h>       /* struct tm                                */
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdlib.h>          /* exit(), malloc(), free()                 */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>        /* mmap(), munmap()                         */
+# include <sys/mman.h>       /* mmap(), munmap()                         */
 #endif
 #include <fcntl.h>
 #include <unistd.h>          /* close(), lseek(), write()                */
@@ -66,7 +66,7 @@ DESCR__E_M3
 #endif
 #endif
 
-/* Global external variables */
+/* Global external variables. */
 extern int                        sys_log_fd,
                                   lock_fd;
 extern size_t                     stat_db_size;
@@ -147,7 +147,7 @@ read_afd_stat_db(int no_of_hosts)
          }
 
 #ifdef HAVE_MMAP
-         if ((old_ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+         if ((old_ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                              (MAP_FILE | MAP_SHARED),
                              old_status_fd, 0)) == (caddr_t) -1)
          {
@@ -218,7 +218,7 @@ read_afd_stat_db(int no_of_hosts)
                 new_statistic_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((ptr = mmap(0, stat_db_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, stat_db_size, (PROT_READ | PROT_WRITE),
                    (MAP_FILE | MAP_SHARED),
                    new_status_fd, 0)) == (caddr_t) -1)
    {

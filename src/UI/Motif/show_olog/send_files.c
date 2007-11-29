@@ -69,13 +69,12 @@ DESCR__E_M3
 #include "show_olog.h"
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
-extern Widget           appshell,
+extern Widget           listbox_w,
                         special_button_w,
                         scrollbar_w,
-                        statusbox_w,
-                        listbox_w;
+                        statusbox_w;
 extern int              no_of_log_files,
                         special_button_flag;
 extern char             font_name[],
@@ -83,7 +82,7 @@ extern char             font_name[],
 extern struct item_list *il;
 extern struct sol_perm  perm;
 
-/* Local global variables */
+/* Local global variables. */
 static char             archive_dir[MAX_PATH_LENGTH],
                         *p_archive_name,
                         *p_file_name;
@@ -117,12 +116,12 @@ send_files(int no_selected, int *select_list)
    }
    if ((rl = calloc(no_selected, sizeof(struct resend_list))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
 
-   /* Prepare the archive directory name */
+   /* Prepare the archive directory name. */
    p_archive_name = archive_dir;
    p_archive_name += sprintf(archive_dir, "%s%s/",
                              p_work_dir, AFD_ARCHIVE_DIR);
@@ -336,13 +335,13 @@ get_archive_data(int pos, int file_no)
 
    if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos], SEEK_SET) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fseek() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
    if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fgets() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fgets() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }

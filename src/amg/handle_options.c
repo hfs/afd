@@ -183,11 +183,11 @@ extern off_t                      *file_size_pool;
 # endif
 extern char                       *file_name_buffer;
 #endif
-extern char                       *p_dir_alias,
-                                  *p_work_dir;
+extern char                       *p_work_dir;
 extern struct rule                *rule;
 extern struct instant_db          *db;
-extern struct fileretrieve_status *fra;
+extern struct fileretrieve_status *fra,
+                                  *p_fra;
 #ifdef _DELETE_LOG
 extern struct delete_log          dl;
 #endif
@@ -784,7 +784,7 @@ search_again:
 #endif
                      }
                      if ((ret = exec_cmd(command_str, &return_str,
-                                         receive_log_fd, p_dir_alias,
+                                         receive_log_fd, p_fra->dir_alias,
                                          MAX_DIR_ALIAS_LENGTH, "",
                                          exec_timeout, YES)) != 0) /* ie != SUCCESS */
                      {
@@ -927,7 +927,7 @@ search_again:
 #endif
                }
                if ((ret = exec_cmd(command_str, &return_str,
-                                   receive_log_fd, p_dir_alias,
+                                   receive_log_fd, p_fra->dir_alias,
                                    MAX_DIR_ALIAS_LENGTH, "",
                                    exec_timeout, YES)) != 0)
                {
@@ -2096,8 +2096,7 @@ search_again:
                   else
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Unable to convert, removed file `%s'",
-                                 p_file_name);
+                                 "Unable to convert, removed file `%s'", p_file_name);
                      recount_files_var = YES;
 #ifdef _PRODUCTION_LOG
                      production_log(creation_time, unique_number,
@@ -2203,8 +2202,7 @@ search_again:
 
                   default  : /* Unknown. */
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Unknown extract option -%c",
-                                 *(p_extract_id + 1));
+                                 "Unknown extract option -%c", *(p_extract_id + 1));
                      break;
                }
                p_extract_id += 2;
@@ -2781,7 +2779,8 @@ search_again:
                  }
             for (j = 0; j < file_counter; j++)
             {
-               if ((convert(file_path, p_file_name, convert_type, file_size)) < 0)
+               if ((convert(file_path, p_file_name, convert_type,
+                            file_size)) < 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Unable to convert file %s", p_file_name);

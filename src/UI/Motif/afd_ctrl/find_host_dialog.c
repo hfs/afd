@@ -54,15 +54,15 @@ DESCR__E_M3
 #include <Xm/PushB.h>
 #include <Xm/ToggleBG.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
 #include "afd_ctrl.h"
 
-/* Global variables */
+/* Global variables. */
 Widget                            findshell = (Widget)NULL;
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
 extern Widget                     appshell;
 extern int                        no_of_hosts,
@@ -72,7 +72,7 @@ extern char                       font_name[];
 extern struct line                *connect_data;
 extern struct filetransfer_status *fsa;
 
-/* Local global variables */
+/* Local global variables. */
 static Widget                     alias_toggle_w,
                                   find_text_w;
 static int                        deselect,
@@ -166,7 +166,7 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)search_select_host, 0);
+                    (XtCallbackProc)search_select_host, (XtPointer)0);
 
       /* Create Done Button. */
       button_w = XtVaCreateManagedWidget("Close",
@@ -182,7 +182,7 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)done_button, 0);
+                    (XtCallbackProc)done_button, (XtPointer)0);
       XtManageChild(buttonbox_w);
 
       /*---------------------------------------------------------------*/
@@ -414,9 +414,9 @@ select_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
       default :
 #if SIZEOF_LONG == 4
-         (void)xrec(appshell, WARN_DIALOG, "Impossible callback %d! (%s %d)\n",
+         (void)xrec(WARN_DIALOG, "Impossible callback %d! (%s %d)\n",
 #else
-         (void)xrec(appshell, WARN_DIALOG, "Impossible callback %ld! (%s %d)\n",
+         (void)xrec(WARN_DIALOG, "Impossible callback %ld! (%s %d)\n",
 #endif
                     (XT_PTR_TYPE)client_data, __FILE__, __LINE__);
          break;

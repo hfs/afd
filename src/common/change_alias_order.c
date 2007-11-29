@@ -62,7 +62,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        fsa_id,
                                   fsa_fd,
                                   no_of_dirs,
@@ -153,7 +153,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       exit(INCORRECT);
    }
 
-   /* Read the fsa_id */
+   /* Read the fsa_id. */
    if (read(fd, &current_fsa_id, sizeof(int)) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -182,7 +182,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, current_fsa_id);
 
-   /* Now map the new FSA region to a file */
+   /* Now map the new FSA region to a file. */
    if ((new_fsa_fd = coe_open(new_fsa_stat,
                               (O_RDWR | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
@@ -206,10 +206,10 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, new_fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap(NULL, new_fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    new_fsa_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(0, new_fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap_emu(NULL, new_fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        new_fsa_stat, 0)) == (caddr_t) -1)
 #endif
    {
@@ -232,7 +232,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    ptr += AFD_WORD_OFFSET;
    *((char *)ptr - AFD_FEATURE_FLAG_OFFSET_END) = *((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END);
 
-   /* Reposition fsa pointer after no_of_host */
+   /* Reposition fsa pointer after no_of_host. */
    new_fsa = (struct filetransfer_status *)ptr;
 
    if (fra_attach() < 0)
@@ -316,26 +316,14 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                {
                   new_fsa[i].special_flag |= HOST_DISABLED;
                }
-               else
-               {
-                  new_fsa[i].special_flag &= ~HOST_DISABLED;
-               }
                new_fsa[i].host_status = 0;
                if (hl[i].host_status & STOP_TRANSFER_STAT)
                {
                   new_fsa[i].host_status |= STOP_TRANSFER_STAT;
                }
-               else
-               {
-                  new_fsa[i].host_status &= ~STOP_TRANSFER_STAT;
-               }
                if (hl[i].host_status & PAUSE_QUEUE_STAT)
                {
                   new_fsa[i].host_status |= PAUSE_QUEUE_STAT;
-               }
-               else
-               {
-                  new_fsa[i].host_status &= ~PAUSE_QUEUE_STAT;
                }
             }
             else
@@ -394,7 +382,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    fsa_size = new_fsa_size;
 #endif
 
-   /* Go to beginning in file */
+   /* Go to beginning in file. */
    if (lseek(fd, 0, SEEK_SET) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -402,7 +390,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                  fsa_id_file, strerror(errno));
    }
 
-   /* Write new value into FSA_ID_FILE file */
+   /* Write new value into FSA_ID_FILE file. */
    if (write(fd, &fsa_id, sizeof(int)) != sizeof(int))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -410,7 +398,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       exit(INCORRECT);
    }
 
-   /* Release the lock */
+   /* Release the lock. */
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,

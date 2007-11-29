@@ -1,6 +1,6 @@
 /*
  *  delete_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,14 +58,13 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/List.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_queue.h"
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
-extern Widget                     appshell,
-                                  listbox_w,
+extern Widget                     listbox_w,
                                   statusbox_w;
 extern int                        fra_fd,
                                   no_of_dirs,
@@ -82,7 +81,7 @@ extern struct delete_log          dl;
 #endif
 extern struct fileretrieve_status *fra;
 
-/* Global variables */
+/* Global variables. */
 int                               fsa_fd = -1,
                                   fsa_id,
                                   no_of_hosts,
@@ -133,15 +132,13 @@ delete_files(int no_selected, int *select_list)
    (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to open() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to fstat() <%s> : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -150,11 +147,10 @@ delete_files(int no_selected, int *select_list)
    {
       char *ptr;
 
-      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, fd, 0)) == (caddr_t) -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to mmap() to <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -166,8 +162,7 @@ delete_files(int no_selected, int *select_list)
    }
    else
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Dirname database file is empty. (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
                  __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -181,15 +176,13 @@ delete_files(int no_selected, int *select_list)
                     MSG_QUEUE_FILE);
       if ((fd = open(fullname, O_RDWR)) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to fstat() <%s> : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() <%s> : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -198,11 +191,10 @@ delete_files(int no_selected, int *select_list)
       {
          char *ptr;
 
-         if ((ptr = mmap(0, stat_buf.st_size, PROT_READ | PROT_WRITE,
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ | PROT_WRITE,
                          MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
-            (void)xrec(appshell, ERROR_DIALOG,
-                       "Failed to mmap() to <%s> : %s (%s %d)",
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() to <%s> : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             return;
@@ -215,7 +207,7 @@ delete_files(int no_selected, int *select_list)
       }
       else
       {
-         (void)xrec(appshell, ERROR_DIALOG,
+         (void)xrec(ERROR_DIALOG,
                     "Queue file is empty. (%s %d)", __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -263,8 +255,7 @@ delete_files(int no_selected, int *select_list)
                {
                   if ((qtb[qfl[select_list[i] - 1].queue_tmp_buf_pos].qfl_pos = malloc(new_size)) == NULL)
                   {
-                     (void)xrec(appshell, FATAL_DIALOG,
-                                "malloc() error : %s (%s %d)",
+                     (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                      return;
                   }
@@ -273,8 +264,7 @@ delete_files(int no_selected, int *select_list)
                {
                   if ((qtb[qfl[select_list[i] - 1].queue_tmp_buf_pos].qfl_pos = realloc((char *)qtb[qfl[select_list[i] - 1].queue_tmp_buf_pos].qfl_pos, new_size)) == NULL)
                   {
-                     (void)xrec(appshell, FATAL_DIALOG,
-                                "realloc() error : %s (%s %d)",
+                     (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                      return;
                   }
@@ -306,7 +296,7 @@ delete_files(int no_selected, int *select_list)
                                       qfl[select_list[i] - 1].retrieve_pos) + 1;
                  if (write(fd_delete_fd, wbuf, length) != length)
                  {
-                    (void)xrec(appshell, FATAL_DIALOG,
+                    (void)xrec(FATAL_DIALOG,
                                "Failed to write() to <%s> : %s (%s %d)",
                                FD_DELETE_FIFO, strerror(errno),
                                __FILE__, __LINE__);
@@ -492,7 +482,7 @@ delete_files(int no_selected, int *select_list)
                   (void)memcpy(&wbuf[1], qtb[i].msg_name, length);
                   if (write(fd_delete_fd, wbuf, (length + 1)) != (length + 1))
                   {
-                     (void)xrec(appshell, FATAL_DIALOG,
+                     (void)xrec(FATAL_DIALOG,
                                 "Failed to write() to <%s> : %s (%s %d)",
                                 FD_DELETE_FIFO, strerror(errno),
                                 __FILE__, __LINE__);
@@ -508,7 +498,7 @@ delete_files(int no_selected, int *select_list)
                      wbuf[0] = DELETE_SINGLE_FILE;
                      if (write(fd_delete_fd, wbuf, length) != length)
                      {
-                        (void)xrec(appshell, FATAL_DIALOG,
+                        (void)xrec(FATAL_DIALOG,
                                    "Failed to write() to <%s> : %s (%s %d)",
                                    FD_DELETE_FIFO, strerror(errno),
                                    __FILE__, __LINE__);
@@ -675,7 +665,7 @@ delete_files(int no_selected, int *select_list)
 
    if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
    {
-      (void)xrec(appshell, INFO_DIALOG, "munmap() error : %s (%s %d)",
+      (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 
@@ -683,7 +673,7 @@ delete_files(int no_selected, int *select_list)
    {
       if (munmap(((char *)qb - AFD_WORD_OFFSET), qb_size) == -1)
       {
-         (void)xrec(appshell, INFO_DIALOG, "munmap() error : %s (%s %d)",
+         (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
       (void)fsa_detach(NO);
@@ -736,8 +726,7 @@ check_fds(int *fd_delete_fd)
       if ((*fd_delete_fd = open(delete_fifo, O_RDWR)) == -1)
 #endif
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to open() <%s> : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to open() <%s> : %s (%s %d)",
                     delete_fifo, strerror(errno), __FILE__, __LINE__);
       }
    }

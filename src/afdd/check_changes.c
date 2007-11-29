@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "afdddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        host_config_counter,
                                   log_defs,
                                   no_of_hosts;
@@ -83,7 +83,8 @@ check_changes(FILE *p_data)
 
    if (check_fsa(YES) == YES)
    {
-      int loop_counter = 0;
+      int loop_counter = 0,
+          status;
 
 retry_check:
       if (old_error_history != NULL)
@@ -103,6 +104,19 @@ retry_check:
             goto retry_check;
          }
       }
+
+      status = 0;
+      while (p_afd_status->amg_jobs & WRITTING_JID_STRUCT)
+      {
+         (void)my_usleep(100000L);
+         status++;
+         if ((status > 1) && ((status % 100) == 0))
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Timeout arrived for waiting for AMG to finish writting to JID structure.");
+         }
+      }
+
       RT_ARRAY(old_error_history, no_of_hosts, ERROR_HISTORY_LENGTH,
                unsigned char);
       for (i = 0; i < no_of_hosts; i++)

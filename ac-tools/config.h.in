@@ -222,6 +222,9 @@
 /* Define to 1 if the C compiler supports function prototypes. */
 #undef PROTOTYPES
 
+/* Report empty directory scans */
+#undef REPORT_EMPTY_DIR_SCANS
+
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
@@ -319,6 +322,9 @@
 
 /* Set some programms setuid. */
 #undef WITH_SETUID_PROGS
+
+/* With splice support */
+#undef WITH_SPLICE_SUPPORT
 
 /* with TLS/SSL support */
 #undef WITH_SSL

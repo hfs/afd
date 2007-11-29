@@ -206,7 +206,7 @@ main(int argc, char *argv[])
    (void)strcat(afd_file_dir, AFD_FILE_DIR);
 
    /* Make sure that no other AFD is running in this directory. */
-   if (check_afd_heartbeat(25L, YES) == 1)
+   if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, YES) == 1)
    {
       (void)fprintf(stderr, "ERROR   : Another AFD is already active.\n");
       exit(INCORRECT);
@@ -860,7 +860,7 @@ main(int argc, char *argv[])
                         fsa[i].host_status |= PENDING_ERRORS;
                         event_log(0L, EC_HOST, ET_EXT, EA_ERROR_START, "%s",
                                   fsa[i].host_alias);
-                        error_action(fsa[i].host_alias, "start");
+                        error_action(fsa[i].host_alias, "start", HOST_ERROR_ACTION);
                      }
                      system_log(sign, __FILE__, __LINE__,
                                 "Stopped input queue for host <%s>, since there are to many errors.",
@@ -894,7 +894,7 @@ main(int argc, char *argv[])
                         }
                         event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                                   fsa[i].host_alias);
-                        error_action(fsa[i].host_alias, "stop");
+                        error_action(fsa[i].host_alias, "stop", HOST_ERROR_ACTION);
                      }
                      system_log(sign, __FILE__, __LINE__,
                                 "Started input queue for host <%s> that has been stopped due to too many errors.",

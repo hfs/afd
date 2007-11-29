@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -88,7 +88,7 @@ recreate_msg(unsigned int job_id)
 
    if (stat_buf.st_size > 0)
    {
-      if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                       MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,

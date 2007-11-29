@@ -78,7 +78,7 @@ DESCR__E_M1
 #include "smtpdefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int                  line_length = 0,  /* encode_base64()                */
                      *no_of_listed_files,
                      sys_log_fd = STDERR_FILENO,
@@ -92,7 +92,7 @@ struct data          db;
 struct filename_list *rl;
 const char           *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local function prototypes. */
 static void          asmtp_exit(void),
                      sig_bus(int),
                      sig_segv(int),
@@ -132,7 +132,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(asmtp_exit) != 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
@@ -151,12 +151,12 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    init_asmtp(argc, argv, &db);
    msg_str[0] = '\0';
    blocksize = db.blocksize;
 
-   /* Set SMTP timeout value */
+   /* Set SMTP timeout value. */
    transfer_timeout = db.transfer_timeout;
 
    if (db.smtp_server[0] == '\0')
@@ -176,7 +176,7 @@ main(int argc, char *argv[])
 
    sigpipe_flag = timeout_flag = OFF;
 
-   /* Connect to remote SMTP-server */
+   /* Connect to remote SMTP-server. */
    if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -188,11 +188,12 @@ main(int argc, char *argv[])
    {
       if (db.verbose == YES)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Connected.");
+         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                   "Connected to <%s> at port %d.", db.smtp_server, db.port);
       }
    }
 
-   /* Now send HELO */
+   /* Now send HELO. */
    if (gethostname(host_name, 255) < 0)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "gethostname() error : %s (%s %d)\n",
@@ -214,7 +215,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Prepare local and remote user name */
+   /* Prepare local and remote user name. */
    if ((ptr = getenv("LOGNAME")) != NULL)
    {
       (void)sprintf(local_user, "%s@%s", ptr, host_name);
@@ -255,7 +256,7 @@ main(int argc, char *argv[])
 
    multipart_boundary[0] = '\0';
 
-   /* Send all files */
+   /* Send all files. */
    for (files_send = 0; files_send < db.no_of_files; files_send++)
    {
       if ((db.realname != NULL) && (db.realname[files_send][0] != '\0'))
@@ -278,7 +279,7 @@ main(int argc, char *argv[])
       }
       (void)strcpy(final_filename, file_ptr);
 
-      /* Send local user name */
+      /* Send local user name. */
       if ((status = smtp_user(local_user)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -295,7 +296,7 @@ main(int argc, char *argv[])
          }
       }
 
-      /* Send remote user name */
+      /* Send remote user name. */
       if ((status = smtp_rcpt(remote_user)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -313,7 +314,7 @@ main(int argc, char *argv[])
          }
       }
 
-      /* Enter data mode */
+      /* Enter data mode. */
       if ((status = smtp_open()) != SUCCESS)
       {                                     
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -329,7 +330,7 @@ main(int argc, char *argv[])
          }                                                                
       }
 
-      /* Open local file */
+      /* Open local file. */
       if ((fd = open(db.filename[files_send], O_RDONLY)) < 0)
       {
          if (db.verbose == YES)
@@ -410,7 +411,7 @@ main(int argc, char *argv[])
                    "Open local file %s", db.filename[files_send]);
       }
 
-      /* Read (local) and write (remote) file */
+      /* Read (local) and write (remote) file. */
       no_of_bytes = 0;
       loops = local_file_size / blocksize;
       rest = local_file_size % blocksize;
@@ -716,7 +717,7 @@ main(int argc, char *argv[])
    msg_str[0] = '\0';
    free(buffer);
 
-   /* Logout again */
+   /* Logout again. */
    if ((status = smtp_quit()) != SUCCESS)
    {
       trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
@@ -730,7 +731,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Don't need the ASCII buffer */
+   /* Don't need the ASCII buffer. */
    if (db.flag == ATTACH_FILE)
    {
       free(encode_buffer);

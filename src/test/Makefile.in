@@ -35,9 +35,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-EXTRA_PROGRAMS = arg$(EXEEXT) ahttp$(EXEEXT) ascp$(EXEEXT) bt$(EXEEXT) \
-	change_name$(EXEEXT) copy_file$(EXEEXT) create_files$(EXEEXT) \
-	encode64$(EXEEXT) testlock$(EXEEXT)
+EXTRA_PROGRAMS = als$(EXEEXT) arg$(EXEEXT) ahttp$(EXEEXT) \
+	ascp$(EXEEXT) bt$(EXEEXT) change_name$(EXEEXT) \
+	copy_file$(EXEEXT) create_files$(EXEEXT) encode64$(EXEEXT) \
+	testlock$(EXEEXT)
 subdir = src/test
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -60,6 +61,9 @@ CONFIG_CLEAN_FILES =
 am_ahttp_OBJECTS = ahttp.$(OBJEXT) trans_log.$(OBJEXT)
 ahttp_OBJECTS = $(am_ahttp_OBJECTS)
 ahttp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
+am_als_OBJECTS = als.$(OBJEXT)
+als_OBJECTS = $(am_als_OBJECTS)
+als_DEPENDENCIES = ../common/libafd.a
 am_arg_OBJECTS = arg.$(OBJEXT)
 arg_OBJECTS = $(am_arg_OBJECTS)
 arg_DEPENDENCIES = ../common/libafd.a
@@ -91,14 +95,14 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(ahttp_SOURCES) $(arg_SOURCES) $(ascp_SOURCES) \
-	$(bt_SOURCES) $(change_name_SOURCES) $(copy_file_SOURCES) \
-	$(create_files_SOURCES) $(encode64_SOURCES) \
-	$(testlock_SOURCES)
-DIST_SOURCES = $(ahttp_SOURCES) $(arg_SOURCES) $(ascp_SOURCES) \
-	$(bt_SOURCES) $(change_name_SOURCES) $(copy_file_SOURCES) \
-	$(create_files_SOURCES) $(encode64_SOURCES) \
-	$(testlock_SOURCES)
+SOURCES = $(ahttp_SOURCES) $(als_SOURCES) $(arg_SOURCES) \
+	$(ascp_SOURCES) $(bt_SOURCES) $(change_name_SOURCES) \
+	$(copy_file_SOURCES) $(create_files_SOURCES) \
+	$(encode64_SOURCES) $(testlock_SOURCES)
+DIST_SOURCES = $(ahttp_SOURCES) $(als_SOURCES) $(arg_SOURCES) \
+	$(ascp_SOURCES) $(bt_SOURCES) $(change_name_SOURCES) \
+	$(copy_file_SOURCES) $(create_files_SOURCES) \
+	$(encode64_SOURCES) $(testlock_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -110,7 +114,7 @@ CTAGS = ctags
 DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
-AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
+AFD_GTK_CFLAGS = @AFD_GTK_CFLAGS@
 AFD_GTK_LIBS = @AFD_GTK_LIBS@
 AFD_MAP_LIBS = @AFD_MAP_LIBS@
 AFD_MATH_LIB = @AFD_MATH_LIB@
@@ -148,6 +152,7 @@ ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
 ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
+GZIP_CMD = @GZIP_CMD@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
@@ -172,6 +177,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PKG_CONFIG = @PKG_CONFIG@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
@@ -222,6 +228,7 @@ ac_configure_args = @ac_configure_args@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
+ac_pt_PKG_CONFIG = @ac_pt_PKG_CONFIG@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -260,9 +267,13 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 SUBDIRS = filter
-INCLUDES = -I.. -I../init_afd -I../protocols -I../fd
+INCLUDES = -I.. -I../init_afd -I../protocols -I../fd -I../log\
+                       -I../afd_mon
+
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES = gmon.out core core.*
+als_SOURCES = als.c
+als_LDADD = ../common/libafd.a
 encode64_SOURCES = encode64.c\
                        encode_base64.c
 
@@ -320,6 +331,9 @@ $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 ahttp$(EXEEXT): $(ahttp_OBJECTS) $(ahttp_DEPENDENCIES) 
 	@rm -f ahttp$(EXEEXT)
 	$(LINK) $(ahttp_LDFLAGS) $(ahttp_OBJECTS) $(ahttp_LDADD) $(LIBS)
+als$(EXEEXT): $(als_OBJECTS) $(als_DEPENDENCIES) 
+	@rm -f als$(EXEEXT)
+	$(LINK) $(als_LDFLAGS) $(als_OBJECTS) $(als_LDADD) $(LIBS)
 arg$(EXEEXT): $(arg_OBJECTS) $(arg_DEPENDENCIES) 
 	@rm -f arg$(EXEEXT)
 	$(LINK) $(arg_LDFLAGS) $(arg_OBJECTS) $(arg_LDADD) $(LIBS)
@@ -352,6 +366,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ahttp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/als.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/arg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ascp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bt.Po@am__quote@

@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <string.h>       /* memcpy(), strerror()                        */
 #include <stdlib.h>       /* malloc(), free()                            */
 #include <sys/types.h>    /* fd_set                                      */
-#include <setjmp.h>       /* setjmp(), longjmp()                         */
+#include <setjmp.h>       /* sigsetjmp(), siglongjmp()                   */
 #include <signal.h>       /* kill()                                      */
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
@@ -91,7 +91,7 @@ extern long            transfer_timeout;
 /* Local global variables. */
 static int             fdm;
 static pid_t           ssh_data_pid;
-static jmp_buf         env_alrm;
+static sigjmp_buf      env_alrm;
 #ifdef WITH_SSH_FINGERPRINT
 # ifdef WITH_REMOVE_FROM_KNOWNHOSTS
 static struct ssh_data sd;
@@ -512,7 +512,7 @@ ssh_login(int data_fd, char *passwd)
                      status = INCORRECT;
                      break;
                   }
-                  if (setjmp(env_alrm) != 0)
+                  if (sigsetjmp(env_alrm, 1) != 0)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                "ssh_login(): read() timeout (%ld)",
@@ -1060,7 +1060,7 @@ remove_from_knownhosts(char *hostname)
             {
                char *data;
 
-               if ((data = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+               if ((data = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                                 MAP_SHARED, fd, 0)) == (caddr_t) -1)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1458,5 +1458,5 @@ tty_raw(int fd)
 static void
 sig_handler(int signo)
 {
-   longjmp(env_alrm, 1);
+   siglongjmp(env_alrm, 1);
 }

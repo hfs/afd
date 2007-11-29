@@ -13,4 +13,4 @@ GTK_DIR =
 endif
 
 MAINTAINERCLEANFILES = Makefile.in
-SUBDIRS              = $(MOTIF_DIR) $(GTK_DIR)
+SUBDIRS              = common $(MOTIF_DIR) $(GTK_DIR)

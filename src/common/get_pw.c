@@ -124,10 +124,10 @@ get_pw(char *uh_name, char *password)
             char *ptr;
 
 #ifdef HAVE_MMAP
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ, MAP_SHARED,
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_SHARED,
                             pwb_fd, 0)) == (caddr_t) -1)
 #else
-            if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ, MAP_SHARED,
+            if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ, MAP_SHARED,
                                 pwb_file_name, 0)) == (caddr_t) -1)
 #endif
             {

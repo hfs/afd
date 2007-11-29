@@ -1,6 +1,6 @@
 /*
  *  mconfig_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,17 +50,16 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 #include "mon_ctrl.h"
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int  mon_log_fd,
             sys_log_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
 extern int  mon_log_readfd,
             sys_log_readfd;
 #endif
-extern char *profile,
-            *p_work_dir,
+extern char *p_work_dir,
             user[];
 
 
@@ -165,14 +164,7 @@ mconfig_log(int type, char *sign, char *fmt, ...)
    length += vsprintf(&buf[length], fmt, ap);
    va_end(ap);
 
-   if (profile != NULL)
-   {
-      length += sprintf(&buf[length], " (%s <%s>)\n", profile, user);
-   }
-   else
-   {
-      length += sprintf(&buf[length], " (%s)\n", user);
-   }
+   length += sprintf(&buf[length], " (%s)\n", user);
 
    (void)write(*p_fd, buf, length);
 

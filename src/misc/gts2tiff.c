@@ -81,7 +81,7 @@ DESCR__E_M3
 #define MAP_FILE 0  /* All others do not need it */
 #endif
 
-/* Global local variables */
+/* Global local variables. */
 static int  hr,                    /* Horizontal resolution  */
             vr,                    /* Vertical resolution    */
             bhl;                   /* Bulletin header length */
@@ -89,7 +89,7 @@ static int  hr,                    /* Horizontal resolution  */
 char        bh[100];
 #endif
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int evaluate_wmo_stuff(char *, size_t),
            dup_count_eols(char *, size_t, char *),
 #ifdef _EOL_TIME_TEST
@@ -145,7 +145,7 @@ gts2tiff(char *path, char *filename)
    start_total_time = times(&tmsdummy);
 #endif
 
-   /* Open source file */
+   /* Open source file. */
    if (path[0] == '\0')
    {
       (void)strcpy(from, filename);
@@ -169,7 +169,7 @@ gts2tiff(char *path, char *filename)
       return(INCORRECT);
    }
 
-   /* Open and create destination file */
+   /* Open and create destination file. */
    (void)sprintf(to, "%s%s", from, TIFF_END);
    if ((fdout = open(to, (O_RDWR | O_CREAT | O_TRUNC), stat_buf.st_mode)) < 0)
    {
@@ -182,10 +182,10 @@ gts2tiff(char *path, char *filename)
    if (stat_buf.st_size > 0)
    {
 #ifdef HAVE_MMAP
-      if ((src = mmap(0, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
-                      fdin, 0)) == (caddr_t) -1)
+      if ((src = mmap(NULL, stat_buf.st_size, PROT_READ,
+                      (MAP_FILE | MAP_SHARED), fdin, 0)) == (caddr_t) -1)
 #else
-      if ((src = mmap_emu(0, stat_buf.st_size, PROT_READ,
+      if ((src = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
                           (MAP_FILE | MAP_SHARED), from, 0)) == (caddr_t) -1)
 #endif
       {
@@ -263,7 +263,7 @@ gts2tiff(char *path, char *filename)
                        8 +                      /* X-Resolution        */
                        8;                       /* Y-Resolution        */
 
-      /* set size of output file */
+      /* Set size of output file. */
       if (lseek(fdout, tiff_file_size - 1, SEEK_SET) == -1)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -292,10 +292,10 @@ gts2tiff(char *path, char *filename)
       }
 
 #ifdef HAVE_MMAP
-      if ((dst = mmap(0, tiff_file_size, (PROT_READ | PROT_WRITE),
+      if ((dst = mmap(NULL, tiff_file_size, (PROT_READ | PROT_WRITE),
                       (MAP_FILE |  MAP_SHARED), fdout, 0)) == (caddr_t) -1)
 #else
-      if ((dst = mmap_emu(0, tiff_file_size, (PROT_READ | PROT_WRITE),
+      if ((dst = mmap_emu(NULL, tiff_file_size, (PROT_READ | PROT_WRITE),
                           (MAP_FILE |  MAP_SHARED), to, 0)) == (caddr_t) -1)
 #endif
       {
@@ -321,7 +321,7 @@ gts2tiff(char *path, char *filename)
       }
 
 #ifdef _EOL_TIME_TEST
-      /* Lets take a look how long it takes to find the EOL's */
+      /* Lets take a look how long it takes to find the EOL's. */
       no_of_eols = 0;
       start_time = times(&tmsdummy);
       for (i = 0; i < 100; i++)
@@ -354,7 +354,7 @@ gts2tiff(char *path, char *filename)
       }
       (void)fprintf(stderr, "Ver 1       : %7.2f for %d EOL's\n", (end_time - start_time) / (double)clktck, no_of_eols);
 
-      /* See how long it takes to duplicate all lines */
+      /* See how long it takes to duplicate all lines. */
       no_of_eols = 0;
       start_time = times(&tmsdummy);
       for (i = 0; i < 100; i++)

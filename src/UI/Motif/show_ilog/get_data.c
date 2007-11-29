@@ -53,17 +53,17 @@ DESCR__E_M3
 #include <stdlib.h>       /* malloc(), realloc(), free(), strtod()       */
 #include <time.h>         /* time()                                      */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <unistd.h>       /* close()                                     */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>     /* mmap(), munmap()                            */
-#ifndef MAP_FILE          /* Required for BSD          */
-#define MAP_FILE 0        /* All others do not need it */
-#endif
+# include <sys/mman.h>    /* mmap(), munmap()                            */
+# ifndef MAP_FILE         /* Required for BSD          */
+#  define MAP_FILE 0      /* All others do not need it */
+# endif
 #endif
 #include <errno.h>
 
@@ -75,16 +75,19 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "show_ilog.h"
 
+#define QUICK_SEARCH 50000
+#define SLOW_SEARCH  400
+
 /* External global variables. */
 extern Display          *display;
 extern Window           main_window;
 extern XtAppContext     app;
-extern Widget           listbox_w,
+extern Widget           appshell, /* CHECK_INTERRUPT() */
+                        listbox_w,
                         scrollbar_w,
                         statusbox_w,
                         special_button_w,
-                        summarybox_w,
-                        appshell;
+                        summarybox_w;
 extern int              continues_toggle_set,
                         gt_lt_sign,
                         max_input_log_files,
@@ -163,8 +166,7 @@ static void   check_log_updates(Widget),
               if (((il[file_no].offset = realloc(il[file_no].offset, new_int_size)) == NULL) ||        \
                   ((il[file_no].line_offset = realloc(il[file_no].line_offset, new_off_t_size)) == NULL))\
               {                                                  \
-                 (void)xrec(appshell, FATAL_DIALOG,              \
-                            "realloc() error : %s (%s %d)",      \
+                 (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",\
                             strerror(errno), __FILE__, __LINE__);\
                  return;                                         \
               }                                                  \
@@ -174,7 +176,7 @@ static void   check_log_updates(Widget),
         {                      \
            while (*ptr != '\n')\
               ptr++;           \
-           ptr++; i--;         \
+           ptr++; i--; line_counter++;\
            continue;           \
         }
 #define INSERT_TIME()                                     \
@@ -241,6 +243,7 @@ static void   check_log_updates(Widget),
            {                                                                \
               ptr++;                                                        \
            }                                                                \
+           line_counter++;                                                  \
            item_counter++;                                                  \
            str_list[i] = XmStringCreateLocalized(line);                     \
            ptr++;                                                           \
@@ -266,15 +269,15 @@ void
 get_data(void)
 {
 #ifdef _INPUT_LOG
-   int          i,
-                j,
-                start_file_no = -1,
-                end_file_no = -1;
-   time_t       end;
-   double       total_file_size;
-   char         status_message[MAX_MESSAGE_LENGTH];
-   struct stat  stat_buf;
-   XmString     xstr;
+   int         i,
+               j,
+               start_file_no = -1,
+               end_file_no = -1;
+   time_t      end;
+   double      total_file_size;
+   char        status_message[MAX_MESSAGE_LENGTH];
+   struct stat stat_buf;
+   XmString    xstr;
 
    /* At start always reset these values. */
    if (interval_id_set == YES)
@@ -286,7 +289,7 @@ get_data(void)
    {
       if (close(log_fd) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG, "close() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "close() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -332,7 +335,7 @@ get_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc(LINES_BUFFERED * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -342,7 +345,7 @@ get_data(void)
    {
       if ((il = malloc(max_input_log_files * sizeof(struct item_list))) == NULL)
       {
-         (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -489,7 +492,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
       }
       else
       {
-         (void)xrec(appshell, WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -503,21 +506,21 @@ extract_data(char *current_log_file, int file_no, int log_no)
 
    if ((fd = open(current_log_file, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       return;
    }
    if ((il[file_no].fp = fdopen(fd, "r")) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fdopen() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fdopen() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
 #ifdef HAVE_MMAP
-   if ((src = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((src = mmap(NULL, stat_buf.st_size, PROT_READ,
                    (MAP_FILE | MAP_SHARED), fd, 0)) == (caddr_t) -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to mmap() %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to mmap() %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -525,15 +528,14 @@ extract_data(char *current_log_file, int file_no, int log_no)
 #else
    if ((src = malloc(stat_buf.st_size)) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
    }
    if (read(fd, src, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)xrec(appshell, FATAL_DIALOG,
-                 "Failed to read() from %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to read() from %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       free(src);
       (void)close(fd);
@@ -607,7 +609,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
 #ifdef HAVE_MMAP
       if (munmap(src, stat_buf.st_size) < 0)
       {
-         (void)xrec(appshell, ERROR_DIALOG, "munmap() error : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
 #else
@@ -625,15 +627,13 @@ extract_data(char *current_log_file, int file_no, int log_no)
        */
       if ((log_fd = open(current_log_file, O_RDONLY)) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (lseek(log_fd, stat_buf.st_size, SEEK_SET) == (off_t)-1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to lssek() in %s : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to lssek() in %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -689,7 +689,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
         }
         else
         {
-           (void)xrec(appshell, FATAL_DIALOG,
+           (void)xrec(FATAL_DIALOG,
                       "What's this!? Impossible! (%s %d)", __FILE__, __LINE__);
            return;
         }
@@ -698,7 +698,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
 #ifdef HAVE_MMAP
    if (munmap(src, stat_buf.st_size) < 0)
    {
-      (void)xrec(appshell, ERROR_DIALOG, "munmap() error : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 #else
@@ -728,7 +728,7 @@ check_log_updates(Widget w)
 
       if (fstat(log_fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG, "fstat() error: %s (%s %d)\n",
+         (void)xrec(FATAL_DIALOG, "fstat() error: %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
       }
       if (log_inode != stat_buf.st_ino)
@@ -752,18 +752,17 @@ check_log_updates(Widget w)
          diff_size = stat_buf.st_size - log_offset;
          if ((ptr_start = malloc(diff_size)) == NULL)
          {
-            (void)xrec(appshell, FATAL_DIALOG,
 #if SIZEOF_OFF_T == 4
-                       "malloc() error [%ld bytes] : %s (%s %d)",
+            (void)xrec(FATAL_DIALOG, "malloc() error [%ld bytes] : %s (%s %d)",
 #else
-                       "malloc() error [%lld bytes] : %s (%s %d)",
+            (void)xrec(FATAL_DIALOG, "malloc() error [%lld bytes] : %s (%s %d)",
 #endif
                        (pri_off_t)diff_size, strerror(errno),
                        __FILE__, __LINE__);
          }
          if (read(log_fd, ptr_start, diff_size) != diff_size)
          {
-            (void)xrec(appshell, FATAL_DIALOG, "read() error: %s (%s %d)\n",
+            (void)xrec(FATAL_DIALOG, "read() error: %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);
          }
          ptr_end = ptr_start + diff_size;
@@ -825,8 +824,7 @@ check_log_updates(Widget w)
               }
               else
               {
-                 (void)xrec(appshell, FATAL_DIALOG,
-                            "What's this!? Impossible! (%s %d)",
+                 (void)xrec(FATAL_DIALOG, "What's this!? Impossible! (%s %d)",
                             __FILE__, __LINE__);
               }
 
@@ -1005,6 +1003,7 @@ no_criteria(register char *ptr,
                 j;
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -1031,10 +1030,9 @@ no_criteria(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % QUICK_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -1161,6 +1159,7 @@ no_criteria(register char *ptr,
          {
             ptr++;
          }
+         line_counter++;
          item_counter++;
          str_list[i] = XmStringCreateLocalized(line);
          ptr++;
@@ -1211,6 +1210,7 @@ file_name_only(register char *ptr,
                 j;
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -1236,10 +1236,9 @@ file_name_only(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % QUICK_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -1366,6 +1365,7 @@ file_size_only(register char *ptr,
                 j;
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -1391,10 +1391,9 @@ file_size_only(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % QUICK_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -1562,6 +1561,7 @@ file_name_and_size(register char *ptr,
                 j;
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -1587,10 +1587,9 @@ file_name_and_size(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % QUICK_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -1746,6 +1745,7 @@ recipient_only(register char *ptr,
                 ii,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -1772,10 +1772,9 @@ recipient_only(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % SLOW_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -1960,6 +1959,7 @@ recipient_only(register char *ptr,
          {
             ptr++;
          }
+         line_counter++;
          item_counter++;
          file_size += tmp_file_size;
          str_list[i] = XmStringCreateLocalized(line);
@@ -2006,6 +2006,7 @@ file_name_and_recipient(register char *ptr,
                 ii,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -2032,10 +2033,9 @@ file_name_and_recipient(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % SLOW_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -2227,6 +2227,7 @@ file_name_and_recipient(register char *ptr,
          {
             ptr++;
          }
+         line_counter++;
          item_counter++;
          file_size += tmp_file_size;
          str_list[i] = XmStringCreateLocalized(line);
@@ -2273,6 +2274,7 @@ file_size_and_recipient(register char *ptr,
                 ii,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -2299,10 +2301,9 @@ file_size_and_recipient(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % SLOW_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -2541,6 +2542,7 @@ file_size_and_recipient(register char *ptr,
             ptr++;
          }
 
+         line_counter++;
          item_counter++;
          file_size += tmp_file_size;
 
@@ -2589,6 +2591,7 @@ file_name_size_recipient(register char *ptr,
                 ii,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
+                line_counter = 0,
                 loops = 0,
                 unmanaged;
    time_t       now,
@@ -2615,10 +2618,9 @@ file_name_size_recipient(register char *ptr,
          /* Allocate memory for offset to job ID. */
          REALLOC_OFFSET_BUFFER();
 
-         if (((i % 200) == 0) &&
-             ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
+         if ((line_counter != 0) && ((line_counter % SLOW_SEARCH) == 0))
          {
-            prev_time_val = now;
+            display_data(-1, 0L, 0L);
             CHECK_INTERRUPT();
             if (special_button_flag != STOP_BUTTON)
             {
@@ -2842,6 +2844,7 @@ file_name_size_recipient(register char *ptr,
          {
             ptr++;
          }
+         line_counter++;
          item_counter++;
          file_size += tmp_file_size;
          str_list[i] = XmStringCreateLocalized(line);
@@ -2880,19 +2883,38 @@ display_data(int    i,
              time_t first_date_found,
              time_t time_when_transmitted)
 {
-   register int j;
-   static int   rotate;
-   char         status_message[MAX_MESSAGE_LENGTH];
-   XmString     xstr;
-   XExposeEvent xeev;
-   Dimension    w, h;
+   static int rotate;
+   char       status_message[MAX_MESSAGE_LENGTH];
+   XmString   xstr;
 
-   XmListAddItemsUnselected(listbox_w, str_list, i, 0);
-   for (j = 0; j < i; j++)
+   if (i != -1)
    {
-      XmStringFree(str_list[j]);
+      register int j;
+      XExposeEvent xeev;
+      Dimension    w, h;
+
+      XmListAddItemsUnselected(listbox_w, str_list, i, 0);
+      for (j = 0; j < i; j++)
+      {
+         XmStringFree(str_list[j]);
+      }
+      total_no_files += i;
+
+      calculate_summary(summary_str, first_date_found, time_when_transmitted,
+                        total_no_files, file_size);
+      (void)strcpy(total_summary_str, summary_str);
+
+      xeev.type = Expose;
+      xeev.display = display;
+      xeev.window = main_window;
+      xeev.x = 0; xeev.y = 0;
+      XtVaGetValues(summarybox_w, XmNwidth, &w, XmNheight, &h, NULL);
+      xeev.width = w; xeev.height = h;
+      xstr = XmStringCreateLtoR(summary_str, XmFONTLIST_DEFAULT_TAG);
+      XtVaSetValues(summarybox_w, XmNlabelString, xstr, NULL);
+      (XtClass(summarybox_w))->core_class.expose(summarybox_w, (XEvent *)&xeev, NULL);
+      XmStringFree(xstr);
    }
-   total_no_files += i;
    rotate++;
    if (rotate == 0)
    {
@@ -2911,21 +2933,6 @@ display_data(int    i,
            (void)strcpy(status_message, "Searching  /");
            rotate = -1;
         }
-
-   calculate_summary(summary_str, first_date_found, time_when_transmitted,
-                     total_no_files, file_size);
-   (void)strcpy(total_summary_str, summary_str);
-
-   xeev.type = Expose;
-   xeev.display = display;
-   xeev.window = main_window;
-   xeev.x = 0; xeev.y = 0;
-   XtVaGetValues(summarybox_w, XmNwidth, &w, XmNheight, &h, NULL);
-   xeev.width = w; xeev.height = h;
-   xstr = XmStringCreateLtoR(summary_str, XmFONTLIST_DEFAULT_TAG);
-   XtVaSetValues(summarybox_w, XmNlabelString, xstr, NULL);
-   (XtClass(summarybox_w))->core_class.expose(summarybox_w, (XEvent *)&xeev, NULL);
-   XmStringFree(xstr);
    xstr = XmStringCreateLtoR(status_message, XmFONTLIST_DEFAULT_TAG);
    XtVaSetValues(statusbox_w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);

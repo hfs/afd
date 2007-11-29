@@ -55,6 +55,10 @@ extern int  sys_nerr;
 # define strerror(e) sys_errlist[((unsigned)(e) < sys_nerr) ? (e) : 0]
 #endif
 
+#ifndef HOST_NAME_MAX
+# define HOST_NAME_MAX 255
+#endif
+
 #if SIZEOF_OFF_T == 4
 typedef unsigned long       u_off_t;
 typedef long                pri_off_t;
@@ -206,6 +210,7 @@ typedef unsigned long       u_long_64;
 #define AFD_MON                    "afd_mon"
 #define MON_PROC                   "mon"
 #define LOG_MON                    "log_mon"
+#define VIEW_HOSTS                 "view_hosts"
 #define MON_CTRL                   "mon_ctrl"
 #define MON_INFO                   "mon_info"
 #define AFD_CMD                    "afdcmd"
@@ -289,6 +294,9 @@ typedef unsigned long       u_long_64;
 /*         ".", "..", "outgoing", "pool", "time", "incoming"            */
 #define DIRS_IN_FILE_DIR           6
 
+/* Definitions for special_flag field in FSA. */
+#define KEEP_CON_NO_FETCH          1
+#define KEEP_CON_NO_SEND           2
 #define HOST_DISABLED              32
 #define HOST_IN_DIR_CONFIG         64  /* Host in DIR_CONFIG file (bit 7)*/
 
@@ -627,6 +635,7 @@ typedef unsigned long       u_long_64;
 # define DISABLE_BURSTING          128
 #endif
 #define FTP_ALLOW_DATA_REDIRECT    256
+#define FILE_WHEN_LOCAL_FLAG       512
 
 #define FTP_SHEME                  "ftp"
 #define FTP_SHEME_LENGTH           (sizeof(FTP_SHEME) - 1)
@@ -818,6 +827,7 @@ typedef unsigned long       u_long_64;
 #define RENAME_RULE_FILE                 "/rename.rule"
 #define AFD_USER_FILE                    "/afd.users"
 #define GROUP_FILE                       "/group.list"
+#define AFD_LOCAL_INTERFACE_FILE         "/local_interface.list"
 #define DEFAULT_FIFO_SIZE                4096
 #define DEFAULT_BUFFER_SIZE              1024
 #define DEFAULT_MAX_ERRORS               10
@@ -836,6 +846,7 @@ typedef unsigned long       u_long_64;
 #ifdef WITH_INOTIFY
 # define DEFAULT_INOTIFY_FLAG            0
 #endif
+#define DEFAULT_HEARTBEAT_TIMEOUT        25L
 
 /* Definitions to be read from the AFD_CONFIG file. */
 #define AFD_TCP_PORT_DEF                 "AFD_TCP_PORT"
@@ -911,7 +922,7 @@ typedef unsigned long       u_long_64;
 /* Length of log date in log files. */
 #define LOG_DATE_LENGTH            10
 
-/* Definitions of maximum values */
+/* Definitions of maximum values. */
 #define MAX_SHUTDOWN_TIME          60     /* When the AMG gets the order  */
                                           /* shutdown, this the time it   */
                                           /* waits for its children to    */
@@ -1035,8 +1046,8 @@ typedef unsigned long       u_long_64;
 #define HOST_ERROR_OFFLINE_T       4096
 #define HOST_ERROR_EA_STATIC       8192  /* Host error event action static. */
 
-#define EVENT_STATUS_STATIC_FLAGS  (PENDING_ERRORS & HOST_ERROR_ACKNOWLEDGED & HOST_ERROR_OFFLINE)
-#define EVENT_STATUS_FLAGS         (EVENT_STATUS_STATIC_FLAGS & HOST_ERROR_ACKNOWLEDGED_T & HOST_ERROR_OFFLINE_T)
+#define EVENT_STATUS_STATIC_FLAGS  (PENDING_ERRORS | HOST_ERROR_ACKNOWLEDGED | HOST_ERROR_OFFLINE)
+#define EVENT_STATUS_FLAGS         (EVENT_STATUS_STATIC_FLAGS | HOST_ERROR_ACKNOWLEDGED_T | HOST_ERROR_OFFLINE_T)
 
 #define HOST_NOT_IN_DIR_CONFIG     4
 
@@ -1135,7 +1146,7 @@ typedef unsigned long       u_long_64;
 #define SFTP_BURST_TRANSFER_ACTIVE 18
 /*############################## yellow #################################*/
 #ifdef _WITH_WMO_SUPPORT
-#define WMO_BURST_TRANSFER_ACTIVE  19
+# define WMO_BURST_TRANSFER_ACTIVE 19
 # define COLOR_POOL_SIZE           20
 #else
 # define COLOR_POOL_SIZE           19
@@ -1146,6 +1157,11 @@ typedef unsigned long       u_long_64;
 #define SYSTEM_HISTORY             1
 #define TRANSFER_HISTORY           2
 #define NO_OF_LOG_HISTORY          3
+
+/* Error action types. */
+#define HOST_ERROR_ACTION          0
+#define DIR_WARN_ACTION            1
+#define DIR_ERROR_ACTION           2
 
 /* Directory definitions. */
 #define AFD_MSG_DIR                "/messages"
@@ -1158,6 +1174,8 @@ typedef unsigned long       u_long_64;
 #define RLOG_DIR                   "/rlog"  /* Only used for afd_mon. */
 #define ETC_DIR                    "/etc"
 #define ERROR_ACTION_DIR           "/error_action"
+#define DIR_WARN_ACTION_DIR        "/dir_warn_action"
+#define DIR_ERROR_ACTION_DIR       "/dir_error_action"
 #define INCOMING_DIR               "/incoming"
 #define OUTGOING_DIR               "/outgoing"
 #define OUTGOING_DIR_LENGTH        (sizeof(OUTGOING_DIR) - 1)
@@ -1186,7 +1204,7 @@ typedef unsigned long       u_long_64;
 #define MSG_CACHE_FILE             "/fd_msg_cache"
 #define MSG_QUEUE_FILE             "/fd_msg_queue"
 #ifdef WITH_ERROR_QUEUE
-#define ERROR_QUEUE_FILE           "/error_queue"
+# define ERROR_QUEUE_FILE          "/error_queue"
 #endif
 #define FILE_MASK_FILE             "/file_masks"
 #define DC_LIST_FILE               "/dc_name_data"
@@ -1244,13 +1262,13 @@ typedef unsigned long       u_long_64;
 #define AFDD_LOG_FIFO              "/afdd_log.fifo"
 /*-----------------------------------------------------------------------*/
 
-/* Definitions for the AFD name */
+/* Definitions for the AFD name. */
 #define AFD_NAME                   "afd.name"
 #define MAX_AFD_NAME_LENGTH        30
 
 #define MSG_CACHE_BUF_SIZE         10000
 
-/* Definitions for the different actions over fifos */
+/* Definitions for the different actions over fifos. */
 #define HALT                       0
 #define STOP                       1
 #define START                      2
@@ -1280,6 +1298,7 @@ typedef unsigned long       u_long_64;
 #define SWITCH_MON                 27
 #define FORCE_REMOTE_DIR_CHECK     28
 #define GOT_LC                     29 /* Got log capabilities. */
+#define REREAD_LOC_INTERFACE_FILE  30
 
 #define DELETE_ALL_JOBS_FROM_HOST  1
 #define DELETE_MESSAGE             2
@@ -1509,7 +1528,7 @@ typedef unsigned long       u_long_64;
 #define AFD_FEATURE_FLAG_OFFSET_START 5  /* From start */
 #define AFD_FEATURE_FLAG_OFFSET_END   11 /* From end   */
 
-/* Structure that holds status of the file transfer for each host */
+/* Structure that holds status of the file transfer for each host. */
 #define CURRENT_FSA_VERSION 2
 struct status
        {
@@ -1618,7 +1637,9 @@ struct filetransfer_status
                                             /*| 7    | Host is in       |*/
                                             /*|      | DIR_CONFIG file. |*/
                                             /*| 6    | Host disabled.   |*/
-                                            /*| 1-5  | Not used.        |*/
+                                            /*| 3-5  | Not used.        |*/
+                                            /*| 2    | KEEP_CON_NO_SEND |*/
+                                            /*| 1    | KEEP_CON_NO_FETCH|*/
                                             /*+------+------------------+*/
           unsigned int   protocol;          /* Transfer protocol that    */
                                             /* is being used:            */
@@ -1628,7 +1649,7 @@ struct filetransfer_status
                                             /*| 32   | RETRIEVE         |*/
                                             /*| 31   | SEND             |*/
                                             /*| 30   | SSL              |*/
-                                            /*| 19-30| Not used.        |*/
+                                            /*| 19-29| Not used.        |*/
                                             /*| 18   | GET_SFTP         |*/
                                             /*| 17   | GET_HTTP  [SSL]  |*/
                                             /*| 16   | GET_FTP   [SSL]  |*/
@@ -1647,7 +1668,9 @@ struct filetransfer_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 9-32 | Not used.        |*/
+                                            /*| 11-32| Not used.        |*/
+                                            /*| 10   | FILE_WHEN_LOCAL  |*/
+                                            /*| 9    | FTP_ALLOW_DATA_REDIRECT|*/
                                             /*| 8    | DISABLE_BURSTING |*/
                                             /*| 7    | FTP_EXTENDED_MODE|*/
                                             /*| 6    | FTP_IGNORE_BIN   |*/
@@ -1703,7 +1726,7 @@ struct filetransfer_status
                                             /*+-----+-------------------------+*/
                                             /*| Bit |     Meaning             |*/
                                             /*+-----+-------------------------+*/
-                                            /*|14-32|Not used.                |*/
+                                            /*|15-32|Not used.                |*/
                                             /*|   14|HOST_ERROR_EA_STATIC     |*/
                                             /*|   13|HOST_ERROR_OFFLINE_T     |*/
                                             /*|   12|HOST_ERROR_ACKNOWLEDGED_T|*/
@@ -1874,7 +1897,7 @@ struct bd_time_entry
           unsigned char      day_of_week;
        };
 
-/* Structure holding all neccessary data for retrieving files */
+/* Structure holding all neccessary data for retrieving files. */
 #define CURRENT_FRA_VERSION 4
 #define MAX_WAIT_FOR_LENGTH 64
 struct fileretrieve_status
@@ -2707,9 +2730,10 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     count_files(char *, unsigned int *, off_t *),
                     daemon_init(char *),
                     delete_log_ptrs(struct delete_log *),
-                    error_action(char *, char *),
+                    error_action(char *, char *, int),
                     event_log(time_t, unsigned int, unsigned int,
                               unsigned int, char *, ...),
+                    expand_filter(char *, char *, time_t),
                     get_dir_options(unsigned int, struct dir_options *),
                     get_dc_result_str(char *, int, int, int *, int *),
                     get_hc_result_str(char *, int, int, int *, int *),
@@ -2750,6 +2774,10 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     unlock_region(int, off_t),
 #endif
                     unmap_data(int, void **),
+#ifdef WITH_ERROR_QUEUE
+                    validate_error_queue(int, unsigned int *, int,
+                                         struct filetransfer_status *),
+#endif
                     wmoheader_from_grib(char *, char *, char *);
 #ifdef _FIFO_DEBUG
 extern void         show_fifo_data(char, char *, char *, int, char *, int);

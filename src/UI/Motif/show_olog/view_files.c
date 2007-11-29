@@ -53,11 +53,11 @@ DESCR__E_M3
 
 /* External global variables. */
 extern Display          *display;
-extern Widget           appshell,
-                        special_button_w,
+extern Widget           appshell, /* CHECK_INTERRUPT() */
+                        listbox_w,
                         scrollbar_w,
-                        statusbox_w,
-                        listbox_w;
+                        special_button_w,
+                        statusbox_w;
 extern int              no_of_log_files,
                         special_button_flag;
 extern char             *p_work_dir;
@@ -97,7 +97,7 @@ view_files(int no_selected, int *select_list)
    if (((vl = calloc(no_selected, sizeof(struct resend_list))) == NULL) ||
        ((select_done_list = calloc(no_selected, sizeof(int))) == NULL))
    {
-      (void)xrec(appshell, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -281,13 +281,13 @@ get_archive_data(int pos, int file_no)
 
    if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos], SEEK_SET) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fseek() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
    if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "fgets() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "fgets() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }

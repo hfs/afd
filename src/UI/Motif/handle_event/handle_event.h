@@ -20,7 +20,7 @@
 #ifndef __handle_event_h
 #define __handle_event_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define MAXARGS                  20
 
@@ -28,7 +28,7 @@
 #define OFFLINE_SELECT           2
 #define UNSET_SELECT             3
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void close_button(Widget, XtPointer, XtPointer),
             radio_button(Widget, XtPointer, XtPointer),
             set_button(Widget, XtPointer, XtPointer);

@@ -599,3 +599,91 @@
 15.07.2007 - Implemented new dialog show_elog to view the event log.
            - Allow event log to be centralized via afd_mon.
 ------------------------> Released: 24.07.2007 <---------------------------
+
+
+
+----------------------------> Version 1.3.6 <------------------------------
+                             ---------------
+25.07.2007 - Fix an error that caused mon_ctrl to crash when it called
+             another program.
+26.07.2007 - When using server= and the name specified is only an alias,
+             process sf_smtp would try to connect to this alias. Fixed.
+08.08.2007 - For the dialog where you can select event actions, added a
+             button to toggle all events.
+           - When allocating memory for storing file names from a
+             directory, don't set this to the full value specified by
+             the user (max files) at once. Allocate it in hunks until we
+             reach the maximum specified by the user.
+           - For show_olog, instead of prnting directly to the printer
+             (via redirecting the output), write to a file and then print
+             the file.
+           - Added init script for AFD monitor.
+12.08.2007 - Close open file descriptors for dialog show_elog.
+13.08.2007 - If host alias has the error/warnings set offline or to
+             acknowledge, the reason can be seen by clicking on the
+             host alias field in afd_crl dialog.
+30.08.2007 - AFDD now properly checks current AFD message list.
+31.08.2007 - When checking if another AFD is active make the timeout
+             tuneable via command line argument.
+           - Possibly fix SIGBUS error of process afdd when rereading
+             DIR_CONFIG.
+02.09.2007 - Added splice() support in copy_file() and to sf_loc to
+             reduce system load.
+04.09.2007 - Remove a race condition from error queue that could lead
+             to a host with an error queue always set.
+           - If a job is no longer in DIR_CONFIG, immediatly remove
+             it from the error queue.
+           - If error queue is empty do check if no host in FSA has
+             the error queue set.
+09.09.2007 - Speedup function archive_file(), by removing some unnecessary
+             system calls and/or replacing them by more efficient calls.
+10.09.2007 - When bursting a job of the same job ID we must recheck if
+             error queue flag is set. Otherwise it can happen that we
+             service a job that is in error queue but do not unset it after
+             being done.
+           - Process afd_mon always tries to restart log_mon for a
+             disabled AFD. Fixed.
+11.09.2007 - When host name is specified dialog show_ilog responce to user
+             input was very slow. Fixed.
+           - Added program to edit some values in FRA.
+12.09.2007 - Program jid_view now shows the directory name. It is now
+             possible to supply multiple job ID's as parameters.
+           - Program get_dc_data did not find all jobs when the job
+             list is no longer in order. Fixed.
+13.09.2007 - When multiple DIR_CONFIG's are defined in AFD_CONFIG, show
+             the full path of the DIR_CONFIG to which the job belongs
+             when viewing the configuration for a host.
+20.09.2007 - Added script afd_unused_infos to show, delete or move unused
+             INFO-* files.
+21.09.2007 - When directory option 'ignore size' or 'ignore file time' is
+             set and the option 'delete unknown files' is set, it will
+             delete those files if the size or time do not match.
+           - The button 'Attach file' was not correctly attached in the
+             xsend_file dialog so it was not visible. Fixed.
+           - In xsend_file dialog entering a mail server had no effect.
+             Fixed.
+           - A directory scan that does not find any files is now
+             reported in RECEIVE_LOG. This can be disabled with the
+             configure option --disable-report_empty_dir_scan.
+29.09.2007 - Implemented persistend connection for transmitting files.
+           - To much valuable time is lost when FD is catching its
+             zombies. By inserting a zombie queue FD can now spawn
+             much faster new process.
+           - Show a message when someone tries to do a retry of a
+             stopped or disabled host that this is not possible.
+10.10.2007 - Fetching files via HTTP together with the directory option
+             'do not get dir list' did not work with file filters having
+             %t modifier and other modifiers. Fixed.
+03.11.2007 - Added option to use scheme file if the hostname matches with
+             the nodname on which AFD is running.
+08.11.2007 - Added configuration file 'local_interface.list' where one
+             can configure local interfaceses so AFD can use scheme file
+             on those interfaces.
+10.11.2007 - Dialog afd_info shows in the protocol line if it is active,
+             passive or extended active/passive mode.
+16.11.2007 - When changing the name of the host alias, it could happen
+             that no more files get distributed for the new host alias
+             name.
+23.11.2007 - Process dir_check will now continue to try scan a directory
+             once it was not accessible.
+------------------------> Released: 26.11.2007 <---------------------------

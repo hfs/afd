@@ -1,6 +1,6 @@
 /*
  *  remove_host.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,10 +55,9 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "edit_hc.h"
 
-/* External global variables */
-extern Widget appshell;
-extern int    sys_log_fd;
-extern char   *p_work_dir;
+/* External global variables. */
+extern int  sys_log_fd;
+extern char *p_work_dir;
 
 
 /*############################ remove_host() ############################*/
@@ -81,7 +80,7 @@ remove_host(char *host_name)
       char tmp_file[256];
 
       (void)strcpy(tmp_file, DEFAULT_HOST_CONFIG_FILE);
-      (void)xrec(appshell, ERROR_DIALOG,
+      (void)xrec(ERROR_DIALOG,
                  "Failed to read %s! Thus unable to remove host %s",
                  &tmp_file[1], host_name);
       return(INCORRECT);
@@ -95,7 +94,7 @@ remove_host(char *host_name)
       char tmp_file[256];
 
       (void)strcpy(tmp_file, DEFAULT_HOST_CONFIG_FILE);
-      (void)xrec(appshell, ERROR_DIALOG,
+      (void)xrec(ERROR_DIALOG,
                  "Failed to locate %s in %s, thus unable to remove host.",
                  host_name, &tmp_file[1]);
       return(INCORRECT);
@@ -105,7 +104,7 @@ remove_host(char *host_name)
    {
       ptr++;
    }
-   if (ptr == '\0')
+   if (*ptr == '\0')
    {
       *(ptr_start - 1) = '\0';
    }
@@ -132,7 +131,7 @@ remove_host(char *host_name)
       char tmp_file[256];
 
       (void)strcpy(tmp_file, DEFAULT_HOST_CONFIG_FILE);
-      (void)xrec(appshell, ERROR_DIALOG,
+      (void)xrec(ERROR_DIALOG,
                  "Failed to open %s, thus unable to remove host %s : %s (%s %d)",
                  &tmp_file[1], host_name, strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
@@ -143,7 +142,7 @@ remove_host(char *host_name)
       char tmp_file[256];
 
       (void)strcpy(tmp_file, DEFAULT_HOST_CONFIG_FILE);
-      (void)xrec(appshell, ERROR_DIALOG,
+      (void)xrec(ERROR_DIALOG,
                  "Failed to write to %s, thus unable to remove host %s : %s (%s %d)!",
                  &tmp_file[1], host_name, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);

@@ -78,7 +78,7 @@ DESCR__E_M3
 #include <sys/wait.h>                 /* waitpid()                       */
 #include <sys/times.h>                /* times()                         */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                    /* O_NONBLOCK                      */
+# include <fcntl.h>                   /* O_NONBLOCK                      */
 #endif
 #include <errno.h>
 

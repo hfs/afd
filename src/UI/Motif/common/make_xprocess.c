@@ -65,7 +65,7 @@ DESCR__E_M3
 #include <errno.h>
 
 #include <Xm/Xm.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* External global variables. */
 extern int              no_of_active_process;
@@ -73,8 +73,8 @@ extern Widget           appshell;
 extern XtAppContext     app;
 extern struct apps_list *apps_list;
 
-/* Local function prototypes */
-static void             check_zombies(Widget);
+/* Local function prototypes. */
+static void             check_zombies(void);
 
 
 /*+++++++++++++++++++++++++++ make_xprocess() +++++++++++++++++++++++++++*/
@@ -90,7 +90,7 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
 
       if ((apps_list = realloc(apps_list, new_size)) == NULL)
       {
-         (void)xrec(appshell, FATAL_DIALOG, "realloc() error : %s (%s %d)\n",
+         (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -98,7 +98,7 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
 
    if ((pid = fork()) < 0)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to fork() : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to fork() : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -132,7 +132,7 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
    no_of_active_process++;
    if (no_of_active_process == 1)
    {
-      check_zombies(appshell);
+      check_zombies();
    }
 
    return;
@@ -141,7 +141,7 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
 
 /*-------------------------- check_zombies() ----------------------------*/
 static void
-check_zombies(Widget w)
+check_zombies(void)
 {
    int i;
 
@@ -178,7 +178,7 @@ check_zombies(Widget w)
    if (no_of_active_process > 0)
    {
       (void)XtAppAddTimeOut(app, ZOMBIE_CHECK_INTERVAL,
-                            (XtTimerCallbackProc)check_zombies, w);
+                            (XtTimerCallbackProc)check_zombies, appshell);
    }
    return;
 }

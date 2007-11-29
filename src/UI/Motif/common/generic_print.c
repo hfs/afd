@@ -30,6 +30,7 @@ DESCR__S_M3
  **   int  prepare_file(int *, int)
  **   void prepare_tmp_name(void)
  **   void send_mail_cmd(char *)
+ **   void send_print_cmd(char *)
  **
  ** DESCRIPTION
  **
@@ -41,6 +42,7 @@ DESCR__S_M3
  ** HISTORY
  **   18.03.2000 H.Kiehl Created
  **   11.08.2003 H.Kiehl Added option to send data as mail.
+ **   08.08.2007 H.Kiehl For printing write to file first, then print file.
  **
  */
 DESCR__E_M3
@@ -65,7 +67,7 @@ DESCR__E_M3
 #include <Xm/ToggleBG.h>
 #include <X11/keysym.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
 #include "afd_ctrl.h"
@@ -187,7 +189,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)print_data_button, 0);
+                    (XtCallbackProc)print_data_button, (XtPointer)0);
 
       /* Create Cancel Button. */
       button_w = XtVaCreateManagedWidget("Close",
@@ -203,7 +205,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNbottomPosition,       20,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)cancel_print_button, 0);
+                    (XtCallbackProc)cancel_print_button, (XtPointer)0);
       XtManageChild(buttonbox_w);
 
       /*---------------------------------------------------------------*/
@@ -369,7 +371,8 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNrightOffset,      5,
                         XmNbottomAttachment, XmATTACH_FORM,
                         NULL);
-      XtAddCallback(printer_text_w, XmNlosingFocusCallback, save_printer_name, 0);
+      XtAddCallback(printer_text_w, XmNlosingFocusCallback,
+                    save_printer_name, (XtPointer)0);
       XtManageChild(inputline_w);
       device_type = PRINTER_TOGGLE;
 
@@ -412,7 +415,8 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNrightOffset,      5,
                         XmNbottomAttachment, XmATTACH_FORM,
                         NULL);
-      XtAddCallback(file_text_w, XmNlosingFocusCallback, save_file_name, 0);
+      XtAddCallback(file_text_w, XmNlosingFocusCallback,
+                    save_file_name, (XtPointer)0);
       XtSetSensitive(file_text_w, False);
       XtManageChild(inputline_w);
 
@@ -455,7 +459,8 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                         XmNrightOffset,      5,
                         XmNbottomAttachment, XmATTACH_FORM,
                         NULL);
-      XtAddCallback(mail_text_w, XmNlosingFocusCallback, save_mail_address, 0);
+      XtAddCallback(mail_text_w, XmNlosingFocusCallback,
+                    save_mail_address, (XtPointer)0);
       XtSetSensitive(mail_text_w, False);
       XtManageChild(inputline_w);
 
@@ -485,8 +490,7 @@ prepare_printer(int *fd)
 
    if ((fp = popen(cmd, "w")) == NULL)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to send printer command %s : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "Failed to send printer command %s : %s (%s %d)",
                  cmd, strerror(errno), __FILE__, __LINE__);
       XtPopdown(printshell);
 
@@ -521,8 +525,7 @@ prepare_file(int *fd, int show_error)
    {
       if (show_error)
       {
-         (void)xrec(appshell, ERROR_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     file_name, strerror(errno), __FILE__, __LINE__);
          XtPopdown(printshell);
       }
@@ -531,6 +534,43 @@ prepare_file(int *fd, int show_error)
    }
 
    return(SUCCESS);
+}
+
+
+/*########################## send_print_cmd() ###########################*/
+void
+send_print_cmd(char *message)
+{
+   int  ret;
+   char *buffer = NULL,
+        cmd[MAX_PATH_LENGTH];
+
+   (void)sprintf(cmd, "%s%s %s", printer_cmd, printer_name, file_name);
+   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES)) != 0)
+   {
+      (void)xrec(ERROR_DIALOG,
+                 "Failed to send printer command `%s' [%d] : %s (%s %d)",
+                 cmd, ret, buffer, __FILE__, __LINE__);
+      XtPopdown(printshell);
+      if (message != NULL)
+      {
+         (void)sprintf(message, "Failed to send data to printer (%d).", ret);
+      }
+   }
+   else
+   {
+      if (message != NULL)
+      {
+         (void)sprintf(message, "Send data to printer.");
+      }
+   }
+   (void)unlink(file_name);
+   if (buffer != NULL)
+   {
+      free(buffer);
+   }
+
+   return;
 }
 
 
@@ -546,7 +586,7 @@ send_mail_cmd(char *message)
                  ASMTP, mailto, file_name);
    if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES)) != 0)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
+      (void)xrec(ERROR_DIALOG,
                  "Failed to send mail command `%s' [%d] : %s (%s %d)",
                  cmd, ret, buffer, __FILE__, __LINE__);
       XtPopdown(printshell);

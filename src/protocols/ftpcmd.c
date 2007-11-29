@@ -120,7 +120,7 @@ DESCR__S_M3
  **          ftp_quit()
  **
  **   The second argument buffer to ftp_write() can be NULL, if you do
- **   not **   want it to add a carriage return (CR) to a line feed
+ **   not want it to add a carriage return (CR) to a line feed
  **   (LF) when transmitting in ASCII mode. However when used the first
  **   byte of this buffer has special meaning in that it always contains
  **   the last byte of the previous block written. Since ftp_write() does
@@ -198,7 +198,7 @@ DESCR__E_M3
 #include <stdlib.h>       /* strtoul()                                   */
 #include <ctype.h>        /* isdigit()                                   */
 #include <time.h>         /* mktime()                                    */
-#include <setjmp.h>       /* setjmp(), longjmp()                         */
+#include <setjmp.h>       /* sigsetjmp(), siglongjmp()                   */
 #include <signal.h>       /* signal()                                    */
 #include <sys/types.h>    /* fd_set                                      */
 #include <sys/time.h>     /* struct timeval                              */
@@ -244,7 +244,7 @@ DESCR__E_M3
 SSL                       *ssl_con = NULL;
 #endif
 
-/* External global variables */
+/* External global variables. */
 extern int                timeout_flag;
 extern char               msg_str[];
 #ifdef LINUX
@@ -253,20 +253,20 @@ extern int                h_nerr;        /* for gethostbyname()          */
 #endif
 extern long               transfer_timeout;
 
-/* Local global variables */
+/* Local global variables. */
 static int                control_fd,
                           data_fd = -1;
 #ifdef WITH_SSL
 static SSL                *ssl_data = NULL;
 static SSL_CTX            *ssl_ctx;
 #endif
-static jmp_buf            env_alrm;
+static sigjmp_buf         env_alrm;
 static struct sockaddr_in ctrl,
                           data,
                           sin;
 static struct timeval     timeout;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                check_data_socket(int, int, int *, char *),
                           get_extended_number(char *),
                           get_number(char **, char),
@@ -1636,11 +1636,6 @@ ftp_list(int mode, int type, ...)
        * the next time we use the socket we will get an error. This is
        * not we want. When we have a bad connection it can take quit
        * some time before we get a respond.
-       * This is not the best solution. If anyone has a better solution
-       * please tell me.
-       * I have experienced these problems only with FTX 3.0.x, so it
-       * could also be a kernel bug. Maybe the system sometimes forgets
-       * to restart this system call?
        */
       if (signal(SIGALRM, sig_handler) == SIG_ERR)
       {
@@ -1650,15 +1645,15 @@ ftp_list(int mode, int type, ...)
          (void)close(sock_fd);
          return(INCORRECT);
       }
-      if (setjmp(env_alrm) != 0)
+      if (sigsetjmp(env_alrm, 1) != 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "ftp_list(): accept() timeout");
+                   "ftp_list(): accept() timeout (%lds)", transfer_timeout);
          timeout_flag = ON;
          (void)close(sock_fd);
          return(INCORRECT);
       }
-      (void)alarm(2 * transfer_timeout);
+      (void)alarm(transfer_timeout);
       new_sock_fd = accept(sock_fd, (struct sockaddr *) &from, &length);
       tmp_errno = errno;
       (void)alarm(0);
@@ -2046,7 +2041,7 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
             if ((((reply == 553) && (posi(&msg_str[3], "(Overwrite)") != NULL)) ||
                  ((reply == 550) && (posi(&msg_str[3], "Overwrite permission denied") != NULL))) &&
                  (ftp_dele(filename) == SUCCESS))
-            {  
+            {
                if (command(control_fd, "%s %s", cmd, filename) != SUCCESS)
                {
                   (void)close(new_sock_fd);
@@ -2068,9 +2063,9 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
                   (void)close(new_sock_fd);
                   return(INCORRECT);
                }
-            }   
+            }
             else
-            {  
+            {
                (void)close(new_sock_fd);
                return(reply);
             }
@@ -2087,7 +2082,8 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
    {
       int                retries = 0,
                          ret,
-                         sock_fd;
+                         sock_fd,
+                         tmp_errno;
       my_socklen_t       length;
 #ifdef FTP_REUSE_DATA_PORT
       unsigned int       loop_counter = 0;
@@ -2316,11 +2312,6 @@ try_again:
        * the next time we use the socket we will get an error. This is
        * not what we want. When we have a bad connection it can take quit
        * some time before we get a respond.
-       * This is not the best solution. If anyone has a better solution
-       * please tell me.
-       * I have experienced these problems only with FTX 3.0.x, so it
-       * could also be a kernel bug. Maybe the system sometimes forgets
-       * to restart this system call?
        */
       if (signal(SIGALRM, sig_handler) == SIG_ERR)
       {
@@ -2329,26 +2320,26 @@ try_again:
          (void)close(sock_fd);
          return(INCORRECT);
       }
-      if (setjmp(env_alrm) != 0)
+      if (sigsetjmp(env_alrm, 1) != 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "ftp_data(): accept() timeout");
+                   "ftp_data(): accept() timeout (%lds)", transfer_timeout);
          timeout_flag = ON;
          (void)close(sock_fd);
          return(INCORRECT);
       }
-      (void)alarm(2 * transfer_timeout);
+      (void)alarm(transfer_timeout);
+      new_sock_fd = accept(sock_fd, (struct sockaddr *) &from, &length);
+      tmp_errno = errno;
+      (void)alarm(0);
 
-      if ((new_sock_fd = accept(sock_fd, (struct sockaddr *) &from,
-                                &length)) < 0)
+      if (new_sock_fd < 0)
       {
-         (void)alarm(0); /* Maybe it was a real accept() error */
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "ftp_data(): accept() error : %s", strerror(errno));
+                   "ftp_data(): accept() error : %s", strerror(tmp_errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
-      (void)alarm(0);
       if (close(sock_fd) == -1)
       {
          trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -3847,5 +3838,5 @@ get_number(char **ptr, char end_char)
 static void
 sig_handler(int signo)
 {
-   longjmp(env_alrm, 1);
+   siglongjmp(env_alrm, 1);
 }

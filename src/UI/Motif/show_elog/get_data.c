@@ -55,17 +55,17 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <dirent.h>       /* opendir(), closedir(), readdir()            */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>     /* mmap(), munmap()                            */
-#ifndef MAP_FILE          /* Required for BSD          */
-# define MAP_FILE 0       /* All others do not need it */
-#endif
+# include <sys/mman.h>    /* mmap(), munmap()                            */
+# ifndef MAP_FILE         /* Required for BSD          */
+#  define MAP_FILE 0      /* All others do not need it */
+# endif
 #endif
 #include <errno.h>
 
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_elog.h"
 #include "ea_str.h"
 #include "logdefs.h"
@@ -94,7 +94,7 @@ DESCR__E_M3
 extern Display         *display;
 extern Window          main_window;
 extern XtAppContext    app;
-extern Widget          appshell,
+extern Widget          appshell, /* CHECK_INTERRUPT() */
                        outputbox_w,
                        scrollbar_w,
                        statusbox_w,
@@ -163,6 +163,26 @@ get_data(void)
    struct stat stat_buf;
    XmString    xstr;
 
+   /* At start always reset these values. */
+   if (interval_id_set == YES)
+   {
+      XtRemoveTimeOut(interval_id_log);
+      interval_id_set = NO;
+   }
+   if (log_fd != -1)
+   {
+      if (close(log_fd) == -1)
+      {
+         (void)xrec(FATAL_DIALOG, "close() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+         return;
+      }
+      else
+      {
+         log_fd = -1;
+      }
+   }
+
    /* Prepare log file name. */
    p_log_file = log_file;
    no_of_log_files = max_event_log_files;
@@ -200,7 +220,7 @@ get_data(void)
 
    if ((str_list = malloc(LINES_BUFFERED * (MAX_TEXT_LINE_LENGTH + 2))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -382,15 +402,14 @@ extract_data(char *current_log_file, int file_no, int log_no)
       if (errno == ENOENT)
       {
          /* For some reason the file is not there. So lets */
-         /* assume we have found nothing.                  */
-         return;
+         /* assume we have found nothing.                  */;
       }
       else
       {
-         (void)xrec(appshell, WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
+         (void)xrec(WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
-         return;
       }
+      return;
    }
 
    /* Make sure there is data in the log file. */
@@ -401,15 +420,15 @@ extract_data(char *current_log_file, int file_no, int log_no)
 
    if ((fd = open(current_log_file, O_RDONLY)) == -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       return;
    }
 #ifdef HAVE_MMAP
-   if ((src = mmap(0, stat_buf.st_size, PROT_READ,
+   if ((src = mmap(NULL, stat_buf.st_size, PROT_READ,
                    (MAP_FILE | MAP_SHARED), fd, 0)) == (caddr_t) -1)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "Failed to mmap() %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to mmap() %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
@@ -417,21 +436,26 @@ extract_data(char *current_log_file, int file_no, int log_no)
 #else
    if ((src = malloc(stat_buf.st_size)) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       return;
    }
    if (read(fd, src, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)xrec(appshell, FATAL_DIALOG,
-                 "Failed to read() from %s : %s (%s %d)",
+      (void)xrec(FATAL_DIALOG, "Failed to read() from %s : %s (%s %d)",
                  current_log_file, strerror(errno), __FILE__, __LINE__);
       free(src);
       (void)close(fd);
       return;
    }
 #endif
+
+   if (close(fd) == -1)
+   {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
+   }
 
    /*
     * Now we have the source data in the buffer 'src'. Lets
@@ -496,7 +520,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
 #ifdef HAVE_MMAP
       if (munmap(src, stat_buf.st_size) < 0)
       {
-         (void)xrec(appshell, ERROR_DIALOG, "munmap() error : %s (%s %d)",
+         (void)xrec(ERROR_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
 #else
@@ -514,15 +538,13 @@ extract_data(char *current_log_file, int file_no, int log_no)
        */
       if ((log_fd = open(current_log_file, O_RDONLY)) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to open() %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
       if (lseek(log_fd, stat_buf.st_size, SEEK_SET) == (off_t)-1)
       {
-         (void)xrec(appshell, FATAL_DIALOG,
-                    "Failed to lssek() in %s : %s (%s %d)",
+         (void)xrec(FATAL_DIALOG, "Failed to lssek() in %s : %s (%s %d)",
                     current_log_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
@@ -535,14 +557,13 @@ extract_data(char *current_log_file, int file_no, int log_no)
     * So, start and end are found. Now lets do the real search,
     * ie search for specific file names, recipient, etc.
     */
-   ptr = ptr_start;
    search_data(ptr_start, ptr_end, file_no, src, 0);
 
    /* Free all memory we have allocated. */
 #ifdef HAVE_MMAP
    if (munmap(src, stat_buf.st_size) < 0)
    {
-      (void)xrec(appshell, ERROR_DIALOG, "munmap() error : %s (%s %d)",
+      (void)xrec(ERROR_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
 #else
@@ -1067,7 +1088,7 @@ check_log_updates(Widget w)
 
       if (fstat(log_fd, &stat_buf) == -1)
       {
-         (void)xrec(appshell, FATAL_DIALOG, "fstat() error: %s (%s %d)\n",
+         (void)xrec(FATAL_DIALOG, "fstat() error: %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
       }
       if (log_inode != stat_buf.st_ino)
@@ -1093,18 +1114,17 @@ check_log_updates(Widget w)
          diff_size = stat_buf.st_size - log_offset;
          if ((ptr_start = malloc(diff_size)) == NULL)
          {
-            (void)xrec(appshell, FATAL_DIALOG,
 #if SIZEOF_OFF_T == 4
-                       "malloc() error [%ld bytes] : %s (%s %d)",
+            (void)xrec(FATAL_DIALOG, "malloc() error [%ld bytes] : %s (%s %d)",
 #else
-                       "malloc() error [%lld bytes] : %s (%s %d)",
+            (void)xrec(FATAL_DIALOG, "malloc() error [%lld bytes] : %s (%s %d)",
 #endif
                        (pri_off_t)diff_size, strerror(errno),
                        __FILE__, __LINE__);
          }
          if (read(log_fd, ptr_start, diff_size) != diff_size)
          {
-            (void)xrec(appshell, FATAL_DIALOG, "read() error: %s (%s %d)\n",
+            (void)xrec(FATAL_DIALOG, "read() error: %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);
          }
          ptr_end = ptr_start + diff_size;

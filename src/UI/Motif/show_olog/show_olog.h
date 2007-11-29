@@ -20,7 +20,7 @@
 #ifndef __show_olog_h
 #define __show_olog_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 /* What information should be displayed */
 #define SHOW_FTP                 1
@@ -255,7 +255,7 @@ struct sol_perm
            }                                                               \
         }
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void calculate_summary(char *, time_t, time_t, unsigned int,
                               double, double),
             close_button(Widget, XtPointer, XtPointer),

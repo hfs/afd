@@ -240,7 +240,7 @@ main(int argc, char *argv[])
                                       XmNrightPosition,    10,
                                       NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)set_button, 0);
+                 (XtCallbackProc)set_button, (XtPointer)0);
    button_w = XtVaCreateManagedWidget("Close",
                                       xmPushButtonWidgetClass, buttonbox_w,
                                       XmNfontList,         fontlist,
@@ -254,7 +254,7 @@ main(int argc, char *argv[])
                                       XmNrightPosition,    20,
                                       NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
    /*--------------------------------------------------------------------*/
@@ -405,7 +405,7 @@ main(int argc, char *argv[])
    /* Write window ID, so afd_ctrl can set focus if it is called again. */
    write_window_id(XtWindow(appshell), getpid(), HANDLE_EVENT);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -528,8 +528,7 @@ init_handle_event(int *argc, char *argv[])
 
    if (atexit(handle_event_exit) != 0)
    {
-      (void)xrec(appshell, WARN_DIALOG,
-                 "Failed to set exit handler for %s : %s",
+      (void)xrec(WARN_DIALOG, "Failed to set exit handler for %s : %s",
                  HANDLE_EVENT, strerror(errno));
    }
    check_window_ids(HANDLE_EVENT);

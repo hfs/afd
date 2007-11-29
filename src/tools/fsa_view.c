@@ -297,6 +297,14 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "SSL ");
       }
 #endif
+      if (fsa[j].protocol_options & FILE_WHEN_LOCAL_FLAG)
+      {
+         (void)fprintf(stdout, "FILE_WHEN_LOCAL ");
+      }
+      if (fsa[j].protocol_options & DISABLE_BURSTING)
+      {
+         (void)fprintf(stdout, "disable_burst ");
+      }
       (void)fprintf(stdout, "\n");
       (void)fprintf(stdout, "Direction            : ");
       if (fsa[j].protocol & SEND_FLAG)
@@ -487,6 +495,14 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, "MaxSuccessful ret.   : %d\n",
                     fsa[j].max_successful_retries);
       (void)fprintf(stdout, "Special flag (%3d)   : ", fsa[j].special_flag);
+      if (fsa[j].special_flag & KEEP_CON_NO_FETCH)
+      {
+         (void)fprintf(stdout, "KEEP_CON_NO_FETCH ");
+      }
+      if (fsa[j].special_flag & KEEP_CON_NO_SEND)
+      {
+         (void)fprintf(stdout, "KEEP_CON_NO_SEND ");
+      }
       if (fsa[j].special_flag & HOST_DISABLED)
       {
          (void)fprintf(stdout, "HOST_DISABLED ");

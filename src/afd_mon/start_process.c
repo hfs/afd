@@ -62,14 +62,14 @@ start_process(char *progname, int afd)
 
    switch (pid = fork())
    {
-      case -1 : /* Error creating process */
+      case -1 : /* Error creating process. */
 
          /* Could not generate process */
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Could not create a new process : %s", strerror(errno));
          return(INCORRECT);
 
-      case  0 : /* Child process */
+      case  0 : /* Child process. */
 
          in_child = YES;
          if (afd == -1)
@@ -87,7 +87,7 @@ start_process(char *progname, int afd)
          }
          _exit(INCORRECT);
 
-      default : /* Parent process */
+      default : /* Parent process. */
 
          return(pid);
    }
@@ -100,7 +100,7 @@ start_log_process(int afd, unsigned int log_capabilities)
 {
    switch (pl[afd].log_pid = fork())
    {
-      case -1 : /* Error creating process */
+      case -1 : /* Error creating process. */
 
          /* Could not generate process */
          pl[afd].next_retry_time_log = time(NULL) + RETRY_INTERVAL;
@@ -108,7 +108,7 @@ start_log_process(int afd, unsigned int log_capabilities)
                     "Could not create a new process : %s", strerror(errno));
          return;
 
-      case  0 : /* Child process */
+      case  0 : /* Child process. */
 
          {
             char str_afd_num[MAX_INT_LENGTH],
@@ -122,7 +122,7 @@ start_log_process(int afd, unsigned int log_capabilities)
          }
          _exit(INCORRECT);
 
-      default : /* Parent process */
+      default : /* Parent process. */
 
          pl[afd].next_retry_time_log = 0L;
          return;

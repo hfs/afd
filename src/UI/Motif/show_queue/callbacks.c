@@ -96,10 +96,10 @@ DESCR__E_M3
 #include <Xm/List.h>
 #include <Xm/Text.h>
 #include <errno.h>
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 #include "show_queue.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                 *display;
 extern Widget                  appshell,
                                listbox_w,
@@ -138,10 +138,10 @@ char                           search_file_size_str[20],
                                summary_str[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 5],
                                total_summary_str[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 5];
 
-/* Local global variables */
+/* Local global variables. */
 static int                     scrollbar_moved_flag;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                     eval_time(char *, Widget, time_t *);
 
 

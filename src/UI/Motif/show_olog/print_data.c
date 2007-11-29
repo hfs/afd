@@ -59,7 +59,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "show_olog.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display     *display;
 extern Widget      listbox_w,
                    printshell,
@@ -124,18 +124,11 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                        line_buffer[256];
          XmStringTable all_items;
 
-         if (device_type == PRINTER_TOGGLE)
+         prepare_status = prepare_file(&fd, (device_type == MAIL_TOGGLE) ? 0 : 1);
+         if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
          {
-            prepare_status = prepare_printer(&fd);
-         }
-         else
-         {
-            prepare_status = prepare_file(&fd, (device_type == MAIL_TOGGLE) ? 0 : 1);
-            if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
-            {
-               prepare_tmp_name();
-               prepare_status = prepare_file(&fd, 1);
-            }
+            prepare_tmp_name();
+            prepare_status = prepare_file(&fd, 1);
          }
          if (prepare_status == SUCCESS)
          {
@@ -169,29 +162,12 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 
             if (device_type == PRINTER_TOGGLE)
             {
-               int  status;
-               char buf;
-
-               /* Send Control-D to printer queue */
-               buf = CONTROL_D;
-               if (write(fd, &buf, 1) != 1)
+               if (close(fd) < 0)
                {
-                  (void)fprintf(stderr, "write() error : %s (%s %d)\n",
+                  (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                                 strerror(errno), __FILE__, __LINE__);
-                  XtFree(line);
-                  exit(INCORRECT);
                }
-
-               if ((status = pclose(fp)) < 0)
-               {
-                  (void)sprintf(message,
-                                "Failed to send printer command (%d) : %s",
-                                status, strerror(errno));
-               }
-               else
-               {
-                  (void)sprintf(message, "Send job to printer (%d)", status);
-               }
+               send_print_cmd(message);
             }
             else
             {
@@ -224,18 +200,11 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                     line_buffer[256];
       XmStringTable all_items;
 
-      if (device_type == PRINTER_TOGGLE)
+      prepare_status = prepare_file(&fd, (device_type == MAIL_TOGGLE) ? 0 : 1);
+      if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
       {
-         prepare_status = prepare_printer(&fd);
-      }
-      else
-      {
-         prepare_status = prepare_file(&fd, (device_type == MAIL_TOGGLE) ? 0 : 1);
-         if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
-         {
-            prepare_tmp_name();
-            prepare_status = prepare_file(&fd, 1);
-         }
+         prepare_tmp_name();
+         prepare_status = prepare_file(&fd, 1);
       }
       if (prepare_status == SUCCESS)
       {
@@ -262,29 +231,12 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 
          if (device_type == PRINTER_TOGGLE)
          {
-            int  status;
-            char buf;
-
-            /* Send Control-D to printer queue */
-            buf = CONTROL_D;
-            if (write(fd, &buf, 1) != 1)
+            if (close(fd) < 0)
             {
-               (void)fprintf(stderr, "write() error : %s (%s %d)\n",
+               (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                              strerror(errno), __FILE__, __LINE__);
-               XtFree(line);
-               exit(INCORRECT);
             }
-
-            if ((status = pclose(fp)) < 0)
-            {
-               (void)sprintf(message,
-                             "Failed to send printer command (%d) : %s",
-                             status, strerror(errno));
-            }
-            else
-            {
-               (void)sprintf(message, "Send job to printer (%d)", status);
-            }
+            send_print_cmd(message);
          }
          else
          {

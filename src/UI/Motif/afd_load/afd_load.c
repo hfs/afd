@@ -285,7 +285,7 @@ main(int argc, char *argv[])
                                      XmNbottomAttachment, XmATTACH_FORM,
                                      NULL);
    XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, 0);
+                 (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
 /*-----------------------------------------------------------------------*/
@@ -324,32 +324,34 @@ main(int argc, char *argv[])
                                      NULL);
    if (chart_type == FILE_CHART)
    {
-      XtAddCallback(chart_w, XtNgetValue, get_file_value, 0);
+      XtAddCallback(chart_w, XtNgetValue, get_file_value, (XtPointer)0);
    }
    else if (chart_type == KBYTE_CHART)
         {
-           XtAddCallback(chart_w, XtNgetValue, get_kbyte_value, 0);
+           XtAddCallback(chart_w, XtNgetValue, get_kbyte_value, (XtPointer)0);
         }
    else if (chart_type == CONNECTION_CHART)
         {
-           XtAddCallback(chart_w, XtNgetValue, get_connection_value, 0);
+           XtAddCallback(chart_w, XtNgetValue, get_connection_value,
+                         (XtPointer)0);
         }
         else
         {
-           XtAddCallback(chart_w, XtNgetValue, get_transfer_value, 0);
+           XtAddCallback(chart_w, XtNgetValue, get_transfer_value,
+                         (XtPointer)0);
         }
 
    XtManageChild(mainform_w);
 
-   /* Free font list */
+   /* Free font list. */
    XmFontListFree(fontlist);
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    XmTextSetString(current_value_w, "      0.00");
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app_context);
 
    exit(SUCCESS);
@@ -383,7 +385,7 @@ init_afd_load(int  *argc,
       exit(INCORRECT);
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {

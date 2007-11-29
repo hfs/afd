@@ -1,6 +1,6 @@
 /*
  *  show_ilog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #ifndef __show_ilog_h
 #define __show_ilog_h
 
-#include "x_common_defs.h"
+#include "motif_common_defs.h"
 
 #define GOT_JOB_ID_DIR_ONLY     -3
 #define GOT_JOB_ID_DIR_AND_RECIPIENT -5
@@ -106,7 +106,7 @@ struct info_data
           struct db_entry    *dbe;
        };
 
-/* Permission structure for show_ilog */
+/* Permission structure for show_ilog. */
 struct sol_perm
        {
           int  list_limit;
@@ -175,7 +175,7 @@ struct sol_perm
            }                                                               \
         }
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int  get_sum_data(int, time_t *, double *);
 extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
             close_button(Widget, XtPointer, XtPointer),
