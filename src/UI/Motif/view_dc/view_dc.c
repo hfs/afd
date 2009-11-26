@@ -1,6 +1,6 @@
 /*
  *  view_dc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -163,6 +163,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -181,6 +182,11 @@ main(int argc, char *argv[])
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
@@ -424,7 +430,7 @@ init_view_dc(int *argc, char *argv[])
            length += sprintf(&cmd[length], " -d \"%s\"", dir_alias);
         }
    data_buffer = NULL;
-   if (exec_cmd(cmd, &data_buffer, -1, NULL, 0, "", 0L, NO) != 0)
+   if (exec_cmd(cmd, &data_buffer, -1, NULL, 0, "", 0L, NO, NO) != 0)
    {
       (void)fprintf(stderr, "Failed to execute command: %s\n", cmd);
       (void)fprintf(stderr, "See SYSTEM_LOG for more information.\n");

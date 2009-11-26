@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,7 +51,7 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "afd_info.h"
 
 /* External global variables. */
@@ -59,19 +59,21 @@ extern int                        host_position;
 extern char                       host_name[],
                                   host_alias_1[],
                                   host_alias_2[],
+                                  *info_data,
                                   label_l[NO_OF_FSA_ROWS][40],
                                   label_r[NO_OF_FSA_ROWS][40],
                                   protocol_label_str[];
 extern Display                    *display;
 extern XtIntervalId               interval_id_host;
 extern XtAppContext               app;
-extern Widget                     protocol_label,
+extern Widget                     info_w,
+                                  protocol_label,
                                   text_wl[],
                                   text_wr[],
                                   label_l_widget[],
                                   label_r_widget[],
-                                  pll_widget,  /* Pixmap label left      */
-                                  plr_widget;  /* Pixmap label right     */
+                                  pll_widget,  /* Pixmap label left.     */
+                                  plr_widget;  /* Pixmap label right.    */
 extern struct filetransfer_status *fsa;
 extern struct prev_values         prev;
 extern Pixmap                     active_pixmap,
@@ -123,7 +125,7 @@ update_info(Widget w)
       {
          length += sprintf(&protocol_label_str[length], "SCP ");
       }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
       if (fsa[host_position].protocol & WMO_FLAG)
       {
@@ -150,7 +152,7 @@ update_info(Widget w)
    if (strcmp(prev.real_hostname[0], fsa[host_position].real_hostname[0]) != 0)
    {
       (void)strcpy(prev.real_hostname[0], fsa[host_position].real_hostname[0]);
-      (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, prev.real_hostname[0]);
+      (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, prev.real_hostname[0]);
       XmTextSetString(text_wl[1], str_line);
       flush = YES;
    }
@@ -158,7 +160,7 @@ update_info(Widget w)
    if (strcmp(prev.real_hostname[1], fsa[host_position].real_hostname[1]) != 0)
    {
       (void)strcpy(prev.real_hostname[1], fsa[host_position].real_hostname[1]);
-      (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, prev.real_hostname[1]);
+      (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, prev.real_hostname[1]);
       XmTextSetString(text_wr[1], str_line);
       flush = YES;
    }
@@ -167,7 +169,7 @@ update_info(Widget w)
    {
       prev.retry_interval = fsa[host_position].retry_interval;
       (void)sprintf(str_line, "%*d",
-                    AFD_INFO_LENGTH, prev.retry_interval / 60);
+                    AFD_INFO_STR_LENGTH, prev.retry_interval / 60);
       XmTextSetString(text_wr[4], str_line);
       flush = YES;
    }
@@ -175,7 +177,7 @@ update_info(Widget w)
    if (prev.files_send != fsa[host_position].file_counter_done)
    {
       prev.files_send = fsa[host_position].file_counter_done;
-      (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.files_send);
+      (void)sprintf(str_line, "%*u", AFD_INFO_STR_LENGTH, prev.files_send);
       XmTextSetString(text_wl[2], str_line);
       flush = YES;
    }
@@ -184,9 +186,9 @@ update_info(Widget w)
    {
       prev.bytes_send = fsa[host_position].bytes_send;
 #if SIZEOF_OFF_T == 4
-      (void)sprintf(str_line, "%*lu", AFD_INFO_LENGTH, prev.bytes_send);
+      (void)sprintf(str_line, "%*lu", AFD_INFO_STR_LENGTH, prev.bytes_send);
 #else
-      (void)sprintf(str_line, "%*llu", AFD_INFO_LENGTH, prev.bytes_send);
+      (void)sprintf(str_line, "%*llu", AFD_INFO_STR_LENGTH, prev.bytes_send);
 #endif
       XmTextSetString(text_wr[2], str_line);
       flush = YES;
@@ -195,7 +197,7 @@ update_info(Widget w)
    if (prev.total_errors != fsa[host_position].total_errors)
    {
       prev.total_errors = fsa[host_position].total_errors;
-      (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.total_errors);
+      (void)sprintf(str_line, "%*u", AFD_INFO_STR_LENGTH, prev.total_errors);
       XmTextSetString(text_wl[4], str_line);
       flush = YES;
    }
@@ -203,7 +205,7 @@ update_info(Widget w)
    if (prev.no_of_connections != fsa[host_position].connections)
    {
       prev.no_of_connections = fsa[host_position].connections;
-      (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.no_of_connections);
+      (void)sprintf(str_line, "%*u", AFD_INFO_STR_LENGTH, prev.no_of_connections);
       XmTextSetString(text_wr[3], str_line);
       flush = YES;
    }
@@ -213,7 +215,7 @@ update_info(Widget w)
       prev.last_connection = fsa[host_position].last_connection;
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                      localtime(&prev.last_connection));
-      (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+      (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
       XmTextSetString(text_wl[3], str_line);
       flush = YES;
    }
@@ -228,7 +230,7 @@ update_info(Widget w)
           * There is NO secondary host
           */
 
-         /* Display the first host name */
+         /* Display the first host name. */
          (void)strcpy(host_alias_1, host_name);
          if ((fsa[host_position].host_toggle_str[0] != '\0') &&
              (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
@@ -264,18 +266,18 @@ update_info(Widget w)
                        NULL);
          XmStringFree(text);
 
-         /* Get IP for the first host */
+         /* Get IP for the first host. */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
              (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
              (fsa[host_position].protocol & SCP_FLAG) ||
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT                          
              (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#endif
              (fsa[host_position].protocol & HTTP_FLAG) ||
              (fsa[host_position].protocol & SMTP_FLAG))
          {
@@ -285,10 +287,10 @@ update_info(Widget w)
          {
             *tmp_str_line = '\0';
          }
-         (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+         (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
          XmTextSetString(text_wl[0], str_line);
 
-         /* Display the second host name */
+         /* Display the second host name. */
          (void)strcpy(host_alias_2, NO_SECODARY_HOST);
          (void)sprintf(label_r[0], "%-*s :",
                        FSA_INFO_TEXT_WIDTH_R, host_alias_2);
@@ -300,7 +302,7 @@ update_info(Widget w)
           * There IS a secondary host
           */
 
-         /* Display the first host name */
+         /* Display the first host name. */
          (void)strcpy(host_alias_1, host_name);
          ptr = host_alias_1 + strlen(host_alias_1);
          *ptr = fsa[host_position].host_toggle_str[1];
@@ -355,18 +357,18 @@ update_info(Widget w)
                        NULL);
          XmStringFree(text);
 
-         /* Get IP for the first host */
+         /* Get IP for the first host. */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
              (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
              (fsa[host_position].protocol & SCP_FLAG) ||
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT                          
              (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#endif
              (fsa[host_position].protocol & HTTP_FLAG) ||
              (fsa[host_position].protocol & SMTP_FLAG))
          {
@@ -376,10 +378,10 @@ update_info(Widget w)
          {
             *tmp_str_line = '\0';
          }
-         (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+         (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
          XmTextSetString(text_wl[0], str_line);
 
-         /* Display the second host name */
+         /* Display the second host name. */
          (void)strcpy(host_alias_2, host_name);
          ptr = host_alias_2 + strlen(host_alias_2);
          *ptr = fsa[host_position].host_toggle_str[2];
@@ -439,10 +441,13 @@ update_info(Widget w)
              (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
              (fsa[host_position].protocol & SCP_FLAG) ||
-#endif /* _WITH_SCP_SUPPORT */
+#endif
+#ifdef _WITH_WMO_SUPPORT
+             (fsa[host_position].protocol & WMO_FLAG) ||
+#endif
 #ifdef _WITH_MAP_SUPPORT                          
              (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#endif
              (fsa[host_position].protocol & HTTP_FLAG) ||
              (fsa[host_position].protocol & SMTP_FLAG))
          {
@@ -452,7 +457,7 @@ update_info(Widget w)
          {
             *tmp_str_line = '\0';
          }
-         (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+         (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
          XmTextSetString(text_wr[0], str_line);
       }
 
@@ -521,9 +526,11 @@ update_info(Widget w)
       interval = 0;
 
       /* Check if the information file for this host has changed. */
-      if (check_info_file(host_name) == YES)
+      if (check_info_file(host_name, HOST_INFO_FILE, YES) == YES)
       {
          flush = YES;
+         XmTextSetString(info_w, NULL);  /* Clears old entry. */
+         XmTextSetString(info_w, info_data);
       }
    }
 

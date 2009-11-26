@@ -1,6 +1,6 @@
 /*
  *  create_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,6 +54,7 @@ DESCR__S_M3
  **   10.07.2003 H.Kiehl Added options field.
  **   03.12.2003 H.Kiehl Added connection and disconnection time.
  **   27.02.2005 H.Kiehl Option to switch between two AFD's.
+ **   23.11.2008 H.Kiehl Added danger_no_of_jobs.
  **
  */
 DESCR__E_M3
@@ -93,14 +94,16 @@ extern struct mon_status_area *msa;
 void
 create_msa(void)
 {
-   int                    i,
-                          k,
+   int                    i, k,
                           fd,
+                          loops,
                           old_msa_fd = -1,
                           old_msa_id,
-                          old_no_of_afds = -1;
+                          old_no_of_afds = -1,
+                          rest;
    off_t                  old_msa_size = -1;
-   char                   *ptr = NULL,
+   char                   buffer[4096],
+                          *ptr = NULL,
                           new_msa_stat[MAX_PATH_LENGTH],
                           old_msa_stat[MAX_PATH_LENGTH],
                           msa_id_file[MAX_PATH_LENGTH];
@@ -316,18 +319,35 @@ create_msa(void)
       exit(INCORRECT);
    }
 
-   if (lseek(msa_fd, msa_size - 1, SEEK_SET) == -1)
+   /*
+    * Write the complete file before we mmap() to it. If we just lseek()
+    * to the end, write one byte and then mmap to it can cause a SIGBUS
+    * on some systems when the disk is full and data is written to the
+    * mapped area. So to detect that the disk is full always write the
+    * complete file we want to map.
+    */
+   loops = msa_size / 4096;
+   rest = msa_size % 4096;
+   (void)memset(buffer, 0, 4096);
+   for (i = 0; i < loops; i++)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to lseek() in %s : %s", new_msa_stat, strerror(errno));
-      exit(INCORRECT);
+      if (write(msa_fd, buffer, 4096) != 4096)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
+         exit(INCORRECT);
+      }
    }
-   if (write(msa_fd, "", 1) != 1)
+   if (rest > 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "write() error : %s", strerror(errno));
-      exit(INCORRECT);
+      if (write(msa_fd, buffer, rest) != rest)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
+         exit(INCORRECT);
+      }
    }
+
 #ifdef HAVE_MMAP
    if ((ptr = mmap(NULL, msa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    msa_fd, 0)) == (caddr_t) -1)
@@ -383,6 +403,7 @@ create_msa(void)
          msa[i].fd                 = STOPPED;
          msa[i].archive_watch      = STOPPED;
          msa[i].jobs_in_queue      = 0;
+         msa[i].danger_no_of_jobs  = 0L;
          msa[i].no_of_transfers    = 0;
          msa[i].top_not_time       = 0L;
          (void)memset(msa[i].top_no_of_transfers, 0, (STORAGE_TIME * sizeof(int)));
@@ -492,6 +513,7 @@ create_msa(void)
             msa[i].fd                 = old_msa[afd_pos].fd;
             msa[i].archive_watch      = old_msa[afd_pos].archive_watch;
             msa[i].jobs_in_queue      = old_msa[afd_pos].jobs_in_queue;
+            msa[i].danger_no_of_jobs  = old_msa[afd_pos].danger_no_of_jobs;
             msa[i].no_of_transfers    = old_msa[afd_pos].no_of_transfers;
             msa[i].top_not_time       = old_msa[afd_pos].top_not_time;
             (void)memcpy(msa[i].top_no_of_transfers,
@@ -540,6 +562,7 @@ create_msa(void)
             msa[i].fd                 = STOPPED;
             msa[i].archive_watch      = STOPPED;
             msa[i].jobs_in_queue      = 0;
+            msa[i].danger_no_of_jobs  = 0L;
             msa[i].no_of_transfers    = 0;
             msa[i].top_not_time       = 0L;
             (void)memset(msa[i].top_no_of_transfers, 0,

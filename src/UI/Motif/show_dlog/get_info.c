@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   get_info - retrieves information out of the AMG history file
  **
  ** SYNOPSIS
- **   void get_info(int item, char input_id)
+ **   void get_info(int item)
  **   int  get_sum_data(int    item,
  **                     time_t *date,
  **                     double *file_size)
@@ -52,13 +52,19 @@ DESCR__E_M3
 #include <string.h>                   /* strerror()                      */
 #include <stdlib.h>                   /* strtoul()                       */
 #include <unistd.h>                   /* close()                         */
+#include <ctype.h>                    /* isxdigit()                      */
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "show_dlog.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
+#include "dr_str.h"
+
+/* Global variables. */
+unsigned int               *current_jid_list;
+int                        no_of_current_jobs;
 
 /* External global variables. */
 extern int                 no_of_log_files;
@@ -73,22 +79,21 @@ static struct job_id_data  *jd = NULL;
 static struct dir_name_buf *dnb = NULL;
 
 /* Local function prototypes. */
-static unsigned int        get_all(int, char *);
-static void                get_dir_data(int),
+static void                get_all(int),
+                           get_dir_data(int),
                            get_job_data(struct job_id_data *);
 
 
 /*############################### get_info() ############################*/
 void
-get_info(int item, char input_id)
+get_info(int item)
 {
    int i;
 
    if ((item != GOT_JOB_ID) && (item != GOT_JOB_ID_DIR_ONLY))
    {
-      id.job_no = get_all(item - 1, &input_id);
+      get_all(item - 1);
    }
-   id.input_id = input_id;
 
    /*
     * Go through job ID database and find the job ID.
@@ -125,6 +130,13 @@ get_info(int item, char input_id)
          {
             (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(jd_fd);
+            return;
+         }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG, "Incorrect JID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
             (void)close(jd_fd);
             return;
          }
@@ -183,47 +195,63 @@ get_info(int item, char input_id)
       }
    }
 
-   if (input_id == YES)
+   if (item == GOT_JOB_ID_DIR_ONLY)
    {
-      for (i = 0; i < *no_of_dir_names; i++)
+      if (id.dir_id != 0)
       {
-         if (id.job_no == dnb[i].dir_id)
+         for (i = 0; i < *no_of_dir_names; i++)
          {
-            if (item == GOT_JOB_ID_DIR_ONLY)
+            if (id.dir_id == dnb[i].dir_id)
             {
                (void)strcpy(id.dir, dnb[i].dir_name);
-               id.dir_id = dnb[i].dir_id;
                (void)sprintf(id.dir_id_str, "%x", id.dir_id);
+               break;
             }
-            else
-            {
-               get_dir_data(i);
-            }
-
-            return;
-         }
-      } /* for (i = 0; i < *no_of_dir_names; i++) */
+         } /* for (i = 0; i < *no_of_dir_names; i++) */
+      }
+      else if (id.job_id != 0)
+           {
+              for (i = 0; i < *no_of_job_ids; i++)
+              {
+                 if (id.job_id == jd[i].job_id)
+                 {
+                    (void)strcpy(id.dir, dnb[jd[i].dir_id_pos].dir_name);
+                    id.dir_id = jd[i].dir_id;
+                    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
+                    break;
+                 }
+              }
+           }
+           else
+           {
+              id.dir[0] = '\0';
+              id.dir_id = 0;
+           }
    }
    else
    {
-      for (i = 0; i < *no_of_job_ids; i++)
+      if (id.job_id != 0)
       {
-         if (id.job_no == jd[i].job_id)
+         for (i = 0; i < *no_of_job_ids; i++)
          {
-            if (item == GOT_JOB_ID_DIR_ONLY)
-            {
-               (void)strcpy(id.dir, dnb[jd[i].dir_id_pos].dir_name);
-               id.dir_id = jd[i].dir_id;
-               (void)sprintf(id.dir_id_str, "%x", id.dir_id);
-            }
-            else
+            if (id.job_id == jd[i].job_id)
             {
                get_job_data(&jd[i]);
+               break;
             }
-
-            return;
          }
       }
+      else if (id.dir_id != 0)
+           {
+              for (i = 0; i < *no_of_dir_names; i++)
+              {
+                 if (id.dir_id == dnb[i].dir_id)
+                 {
+                    get_dir_data(i);
+                    break;
+                 }
+              }
+           }
    }
 
    return;
@@ -302,7 +330,7 @@ get_sum_data(int item, time_t *date, double *file_size)
               *date = 0L;
            }
 
-      /* Ignore file name */
+      /* Ignore file name. */
       ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
       while (*ptr != SEPARATOR_CHAR)
       {
@@ -338,12 +366,12 @@ get_sum_data(int item, time_t *date, double *file_size)
 
 /*+++++++++++++++++++++++++++++++ get_all() +++++++++++++++++++++++++++++*/
 /*                                ---------                              */
-/* Description: Retrieves the full local file name, remote file name (if */
-/*              it exists), job number and if available the additional   */
-/*              reasons out of the log file.                             */
+/* Description: Retrieves the file name deleted, size, job ID, dir ID,   */
+/*              process/user and if available the additional reasons out */
+/*              of the log file.                                         */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-static unsigned int
-get_all(int item, char *input_id)
+static void
+get_all(int item)
 {
    int  file_no,
         total_no_of_items = 0,
@@ -364,27 +392,45 @@ get_all(int item, char *input_id)
    /* Get the job ID and file name. */
    if (pos > -1)
    {
-      int  i;
-      char *ptr,
-           *p_tmp,
-           buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
-           str_hex_number[23];
+      int          i;
+      unsigned int tmp_id;
+      char         *ptr,
+                   buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
+                   str_hex_number[2 + MAX_OFF_T_HEX_LENGTH + 1];
 
-      *input_id = il[file_no].input_id[pos];
-      if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos], SEEK_SET) == -1)
+      if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos] - 4,
+                SEEK_SET) == -1)
       {
          (void)xrec(FATAL_DIALOG, "fseek() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
-         return(0U);
+         return;
       }
 
-      if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
+      if (fgets(buffer, 4 + MAX_FILENAME_LENGTH + MAX_PATH_LENGTH,
+                il[file_no].fp) == NULL)
       {
          (void)xrec(WARN_DIALOG, "fgets() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
-         return(0U);
+         return;
       }
       ptr = buffer;
+      if ((*(ptr + 3) == SEPARATOR_CHAR) && (isxdigit((int)(*ptr))) &&
+          (isxdigit((int)(*(ptr + 1)))) && (isxdigit((int)(*(ptr + 2)))))
+      {
+         id.offset = 2;
+         *(ptr + 3) = '\0';
+         id.delete_reason_no = (int)strtol(ptr, NULL, 16);
+      }
+      else
+      {
+         id.offset = 0;
+         id.delete_reason_no = (int)(*(ptr + 2) - '0');
+      }
+      ptr += 4;
+
+      /* Get delete reason string. */
+      (void)strcpy(id.reason_str, drstr[id.delete_reason_no]);
+
       i = 0;
       while (*ptr != SEPARATOR_CHAR)
       {
@@ -398,7 +444,8 @@ get_all(int item, char *input_id)
       str_hex_number[0] = '0';
       str_hex_number[1] = 'x';
       i = 2;
-      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (i < 23))
+      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
+             (i < (MAX_OFF_T_HEX_LENGTH + 2)))
       {
          str_hex_number[i] = *ptr;
          ptr++; i++;
@@ -411,14 +458,10 @@ get_all(int item, char *input_id)
 #else
          (void)sprintf(id.file_size, "%lld",
 #endif
-#ifdef HAVE_STRTOULL
-                       (pri_off_t)strtoull(str_hex_number, NULL, 16));
-#else
-                       (pri_off_t)strtoul(str_hex_number, NULL, 16));
-#endif
+                       (pri_off_t)str2offt(str_hex_number, NULL, 16));
          ptr++;
       }
-      else if (i >= 23)
+      else if (i >= (MAX_OFF_T_HEX_LENGTH + 2))
            {
               while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
               {
@@ -432,48 +475,110 @@ get_all(int item, char *input_id)
               id.file_size[1] = '\0';
            }
 
-      /* Get the job ID. */
-      p_tmp = ptr;
-      while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+      /* Get job ID. */
+      i = 0;
+      while ((*(ptr + i) != SEPARATOR_CHAR) && (i < MAX_INT_HEX_LENGTH) &&
+             (*(ptr + i) != '\n'))
       {
-         ptr++;
+         i++;
       }
-      if (*ptr == SEPARATOR_CHAR)
+      *(ptr + i) = '\0';
+      tmp_id = (unsigned int)strtoul(ptr, NULL, 16);
+      ptr += i;
+      if (i == MAX_INT_HEX_LENGTH)
       {
-         *ptr = '\0';
-         ptr++;
-
-         i = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
+         while ((*ptr != SEPARATOR_CHAR) || (*ptr != '\n'))
          {
-            id.proc_user[i] = *ptr;
-            i++; ptr++;
+            ptr++;
          }
-         id.proc_user[i] = '\0';
+         if (*ptr == SEPARATOR_CHAR)
+         {
+            ptr++;
+         }
       }
       else
       {
-         *ptr = '\0';
+         ptr++;
+      }
+      if (id.offset)
+      {
+         id.job_id = tmp_id;
+         i = 0;
+         while ((*(ptr + i) != SEPARATOR_CHAR) && (i < MAX_INT_HEX_LENGTH) &&
+                (*(ptr + i) != '\n'))
+         {
+            i++;
+         }
+         if (*(ptr + i) == SEPARATOR_CHAR)
+         {
+            *(ptr + i) = '\0';
+            id.dir_id = (unsigned int)strtoul(ptr, NULL, 16);
+            ptr += i + 1;
+         }
+         else
+         {
+            id.dir_id = 0;
+            ptr += i;
+            if (i == MAX_INT_HEX_LENGTH)
+            {
+               while ((*ptr != SEPARATOR_CHAR) || (*ptr != '\n'))
+               {
+                  ptr++;
+               }
+               if (*ptr == SEPARATOR_CHAR)
+               {
+                  ptr++;
+               }
+            }
+         }
+      }
+      else
+      {
+         if ((id.delete_reason_no == AGE_OUTPUT) ||
+             (id.delete_reason_no == NO_MESSAGE_FILE_DEL) ||
+             (id.delete_reason_no == DUP_OUTPUT))
+         {
+            id.job_id = tmp_id;
+            id.dir_id = 0;
+         }
+         else
+         {
+            id.job_id = 0;
+            id.dir_id = tmp_id;
+         }
+      }
+
+      /* Get the process/user. */
+      i = 0;
+      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
+             (i < MAX_PROC_USER_LENGTH))
+      {
+         id.proc_user[i] = *ptr;
+         i++; ptr++;
+      }
+      id.proc_user[i] = '\0';
+      if (i == MAX_PROC_USER_LENGTH)
+      {
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
+         {
+            ptr++;
+         }
       }
 
       if (*ptr == SEPARATOR_CHAR)
       {
          ptr++;
          i = 0;
-         while (*ptr != '\n')
+         while ((*ptr != '\n') && (i < MAX_PATH_LENGTH))
          {
             id.extra_reason[i] = *ptr;
             i++; ptr++;
          }
          id.extra_reason[i] = '\0';
       }
+   }
 
-      return((unsigned int)strtoul(p_tmp, NULL, 16));
-   }
-   else
-   {
-      return(0U);
-   }
+   return;
 }
 
 
@@ -492,7 +597,7 @@ get_job_data(struct job_id_data *p_jd)
 
    id.count = 1;
 
-   /* Create or increase the space for the buffer */
+   /* Create or increase the space for the buffer. */
    if ((id.dbe = realloc(id.dbe, sizeof(struct db_entry))) == (struct db_entry *)NULL)
    {
       (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
@@ -503,7 +608,7 @@ get_job_data(struct job_id_data *p_jd)
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.dir_id = p_jd->dir_id;
    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
-   get_dir_options(p_jd->dir_id_pos, &id.d_o);
+   get_dir_options(id.dir_id, &id.d_o);
    id.dbe[0].priority = p_jd->priority;
    get_file_mask_list(p_jd->file_mask_id, &id.dbe[0].no_of_files,
                       &id.dbe[0].files);
@@ -555,127 +660,145 @@ get_job_data(struct job_id_data *p_jd)
 static void
 get_dir_data(int dir_pos)
 {
-   register int   i,
-                  j;
-   register char  *p_file,
-                  *p_tmp;
-   char           *file_mask_buf;
-   int            gotcha,
-                  no_of_file_masks;
+   register int  i,
+                 j;
+   register char *p_file,
+                 *p_tmp;
+   int           gotcha,
+                 ret;
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
-   id.dir_id = dnb[dir_pos].dir_id;
    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
-   get_dir_options(dir_pos, &id.d_o);
+   get_dir_options(id.dir_id, &id.d_o);
+
+   if (get_current_jid_list() == INCORRECT)
+   {
+      if (current_jid_list != NULL)
+      {
+         free(current_jid_list);
+         no_of_current_jobs = 0;
+      }
+      return;
+   }
 
    id.count = 0;
    for (i = (*no_of_job_ids - 1); i > -1; i--)
    {
       if (jd[i].dir_id_pos == dir_pos)
       {
-         while ((i > -1) && (jd[i].dir_id_pos == dir_pos))
+         for (j = 0; j < no_of_current_jobs; j++)
          {
-            i--;
-         }
-         if (jd[i].dir_id_pos != dir_pos)
-         {
-            i++;
-         }
-         break;
-      }
-   }
+            if (current_jid_list[j] == jd[i].job_id)
+            {
+               int k;
 
-   while ((jd[i].dir_id_pos == dir_pos) && (i < *no_of_job_ids))
+               /* Allocate memory to hold all data. */
+               if ((id.count % 10) == 0)
+               {
+                  size_t new_size;
+
+                  /* Calculate new size. */
+                  new_size = ((id.count / 10) + 1) * 10 *
+                             sizeof(struct db_entry);
+
+                  /* Create or increase the space for the buffer. */
+                  if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
+                  {
+                     (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
+                                strerror(errno), __FILE__, __LINE__);
+                     if (current_jid_list != NULL)
+                     {
+                        free(current_jid_list);
+                        no_of_current_jobs = 0;
+                     }
+                     return;
+                  }
+               }
+
+               id.dbe[id.count].priority = jd[i].priority;
+               get_file_mask_list(jd[i].file_mask_id,
+                                  &id.dbe[id.count].no_of_files,
+                                  &id.dbe[id.count].files);
+               if (id.dbe[id.count].files != NULL)
+               {
+                  p_file = id.dbe[id.count].files;
+
+                  /*
+                   * Only show those entries that really match the current
+                   * file name. For this it is necessary to filter the file
+                   * names through all the filters.
+                   */
+                  gotcha = NO;
+                  for (k = 0; k < id.dbe[id.count].no_of_files; k++)
+                  {
+                     if ((ret = pmatch(p_file, id.file_name, NULL)) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                     else if (ret == 1)
+                          {
+                             /* This file is NOT wanted. */
+                             break;
+                          }
+                     NEXT(p_file);
+                  }
+                  if (gotcha == YES)
+                  {
+                     /* Save all AMG (local) options. */
+                     id.dbe[id.count].no_of_loptions = jd[i].no_of_loptions;
+                     if (id.dbe[id.count].no_of_loptions > 0)
+                     {
+                        p_tmp = jd[i].loptions;
+                        for (k = 0; k < id.dbe[id.count].no_of_loptions; k++)
+                        {
+                           (void)strcpy(id.dbe[id.count].loptions[k], p_tmp);
+                           NEXT(p_tmp);
+                        }
+                     }
+
+                     /* Save all FD (standart) options. */
+                     id.dbe[id.count].no_of_soptions = jd[i].no_of_soptions;
+                     if (id.dbe[id.count].no_of_soptions > 0)
+                     {
+                        size_t size;
+
+                        size = strlen(jd[i].soptions);
+                        if ((id.dbe[id.count].soptions = calloc(size + 1,
+                                                                sizeof(char))) == NULL)
+                        {
+                           (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
+                                      strerror(errno), __FILE__, __LINE__);
+                           if (current_jid_list != NULL)
+                           {
+                              free(current_jid_list);
+                              no_of_current_jobs = 0;
+                           }
+                           return;
+                        }
+                        (void)memcpy(id.dbe[id.count].soptions, jd[i].soptions,
+                                     size);
+                        id.dbe[id.count].soptions[size] = '\0';
+                     }
+                     else
+                     {
+                        id.dbe[id.count].soptions = NULL;
+                     }
+
+                     (void)strcpy(id.dbe[id.count].recipient, jd[i].recipient);
+                     id.count++;
+                  }
+               }
+            } /* if (current_jid_list[j] == jd[i].job_id) */
+         } /* for (j = 0; j < no_of_current_jobs; j++) */
+      } /* if (jd[i].dir_id_pos == dir_pos) */
+   } /* for (i = (*no_of_job_ids - 1); i > -1; i--) */
+
+   if (current_jid_list != NULL)
    {
-      get_file_mask_list(jd[i].file_mask_id, &no_of_file_masks, &file_mask_buf);
-      if (file_mask_buf != NULL)
-      {
-         p_file = file_mask_buf;
-
-         /*
-          * Only show those entries that really match the current
-          * file name. For this it is necessary to filter the file
-          * names through all the filters.
-          */
-         gotcha = NO;
-         for (j = 0; j < no_of_file_masks; j++)
-         {
-            if (pmatch(p_file, id.file_name, NULL) == 0)
-            {
-               gotcha = YES;
-               break;
-            }
-            NEXT(p_file);
-         }
-         if (gotcha == YES)
-         {
-            /* Allocate memory to hold all data. */
-            if ((id.count % 10) == 0)
-            {
-               size_t new_size;
-
-               /* Calculate new size */
-               new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
-
-               /* Create or increase the space for the buffer. */
-               if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
-               {
-                  (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
-                             strerror(errno), __FILE__, __LINE__);
-                  free(file_mask_buf);
-                  return;
-               }
-            }
-
-            id.dbe[id.count].priority = jd[i].priority;
-            id.dbe[id.count].no_of_files = no_of_file_masks;
-            id.dbe[id.count].files = file_mask_buf;
-
-            /* Save all AMG (local) options. */
-            id.dbe[id.count].no_of_loptions = jd[i].no_of_loptions;
-            if (id.dbe[id.count].no_of_loptions > 0)
-            {
-               p_tmp = jd[i].loptions;
-               for (j = 0; j < id.dbe[id.count].no_of_loptions; j++)
-               {
-                  (void)strcpy(id.dbe[id.count].loptions[j], p_tmp);
-                  NEXT(p_tmp);
-               }
-            }
-
-            /* Save all FD (standart) options. */
-            id.dbe[id.count].no_of_soptions = jd[i].no_of_soptions;
-            if (id.dbe[id.count].no_of_soptions > 0)
-            {
-               size_t size;
-
-               size = strlen(jd[i].soptions);
-               if ((id.dbe[id.count].soptions = calloc(size + 1,
-                                                       sizeof(char))) == NULL)
-               {
-                  (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
-                             strerror(errno), __FILE__, __LINE__);
-                  free(file_mask_buf);
-                  return;
-               }
-               (void)memcpy(id.dbe[id.count].soptions, jd[i].soptions, size);
-               id.dbe[id.count].soptions[size] = '\0';
-            }
-            else
-            {
-               id.dbe[id.count].soptions = NULL;
-            }
-
-            (void)strcpy(id.dbe[id.count].recipient, jd[i].recipient);
-            id.count++;
-         }
-         else
-         {
-            free(file_mask_buf);
-         }
-      }
-      i++;
-   } /* while (jd[i].dir_id_pos == dir_pos) */
+      free(current_jid_list);
+      no_of_current_jobs = 0;
+   }
 
    return;
 }

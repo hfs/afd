@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        no_of_dirs;
 extern struct fileretrieve_status *fra;
 

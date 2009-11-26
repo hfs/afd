@@ -79,7 +79,7 @@ struct send_data
           char        *password;
        };
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void attach_file_toggle(Widget, XtPointer, XtPointer),
             close_button(Widget, XtPointer, XtPointer),
             create_target_toggle(Widget, XtPointer, XtPointer),

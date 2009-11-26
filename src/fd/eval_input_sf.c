@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -34,13 +34,14 @@ DESCR__S_M3
  **
  **    sf_xxx <work dir> <job no.> <FSA id> <FSA pos> <msg name> [options]
  **
- **          -a <age limit>   The age limit for the files being send.
- **          -A               Disable archiving of files.
- **          -f <SMTP from>   Default from identifier to send.
- **          -o <retries>     Old/Error message and number of retries.
- **          -r               Resend from archive (job from show_olog).
- **          -s <SMTP server> Server where to send the mails.
- **          -t               Temp toggle.
+ **          -a <age limit>            The age limit for the files being send.
+ **          -A                        Disable archiving of files.
+ **          -f <SMTP from>            Default from identifier to send.
+ **          -o <retries>              Old/Error message and number of retries.
+ **          -r                        Resend from archive (job from show_olog).
+ **          -R <SMTP reply-to>        Default reply-to identifier to send.
+ **          -s <SMTP server>[:<port>] Server where to send the mails.
+ **          -t                        Temp toggle.
  **
  ** RETURN VALUES
  **   Returns SUCCESS when it successfully decoded the parameters.
@@ -58,6 +59,7 @@ DESCR__S_M3
  **   19.03.2003 H.Kiehl Added -A to disable archiving.
  **   21.03.2003 H.Kiehl Rewrite to accomodate to new syntax.
  **   30.08.2005 H.Kiehl Added -s to specify mail server name.
+ **   22.01.2008 H.Kiehl Added -R to specify a default reply-to identifier.
  **
  */
 DESCR__E_M3
@@ -69,13 +71,13 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                        fsa_id,
                                   *p_no_of_hosts;
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 
-/* local functions */
+/* Local function prototypes. */
 static void                       usage(char *);
 
 
@@ -92,7 +94,25 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
    }
    else
    {
-      STRNCPY(p_work_dir, argv[1], MAX_PATH_LENGTH);
+      if (p_work_dir == NULL)
+      {
+         size_t length;
+
+         length = strlen(argv[1]) + 1;
+         if ((p_work_dir = malloc(length)) == NULL)
+         {
+            (void)fprintf(stderr,
+#if SIZEOF_SIZE_T == 4
+                          "ERROR   : Failed to malloc() %d bytes : %s",
+#else
+                          "ERROR   : Failed to malloc() %lld bytes : %s",
+#endif
+                          (pri_size_t)length, strerror(errno));
+            ret = ALLOC_ERROR;
+            return(-ret);
+         }
+         (void)memcpy(p_work_dir, argv[1], length);
+      }
       if (isdigit((int)(argv[2][0])) == 0)
       {
          (void)fprintf(stderr,
@@ -255,6 +275,39 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                        ret = SYNTAX_ERROR;
                                     }
                                     break;
+                                 case 'R' : /* Default SMTP reply-to. */
+                                    if (((i + 1) < argc) &&
+                                        (argv[i + 1][0] != '-'))
+                                    {
+                                       size_t length;
+
+                                       i++;
+                                       length = strlen(argv[i]) + 1;
+                                       if ((p_db->reply_to = malloc(length)) == NULL)
+                                       {
+                                          (void)fprintf(stderr,
+#if SIZEOF_SIZE_T == 4
+                                                        "ERROR   : Failed to malloc() %d bytes : %s",
+#else
+                                                        "ERROR   : Failed to malloc() %lld bytes : %s",
+#endif
+                                                        (pri_size_t)length,
+                                                        strerror(errno));
+                                          ret = ALLOC_ERROR;
+                                       }
+                                       else
+                                       {
+                                          (void)strcpy(p_db->reply_to, argv[i]);
+                                       }
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : No default SMTP reply-to specified for -R option.\n");
+                                       usage(argv[0]);
+                                       ret = SYNTAX_ERROR;
+                                    }
+                                    break;
                                  case 'r' : /* This is a resend from archive. */
                                     p_db->resend = YES;
                                     break;
@@ -301,6 +354,7 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
 
                                        i++;
                                        while ((argv[i][k] != '\0') &&
+                                              (argv[i][k] != ':') &&
                                               (k < MAX_REAL_HOSTNAME_LENGTH))
                                        {
                                           p_db->smtp_server[k] = argv[i][k];
@@ -311,6 +365,10 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                        {
                                           p_db->smtp_server[k] = '\0';
                                           p_db->special_flag |= SMTP_SERVER_NAME_IN_AFD_CONFIG;
+                                          if (argv[i][k] == ':')
+                                          {
+                                             p_db->port = atoi(&argv[i][k + 1]);
+                                          }
                                        }
                                        else
                                        {
@@ -337,10 +395,10 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                        ret = SYNTAX_ERROR;
                                     }
                                     break;
-                                 case 't' : /* Toggle host */
+                                 case 't' : /* Toggle host. */
                                     p_db->toggle_host = YES;
                                     break;
-                                 default  : /* Unknown parameter */
+                                 default  : /* Unknown parameter. */
                                     (void)fprintf(stderr,
                                                   "ERROR  : Unknown parameter %c. (%s %d)\n",
                                                   argv[i][1], __FILE__, __LINE__);
@@ -419,15 +477,16 @@ usage(char *name)
    (void)fprintf(stderr,
                  "SYNTAX: %s <work dir> <job no.> <FSA id> <FSA pos> <msg name> [options]\n\n",
                  name);
-   (void)fprintf(stderr, "OPTIONS                 DESCRIPTION\n");
-   (void)fprintf(stderr, "  --version           - Show current version.\n");
-   (void)fprintf(stderr, "  -a <age limit>      - Set the default age limit in seconds.\n");
-   (void)fprintf(stderr, "  -A                  - Archiving is disabled.\n");
-   (void)fprintf(stderr, "  -f <SMTP from>      - Default from identifier to send.\n");
-   (void)fprintf(stderr, "  -o <retries>        - Old/error message and number of retries.\n");
-   (void)fprintf(stderr, "  -r                  - Resend from archive.\n");
-   (void)fprintf(stderr, "  -s <SMTP server>    - Server where to send the mails.\n");
-   (void)fprintf(stderr, "  -t                  - Use other host (toggle).\n");
+   (void)fprintf(stderr, "OPTIONS                       DESCRIPTION\n");
+   (void)fprintf(stderr, "  --version                 - Show current version.\n");
+   (void)fprintf(stderr, "  -a <age limit>            - Set the default age limit in seconds.\n");
+   (void)fprintf(stderr, "  -A                        - Archiving is disabled.\n");
+   (void)fprintf(stderr, "  -f <SMTP from>            - Default from identifier to send.\n");
+   (void)fprintf(stderr, "  -o <retries>              - Old/error message and number of retries.\n");
+   (void)fprintf(stderr, "  -r                        - Resend from archive.\n");
+   (void)fprintf(stderr, "  -R <SMTP reply-to>        - Default reply-to identifier to send.\n");
+   (void)fprintf(stderr, "  -s <SMTP server>[:<port>] - Server where to send the mails.\n");
+   (void)fprintf(stderr, "  -t                        - Use other host (toggle).\n");
 
    return;
 }

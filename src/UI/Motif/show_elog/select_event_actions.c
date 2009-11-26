@@ -1,6 +1,6 @@
 /*
  *  select_event_actions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ DESCR__E_M3
 #include <Xm/ToggleBG.h>
 #include <X11/Intrinsic.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
 #include "ea_str.h"

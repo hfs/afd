@@ -116,7 +116,7 @@ logger(FILE  *fp,
       check_data(rescan_time);
       if (total_length > max_logfile_size)
       {
-         /* Time to start a new log file */
+         /* Time to start a new log file. */
          return(START);
       }
    } /* for (;;) */

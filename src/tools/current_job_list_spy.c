@@ -1,7 +1,7 @@
 /*
  *  current_job_list_spy.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -85,7 +85,7 @@ main(int argc, char *argv[])
    if ((fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr,
-                    "Failed to open() `%s' : %s (%s %d)\n",
+                    _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -93,7 +93,7 @@ main(int argc, char *argv[])
    if (fstat(fd, &stat_buf) == -1)
    {
       (void)fprintf(stderr,
-                    "Failed to fstat() `%s' : %s (%s %d)\n",
+                    _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -102,7 +102,7 @@ main(int argc, char *argv[])
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,
-                    "Failed to mmap() `%s' : %s (%s %d)\n",
+                    _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -122,13 +122,13 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stdout, "No messages cached.\n");
+      (void)fprintf(stdout, _("No messages cached.\n"));
    }
 
    if (munmap(tmp_ptr, stat_buf.st_size) == -1)
    {
       (void)fprintf(stderr,
-                    "Failed to munmap() `%s' : %s (%s %d)\n",
+                    _("Failed to munmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    (void)close(fd);

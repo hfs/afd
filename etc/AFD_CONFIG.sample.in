@@ -26,10 +26,11 @@
 #  11 (1024)  - Output Log                                               #
 #  12 (2048)  - Delete Log                                               #
 #  15 (16384) - Event Log                                                #
+#  16 (32768) - Distribution Log                                         #
 #                                                                        #
 # Default:  0 (Disabled)                                                 #
 ##########################################################################
-#AFD_TCP_LOGS                     20336
+#AFD_TCP_LOGS                     53104
 
 ##########################################################################
 # With the following entry it is possible to specify who may connect to  #
@@ -41,6 +42,14 @@
 # Default: None                                                          #
 ##########################################################################
 #TRUSTED_REMOTE_IP                192.168.22.*
+
+##########################################################################
+# Set this to YES if AFD is running in a global filesystem. This will    #
+# make AFD to sync it's memory mapped files more often to the file-      #
+# system.                                                                #
+# Default: NO                                                            #
+##########################################################################
+#IN_GLOBAL_FILESYSTEM            NO
 
 ##########################################################################
 # The configuration file from where AFD will read it's configuration.    #
@@ -180,7 +189,8 @@ MAX_CONNECTIONS                  80
 
 ##########################################################################
 # The default SMTP server where mails are to be send to. This can be an  #
-# IP number or a hostname.                                               #
+# IP number or a hostname. Optionally one can specify the default port   #
+# using the following syntax: <server name>:<port>                       #
 # Default: localhost                                                     #
 ##########################################################################
 #DEFAULT_SMTP_SERVER              localhost
@@ -192,6 +202,14 @@ MAX_CONNECTIONS                  80
 # Default: not set (ie. will take current user and hostname)             #
 ##########################################################################
 #DEFAULT_SMTP_FROM                donald@ducktown
+
+##########################################################################
+# The default what will be put into the reply-to line, if the reply-to   #
+# option is not set under [options]. If not set it will not send a       #
+# reply-to line.                                                         #
+# Default: not set                                                       #
+##########################################################################
+#DEFAULT_SMTP_REPLY_TO            donald@work
 
 ##########################################################################
 # The maximum number of files that are copied before they are send to    #
@@ -255,6 +273,16 @@ ONE_DIR_COPY_TIMEOUT             10
 #MAX_PRODUCTION_LOG_FILES         7
 #MAX_OUTPUT_LOG_FILES             7
 #MAX_DELETE_LOG_FILES             7
+
+##########################################################################
+# Log specific data in a given format. It is possible to have multiple   #
+# ALDA_DAEMON entries. Here follow some example entries:                 #
+#   ALDA_DAEMON -f -l -L O -o '%OTd.%OTm.%OTY %OTX %-10OH %OE %.3OSA' -O output.txt #
+#    logs all output data to the file output.txt int the format:         #
+#       31.10.2009 06:49:07 mfc        RADI_I128105910 127.000 B         #
+# Default: None                                                          #
+##########################################################################
+# ALDA_DAEMON -f -l -L O -o '%OTd.%OTm.%OTY %OTX %-10OH %OE %.3OSA' -O /tmp/output.txt
 
 ##########################################################################
 # Default printer command to print.                                      #

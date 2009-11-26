@@ -1,6 +1,6 @@
 /*
  *  inspect_archive.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -85,7 +85,8 @@ inspect_archive(char *archive_dir)
    if ((p_dir_archive = opendir(archive_dir)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() `%s' : %s", archive_dir, strerror(errno));
+                 _("Failed to opendir() `%s' : %s"),
+                 archive_dir, strerror(errno));
    }
    else
    {
@@ -155,7 +156,7 @@ inspect_archive(char *archive_dir)
                                                 nod--;
 #ifdef _LOG_REMOVE_INFO
                                                 system_log(INFO_SIGN, __FILE__, __LINE__,
-                                                           "Removed archive `%s'.",
+                                                           _("Removed archive `%s'."),
                                                            archive_dir);
 #endif
                                              }
@@ -167,7 +168,7 @@ inspect_archive(char *archive_dir)
                                  {
                                     ptr_dirnumber[-1] = '\0';
                                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                               "Failed to closedir() `%s' : %s",
+                                               _("Failed to closedir() `%s' : %s"),
                                                archive_dir, strerror(errno));
                                  }
                                  else if (nod == 2)
@@ -177,7 +178,7 @@ inspect_archive(char *archive_dir)
                                              (errno != EEXIST))
                                          {
                                             system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                       "Failed to rmdir() `%s' : %s",
+                                                       _("Failed to rmdir() `%s' : %s"),
                                                        archive_dir,
                                                        strerror(errno));
                                          }
@@ -193,7 +194,7 @@ inspect_archive(char *archive_dir)
                         {
                            ptr_username[-1] = '\0';
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to closedir() `%s' : %s",
+                                      _("Failed to closedir() `%s' : %s"),
                                       archive_dir, strerror(errno));
                         }
                         else if (nou == 2)
@@ -203,7 +204,7 @@ inspect_archive(char *archive_dir)
                                     (errno != EEXIST))
                                 {
                                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                                              "Failed to rmdir() `%s' : %s",
+                                              _("Failed to rmdir() `%s' : %s"),
                                               archive_dir, strerror(errno));
                                 }
                                 else
@@ -218,7 +219,7 @@ inspect_archive(char *archive_dir)
                {
                   ptr_hostname[-1] = '\0';
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to closedir() `%s' : %s",
+                             _("Failed to closedir() `%s' : %s"),
                              archive_dir, strerror(errno));
                }
                else if (noh == 2)
@@ -228,7 +229,7 @@ inspect_archive(char *archive_dir)
                            (errno != EEXIST))
                        {
                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                     "Failed to rmdir() `%s' : %s",
+                                     _("Failed to rmdir() `%s' : %s"),
                                      archive_dir, strerror(errno));
                        }
                     }
@@ -239,7 +240,7 @@ inspect_archive(char *archive_dir)
       if (closedir(p_dir_archive) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to closedir() `%s' : %s",
+                    _("Failed to closedir() `%s' : %s"),
                     archive_dir, strerror(errno));
       }
    }
@@ -324,7 +325,7 @@ remove_archive(char *dirname)
       if (errno != ENOTDIR)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to opendir() `%s' : %s",
+                    _("Failed to opendir() `%s' : %s"),
                     dirname, strerror(errno));
       }
       return(INCORRECT);
@@ -352,7 +353,8 @@ remove_archive(char *dirname)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to delete `%s' : %s", dirname, strerror(errno));
+                       _("Failed to delete `%s' : %s"),
+                       dirname, strerror(errno));
             (void)closedir(dp);
             return(INCORRECT);
          }
@@ -366,14 +368,15 @@ remove_archive(char *dirname)
    if ((rmdir(dirname) == -1) && (errno != EEXIST))
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to rmdir() `%s' : %s", dirname, strerror(errno));
+                 _("Failed to rmdir() `%s' : %s"), dirname, strerror(errno));
       (void)closedir(dp);
       return(INCORRECT);
    }
    if (closedir(dp) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to closedir() `%s' : %s", dirname, strerror(errno));
+                 _("Failed to closedir() `%s' : %s"),
+                 dirname, strerror(errno));
       return(INCORRECT);
    }
 

@@ -1,6 +1,6 @@
 /*
  *  eval_afd_mon_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,6 +63,7 @@ DESCR__S_M3
  **             4096 - send job data
  **             8192 - compression method 1
  **            16384 - send EVENT_LOG data
+ **            32768 - send DISTRIBUTION_LOG data
  **
  ** RETURN VALUES
  **   None.
@@ -90,7 +91,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>
 #include <errno.h>
@@ -199,7 +200,7 @@ eval_afd_mon_db(struct mon_list **nml)
    {
       if (*ptr == '#')
       {
-         /* Check if line is a comment */
+         /* Check if line is a comment. */
          while ((*ptr != '\0') && (*ptr != '\n'))
          {
             ptr++;
@@ -261,7 +262,7 @@ eval_afd_mon_db(struct mon_list **nml)
       {
          (*nml)[no_of_afds].convert_username[i][0][0] = '\0';
       }
-      /* Store AFD alias */
+      /* Store AFD alias. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
              (*ptr != '\0') && (i < MAX_AFDNAME_LENGTH))
@@ -343,7 +344,7 @@ eval_afd_mon_db(struct mon_list **nml)
       {
          char *tmp_ptr = ptr;;
 
-         ptr++; /* Away with | or / */
+         ptr++; /* Away with | or /. */
          i = 0;
          while ((*ptr != ' ') && (*ptr != '\t') &&
                 (*ptr != '\n') && (*ptr != '\0') &&
@@ -426,7 +427,7 @@ eval_afd_mon_db(struct mon_list **nml)
                        (int)*ptr, (*nml)[no_of_afds].afd_alias,
                        DEFAULT_AFD_PORT_NO);
 
-            /* Ignore this entry */
+            /* Ignore this entry. */
             i = 0;
             while ((*ptr != ' ') && (*ptr != '\t') &&
                    (*ptr != '\n') && (*ptr != '\0'))
@@ -463,7 +464,7 @@ eval_afd_mon_db(struct mon_list **nml)
       {
          char *tmp_ptr = ptr;
 
-         ptr++; /* Away with | or / */
+         ptr++; /* Away with | or /. */
          i = 0;
          while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
                 (*ptr != '|') && (*ptr != '/') && (*ptr != '\0') &&
@@ -480,7 +481,7 @@ eval_afd_mon_db(struct mon_list **nml)
                           "Non numeric character <%d> in TCP port field for AFD %s, disabling second port.",
                           (int)*ptr, (*nml)[no_of_afds].afd_alias);
 
-               /* Ignore this entry */
+               /* Ignore this entry. */
                i = 0;
                while ((*ptr != ' ') && (*ptr != '\t') &&
                       (*ptr != '\n') && (*ptr != '\0'))
@@ -565,11 +566,11 @@ eval_afd_mon_db(struct mon_list **nml)
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in poll interval field for AFD %s, using default %s.",
+                       "Non numeric character <%d> in poll interval field for AFD %s, using default %d.",
                        (int)*ptr, (*nml)[no_of_afds].afd_alias,
                        DEFAULT_POLL_INTERVAL);
 
-            /* Ignore this entry */
+            /* Ignore this entry. */
             i = 0;
             while ((*ptr != ' ') && (*ptr != '\t') &&
                    (*ptr != '\n') && (*ptr != '\0'))
@@ -641,11 +642,11 @@ eval_afd_mon_db(struct mon_list **nml)
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in connect time field for AFD %s, using default %s.",
+                       "Non numeric character <%d> in connect time field for AFD %s, using default %d.",
                        (int)*ptr, (*nml)[no_of_afds].afd_alias,
                        DEFAULT_CONNECT_TIME);
 
-            /* Ignore this entry */
+            /* Ignore this entry. */
             i = 0;
             while ((*ptr != ' ') && (*ptr != '\t') &&
                    (*ptr != '\n') && (*ptr != '\0'))
@@ -716,11 +717,11 @@ eval_afd_mon_db(struct mon_list **nml)
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in disconnect time field for AFD %s, using default %s.",
+                       "Non numeric character <%d> in disconnect time field for AFD %s, using default %d.",
                        (int)*ptr, (*nml)[no_of_afds].afd_alias,
                        DEFAULT_DISCONNECT_TIME);
 
-            /* Ignore this entry */
+            /* Ignore this entry. */
             i = 0;
             while ((*ptr != ' ') && (*ptr != '\t') &&
                    (*ptr != '\n') && (*ptr != '\0'))
@@ -790,11 +791,11 @@ eval_afd_mon_db(struct mon_list **nml)
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in option field for AFD %s, using default %s.",
+                       "Non numeric character <%d> in option field for AFD %s, using default %d.",
                        (int)*ptr, (*nml)[no_of_afds].afd_alias,
                        DEFAULT_OPTION_ENTRY);
 
-            /* Ignore this entry */
+            /* Ignore this entry. */
             i = 0;
             while ((*ptr != ' ') && (*ptr != '\t') &&
                    (*ptr != '\n') && (*ptr != '\0'))

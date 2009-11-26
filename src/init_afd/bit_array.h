@@ -1,6 +1,6 @@
 /*
  *  bitarray.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,13 +20,13 @@
 #ifndef __bit_array_h
 #define __bit_array_h
 
-#define ALL_MINUTES      1152921504576846463LL
+#define ALL_MINUTES      1152921504606846975LL
 #define ALL_HOURS        16777215
 #define ALL_DAY_OF_MONTH 2147483647
 #define ALL_MONTH        4095
 #define ALL_DAY_OF_WEEK  127
 
-#ifdef _WORKING_LONG_LONG
+#ifdef HAVE_LONG_LONG
 static unsigned long long bit_array_long[60] =
                    {
                       1LL,                   /* 0 */
@@ -90,8 +90,7 @@ static unsigned long long bit_array_long[60] =
                       288230376151711744LL,  /* 58 */
                       576460752303423488LL   /* 59 */
                    };
-/* 1152921504566846976 */
-#endif /* _WORKING_LONG_LONG */
+#endif /* HAVE_LONG_LONG */
 
 static unsigned int bit_array[31] =
                    {

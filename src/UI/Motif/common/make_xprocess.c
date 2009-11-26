@@ -121,7 +121,7 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
            }
 
            /* Child process. */
-           (void)execvp(progname, args); /* NOTE: NO return from execvp() */
+           (void)execvp(progname, args); /* NOTE: NO return from execvp(). */
 
            _exit(INCORRECT);
         }

@@ -1,6 +1,6 @@
 /*
  *  rm_job.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,10 +114,18 @@ main(int argc, char *argv[])
    }
 
    /* Attach to FSA and the AFD Status Area. */
-   if (fsa_attach() < 0)
+   if ((fd = fsa_attach()) < 0)
    {
-      (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (fd == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "This program is not able to attach to the FSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
    if (attach_afd_status(NULL) < 0)
@@ -163,7 +171,7 @@ main(int argc, char *argv[])
                exit(INCORRECT);
             }
          }
-         else /* FD is currently not active */
+         else /* FD is currently not active. */
          {
             int i;
 
@@ -183,7 +191,9 @@ main(int argc, char *argv[])
                       (fsa[mdb[qb[i].pos].fsa_pos].host_status & ERROR_QUEUE_SET))
                   {
                      (void)remove_from_error_queue(mdb[qb[i].pos].job_id,
-                                                   &fsa[mdb[qb[i].pos].fsa_pos]);
+                                                   &fsa[mdb[qb[i].pos].fsa_pos],
+                                                   mdb[qb[i].pos].fsa_pos,
+                                                   fsa_fd);
                   }
 #endif
                   ptr = file_dir + strlen(file_dir);

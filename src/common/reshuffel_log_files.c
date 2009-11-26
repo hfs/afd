@@ -1,7 +1,7 @@
 /*
  *  reshuffel_log_files.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ reshuffel_log_files(int  log_number,
                int error_flag = NO;
 
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "DISK FULL!!! Will retry in %d second interval.",
+                          _("DISK FULL!!! Will retry in %d second interval."),
                           DISK_FULL_RESCAN_TIME);
 
                while (errno == ENOSPC)
@@ -91,7 +91,7 @@ reshuffel_log_files(int  log_number,
                      if (errno != ENOSPC)
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Failed to rename() %s to %s : %s",
+                                   _("Failed to rename() `%s' to `%s' : %s"),
                                    log_file, dst, strerror(errno));
                         error_flag = YES;
                         break;
@@ -101,13 +101,13 @@ reshuffel_log_files(int  log_number,
                if (error_flag == NO)
                {
                   system_log(INFO_SIGN, __FILE__, __LINE__,
-                             "Continuing after disk was full.");
+                             _("Continuing after disk was full."));
                }
             }
             else if (errno != ENOENT)
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Failed to rename() %s to %s : %s",
+                               _("Failed to rename() `%s' to `%s' : %s"),
                                log_file, dst, strerror(errno));
                  }
          }

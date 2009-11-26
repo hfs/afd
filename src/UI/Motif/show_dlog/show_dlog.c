@@ -1,6 +1,6 @@
 /*
  *  show_dlog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,7 @@ DESCR__E_M1
 #include <Xm/Separator.h>
 #include <Xm/RowColumn.h>
 #include <Xm/Form.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_dlog.h"
 #include "logdefs.h"
 #include "permission.h"
@@ -114,7 +114,7 @@ int                        char_width,
                            special_button_flag,
                            sum_line_length,
                            sys_log_fd = STDERR_FILENO;
-XT_PTR_TYPE                toggles_set;
+XT_PTR_TYPE                dr_toggles_set;
 #ifdef HAVE_MMAP
 off_t                      fra_size;
 #endif
@@ -148,12 +148,6 @@ main(int argc, char *argv[])
 {
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH],
-                   *toggle_label[] = {AGE_OUTPUT_ID_STR, AGE_INPUT_ID_STR,
-#ifdef WITH_DUP_CHECK
-                                      DUP_INPUT_ID_STR, DUP_OUTPUT_ID_STR,
-#endif
-                                      USER_DEL_ID_STR, EXEC_FAILED_DEL_ID_STR,
-                                      OTHER_DEL_ID_STR},
                    *radio_label[] = {"Short", "Med", "Long"};
    static String   fallback_res[] =
                    {
@@ -176,6 +170,9 @@ main(int argc, char *argv[])
                       ".show_dlog.Print Data.main_form.buttonbox*background : PaleVioletRed2",
                       ".show_dlog.Print Data.main_form.buttonbox*foreground : Black",
                       ".show_dlog.Print Data.main_form.buttonbox*highlightColor : Black",
+                      ".show_dlog.Select Delete Reason.main_form.buttonbox*background : PaleVioletRed2",
+                      ".show_dlog.Select Delete Reason.main_form.buttonbox*foreground : Black",
+                      ".show_dlog.Select Delete Reason.main_form.buttonbox*highlightColor : Black",
                       NULL
                    };
    Widget          block_w,
@@ -191,9 +188,7 @@ main(int argc, char *argv[])
                    rowcol_w,
                    selectionbox_w,
                    separator_w,
-                   timebox_w,
-                   toggle_w,
-                   togglebox_w;
+                   timebox_w;
    Arg             args[MAXARGS];
    Cardinal        argcount;
    XmFontListEntry entry;
@@ -237,6 +232,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -248,6 +244,11 @@ main(int argc, char *argv[])
    }
 
    display = XtDisplay(appshell);
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
@@ -592,80 +593,20 @@ main(int argc, char *argv[])
    selectionbox_w = XmCreateForm(mainform_w, "selectionbox", args, argcount);
 
 /*-----------------------------------------------------------------------*/
-/*                           Toggle Box                                  */
-/*                           ----------                                  */
-/* Let user select the deletion type: AGE(I/O), DUP(I/O), USER and/or    */
-/* OTHER.                                                                */
-/* Default: AGE(O), AGE(I), DUP(I), DUP(O), USER, EXEC and OTHER.        */
+/*                      Delete Reason Button                             */
+/*                      --------------------                             */
+/* Let user select the delete reason.                                    */
 /*-----------------------------------------------------------------------*/
-   togglebox_w = XtVaCreateWidget("togglebox",
-                                xmRowColumnWidgetClass, selectionbox_w,
-                                XmNorientation,         XmHORIZONTAL,
-                                XmNpacking,             XmPACK_TIGHT,
-                                XmNnumColumns,          1,
-                                XmNtopAttachment,       XmATTACH_FORM,
-                                XmNleftAttachment,      XmATTACH_FORM,
-                                XmNbottomAttachment,    XmATTACH_FORM,
-                                XmNresizable,           False,
-                                NULL);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[AGE_OUTPUT_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_AGE_OUTPUT);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[AGE_INPUT_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_AGE_INPUT);
-#ifdef WITH_DUP_CHECK
-   toggle_w = XtVaCreateManagedWidget(toggle_label[DUP_INPUT_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_DUP_INPUT);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[DUP_OUTPUT_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_DUP_OUTPUT);
-#endif
-   toggle_w = XtVaCreateManagedWidget(toggle_label[USER_DEL_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_USER_DEL);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[EXEC_FAILED_DEL_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_EXEC_FAILED_DEL);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[OTHER_DEL_POS],
-                                xmToggleButtonGadgetClass, togglebox_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    True,
-                                NULL);
-   XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_OTHER_DEL);
-   XtManageChild(togglebox_w);
-
-   toggles_set = SHOW_AGE_OUTPUT | SHOW_AGE_INPUT |
-#ifdef WITH_DUP_CHECK
-                 SHOW_DUP_INPUT | SHOW_DUP_OUTPUT |
-#endif
-                 SHOW_USER_DEL | SHOW_EXEC_FAILED_DEL | SHOW_OTHER_DEL;
+   button_w = XtVaCreateManagedWidget("Delete reason",
+                        xmPushButtonWidgetClass, selectionbox_w,
+                        XmNfontList,             fontlist,
+                        XmNtopAttachment,        XmATTACH_FORM,
+                        XmNleftAttachment,       XmATTACH_FORM,
+                        XmNleftOffset,           10,
+                        XmNbottomAttachment,     XmATTACH_FORM,
+                        NULL);
+   XtAddCallback(button_w, XmNactivateCallback,
+                 (XtCallbackProc)select_delete_reason, (XtPointer)0);
 
 /*-----------------------------------------------------------------------*/
 /*                          Vertical Separator                           */
@@ -679,7 +620,9 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       togglebox_w);
+   XtSetArg(args[argcount], XmNleftWidget,       button_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftOffset,       10);
    argcount++;
    separator_w = XmCreateSeparator(selectionbox_w, "separator",
                                    args, argcount);
@@ -992,11 +935,12 @@ main(int argc, char *argv[])
    XtVaGetValues(buttonbox_w, XmNheight, &button_height, NULL);
 
    /* Write heading. */
-   sum_line_length = sprintf(header_line, "%s%-*s %s%-*s %s",
+   sum_line_length = sprintf(header_line, "%s%-*s %s%-*s %-*s %-*s",
                              DATE_TIME_HEADER, file_name_length,
                              FILE_NAME_HEADER, FILE_SIZE_HEADER,
                              HOST_NAME_LENGTH, HOST_NAME_HEADER,
-                             REST_HEADER);
+                             (int)MAX_REASON_LENGTH, REASON_HEADER,
+                             MAX_PROC_USER_LENGTH, PROCESS_USER_HEADER);
    XmTextSetString(headingbox_w, header_line);
 
    if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
@@ -1156,6 +1100,29 @@ init_show_dlog(int *argc, char *argv[])
    search_file_name[0] = '\0';
    special_button_flag = SEARCH_BUTTON;
    no_of_log_files = 0;
+   dr_toggles_set = ((1 << (AGE_OUTPUT + 1)) |
+                    (1 << (AGE_INPUT + 1)) |
+                    (1 << (USER_DEL + 1)) |
+                    (1 << (EXEC_FAILED_DEL + 1)) |
+                    (1 << (NO_MESSAGE_FILE_DEL + 1)) |
+#ifdef WITH_DUP_CHECK
+                    (1 << (DUP_INPUT + 1)) |
+                    (1 << (DUP_OUTPUT + 1)) |
+#endif
+                    (1 << (DEL_UNKNOWN_FILE + 1)) |
+                    (1 << (JID_LOOKUP_FAILURE_DEL + 1)) |
+                    (1 << (DEL_OLD_LOCKED_FILE + 1)) |
+                    (1 << (DEL_QUEUED_FILE + 1)) |
+                    (1 << (DELETE_OPTION + 1)) |
+                    (1 << (DELETE_STALE_ERROR_JOBS + 1)) |
+                    (1 << (CLEAR_STALE_MESSAGES + 1)) |
+                    (1 << (FILE_CURRENTLY_TRANSMITTED + 1)) |
+                    (1 << (DELETE_UNKNOWN_POOL_DIR + 1)) |
+                    (1 << (EXEC_FAILED_STORED + 1)) |
+                    (1 << (DELETE_HOST_DISABLED + 1)) |
+                    (1 << (CONVERSION_FAILED + 1)) |
+                    (1 << (RENAME_OVERWRITE + 1)) |
+                    (1 << (RECIPIENT_REJECTED + 1))) + 1;
 
    /* Get the maximum number of logfiles we keep for history. */
    get_max_log_number(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,

@@ -1,6 +1,6 @@
 /*
  *  is_msgname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   is_msgname - checks if the supplied name is a AFD message name
  **
  ** SYNOPSIS
- **   int is_msgname(char *name)
+ **   int is_msgname(const char *name)
  **
  ** DESCRIPTION
  **
@@ -46,7 +46,7 @@ DESCR__E_M3
 
 /*########################### is_msgname() ##############################*/
 int
-is_msgname(char *name)
+is_msgname(const char *name)
 {
    int i = 0;
 

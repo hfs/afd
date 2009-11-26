@@ -1,6 +1,6 @@
 /*
  *  trans_exec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        fsa_fd,
                                   transfer_log_fd;
 extern struct filetransfer_status *fsa;
@@ -78,7 +78,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
    }
    if ((*p_command == '\n') || (*p_command == '\0'))
    {
-      trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+      trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                 "No command specified for executing. Ignoring this option.");
    }
    else
@@ -123,9 +123,9 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
        */
       p_tmp_dir = file_path + strlen(file_path);
       (void)strcpy(p_tmp_dir, "/.tmp");
-      if (mkdir(file_path, DIR_MODE) == -1)
+      if ((mkdir(file_path, DIR_MODE) == -1) && (errno != EEXIST))
       {
-         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                    "Failed to mkdir() %s : %s", file_path, strerror(errno));
       }
       else
@@ -134,7 +134,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
          (void)strcpy(p_tmp_dir + 6, p_file_name_buffer);
          if (copy_file(fullname, file_path, NULL) < 0)
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+            trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                       "Failed to copy_file() `%s' to `%s'.",
                       fullname, file_path);
             *(p_tmp_dir + 5) = '\0';
@@ -184,7 +184,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   fnp++;
                } while (*fnp != '\0');
 
-               /* Generate command string with file name(s) */
+               /* Generate command string with file name(s). */
                length = 0;
                for (k = 1; k < (ii + 1); k++)
                {
@@ -208,9 +208,9 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
                                    job_str, db.trans_exec_timeout,
-                                   YES)) != 0) /* ie != SUCCESS */
+                                   YES, YES)) != 0) /* ie != SUCCESS */
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to execute command %s [Return code = %d]",
                             command_str, ret);
                   if (return_str[0] != '\0')
@@ -230,7 +230,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                            *end_ptr = '\0';
                            end_ptr++;
                         }
-                        trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                        trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                                   "%s", start_ptr);
                      } while (*end_ptr != '\0');
                   }
@@ -249,12 +249,13 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                              file_path, p_command);
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
-                                   job_str, db.trans_exec_timeout, YES)) != 0)
+                                   job_str, db.trans_exec_timeout, YES,
+                                   YES)) != 0)
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to execute command %s [Return code = %d]",
                             command_str, ret);
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "%s", return_str);
                }
                else
@@ -279,7 +280,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
          }
          if (rec_rmdir(file_path) < 0)
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+            trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                       "Failed to remove directory %s.", file_path);
          }
       }

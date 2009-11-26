@@ -1,6 +1,6 @@
 /*
  *  init_fifos_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -82,7 +82,7 @@ init_fifos_afd(void)
                transfer_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   /* Initialise fifo names */
+   /* Initialise fifo names. */
    (void)strcpy(transfer_log_fifo, p_work_dir);
    (void)strcat(transfer_log_fifo, FIFO_DIR);
    (void)strcpy(event_log_fifo, transfer_log_fifo);
@@ -104,10 +104,8 @@ init_fifos_afd(void)
 
    (void)strcat(transfer_log_fifo, TRANSFER_LOG_FIFO);
 
-   /* First remove any stale fifos. Maybe they still have       */
+   /* First remove any stale fifos. Maybe they still have        */
    /* some garbage. So lets remove it before it can do any harm. */
-   (void)unlink(transfer_log_fifo);
-   (void)unlink(event_log_fifo);
    (void)unlink(trans_db_log_fifo);
    (void)unlink(afd_cmd_fifo);
    (void)unlink(afd_resp_fifo);
@@ -115,52 +113,52 @@ init_fifos_afd(void)
    (void)unlink(fd_cmd_fifo);
    (void)unlink(ip_fin_fifo);
 
-   /* OK. Now lets make all fifos */
+   /* OK. Now lets make all fifos. */
    if (make_fifo(transfer_log_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     transfer_log_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(event_log_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     event_log_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(trans_db_log_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     trans_db_log_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(afd_cmd_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     afd_cmd_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(afd_resp_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     afd_resp_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(amg_cmd_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     amg_cmd_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(fd_cmd_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     fd_cmd_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(ip_fin_fifo) < 0)
    {
-      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+      (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                     ip_fin_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -168,7 +166,7 @@ init_fifos_afd(void)
    {
       if (make_fifo(probe_only_fifo) < 0)
       {
-         (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+         (void)fprintf(stderr, _("Could not create fifo `%s'. (%s %d)\n"),
                        probe_only_fifo, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -181,7 +179,7 @@ init_fifos_afd(void)
    if ((afd_cmd_fd = coe_open(afd_cmd_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Could not open fifo `%s' : %s (%s %d)\n"),
                     afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -191,7 +189,7 @@ init_fifos_afd(void)
    if ((afd_resp_fd = coe_open(afd_resp_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Could not open fifo `%s' : %s (%s %d)\n"),
                     afd_resp_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -201,7 +199,7 @@ init_fifos_afd(void)
    if ((amg_cmd_fd = coe_open(amg_cmd_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Could not open fifo `%s' : %s (%s %d)\n"),
                     amg_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -211,7 +209,7 @@ init_fifos_afd(void)
    if ((fd_cmd_fd = coe_open(fd_cmd_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Could not open fifo `%s' : %s (%s %d)\n"),
                     fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -221,7 +219,7 @@ init_fifos_afd(void)
    if ((probe_only_fd = coe_open(probe_only_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Could not open fifo `%s' : %s (%s %d)\n"),
                     probe_only_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }

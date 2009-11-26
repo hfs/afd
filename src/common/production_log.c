@@ -1,6 +1,6 @@
 /*
  *  production_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,23 +25,32 @@ DESCR__S_M3
  **   production_log - writes production data to the production log fifo
  **
  ** SYNOPSIS
- **   void production_log(time_t         creation_time,
- **                       unsigned short unique_number,
- **                       unsigned int   split_job_counter,
- **                       char           *fmt,
+ **   void production_log(time_t       creation_time,
+ **                       unsigned int ratio_1,
+ **                       unsigned int ratio_2,
+ **                       unsigned int unique_number,
+ **                       unsigned int split_job_counter,
+ **                       unsigned int job_id,
+ **                       unsigned int dir_id,
+ **                       char         *fmt,
  **                       ...)
  **
  ** DESCRIPTION
  **   When process wants to log the files it changed, it writes them
  **   via a fifo. The data it will write looks as follows:
- **       <ML><UDN>|<OFN>|<NFL>[|<CMD>]\n
- **         |   |     |     |      |
- **         |   |     |     |      +-------> Command executed.
- **         |   |     |     +--------------> New filename.
- **         |   |     +--------------------> Original File Name.
- **         |   +--------------------------> Unique ID.
- **         +------------------------------> The length of this message of
- **                                          type unsigned short.
+ **       <ML><RR><UDN>|<DID>|<JID>|<OFN>|<NFL>[|<CMD>]\n
+ **         |   |   |     |     |     |     |      |
+ **         |   |   |     |     |     |     |      +-------> Command executed.
+ **         |   |   |     |     |     |     +--------------> New filename.
+ **         |   |   |     |     |     +--------------------> Original File Name.
+ **         |   |   |     |     +--------------------------> Job ID.
+ **         |   |   |     +--------------------------------> Directory ID.
+ **         |   |   +--------------------------------------> Unique ID.
+ **         |   +------------------------------------------> Ratio
+ **         |                                                relationship.
+ **         +----------------------------------------------> The length of this
+ **                                                          message of type
+ **                                                          unsigned short.
  **
  ** RETURN VALUES
  **   None
@@ -52,6 +61,9 @@ DESCR__S_M3
  ** HISTORY
  **   11.03.2001 H.Kiehl Created
  **   02.10.2004 H.Kiehl Change format and show command executed.
+ **   15.01.2008 H.Kiehl Added job ID.
+ **   28.03.2008 H.Kiehl Added directory ID.
+ **   28.10.2008 H.Kiehl Added ratio relationship.
  **
  */
 DESCR__E_M3
@@ -74,14 +86,18 @@ extern char *p_work_dir;
 
 /*########################## production_log() ###########################*/
 void
-production_log(time_t         creation_time,
-               unsigned short unique_number,
-               unsigned int   split_job_counter,
-               char           *fmt,
+production_log(time_t       creation_time,
+               unsigned int ratio_1,
+               unsigned int ratio_2,
+               unsigned int unique_number,
+               unsigned int split_job_counter,
+               unsigned int job_id,
+               unsigned int dir_id,
+               char         *fmt,
                ...)
 {
    size_t  length;
-   char    production_buffer[MAX_INT_LENGTH + MAX_INT_LENGTH + MAX_PRODUCTION_BUFFER_LENGTH + 1];
+   char    production_buffer[MAX_INT_LENGTH + MAX_PRODUCTION_BUFFER_LENGTH + 1];
    va_list ap;
 
    if ((production_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
@@ -115,7 +131,7 @@ production_log(time_t         creation_time,
 #endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Could not open fifo %s : %s",
+                             _("Could not open `%s' : %s"),
                              production_log_fifo, strerror(errno));
                   return;
                }
@@ -124,7 +140,7 @@ production_log(time_t         creation_time,
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not open fifo %s : %s",
+                       _("Could not open `%s' : %s"),
                        production_log_fifo, strerror(errno));
             return;
          }
@@ -133,12 +149,14 @@ production_log(time_t         creation_time,
 
    length = sizeof(short);
 #if SIZEOF_TIME_T == 4
-   length += sprintf(&production_buffer[length], "%lx_%x_%x%c",
+   length += sprintf(&production_buffer[length], "%x:%x%c%lx_%x_%x%c%x%c%x%c",
 #else
-   length += sprintf(&production_buffer[length], "%llx_%x_%x%c",
+   length += sprintf(&production_buffer[length], "%x:%x%c%llx_%x_%x%c%x%c%x%c",
 #endif
+                     ratio_1, ratio_2, SEPARATOR_CHAR,
                      (pri_time_t)creation_time, unique_number,
-                     split_job_counter, SEPARATOR_CHAR);
+                     split_job_counter, SEPARATOR_CHAR, dir_id,
+                     SEPARATOR_CHAR, job_id, SEPARATOR_CHAR);
    va_start(ap, fmt);
    length += vsprintf(&production_buffer[length], fmt, ap) + 1;
    production_buffer[length] = '\n';
@@ -146,7 +164,7 @@ production_log(time_t         creation_time,
    va_end(ap);
    if (write(production_log_fd, production_buffer, length) != length)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__, "write() error : %s",
+      system_log(ERROR_SIGN, __FILE__, __LINE__, _("write() error : %s"),
                  strerror(errno));
    }
 

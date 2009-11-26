@@ -1,6 +1,6 @@
 /*
  *  get_log_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -98,7 +98,7 @@ get_log_number(int  *log_number,
    if ((dp = opendir(log_dir)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not opendir() <%s> : %s", log_dir, strerror(errno));
+                 _("Could not opendir() `%s' : %s"), log_dir, strerror(errno));
       exit(INCORRECT);
    }
 
@@ -118,7 +118,7 @@ get_log_number(int  *log_number,
             if (errno != ENOENT)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Can't access file <%s> : %s",
+                          _("Can't access file `%s' : %s"),
                           fullname, strerror(errno));
             }
             continue;
@@ -147,13 +147,13 @@ get_log_number(int  *log_number,
                         if (unlink(fullname) < 0)
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Failed to unlink() <%s> : %s",
+                                      _("Failed to unlink() `%s' : %s"),
                                       fullname, strerror(errno));
                         }
                         else
                         {
                            system_log(INFO_SIGN, __FILE__, __LINE__,
-                                      "Removing log file <%s>", fullname);
+                                      _("Removing log file `%s'"), fullname);
                         }
                      }
                      else
@@ -171,12 +171,12 @@ get_log_number(int  *log_number,
    if (errno)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "readdir() error : %s", strerror(errno));
+                 _("readdir() error : %s"), strerror(errno));
    }
    if (closedir(dp) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "closedir() error : %s", strerror(errno));
+                 _("closedir() error : %s"), strerror(errno));
    }
 
    return;

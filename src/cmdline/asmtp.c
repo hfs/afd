@@ -1,6 +1,6 @@
 /*
  *  asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ main(int argc, char *argv[])
    if (atexit(asmtp_exit) != 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit function : %s (%s %d)\n",
+                _("Could not register exit function : %s (%s %d)\n"),
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -146,7 +146,7 @@ main(int argc, char *argv[])
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
        (signal(SIGPIPE, sig_pipe) == SIG_ERR))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "signal() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, FATAL_SIGN, _("signal() error : %s (%s %d)\n"),
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -169,7 +169,7 @@ main(int argc, char *argv[])
     */
    if ((smtp_buffer = malloc(((blocksize * 2) + 1))) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, ERROR_SIGN, _("malloc() error : %s (%s %d)\n"),
                 strerror(errno), __FILE__, __LINE__);
       exit(ALLOC_ERROR);
    }
@@ -179,8 +179,8 @@ main(int argc, char *argv[])
    /* Connect to remote SMTP-server. */
    if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                "SMTP connection to <%s> at port %d failed (%d).",
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                _("SMTP connection to <%s> at port %d failed (%d)."),
                 db.smtp_server, db.port, status);
       exit(eval_timeout(CONNECT_ERROR));
    }
@@ -188,22 +188,22 @@ main(int argc, char *argv[])
    {
       if (db.verbose == YES)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                   "Connected to <%s> at port %d.", db.smtp_server, db.port);
+         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Connected to <%s> at port %d."), db.smtp_server, db.port);
       }
    }
 
    /* Now send HELO. */
    if (gethostname(host_name, 255) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "gethostname() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, ERROR_SIGN, _("gethostname() error : %s (%s %d)\n"),
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((status = smtp_helo(host_name)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                "Failed to send HELO to <%s> (%d).", db.smtp_server, status);
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                _("Failed to send HELO to <%s> (%d)."), db.smtp_server, status);
       (void)smtp_quit();
       exit(eval_timeout(CONNECT_ERROR));
    }
@@ -211,7 +211,8 @@ main(int argc, char *argv[])
    {
       if (db.verbose == YES)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Send HELO.");
+         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Send HELO."));
       }
    }
 
@@ -233,7 +234,7 @@ main(int argc, char *argv[])
    /* Allocate buffer to read data from the source file. */
    if ((buffer = malloc(blocksize + 4)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, ERROR_SIGN, _("malloc() error : %s (%s %d)\n"),
                 strerror(errno), __FILE__, __LINE__);
       exit(ALLOC_ERROR);
    }
@@ -242,7 +243,7 @@ main(int argc, char *argv[])
    {
       if ((encode_buffer = malloc((2 * (blocksize + 1)) + 1)) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
+         (void)rec(sys_log_fd, ERROR_SIGN, _("malloc() error : %s (%s %d)\n"),
                    strerror(errno), __FILE__, __LINE__);
          exit(ALLOC_ERROR);
       }
@@ -282,8 +283,9 @@ main(int argc, char *argv[])
       /* Send local user name. */
       if ((status = smtp_user(local_user)) != SUCCESS)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send local user <%s> (%d).", local_user, status);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Failed to send local user <%s> (%d)."),
+                   local_user, status);
          (void)smtp_quit();
          exit(eval_timeout(USER_ERROR));
       }
@@ -291,16 +293,17 @@ main(int argc, char *argv[])
       {
          if (db.verbose == YES)
          {
-            trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Entered local user name %s.", local_user);
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                      _("Entered local user name %s."), local_user);
          }
       }
 
       /* Send remote user name. */
       if ((status = smtp_rcpt(remote_user)) != SUCCESS)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send remote user <%s> (%d).", remote_user, status);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Failed to send remote user <%s> (%d)."),
+                   remote_user, status);
          (void)smtp_quit();
          exit(eval_timeout(REMOTE_USER_ERROR));
       }
@@ -308,8 +311,8 @@ main(int argc, char *argv[])
       {
          if (db.verbose == YES)
          {
-            trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Remote address %s accepted by SMTP-server.",
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                      _("Remote address %s accepted by SMTP-server."),
                       remote_user);
          }
       }
@@ -317,8 +320,8 @@ main(int argc, char *argv[])
       /* Enter data mode. */
       if ((status = smtp_open()) != SUCCESS)
       {                                     
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to set DATA mode (%d).", status);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Failed to set DATA mode (%d)."), status);
          (void)smtp_quit();                                 
          exit(eval_timeout(DATA_ERROR));
       }                   
@@ -326,7 +329,8 @@ main(int argc, char *argv[])
       {   
          if (db.verbose == YES)
          {                           
-            trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Set DATA mode.");
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                      _("Set DATA mode."));
          }                                                                
       }
 
@@ -335,8 +339,8 @@ main(int argc, char *argv[])
       {
          if (db.verbose == YES)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to open() local file %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to open() local file %s"),
                       db.filename[files_send]);
          }
 
@@ -344,8 +348,8 @@ main(int argc, char *argv[])
          if ((status = smtp_close()) != SUCCESS)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                      "Failed to close data mode (%d).", status);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                      _("Failed to close DATA mode (%d)."), status);
             (void)smtp_quit();
             exit(eval_timeout(CLOSE_REMOTE_ERROR));
          }
@@ -353,8 +357,8 @@ main(int argc, char *argv[])
          {
             if (db.verbose == YES)
             {
-               trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                         "Closing data mode.");
+               trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                         _("Closing DATA mode."));
             }
          }
          continue;
@@ -363,8 +367,8 @@ main(int argc, char *argv[])
       {
          if (db.verbose == YES)
          {
-            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to fstat() local file %s",
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to fstat() local file `%s'"),
                       db.filename[files_send]);
          }
          WHAT_DONE(file_size_done, no_of_files_done);
@@ -378,8 +382,8 @@ main(int argc, char *argv[])
          {
             if (db.verbose == YES)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Local file %s is not a regular file.",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         _("Local file `%s' is not a regular file."),
                          db.filename[files_send]);
             }
 
@@ -387,8 +391,8 @@ main(int argc, char *argv[])
             if ((status = smtp_close()) != SUCCESS)
             {
                WHAT_DONE(file_size_done, no_of_files_done);
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                         "Failed to close data mode (%d).", status);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                         _("Failed to close DATA mode (%d)."), status);
                (void)smtp_quit();
                exit(eval_timeout(CLOSE_REMOTE_ERROR));
             }
@@ -396,8 +400,8 @@ main(int argc, char *argv[])
             {
                if (db.verbose == YES)
                {
-                  trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                            "Closing data mode.");
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                            _("Closing DATA mode."));
                }
             }
             (void)close(fd);
@@ -407,8 +411,8 @@ main(int argc, char *argv[])
       local_file_size = stat_buf.st_size;
       if (db.verbose == YES)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                   "Open local file %s", db.filename[files_send]);
+         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   _("Open local file `%s'"), db.filename[files_send]);
       }
 
       /* Read (local) and write (remote) file. */
@@ -418,12 +422,12 @@ main(int argc, char *argv[])
 
       if (db.from != NULL)
       {
-         length = sprintf(buffer, "From: %s\n", db.from);
+         length = sprintf(buffer, "From: %s\r\n", db.from);
          if (smtp_write(buffer, NULL, length) < 0)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to write From to SMTP-server.");
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to write From to SMTP-server."));
             (void)smtp_quit();
             exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
@@ -431,26 +435,37 @@ main(int argc, char *argv[])
       }
       if (db.reply_to != NULL)
       {
-         length = sprintf(buffer, "Reply-To: %s\n", db.reply_to);
+         length = sprintf(buffer, "Reply-To: %s\r\n", db.reply_to);
          if (smtp_write(buffer, NULL, length) < 0)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to write Reply-To to SMTP-server.");
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to write Reply-To to SMTP-server."));
             (void)smtp_quit();
             exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
          no_of_bytes += length;
       }
 
+      length = sprintf(buffer, "To: %s\r\n", remote_user);
+      if (smtp_write(buffer, NULL, length) < 0)
+      {
+         WHAT_DONE(file_size_done, no_of_files_done);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   _("Failed to write To header to SMTP-server."));
+         (void)smtp_quit();
+         exit(eval_timeout(WRITE_REMOTE_ERROR));
+      }
+      no_of_bytes += length;
+
       if (db.subject != NULL)
       {
-         length = sprintf(buffer, "Subject : %s\r\n", db.subject);
+         length = sprintf(buffer, "Subject: %s\r\n", db.subject);
          if (smtp_write(buffer, NULL, length) < 0)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to write subject to SMTP-server.");
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to write subject to SMTP-server."));
             (void)smtp_quit();
             exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
@@ -458,28 +473,17 @@ main(int argc, char *argv[])
       }
       else if (db.flag & FILE_NAME_IS_SUBJECT)
            {
-              length = sprintf(buffer, "Subject : %s\r\n", final_filename);
+              length = sprintf(buffer, "Subject: %s\r\n", final_filename);
               if (smtp_write(buffer, NULL, length) < 0)
               {
                  WHAT_DONE(file_size_done, no_of_files_done);
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Failed to write the filename as subject to SMTP-server.");
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                           _("Failed to write the filename as subject to SMTP-server."));
                  (void)smtp_quit();
                  exit(eval_timeout(WRITE_REMOTE_ERROR));
               }
               no_of_bytes += length;
            } /* if (db.flag & FILE_NAME_IS_SUBJECT) */
-
-      length = sprintf(buffer, "To: %s\r\n", remote_user);
-      if (smtp_write(buffer, NULL, length) < 0)
-      {
-         WHAT_DONE(file_size_done, no_of_files_done);
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to write To header to SMTP-server.");
-         (void)smtp_quit();
-         exit(eval_timeout(WRITE_REMOTE_ERROR));
-      }
-      no_of_bytes += length;
 
       /* Send MIME information. */
       if (db.flag & ATTACH_FILE)
@@ -504,8 +508,8 @@ main(int argc, char *argv[])
          if (smtp_write(buffer_ptr, NULL, length) < 0)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to write start of multipart boundary to SMTP-server.");
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to write start of multipart boundary to SMTP-server."));
             (void)smtp_quit();
             exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
@@ -521,8 +525,8 @@ main(int argc, char *argv[])
       if (smtp_write("\r\n", NULL, 2) < 0)
       {
          WHAT_DONE(file_size_done, no_of_files_done);
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to write carriage return line feed to mark end of header to SMTP-server.");
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   _("Failed to write carriage return line feed to mark end of header to SMTP-server."));
          (void)smtp_quit();
          exit(eval_timeout(WRITE_REMOTE_ERROR));
       }
@@ -535,8 +539,8 @@ main(int argc, char *argv[])
             if (read(fd, buffer, blocksize) != blocksize)
             {
                WHAT_DONE(file_size_done, no_of_files_done);
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to read() %s : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         _("Failed to read() from `%s' : %s"),
                          db.filename[files_send], strerror(errno));
                (void)smtp_close();
                (void)smtp_quit();
@@ -549,8 +553,8 @@ main(int argc, char *argv[])
                if (smtp_write(encode_buffer, NULL, write_size) < 0)
                {
                   WHAT_DONE(file_size_done, no_of_files_done);
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "Failed to write data from the source file to the SMTP-server.");
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            _("Failed to write data from the source file to the SMTP-server."));
                   (void)smtp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
@@ -560,8 +564,8 @@ main(int argc, char *argv[])
                if (smtp_write(buffer, smtp_buffer, blocksize) < 0)
                {
                   WHAT_DONE(file_size_done, no_of_files_done);
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "Failed to write data from the source file to the SMTP-server.");
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            _("Failed to write data from the source file to the SMTP-server."));
                   (void)smtp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
@@ -576,8 +580,8 @@ main(int argc, char *argv[])
             if (read(fd, buffer, rest) != rest)
             {
                WHAT_DONE(file_size_done, no_of_files_done);
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to read() rest from %s : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         _("Failed to read() rest from `%s' : %s"),
                          db.filename[files_send], strerror(errno));
                (void)smtp_close();
                (void)smtp_quit();
@@ -590,8 +594,8 @@ main(int argc, char *argv[])
                if (smtp_write(encode_buffer, NULL, write_size) < 0)
                {
                   WHAT_DONE(file_size_done, no_of_files_done);
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "Failed to write the rest data from the source file to the SMTP-server.");
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            _("Failed to write the rest data from the source file to the SMTP-server."));
                   (void)smtp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
@@ -601,8 +605,8 @@ main(int argc, char *argv[])
                if (smtp_write(buffer, smtp_buffer, rest) < 0)
                {
                   WHAT_DONE(file_size_done, no_of_files_done);
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "Failed to write the rest data from the source file to the SMTP-server.");
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            _("Failed to write the rest data from the source file to the SMTP-server."));
                   (void)smtp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
@@ -634,7 +638,7 @@ main(int argc, char *argv[])
                 * can be taken against the originator.
                 */
                (void)rec(sys_log_fd, WARN_SIGN,
-                         "Someone is still writting to file %s. (%s %d)\n",
+                         _("Someone is still writting to file `%s'. (%s %d)\n"),
                          db.filename[files_send], __FILE__, __LINE__);
             }
             else
@@ -659,8 +663,8 @@ main(int argc, char *argv[])
          if (smtp_write(buffer, NULL, length) < 0)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to write end of multipart boundary to SMTP-server.");
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      _("Failed to write end of multipart boundary to SMTP-server."));
             (void)smtp_quit();
             exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
@@ -670,8 +674,8 @@ main(int argc, char *argv[])
       /* Close local file. */
       if (close(fd) < 0)
       {
-         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to close() local file %s : %s",
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   _("Failed to close() local file `%s' : %s"),
                    final_filename, strerror(errno));
 
          /*
@@ -684,8 +688,8 @@ main(int argc, char *argv[])
       if ((status = smtp_close()) != SUCCESS)
       {
          WHAT_DONE(file_size_done, no_of_files_done);
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to close data mode (%d).", status);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Failed to close DATA mode (%d)."), status);
          (void)smtp_quit();
          exit(eval_timeout(CLOSE_REMOTE_ERROR));
       }
@@ -693,8 +697,8 @@ main(int argc, char *argv[])
       {
          if (db.verbose == YES)
          {
-            trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Closing data mode.");
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                      _("Closing DATA mode."));
          }
       }
 
@@ -706,7 +710,7 @@ main(int argc, char *argv[])
          if (unlink(db.filename[files_send]) < 0)
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not unlink() local file %s after sending it successfully : %s (%s %d)\n",
+                      _("Could not unlink() local file `%s' after sending it successfully : %s (%s %d)\n"),
                       strerror(errno), db.filename[files_send],
                       __FILE__, __LINE__);
          }
@@ -720,14 +724,15 @@ main(int argc, char *argv[])
    /* Logout again. */
    if ((status = smtp_quit()) != SUCCESS)
    {
-      trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                "Failed to disconnect from SMTP-server (%d).", status);
+      trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                _("Failed to disconnect from SMTP-server (%d)."), status);
    }
    else
    {
       if (db.verbose == YES)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Logged out.");
+         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Logged out."));
       }
    }
 
@@ -764,7 +769,7 @@ sig_pipe(int signo)
    /* Ignore any future signals of this kind. */
    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "signal() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, ERROR_SIGN, _("signal() error : %s (%s %d)\n"),
                 strerror(errno), __FILE__, __LINE__);
    }
    sigpipe_flag = ON;
@@ -778,7 +783,7 @@ static void
 sig_segv(int signo)
 {
    (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this! (%s %d)\n",
+             _("Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this! (%s %d)\n"),
              __FILE__, __LINE__);
    exit(INCORRECT);
 }
@@ -789,7 +794,7 @@ static void
 sig_bus(int signo)
 {
    (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Uuurrrggh! Received SIGBUS. (%s %d)\n",
+             _("Uuurrrggh! Received SIGBUS. (%s %d)\n"),
              __FILE__, __LINE__);
    exit(INCORRECT);
 }

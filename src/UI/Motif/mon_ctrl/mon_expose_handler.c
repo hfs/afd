@@ -1,7 +1,7 @@
 /*
  *  mon_expose_handler.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -65,12 +65,17 @@ DESCR__E_M3
 
 extern Display                 *display;
 extern XtAppContext            app;
-extern XtIntervalId            interval_id_afd;
+extern Pixmap                  button_pixmap,
+                               label_pixmap,
+                               line_pixmap;
 extern Window                  button_window,
                                label_window,
                                line_window;
 extern Widget                  appshell,
                                mw[];
+extern GC                      color_letter_gc,
+                               default_bg_gc,
+                               label_bg_gc;
 extern int                     magic_value,
                                no_input,
                                no_of_afds,
@@ -94,13 +99,23 @@ mon_expose_handler_label(Widget                      w,
                          XtPointer                   client_data,
                          XmDrawingAreaCallbackStruct *call_data)
 {
-   XEvent *p_event = call_data->event;
+   static int ft_exposure_label = 0; /* First time exposure label. */
 
-   if (p_event->xexpose.count == 0)
+   if (ft_exposure_label == 0)
    {
       draw_label_line();
-      XFlush(display);
+      ft_exposure_label = 1;
    }
+   else
+   {
+      XEvent *p_event = call_data->event;
+
+      XCopyArea(display, label_pixmap, label_window, label_bg_gc,
+                p_event->xexpose.x, p_event->xexpose.y,
+                p_event->xexpose.width, p_event->xexpose.height,
+                p_event->xexpose.x, p_event->xexpose.y);
+   }
+   XFlush(display);
 
    return;
 }
@@ -112,157 +127,101 @@ mon_expose_handler_line(Widget                      w,
                         XtPointer                   client_data,
                         XmDrawingAreaCallbackStruct *call_data)
 {
-   XEvent     *p_event = call_data->event;
-   int        i,
-              top_line,
-              bottom_line,
-              left_column,
-              top_row,
-              bottom_row,
-              right_column;
-   static int ft_exposure_line = 0; /* first time exposure line */
+   static int ft_exposure_line = 0; /* First time exposure line. */
 
-   /* Get the channel no's, which have to be redrawn */
-   left_column = p_event->xexpose.x / line_length;
-   top_row = p_event->xexpose.y / line_height;
-   bottom_row = (p_event->xexpose.y  + p_event->xexpose.height) /
-                 line_height;
-   if (bottom_row >= no_of_rows)
+   /*
+    * To ensure that widgets are realized before calling XtAppAddTimeOut()
+    * we wait for the widget to get its first expose event. This should
+    * take care of the nasty BadDrawable error on slow connections.
+    */
+   if (ft_exposure_line == 0)
    {
-      bottom_row--;
-   }
-   right_column = (p_event->xexpose.x  + p_event->xexpose.width) /
-                   line_length;
-   if (right_column >= no_of_columns)
-   {
-      right_column--;
-   }
+      int       bs_attribute,
+                i;
+      Dimension height;
+      Screen    *c_screen = ScreenOfDisplay(display, DefaultScreen(display));
 
-#ifdef _DEBUG
-   (void)printf("xexpose.x   = %d    xexpose.width= %d   line_length = %d\n",
-                 p_event->xexpose.x, p_event->xexpose.width, line_length);
-   (void)printf("left_column = %d    right_column = %d\n",
-                 left_column, right_column);
-   (void)printf("top_row     = %d    bottom_row   = %d\n",
-                 top_row, bottom_row);
-#endif
-
-   /* Note which lines have to be redrawn, but do not    */
-   /* redraw them here. First collect all expose events. */
-   do
-   {
-      top_line = (right_column * no_of_rows) + top_row;
-      bottom_line = (right_column * no_of_rows) + bottom_row;
-      while (bottom_line >= no_of_afds)
-      {
-         bottom_line--;
-      }
-
-#ifdef _DEBUG
-      (void)printf("top_line     = %d    bottom_line   = %d\n",
-                   top_line, bottom_line);
-      (void)printf("=====> no_of_columns = %d   no_of_rows = %d <=====\n",
-                   no_of_columns, no_of_rows);
-#endif
-
-      for (i = top_line; i <= bottom_line; i++)
-      {
-         connect_data[i].expose_flag = YES;
-      }
-      right_column--;
-   } while (left_column <= right_column);
-
-   /* Now see if there are still expose events. If so, */
-   /* do NOT redraw.                                   */
-   if (p_event->xexpose.count == 0)
-   {
+      XFillRectangle(display, line_pixmap, default_bg_gc, 0, 0,
+                     window_width, (line_height * no_of_rows));
       for (i = 0; i < no_of_afds; i++)
       {
-         if (connect_data[i].expose_flag == YES)
-         {
-            draw_line_status(i, 1);
-            connect_data[i].expose_flag = NO;
-         }
+         draw_line_status(i, 1);
       }
 
-      XFlush(display);
+      (void)XtAppAddTimeOut(app, redraw_time_line,
+                            (XtTimerCallbackProc)check_afd_status, w);
+      ft_exposure_line = 1;
+
+      if ((bs_attribute = DoesBackingStore(c_screen)) != NotUseful)
+      {
+         XSetWindowAttributes attr;
+
+         attr.backing_store = bs_attribute;
+         attr.save_under = DoesSaveUnders(c_screen);
+         XChangeWindowAttributes(display, line_window,
+                                 CWBackingStore | CWSaveUnder, &attr);
+         XChangeWindowAttributes(display, label_window,
+                                 CWBackingStore, &attr);
+         XChangeWindowAttributes(display, button_window,
+                                 CWBackingStore, &attr);
+         if (no_input == False)
+         {
+            XChangeWindowAttributes(display, XtWindow(mw[MON_W]),
+                                    CWBackingStore, &attr);
+
+            if ((mcp.show_slog != NO_PERMISSION) ||
+                (mcp.show_rlog != NO_PERMISSION) ||
+                (mcp.show_tlog != NO_PERMISSION) ||
+                (mcp.show_ilog != NO_PERMISSION) ||
+                (mcp.show_olog != NO_PERMISSION) ||
+                (mcp.show_elog != NO_PERMISSION) ||
+                (mcp.show_queue != NO_PERMISSION) ||
+                (mcp.afd_load != NO_PERMISSION))
+            {
+               XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),
+                                       CWBackingStore, &attr);
+            }
+
+            if ((mcp.amg_ctrl != NO_PERMISSION) ||
+                (mcp.fd_ctrl != NO_PERMISSION) ||
+                (mcp.rr_dc != NO_PERMISSION) ||
+                (mcp.rr_hc != NO_PERMISSION) ||
+                (mcp.edit_hc != NO_PERMISSION) ||
+                (mcp.dir_ctrl != NO_PERMISSION) ||
+                (mcp.startup_afd != NO_PERMISSION) ||
+                (mcp.shutdown_afd != NO_PERMISSION))
+            {
+               XChangeWindowAttributes(display, XtWindow(mw[CONTROL_W]),
+                                       CWBackingStore, &attr);
+            }
+
+            XChangeWindowAttributes(display, XtWindow(mw[CONFIG_W]),
+                                    CWBackingStore, &attr);
+#ifdef _WITH_HELP_PULLDOWN
+            XChangeWindowAttributes(display, XtWindow(mw[HELP_W]),
+                                    CWBackingStore, &attr);
+#endif
+         } /* if (no_input == False) */
+      }
 
       /*
-       * To ensure that widgets are realized before calling XtAppAddTimeOut()
-       * we wait for the widget to get its first expose event. This should
-       * take care of the nasty BadDrawable error on slow connections.
+       * Calculate the magic unkown height factor we need to add to the
+       * height of the widget when it is being resized.
        */
-      if (ft_exposure_line == 0)
-      {
-         int       bs_attribute;
-         Dimension height;
-         Screen    *c_screen = ScreenOfDisplay(display, DefaultScreen(display));
-
-         interval_id_afd = XtAppAddTimeOut(app, redraw_time_line,
-                                           (XtTimerCallbackProc)check_afd_status,
-                                           w);
-         ft_exposure_line = 1;
-
-         if ((bs_attribute = DoesBackingStore(c_screen)) != NotUseful)
-         {
-            XSetWindowAttributes attr;
-
-            attr.backing_store = bs_attribute;
-            attr.save_under = DoesSaveUnders(c_screen);
-            XChangeWindowAttributes(display, line_window,
-                                    CWBackingStore | CWSaveUnder, &attr);
-            XChangeWindowAttributes(display, label_window,
-                                    CWBackingStore, &attr);
-            XChangeWindowAttributes(display, button_window,
-                                    CWBackingStore, &attr);
-            if (no_input == False)
-            {
-               XChangeWindowAttributes(display, XtWindow(mw[MON_W]),
-                                       CWBackingStore, &attr);
-
-               if ((mcp.show_slog != NO_PERMISSION) ||
-                   (mcp.show_rlog != NO_PERMISSION) ||
-                   (mcp.show_tlog != NO_PERMISSION) ||
-                   (mcp.show_ilog != NO_PERMISSION) ||
-                   (mcp.show_olog != NO_PERMISSION) ||
-                   (mcp.show_elog != NO_PERMISSION) ||
-                   (mcp.show_queue != NO_PERMISSION) ||
-                   (mcp.afd_load != NO_PERMISSION))
-               {
-                  XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),
-                                          CWBackingStore, &attr);
-               }
-
-               if ((mcp.amg_ctrl != NO_PERMISSION) ||
-                   (mcp.fd_ctrl != NO_PERMISSION) ||
-                   (mcp.rr_dc != NO_PERMISSION) ||
-                   (mcp.rr_hc != NO_PERMISSION) ||
-                   (mcp.edit_hc != NO_PERMISSION) ||
-                   (mcp.dir_ctrl != NO_PERMISSION) ||
-                   (mcp.startup_afd != NO_PERMISSION) ||
-                   (mcp.shutdown_afd != NO_PERMISSION))
-               {
-                  XChangeWindowAttributes(display, XtWindow(mw[CONTROL_W]),
-                                          CWBackingStore, &attr);
-               }
-
-               XChangeWindowAttributes(display, XtWindow(mw[CONFIG_W]),
-                                       CWBackingStore, &attr);
-#ifdef _WITH_HELP_PULLDOWN
-               XChangeWindowAttributes(display, XtWindow(mw[HELP_W]),
-                                       CWBackingStore, &attr);
-#endif
-            } /* if (no_input == False) */
-         }
-
-         /*
-          * Calculate the magic unkown height factor we need to add to the
-          * height of the widget when it is being resized.
-          */
-         XtVaGetValues(appshell, XmNheight, &height, NULL);
-         magic_value = height - (window_height + line_height + glyph_height);
-      }
+      XtVaGetValues(appshell, XmNheight, &height, NULL);
+      magic_value = height - (window_height + line_height +
+                    line_height + glyph_height);
    }
+   else
+   {
+      XEvent *p_event = call_data->event;
+
+      XCopyArea(display, line_pixmap, line_window, color_letter_gc,
+                p_event->xexpose.x, p_event->xexpose.y,
+                p_event->xexpose.width, p_event->xexpose.height,
+                p_event->xexpose.x, p_event->xexpose.y);
+   }
+   XFlush(display);
 
    return;
 }
@@ -274,27 +233,33 @@ mon_expose_handler_button(Widget                      w,
                           XtPointer                   client_data,
                           XmDrawingAreaCallbackStruct *call_data)
 {
-   XEvent     *p_event = call_data->event;
    static int ft_exposure_status = 0;
 
    XFlush(display);
-   if (p_event->xexpose.count == 0)
+
+   /*
+    * To ensure that widgets are realized before calling XtAppAddTimeOut()
+    * we wait for the widget to get its first expose event. This should
+    * take care of the nasty BadDrawable error on slow connections.
+    */
+   if (ft_exposure_status == 0)
    {
       draw_mon_button_line();
-      XFlush(display);
 
-      /*
-       * To ensure that widgets are realized before calling XtAppAddTimeOut()
-       * we wait for the widget to get its first expose event. This should
-       * take care of the nasty BadDrawable error on slow connections.
-       */
-      if (ft_exposure_status == 0)
-      {
-         (void)XtAppAddTimeOut(app, redraw_time_status,
-                               (XtTimerCallbackProc)check_mon_status, w);
-         ft_exposure_status = 1;
-      }
+      (void)XtAppAddTimeOut(app, redraw_time_status,
+                            (XtTimerCallbackProc)check_mon_status, w);
+      ft_exposure_status = 1;
    }
+   else
+   {
+      XEvent *p_event = call_data->event;
+
+      XCopyArea(display, button_pixmap, button_window, color_letter_gc,
+                p_event->xexpose.x, p_event->xexpose.y,
+                p_event->xexpose.width, p_event->xexpose.height,
+                p_event->xexpose.x, p_event->xexpose.y);
+   }
+   XFlush(display);
 
    return;
 }

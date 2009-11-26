@@ -1,6 +1,6 @@
 /*
  *  get_max_log_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ get_max_log_number(int  *max_log_file_number,
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 
@@ -75,7 +75,7 @@ get_max_log_number(int  *max_log_file_number,
          if ((*max_log_file_number < 1) || (*max_log_file_number > 599))
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%d, must be more then 1 but less then 600) set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Incorrect value (%d, must be more then 1 but less then 600) set in AFD_CONFIG for %s. Setting to default %d."),
                        *max_log_file_number, definition, default_value);
             *max_log_file_number = default_value;
          }

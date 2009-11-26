@@ -1,7 +1,21 @@
 .\" Process this file with
 .\" groff -man -Tascii afdcmd.1
 .\"
-.TH AFDCMD 1 "JULY 2007" AFD "AFD"
+.\"  This program is free software; you can redistribute it and/or modify
+.\"  it under the terms of the GNU General Public License as published by
+.\"  the Free Software Foundation; either version 2 of the License, or
+.\"  (at your option) any later version.
+.\"
+.\"  This program is distributed in the hope that it will be useful,
+.\"  but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\"  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\"  GNU General Public License for more details.
+.\"
+.\"  You should have received a copy of the GNU General Public License
+.\"  along with this program; if not, write to the Free Software
+.\"  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.\"
+.TH AFDCMD 1 "OCTOBER 2008" AFD "AFD"
 .SH NAME
 afdcmd \- send commands to the AFD
 .SH SYNOPSIS
@@ -11,7 +25,7 @@ afdcmd \- send commands to the AFD
 .I role
 .B ]] [-u[
 .I user
-.B ]] [-aAbBdeEfFqQrRstTvWXYZ]
+.B ]] [-aAbBdeEgGfFikopqQrRstTvWXYZ]
 .I hostname|directory|position
 .SH DESCRIPTION
 With the command
@@ -27,6 +41,10 @@ stop the input queue
 start transfer
 .IP -T
 stop transfer
+.IP -g
+enable delete data for host
+.IP -G
+disable delete data for host
 .IP -e
 enable host
 .IP -E
@@ -36,7 +54,7 @@ switch host
 .IP -r
 retry
 .IP -d
-enable/diable debug
+enable/disable debug
 .IP -c
 enable/disable trace
 .IP -C
@@ -65,11 +83,19 @@ stop AMG
 start/stop AMG
 .IP -Z
 start/stop FD
+.IP -k
+force file dir check
+.IP -i
+reread local interface file
+.IP -o
+show exec statistics
+.IP -p
+force archive check
 .IP -v
 Just print the version number.
 .SH FILES
 .IP $AFD_WORK_DIR/etc/afd.users
-The AFD user configuration file giving each certain permission. See
+The AFD user configuration file giving each user certain permission. See
 .BR afd.users (5)
 for further details.
 .RE

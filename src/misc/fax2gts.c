@@ -1,7 +1,7 @@
 /*
  *  fax2gts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,12 +26,21 @@ DESCR__S_M3
  **   fax2gts - changes FAX files to GTS T4 files
  **
  ** SYNOPSIS
- **   off_t fax2gts(char *path, char *filename)
- **            path     - path where the FAX file can be found
- **            filename - file name of the FAX file
+ **   off_t fax2gts(char *path, char *filename, int fax_format)
+ **            path       - path where the FAX file can be found
+ **            filename   - file name of the FAX file
+ **            fax_format - allows to specify different DWD specific
+ **                         fax formats
  **
  ** DESCRIPTION
- **   Inserts a WMO-bulletin header.
+ **   Inserts a WMO-bulletin header. The following fax formats can
+ **   be set with fax_format:
+ **        1 - DFAX1062
+ **        2 - DFAX1064
+ **        3 - DFAX1074
+ **        4 - DFAX1084
+ **        5 - DFAX1099
+ **   Any other number will always result in DFAX1064.
  **
  ** RETURN VALUES
  **   Returns INCORRECT when it fails to convert the file. Otherwise
@@ -42,13 +51,14 @@ DESCR__S_M3
  **
  ** HISTORY
  **   15.02.2006 H.Kiehl Created
+ **   18.08.2008 H.Kiehl Added option to specify fax format.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>                /* malloc(), free()                   */
+#include <stdlib.h>                /* malloc(), free(), atoi()           */
 #include <sys/stat.h>              /* stat()                             */
 #include <sys/types.h>
 #include <sys/file.h>
@@ -60,14 +70,14 @@ DESCR__E_M3
 
 /*############################## fax2gts() ##############################*/
 off_t
-fax2gts(char *path, char* filename)
+fax2gts(char *path, char* filename, int fax_format)
 {
    off_t bytes_written = 0;
 
    if (strlen(filename) < 18)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Filename %s must be at least 18 bytes long and must be a WMO header.",
+                  _("Filename `%s' must be at least 18 bytes long and must be a WMO header."),
                   filename);
    }
    else
@@ -81,7 +91,7 @@ fax2gts(char *path, char* filename)
                         (O_WRONLY | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to open() %s : %s",
+                     _("Failed to open() `%s' : %s"),
                      dest_file_name, strerror(errno));
       }
       else
@@ -106,12 +116,37 @@ fax2gts(char *path, char* filename)
          wmo_header[28] = 'X';
          wmo_header[29] = '1';
          wmo_header[30] = '0';
-         wmo_header[31] = '6';
-         wmo_header[32] = '4';
+         switch (fax_format)
+         {
+            case 1 : /* DFAX1062 */
+               wmo_header[31] = '6';
+               wmo_header[32] = '2';
+               break;
+
+            case 3 : /* DFAX1074 */
+               wmo_header[31] = '7';
+               wmo_header[32] = '4';
+               break;
+
+            case 4 : /* DFAX1084 */
+               wmo_header[31] = '8';
+               wmo_header[32] = '4';
+               break;
+
+            case 5 : /* DFAX1099 */
+               wmo_header[31] = '9';
+               wmo_header[32] = '9';
+               break;
+
+            default: /* DFAX1064 */
+               wmo_header[31] = '6';
+               wmo_header[32] = '4';
+               break;
+         }
          if (write(to_fd, wmo_header, 33) != 33)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to write() WMO header to `%s' : %s",
+                        _("Failed to write() WMO header to `%s' : %s"),
                         dest_file_name, strerror(errno));
             (void)close(to_fd);
             (void)unlink(dest_file_name);
@@ -126,7 +161,7 @@ fax2gts(char *path, char* filename)
             if ((from_fd = open(fullname, O_RDONLY, 0)) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to open() `%s' : %s",
+                           _("Failed to open() `%s' : %s"),
                            fullname, strerror(errno));
                (void)close(to_fd);
                (void)unlink(dest_file_name);
@@ -139,7 +174,7 @@ fax2gts(char *path, char* filename)
                if (fstat(from_fd, &stat_buf) == -1)
                {
                   receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to fstat() `%s' : %s",
+                              _("Failed to fstat() `%s' : %s"),
                               fullname, strerror(errno));
                   ret = INCORRECT;
                }
@@ -152,7 +187,7 @@ fax2gts(char *path, char* filename)
                      if ((buffer = malloc(stat_buf.st_blksize)) == NULL)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to malloc() %d bytes : %s",
+                                    _("Failed to malloc() %d bytes : %s"),
                                     stat_buf.st_blksize, strerror(errno));
                         ret = INCORRECT;
                      }
@@ -166,7 +201,7 @@ fax2gts(char *path, char* filename)
                                                       stat_buf.st_blksize)) == -1)
                            {
                               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                          "Failed to read() %d bytes from `%s' : %s",
+                                          _("Failed to read() %d bytes from `%s' : %s"),
                                           stat_buf.st_blksize, fullname,
                                           strerror(errno));
                               ret = INCORRECT;
@@ -177,7 +212,7 @@ fax2gts(char *path, char* filename)
                               if (write(to_fd, buffer, bytes_buffered) != bytes_buffered)
                               {
                                  receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                             "Failed to write() %d bytes to `%s' : %s",
+                                             _("Failed to write() %d bytes to `%s' : %s"),
                                              bytes_buffered, dest_file_name,
                                              strerror(errno));
                                  ret = INCORRECT;
@@ -196,7 +231,7 @@ fax2gts(char *path, char* filename)
                            if (write(to_fd, wmo_header, 4) != 4)
                            {
                               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                          "Failed to write() WMO end to `%s' : %s",
+                                          _("Failed to write() WMO end to `%s' : %s"),
                                           dest_file_name, strerror(errno));
                            }
                            else
@@ -209,14 +244,14 @@ fax2gts(char *path, char* filename)
                   else
                   {
                      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                 "Source FAX file `%s' is empty.", fullname);
+                                 _("Source FAX file `%s' is empty."), fullname);
                      ret = INCORRECT;
                   }
                }
                if (close(from_fd) == -1)
                {
                   receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to close() `%s' : %s",
+                              _("Failed to close() `%s' : %s"),
                               fullname, strerror(errno));
                }
             }
@@ -224,7 +259,7 @@ fax2gts(char *path, char* filename)
          if (close(to_fd) == -1)
          {
             receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to close() `%s' : %s",
+                        _("Failed to close() `%s' : %s"),
                         dest_file_name, strerror(errno));
          }
          if (ret == SUCCESS)
@@ -233,13 +268,13 @@ fax2gts(char *path, char* filename)
             if (unlink(fullname) < 0)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to unlink() original TIFF file %s : %s",
+                           _("Failed to unlink() original TIFF file `%s' : %s"),
                            fullname, strerror(errno));
             }
             if (rename(dest_file_name, fullname) < 0)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to rename() file %s to %s : %s",
+                           _("Failed to rename() file `%s' to `%s' : %s"),
                            dest_file_name, fullname, strerror(errno));
             }
          }

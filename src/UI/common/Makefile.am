@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2007 Holger Kiehl
+## Copyright (C) 2007 - 2009 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 ##
 
 MAINTAINERCLEANFILES = Makefile.in
-noinst_HEADERS       = ui_common_defs.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../.. -I../../init_afd
+noinst_HEADERS       = ui_common_defs.h afd_logo.h
+INCLUDES             = -I../.. -I../../init_afd
 lib_LIBRARIES        = libuiafd.a
 libuiafd_a_SOURCES   = check_host_permissions.c\
                        config_log.c\

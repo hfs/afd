@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +24,11 @@
 #include <sys/types.h>
 #include <sys/times.h>
 
+#ifndef IGNORE_DUPLICATE_JOB_IDS
+/* Set this to check for duplicate job entries. */
+# define WITH_GOTCHA_LIST
+#endif
+
 /* Definitions to be read from the AFD_CONFIG file. */
 #define AMG_DIR_RESCAN_TIME_DEF    "AMG_DIR_RESCAN_TIME"
 #define MAX_NO_OF_DIR_CHECKS_DEF   "MAX_NO_OF_DIR_CHECKS"
@@ -35,6 +40,10 @@
                                         /* specified, assume this value. */
 
 /* Definitions of maximum values. */
+#define MAX_CHECK_FILE_DIRS        152  /* FD should only check the file */
+                                        /* directory if it is less then  */
+                                        /* this value. Don't forget to   */
+                                        /* add 2 for "." and "..".       */
 #define MAX_HOLDING_TIME           24   /* The maximum time that a file  */
                                         /* can be held before it gets    */
                                         /* deleted.                      */
@@ -71,6 +80,7 @@
 #define TIME_JOB_STEP_SIZE         10
 #define FILE_NAME_STEP_SIZE        20
 #define FILE_BUFFER_STEP_SIZE      50
+#define ORPHANED_PROC_STEP_SIZE     5
 
 /* Definitions of identifiers in options. */
 #define TIME_NO_COLLECT_ID         "time no collect"
@@ -110,7 +120,7 @@
 #define FAX2GTS_ID                 "fax2gts"
 #define FAX2GTS_ID_LENGTH          (sizeof(FAX2GTS_ID) - 1)
 #define FAX2GTS_ID_FLAG            1024
-#define TIFF2GTS_ID                "tiff2gts"
+/* NOTE: TIFF2GTS_ID defined in afddefs.h */
 #define TIFF2GTS_ID_LENGTH         (sizeof(TIFF2GTS_ID) - 1)
 #define TIFF2GTS_ID_FLAG           2048
 #define GTS2TIFF_ID                "gts2tiff"
@@ -128,8 +138,7 @@
 #define WMO2ASCII_ID               "wmo2ascii"
 #define WMO2ASCII_ID_LENGTH        (sizeof(WMO2ASCII_ID) - 1)
 #define WMO2ASCII_ID_FLAG          65536
-#define DELETE_ID                  "delete"
-#define DELETE_ID_LENGTH           (sizeof(DELETE_ID) - 1)
+/* NOTE: DELETE_ID and DELETE_ID_LENGTH defined in afddefs.h */
 #define DELETE_ID_FLAG             131072
 #define CONVERT_ID                 "convert"
 #define CONVERT_ID_LENGTH          (sizeof(CONVERT_ID) - 1)
@@ -170,11 +179,17 @@
 #define ONLY_WMO                   13
 #define SOHETXWMO                  14
 #define MRZ2WMO                    15
+#define ZCZC_NNNN                  16
+#define DOS2UNIX                   17
+#define UNIX2DOS                   18
+#define LF2CRCRLF                  19
+#define CRCRLF2LF                  20
 
 /* Definitions for the different extract options. */
 #define EXTRACT_ADD_SOH_ETX        1
 #define EXTRACT_ADD_CRC_CHECKSUM   2
 #define EXTRACT_ADD_UNIQUE_NUMBER  4
+#define EXTRACT_REPORTS            8
 #define DEFAULT_EXTRACT_OPTIONS    (EXTRACT_ADD_SOH_ETX | EXTRACT_ADD_CRC_CHECKSUM)
 
 /* Definition of fifos for the AMG to communicate. */
@@ -190,44 +205,40 @@
 #define NO_VALID_ENTRIES           -2
 
 /* Miscellaneous definitions. */
-#define PTR_BUF_SIZE               50         /* The initial size of the */
-                                              /* pointer array and the   */
-                                              /* step size by which it   */
-                                              /* can increase. This      */
-                                              /* can be large since      */
-                                              /* pointers don't need a   */
-                                              /* lot of space.           */
-#define OPTION_BUF_SIZE            10         /* When allocating memory  */
-                                              /* for the option buffer,  */
-                                              /* this is the step size   */
-                                              /* by which the memory will*/
-                                              /* increase when memory is */
-                                              /* used up.                */
-                                              /* (* MAX_OPTION_LENGTH)   */
-#define JOB_TIMEOUT                30         /* This is how long AMG    */
-                                              /* waits (in seconds) for  */
-                                              /* a reply from a job      */
-                                              /* (ITT, OOT or IT) before */
-                                              /* it receives a timeout   */
-                                              /* error.                  */
-                                              /* NOTE: Must be larger    */
-                                              /*       than 5!           */
+#define PTR_BUF_SIZE               50  /* The initial size of the pointer*/
+                                       /* array and the step size by     */
+                                       /* which it can increase. This    */
+                                       /* can be large since pointers    */
+                                       /* don't need a lot of space.     */
+#define OPTION_BUF_SIZE            10  /* When allocating memory for the */
+                                       /* option buffer, this is the step*/
+                                       /* size by which the memory will  */
+                                       /* increase when memory is used   */
+                                       /* up. (* MAX_OPTION_LENGTH)      */
+#define JOB_TIMEOUT                60L /* This is how long AMG waits (in */
+                                       /* seconds) for a reply from a job*/
+                                       /* (ITT, OOT or IT) before it     */
+                                       /* receives a timeout error.      */
+                                       /* NOTE: Must be larger than 5!   */
+#define DIR_CHECK_TIME           1500  /* Time (every 25min) when to     */
+                                       /* check in file directory for    */
+                                       /* jobs without the corresponding */
+                                       /* message.                       */
 
-#define MESSAGE_BUF_STEP_SIZE      500
+#define MESSAGE_BUF_STEP_SIZE     500
 
-#define OLD_FILE_SEARCH_INTERVAL   3600       /* Search for old files    */
-                                              /* hour.                   */
-#define NO_OF_HOST_DB_PARAMETERS   8
+#define OLD_FILE_SEARCH_INTERVAL 3600  /* Search for old files (1 hour). */
+#define NO_OF_HOST_DB_PARAMETERS    8
 
 #ifdef _WITH_PTHREAD
 /* Structure that holds data to be send passed to a function. */
 struct data_t
        {
-          int    i;
-          char   **file_name_pool;
-          off_t  *file_size_pool;
-          time_t *file_mtime_pool;
-          char   afd_file_dir[MAX_PATH_LENGTH];
+          int           i;
+          char          **file_name_pool;
+          unsigned char *file_length_pool;
+          off_t         *file_size_pool;
+          time_t        *file_mtime_pool;
        };
 #endif /* _WITH_PTHREAD */
 
@@ -244,12 +255,13 @@ struct data_t
 #define NO_STD_OPTIONS_PTR_POS      8
 #define STD_OPTIONS_PTR_POS         9
 #define RECIPIENT_PTR_POS           10
-#define DIR_CONFIG_ID_PTR_POS       11
-#ifdef WITH_MULTI_DIR_DEFINITION
-# define OFFSET_TO_SAME_DIR_PTR_POS 12
+#define SCHEME_PTR_POS              11
+#define HOST_ALIAS_PTR_POS          12
+#define DIR_CONFIG_ID_PTR_POS       13
+#define MAX_DATA_PTRS               14
 struct p_array
        {
-          long   ptr[13];  /* Pointer offdet to the following            */
+          long   ptr[MAX_DATA_PTRS];  /* Pointer offset to the following */
                            /* information:                               */
                            /*    0  - priority              char x       */
                            /*    1  - directory             char x[]\0   */
@@ -262,47 +274,37 @@ struct p_array
                            /*    8  - no. std. options      char x[]\0   */
                            /*    9  - std. options          char x[][]\0 */
                            /*   10  - recipient             char x[]\0   */
-                           /*   11  - DIR_CONFIG ID         char x[]\0   */
-                           /*   12  - offset to same dir    char x[]\0   */
+                           /*   11  - scheme                char x[]\0   */
+                           /*   12  - host alias            char x[]\0   */
+                           /*   13  - DIR_CONFIG ID         char x[]\0   */
        };
-#else
-struct p_array
-       {
-          long   ptr[12];  /* Pointer offdet to the following            */
-                           /* information:                               */
-                           /*    0  - priority              char x       */
-                           /*    1  - directory             char x[]\0   */
-                           /*    2  - alias name            char x[]\0   */
-                           /*    3  - no. of files          char x[]\0   */
-                           /*    4  - file                  char x[]\0   */
-                           /*    5  - no. loc. options      char x[]\0   */
-                           /*    6  - loc. options          char x[][]\0 */
-                           /*    7  - local options flag    char x[]\0   */
-                           /*    8  - no. std. options      char x[]\0   */
-                           /*    9  - std. options          char x[][]\0 */
-                           /*   10  - recipient             char x[]\0   */
-                           /*   11  - DIR_CONFIG ID         char x[]\0   */
-       };
-#endif
 
 /* Structure that holds one directory entry of the AMG database. */
+struct recipient_group
+       {
+          char         recipient[MAX_RECIPIENT_LENGTH + 1];
+          char         real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char         host_alias[MAX_HOSTNAME_LENGTH + 1];
+          unsigned int scheme;
+       };
+
 struct dest_group
        {
-          char  dest_group_name[MAX_GROUP_NAME_LENGTH];
-          int   rc;                        /* recipient counter  */
-          char  **recipient;
-          int   oc;                        /* option counter     */
-          char  options[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
+          char                   dest_group_name[MAX_GROUP_NAME_LENGTH];
+          char                   options[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
+          struct recipient_group *rec;
+          int                    rc;        /* Recipient counter. */
+          int                    oc;        /* Option counter.    */
        };
 
 struct file_group
        {
           char              file_group_name[MAX_GROUP_NAME_LENGTH];
-          int               fbl;            /* file buffer length */
-          int               fc;             /* file counter      */
           char              *files;
-          int               dgc;            /* destination group counter */
           struct dest_group *dest;
+          int               fbl;            /* File buffer length. */
+          int               fc;             /* File counter.       */
+          int               dgc;            /* Destination group counter.*/
        };
 
 struct dir_group
@@ -311,20 +313,24 @@ struct dir_group
           char              orig_dir_name[MAX_PATH_LENGTH];
                                             /* Directory name as it is   */
                                             /* in DIR_CONFIG.            */
-          char              url[MAX_RECIPIENT_LENGTH];
+          char              url[MAX_RECIPIENT_LENGTH + 1];
           char              alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char              real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char              host_alias[MAX_HOSTNAME_LENGTH + 1];
           char              option[MAX_DIR_OPTION_LENGTH + 1];
                                             /* This is the old way of    */
                                             /* specifying options for a  */
                                             /* directory.                */
-          char              dir_options[MAX_OPTION_LENGTH];
+          char              dir_options[MAX_OPTION_LENGTH + 1];
                                             /* As of version 1.2.x this  */
                                             /* is the new place where    */
                                             /* options are being         */
                                             /* specified.                */
           char              type;           /* Either local or remote.   */
           unsigned int      protocol;
+          unsigned int      scheme;
           unsigned int      dir_config_id;
+          int               location_length;
           int               fgc;            /* file group counter        */
           struct file_group *file;
        };
@@ -342,12 +348,13 @@ struct dir_data
                                             /* toggling character eg:    */
                                             /* mrz_mfa + mrz_mfb =>      */
                                             /*       mrz_mf              */
-          char          url[MAX_RECIPIENT_LENGTH];
+          char          url[MAX_RECIPIENT_LENGTH + 1];
           char          wait_for_filename[MAX_WAIT_FOR_LENGTH]; /* Wait  */
                                             /* for the given file name|  */
                                             /* pattern before we take    */
                                             /* files from this directory.*/
-          struct bd_time_entry te;
+          struct bd_time_entry te[MAX_FRA_TIME_ENTRIES];
+          unsigned char no_of_time_entries;
           unsigned char remove;             /* Should the files be       */
                                             /* removed when they are     */
                                             /* being retrieved.          */
@@ -382,8 +389,6 @@ struct dir_data
                                             /* HTTP, where directory     */
                                             /* listing is not supported  */
                                             /* or wanted.                */
-          unsigned char time_option;        /* Flag to indicate if the   */
-                                            /* time option is used.      */
           char          priority;           /* Priority for this         */
                                             /* directory.                */
           unsigned int  protocol;           /* Transfer protocol that    */
@@ -531,8 +536,9 @@ struct instant_db
                                        /* options.                       */
           char          *soptions;     /* Storage of standard options.   */
           char          *recipient;    /* Storage of recipients.         */
-          char          host_alias[MAX_HOSTNAME_LENGTH + 1];
-                                       /* Alias of hostname of recipient.*/
+          char          *host_alias;   /* Alias of hostname of recipient.*/
+          unsigned int  recipient_id;  /* CRC-32 checksum of recipient.  */
+          unsigned int  host_id;       /* CRC-32 checksum of host_alias. */
           unsigned int  protocol;
           unsigned int  age_limit;
           char          dup_paused_dir;/* Flag to indicate that this     */
@@ -579,6 +585,10 @@ struct directory_entry
                                              /* have checked the         */
                                              /* directory and it is      */
                                              /* still the same second.   */
+#ifdef MULTI_FS_SUPPORT
+          dev_t                  dev;        /* Device number of file-   */
+                                             /* system.                  */
+#endif
           int                    *no_of_listed_files;
           struct retrieve_list   *rl;
           struct file_mask_entry *fme;
@@ -594,6 +604,11 @@ struct directory_entry
                                              /* name.                    */
           char                   *paused_dir;/* Holds the full paused    */
                                              /* REMOTE directory.        */
+#ifdef MULTI_FS_SUPPORT
+          char                   *afd_file_dir;/* Full path where files  */
+                                             /* are to be stored. (pool  */
+                                             /* directory)               */
+#endif
        };
 
 struct message_buf
@@ -623,6 +638,15 @@ struct fork_job_data
           clock_t      system_time;
        };
 
+#ifdef _DISTRIBUTION_LOG
+struct file_dist_list
+       {
+          int           no_of_dist;
+          unsigned int  *jid_list;
+          unsigned char *proc_cycles;
+       };
+#endif
+
 /* Function prototypes. */
 extern int    amg_zombie_check(pid_t *, int),
               check_list(struct directory_entry *, char *, struct stat *),
@@ -631,88 +655,106 @@ extern int    amg_zombie_check(pid_t *, int),
               com(char),
               convert(char *, char *, int, off_t *),
 #ifdef _WITH_PTHREAD
-              check_files(struct directory_entry *, char *, char *, char *,
-                          int, int *, time_t, off_t *, char **, off_t *),
-              count_pool_files(int *, char *, off_t *, time_t *, char **),
-              link_files(char *, char *, time_t, off_t *, time_t *, char **,
+              check_files(struct directory_entry *, char *, int, char *,
+                          int, int *, time_t, int *, off_t *, char **,
+                          unsigned char *, off_t *),
+              count_pool_files(int *, char *, off_t *, time_t *, char **,
+                               unsigned char *),
+              link_files(char *, char *, time_t, off_t *, char **,
                          struct directory_entry *, struct instant_db *,
                          time_t *, unsigned int *, int, int, int, char *,
                          off_t *),
               save_files(char *, char *, time_t, unsigned int, off_t *,
                          time_t *, char **, struct directory_entry *,
-                         int, int, char, int),
+# ifdef _DISTRIBUTION_LOG
+                         struct instant_db *, int, int, char, int, int),
+# else
+                         struct instant_db *, int, int, char, int),
+# endif
 #else
-              check_files(struct directory_entry *, char *, char *,
-                          char *, int, int *, time_t, off_t *),
+              check_files(struct directory_entry *, char *, int, char *,
+                          int, int *, time_t, int *, off_t *),
               count_pool_files(int *, char *),
               link_files(char *, char *, time_t, struct directory_entry *,
-                         struct instant_db *, time_t *, unsigned int *,
-                         int, int, int, char *, off_t *),
+                         struct instant_db *, unsigned int *, int, int, int,
+                         char *, off_t *),
               save_files(char *, char *, time_t, unsigned int,
-                         struct directory_entry *, int, int, char, int),
+                         struct directory_entry *, struct instant_db *,
+# ifdef _DISTRIBUTION_LOG
+                         int, int, char, int, int),
+# else
+                         int, int, char, int),
+# endif
 #endif
               check_process_list(int),
               create_db(void),
               eval_dir_config(off_t, unsigned int *),
-              eval_time_str(char *, struct bd_time_entry *),
-              handle_options(int,
-#ifdef _PRODUCTION_LOG
-                             time_t, unsigned short, unsigned int,
-#endif
+              handle_options(int, time_t, unsigned int, unsigned int,
                              char *, int *, off_t *),
               in_time(time_t, unsigned int, struct bd_time_entry *),
               lookup_dir_id(char *, char *),
               lookup_fra_pos(char *),
-              rename_files(char *, char *, int, struct instant_db *, time_t *,
+              rename_files(char *, char *, int, struct instant_db *, time_t,
                            int, unsigned int *, char *, off_t *),
               reread_dir_config(int, off_t, time_t *, int, int, size_t,
                                 int, int, unsigned int *, struct host_list *),
               reread_host_config(time_t *, int *, int *, size_t *,
                                  struct host_list **, unsigned int *, int);
 extern pid_t  make_process_amg(char *, char *, int, int);
-extern off_t  fax2gts(char *, char *);
+extern off_t  fax2gts(char *, char *, int);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *, int *),
               *convert_fsa(int, char *, off_t *, int, unsigned char,
                            unsigned char),
               *convert_fra(int, char *, off_t *, int, unsigned char,
                            unsigned char),
+              *convert_jid(int, char *, size_t *, int, unsigned char,
+                           unsigned char),
               *next(char *);
-extern void   check_old_time_jobs(int),
+extern void   check_file_dir(time_t),
+              check_old_time_jobs(int),
               clear_msg_buffer(void),
               clear_pool_dir(void),
               create_fsa(void),
               create_fra(int),
               create_sa(int),
+#ifdef _DISTRIBUTION_LOG
+              dis_log(unsigned char, time_t, unsigned int, unsigned int,
+                      char *, int, off_t, int, unsigned int **, unsigned char *,
+                      unsigned int),
+#endif
               enter_time_job(int),
               eval_dir_options(int, char *, char *),
-              handle_time_jobs(int *, time_t),
+              handle_time_jobs(time_t),
               init_dir_check(int, char **, char *, time_t *, int *,
                              int *, int *),
+              init_dis_log(void),
               init_job_data(void),
               init_msg_buffer(void),
               lookup_dc_id(struct dir_config_buf **, int),
               lookup_file_mask_id(struct instant_db *, int),
               lookup_job_id(struct instant_db *, unsigned int *),
               receive_log(char *, char *, int, time_t, char *, ...),
+              release_dis_log(void),
               remove_old_ls_data_files(void),
               remove_pool_directory(char *, unsigned int),
 #ifdef _DELETE_LOG
-              remove_time_dir(char *, unsigned int, int),
+              remove_time_dir(char *, unsigned int, unsigned int, int, char *,
+                              int),
 #else
               remove_time_dir(char *, unsigned int),
 #endif
               rm_removed_files(struct directory_entry *),
               search_old_files(time_t),
-              send_message(char *, char *, unsigned int, unsigned short,
+              send_message(char *, char *, unsigned int, unsigned int,
                            time_t, int,
 #ifdef _WITH_PTHREAD
-# ifdef _DELETE_LOG
-                           off_t *, char **,
+# if defined (_DELETE_LOG) || defined (_PRODUCTION_LOG)
+                           off_t *, char **, unsigned char *,
 # endif
 #endif
-                           int, off_t),
+                           int, int, off_t, int),
               show_shm(FILE *),
               sort_time_job(void),
               store_file_mask(char *, struct dir_group *),
-              store_passwd(char *, int);
+              store_passwd(char *, char *, char *);
 #endif /* __amgdefs_h */

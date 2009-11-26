@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -62,7 +62,7 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>         /* mmap()                                  */
+# include <sys/mman.h>        /* mmap()                                  */
 #endif
 #include <signal.h>           /* kill(), signal(), SIGINT                */
 #include <pwd.h>              /* getpwuid()                              */
@@ -95,7 +95,6 @@ DESCR__E_M1
 /* Global variables. */
 Display                 *display;
 XtAppContext            app;
-XtIntervalId            interval_id_afd;
 GC                      letter_gc,
                         normal_letter_gc,
                         locked_letter_gc,
@@ -113,7 +112,7 @@ GC                      letter_gc,
                         white_line_gc,
                         led_gc;
 Colormap                default_cmap;
-XFontStruct             *font_struct;
+XFontStruct             *font_struct = NULL;
 XmFontList              fontlist = NULL;
 Widget                  appshell,
                         button_window_w,
@@ -135,8 +134,12 @@ Widget                  appshell,
 Window                  button_window,
                         label_window,
                         line_window;
+Pixmap                  button_pixmap,
+                        label_pixmap,
+                        line_pixmap;
 float                   max_bar_length;
 int                     bar_thickness_3,
+                        depth,
                         his_log_set,
                         msa_fd = -1,
                         msa_id,
@@ -256,6 +259,7 @@ main(int argc, char *argv[])
    Widget        mainform_w,
                  mainwindow,
                  menu_w;
+   Screen        *screen;
    Arg           args[MAXARGS];
    Cardinal      argcount;
    uid_t         euid, /* Effective user ID. */
@@ -315,6 +319,11 @@ main(int argc, char *argv[])
 
    /* Setup and determine window parameters. */
    setup_mon_window(font_name);
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Get window size. */
    (void)mon_window_size(&window_width, &window_height);
@@ -436,7 +445,7 @@ main(int argc, char *argv[])
                         ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)mon_input, NULL);
 
-      /* Set toggle button for font|row */
+      /* Set toggle button for font|row. */
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
       XtVaSetValues(rw[current_row], XmNset, True, NULL);
       XtVaSetValues(lsw[current_style], XmNset, True, NULL);
@@ -493,6 +502,16 @@ main(int argc, char *argv[])
    label_window = XtWindow(label_window_w);
    line_window = XtWindow(line_window_w);
    button_window = XtWindow(button_window_w);
+
+   /* Create off-screen pixmaps. */
+   screen = DefaultScreenOfDisplay(display);
+   depth = DefaultDepthOfScreen(screen);
+   label_pixmap = XCreatePixmap(display, label_window, window_width,
+                                line_height, depth);
+   line_pixmap = XCreatePixmap(display, line_window, window_width,
+                               (line_height * no_of_rows), depth);
+   button_pixmap = XCreatePixmap(display, button_window, window_width,
+                                 line_height, depth);
 
    /* Start the main event-handling loop. */
    XtAppMainLoop(app);
@@ -581,7 +600,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
          }
          exit(INCORRECT);
 
-      case NONE : /* User is not allowed to use this program */
+      case NONE : /* User is not allowed to use this program. */
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
 
@@ -662,7 +681,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
       exit(INCORRECT);
    }
 
-   /* Prepare title for mon_ctrl window */
+   /* Prepare title for mon_ctrl window. */
    (void)sprintf(window_title, "AFD_MON %s ", PACKAGE_VERSION);
    if (get_afd_name(hostname) == INCORRECT)
    {
@@ -690,10 +709,18 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
     * Attach to the MSA and get the number of AFD's
     * and the msa_id of the MSA.
     */
-   if (msa_attach() < 0)
+   if ((fd = msa_attach()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (fd == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
@@ -761,7 +788,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
       exit(INCORRECT);
    }
 
-   /* Allocate memory for local 'MSA' */
+   /* Allocate memory for local 'MSA'. */
    if ((connect_data = calloc(no_of_afds, sizeof(struct mon_line))) == NULL)
    {
       (void)fprintf(stderr, "calloc() error : %s (%s %d)\n",
@@ -775,13 +802,13 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    his_log_set = DEFAULT_NO_OF_HISTORY_LOGS;
-   read_setup(MON_CTRL, profile, NULL, &his_log_set, NULL, 0);
+   read_setup(MON_CTRL, profile, NULL, NULL, &his_log_set, NULL, 0);
 
-   /* Determine the default bar length */
+   /* Determine the default bar length. */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
    step_size = MAX_INTENSITY / max_bar_length;
 
-   /* Initialise all display data for each AFD to monitor */
+   /* Initialise all display data for each AFD to monitor. */
    for (i = 0; i < no_of_afds; i++)
    {
       (void)strcpy(connect_data[i].afd_alias, msa[i].afd_alias);
@@ -827,6 +854,8 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
       }
       connect_data[i].blink = TR_BAR;
       connect_data[i].jobs_in_queue = msa[i].jobs_in_queue;
+      connect_data[i].danger_no_of_jobs = msa[i].danger_no_of_jobs;
+      connect_data[i].link_max = msa[i].danger_no_of_jobs * 2;
       connect_data[i].no_of_transfers = msa[i].no_of_transfers;
       connect_data[i].host_error_counter = msa[i].host_error_counter;
       connect_data[i].fc = msa[i].fc;
@@ -839,11 +868,11 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
       CREATE_FC_STRING(connect_data[i].str_fc, connect_data[i].fc);
       CREATE_FS_STRING(connect_data[i].str_fs, connect_data[i].fs);
       CREATE_FS_STRING(connect_data[i].str_tr, connect_data[i].tr);
-      CREATE_FP_STRING(connect_data[i].str_fr, connect_data[i].fr);
+      CREATE_JQ_STRING(connect_data[i].str_fr, connect_data[i].fr);
       CREATE_EC_STRING(connect_data[i].str_ec, connect_data[i].ec);
-      CREATE_SFC_STRING(connect_data[i].str_jq, connect_data[i].jobs_in_queue);
-      CREATE_SFC_STRING(connect_data[i].str_at,
-                        connect_data[i].no_of_transfers);
+      CREATE_JQ_STRING(connect_data[i].str_jq, connect_data[i].jobs_in_queue);
+      CREATE_JQ_STRING(connect_data[i].str_at,
+                       connect_data[i].no_of_transfers);
       CREATE_EC_STRING(connect_data[i].str_hec,
                        connect_data[i].host_error_counter);
       connect_data[i].average_tr = 0.0;
@@ -905,7 +934,6 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
                                                               connect_data[i].scale[HOST_ERROR_BAR_NO - 1];
            }
       connect_data[i].inverse = OFF;
-      connect_data[i].expose_flag = NO;
    }
 
    /*
@@ -936,7 +964,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       int  str_length;
       char value[MAX_PATH_LENGTH];
@@ -1022,7 +1050,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[MON_W] = XtVaCreateManagedWidget("Monitor",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,                'M',
+#endif
                               XmNsubMenuId,               pull_down_w,
                               NULL);
 
@@ -1051,7 +1081,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                          xmPushButtonWidgetClass, pull_down_w,
                          XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                          XmNmnemonic,             'S',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                          XmNaccelerator,          "Ctrl<Key>S",
 #else
@@ -1069,7 +1101,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,             'R',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                            XmNaccelerator,          "Ctrl<Key>R",
 #else
@@ -1088,7 +1122,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,             'w',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                            XmNaccelerator,          "Ctrl<Key>w",
 #else
@@ -1145,7 +1181,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                               xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,             'x',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                               XmNaccelerator,          "Ctrl<Key>x",
 #else
@@ -1173,7 +1211,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       mw[LOG_W] = XtVaCreateManagedWidget("RView",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,                'V',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                               XmNaccelerator,             "Ctrl<Key>v",
 #else
@@ -1186,7 +1226,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          vw[MON_AFD_CTRL_W] = XtVaCreateManagedWidget("AFD Control",
                               xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,             'A',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                               XmNaccelerator,          "Ctrl<Key>A",
 #else
@@ -1330,7 +1372,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       mw[CONTROL_W] = XtVaCreateManagedWidget("RControl",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,                'C',
+#endif
                               XmNsubMenuId,               pull_down_w,
                               NULL);
       if (mcp.amg_ctrl != NO_PERMISSION)
@@ -1400,7 +1444,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                        start_remote_prog, (XtPointer)DIR_CTRL_SEL);
       }
 
-      /* Startup/Shutdown of AFD */
+      /* Startup/Shutdown of AFD. */
       if ((mcp.startup_afd != NO_PERMISSION) ||
           (mcp.shutdown_afd != NO_PERMISSION))
       {
@@ -1444,7 +1488,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,                'S',
+#endif
                            XmNsubMenuId,               pull_down_w,
                            NULL);
    sw[FONT_W] = XtVaCreateManagedWidget("Font size",
@@ -1477,7 +1523,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    sw[SAVE_W] = XtVaCreateManagedWidget("Save Setup",
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,             'a',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                            XmNaccelerator,          "Ctrl<Key>a",
 #else
@@ -1496,7 +1544,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[HELP_W] = XtVaCreateManagedWidget("Help",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,                'H',
+#endif
                            XmNsubMenuId,               pull_down_w,
                            NULL);
    hw[ABOUT_W] = XtVaCreateManagedWidget("About AFD",
@@ -1574,7 +1624,9 @@ init_popup_menu(Widget line_window_w)
 #else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>R"); argcount++;
 #endif
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
          XtSetArg(args[argcount], XmNmnemonic, 'R'); argcount++;
+#endif
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[2] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
          XtAddCallback(pw[2], XmNactivateCallback,
@@ -1592,7 +1644,9 @@ init_popup_menu(Widget line_window_w)
 #else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>w"); argcount++;
 #endif
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
          XtSetArg(args[argcount], XmNmnemonic, 'S'); argcount++;
+#endif
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[3] = XmCreatePushButton(popupmenu, "Switch", args, argcount);
          XtAddCallback(pw[3], XmNactivateCallback,
@@ -1610,7 +1664,9 @@ init_popup_menu(Widget line_window_w)
 #else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>I"); argcount++;
 #endif
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
+#endif
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[4] = XmCreatePushButton(popupmenu, "Info", args, argcount);
          XtAddCallback(pw[4], XmNactivateCallback,
@@ -1628,7 +1684,9 @@ init_popup_menu(Widget line_window_w)
 #else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>D"); argcount++;
 #endif
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
          XtSetArg(args[argcount], XmNmnemonic, 'D'); argcount++;
+#endif
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[5] = XmCreatePushButton(popupmenu, "Disable", args, argcount);
          XtAddCallback(pw[5], XmNactivateCallback,
@@ -1657,7 +1715,7 @@ create_pullright_test(Widget pullright_test)
 
    if (ping_cmd != NULL)
    {
-      /* Create pullright for "Ping" */
+      /* Create pullright for "Ping". */
       argcount = 0;
       x_string = XmStringCreateLocalized(SHOW_PING_TEST);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1672,7 +1730,7 @@ create_pullright_test(Widget pullright_test)
 
    if (traceroute_cmd != NULL)
    {
-      /* Create pullright for "Traceroute" */
+      /* Create pullright for "Traceroute". */
       argcount = 0;
       x_string = XmStringCreateLocalized(SHOW_TRACEROUTE_TEST);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1697,7 +1755,7 @@ create_pullright_load(Widget pullright_line_load)
    Arg      args[MAXARGS];
    Cardinal argcount;
 
-   /* Create pullright for "Files" */
+   /* Create pullright for "Files". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_FILE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1709,7 +1767,7 @@ create_pullright_load(Widget pullright_line_load)
    XtManageChild(lw[FILE_LOAD_W]);
    XmStringFree(x_string);
 
-   /* Create pullright for "KBytes" */
+   /* Create pullright for "KBytes". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_KBYTE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1721,7 +1779,7 @@ create_pullright_load(Widget pullright_line_load)
    XtManageChild(lw[KBYTE_LOAD_W]);
    XmStringFree(x_string);
 
-   /* Create pullright for "Connections" */
+   /* Create pullright for "Connections". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_CONNECTION_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1734,7 +1792,7 @@ create_pullright_load(Widget pullright_line_load)
    XtManageChild(lw[CONNECTION_LOAD_W]);
    XmStringFree(x_string);
 
-   /* Create pullright for "Active-Transfers" */
+   /* Create pullright for "Active-Transfers". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_TRANSFER_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1849,7 +1907,7 @@ create_pullright_style(Widget pullright_line_style)
    Arg      args[MAXARGS];
    Cardinal argcount;
 
-   /* Create pullright for "Line style" */
+   /* Create pullright for "Line style". */
    argcount = 0;
    x_string = XmStringCreateLocalized("Bars only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;

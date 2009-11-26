@@ -1,6 +1,6 @@
 /*
  *  append.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -121,7 +121,8 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
    }
 
    /* First determine if there is an option identifier. */
-   if ((ptr = posi(buffer, OPTION_IDENTIFIER)) == NULL)
+   if ((ptr = lposi(buffer, OPTION_IDENTIFIER,
+                    OPTION_IDENTIFIER_LENGTH)) == NULL)
    {
       /* Add the option and restart identifier. */
       ptr = buffer + msg_file_size;
@@ -132,7 +133,8 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
       char *tmp_ptr;
 
       /* Check if the append option is already in the message. */
-      if ((tmp_ptr = posi(ptr, RESTART_FILE_ID)) != NULL)
+      if ((tmp_ptr = lposi(ptr, RESTART_FILE_ID,
+                           RESTART_FILE_ID_LENGTH)) != NULL)
       {
          char *end_ptr,
               file_and_date_str[MAX_FILENAME_LENGTH + 20],
@@ -370,7 +372,7 @@ remove_append(unsigned int job_id, char *file_name)
    ptr++;
    file_date = atol(ptr);
 
-   if ((ptr = posi(buffer, RESTART_FILE_ID)) == NULL)
+   if ((ptr = lposi(buffer, RESTART_FILE_ID, RESTART_FILE_ID_LENGTH)) == NULL)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Failed to locate <%s> identifier in message %s.",
@@ -389,15 +391,15 @@ remove_append(unsigned int job_id, char *file_name)
       return;
    }
 #if SIZEOF_TIME_T == 4
-   (void)sprintf(search_str, "%s|%ld", file_name, (pri_time_t)file_date);
+   length = sprintf(search_str, "%s|%ld", file_name, (pri_time_t)file_date);
 #else
-   (void)sprintf(search_str, "%s|%lld", file_name, (pri_time_t)file_date);
+   length = sprintf(search_str, "%s|%lld", file_name, (pri_time_t)file_date);
 #endif
 
-   /* Locate the file name */
+   /* Locate the file name. */
    for (;;)
    {
-      if ((tmp_ptr = posi(ptr, search_str)) == NULL)
+      if ((tmp_ptr = lposi(ptr, search_str, length)) == NULL)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Failed to locate <%s> in restart option of message %s.",
@@ -434,7 +436,7 @@ remove_append(unsigned int job_id, char *file_name)
    {
       if (*tmp_ptr == '\n')
       {
-         ptr = tmp_ptr - length - 1 /* to remove the space sign */;
+         ptr = tmp_ptr - length - 1 /* To remove the space sign. */;
          *ptr = '\n';
          *(ptr + 1) = '\0';
       }
@@ -444,7 +446,7 @@ remove_append(unsigned int job_id, char *file_name)
 
          (void)memmove((tmp_ptr - length), (tmp_ptr + 1), n);
          ptr = tmp_ptr - length + n;
-         *ptr = '\0'; /* to remove any junk after the part we just moved */
+         *ptr = '\0'; /* To remove any junk after the part we just moved. */
       }
    }
    length = strlen(buffer);
@@ -526,7 +528,7 @@ remove_all_appends(unsigned int job_id)
    }
    buffer[stat_buf.st_size] = '\0';
 
-   if ((ptr = posi(buffer, RESTART_FILE_ID)) == NULL)
+   if ((ptr = lposi(buffer, RESTART_FILE_ID, RESTART_FILE_ID_LENGTH)) == NULL)
    {
       /*
        * It can very well happen that the restart identifier has been

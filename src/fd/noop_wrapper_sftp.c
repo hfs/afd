@@ -1,6 +1,6 @@
 /*
  *  noop_wrapper_sftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ noop_wrapper(void)
    ret = sftp_noop();
    if (ret != SUCCESS)
    {
-      trans_log(WARN_SIGN, __FILE__, __LINE__,
+      trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                 (ret == INCORRECT) ? NULL : msg_str,
                 "Failed to send NOOP command.");
    }

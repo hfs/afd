@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   30.12.2000 H.Kiehl Created
+ **   30.01.2009 H.Kiehl Restore errno to what it was when the caller
+ **                      called this function.
  **
  */
 DESCR__E_M3
@@ -57,7 +59,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
@@ -70,6 +72,7 @@ extern const char *sys_log_name;
 void
 system_log(char *sign, char *file, int line, char *fmt, ...)
 {
+   int       tmp_errno = errno;
    size_t    length;
    time_t    tvalue;
    char      buf[MAX_LINE_LENGTH];
@@ -107,14 +110,14 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
 #endif
             {
                (void)fprintf(stderr,
-                             "WARNING : Could not open fifo %s : %s (%s %d)\n",
+                             _("WARNING : Could not open fifo %s : %s (%s %d)\n"),
                              sys_log_fifo, strerror(errno), __FILE__, __LINE__);
             }
          }
          else
          {
             (void)fprintf(stderr,
-                          "WARNING : Could not open fifo %s : %s (%s %d)\n",
+                          _("WARNING : Could not open fifo %s : %s (%s %d)\n"),
                           sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          }
          sys_log_fd = STDERR_FILENO;
@@ -159,12 +162,13 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
    {
       (void)fprintf(stderr,
 #if SIZEOF_SIZE_T == 4
-                    "ERROR   : Failed to write() %d bytes : %s (%s %d)\n",
+                    _("ERROR   : Failed to write() %d bytes : %s (%s %d)\n"),
 #else
-                    "ERROR   : Failed to write() %lld bytes : %s (%s %d)\n",
+                    _("ERROR   : Failed to write() %lld bytes : %s (%s %d)\n"),
 #endif
                     (pri_size_t)length, strerror(errno), __FILE__, __LINE__);
    }
+   errno = tmp_errno;
 
    return;
 }

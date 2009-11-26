@@ -1,6 +1,6 @@
 /*
  *  remove_msg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -62,7 +62,20 @@ remove_msg(int qb_pos)
    if (qb[qb_pos].msg_name[0] == '\0')
    {
       /* Dequeue in FRA. */
-      fra[qb[qb_pos].pos].queued = NO;
+      fra[qb[qb_pos].pos].queued -= 1;
+
+      if (fra[qb[qb_pos].pos].queued < 1)
+      {
+         if ((fra[qb[qb_pos].pos].stupid_mode == YES) ||
+             (fra[qb[qb_pos].pos].remove == YES))
+         {
+            remove_ls_data(qb[qb_pos].pos);
+         }
+         if (fra[qb[qb_pos].pos].queued < 0)
+         {
+            fra[qb[qb_pos].pos].queued = 0;
+         }
+      }
 
       if (fra[qb[qb_pos].pos].error_counter > 0)
       {
@@ -77,6 +90,9 @@ remove_msg(int qb_pos)
          {
             fra[qb[qb_pos].pos].dir_flag &= ~DIR_ERROR_SET;
             SET_DIR_STATUS(fra[qb[qb_pos].pos].dir_flag,
+                           time(NULL),
+                           fra[qb[qb_pos].pos].start_event_handle,
+                           fra[qb[qb_pos].pos].end_event_handle,
                            fra[qb[qb_pos].pos].dir_status);
             error_action(fra[qb[qb_pos].pos].dir_alias, "start",
                          DIR_ERROR_ACTION);
@@ -92,9 +108,11 @@ remove_msg(int qb_pos)
       }
 
       /* Calculate the next scan time. */
-      if (fra[qb[qb_pos].pos].time_option == YES)
+      if (fra[qb[qb_pos].pos].no_of_time_entries > 0)
       {
-         fra[qb[qb_pos].pos].next_check_time = calc_next_time(&fra[qb[qb_pos].pos].te, time(NULL));
+         fra[qb[qb_pos].pos].next_check_time = calc_next_time_array(fra[qb[qb_pos].pos].no_of_time_entries,
+                                                                    &fra[qb[qb_pos].pos].te[0],
+                                                                    time(NULL));
       }
    }
    if (qb_pos != (*no_msg_queued - 1))

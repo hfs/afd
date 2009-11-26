@@ -1,6 +1,6 @@
 /*
  *  jid_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,8 +74,7 @@ main(int argc, char *argv[])
                         no_of_dir_names,
                         no_of_file_masks_id,
                         no_of_job_ids,
-                        no_of_search_ids,
-                        search_id;
+                        no_of_search_ids;
    unsigned int         *job_id;
    off_t                dnb_size,
                         fmd_size,
@@ -94,7 +93,7 @@ main(int argc, char *argv[])
        (get_arg(&argc, argv, "--help", NULL, 0) == SUCCESS))
    {
       (void)fprintf(stdout,
-                    "Usage: %s [-w <AFD work dir>] [--version] [<job ID> [...<job ID n>]]\n",
+                    _("Usage: %s [-w <AFD work dir>] [--version] [<job ID> [...<job ID n>]]\n"),
                     argv[0]);
       exit(SUCCESS);
    }
@@ -118,12 +117,13 @@ main(int argc, char *argv[])
       }
       else
       {
-         (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("malloc() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
    else
    {
+      no_of_search_ids = 0;
       job_id = NULL;
    }
 
@@ -131,14 +131,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
    if ((fd = open(file, O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -151,14 +151,20 @@ main(int argc, char *argv[])
                        MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
    {
-      (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (close(fd) == -1)
    {
-      (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
+   }
+   if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+   {
+      (void)fprintf(stderr, _("Incorrect JID version (data=%d current=%d)!\n"),
+                    *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
+      exit(INCORRECT);
    }
    no_of_job_ids = *(int *)ptr;
    ptr += AFD_WORD_OFFSET;
@@ -169,14 +175,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, FILE_MASK_FILE);
    if ((fd = open(file, O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    else
    {
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
       else
@@ -189,7 +195,7 @@ main(int argc, char *argv[])
                              MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
          {
-            (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+            (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                           file, strerror(errno), __FILE__, __LINE__);
             fmd = NULL;
          }
@@ -207,7 +213,7 @@ main(int argc, char *argv[])
 
       if (close(fd) == -1)
       {
-         (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -216,14 +222,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((fd = open(file, O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    else
    {
       if (fstat(fd, &stat_buf) == -1)
       {
-         (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
       else
@@ -236,7 +242,7 @@ main(int argc, char *argv[])
                              MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
          {
-            (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+            (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                           file, strerror(errno), __FILE__, __LINE__);
             dnb = NULL;
          }
@@ -251,7 +257,7 @@ main(int argc, char *argv[])
 
       if (close(fd) == -1)
       {
-         (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -274,9 +280,10 @@ main(int argc, char *argv[])
             (void)fprintf(stdout, "Dir-ID       : %x\n", jd[i].dir_id);
             (void)fprintf(stdout, "DIR_CONFIG ID: %x\n", jd[i].dir_config_id);
             (void)fprintf(stdout, "File-Mask-ID : %x\n", jd[i].file_mask_id);
+            (void)fprintf(stdout, "Recipient-ID : %x\n", jd[i].recipient_id);
+            (void)fprintf(stdout, "Host-Alias-ID: %x\n", jd[i].host_id);
             (void)fprintf(stdout, "Dir position : %d\n", jd[i].dir_id_pos);
             (void)fprintf(stdout, "Priority     : %c\n", jd[i].priority);
-            (void)fprintf(stdout, "Hostalias    : %s\n", jd[i].host_alias);
             if (dnb != NULL)
             {
                for (j = 0; j < no_of_dir_names; j++)
@@ -377,7 +384,7 @@ main(int argc, char *argv[])
             }
             (void)fprintf(stdout, "Recipient    : %s\n", jd[i].recipient);
             (void)fprintf(stdout, "Host alias   : %s\n", jd[i].host_alias);
-            if ((search_id == NO) && ((i + 1) < no_of_job_ids))
+            if ((i + 1) < no_of_job_ids)
             {
                (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
             }
@@ -386,14 +393,14 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stdout, "Job ID list is empty.\n");
+      (void)fprintf(stdout, _("Job ID list is empty.\n"));
    }
 
    if (fmd != NULL)
    {
       if (munmap((char *)fmd - AFD_WORD_OFFSET, fmd_size) == -1)
       {
-         (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to munmap() `%s' : %s (%s %d)\n"),
                        FILE_MASK_FILE, strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -401,13 +408,13 @@ main(int argc, char *argv[])
    {
       if (munmap((char *)dnb - AFD_WORD_OFFSET, dnb_size) == -1)
       {
-         (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to munmap() `%s' : %s (%s %d)\n"),
                        DIR_NAME_FILE, strerror(errno), __FILE__, __LINE__);
       }
    }
    if (munmap((char *)jd - AFD_WORD_OFFSET, jid_size) == -1)
    {
-      (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to munmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    (void)close(fd);

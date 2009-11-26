@@ -38,6 +38,9 @@ DESCR__S_M3
  **   new FRA has been created. It will then also return new
  **   values for 'fra_id' and 'no_of_dirs'.
  **
+ ** SEE ALSO
+ **   fra_attach(), fra_attach_passive()
+ **
  ** AUTHOR
  **   H.Kiehl
  **
@@ -54,11 +57,11 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* munmap()                     */
+# include <sys/mman.h>                   /* munmap()                     */
 #endif
 #include <errno.h>
 
-/* Global variables */
+/* Global variables. */
 extern int                        fra_id;
 #ifdef HAVE_MMAP
 extern off_t                      fra_size;
@@ -84,14 +87,14 @@ check_fra(int passive)
          if (munmap(ptr, fra_size) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() from FRA [fra_id = %d fra_size = %d] : %s",
+                       _("Failed to munmap() from FRA [fra_id = %d fra_size = %d] : %s"),
                        fra_id, fra_size, strerror(errno));
          }
 #else
          if (munmap_emu(ptr) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap_emu() from FRA (%d) : %s",
+                       _("Failed to munmap_emu() from FRA (%d) : %s"),
                        fra_id, strerror(errno));
          }
 #endif
@@ -101,7 +104,7 @@ check_fra(int passive)
             if (fra_attach_passive() < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Passive attach to FRA failed.");
+                          _("Passive attach to FRA failed."));
                exit(INCORRECT);
             }
          }
@@ -110,7 +113,7 @@ check_fra(int passive)
             if (fra_attach() < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to attach to FRA.");
+                          _("Failed to attach to FRA."));
                exit(INCORRECT);
             }
          }

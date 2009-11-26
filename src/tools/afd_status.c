@@ -1,6 +1,6 @@
 /*
  *  afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,11 +44,13 @@ DESCR__S_M1
 #include <stdio.h>
 #include <string.h>                   /* strcmp() in CHECK_FOR_VERSION   */
 #include <stdlib.h>                   /* exit()                          */
+#include <sys/types.h>
+#include <pwd.h>                      /* getpwuid()                      */
 #include <time.h>                     /* ctime()                         */
 #include <unistd.h>                   /* STDERR_FILENO                   */
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int               sys_log_fd = STDERR_FILENO;
 char              *p_work_dir;
 struct afd_status *p_afd_status;
@@ -59,8 +61,9 @@ const char        *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   int  i;
-   char work_dir[MAX_PATH_LENGTH];
+   int           i;
+   char          work_dir[MAX_PATH_LENGTH];
+   struct passwd *pwd;
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -70,15 +73,33 @@ main(int argc, char *argv[])
    }
    p_work_dir = work_dir;
 
-   /* Attach to the AFD Status Area */
+   /* Attach to the AFD Status Area. */
    if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
-                    "ERROR   : Failed to map to AFD status area. (%s %d)\n",
+                    _("ERROR   : Failed to map to AFD status area. (%s %d)\n"),
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
+   (void)fprintf(stdout, "Hostname             : %s\n", p_afd_status->hostname);
+   (void)fprintf(stdout, "Working directory    : %s\n", p_afd_status->work_dir);
+   if ((pwd = getpwuid(p_afd_status->user_id)) == NULL)
+   {
+#if SIZEOF_UID_T == 4
+      (void)fprintf(stdout, "User ID              : %d\n", p_afd_status->user_id);
+#else
+      (void)fprintf(stdout, "User ID              : %lld\n", (pri_uid_t)p_afd_status->user_id);
+#endif
+   }
+   else
+   {
+#if SIZEOF_UID_T == 4
+      (void)fprintf(stdout, "User name + ID       : %s (%d)\n", pwd->pw_name, p_afd_status->user_id);
+#else
+      (void)fprintf(stdout, "User name + ID       : %s (%lld)\n", pwd->pw_name, (pri_uid_t)p_afd_status->user_id);
+#endif
+   }
    (void)fprintf(stdout, "AMG                  : %d\n", p_afd_status->amg);
    (void)fprintf(stdout, "AMG jobs             : %d\n", p_afd_status->amg_jobs);
    (void)fprintf(stdout, "FD                   : %d\n", p_afd_status->fd);
@@ -89,6 +110,9 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "Archive watch        : %d\n", p_afd_status->archive_watch);
    (void)fprintf(stdout, "afd_stat             : %d\n", p_afd_status->afd_stat);
    (void)fprintf(stdout, "afdd                 : %d\n", p_afd_status->afdd);
+#ifdef _WITH_SERVER_SUPPORT
+   (void)fprintf(stdout, "afds                 : %d\n", p_afd_status->afds);
+#endif
 #ifndef HAVE_MMAP
    (void)fprintf(stdout, "mapper               : %d\n", p_afd_status->mapper);
 #endif
@@ -103,6 +127,12 @@ main(int argc, char *argv[])
 #endif
 #ifdef _PRODUCTION_LOG
    (void)fprintf(stdout, "production_log       : %d\n", p_afd_status->production_log);
+#endif
+#ifdef _DISTRIBUTION_LOG
+   (void)fprintf(stdout, "distribution_log     : %d\n", p_afd_status->distribution_log);
+#endif
+#ifdef ALDAD_OFFSET
+   (void)fprintf(stdout, "ALDA daemon          : %d\n", p_afd_status->aldad);
 #endif
    (void)fprintf(stdout, "Receivelog indicator : %u <",
                  p_afd_status->receive_log_ec);

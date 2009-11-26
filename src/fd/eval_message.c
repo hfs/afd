@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -99,13 +99,13 @@ DESCR__E_M3
 #include <unistd.h>               /* read(), close(), setuid()           */
 #include <fcntl.h>                /* O_RDONLY, etc                       */
 #ifdef WITH_EUMETSAT_HEADERS
-#include <netdb.h>                /* gethostbyname()                     */
+# include <netdb.h>               /* gethostbyname()                     */
 #endif
 #include <errno.h>
 #include "fddefs.h"
 #include "ftpdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int  transfer_log_fd,
             trans_rename_blocked;
 extern char *p_work_dir;
@@ -222,15 +222,16 @@ eval_message(char *message_name, struct job *p_db)
    /*
     * First let's evaluate the recipient.
     */
-   if ((ptr = posi(msg_buf, DESTINATION_IDENTIFIER)) == NULL)
+   if ((ptr = lposi(msg_buf, DESTINATION_IDENTIFIER,
+                    DESTINATION_IDENTIFIER_LENGTH)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Message %s is faulty.", message_name);
 
-      /* Don't forget to free memory we have allocated */
+      /* Don't forget to free memory we have allocated. */
       free(msg_buf);
 
-      /* It's obvious that the message is corrupt */
+      /* It's obvious that the message is corrupt. */
       return(INCORRECT);
    }
    end_ptr = ptr;
@@ -241,12 +242,12 @@ eval_message(char *message_name, struct job *p_db)
    byte_buf = *end_ptr;
    *end_ptr = '\0';
 
-   if (eval_recipient(ptr, p_db, message_name, 0) < 0)
+   if (eval_recipient(ptr, p_db, message_name, 0L) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Message %s has a faulty recipient.", message_name);
 
-      /* Don't forget to free memory we have allocated */
+      /* Don't forget to free memory we have allocated. */
       free(msg_buf);
 
       return(INCORRECT);
@@ -261,7 +262,8 @@ eval_message(char *message_name, struct job *p_db)
       /*
        * Now lets see which options have been set.
        */
-      if ((ptr = posi(ptr, OPTION_IDENTIFIER)) != NULL)
+      if ((ptr = lposi(ptr, OPTION_IDENTIFIER,
+                       OPTION_IDENTIFIER_LENGTH)) != NULL)
       {
          while (*ptr != '\0')
          {
@@ -293,23 +295,23 @@ eval_message(char *message_name, struct job *p_db)
                         unit = DEFAULT_ARCHIVE_UNIT;
                         break;
 
-                     case 'd' : /* Days */
+                     case 'd' : /* Days. */
                         unit = 86400;
                         break;
 
-                     case 'h' : /* Hours */
+                     case 'h' : /* Hours. */
                         unit = 3600;
                         break;
 
-                     case 'm' : /* Minutes */
+                     case 'm' : /* Minutes. */
                         unit = 60;
                         break;
 
-                     case 's' : /* Seconds */
+                     case 's' : /* Seconds. */
                         unit = 1;
                         break;
 
-                     default : /* Unknown */
+                     default : /* Unknown. */
                         system_log(WARN_SIGN, __FILE__, __LINE__,
                                    "Unknown unit type `%c' (%d) for %s option. Taking default.",
                                    byte_buf, (int)byte_buf, ARCHIVE_ID);
@@ -320,6 +322,10 @@ eval_message(char *message_name, struct job *p_db)
                }
                *end_ptr = byte_buf;
                ptr = end_ptr;
+               while ((*ptr != '\n') && (*ptr != '\0'))
+               {
+                  ptr++;
+               }
                while (*ptr == '\n')
                {
                   ptr++;
@@ -373,7 +379,7 @@ eval_message(char *message_name, struct job *p_db)
                        if (length > (LOCK_NOTATION_LENGTH - 1))
                        {
                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                     "Lock postfix notation `%s' in message `%s' is %d Bytes long, it may only be %d Bytes long.",
+                                     "Lock postfix notation `%s' in message `%s' is %d bytes long, it may only be %d bytes long.",
                                      LOCK_POSTFIX_ID, message_name, length, LOCK_NOTATION_LENGTH);
                           p_db->lock = OFF;
                        }
@@ -398,10 +404,19 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & LOCK_FLAG) == 0) &&
-                     (CHECK_STRNCMP(ptr, LOCK_ID, LOCK_ID_LENGTH) == 0))
+                     ((CHECK_STRNCMP(ptr, LOCK_ID, LOCK_ID_LENGTH) == 0) ||
+                      (CHECK_STRNCMP(ptr, ULOCK_ID, ULOCK_ID_LENGTH) == 0)))
                  {
                     used |= LOCK_FLAG;
-                    ptr += LOCK_ID_LENGTH;
+                    if (*ptr == 'u')
+                    {
+                       p_db->special_flag |= UNIQUE_LOCKING;
+                       ptr += ULOCK_ID_LENGTH;
+                    }
+                    else
+                    {
+                       ptr += LOCK_ID_LENGTH;
+                    }
                     while ((*ptr == ' ') || (*ptr == '\t'))
                     {
                        ptr++;
@@ -461,7 +476,7 @@ eval_message(char *message_name, struct job *p_db)
                             if (n == MAX_LOCK_FILENAME_LENGTH)
                             {
                                system_log(WARN_SIGN, __FILE__, __LINE__,
-                                          "The lock file name has been truncated, since we can only sore %d Bytes. #%x",
+                                          "The lock file name has been truncated, since we can only store %d bytes. #%x",
                                           MAX_LOCK_FILENAME_LENGTH,
                                           p_db->job_id);
                             }
@@ -474,6 +489,7 @@ eval_message(char *message_name, struct job *p_db)
                     else if (CHECK_STRCMP(ptr, LOCK_OFF) == 0)
                          {
                             p_db->lock = OFF;
+                            p_db->special_flag &= ~UNIQUE_LOCKING;
                          }
 #ifdef WITH_READY_FILES
                     else if (CHECK_STRCMP(ptr, LOCK_READY_A_FILE) == 0)
@@ -484,7 +500,7 @@ eval_message(char *message_name, struct job *p_db)
                          {
                             p_db->lock = READY_B_FILE;
                          }
-#endif /* WITH_READY_FILES */
+#endif
                          else
                          {
                             size_t length;
@@ -493,7 +509,7 @@ eval_message(char *message_name, struct job *p_db)
                             if (length > (LOCK_NOTATION_LENGTH - 1))
                             {
                                system_log(WARN_SIGN, __FILE__, __LINE__,
-                                          "Lock notation `%s' in message `%s' is %d Bytes long, it may only be %d Bytes long.",
+                                          "Lock notation `%s' in message `%s' is %d bytes long, it may only be %d bytes long.",
                                           LOCK_ID, message_name, length, LOCK_NOTATION_LENGTH);
                                p_db->lock = OFF;
                             }
@@ -1071,6 +1087,17 @@ eval_message(char *message_name, struct job *p_db)
                     ptr = eval_dupcheck_options(ptr, &p_db->dup_check_timeout,
                                                 &p_db->dup_check_flag, NULL);
                     p_db->crc_id = p_db->job_id;
+# ifdef DEBUG_DUP_CHECK
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#  if SIZEOF_TIME_T == 4
+                               "crc_id=%x timeout=%ld flag=%u",
+#  else
+                               "crc_id=%x timeout=%lld flag=%u",
+#  endif
+                               p_db->crc_id,
+                               (pri_time_t)p_db->dup_check_timeout,
+                               p_db->dup_check_flag);
+# endif
                     while (*ptr == '\n')
                     {
                        ptr++;
@@ -1487,6 +1514,14 @@ eval_message(char *message_name, struct job *p_db)
                        {
                          end_ptr++;
                          length++;
+                       }
+
+                       /* Discard global DEFAULT_SMTP_REPLY_TO from */
+                       /* AFD_CONFIG when set.                      */
+                       if (p_db->reply_to != NULL)
+                       {
+                          free(p_db->reply_to);
+                          p_db->reply_to = NULL;
                        }
                        if ((p_db->reply_to = malloc(length + 1)) == NULL)
                        {
@@ -2269,7 +2304,8 @@ eval_message(char *message_name, struct job *p_db)
                                            p_work_dir, ETC_DIR,
                                            AFD_CONFIG_FILE);
                              if ((eaccess(config_file, F_OK) == 0) &&
-                                 (read_file(config_file, &buffer) != INCORRECT))
+                                 (read_file_no_cr(config_file,
+                                                  &buffer) != INCORRECT))
                              {
                                 char value[MAX_INT_LENGTH];
 
@@ -2355,7 +2391,7 @@ eval_message(char *message_name, struct job *p_db)
                  }
                  else
                  {
-                    /* Ignore this option */
+                    /* Ignore this option. */
                     end_ptr = ptr;
                     while ((*end_ptr != '\n') && (*end_ptr != '\0'))
                     {
@@ -2377,7 +2413,7 @@ eval_message(char *message_name, struct job *p_db)
       }
    } /* if (byte_buf != '\0') */
 
-   /* Don't forget to free memory we have allocated */
+   /* Don't forget to free memory we have allocated. */
    free(msg_buf);
 
    return(SUCCESS);

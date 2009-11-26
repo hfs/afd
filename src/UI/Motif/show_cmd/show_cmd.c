@@ -1,6 +1,6 @@
 /*
  *  show_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ DESCR__E_M1
 # include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_cmd.h"
 #include "version.h"
 
@@ -154,6 +154,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -171,6 +172,11 @@ main(int argc, char *argv[])
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform_w", NULL, 0);
@@ -284,7 +290,7 @@ main(int argc, char *argv[])
    separator_w = XmCreateSeparator(mainform_w, "separator", args, argcount);
    XtManageChild(separator_w);
 
-   /* Create cmd_output as a ScrolledText window */
+   /* Create cmd_output as a ScrolledText window. */
    argcount = 0;
    XtSetArg(args[argcount], XmNrows,                   18);
    argcount++;

@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "afdddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        host_config_counter,
                                   no_of_dirs,
                                   no_of_hosts,
@@ -65,7 +65,7 @@ void
 show_summary_stat(FILE *p_data)
 {
    int            error_hosts = 0,
-                  i;
+                  i, j;
    unsigned int   connections = 0,
                   errors = 0,
                   files_received = 0,
@@ -87,7 +87,10 @@ show_summary_stat(FILE *p_data)
    {
       files_to_be_send += fsa[i].total_file_counter;
       bytes_to_be_send += fsa[i].total_file_size;
-      bytes_send += (double)fsa[i].bytes_send;
+      for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
+      {
+         bytes_send += (double)fsa[i].job_status[j].bytes_send;
+      }
       files_send += (double)fsa[i].file_counter_done;
       if (((fsa[i].host_status & HOST_ERROR_OFFLINE) == 0) &&
           ((fsa[i].host_status & HOST_ERROR_OFFLINE_T) == 0) &&

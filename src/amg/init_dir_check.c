@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,7 @@ DESCR__E_M1
                                    /* exit()                             */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <signal.h>                /* kill()                             */
 #ifdef WITH_INOTIFY
 # include <sys/inotify.h>          /* inotify_init()                     */
 #endif
@@ -73,72 +74,86 @@ DESCR__E_M1
 
 
 /* Global variables. */
-extern int                    afd_status_fd,
-                              max_process,
+extern int                        afd_file_dir_length,
+                                  afd_status_fd,
+                                  dcpl_fd,
+                                  max_process,
+                                  *no_of_process,
 #ifndef _WITH_PTHREAD
-                              dir_check_timeout,
+                                  dir_check_timeout,
 #endif
-                              full_scan_timeout,
+                                  full_scan_timeout,
 #ifdef WITH_INOTIFY
-                              inotify_fd,
-                              *iwl,
-                              no_of_inotify_dirs,
+                                  inotify_fd,
+                                  *iwl,
+                                  no_of_inotify_dirs,
 #endif
-                              one_dir_copy_timeout,
-                              no_of_dirs,
-                              no_of_jobs,
-                              no_of_local_dirs, /* No. of directories in */
-                                                /* the DIR_CONFIG file   */
-                                                /* that are local.       */
-                              amg_counter_fd,   /* File descriptor for   */
-                                                /* AMG counter file.     */
-                              fin_fd,
+                                  one_dir_copy_timeout,
+                                  no_of_jobs,
+                                  no_of_local_dirs, /* No. of directories in*/
+                                                    /* the DIR_CONFIG file  */
+                                                    /* that are local.      */
+                                  no_of_orphaned_procs,
+                                  *amg_counter,
+                                  amg_counter_fd,   /* File descriptor for  */
+                                                    /* AMG counter file.    */
+                                  fin_fd,
 #ifdef _INPUT_LOG
-                              il_fd,
+                                  il_fd,
 #endif
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-                              dc_cmd_writefd,
-                              dc_resp_readfd,
-                              del_time_job_writefd,
-                              fin_writefd,
-                              receive_log_readfd,
+                                  dc_cmd_writefd,
+                                  dc_resp_readfd,
+                                  del_time_job_writefd,
+                                  fin_writefd,
+                                  receive_log_readfd,
 #endif
-                              receive_log_fd;
-extern time_t                 default_exec_timeout;
-extern unsigned int           default_age_limit;
+                                  receive_log_fd;
+extern time_t                     default_exec_timeout;
+extern unsigned int               default_age_limit;
+extern pid_t                      *opl;
 #ifdef _WITH_PTHREAD
-extern pthread_t              *thread;
+extern pthread_t                  *thread;
 #else
-extern unsigned int           max_file_buffer;
-extern time_t                 *file_mtime_pool;
-extern off_t                  *file_size_pool;
+extern unsigned int               max_file_buffer;
+extern time_t                     *file_mtime_pool;
+extern off_t                      *file_size_pool;
 #endif
 #ifdef _POSIX_SAVED_IDS
-extern int                    no_of_sgids;
-extern uid_t                  afd_uid;
-extern gid_t                  afd_gid,
-                              *afd_sgids;
+extern int                        no_of_sgids;
+extern uid_t                      afd_uid;
+extern gid_t                      afd_gid,
+                                  *afd_sgids;
 #endif
-extern char                   *p_work_dir,
-                              time_dir[],
-                              *p_time_dir,
+extern char                       *p_work_dir,
+                                  time_dir[],
+                                  *p_time_dir,
 #ifndef _WITH_PTHREAD
-                              **file_name_pool,
+                                  **file_name_pool,
 #endif
-                              *afd_file_dir,
-                              outgoing_file_dir[];
-extern struct dc_proc_list    *dcpl;       /* Dir Check Process List     */
-extern struct directory_entry *de;
+                                  *afd_file_dir,
+                                  outgoing_file_dir[];
+#ifndef _WITH_PTHREAD
+extern unsigned char              *file_length_pool;
+#endif
+extern struct dc_proc_list        *dcpl;      /* Dir Check Process List. */
+extern struct directory_entry     *de;
+extern struct afd_status          *p_afd_status;
+extern struct instant_db          *db;
+extern struct fileretrieve_status *fra;
 #ifdef _DELETE_LOG
-extern struct delete_log      dl;
+extern struct delete_log          dl;
+#endif
+#ifdef _DISTRIBUTION_LOG
+extern struct file_dist_list      **file_dist_pool;
 #endif
 #ifdef _WITH_PTHREAD
-extern struct data_t          *p_data;
+extern struct data_t              *p_data;
 #endif
 
 /* Local function prototypes. */
-static void                   get_afd_config_value(void),
-                              usage(void);
+static void                       get_afd_config_value(void),
+                                  usage(void);
 
 
 /*########################### init_dir_check() ##########################*/
@@ -152,13 +167,23 @@ init_dir_check(int    argc,
                int    *del_time_job_fd)
 {
    int         i;
+#ifdef _WITH_PTHREAD
+# ifdef _DISTRIBUTION_LOG
+   int         j;
+# endif
+#endif
+   size_t      size;
    char        del_time_job_fifo[MAX_PATH_LENGTH],
 #ifdef _INPUT_LOG
                input_log_fifo[MAX_PATH_LENGTH],
 #endif
                dc_cmd_fifo[MAX_PATH_LENGTH],
+               dcpl_data_file[MAX_PATH_LENGTH],
                dc_resp_fifo[MAX_PATH_LENGTH],
                fin_fifo[MAX_PATH_LENGTH],
+               other_fifo[MAX_PATH_LENGTH],
+               *p_other_fifo,
+               *ptr,
                receive_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
@@ -176,7 +201,7 @@ init_dir_check(int    argc,
    }
 
 #ifdef _POSIX_SAVED_IDS
-   /* User and group ID */
+   /* User and group ID. */
    afd_uid = geteuid();
    afd_gid = getegid();
    no_of_sgids = getgroups(0, NULL);
@@ -218,8 +243,8 @@ init_dir_check(int    argc,
                  strerror(errno));
       exit(INCORRECT);
    }
-   i = strlen(p_work_dir) + (sizeof(AFD_FILE_DIR) - 1) + 1;
-   if ((afd_file_dir = malloc(i)) == NULL)
+   afd_file_dir_length = strlen(p_work_dir) + AFD_FILE_DIR_LENGTH;
+   if ((afd_file_dir = malloc(afd_file_dir_length + 1)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));
@@ -230,14 +255,18 @@ init_dir_check(int    argc,
    (void)strcpy(afd_file_dir, p_work_dir);
    (void)strcat(afd_file_dir, AFD_FILE_DIR);
    (void)strcpy(outgoing_file_dir, afd_file_dir);
-   (void)strcat(outgoing_file_dir, OUTGOING_DIR);
-   (void)strcat(outgoing_file_dir, "/");
+   (void)strcpy(outgoing_file_dir + afd_file_dir_length, OUTGOING_DIR);
+   outgoing_file_dir[afd_file_dir_length + OUTGOING_DIR_LENGTH] = '/';
+   outgoing_file_dir[afd_file_dir_length + OUTGOING_DIR_LENGTH + 1] = '\0';
    (void)strcpy(time_dir, afd_file_dir);
-   (void)strcat(time_dir, AFD_TIME_DIR);
-   (void)strcat(time_dir, "/");
-   p_time_dir = time_dir + strlen(time_dir);
+   (void)strcpy(time_dir + afd_file_dir_length, AFD_TIME_DIR);
+   time_dir[afd_file_dir_length + AFD_TIME_DIR_LENGTH] = '/';
+   time_dir[afd_file_dir_length + AFD_TIME_DIR_LENGTH + 1] = '\0';
+   p_time_dir = time_dir + afd_file_dir_length + AFD_TIME_DIR_LENGTH + 1;
    (void)strcpy(dc_cmd_fifo, p_work_dir);
    (void)strcat(dc_cmd_fifo, FIFO_DIR);
+   (void)strcpy(other_fifo, dc_cmd_fifo);
+   p_other_fifo = other_fifo + strlen(other_fifo);
    (void)strcpy(fin_fifo, dc_cmd_fifo);
    (void)strcat(fin_fifo, IP_FIN_FIFO);
 #ifdef _INPUT_LOG
@@ -250,6 +279,8 @@ init_dir_check(int    argc,
    (void)strcat(del_time_job_fifo, DEL_TIME_JOB_FIFO);
    (void)strcpy(receive_log_fifo, dc_cmd_fifo);
    (void)strcat(receive_log_fifo, RECEIVE_LOG_FIFO);
+   (void)strcpy(dcpl_data_file, dc_cmd_fifo);
+   (void)strcat(dcpl_data_file, DCPL_FILE_NAME);
    (void)strcat(dc_cmd_fifo, DC_CMD_FIFO);
    init_msg_buffer();
 
@@ -268,6 +299,7 @@ init_dir_check(int    argc,
                  "Failed to attach to AFD status area.");
       exit(INCORRECT);
    }
+   p_afd_status->amg_jobs &= ~CHECK_FILE_DIR_ACTIVE;
 
    get_afd_config_value();
 
@@ -287,7 +319,6 @@ init_dir_check(int    argc,
    for (i = 0; i < no_of_local_dirs; i++)
    {
       p_data[i].i = i;
-      (void)strcpy(p_data[i].afd_file_dir, afd_file_dir);
       de[i].fme   = NULL;
       de[i].rl_fd = -1;
       de[i].rl    = NULL;
@@ -300,6 +331,13 @@ init_dir_check(int    argc,
       de[i].rl    = NULL;
    }
    RT_ARRAY(file_name_pool, max_file_buffer, MAX_FILENAME_LENGTH, char);
+   if ((file_length_pool = malloc(max_file_buffer * sizeof(unsigned char))) == NULL)
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "malloc() error [%d bytes] : %s",
+                 max_file_buffer * sizeof(unsigned char), strerror(errno));
+      exit(INCORRECT);
+   }
    if ((file_mtime_pool = malloc(max_file_buffer * sizeof(off_t))) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -314,6 +352,33 @@ init_dir_check(int    argc,
                  max_file_buffer * sizeof(off_t), strerror(errno));
       exit(INCORRECT);
    }
+# ifdef _DISTRIBUTION_LOG
+#  ifdef RT_ARRAY_STRUCT_WORKING
+   RT_ARRAY(file_dist_pool, max_file_buffer, NO_OF_DISTRIBUTION_TYPES,
+            (struct file_dist_list));
+#  else
+   if ((file_dist_pool = (struct file_dist_list **)malloc(max_file_buffer * sizeof(struct file_dist_list *))) == NULL)
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "malloc() error [%d bytes] : %s",
+                 max_file_buffer * sizeof(struct file_dist_list *),
+                 strerror(errno));
+      exit(INCORRECT);
+   }
+   if ((file_dist_pool[0] = (struct file_dist_list *)malloc(max_file_buffer * NO_OF_DISTRIBUTION_TYPES * sizeof(struct file_dist_list))) == NULL)
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "malloc() error [%d bytes] : %s",
+                 max_file_buffer * NO_OF_DISTRIBUTION_TYPES * sizeof(struct file_dist_list),
+                 strerror(errno));
+      exit(INCORRECT);
+   }
+   for (i = 1; i < max_file_buffer; i++)
+   {
+      file_dist_pool[i] = file_dist_pool[0] + (i * NO_OF_DISTRIBUTION_TYPES);
+   }
+#  endif
+# endif
 #endif
 
    /* Open receive log fifo. */
@@ -339,8 +404,32 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
+   /* Check if the queue list fifos exist, if not create them. */
+   (void)strcpy(p_other_fifo, QUEUE_LIST_READY_FIFO);
+   if ((stat(other_fifo, &stat_buf) < 0) ||
+       (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(other_fifo) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to create fifo %s.", other_fifo);
+         exit(INCORRECT);
+      }
+   }
+   (void)strcpy(p_other_fifo, QUEUE_LIST_DONE_FIFO);
+   if ((stat(other_fifo, &stat_buf) < 0) ||
+       (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(other_fifo) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to create fifo %s.", other_fifo);
+         exit(INCORRECT);
+      }
+   }
+
    /* Open counter file so we can create unique names for each job. */
-   if ((amg_counter_fd = open_counter_file(AMG_COUNTER_FILE)) == -1)
+   if ((amg_counter_fd = open_counter_file(AMG_COUNTER_FILE, &amg_counter)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open counter file : %s", strerror(errno));
@@ -441,6 +530,14 @@ init_dir_check(int    argc,
    {
       RT_ARRAY(p_data[i].file_name_pool, fra[i].max_copied_files,
                MAX_FILENAME_LENGTH, char);
+      if ((p_data[i].file_length_pool = malloc(fra[i].max_copied_files * sizeof(unsigned char))) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "malloc() error [%d bytes] : %s",
+                    fra[i].max_copied_files * sizeof(unsigned char),
+                    strerror(errno));
+         exit(INCORRECT);
+      }
       if ((p_data[i].file_mtime_pool = malloc(fra[i].max_copied_files * sizeof(off_t))) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -453,20 +550,155 @@ init_dir_check(int    argc,
                     "malloc() error : %s", strerror(errno));
          exit(INCORRECT);
       }
+# ifdef _DISTRIBUTION_LOG
+#  ifdef RT_ARRAY_STRUCT_WORKING
+      RT_ARRAY(p_data[i].file_dist_pool, fra[i].max_copied_files, NO_OF_DISTRIBUTION_TYPES,
+               (struct file_dist_list));
+#  else
+      if ((p_data[i].file_dist_pool = (struct file_dist_list **)malloc(fra[i].max_copied_files * sizeof(struct file_dist_list *))) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "malloc() error [%d bytes] : %s",
+                    fra[i].max_copied_files * sizeof(struct file_dist_list *),
+                    strerror(errno));
+         exit(INCORRECT);
+      }
+      if ((p_data[i].file_dist_pool[0] = (struct file_dist_list *)malloc(fra[i].max_copied_files * NO_OF_DISTRIBUTION_TYPES * sizeof(struct file_dist_list))) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "malloc() error [%d bytes] : %s",
+                    fra[i].max_copied_files * NO_OF_DISTRIBUTION_TYPES * sizeof(struct file_dist_list),
+                    strerror(errno));
+         exit(INCORRECT);
+      }
+      for (j = 1; j < fra[i].max_copied_files; j++)
+      {
+         p_data[i].file_dist_pool[j] = p_data[i].file_dist_pool[0] + (j * NO_OF_DISTRIBUTION_TYPES);
+      }
+#  endif
+# endif
    }
-#endif /* _WITH_PTHREAD */
+#endif
 
-   /* Allocate space for process ID array. */
-   if ((dcpl = malloc(max_process * sizeof(struct dc_proc_list))) == NULL)
+   /* Attach to process ID array. */
+   size = (max_process * sizeof(struct dc_proc_list)) + AFD_WORD_OFFSET;
+   if ((ptr = attach_buf(dcpl_data_file, &dcpl_fd, &size,
+                         DIR_CHECK, FILE_MODE, NO)) == (caddr_t) -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                "Not enough memory to malloc() : %s", strerror(errno));
+                 "Failed to mmap() `%s' : %s", dcpl_data_file, strerror(errno));
       exit(INCORRECT);
    }
-   for (i = 0; i < max_process; i++)
+   no_of_process = (int *)ptr;
+   ptr += AFD_WORD_OFFSET;
+   dcpl = (struct dc_proc_list *)ptr;
+
+   /* Initialize, but don't overwrite existing process! */
+   for (i = *no_of_process; i < max_process; i++)
    {
       dcpl[i].fra_pos = -1;
       dcpl[i].pid = -1;
+   }
+
+   /* Check if the process in the list still exist. */
+   no_of_orphaned_procs = 0;
+   opl = NULL;
+   if (*no_of_process > 0)
+   {
+      for (i = 0; i < *no_of_process; i++)
+      {
+         if (dcpl[i].pid > 0)
+         {
+            if (kill(dcpl[i].pid, 0) == -1)
+            {
+               /* The process no longer exist, so lets remove it. */
+               (*no_of_process)--;
+               if (i < *no_of_process)
+               {
+                  (void)memmove(&dcpl[i], &dcpl[i + 1],
+                                ((*no_of_process - i) * sizeof(struct dc_proc_list)));
+               }
+               dcpl[*no_of_process].pid = -1;
+               dcpl[*no_of_process].fra_pos = -1;
+               i--;
+            }
+            else
+            {
+               int gotcha,
+                   j;
+
+               /*
+                * The process still exists. We now need to check if
+                * the job still exist and if fsa_pos is still correct.
+                */
+               gotcha = NO;
+               for (j = 0; j < no_of_jobs; j++)
+               {
+                  if (db[j].job_id == dcpl[i].job_id)
+                  {
+                     if (db[j].fra_pos != dcpl[i].fra_pos)
+                     {
+                        dcpl[i].fra_pos = db[j].fra_pos;
+                     }
+                     if ((no_of_orphaned_procs % ORPHANED_PROC_STEP_SIZE) == 0)
+                     {
+                        size = ((no_of_orphaned_procs / ORPHANED_PROC_STEP_SIZE) + 1) *
+                               ORPHANED_PROC_STEP_SIZE * sizeof(pid_t);
+
+                        if ((opl = realloc(opl, size)) == NULL)
+                        {
+                           system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                      "Failed to realloc() %d bytes : %s",
+                                      size, strerror(errno));
+                           exit(INCORRECT);
+                        }
+                     }
+                     fra[db[j].fra_pos].no_of_process++;
+                     opl[no_of_orphaned_procs] = dcpl[i].pid;
+                     no_of_orphaned_procs++;
+                     gotcha = YES;
+                     break;
+                  }
+               }
+               if (gotcha == NO)
+               {
+                  /*
+                   * The process is no longer in the current job list.
+                   * We may not kill this process, since we do NOT
+                   * know if this is one of our process that we
+                   * started. But lets remove it from our job list.
+                   */
+                  (*no_of_process)--;
+                  if (i < *no_of_process)
+                  {
+                     (void)memmove(&dcpl[i], &dcpl[i + 1],
+                                   ((*no_of_process - i) * sizeof(struct dc_proc_list)));
+                  }
+                  dcpl[*no_of_process].pid = -1;
+                  dcpl[*no_of_process].fra_pos = -1;
+                  i--;
+               }
+            }
+         }
+         else
+         {
+            /* Hmm, looks like garbage. Lets remove this. */
+            (*no_of_process)--;
+            if (i < *no_of_process)
+            {
+               (void)memmove(&dcpl[i], &dcpl[i + 1],
+                             ((*no_of_process - i) * sizeof(struct dc_proc_list)));
+            }
+            dcpl[*no_of_process].pid = -1;
+            dcpl[*no_of_process].fra_pos = -1;
+            i--;
+         }
+      }
+   }
+   if (no_of_orphaned_procs)
+   {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Hmm, there are %d orphaned process.", no_of_orphaned_procs);
    }
 
 #ifdef _INPUT_LOG
@@ -508,7 +740,7 @@ init_dir_check(int    argc,
    {
       if (((fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME) ||
            (fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE)) &&
-          (fra[de[i].fra_pos].time_option == NO) &&
+          (fra[de[i].fra_pos].no_of_time_entries == 0) &&
           (fra[de[i].fra_pos].force_reread == NO))
       {
          no_of_inotify_dirs++;
@@ -537,7 +769,7 @@ init_dir_check(int    argc,
       {
          if (((fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME) ||
               (fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE)) &&
-             (fra[de[i].fra_pos].time_option == NO) &&
+             (fra[de[i].fra_pos].no_of_time_entries == 0) &&
              (fra[de[i].fra_pos].force_reread == NO))
          {
             mask = 0;
@@ -596,7 +828,7 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 
@@ -617,7 +849,7 @@ get_afd_config_value(void)
                          value, MAX_INT_LENGTH) != NULL)
       {
          full_scan_timeout = atoi(value);
-         if ((full_scan_timeout < 2) || (full_scan_timeout > 3600))
+         if ((full_scan_timeout < 0) || (full_scan_timeout > 3600))
          {
             full_scan_timeout = FULL_SCAN_TIMEOUT;
          }

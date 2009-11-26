@@ -1,6 +1,6 @@
 /*
  *  posi.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   char *posi(char *search_text, char *search_string)
+ **   char *lposi(char *search_text, char *search_string,
+ **               const size_t string_length)
  **
  ** DESCRIPTION
  **   This small function searches in the string 'search_text' for
@@ -44,6 +46,7 @@ DESCR__S_M3
  ** HISTORY
  **   13.07.1996 H.Kiehl Created
  **   06.05.1997 H.Kiehl Found and fixed \n\n bug!!
+ **   04.03.2009 H.Kiehl Added function lposi().
  **
  */
 DESCR__E_M3
@@ -85,5 +88,39 @@ posi(char *search_text, char *search_string)
       }
    }
 
-   return(NULL); /* Found nothing */
+   return(NULL); /* Found nothing. */
+}
+
+
+/*############################### lposi() ###############################*/
+char *
+lposi(char *search_text, char *search_string, const size_t string_length)
+{
+   int hit = 0;
+
+   while (*search_text != '\0')
+   {
+      if (*(search_text++) == *(search_string++))
+      {
+         if (++hit == string_length)
+         {
+            return(++search_text);
+         }
+      }
+      else
+      {
+         if ((hit == 1) &&
+             (*(search_string - 2) == *(search_text - 1)))
+         {
+            search_string--;
+         }
+         else
+         {
+            search_string -= hit + 1;
+            hit = 0;
+         }
+      }
+   }
+
+   return(NULL); /* Found nothing. */
 }

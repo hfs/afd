@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 
 #include "motif_common_defs.h"
 
-/* What information should be displayed */
+/* What information should be displayed. */
 #define SHOW_INPUT              1      /* Files queued, due to error or */
                                        /* queue stopped.                */
 #define SHOW_OUTPUT             2      /* Files in FD queue.            */
@@ -65,7 +65,7 @@
 #define FILE_SIZE_FORMAT        "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT             "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
 
-/* Maximum length of the file name that is displayed */
+/* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT       32
 #define SHOW_MEDIUM_FORMAT      46
 #define SHOW_LONG_FORMAT        66
@@ -82,7 +82,7 @@ struct queued_file_list
           double       msg_number;
           off_t        size;
           time_t       mtime;
-          int          retrieve_pos;
+          int          pos;
           int          dir_id_pos;
           int          queue_tmp_buf_pos;
           unsigned int job_id;
@@ -105,7 +105,7 @@ struct queue_tmp_buf
           char         msg_name[MAX_MSG_NAME_LENGTH];
        };
 
-/* Permission structure for show_queue */
+/* Permission structure for show_queue. */
 struct sol_perm
        {
           int         list_limit;
@@ -151,14 +151,14 @@ struct sol_perm
            }                                                               \
         }
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void close_button(Widget, XtPointer, XtPointer),
             delete_button(Widget, XtPointer, XtPointer),
             delete_files(int, int *),
             display_data(void),
-            format_input_info(char *, int),
-            format_output_info(char *, int),
-            format_retrieve_info(char *, int),
+            format_input_info(char **, int),
+            format_output_info(char **, int),
+            format_retrieve_info(char **, int),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),

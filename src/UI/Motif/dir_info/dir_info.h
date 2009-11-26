@@ -1,6 +1,6 @@
 /*
  *  dir_info.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,7 @@ struct prev_values
           int           queued_file_time;
           int           locked_file_time;
           int           end_character;
-          unsigned char time_option;
+          unsigned char no_of_time_entries;
           unsigned char delete_files_flag;
           unsigned char stupid_mode;
           unsigned char remove;
@@ -95,7 +95,7 @@ struct prev_values
           unsigned char report_unknown_files;
        };
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void close_button(Widget, XtPointer, XtPointer),
             update_info(Widget);
 

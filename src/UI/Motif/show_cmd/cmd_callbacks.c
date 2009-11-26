@@ -52,10 +52,10 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_cmd.h"
 
-/* External global variables */
+/* External global variables. */
 extern int            cmd_fd,
                       go_to_beginning;
 extern pid_t          cmd_pid;
@@ -67,7 +67,7 @@ extern XtInputId      cmd_input_id;
 extern XmTextPosition wpr_position;
 extern XtAppContext   app;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void           catch_child(Widget),
                       kill_child(Widget),
                       repeat_cmd(Widget);

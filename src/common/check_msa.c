@@ -1,6 +1,6 @@
 /*
  *  check_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,12 +53,12 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* munmap()                     */
+# include <sys/mman.h>                   /* munmap()                     */
 #endif
 #include <errno.h>
 #include "mondefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                    msa_id;
 #ifdef HAVE_MMAP
 extern off_t                  msa_size;
@@ -84,14 +84,14 @@ check_msa(void)
          if (munmap(ptr, msa_size) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() from MSA [msa_id = %d msa_size = %d] : %s",
+                       _("Failed to munmap() from MSA [msa_id = %d msa_size = %d] : %s"),
                        msa_id, msa_size, strerror(errno));
          }
 #else
          if (munmap_emu(ptr) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap_emu() from MSA (%d) : %s",
+                       _("Failed to munmap_emu() from MSA (%d) : %s"),
                        msa_id, strerror(errno));
          }
 #endif
@@ -99,7 +99,7 @@ check_msa(void)
          if (msa_attach() < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to attach to MSA.");
+                       _("Failed to attach to MSA."));
             exit(INCORRECT);
          }
 

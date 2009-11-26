@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,8 +74,11 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
 #include "logdefs.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_dlog.h"
+#include "sdr_str.h"
+
+#define MACRO_DEBUG
 
 /* External global variables. */
 extern Display          *display;
@@ -96,7 +99,7 @@ extern int              file_name_toggle_set,
                         no_of_search_dirs,
                         no_of_search_dirids,
                         no_of_search_hosts;
-extern XT_PTR_TYPE      toggles_set;
+extern XT_PTR_TYPE      dr_toggles_set;
 extern size_t           search_file_size;
 extern time_t           start_time_val,
                         end_time_val;
@@ -116,31 +119,34 @@ static unsigned int     total_no_files;
 static time_t           local_start_time,
                         local_end_time,
                         first_date_found;
-static double           file_size,
-                        trans_time;
-static char             *p_file_name,
-                        *p_host_name,
-                        *p_type,
-                        *p_file_size,
-                        *p_proc_user,
+static off_t            file_size;
+static double           trans_time;
+static char             line[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1],
                         log_file[MAX_PATH_LENGTH],
+                        *p_delete_reason,
+                        *p_file_name,
+                        *p_file_size,
+                        *p_host_name,
                         *p_log_file,
-                        line[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1];
+                        *p_proc_user;
 static XmStringTable    str_list;
 
-#ifdef _DELETE_LOG
 /* Local function prototypes. */
-static char   *search_time(char *, time_t, time_t, time_t, size_t);
-static void   display_data(int, time_t, time_t),
-              extract_data(char *, int),
-              no_criteria(register char *, char *, int, char *),
-              file_name_only(register char *, char *, int, char *),
-              file_size_only(register char *, char *, int, char *),
-              file_name_and_size(register char *, char *, int, char *),
-              recipient_only(register char *, char *, int, char *),
-              file_name_and_recipient(register char *, char *, int, char *),
-              file_size_and_recipient(register char *, char *, int, char *),
-              file_name_size_recipient(register char *, char *, int, char *);
+static char             *search_time(char *, time_t, time_t, time_t, size_t);
+static void             display_data(int, time_t, time_t),
+                        extract_data(char *, int),
+                        no_criteria(register char *, char *, int, char *),
+                        file_name_only(register char *, char *, int, char *),
+                        file_size_only(register char *, char *, int, char *),
+                        file_name_and_size(register char *, char *, int,
+                                           char *),
+                        recipient_only(register char *, char *, int, char *),
+                        file_name_and_recipient(register char *, char *, int,
+                                                char *),
+                        file_size_and_recipient(register char *, char *, int,
+                                                char *),
+                        file_name_size_recipient(register char *, char *, int,
+                                                 char *);
 
 #define REALLOC_OFFSET_BUFFER()                                  \
         {                                                        \
@@ -152,9 +158,8 @@ static void   display_data(int, time_t, time_t),
               new_char_size = (loops + 1) * LINES_BUFFERED;      \
               new_int_size = new_char_size * sizeof(int);        \
                                                                  \
-              if (((il[file_no].offset = realloc(il[file_no].offset, new_int_size)) == NULL) ||          \
-                  ((il[file_no].line_offset = realloc(il[file_no].line_offset, new_int_size)) == NULL) ||\
-                  ((il[file_no].input_id = realloc(il[file_no].input_id, new_char_size)) == NULL))       \
+              if (((il[file_no].offset = realloc(il[file_no].offset, new_int_size)) == NULL) ||        \
+                  ((il[file_no].line_offset = realloc(il[file_no].line_offset, new_int_size)) == NULL))\
               {                                                  \
                  (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",\
                             strerror(errno), __FILE__, __LINE__);\
@@ -169,7 +174,7 @@ static void   display_data(int, time_t, time_t),
            ptr++; i--;         \
            continue;           \
         }
-#define INSERT_TIME_TYPE(reason, reason_length)            \
+#define INSERT_TIME_REASON(reason_pos)                     \
         {                                                  \
            (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
            time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);\
@@ -179,30 +184,76 @@ static void   display_data(int, time_t, time_t),
            }                                               \
            p_ts = localtime(&time_when_transmitted);       \
            CONVERT_TIME();                                 \
-           (void)memcpy(p_type, (reason), (reason_length));\
+           (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
         }
 #define COMMON_BLOCK()                                     \
         {                                                  \
+           int  count = 0;                                 \
+           char job_id_str[MAX_INT_HEX_LENGTH];            \
+                                                           \
            ptr++;                                          \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);\
                                                            \
-           if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))\
+           while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) &&\
+                  (count < MAX_INT_HEX_LENGTH))            \
            {                                               \
-              int  count = 0,                              \
-                   gotcha = NO,                            \
-                   kk;                                     \
-              char job_id_str[15];                         \
-                                                           \
-              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))\
+              job_id_str[count] = *ptr;                    \
+              count++; ptr++;                              \
+           }                                               \
+           if (*ptr != SEPARATOR_CHAR)                     \
+           {                                               \
+              IGNORE_ENTRY();                              \
+           }                                               \
+           job_id_str[count] = '\0';                       \
+           if (id.offset)                                  \
+           {                                               \
+              ptr++;                                       \
+              id.job_id = (unsigned int)strtoul(job_id_str, NULL, 16);\
+              count = 0;                                   \
+              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) &&\
+                     (count < MAX_INT_HEX_LENGTH))         \
               {                                            \
                  job_id_str[count] = *ptr;                 \
                  count++; ptr++;                           \
               }                                            \
+              if (*ptr != SEPARATOR_CHAR)                  \
+              {                                            \
+                 IGNORE_ENTRY();                           \
+              }                                            \
               job_id_str[count] = '\0';                    \
-              id.job_no = (unsigned int)strtoul(job_id_str, NULL, 16);\
+              id.dir_id = (unsigned int)strtoul(job_id_str, NULL, 16);\
+              ptr++;                                       \
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))\
+              {                                            \
+                 ptr++; /* Ignore unique ID. */            \
+              }                                            \
+           }                                               \
+           else                                            \
+           {                                               \
+              unsigned int tmp_id;                         \
+                                                           \
+              tmp_id = (unsigned int)strtoul(job_id_str, NULL, 16);\
+              if ((id.delete_reason_no == AGE_OUTPUT) ||   \
+                  (id.delete_reason_no == NO_MESSAGE_FILE_DEL) ||\
+                  (id.delete_reason_no == DUP_OUTPUT))     \
+              {                                            \
+                 id.job_id = tmp_id;                       \
+                 id.dir_id = 0;                            \
+              }                                            \
+              else                                         \
+              {                                            \
+                 id.job_id = 0;                            \
+                 id.dir_id = tmp_id;                       \
+              }                                            \
+           }                                               \
+                                                           \
+           if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))\
+           {                                               \
+              int gotcha = NO,                             \
+                  kk;                                      \
                                                            \
               id.dir[0] = '\0';                            \
-              get_info(GOT_JOB_ID_DIR_ONLY, il[file_no].input_id[item_counter]);\
+              get_info(GOT_JOB_ID_DIR_ONLY);               \
               count = strlen(id.dir);                      \
               id.dir[count] = SEPARATOR_CHAR;              \
               id.dir[count + 1] = '\0';                    \
@@ -229,13 +280,6 @@ static void   display_data(int, time_t, time_t),
               if (gotcha == NO)                            \
               {                                            \
                  IGNORE_ENTRY();                           \
-              }                                            \
-           }                                               \
-           else                                            \
-           {                                               \
-              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))\
-              {                                            \
-                 ptr++;                                    \
               }                                            \
            }                                               \
                                                            \
@@ -270,8 +314,7 @@ static void   display_data(int, time_t, time_t),
               break;                                       \
            }                                               \
         }
-#ifdef HAVE_STRTOULL
-#define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
+#define FILE_SIZE_AND_RECIPIENT(reason_pos)                            \
         {                                                              \
            int ii;                                                     \
                                                                        \
@@ -279,13 +322,16 @@ static void   display_data(int, time_t, time_t),
            {                                                           \
               if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                                        \
-                 current_search_host = ii;                             \
                  break;                                                \
               }                                                        \
            }                                                           \
-           if (current_search_host != -1)                              \
+           if (ii == no_of_search_hosts)                               \
            {                                                           \
-              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;    \
+              IGNORE_ENTRY();                                          \
+           }                                                           \
+           else                                                        \
+           {                                                           \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;\
               while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
@@ -293,7 +339,7 @@ static void   display_data(int, time_t, time_t),
               ptr++;                                                   \
               if (*ptr == '/')                                         \
               {                                                        \
-                 /* Ignore  the remote file name */                    \
+                 /* Ignore the remote file name. */                    \
                  while (*ptr != SEPARATOR_CHAR)                        \
                  {                                                     \
                     ptr++;                                             \
@@ -306,277 +352,81 @@ static void   display_data(int, time_t, time_t),
               {                                                        \
                  ptr++; j++;                                           \
               }                                                        \
-              if (j > 15)                                              \
-              {                                                        \
-                 tmp_file_size = strtod("INF", NULL);                  \
-              }                                                        \
-              else                                                     \
-              {                                                        \
-                 tmp_file_size = (double)strtoull(ptr - j, NULL, 16);  \
-              }                                                        \
+              tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);    \
               if ((gt_lt_sign == EQUAL_SIGN) &&                        \
                   (tmp_file_size == search_file_size))                 \
               {                                                        \
                  (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                 (void)memcpy(p_type, (id_string), (id_string_length));\
+                 (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
                                                                        \
                  /* Write file size. */                                \
-                 print_file_size(p_file_size, (off_t)tmp_file_size);   \
+                 print_file_size(p_file_size, tmp_file_size);          \
               }                                                        \
               else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
                        (tmp_file_size < search_file_size))             \
                    {                                                   \
                       (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                      (void)memcpy(p_type, (id_string), (id_string_length));\
+                      (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
                                                                        \
                       /* Write file size. */                           \
-                      print_file_size(p_file_size, (off_t)tmp_file_size);\
+                      print_file_size(p_file_size, tmp_file_size);     \
                    }                                                   \
               else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
                        (tmp_file_size > search_file_size))             \
                    {                                                   \
                       (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                      (void)memcpy(p_type, (id_string), (id_string_length));\
+                      (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
                                                                        \
                       /* Write file size. */                           \
-                      print_file_size(p_file_size, (off_t)tmp_file_size);\
+                      print_file_size(p_file_size, tmp_file_size);     \
                    }                                                   \
                    else                                                \
                    {                                                   \
                       IGNORE_ENTRY();                                  \
                    }                                                   \
            }                                                           \
-           else                                                        \
-           {                                                           \
-              IGNORE_ENTRY();                                          \
-           }                                                           \
         }
-#else
-# ifdef LINUX
-#define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
-        {                                                              \
-           int ii;                                                     \
-                                                                       \
-           for (ii = 0; ii < no_of_search_hosts; ii++)                 \
-           {                                                           \
-              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
-              {                                                        \
-                 current_search_host = ii;                             \
-                 break;                                                \
-              }                                                        \
-           }                                                           \
-           if (current_search_host != -1)                              \
-           {                                                           \
-              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;    \
-              while (*ptr != SEPARATOR_CHAR)                           \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-              ptr++;                                                   \
-              if (*ptr == '/')                                         \
-              {                                                        \
-                 /* Ignore  the remote file name */                    \
-                 while (*ptr != SEPARATOR_CHAR)                        \
-                 {                                                     \
-                    ptr++;                                             \
-                 }                                                     \
-                 ptr++;                                                \
-              }                                                        \
-                                                                       \
-              j = 0;                                                   \
-              while (*ptr != SEPARATOR_CHAR)                           \
-              {                                                        \
-                 ptr++; j++;                                           \
-              }                                                        \
-              if (j < 9)                                               \
-              {                                                        \
-                 tmp_file_size = (double)strtoul(ptr - j, NULL, 16);   \
-              }                                                        \
-              else                                                     \
-              {                                                        \
-                 if (j > 15)                                           \
-                 {                                                     \
-                    tmp_file_size = strtod("INF", NULL);               \
-                 }                                                     \
-                 else                                                  \
-                 {                                                     \
-                    char tmp_buf[23];                                  \
-                                                                       \
-                    tmp_buf[0] = '0'; tmp_buf[1] = 'x';                \
-                    (void)memcpy(&tmp_buf[2], ptr - j, j);             \
-                    tmp_buf[2 + j] = '\0';                             \
-                    tmp_file_size = strtod(tmp_buf, NULL);             \
-                 }                                                     \
-              }                                                        \
-              if ((gt_lt_sign == EQUAL_SIGN) &&                        \
-                  (tmp_file_size == search_file_size))                 \
-              {                                                        \
-                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                 (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                 /* Write file size. */                                \
-                 print_file_size(p_file_size, (off_t)tmp_file_size);   \
-              }                                                        \
-              else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
-                       (tmp_file_size < search_file_size))             \
-                   {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                      (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                      /* Write file size. */                           \
-                      print_file_size(p_file_size, (off_t)tmp_file_size);\
-                   }                                                   \
-              else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
-                       (tmp_file_size > search_file_size))             \
-                   {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                      (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                      /* Write file size. */                           \
-                      print_file_size(p_file_size, (off_t)tmp_file_size);\
-                   }                                                   \
-                   else                                                \
-                   {                                                   \
-                      IGNORE_ENTRY();                                  \
-                   }                                                   \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              IGNORE_ENTRY();                                          \
-           }                                                           \
-        }
-# else
-#define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
-        {                                                              \
-           int ii;                                                     \
-                                                                       \
-           for (ii = 0; ii < no_of_search_hosts; ii++)                 \
-           {                                                           \
-              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
-              {                                                        \
-                 current_search_host = ii;                             \
-                 break;                                                \
-              }                                                        \
-           }                                                           \
-           if (current_search_host != -1)                              \
-           {                                                           \
-              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;    \
-              while (*ptr != SEPARATOR_CHAR)                           \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-              ptr++;                                                   \
-              if (*ptr == '/')                                         \
-              {                                                        \
-                 /* Ignore  the remote file name */                    \
-                 while (*ptr != SEPARATOR_CHAR)                        \
-                 {                                                     \
-                    ptr++;                                             \
-                 }                                                     \
-                 ptr++;                                                \
-              }                                                        \
-                                                                       \
-              j = 0;                                                   \
-              while (*ptr != SEPARATOR_CHAR)                           \
-              {                                                        \
-                 ptr++; j++;                                           \
-              }                                                        \
-              if (j < 9)                                               \
-              {                                                        \
-                 tmp_file_size = (double)strtoul(ptr - j, NULL, 16);   \
-              }                                                        \
-              else                                                     \
-              {                                                        \
-                 tmp_file_size = strtod("INF", NULL);                  \
-              }                                                        \
-              if ((gt_lt_sign == EQUAL_SIGN) &&                        \
-                  (tmp_file_size == search_file_size))                 \
-              {                                                        \
-                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                 (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                 /* Write file size. */                                \
-                 print_file_size(p_file_size, (off_t)tmp_file_size);   \
-              }                                                        \
-              else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
-                       (tmp_file_size < search_file_size))             \
-                   {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                      (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                      /* Write file size. */                           \
-                      print_file_size(p_file_size, (off_t)tmp_file_size);\
-                   }                                                   \
-              else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
-                       (tmp_file_size > search_file_size))             \
-                   {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                      (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                      /* Write file size. */                           \
-                      print_file_size(p_file_size, (off_t)tmp_file_size);\
-                   }                                                   \
-                   else                                                \
-                   {                                                   \
-                      IGNORE_ENTRY();                                  \
-                   }                                                   \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              IGNORE_ENTRY();                                          \
-           }                                                           \
-        }
-# endif
-#endif
 
-#define FILE_NAME_AND_RECIPIENT(toggle_id, id_string, id_string_length)\
+#define FILE_NAME_AND_RECIPIENT(reason_pos)                            \
         {                                                              \
-            if (toggles_set & (toggle_id))                             \
-            {                                                          \
-               int ii;                                                 \
+            int ii;                                                    \
                                                                        \
-               for (ii = 0; ii < no_of_search_hosts; ii++)             \
+            for (ii = 0; ii < no_of_search_hosts; ii++)                \
+            {                                                          \
+               if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
                {                                                       \
-                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
-                  {                                                    \
-                     current_search_host = ii;                         \
-                     break;                                            \
-                  }                                                    \
+                  break;                                               \
                }                                                       \
-               if (current_search_host != -1)                          \
+            }                                                          \
+            if (ii == no_of_search_hosts)                              \
+            {                                                          \
+               IGNORE_ENTRY();                                         \
+            }                                                          \
+            else                                                       \
+            {                                                          \
+               ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;\
+               if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)\
                {                                                       \
-                  ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
-                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)\
+                  il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset - p_start_log_file);\
+                  INSERT_TIME_REASON((reason_pos));                    \
+                  j = 0;                                               \
+                  while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))\
                   {                                                    \
-                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);\
-                     INSERT_TIME_TYPE((id_string), (id_string_length));\
-                     j = 0;                                            \
-                     while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))\
-                     {                                                 \
-                        *(p_file_name + j) = *ptr;                     \
-                        ptr++; j++;                                    \
-                     }                                                 \
+                     *(p_file_name + j) = *(ptr + j);                  \
+                     j++;                                              \
                   }                                                    \
-                  else                                                 \
-                  {                                                    \
-                     IGNORE_ENTRY();                                   \
-                  }                                                    \
+                  ptr += j;                                            \
                }                                                       \
                else                                                    \
                {                                                       \
                   IGNORE_ENTRY();                                      \
                }                                                       \
             }                                                          \
-            else                                                       \
-            {                                                          \
-               IGNORE_ENTRY();                                         \
-            }                                                          \
         }
 
-#ifdef HAVE_STRTOULL
-#define FILE_SIZE_ONLY(id_string, id_string_length)                    \
+#define FILE_SIZE_ONLY(reason_pos)                                     \
         {                                                              \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;       \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;\
            while (*ptr != SEPARATOR_CHAR)                              \
            {                                                           \
               ptr++;                                                   \
@@ -584,7 +434,7 @@ static void   display_data(int, time_t, time_t),
            ptr++;                                                      \
            if (*ptr == '/')                                            \
            {                                                           \
-              /* Ignore  the remote file name */                       \
+              /* Ignore the remote file name. */                       \
               while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
@@ -597,205 +447,52 @@ static void   display_data(int, time_t, time_t),
            {                                                           \
               ptr++; j++;                                              \
            }                                                           \
-           if (j > 15)                                                 \
-           {                                                           \
-              tmp_file_size = strtod("INF", NULL);                     \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              tmp_file_size = (double)strtoull(ptr - j, NULL, 16);     \
-           }                                                           \
+           tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);       \
            if ((gt_lt_sign == EQUAL_SIGN) &&                           \
                (tmp_file_size == search_file_size))                    \
            {                                                           \
               (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-              (void)memcpy(p_type, (id_string), (id_string_length));   \
+              (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
                                                                        \
               /* Write file size. */                                   \
-              print_file_size(p_file_size, (off_t)tmp_file_size);      \
+              print_file_size(p_file_size, tmp_file_size);             \
            }                                                           \
            else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
                     (tmp_file_size < search_file_size))                \
                 {                                                      \
                    (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                   (void)memcpy(p_type, (id_string), (id_string_length));\
+                   (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
                                                                        \
                    /* Write file size. */                              \
-                   print_file_size(p_file_size, (off_t)tmp_file_size); \
+                   print_file_size(p_file_size, tmp_file_size);        \
                 }                                                      \
            else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
                     (tmp_file_size > search_file_size))                \
                 {                                                      \
                    (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                   (void)memcpy(p_type, (id_string), (id_string_length));\
+                   (void)memcpy(p_delete_reason, sdrstr[(reason_pos)], MAX_REASON_LENGTH);\
                                                                        \
                    /* Write file size. */                              \
-                   print_file_size(p_file_size, (off_t)tmp_file_size); \
+                   print_file_size(p_file_size, tmp_file_size);        \
                 }                                                      \
                 else                                                   \
                 {                                                      \
                    IGNORE_ENTRY();                                     \
                 }                                                      \
         }
-#else
-# ifdef LINUX
-#define FILE_SIZE_ONLY(id_string, id_string_length)                    \
-        {                                                              \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;       \
-           while (*ptr != SEPARATOR_CHAR)                              \
-           {                                                           \
-              ptr++;                                                   \
-           }                                                           \
-           ptr++;                                                      \
-           if (*ptr == '/')                                            \
-           {                                                           \
-              /* Ignore  the remote file name */                       \
-              while (*ptr != SEPARATOR_CHAR)                           \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-              ptr++;                                                   \
-           }                                                           \
-                                                                       \
-           j = 0;                                                      \
-           while (*ptr != SEPARATOR_CHAR)                              \
-           {                                                           \
-              ptr++; j++;                                              \
-           }                                                           \
-           if (j < 9)                                                  \
-           {                                                           \
-              tmp_file_size = (double)strtoul(ptr - j, NULL, 16);      \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              if (j > 15)                                              \
-              {                                                        \
-                 tmp_file_size = strtod("INF", NULL);                  \
-              }                                                        \
-              else                                                     \
-              {                                                        \
-                 char tmp_buf[23];                                     \
-                                                                       \
-                 tmp_buf[0] = '0'; tmp_buf[1] = 'x';                   \
-                 (void)memcpy(&tmp_buf[2], ptr - j, j);                \
-                 tmp_buf[2 + j] = '\0';                                \
-                 tmp_file_size = strtod(tmp_buf, NULL);                \
-              }                                                        \
-           }                                                           \
-           if ((gt_lt_sign == EQUAL_SIGN) &&                           \
-               (tmp_file_size == search_file_size))                    \
-           {                                                           \
-              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-              (void)memcpy(p_type, (id_string), (id_string_length));   \
-                                                                       \
-              /* Write file size. */                                   \
-              print_file_size(p_file_size, (off_t)tmp_file_size);      \
-           }                                                           \
-           else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
-                    (tmp_file_size < search_file_size))                \
-                {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                   (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                   /* Write file size. */                              \
-                   print_file_size(p_file_size, (off_t)tmp_file_size); \
-                }                                                      \
-           else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
-                    (tmp_file_size > search_file_size))                \
-                {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                   (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                   /* Write file size. */                              \
-                   print_file_size(p_file_size, (off_t)tmp_file_size); \
-                }                                                      \
-                else                                                   \
-                {                                                      \
-                   IGNORE_ENTRY();                                     \
-                }                                                      \
-        }
-# else
-#define FILE_SIZE_ONLY(id_string, id_string_length)                    \
-        {                                                              \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;       \
-           while (*ptr != SEPARATOR_CHAR)                              \
-           {                                                           \
-              ptr++;                                                   \
-           }                                                           \
-           ptr++;                                                      \
-           if (*ptr == '/')                                            \
-           {                                                           \
-              /* Ignore  the remote file name */                       \
-              while (*ptr != SEPARATOR_CHAR)                           \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-              ptr++;                                                   \
-           }                                                           \
-                                                                       \
-           j = 0;                                                      \
-           while (*ptr != SEPARATOR_CHAR)                              \
-           {                                                           \
-              ptr++; j++;                                              \
-           }                                                           \
-           if (j < 9)                                                  \
-           {                                                           \
-              tmp_file_size = (double)strtoul(ptr - j, NULL, 16);      \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              tmp_file_size = strtod("INF", NULL);                     \
-           }                                                           \
-           if ((gt_lt_sign == EQUAL_SIGN) &&                           \
-               (tmp_file_size == search_file_size))                    \
-           {                                                           \
-              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-              (void)memcpy(p_type, (id_string), (id_string_length));   \
-                                                                       \
-              /* Write file size. */                                   \
-              print_file_size(p_file_size, (off_t)tmp_file_size);      \
-           }                                                           \
-           else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
-                    (tmp_file_size < search_file_size))                \
-                {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                   (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                   /* Write file size. */                              \
-                   print_file_size(p_file_size, (off_t)tmp_file_size); \
-                }                                                      \
-           else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
-                    (tmp_file_size > search_file_size))                \
-                {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-                   (void)memcpy(p_type, (id_string), (id_string_length));\
-                                                                       \
-                   /* Write file size. */                              \
-                   print_file_size(p_file_size, (off_t)tmp_file_size); \
-                }                                                      \
-                else                                                   \
-                {                                                      \
-                   IGNORE_ENTRY();                                     \
-                }                                                      \
-        }
-# endif
-#endif
-#endif /* _DELETE_LOG */
 
 
 /*############################### get_data() ############################*/
 void
 get_data(void)
 {
-#ifdef _DELETE_LOG
    int          i,
                 j,
                 end_file_no = -1,
                 start_file_no = -1;
    time_t       end,
                 start;
-   double       total_file_size,
-                total_trans_time;
+   double       total_trans_time;
    char         status_message[MAX_MESSAGE_LENGTH];
    struct stat  stat_buf;
    XmString     xstr;
@@ -854,15 +551,14 @@ get_data(void)
       il[i].no_of_items = 0;
       il[i].offset = NULL;
       il[i].line_offset = NULL;
-      il[i].input_id = NULL;
    }
 
    /* Initialise all pointer in line. */
-   p_file_name    = line + 16;
-   p_file_size    = p_file_name + file_name_length + 1;
-   p_host_name    = p_file_size + MAX_DISPLAYED_FILE_SIZE + 2;
-   p_type         = p_host_name + MAX_HOSTNAME_LENGTH + 1;
-   p_proc_user    = p_type + MAX_REASON_LENGTH + 1;
+   p_file_name     = line + 16;
+   p_file_size     = p_file_name + file_name_length + 1;
+   p_host_name     = p_file_size + MAX_DISPLAYED_FILE_SIZE + 2;
+   p_delete_reason = p_host_name + MAX_HOSTNAME_LENGTH + 1;
+   p_proc_user     = p_delete_reason + MAX_REASON_LENGTH + 1;
    *(line + MAX_OUTPUT_LINE_LENGTH + file_name_length) = '\0';
 
    special_button_flag = STOP_BUTTON;
@@ -870,15 +566,16 @@ get_data(void)
    XtVaSetValues(special_button_w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);
 
-   summary_str[0] = ' ';
-   summary_str[1] = '\0';
+   summary_str[0]  = ' ';
+   summary_str[1]  = '\0';
    SHOW_SUMMARY_DATA();
    (void)strcpy(status_message, "Searching  -");
    SHOW_MESSAGE();
    CHECK_INTERRUPT();
 
    start = time(NULL);
-   file_size = trans_time = 0.0;
+   file_size = 0;
+   trans_time = 0.0;
    total_no_files = 0;
    first_date_found = -1;
    j = 0;
@@ -888,7 +585,6 @@ get_data(void)
    {
       (void)sprintf(p_log_file, "%d", i);
       (void)extract_data(log_file, j);
-      total_file_size += file_size;
       total_trans_time += trans_time;
       if ((perm.list_limit > 0) && (total_no_files >= perm.list_limit))
       {
@@ -925,13 +621,11 @@ get_data(void)
    XtVaSetValues(special_button_w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);
    XtFree((char *)str_list);
-#endif /* _DELETE_LOG */
 
    return;
 }
 
 
-#ifdef _DELETE_LOG
 /*+++++++++++++++++++++++++++++ extract_data() ++++++++++++++++++++++++++*/
 static void
 extract_data(char *current_log_file, int file_no)
@@ -1234,17 +928,18 @@ no_criteria(register char *ptr,
 {
    register int i,
                 j;
-   int          type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
-   double       tmp_file_size;
-   char         *ptr_start_line;
+   off_t        tmp_file_size;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
    /* The easiest case! */
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -1266,135 +961,56 @@ no_criteria(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
-            {
-               INSERT_TIME_TYPE(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    INSERT_TIME_TYPE(AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    INSERT_TIME_TYPE(DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    INSERT_TIME_TYPE(DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
+            {
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
+               {
+                  hex_dr_str[1] = ' ';
+               }
+            }
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+#ifdef MACRO_DEBUG
+         (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
+         if (first_date_found == -1)
+         {
+            first_date_found = time_when_transmitted;
+         }
+         p_ts = localtime(&time_when_transmitted);
+         CONVERT_TIME();
+         (void)memcpy(p_delete_reason, sdrstr[id.delete_reason_no],
+                      MAX_REASON_LENGTH);
+#else
+         INSERT_TIME_REASON(id.delete_reason_no);
 #endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    INSERT_TIME_TYPE(USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    INSERT_TIME_TYPE(EXEC_FAILED_DEL_ID_STR,
-                                     EXEC_FAILED_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
-                                     OTHER_OUTPUT_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
-                                     OTHER_INPUT_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
-                                     DEL_UNKNOWN_FILE_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 /* This some unknown type! */
-                 INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-              }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset - p_start_log_file);
+         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -1407,46 +1023,13 @@ no_criteria(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
-#ifdef HAVE_STRTOULL
-         if (j > 15)
-         {
-            tmp_file_size = strtod("INF", NULL);
-         }
-         else
-         {
-            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
-         }
-#else
-         if (j < 9)
-         {
-            tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
-         }
-         else
-         {
-# ifdef LINUX
-            if (j > 15)
-            {
-               tmp_file_size = strtod("INF", NULL);
-            }
-            else
-            {
-               char tmp_buf[23];
-
-               tmp_buf[0] = '0'; tmp_buf[1] = 'x';
-               (void)memcpy(&tmp_buf[2], ptr - j, j);
-               tmp_buf[2 + j] = '\0';
-               tmp_file_size = strtod(tmp_buf, NULL);
-            }
-# else
-            tmp_file_size = strtod("INF", NULL);
-# endif
-         }
-#endif
-         print_file_size(p_file_size, (off_t)tmp_file_size);
+         ptr += j;
+         tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);
+         print_file_size(p_file_size, tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -1489,16 +1072,17 @@ file_name_only(register char *ptr,
 {
    register int i,
                 j;
-   int          type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -1520,275 +1104,50 @@ file_name_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
-            {
-               ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-               if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-               {
-                  il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                  INSERT_TIME_TYPE(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-                  j = 0;
-                  while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                  {
-                     *(p_file_name + j) = *ptr;
-                     ptr++; j++;
-                  }
-               }
-               else
-               {
-                  IGNORE_ENTRY();
-               }
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif /* WITH_DUP_CHECK */
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(EXEC_FAILED_DEL_ID_STR,
-                                        EXEC_FAILED_DEL_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
-                                        OTHER_OUTPUT_DEL_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
-                                        OTHER_INPUT_DEL_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
-                                        DEL_UNKNOWN_FILE_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                 if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                 {
-                    il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                    INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-                    j = 0;
-                    while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                    {
-                       *(p_file_name + j) = *ptr;
-                       ptr++; j++;
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
+            {
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
+               {
+                  hex_dr_str[1] = ' ';
+               }
+            }
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+
+         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
+         if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+         {
+            il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset - p_start_log_file);
+            INSERT_TIME_REASON(id.delete_reason_no);
+            j = 0;
+            while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+            {
+               *(p_file_name + j) = *(ptr + j);
+               j++;
+            }
+            ptr += j;
+         }
+         else
+         {
+            IGNORE_ENTRY();
+         }
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -1801,45 +1160,12 @@ file_name_only(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
-#ifdef HAVE_STRTOULL
-         if (j > 15)
-         {
-            tmp_file_size = strtod("INF", NULL);
-         }
-         else
-         {
-            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
-         }
-#else
-         if (j < 9)
-         {
-            tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
-         }
-         else
-         {
-# ifdef LINUX
-            if (j > 15)
-            {
-               tmp_file_size = strtod("INF", NULL);
-            }
-            else
-            {
-               char tmp_buf[23];
-
-               tmp_buf[0] = '0'; tmp_buf[1] = 'x';
-               (void)memcpy(&tmp_buf[2], ptr - j, j);
-               tmp_buf[2 + j] = '\0';
-               tmp_file_size = strtod(tmp_buf, NULL);
-            }
-# else
-            tmp_file_size = strtod("INF", NULL);
-# endif
-         }
-#endif
+         ptr += j;
+         tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
@@ -1883,16 +1209,17 @@ file_size_only(register char *ptr,
 {
    register int i,
                 j;
-   int          type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -1914,127 +1241,35 @@ file_size_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
-            {
-               FILE_SIZE_ONLY(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    FILE_SIZE_ONLY(AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    FILE_SIZE_ONLY(DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    FILE_SIZE_ONLY(DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    FILE_SIZE_ONLY(USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    FILE_SIZE_ONLY(EXEC_FAILED_DEL_ID_STR,
-                                   EXEC_FAILED_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    FILE_SIZE_ONLY(OTHER_OUTPUT_DEL_ID_STR,
-                                   OTHER_OUTPUT_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    FILE_SIZE_ONLY(OTHER_INPUT_DEL_ID_STR,
-                                   OTHER_INPUT_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    FILE_SIZE_ONLY(DEL_UNKNOWN_FILE_ID_STR,
-                                   DEL_UNKNOWN_FILE_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 FILE_SIZE_ONLY(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-              }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
+            {
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
+               {
+                  hex_dr_str[1] = ' ';
+               }
+            }
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+         FILE_SIZE_ONLY(id.delete_reason_no);
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
          il[file_no].line_offset[item_counter] = (int)(ptr - p_start_log_file);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
@@ -2044,11 +1279,12 @@ file_size_only(register char *ptr,
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
@@ -2106,16 +1342,17 @@ file_name_and_size(register char *ptr,
 {
    register int i,
                 j;
-   int          type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -2137,139 +1374,39 @@ file_name_and_size(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
+         }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
             {
-               ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-               if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
                {
-                  IGNORE_ENTRY();
+                  hex_dr_str[1] = ' ';
                }
             }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if ((type == OTHER_OUTPUT_DEL) || (type == OTHER_INPUT_DEL) ||
-                  (type == DEL_UNKNOWN_FILE))
-              {
-                 if (type == OTHER_OUTPUT_DEL)
-                 {
-                    il[file_no].input_id[item_counter] = NO;
-                 }
-                 else
-                 {
-                    il[file_no].input_id[item_counter] = YES;
-                 }
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                 if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
+         if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+         {
+            IGNORE_ENTRY();
+         }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -2278,47 +1415,14 @@ file_name_and_size(register char *ptr,
          }
          ptr++;
 
-         /* Get file size. */
+         /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
-#ifdef HAVE_STRTOULL
-         if (j > 15)
-         {
-            tmp_file_size = strtod("INF", NULL);
-         }
-         else
-         {
-            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
-         }
-#else
-         if (j < 9)
-         {
-            tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
-         }
-         else
-         {
-# ifdef LINUX
-            if (j > 15)
-            {
-               tmp_file_size = strtod("INF", NULL);
-            }
-            else
-            {
-               char tmp_buf[23];
-
-               tmp_buf[0] = '0'; tmp_buf[1] = 'x';
-               (void)memcpy(&tmp_buf[2], ptr - j, j);
-               tmp_buf[2 + j] = '\0';
-               tmp_file_size = strtod(tmp_buf, NULL);
-            }
-# else
-            tmp_file_size = strtod("INF", NULL);
-# endif
-         }
-#endif
+         ptr += j;
+         tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size != search_file_size))
          {
@@ -2335,7 +1439,7 @@ file_name_and_size(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
@@ -2345,69 +1449,27 @@ file_name_and_size(register char *ptr,
          }
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
-         if (type == AGE_OUTPUT)
-         {
-            (void)memcpy(p_type, AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-         }
-         else if (type == AGE_INPUT)
-              {
-                 (void)memcpy(p_type, AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 (void)memcpy(p_type, DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 (void)memcpy(p_type, DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 (void)memcpy(p_type, USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 (void)memcpy(p_type, EXEC_FAILED_DEL_ID_STR,
-                              EXEC_FAILED_DEL_ID_LENGTH);
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 (void)memcpy(p_type, OTHER_OUTPUT_DEL_ID_STR,
-                              OTHER_OUTPUT_DEL_ID_LENGTH);
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 (void)memcpy(p_type, OTHER_INPUT_DEL_ID_STR,
-                              OTHER_INPUT_DEL_ID_LENGTH);
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 (void)memcpy(p_type, DEL_UNKNOWN_FILE_ID_STR,
-                              DEL_UNKNOWN_FILE_ID_LENGTH);
-              }
-              else
-              {
-                 (void)memcpy(p_type, UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-              }
+         (void)memcpy(p_delete_reason, sdrstr[id.delete_reason_no],
+                      MAX_REASON_LENGTH);
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
          while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          ptr++;
 
-         /* Write file size. */
+         /* Ignore file size. */
          while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
+
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
@@ -2451,17 +1513,17 @@ recipient_only(register char *ptr,
 {
    register int i,
                 j;
-   int          current_search_host,
-                type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -2481,307 +1543,57 @@ recipient_only(register char *ptr,
             }
          }
 
-         current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
+         }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
             {
-               int ii;
-
-               for (ii = 0; ii < no_of_search_hosts; ii++)
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
                {
-                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                  {
-                     current_search_host = ii;
-                     break;
-                  }
-               }
-               if (current_search_host != -1)
-               {
-                  INSERT_TIME_TYPE(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-               }
-               else
-               {
-                  IGNORE_ENTRY();
+                  hex_dr_str[1] = ' ';
                }
             }
-            else
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+
+         for (j = 0; j < no_of_search_hosts; j++)
+         {
+            if (sfilter(search_recipient[j], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
             {
-               IGNORE_ENTRY();
+               INSERT_TIME_REASON(id.delete_reason_no);
+               break;
             }
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    int ii;
+         if (j == no_of_search_hosts)
+         {
+            IGNORE_ENTRY();
+         }
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(EXEC_FAILED_DEL_ID_STR,
-                                        EXEC_FAILED_DEL_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
-                                        OTHER_OUTPUT_DEL_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
-                                        OTHER_INPUT_DEL_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
-                                        DEL_UNKNOWN_FILE_ID_LENGTH);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 int ii;
-
-                 for (ii = 0; ii < no_of_search_hosts; ii++)
-                 {
-                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                    {
-                       current_search_host = ii;
-                       break;
-                    }
-                 }
-                 if (current_search_host != -1)
-                 {
-                    INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset - p_start_log_file);
+         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -2794,46 +1606,13 @@ recipient_only(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
-#ifdef HAVE_STRTOULL
-         if (j > 15)
-         {
-            tmp_file_size = strtod("INF", NULL);
-         }
-         else
-         {
-            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
-         }
-#else
-         if (j < 9)
-         {
-            tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
-         }
-         else
-         {
-# ifdef LINUX
-            if (j > 15)
-            {
-               tmp_file_size = strtod("INF", NULL);
-            }
-            else
-            {
-               char tmp_buf[23];
-
-               tmp_buf[0] = '0'; tmp_buf[1] = 'x';
-               (void)memcpy(&tmp_buf[2], ptr - j, j);
-               tmp_buf[2 + j] = '\0';
-               tmp_file_size = strtod(tmp_buf, NULL);
-            }
-# else
-            tmp_file_size = strtod("INF", NULL);
-# endif
-         }
-#endif
-         print_file_size(p_file_size, (off_t)tmp_file_size);
+         ptr += j;
+         tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);
+         print_file_size(p_file_size, tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -2871,17 +1650,17 @@ file_name_and_recipient(register char *ptr,
 {
    register int i,
                 j;
-   int          current_search_host,
-                type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -2901,106 +1680,35 @@ file_name_and_recipient(register char *ptr,
             }
          }
 
-         current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            FILE_NAME_AND_RECIPIENT(SHOW_AGE_OUTPUT, AGE_OUTPUT_ID_STR,
-                                    AGE_OUTPUT_ID_LENGTH);
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 FILE_NAME_AND_RECIPIENT(SHOW_AGE_INPUT, AGE_INPUT_ID_STR,
-                                         AGE_INPUT_ID_LENGTH);
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 FILE_NAME_AND_RECIPIENT(SHOW_DUP_INPUT, DUP_INPUT_ID_STR,
-                                         DUP_INPUT_ID_LENGTH);
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 FILE_NAME_AND_RECIPIENT(SHOW_DUP_OUTPUT, DUP_OUTPUT_ID_STR,
-                                         DUP_OUTPUT_ID_LENGTH);
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 FILE_NAME_AND_RECIPIENT(SHOW_USER_DEL, USER_DEL_ID_STR,
-                                         USER_DEL_ID_LENGTH);
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 FILE_NAME_AND_RECIPIENT(SHOW_EXEC_FAILED_DEL,
-                                         EXEC_FAILED_DEL_ID_STR,
-                                         EXEC_FAILED_DEL_ID_LENGTH);
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL,
-                                         OTHER_OUTPUT_DEL_ID_STR,
-                                         OTHER_OUTPUT_DEL_ID_LENGTH);
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL,
-                                         OTHER_INPUT_DEL_ID_STR,
-                                         OTHER_INPUT_DEL_ID_LENGTH);
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL,
-                                         DEL_UNKNOWN_FILE_ID_STR,
-                                         DEL_UNKNOWN_FILE_ID_LENGTH);
-              }
-              else
-              {
-                 int ii;
-
-                 for (ii = 0; ii < no_of_search_hosts; ii++)
-                 {
-                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                    {
-                       current_search_host = ii;
-                       break;
-                    }
-                 }
-                 if (current_search_host != -1)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-                       j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
+            {
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
+               {
+                  hex_dr_str[1] = ' ';
+               }
+            }
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+         FILE_NAME_AND_RECIPIENT(id.delete_reason_no);
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -3013,45 +1721,12 @@ file_name_and_recipient(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
-#ifdef HAVE_STRTOULL
-         if (j > 15)
-         {
-            tmp_file_size = strtod("INF", NULL);
-         }
-         else
-         {
-            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
-         }
-#else
-         if (j < 9)
-         {
-            tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
-         }
-         else
-         {
-# ifdef LINUX
-            if (j > 15)
-            {
-               tmp_file_size = strtod("INF", NULL);
-            }
-            else
-            {
-               char tmp_buf[23];
-
-               tmp_buf[0] = '0'; tmp_buf[1] = 'x';
-               (void)memcpy(&tmp_buf[2], ptr - j, j);
-               tmp_buf[2 + j] = '\0';
-               tmp_file_size = strtod(tmp_buf, NULL);
-            }
-# else
-            tmp_file_size = strtod("INF", NULL);
-# endif
-         }
-#endif
+         ptr += j;
+         tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -3089,17 +1764,17 @@ file_size_and_recipient(register char *ptr,
 {
    register int i,
                 j;
-   int          current_search_host,
-                type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -3119,134 +1794,37 @@ file_size_and_recipient(register char *ptr,
             }
          }
 
-         current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
-            {
-               FILE_SIZE_AND_RECIPIENT(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(AGE_INPUT_ID_STR,
-                                            AGE_INPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(DUP_INPUT_ID_STR,
-                                            DUP_INPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(DUP_OUTPUT_ID_STR,
-                                            DUP_OUTPUT_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(USER_DEL_ID_STR,
-                                            USER_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(EXEC_FAILED_DEL_ID_STR,
-                                            EXEC_FAILED_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(OTHER_OUTPUT_DEL_ID_STR,
-                                            OTHER_OUTPUT_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(OTHER_INPUT_DEL_ID_STR,
-                                            OTHER_INPUT_DEL_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(DEL_UNKNOWN_FILE_ID_STR,
-                                            DEL_UNKNOWN_FILE_ID_LENGTH);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 FILE_SIZE_AND_RECIPIENT(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-              }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
+            {
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
+               {
+                  hex_dr_str[1] = ' ';
+               }
+            }
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+         FILE_SIZE_AND_RECIPIENT(id.delete_reason_no);
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
          il[file_no].line_offset[item_counter] = (int)(ptr - p_start_log_file);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
@@ -3256,11 +1834,12 @@ file_size_and_recipient(register char *ptr,
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
@@ -3312,17 +1891,17 @@ file_name_size_recipient(register char *ptr,
 {
    register int i,
                 j;
-   int          current_search_host,
-                type,
-                item_counter = 0,
+   int          item_counter = 0,
                 loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
-   char         *ptr_start_line;
+   char         hex_dr_str[4],
+                *ptr_start_line;
    struct tm    *p_ts;
 
+   hex_dr_str[3] = '\0';
    do
    {
       /* Allocate memory for offset to job ID. */
@@ -3342,278 +1921,56 @@ file_name_size_recipient(register char *ptr,
             }
          }
 
-         current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
-         if (type == AGE_OUTPUT)
+         if (*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == SEPARATOR_CHAR)
          {
-            il[file_no].input_id[item_counter] = NO;
-            if (toggles_set & SHOW_AGE_OUTPUT)
+            id.delete_reason_no = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - '0');
+            id.offset = 0;
+         }
+         else
+         {
+            hex_dr_str[0] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1);
+            hex_dr_str[1] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2);
+            hex_dr_str[2] = *(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3);
+            if (hex_dr_str[0] == '0')
             {
-               int ii;
-
-               for (ii = 0; ii < no_of_search_hosts; ii++)
+               hex_dr_str[0] = ' ';
+               if (hex_dr_str[1] == '0')
                {
-                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                  {
-                     current_search_host = ii;
-                     break;
-                  }
-               }
-               if (current_search_host != -1)
-               {
-                  ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                  {
-                     IGNORE_ENTRY();
-                  }
-               }
-               else
-               {
-                  IGNORE_ENTRY();
+                  hex_dr_str[1] = ' ';
                }
             }
-            else
+            id.delete_reason_no = (int)strtol(hex_dr_str, NULL, 16);
+            id.offset = 2;
+         }
+         if ((id.delete_reason_no > MAX_DELETE_REASONS) ||
+             ((dr_toggles_set & (1 << id.delete_reason_no)) == 0))
+         {
+            IGNORE_ENTRY();
+         }
+
+         for (j = 0; j < no_of_search_hosts; j++)
+         {
+            if (sfilter(search_recipient[j], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+            {
+               break;
+            }
+         }
+         if (j == no_of_search_hosts)
+         {
+            IGNORE_ENTRY();
+         }
+         else
+         {
+            ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
+            if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
             {
                IGNORE_ENTRY();
             }
          }
-         else if (type == AGE_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_AGE_INPUT)
-                 {
-                    int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 il[file_no].input_id[item_counter] = YES;
-                 if (toggles_set & SHOW_DUP_INPUT)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_DUP_OUTPUT)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_USER_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 il[file_no].input_id[item_counter] = NO;
-                 if (toggles_set & SHOW_EXEC_FAILED_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if ((type == OTHER_OUTPUT_DEL) || (type == OTHER_INPUT_DEL) ||
-                  (type == DEL_UNKNOWN_FILE))
-              {
-                 if (type == OTHER_OUTPUT_DEL)
-                 {
-                    il[file_no].input_id[item_counter] = NO;
-                 }
-                 else
-                 {
-                    il[file_no].input_id[item_counter] = YES;
-                 }
-                 if (toggles_set & SHOW_OTHER_DEL)
-                 {
-                    int ii;
-
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-              else
-              {
-                 int ii;
-
-                 for (ii = 0; ii < no_of_search_hosts; ii++)
-                 {
-                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                    {
-                       current_search_host = ii;
-                       break;
-                    }
-                 }
-                 if (current_search_host != -1)
-                 {
-                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -3624,45 +1981,12 @@ file_name_size_recipient(register char *ptr,
 
          /* Get file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
-#ifdef HAVE_STRTOULL
-         if (j > 15)
-         {
-            tmp_file_size = strtod("INF", NULL);
-         }
-         else
-         {
-            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
-         }
-#else
-         if (j < 9)
-         {
-            tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
-         }
-         else
-         {
-# ifdef LINUX
-            if (j > 15)
-            {
-               tmp_file_size = strtod("INF", NULL);
-            }
-            else
-            {
-               char tmp_buf[23];
-
-               tmp_buf[0] = '0'; tmp_buf[1] = 'x';
-               (void)memcpy(&tmp_buf[2], ptr - j, j);
-               tmp_buf[2 + j] = '\0';
-               tmp_file_size = strtod(tmp_buf, NULL);
-            }
-# else
-            tmp_file_size = strtod("INF", NULL);
-# endif
-         }
-#endif
+         ptr += j;
+         tmp_file_size = (off_t)str2offt((ptr - j), NULL, 16);
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size != search_file_size))
          {
@@ -3679,7 +2003,7 @@ file_name_size_recipient(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 + id.offset;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
@@ -3689,58 +2013,16 @@ file_name_size_recipient(register char *ptr,
          }
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
-         if (type == AGE_OUTPUT)
-         {
-            (void)memcpy(p_type, AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
-         }
-         else if (type == AGE_INPUT)
-              {
-                 (void)memcpy(p_type, AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
-              }
-#ifdef WITH_DUP_CHECK
-         else if (type == DUP_INPUT)
-              {
-                 (void)memcpy(p_type, DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
-              }
-         else if (type == DUP_OUTPUT)
-              {
-                 (void)memcpy(p_type, DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
-              }
-#endif
-         else if (type == USER_DEL)
-              {
-                 (void)memcpy(p_type, USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
-              }
-         else if (type == EXEC_FAILED_DEL)
-              {
-                 (void)memcpy(p_type, EXEC_FAILED_DEL_ID_STR,
-                              EXEC_FAILED_DEL_ID_LENGTH);
-              }
-         else if (type == OTHER_OUTPUT_DEL)
-              {
-                 (void)memcpy(p_type, OTHER_OUTPUT_DEL_ID_STR,
-                              OTHER_OUTPUT_DEL_ID_LENGTH);
-              }
-         else if (type == OTHER_INPUT_DEL)
-              {
-                 (void)memcpy(p_type, OTHER_INPUT_DEL_ID_STR,
-                              OTHER_INPUT_DEL_ID_LENGTH);
-              }
-         else if (type == DEL_UNKNOWN_FILE)
-              {
-                 (void)memcpy(p_type, DEL_UNKNOWN_FILE_ID_STR,
-                              DEL_UNKNOWN_FILE_ID_LENGTH);
-              }
-              else
-              {
-                 (void)memcpy(p_type, UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
-              }
+         (void)memcpy(p_delete_reason, sdrstr[id.delete_reason_no],
+                      MAX_REASON_LENGTH);
+
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
          while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
@@ -3839,4 +2121,3 @@ display_data(int    i,
 
    return;
 }
-#endif /* _DELETE_LOG */

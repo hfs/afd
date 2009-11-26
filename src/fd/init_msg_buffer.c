@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,11 +38,6 @@ DESCR__S_M3
  ** RETURN VALUES
  **   None.
  **
- ** SEE ALSO
- **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
- **   fd/eval_recipient.c, amg/store_passwd.c, tools/get_dc_data.c,
- **   tools/set_pw.c
- **
  ** AUTHOR
  **   H.Kiehl
  **
@@ -54,6 +49,7 @@ DESCR__S_M3
  **   10.04.2005 H.Kiehl Remove alternate file.
  **   22.06.2006 H.Kiehl Catch the case when *no_of_file_mask_ids is larger
  **                      then the actual number stored.
+ **   22.04.2008 H.Kiehl Let function url_evaluate() handle the url.
  **
  */
 DESCR__E_M3
@@ -66,7 +62,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>   /* mmap(), msync(), munmap()                     */
+# include <sys/mman.h>  /* mmap(), msync(), munmap()                     */
 #endif
 #include <sys/wait.h>   /* waitpid()                                     */
 #include <signal.h>     /* kill(), SIGKILL                               */
@@ -96,15 +92,18 @@ extern struct afd_status          *p_afd_status;
 extern struct connection          *connection;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
+#ifdef _DELETE_LOG
+extern struct delete_log          dl;
+#endif
 
 /* Local global variables. */
 static int                        file_mask_to_remove,
                                   *no_of_job_ids,
                                   removed_jobs,
                                   removed_messages;
-static unsigned int               *fmtrl, /* file mask to remove list */
-                                  *rjl,   /* removed job list */
-                                  *rml;   /* removed message list */
+static unsigned int               *fmtrl, /* File mask to remove list. */
+                                  *rjl,   /* Removed job list. */
+                                  *rml;   /* Removed message list. */
 static struct job_id_data         *jd;
 
 /* Local function prototypes. */
@@ -120,7 +119,7 @@ void
 init_msg_buffer(void)
 {
    register int i;
-   unsigned int *cml;            /* Current message list array */
+   unsigned int *cml;            /* Current message list array. */
    int          jd_fd,
                 sleep_counter = 0,
                 no_of_current_msg;
@@ -146,7 +145,7 @@ init_msg_buffer(void)
       char   fullname[MAX_PATH_LENGTH];
 
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_CACHE_FILE);
-      if ((ptr = attach_buf(fullname, &mdb_fd, new_size, "FD",
+      if ((ptr = attach_buf(fullname, &mdb_fd, &new_size, "FD",
                             FILE_MODE, NO)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -165,7 +164,7 @@ init_msg_buffer(void)
       char   fullname[MAX_PATH_LENGTH];
 
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
-      if ((ptr = attach_buf(fullname, &qb_fd, new_size, "FD",
+      if ((ptr = attach_buf(fullname, &qb_fd, &new_size, "FD",
                             FILE_MODE, NO)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -180,6 +179,7 @@ init_msg_buffer(void)
    /* Attach to job_id_data structure, so we can remove any old data. */
    (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
                  JOB_ID_DATA_FILE);
+stat_again:
    if ((jd_fd = coe_open(job_id_data_file, O_RDWR)) == -1)
    {
       if (errno == ENOENT)
@@ -225,7 +225,6 @@ init_msg_buffer(void)
                  "Timeout arrived for waiting (180 s) for AMG to finish writting to JID structure.");
    }
 
-stat_again:
    if (fstat(jd_fd, &stat_buf) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to fstat() `%s' : %s",
@@ -298,6 +297,13 @@ stat_again:
                     job_id_data_file, strerror(errno));
          exit(INCORRECT);
       }
+      if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Incorrect JID version (data=%d current=%d)!",
+                    *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
+         exit(INCORRECT);
+      }
       no_of_job_ids = (int *)ptr;
       ptr += AFD_WORD_OFFSET;
       jd = (struct job_id_data *)ptr;
@@ -313,9 +319,14 @@ stat_again:
    if (((*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET) > stat_buf.st_size)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "Hmmmm. Size of `%s' is %d bytes, but calculation says it should be %d Bytes!",
-                 JOB_ID_DATA_FILE, stat_buf.st_size,
-                 (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET);
+#if SIZEOF_OFF_T == 4
+                 "Hmmmm. Size of `%s' is %ld bytes, but calculation says it should be %d bytes (%d jobs)!",
+#else
+                 "Hmmmm. Size of `%s' is %lld bytes, but calculation says it should be %d bytes (%d jobs)!",
+#endif
+                 JOB_ID_DATA_FILE, (pri_off_t)stat_buf.st_size,
+                 (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET,
+                 *no_of_job_ids);
       ptr = (char *)jd - AFD_WORD_OFFSET;
 #ifdef HAVE_MMAP
       if (munmap(ptr, stat_buf.st_size) == -1)
@@ -326,6 +337,7 @@ stat_again:
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "munmap() error : %s", strerror(errno));
       }
+      (void)close(jd_fd);
       (void)sleep(1);
       if (sleep_counter > 20)
       {
@@ -463,7 +475,7 @@ stat_again:
    }
    else
    {
-      char          *ck_ml;             /* Checked message list */
+      char          *ck_ml;             /* Checked message list. */
       struct dirent *p_dir;
       struct stat   stat_buf;
 
@@ -830,6 +842,7 @@ list_job_to_remove(int                cache_pos,
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use = 0;
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use_done = 0;
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[0] = '\0';
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[1] = 0;
 #ifdef _WITH_BURST_2
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].unique_name[0] = '\0';
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].job_id = NO_ID;
@@ -837,6 +850,7 @@ list_job_to_remove(int                cache_pos,
                         connection[qb[j].connect_pos].fsa_pos = -1;
                      }
                      connection[qb[j].connect_pos].hostname[0] = '\0';
+                     connection[qb[j].connect_pos].host_id = 0;
                      connection[qb[j].connect_pos].job_no = -1;
                      connection[qb[j].connect_pos].fra_pos = -1;
                      connection[qb[j].connect_pos].msg_name[0] = '\0';
@@ -854,10 +868,13 @@ list_job_to_remove(int                cache_pos,
          {
             (void)strcpy(p_file_dir, qb[j].msg_name);
 #ifdef _DELETE_LOG
+            extract_cus(qb[j].msg_name, dl.input_time, dl.split_job_counter,
+                        dl.unique_number);
             remove_job_files(file_dir, mdb[qb[j].pos].fsa_pos,
-                             mdb[qb[j].pos].job_id, USER_DEL);
+                             mdb[qb[j].pos].job_id, FD, CLEAR_STALE_MESSAGES,
+                             -1);
 #else
-            remove_job_files(file_dir, -1);
+            remove_job_files(file_dir, -1, -1);
 #endif
             *p_file_dir = '\0';
          }
@@ -1216,21 +1233,25 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
 {
    if (removed_jobs > 0)
    {
-      int          dcid_still_in_jid,
-                   dc_id_to_remove,
-                   i, k,
-                   gotcha,
-                   offset,
-                   pwb_still_in_jid,
-                   pwb_to_remove,
-                   uh_name_length;
-      unsigned int *dcidr;
-      char         *ptr,
-                   **rpl,
-                   uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
+      int           dcid_still_in_jid,
+                    dc_id_to_remove,
+                    i, k,
+                    gotcha,
+                    pwb_still_in_jid,
+                    pwb_to_remove;
+      unsigned int  *dcidr,
+                    error_mask,
+                    scheme;
+      char          *ptr,
+                    real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
+                    **rpl,
+                    uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1],
+                    user[MAX_USER_NAME_LENGTH + 1],
+                    smtp_user[MAX_USER_NAME_LENGTH + 1];
+      unsigned char smtp_auth;
 #ifdef WITH_DUP_CHECK
-      char         dup_dir[MAX_PATH_LENGTH],
-                   *p_dup_dir;
+      char          dup_dir[MAX_PATH_LENGTH],
+                    *p_dup_dir;
 
       p_dup_dir = dup_dir + sprintf(dup_dir, "%s%s", p_work_dir, AFD_FILE_DIR);
 #endif
@@ -1252,8 +1273,12 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
          struct stat stat_buf;
 
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "Hmmmm. Size of `%s' is %d Bytes, but calculation says it should be %d Bytes!",
-                    JOB_ID_DATA_FILE, *jid_struct_size,
+#if SIZEOF_OFF_T == 4
+                    "Hmmmm. Size of `%s' is %ld bytes, but calculation says it should be %d bytes!",
+#else
+                    "Hmmmm. Size of `%s' is %lld bytes, but calculation says it should be %d bytes!",
+#endif
+                    JOB_ID_DATA_FILE, (pri_off_t)*jid_struct_size,
                     (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET);
          ptr = (char *)jd - AFD_WORD_OFFSET;
 #ifdef HAVE_MMAP
@@ -1287,6 +1312,13 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           "Failed to mmap() to `%s' : %s",
                           job_id_data_file, strerror(errno));
+               exit(INCORRECT);
+            }
+            if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+            {
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "Incorrect JID version (data=%d current=%d)!",
+                          *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
                exit(INCORRECT);
             }
             no_of_job_ids = (int *)ptr;
@@ -1328,86 +1360,73 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
          (void)sprintf(p_dup_dir, "%s/%u", CRC_DIR, jd[rjl[i]].job_id);
          (void)unlink(dup_dir);
 #endif
-         ptr = jd[rjl[i]].recipient;
          rpl[pwb_to_remove][0] = '\0';
-         while ((*ptr != ':') && (*ptr != '\0'))
+         if ((error_mask = url_evaluate(jd[rjl[i]].recipient, &scheme, user,
+                                        &smtp_auth, smtp_user,
+#ifdef WITH_SSH_FINGERPRINT
+                                        NULL, NULL,
+#endif
+                                        NULL, NO, real_hostname, NULL, NULL,
+                                        NULL, NULL, NULL, NULL, NULL)) == 0)
          {
-            ptr++;
-         }
-         if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
-         {
-            ptr += 3; /* Away with '://' */
-            if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '@') &&
-                (*ptr != '\0'))
+            if (((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE)) ||
+#ifdef _WITH_WMO_SUPPORT
+                (scheme & WMO_FLAG) ||
+#endif
+#ifdef _WITH_MAP_SUPPORT
+                (scheme & MAP_FLAG) ||
+#endif
+                (scheme & LOC_FLAG))
             {
-               uh_name_length = 0;
-#ifdef WITH_SSH_FINGERPRINT
-               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
-#else
-               while ((*ptr != ':') && (*ptr != '@') &&
-#endif
-                      (*ptr != '\0') && (uh_name_length < MAX_USER_NAME_LENGTH))
+               /* These do not have passwords. */;
+            }
+            else
+            {
+               if ((scheme & SMTP_FLAG) && (smtp_auth != SMTP_AUTH_NONE))
                {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  rpl[pwb_to_remove][uh_name_length] = *ptr;
-                  ptr++; uh_name_length++;
+                  (void)strcpy(rpl[pwb_to_remove], smtp_user);
+                  t_hostname(real_hostname,
+                             &rpl[pwb_to_remove][strlen(rpl[pwb_to_remove])]);
                }
-#ifdef WITH_SSH_FINGERPRINT
-               if ((*ptr == ':') || (*ptr == ';'))
-#else
-               if (*ptr == ':')
-#endif
+               else
                {
-                  ptr++;
-                  while ((*ptr != '@') && (*ptr != '\0'))
+                  if (user[0] != '\0')
                   {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     ptr++;
+                     (void)strcpy(rpl[pwb_to_remove], user);
+                     t_hostname(real_hostname,
+                                &rpl[pwb_to_remove][strlen(rpl[pwb_to_remove])]);
+                  }
+                  else
+                  {
+                     t_hostname(real_hostname, rpl[pwb_to_remove]);
                   }
                }
-               if (*ptr == '@')
-               {
-                  ptr++;
-                  offset = 0;
-                  while ((*ptr != '\0') && (*ptr != '/') &&
-                         (*ptr != ':') && (*ptr != ';') &&
-                         (offset < MAX_REAL_HOSTNAME_LENGTH))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     rpl[pwb_to_remove][uh_name_length + offset] = *ptr;
-                     offset++; ptr++;
-                  }
-                  if (offset > 0)
-                  {
-                     rpl[pwb_to_remove][uh_name_length + offset] = '\0';
 
-                     /* Check that we do not already stored this */
-                     /* user hostname pair.                      */
-                     gotcha = NO;
-                     for (k = 0; k < pwb_to_remove; k++)
-                     {
-                        if (CHECK_STRCMP(rpl[k], rpl[pwb_to_remove]) == 0)
-                        {
-                           gotcha = YES;
-                           break;
-                        }
-                     }
-                     if (gotcha == NO)
-                     {
-                        pwb_to_remove++;
-                     }
+               /* Check that we do not already stored this */
+               /* user hostname pair.                      */
+               gotcha = NO;
+               for (k = 0; k < pwb_to_remove; k++)
+               {
+                  if (CHECK_STRCMP(rpl[k], rpl[pwb_to_remove]) == 0)
+                  {
+                     gotcha = YES;
+                     break;
                   }
+               }
+               if (gotcha == NO)
+               {
+                  pwb_to_remove++;
                }
             }
+         }
+         else
+         {
+            char error_msg[MAX_URL_ERROR_MSG];
+
+            url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Incorrect url `%s'. Error is: %s.",
+                       jd[rjl[i]].recipient, error_msg);
          }
 
          /* Store the DIR_CONFIG ID. */
@@ -1425,8 +1444,9 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
             dcidr[dc_id_to_remove] = jd[rjl[i]].dir_config_id;
             dc_id_to_remove++;
          }
-      }
+      } /* for (i = 0; i < removed_jobs; i++) */
 
+      /* Delete the jobs. */
       for (i = 0; i < removed_jobs; i++)
       {
          int end_pos = i,
@@ -1470,80 +1490,65 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
       dcid_still_in_jid = 0;
       for (i = 0; i < *no_of_job_ids; i++)
       {
-         ptr = jd[i].recipient;
-         while ((*ptr != ':') && (*ptr != '\0'))
+         if ((error_mask = url_evaluate(jd[i].recipient, &scheme, user,
+                                        &smtp_auth, smtp_user,
+#ifdef WITH_SSH_FINGERPRINT
+                                        NULL, NULL,
+#endif
+                                        NULL, NO, real_hostname, NULL, NULL,
+                                        NULL, NULL, NULL, NULL, NULL)) == 0)
          {
-            ptr++;
-         }
-         if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
-         {
-            ptr += 3; /* Away with '://' */
-            if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '\0'))
+            if (((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE)) ||
+#ifdef _WITH_WMO_SUPPORT
+                (scheme & WMO_FLAG) ||
+#endif
+#ifdef _WITH_MAP_SUPPORT
+                (scheme & MAP_FLAG) ||
+#endif
+                (scheme & LOC_FLAG))
             {
-               uh_name_length = 0;
-#ifdef WITH_SSH_FINGERPRINT
-               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
-#else
-               while ((*ptr != ':') && (*ptr != '@') &&
-#endif
-                      (*ptr != '\0') && (uh_name_length < MAX_USER_NAME_LENGTH))
+               /* These do not have passwords. */;
+            }
+            else
+            {
+               if ((scheme & SMTP_FLAG) && (smtp_auth != SMTP_AUTH_NONE))
                {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  uh_name[uh_name_length] = *ptr;
-                  ptr++; uh_name_length++;
+                  (void)strcpy(uh_name, smtp_user);
+                  t_hostname(real_hostname, &uh_name[strlen(uh_name)]);
                }
-#ifdef WITH_SSH_FINGERPRINT
-               if ((*ptr == ':') || (*ptr == ';'))
-#else
-               if (*ptr == ':')
-#endif
+               else
                {
-                  ptr++;
-                  while ((*ptr != '@') && (*ptr != '\0'))
+                  if (user[0] != '\0')
                   {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     ptr++;
+                     (void)strcpy(uh_name, user);
+                     t_hostname(real_hostname, &uh_name[strlen(uh_name)]);
+                  }
+                  else
+                  {
+                     t_hostname(real_hostname, uh_name);
                   }
                }
-               offset = 0;
-               if (*ptr == '@')
-               {
-                  ptr++;
-                  while ((*ptr != '\0') && (*ptr != '/') &&
-                         (*ptr != ':') && (*ptr != ';') &&
-                         (offset < MAX_REAL_HOSTNAME_LENGTH))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     uh_name[uh_name_length + offset] = *ptr;
-                     offset++; ptr++;
-                  }
-                  if (offset != 0)
-                  {
-                     int j;
 
-                     uh_name[uh_name_length + offset] = '\0';
-                     for (j = 0; j < pwb_to_remove; j++)
-                     {
-                        if ((rpl[j][0] != '\0') &&
-                            (CHECK_STRCMP(uh_name, rpl[j]) == 0))
-                        {
-                           rpl[j][0] = '\0';
-                           pwb_still_in_jid++;
-                           break;
-                        }
-                     }
+               for (k = 0; k < pwb_to_remove; k++)
+               {
+                  if ((rpl[k][0] != '\0') &&
+                      (CHECK_STRCMP(uh_name, rpl[k]) == 0))
+                  {
+                     rpl[k][0] = '\0';
+                     pwb_still_in_jid++;
+                     break;
                   }
                }
             }
+         }
+         else
+         {
+            char error_msg[MAX_URL_ERROR_MSG];
+
+            url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Incorrect url `%s'. Error is: %s.",
+                       jd[i].recipient, error_msg);
          }
          for (k = 0; k < dc_id_to_remove; k++)
          {
@@ -2000,7 +2005,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
 #ifdef _DEBUG
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "no_of_job_ids = %d", *no_of_job_ids);
-#endif /* _DEBUG */
+#endif
       free(rjl);
       rjl = NULL;
       removed_jobs = 0;

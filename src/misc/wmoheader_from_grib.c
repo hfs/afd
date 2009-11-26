@@ -1,6 +1,6 @@
 /*
  *  wmoheader_from_grib.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2002 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>               /* sprintf()                            */
+#include <string.h>              /* memcpy()                             */
 #include "amgdefs.h"
 
 
@@ -158,7 +159,7 @@ wmoheader_from_grib(char *grib_buffer,
          break;
       default : /* Unknown */
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown Parameter and Unit ID %d [T2 = Z]",
+                     _("Unknown Parameter and Unit ID %d [T2 = Z]"),
                      (unsigned char)(*(ptr + 12)));
          TT[1] = 'Z';
          break;
@@ -428,7 +429,7 @@ wmoheader_from_grib(char *grib_buffer,
          else
          {
             receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                        "Hmmm, no GDS present %d! [A1 = X]",
+                        _("Hmmm, no GDS present %d! [A1 = X]"),
                         (unsigned char)(*(ptr + 11)));
             AA[0] = 'X';
          }
@@ -441,7 +442,7 @@ wmoheader_from_grib(char *grib_buffer,
          else
          {
             receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                        "Unknown Grid Identificator %d [A1 = X]",
+                        _("Unknown Grid Identificator %d [A1 = X]"),
                         (unsigned char)(*(ptr + 10)));
             AA[0] = 'X';
          }
@@ -454,14 +455,14 @@ wmoheader_from_grib(char *grib_buffer,
          else
          {
             receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                        "Unknown Grid Identificator %d [A1 = X]",
+                        _("Unknown Grid Identificator %d [A1 = X]"),
                         (unsigned char)(*(ptr + 10)));
             AA[0] = 'X';
          }
          break;
       default : /* Unknown, lets mark this as experimental. */
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown Grid Identificator %d [A1 = X]",
+                     _("Unknown Grid Identificator %d [A1 = X]"),
                      (unsigned char)(*(ptr + 10)));
          AA[0] = 'X';
          break;
@@ -496,7 +497,7 @@ wmoheader_from_grib(char *grib_buffer,
                   break;
                default : /* Impossible */
                   receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "Impossible forecast time unit %d [A2 = A]",
+                              _("Impossible forecast time unit %d [A2 = A]"),
                               (unsigned char)(*(ptr + 21)));
                   tr = 0;
                   break;
@@ -622,7 +623,7 @@ wmoheader_from_grib(char *grib_buffer,
                      break;
                   default : /* Unknown */
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                 "Impossible forecast %d [A2 = Z] [unit = %d]",
+                                 _("Impossible forecast %d [A2 = Z] [unit = %d]"),
                                  tr, *(ptr + 21));
                      AA[1] = 'Z';
                      break;
@@ -700,7 +701,7 @@ wmoheader_from_grib(char *grib_buffer,
                      break;
                   default : /* Unknown */
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                 "Impossible forecast %d [A2 = Z] [unit = %d]",
+                                 _("Impossible forecast %d [A2 = Z] [unit = %d]"),
                                  tr, *(ptr + 21));
                      AA[1] = 'Z';
                      break;
@@ -726,7 +727,7 @@ wmoheader_from_grib(char *grib_buffer,
          break;
       default : /* Unknown. */
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown Time Range Indicator %d [A2 = Z]",
+                     _("Unknown Time Range Indicator %d [A2 = Z]"),
                      (unsigned char)(*(ptr + 24)));
          AA[1] = 'Z';
    }
@@ -793,7 +794,7 @@ wmoheader_from_grib(char *grib_buffer,
          break;
       default : /* Unknown, refer to GRID PDS */
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown Indicator of type of level or layer %d [ii = 01]",
+                     _("Unknown Indicator of type of level or layer %d [ii = 01]"),
                      (unsigned char)(*(ptr + 13)));
          ii[0] = '0'; ii[1] = '1';
          break;
@@ -988,7 +989,7 @@ wmoheader_from_grib(char *grib_buffer,
             break;
          default : /* Not found. */
             receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                        "Unknown center identifier %d [CCCC = XXXX]",
+                        _("Unknown center identifier %d [CCCC = XXXX]"),
                         (unsigned char)(*(ptr + 8)));
             CCCC[0] = 'X'; CCCC[1] = 'X'; CCCC[2] = 'X'; CCCC[3] = 'X';
             break;

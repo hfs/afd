@@ -1,6 +1,6 @@
 /*
  *  show_dlog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 
 #include "motif_common_defs.h"
 
-/* What information should be displayed */
+/* What information should be displayed. */
 #define SHOW_AGE_OUTPUT            1
 #define SHOW_AGE_INPUT             2
 #ifdef WITH_DUP_CHECK
@@ -33,46 +33,8 @@
 #define SHOW_EXEC_FAILED_DEL       32
 #define SHOW_OTHER_DEL             64
 
-#define AGE_OUTPUT_ID_STR          "AGE(O)"
-#define AGE_OUTPUT_ID_LENGTH       (sizeof(AGE_OUTPUT_ID_STR) - 1)
-#define AGE_INPUT_ID_STR           "AGE(I)"
-#define AGE_INPUT_ID_LENGTH        (sizeof(AGE_INPUT_ID_STR) - 1)
-#ifdef WITH_DUP_CHECK
-# define DUP_INPUT_ID_STR          "DUP(I)"
-# define DUP_INPUT_ID_LENGTH       (sizeof(DUP_INPUT_ID_STR) - 1)
-# define DUP_OUTPUT_ID_STR         "DUP(O)"
-# define DUP_OUTPUT_ID_LENGTH      (sizeof(DUP_OUTPUT_ID_STR) - 1)
-#endif
-#define USER_DEL_ID_STR            "USER"
-#define USER_DEL_ID_LENGTH         (sizeof(USER_DEL_ID_STR) - 1)
-#define EXEC_FAILED_DEL_ID_STR     "EXEC"
-#define EXEC_FAILED_DEL_ID_LENGTH  (sizeof(EXEC_FAILED_DEL_ID_STR) - 1)
-#define OTHER_OUTPUT_DEL_ID_STR    "OTHER(O)"
-#define OTHER_OUTPUT_DEL_ID_LENGTH (sizeof(OTHER_OUTPUT_DEL_ID_STR) - 1)
-#define OTHER_INPUT_DEL_ID_STR     "OTHER(I)"
-#define OTHER_INPUT_DEL_ID_LENGTH  (sizeof(OTHER_INPUT_DEL_ID_STR) - 1)
-#define UNKNOWN_ID_STR             "UNKNOWN"
-#define UNKNOWN_ID_LENGTH          (sizeof(UNKNOWN_ID_STR) - 1)
-#define DEL_UNKNOWN_FILE_ID_STR    "DUF"
-#define DEL_UNKNOWN_FILE_ID_LENGTH (sizeof(DEL_UNKNOWN_FILE_ID_STR) - 1)
-#define MAX_REASON_LENGTH          (sizeof(OTHER_OUTPUT_DEL_ID_STR) - 1)
-
-#define OTHER_DEL_ID_STR           "OTHER"
-
-/* Position in toggle_label widget table. */
-#define AGE_OUTPUT_POS            0
-#define AGE_INPUT_POS             1
-#ifdef WITH_DUP_CHECK
-# define DUP_INPUT_POS            2
-# define DUP_OUTPUT_POS           3
-# define USER_DEL_POS             4
-# define EXEC_FAILED_DEL_POS      5
-# define OTHER_DEL_POS            6
-#else
-# define USER_DEL_POS             2
-# define EXEC_FAILED_DEL_POS      3
-# define OTHER_DEL_POS            4
-#endif
+/* See sdr_str.h. */
+#define MAX_REASON_LENGTH          (sizeof("Old lock file") - 1)
 
 #define GOT_JOB_ID                -2
 #define GOT_JOB_ID_DIR_ONLY       -3
@@ -101,13 +63,13 @@
 
 #define LINES_BUFFERED            1000
 #define MAX_DISPLAYED_FILE_SIZE   10
-#define MAX_PROC_USER_LENGTH      18
+#define MAX_PROC_USER_LENGTH      16
 #define MAX_OUTPUT_LINE_LENGTH    (16 + MAX_HOSTNAME_LENGTH + 1 + MAX_DISPLAYED_FILE_SIZE + 1 + MAX_REASON_LENGTH + 1 + MAX_PROC_USER_LENGTH + 1)
 
 #define FILE_SIZE_FORMAT          "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT               "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
 
-/* Maximum length of the file name that is displayed */
+/* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT         26
 #define SHOW_MEDIUM_FORMAT        40
 #define SHOW_LONG_FORMAT          70
@@ -120,7 +82,8 @@
 #else
 # define HOST_NAME_LENGTH        MAX_HOSTNAME_LENGTH
 #endif
-#define REST_HEADER              "Reason   Process/User  "
+#define REASON_HEADER            "Reason"
+#define PROCESS_USER_HEADER      "Process/User"
 
 /* Structure that holds offset (to job ID) to each item in list. */
 struct item_list
@@ -131,8 +94,6 @@ struct item_list
                                /* file name of that item.               */
           int  *offset;        /* Array that contains the offset to the */
                                /* ID of that item.                      */
-          char *input_id;      /* If YES the ID is the directory ID     */
-                               /* otherwise it is the job ID.           */
        };
 
 /* Structure to hold the data for a single entry in the AMG history file. */
@@ -151,21 +112,24 @@ struct db_entry
 /* Structure to hold all data for a single dir ID. */
 struct info_data
        {
-          unsigned int       job_no;
+          unsigned int       job_id;
           unsigned int       dir_id;
+          int                delete_reason_no;
           int                count;   /* Counts number of dbe entries. */
-          char               input_id;
+          int                offset;  /* If this is zero then we have  */
+                                      /* the old log style.            */
           char               dir[MAX_PATH_LENGTH];
           char               dir_id_str[MAX_DIR_ALIAS_LENGTH + 1];
           char               file_name[MAX_FILENAME_LENGTH];
           char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char               proc_user[MAX_PROC_USER_LENGTH + 1];
-          char               extra_reason[MAX_PATH_LENGTH];
+          char               reason_str[MAX_DELETE_REASON_LENGTH + 1];
+          char               extra_reason[MAX_PATH_LENGTH + 1];
           struct dir_options d_o;
           struct db_entry    *dbe;
        };
 
-/* Permission structure for show_dlog */
+/* Permission structure for show_dlog. */
 struct sol_perm
        {
           int  list_limit;
@@ -234,21 +198,21 @@ struct sol_perm
            }                                                               \
         }
 
-/* Function prototypes */
-extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
-            toggled(Widget, XtPointer, XtPointer),
+/* Function prototypes. */
+extern void calculate_summary(char *, time_t, time_t, unsigned int, off_t),
             radio_button(Widget, XtPointer, XtPointer),
             close_button(Widget, XtPointer, XtPointer),
-            format_input_info(char *),
-            format_output_info(char *),
-            get_info(int, char),
+            format_input_info(char **),
+            format_output_info(char **),
+            get_info(int),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),
             print_button(Widget, XtPointer, XtPointer),
             save_input(Widget, XtPointer, XtPointer),
             scrollbar_moved(Widget, XtPointer, XtPointer),
-            search_button(Widget, XtPointer, XtPointer);
+            search_button(Widget, XtPointer, XtPointer),
+            select_delete_reason(Widget, XtPointer, XtPointer);
 int         get_sum_data(int, time_t *, double *);
 
 #endif /* __show_dlog_h */

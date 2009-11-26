@@ -55,6 +55,7 @@ DESCR__S_M3
  ** HISTORY
  **   03.11.1995 H.Kiehl Created
  **   31.03.2000 H.Kiehl Added function get_dir_position().
+ **   26.06.2008 H.Kiehl Added function get_host_id_position().
  **
  */
 DESCR__E_M3
@@ -78,7 +79,28 @@ get_host_position(struct filetransfer_status *fsa,
       }
    }
 
-   /* Host not found in struct */
+   /* Host not found in struct. */
+   return(INCORRECT);
+}
+
+
+/*###################### get_host_id_position() #########################*/
+int
+get_host_id_position(struct filetransfer_status *fsa,
+                     unsigned int               host_id,
+                     int                        no_of_hosts)
+{
+   int position;
+
+   for (position = 0; position < no_of_hosts; position++)
+   {
+      if (fsa[position].host_id == host_id)
+      {
+         return(position);
+      }
+   }
+
+   /* Host not found in struct. */
    return(INCORRECT);
 }
 
@@ -99,6 +121,6 @@ get_dir_position(struct fileretrieve_status *fra,
       }
    }
 
-   /* Directory not found in struct */
+   /* Directory not found in struct. */
    return(INCORRECT);
 }

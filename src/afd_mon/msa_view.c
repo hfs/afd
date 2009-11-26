@@ -1,6 +1,6 @@
 /*
  *  msa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,9 +60,7 @@ DESCR__E_M1
 #include "sumdefs.h"
 #include "version.h"
 
-/* Local functions */
-static void usage(void);
-
+/* Global variables. */
 int                    sys_log_fd = STDERR_FILENO,   /* Not used!    */
                        msa_id,
                        msa_fd = -1,
@@ -71,6 +69,9 @@ off_t                  msa_size;
 char                   *p_work_dir;
 struct mon_status_area *msa;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
+
+/* Local function prototype. */
+static void usage(void);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ msa_view() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -114,10 +115,18 @@ main(int argc, char *argv[])
            exit(INCORRECT);
         }
 
-   if (msa_attach() < 0)
+   if ((i = msa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
@@ -210,6 +219,12 @@ main(int argc, char *argv[])
             (void)fprintf(stdout, " Input");
          }
 #endif
+#ifdef _DISTRIBUTION_LOG
+         if (msa[j].options & AFDD_DISTRIBUTION_LOG)
+         {
+            (void)fprintf(stdout, " Distribution");
+         }
+#endif
 #ifdef _PRODUCTION_LOG
          if (msa[j].options & AFDD_PRODUCTION_LOG)
          {
@@ -269,6 +284,12 @@ main(int argc, char *argv[])
          if (msa[j].log_capabilities & AFDD_INPUT_LOG)
          {
             (void)fprintf(stdout, " Input");
+         }
+#endif
+#ifdef _DISTRIBUTION_LOG
+         if (msa[j].log_capabilities & AFDD_DISTRIBUTION_LOG)
+         {
+            (void)fprintf(stdout, " Distribution");
          }
 #endif
 #ifdef _PRODUCTION_LOG

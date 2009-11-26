@@ -1,6 +1,6 @@
 /*
  *  set_afd_euid.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ set_afd_euid(char *work_dir)
    if (stat(work_dir, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to stat() <%s> : %s", work_dir, strerror(errno));
+                 _("Failed to stat() `%s' : %s"), work_dir, strerror(errno));
    }
    else
    {
@@ -76,7 +76,7 @@ set_afd_euid(char *work_dir)
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to seteuid() to %d : %s",
+                       _("Failed to seteuid() to %d : %s"),
                        stat_buf.st_uid, strerror(errno));
          }
       }

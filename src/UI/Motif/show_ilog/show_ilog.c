@@ -1,6 +1,6 @@
 /*
  *  show_ilog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ DESCR__E_M1
 #include <Xm/Separator.h>
 #include <Xm/RowColumn.h>
 #include <Xm/Form.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_ilog.h"
 #include "logdefs.h"
 #include "permission.h"
@@ -101,7 +101,8 @@ Widget                     appshell,
                            special_button_w;
 Window                     main_window;
 XmFontList                 fontlist;
-int                        char_width,
+int                        acd_counter = 0,
+                           char_width,
                            continues_toggle_set,
                            file_name_length,
                            fra_fd = -1,
@@ -131,6 +132,7 @@ char                       *p_work_dir,
                            **search_recipient,
                            **search_user;
 struct item_list           *il = NULL;
+struct alda_call_data      *acd = NULL;
 struct sol_perm            perm;
 struct fileretrieve_status *fra;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
@@ -228,6 +230,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -239,6 +242,11 @@ main(int argc, char *argv[])
    }
 
    display = XtDisplay(appshell);
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
@@ -690,7 +698,7 @@ main(int argc, char *argv[])
 /*-----------------------------------------------------------------------*/
 /*                            Button Box                                 */
 /*                            ----------                                 */
-/* The status of the output log is shown here. If eg. no files are found */
+/* The status of the input log is shown here. If eg. no files are found  */
 /* it will be shown here.                                                */
 /*-----------------------------------------------------------------------*/
    argcount = 0;
@@ -767,7 +775,7 @@ main(int argc, char *argv[])
 /*-----------------------------------------------------------------------*/
 /*                            Status Box                                 */
 /*                            ----------                                 */
-/* The status of the output log is shown here. If eg. no files are found */
+/* The status of the input log is shown here. If eg. no files are found  */
 /* it will be shown here.                                                */
 /*-----------------------------------------------------------------------*/
    statusbox_w = XtVaCreateManagedWidget(" ",
@@ -814,7 +822,7 @@ main(int argc, char *argv[])
 /*-----------------------------------------------------------------------*/
 /*                             List Box                                  */
 /*                             --------                                  */
-/* This scrolled list widget shows the contents of the output log,       */
+/* This scrolled list widget shows the contents of the input log,        */
 /* either in short or long form. Default is short.                       */
 /*-----------------------------------------------------------------------*/
    argcount = 0;

@@ -1,6 +1,6 @@
 /*
  *  pop3defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,10 +29,10 @@
 #define POP3_ERROR              -2
 
 #ifndef MAX_RET_MSG_LENGTH
-# define MAX_RET_MSG_LENGTH     1024
+# define MAX_RET_MSG_LENGTH     4096
 #endif
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int pop3_connect(char *, int),
            pop3_dele(unsigned int),
            pop3_pass(char *),

@@ -1,6 +1,6 @@
 /*
  *  draw_mon_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ DESCR__S_M3
  ** HISTORY
  **   05.09.1998 H.Kiehl Created
  **   08.06.2005 H.Kiehl Added button line at bottom.
+ **   24.02.2008 H.Kiehl For drawing areas, draw to offline pixmap as well.
  **
  */
 DESCR__E_M3
@@ -63,61 +64,63 @@ DESCR__E_M3
 #include <X11/cursorfont.h>
 #include "mon_ctrl.h"
 
-extern Display                *display;
-extern Window                 button_window,
-                              label_window,
-                              line_window;
-extern GC                     letter_gc,
-                              normal_letter_gc,
-                              locked_letter_gc,
-                              color_letter_gc,
-                              default_bg_gc,
-                              button_bg_gc,
-                              normal_bg_gc,
-                              locked_bg_gc,
-                              label_bg_gc,
-                              red_color_letter_gc,
-                              red_error_letter_gc,
-                              tr_bar_gc,
-                              color_gc,
-                              black_line_gc,
-                              white_line_gc,
-                              led_gc;
-extern Colormap               default_cmap;
-extern char                   line_style;
-extern unsigned long          color_pool[];
-extern float                  max_bar_length;
-extern int                    line_length,
-                              line_height,
-                              bar_thickness_3,
-                              his_log_set,
-                              x_center_log_status,
-                              x_center_mon_log,
-                              x_center_sys_log,
-                              x_offset_log_status,
-                              x_offset_log_history,
-                              x_offset_led,
-                              x_offset_bars,
-                              x_offset_characters,
-                              x_offset_mon_log,
-                              x_offset_stat_leds,
-                              x_offset_sys_log,
-                              y_center_log,
-                              y_offset_led,
-                              log_angle,
-                              no_of_columns,
-                              window_width;
-extern unsigned int           glyph_height,
-                              glyph_width,
-                              text_offset;
-extern struct coord           button_coord[2][LOG_FIFO_SIZE],
-                              coord[LOG_FIFO_SIZE];
-extern struct afd_mon_status  prev_afd_mon_status;
-extern struct mon_line        *connect_data;
-extern struct mon_status_area *msa;
+extern Display               *display;
+extern Pixmap                button_pixmap,
+                             label_pixmap,
+                             line_pixmap;
+extern Window                button_window,
+                             label_window,
+                             line_window;
+extern GC                    letter_gc,
+                             normal_letter_gc,
+                             locked_letter_gc,
+                             color_letter_gc,
+                             default_bg_gc,
+                             button_bg_gc,
+                             normal_bg_gc,
+                             locked_bg_gc,
+                             label_bg_gc,
+                             red_color_letter_gc,
+                             red_error_letter_gc,
+                             tr_bar_gc,
+                             color_gc,
+                             black_line_gc,
+                             white_line_gc,
+                             led_gc;
+extern Colormap              default_cmap;
+extern char                  line_style;
+extern unsigned long         color_pool[];
+extern float                 max_bar_length;
+extern int                   line_length,
+                             line_height,
+                             bar_thickness_3,
+                             his_log_set,
+                             x_center_log_status,
+                             x_center_mon_log,
+                             x_center_sys_log,
+                             x_offset_log_status,
+                             x_offset_log_history,
+                             x_offset_led,
+                             x_offset_bars,
+                             x_offset_characters,
+                             x_offset_mon_log,
+                             x_offset_stat_leds,
+                             x_offset_sys_log,
+                             y_center_log,
+                             y_offset_led,
+                             log_angle,
+                             no_of_columns,
+                             window_width;
+extern unsigned int          glyph_height,
+                             glyph_width,
+                             text_offset;
+extern struct coord          button_coord[2][LOG_FIFO_SIZE],
+                             coord[LOG_FIFO_SIZE];
+extern struct afd_mon_status prev_afd_mon_status;
+extern struct mon_line       *connect_data;
 
 #ifdef _DEBUG
-static unsigned int           counter = 0;
+static unsigned int          counter = 0;
 #endif
 
 
@@ -130,14 +133,19 @@ draw_label_line(void)
 
    for (i = 0; i < no_of_columns; i++)
    {
-      /* First draw the background in the appropriate color */
+      /* First draw the background in the appropriate color. */
       XFillRectangle(display, label_window, label_bg_gc,
                      x + 2,
                      2,
                      x + line_length - 2,
                      line_height - 4);
+      XFillRectangle(display, label_pixmap, label_bg_gc,
+                     x + 2,
+                     2,
+                     x + line_length - 2,
+                     line_height - 4);
 
-      /* Now draw left, top and bottom end for button style */
+      /* Now draw left, top and bottom end for button style. */
       XDrawLine(display, label_window, black_line_gc,
                 x,
                 0,
@@ -168,15 +176,50 @@ draw_label_line(void)
                 line_height - 1,
                 x + line_length,
                 line_height - 1);
+      XDrawLine(display, label_pixmap, black_line_gc,
+                x,
+                0,
+                x,
+                line_height);
+      XDrawLine(display, label_pixmap, white_line_gc,
+                x + 1,
+                1,
+                x + 1,
+                line_height - 3);
+      XDrawLine(display, label_pixmap, black_line_gc,
+                x,
+                0,
+                x + line_length,
+                0);
+      XDrawLine(display, label_pixmap, white_line_gc,
+                x + 1,
+                1,
+                x + line_length,
+                1);
+      XDrawLine(display, label_pixmap, black_line_gc,
+                x,
+                line_height - 2,
+                x + line_length,
+                line_height - 2);
+      XDrawLine(display, label_pixmap, white_line_gc,
+                x,
+                line_height - 1,
+                x + line_length,
+                line_height - 1);
 
-      /* Draw string "   AFD" */
+      /* Draw string "   AFD". */
       XDrawString(display, label_window, letter_gc,
                   x + DEFAULT_FRAME_SPACE,
                   text_offset + SPACE_ABOVE_LINE,
                   "   AFD",
                   6);
+      XDrawString(display, label_pixmap, letter_gc,
+                  x + DEFAULT_FRAME_SPACE,
+                  text_offset + SPACE_ABOVE_LINE,
+                  "   AFD",
+                  6);
 
-      /* See if we need to extend heading for "Character" display */
+      /* See if we need to extend heading for "Character" display. */
       if (line_style != BARS_ONLY)
       {
          /*
@@ -195,18 +238,33 @@ draw_label_line(void)
                      text_offset + SPACE_ABOVE_LINE,
                      " fc   fs   tr   fr  jq  at ec eh",
                      32);
+         XDrawString(display, label_pixmap, letter_gc,
+                     x + x_offset_characters,
+                     text_offset + SPACE_ABOVE_LINE,
+                     " fc   fs   tr   fr  jq  at ec eh",
+                     32);
       }
 
       x += line_length;
    }
 
-   /* Draw right end for button style */
+   /* Draw right end for button style. */
    XDrawLine(display, label_window, black_line_gc,
              x - 2,
              0,
              x - 2,
              line_height - 2);
    XDrawLine(display, label_window, white_line_gc,
+             x - 1,
+             1,
+             x - 1,
+             line_height - 2);
+   XDrawLine(display, label_pixmap, black_line_gc,
+             x - 2,
+             0,
+             x - 2,
+             line_height - 2);
+   XDrawLine(display, label_pixmap, white_line_gc,
              x - 1,
              1,
              x - 1,
@@ -224,7 +282,7 @@ draw_line_status(int pos, signed char delta)
        y = 0;
    GC  tmp_gc;
 
-   /* First locate position of x and y */
+   /* First locate position of x and y. */
    locate_xy(pos, &x, &y);
 
 #ifdef _DEBUG
@@ -248,14 +306,15 @@ draw_line_status(int pos, signed char delta)
       tmp_gc = default_bg_gc;
    }
    XFillRectangle(display, line_window, tmp_gc, x, y, line_length, line_height);
+   XFillRectangle(display, line_pixmap, tmp_gc, x, y, line_length, line_height);
 
-   /* Write destination identifier to screen */
+   /* Write destination identifier to screen. */
    draw_afd_identifier(pos, x, y);
 
-   /* Draw status LED's of remote AFD */
-   draw_mon_proc_led(AMG_LED, msa[pos].amg, x, y);
-   draw_mon_proc_led(FD_LED, msa[pos].fd, x, y);
-   draw_mon_proc_led(AW_LED, msa[pos].archive_watch, x, y);
+   /* Draw status LED's of remote AFD. */
+   draw_mon_proc_led(AMG_LED, connect_data[pos].amg, x, y);
+   draw_mon_proc_led(FD_LED, connect_data[pos].fd, x, y);
+   draw_mon_proc_led(AW_LED, connect_data[pos].archive_watch, x, y);
 
    draw_remote_log_status(pos, connect_data[pos].sys_log_ec % LOG_FIFO_SIZE, x, y);
 
@@ -287,12 +346,12 @@ draw_line_status(int pos, signed char delta)
    /* rate.                                                  */
    if (line_style != CHARACTERS_ONLY)
    {
-      /* Draw bars */
+      /* Draw bars. */
       draw_mon_bar(pos, delta, MON_TR_BAR_NO, x, y);
       draw_mon_bar(pos, delta, ACTIVE_TRANSFERS_BAR_NO, x, y);
       draw_mon_bar(pos, delta, HOST_ERROR_BAR_NO, x, y);
 
-      /* Show beginning and end of bars */
+      /* Show beginning and end of bars. */
       if (connect_data[pos].inverse > OFF)
       {
          tmp_gc = white_line_gc;
@@ -307,6 +366,15 @@ draw_line_status(int pos, signed char delta)
                 x + x_offset_bars - 1,
                 y + glyph_height);
       XDrawLine(display, line_window, black_line_gc,
+                x + x_offset_bars + (int)max_bar_length,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+      XDrawLine(display, line_pixmap, black_line_gc,
+                x + x_offset_bars - 1,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars - 1,
+                y + glyph_height);
+      XDrawLine(display, line_pixmap, black_line_gc,
                 x + x_offset_bars + (int)max_bar_length,
                 y + SPACE_ABOVE_LINE,
                 x + x_offset_bars + (int)max_bar_length, y + glyph_height);
@@ -327,6 +395,8 @@ draw_mon_blank_line(int pos)
 
    XFillRectangle(display, line_window, default_bg_gc, x, y,
                   line_length, line_height);
+   XFillRectangle(display, line_pixmap, default_bg_gc, x, y,
+                  line_length, line_height);
 
    return;
 }
@@ -337,6 +407,8 @@ void
 draw_mon_button_line(void)
 {
    XFillRectangle(display, button_window, button_bg_gc, 0, 0, window_width,
+                  line_height + 1);
+   XFillRectangle(display, button_pixmap, button_bg_gc, 0, 0, window_width,
                   line_height + 1);
 
    /* Draw status LED for AFDMON. */
@@ -361,7 +433,7 @@ draw_afd_identifier(int pos, int x, int y)
 {
    XGCValues gc_values;
 
-   /* Change color of letters when background color is to dark */
+   /* Change color of letters when background color is to dark. */
    if ((connect_data[pos].connect_status == CONNECTING) ||
        (connect_data[pos].connect_status == NOT_WORKING2))
    {
@@ -380,6 +452,11 @@ draw_afd_identifier(int pos, int x, int y)
                     y + text_offset + SPACE_ABOVE_LINE,
                     connect_data[pos].afd_display_str,
                     MAX_AFDNAME_LENGTH);
+   XDrawImageString(display, line_pixmap, color_letter_gc,
+                    DEFAULT_FRAME_SPACE + x,
+                    y + text_offset + SPACE_ABOVE_LINE,
+                    connect_data[pos].afd_display_str,
+                    MAX_AFDNAME_LENGTH);
 
    return;
 }
@@ -392,6 +469,7 @@ draw_mon_proc_led(int led_no, signed char led_status, int x, int y)
    int       x_offset,
              y_offset;
    Window    current_window;
+   Pixmap    current_pixmap;
    XGCValues gc_values;
 
    if (led_no == AFDMON_LED)
@@ -399,17 +477,21 @@ draw_mon_proc_led(int led_no, signed char led_status, int x, int y)
       x_offset = x_offset_stat_leds + glyph_width + PROC_LED_SPACING;
       y_offset = SPACE_ABOVE_LINE + y_offset_led;
       current_window = button_window;
+      current_pixmap = button_pixmap;
    }
    else
    {
       x_offset = x + x_offset_led + (led_no * (glyph_width + PROC_LED_SPACING));
       y_offset = y + SPACE_ABOVE_LINE + y_offset_led;
       current_window = line_window;
+      current_pixmap = line_pixmap;
    }
 
    if (led_status == ON)
    {
       XFillArc(display, current_window, led_gc, x_offset, y_offset,
+               glyph_width, glyph_width, 0, 23040);
+      XFillArc(display, current_pixmap, led_gc, x_offset, y_offset,
                glyph_width, glyph_width, 0, 23040);
    }                                               
    else
@@ -418,27 +500,32 @@ draw_mon_proc_led(int led_no, signed char led_status, int x, int y)
       {
          gc_values.foreground = color_pool[NOT_WORKING2];
          XChangeGC(display, color_gc, GCForeground, &gc_values);
-         XFillArc(display, current_window, color_gc, x_offset, y_offset,
-                  glyph_width, glyph_width, 0, 23040);
       }
       else if (led_status == STOPPED)
            {
               gc_values.foreground = color_pool[STOP_TRANSFER];
               XChangeGC(display, color_gc, GCForeground, &gc_values);
-              XFillArc(display, current_window, color_gc, x_offset, y_offset,
-                       glyph_width, glyph_width, 0, 23040);
+           }
+      else if (led_status == SHUTDOWN)
+           {
+              gc_values.foreground = color_pool[CLOSING_CONNECTION];
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
            }
            else
            {
               gc_values.foreground = color_pool[(int)led_status];
               XChangeGC(display, color_gc, GCForeground, &gc_values);
-              XFillArc(display, current_window, color_gc, x_offset, y_offset,
-                       glyph_width, glyph_width, 0, 23040);
            }
+      XFillArc(display, current_window, color_gc, x_offset, y_offset,
+               glyph_width, glyph_width, 0, 23040);
+      XFillArc(display, current_pixmap, color_gc, x_offset, y_offset,
+               glyph_width, glyph_width, 0, 23040);
    }
 
-   /* Draw LED frame */
+   /* Draw LED frame. */
    XDrawArc(display, current_window, black_line_gc, x_offset, y_offset,
+            glyph_width, glyph_width, 0, 23040);
+   XDrawArc(display, current_pixmap, black_line_gc, x_offset, y_offset,
             glyph_width, glyph_width, 0, 23040);
 
    return;
@@ -471,6 +558,12 @@ draw_remote_log_status(int pos, int si_pos, int x, int y)
                glyph_height, glyph_height,
                ((i * log_angle) * 64),
                (log_angle * 64));
+      XFillArc(display, line_pixmap, color_gc,
+               x + x_offset_log_status,
+               y + SPACE_ABOVE_LINE,
+               glyph_height, glyph_height,
+               ((i * log_angle) * 64),
+               (log_angle * 64));
    }
    if ((connect_data[pos].sys_log_fifo[si_pos] == BLACK) ||
        (connect_data[pos].sys_log_fifo[prev_si_pos] == BLACK))
@@ -480,10 +573,20 @@ draw_remote_log_status(int pos, int si_pos, int x, int y)
                 y + y_center_log,
                 x + coord[si_pos].x,
                 y + coord[si_pos].y);
+      XDrawLine(display, line_pixmap, white_line_gc,
+                x + x_center_log_status,
+                y + y_center_log,
+                x + coord[si_pos].x,
+                y + coord[si_pos].y);
    }
    else
    {
       XDrawLine(display, line_window, black_line_gc,
+                x + x_center_log_status,
+                y + y_center_log,
+                x + coord[si_pos].x,
+                y + coord[si_pos].y);
+      XDrawLine(display, line_pixmap, black_line_gc,
                 x + x_center_log_status,
                 y + y_center_log,
                 x + coord[si_pos].x,
@@ -521,6 +624,11 @@ draw_mon_log_status(int log_typ, int si_pos)
                   glyph_height, glyph_height,
                   ((i * log_angle) * 64),
                   (log_angle * 64));
+         XFillArc(display, button_pixmap, color_gc,
+                  x_offset_sys_log, SPACE_ABOVE_LINE,
+                  glyph_height, glyph_height,
+                  ((i * log_angle) * 64),
+                  (log_angle * 64));
       }
       if ((prev_afd_mon_status.mon_sys_log_fifo[si_pos] == BLACK) ||
           (prev_afd_mon_status.mon_sys_log_fifo[prev_si_pos] == BLACK))
@@ -529,10 +637,18 @@ draw_mon_log_status(int log_typ, int si_pos)
                    x_center_sys_log, y_center_log,
                    button_coord[log_typ][si_pos].x,
                    button_coord[log_typ][si_pos].y);
+         XDrawLine(display, button_pixmap, white_line_gc,
+                   x_center_sys_log, y_center_log,
+                   button_coord[log_typ][si_pos].x,
+                   button_coord[log_typ][si_pos].y);
       }
       else
       {
          XDrawLine(display, button_window, black_line_gc,
+                   x_center_sys_log, y_center_log,
+                   button_coord[log_typ][si_pos].x,
+                   button_coord[log_typ][si_pos].y);
+         XDrawLine(display, button_pixmap, black_line_gc,
                    x_center_sys_log, y_center_log,
                    button_coord[log_typ][si_pos].x,
                    button_coord[log_typ][si_pos].y);
@@ -549,6 +665,11 @@ draw_mon_log_status(int log_typ, int si_pos)
                   glyph_height, glyph_height,
                   ((i * log_angle) * 64),
                   (log_angle * 64));
+         XFillArc(display, button_pixmap, color_gc,
+                  x_offset_mon_log, SPACE_ABOVE_LINE,
+                  glyph_height, glyph_height,
+                  ((i * log_angle) * 64),
+                  (log_angle * 64));
       }
       if ((prev_afd_mon_status.mon_log_fifo[si_pos] == BLACK) ||
           (prev_afd_mon_status.mon_log_fifo[prev_si_pos] == BLACK))
@@ -557,10 +678,18 @@ draw_mon_log_status(int log_typ, int si_pos)
                    x_center_mon_log, y_center_log,
                    button_coord[log_typ][si_pos].x,
                    button_coord[log_typ][si_pos].y);
+         XDrawLine(display, button_pixmap, white_line_gc,
+                   x_center_mon_log, y_center_log,
+                   button_coord[log_typ][si_pos].x,
+                   button_coord[log_typ][si_pos].y);
       }
       else
       {
          XDrawLine(display, button_window, black_line_gc,
+                   x_center_mon_log, y_center_log,
+                   button_coord[log_typ][si_pos].x,
+                   button_coord[log_typ][si_pos].y);
+         XDrawLine(display, button_pixmap, black_line_gc,
                    x_center_mon_log, y_center_log,
                    button_coord[log_typ][si_pos].x,
                    button_coord[log_typ][si_pos].y);
@@ -588,6 +717,10 @@ draw_remote_history(int pos, int type, int x, int y)
       XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
                      bar_thickness_3, bar_thickness_3);
       XDrawRectangle(display, line_window, default_bg_gc, x_offset, y_offset,
+                     bar_thickness_3, bar_thickness_3);
+      XFillRectangle(display, line_pixmap, color_gc, x_offset, y_offset,
+                     bar_thickness_3, bar_thickness_3);
+      XDrawRectangle(display, line_pixmap, default_bg_gc, x_offset, y_offset,
                      bar_thickness_3, bar_thickness_3);
       x_offset += bar_thickness_3;
    }
@@ -655,8 +788,8 @@ draw_mon_chars(int pos, char type, int x, int y)
 
    if (connect_data[pos].inverse > OFF)
    {
-      if (((type == TOTAL_ERROR_COUNTER) && (msa[pos].ec > 0)) ||
-          ((type == ERROR_HOSTS) && (msa[pos].host_error_counter > 0)))
+      if (((type == TOTAL_ERROR_COUNTER) && (connect_data[pos].ec > 0)) ||
+          ((type == ERROR_HOSTS) && (connect_data[pos].host_error_counter > 0)))
       {
          if (connect_data[pos].inverse == ON)
          {
@@ -684,15 +817,40 @@ draw_mon_chars(int pos, char type, int x, int y)
    }
    else
    {
-      if ((type == TOTAL_ERROR_COUNTER) && (msa[pos].ec > 0))
+      if ((type == TOTAL_ERROR_COUNTER) && (connect_data[pos].ec > 0))
       {
          gc_values.background = color_pool[CHAR_BACKGROUND];
          XChangeGC(display, red_color_letter_gc, GCBackground, &gc_values);
          tmp_gc = red_color_letter_gc;
       }
-      else if ((type == ERROR_HOSTS) && (msa[pos].host_error_counter > 0))
+      else if ((type == ERROR_HOSTS) && (connect_data[pos].host_error_counter > 0))
            {
               tmp_gc = red_error_letter_gc;
+           }
+      else if (type == JOBS_IN_QUEUE)
+           {
+              if ((connect_data[pos].danger_no_of_jobs != 0) &&
+                  (connect_data[pos].jobs_in_queue > connect_data[pos].danger_no_of_jobs) &&
+                  (connect_data[pos].jobs_in_queue <= (connect_data[pos].link_max - STOP_AMG_THRESHOLD - DIRS_IN_FILE_DIR)))
+              {
+                 gc_values.background = color_pool[WARNING_ID];
+                 gc_values.foreground = color_pool[FG];
+              }
+              else if ((connect_data[pos].danger_no_of_jobs != 0) &&
+                       (connect_data[pos].jobs_in_queue > (connect_data[pos].link_max - STOP_AMG_THRESHOLD - DIRS_IN_FILE_DIR)))
+                   {
+                      gc_values.background = color_pool[ERROR_ID];
+                      gc_values.foreground = color_pool[WHITE];
+                   }
+                   else
+                   {
+                      gc_values.background = color_pool[CHAR_BACKGROUND];
+                      gc_values.foreground = color_pool[FG];
+                   }
+
+              XChangeGC(display, color_letter_gc, GCBackground | GCForeground,
+                        &gc_values);
+              tmp_gc = color_letter_gc;
            }
            else
            {
@@ -704,6 +862,11 @@ draw_mon_chars(int pos, char type, int x, int y)
            }
    }
    XDrawImageString(display, line_window, tmp_gc,
+                    x + x_offset_characters,
+                    y + text_offset + SPACE_ABOVE_LINE,
+                    ptr,
+                    length);
+   XDrawImageString(display, line_pixmap, tmp_gc,
                     x + x_offset_characters,
                     y + text_offset + SPACE_ABOVE_LINE,
                     ptr,
@@ -734,6 +897,9 @@ draw_mon_bar(int         pos,
          XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
                         connect_data[pos].bar_length[(int)bar_no],
                         bar_thickness_3);
+         XFillRectangle(display, line_pixmap, tr_bar_gc, x_offset, y_offset,
+                        connect_data[pos].bar_length[(int)bar_no],
+                        bar_thickness_3);
       }
       else if (bar_no == HOST_ERROR_BAR_NO) /* ERROR HOSTS */
            {
@@ -743,6 +909,10 @@ draw_mon_bar(int         pos,
               gc_values.foreground = color_pool[ERROR_ID];
               XChangeGC(display, color_gc, GCForeground, &gc_values);
               XFillRectangle(display, line_window, color_gc,
+                             x_offset, y_offset,
+                             connect_data[pos].bar_length[(int)bar_no],
+                             bar_thickness_3);
+              XFillRectangle(display, line_pixmap, color_gc,
                              x_offset, y_offset,
                              connect_data[pos].bar_length[(int)bar_no],
                              bar_thickness_3);
@@ -760,6 +930,10 @@ draw_mon_bar(int         pos,
               gc_values.foreground = color.pixel;
               XChangeGC(display, color_gc, GCForeground, &gc_values);
               XFillRectangle(display, line_window, color_gc,
+                             x_offset, y_offset,
+                             connect_data[pos].bar_length[(int)bar_no],
+                             bar_thickness_3);
+              XFillRectangle(display, line_pixmap, color_gc,
                              x_offset, y_offset,
                              connect_data[pos].bar_length[(int)bar_no],
                              bar_thickness_3);
@@ -781,7 +955,7 @@ draw_mon_bar(int         pos,
            }
    }
 
-   /* Remove color behind shrunken bar */
+   /* Remove color behind shrunken bar. */
    if (delta < 0)
    {
       GC tmp_gc;
@@ -806,6 +980,11 @@ draw_mon_bar(int         pos,
                      y_offset,
                      (int)max_bar_length - connect_data[pos].bar_length[(int)bar_no],
                      bar_thickness_3);
+      XFillRectangle(display, line_pixmap, tmp_gc,
+                     x_offset + connect_data[pos].bar_length[(int)bar_no],
+                     y_offset,
+                     (int)max_bar_length - connect_data[pos].bar_length[(int)bar_no],
+                     bar_thickness_3);
    }
 
    return;
@@ -825,6 +1004,10 @@ draw_clock(time_t current_time)
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground,
              &gc_values);
    XDrawImageString(display, button_window, color_letter_gc,
+                    window_width - DEFAULT_FRAME_SPACE - (5 * glyph_width),
+                    text_offset + SPACE_ABOVE_LINE + 1,
+                    str_line, 5);
+   XDrawImageString(display, button_pixmap, color_letter_gc,
                     window_width - DEFAULT_FRAME_SPACE - (5 * glyph_width),
                     text_offset + SPACE_ABOVE_LINE + 1,
                     str_line, 5);

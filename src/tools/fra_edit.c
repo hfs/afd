@@ -1,6 +1,6 @@
 /*
  *  fra_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,7 +85,8 @@ int
 main(int argc, char *argv[])
 {
    int          position = -1,
-                leave_flag = NO;
+                leave_flag = NO,
+                ret;
    unsigned int value;
    char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
                 work_dir[MAX_PATH_LENGTH];
@@ -115,16 +116,26 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (fra_attach() < 0)
+   if ((ret = fra_attach()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FRA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (ret == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : Failed to attach to FRA. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
    if (tcgetattr(STDIN_FILENO, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcgetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcgetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(0);
    }
@@ -134,7 +145,7 @@ main(int argc, char *argv[])
       if ((position = get_dir_position(fra, dir_alias, no_of_dirs)) < 0)
       {
          (void)fprintf(stderr,
-                       "ERROR   : Could not find directory %s in FRA. (%s %d)\n",
+                       _("ERROR   : Could not find directory %s in FRA. (%s %d)\n"),
                        dir_alias, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -147,23 +158,23 @@ main(int argc, char *argv[])
       switch (get_key())
       {
          case 0   : break;
-         case '1' : (void)fprintf(stderr, "\n\n     Enter value [1] : ");
+         case '1' : (void)fprintf(stderr, _("\n\n     Enter value [1] : "));
                     (void)scanf("%u", &value);
                     fra[position].files_in_dir = (int)value;
                     break;
-         case '2' : (void)fprintf(stderr, "\n\n     Enter value [2] : ");
+         case '2' : (void)fprintf(stderr, _("\n\n     Enter value [2] : "));
                     (void)scanf("%u", &value);
                     fra[position].bytes_in_dir = value;
                     break;
-         case '3' : (void)fprintf(stderr, "\n\n     Enter value [3] : ");
+         case '3' : (void)fprintf(stderr, _("\n\n     Enter value [3] : "));
                     (void)scanf("%u", &value);
                     fra[position].files_queued = value;
                     break;
-         case '4' : (void)fprintf(stderr, "\n\n     Enter value [4] : ");
+         case '4' : (void)fprintf(stderr, _("\n\n     Enter value [4] : "));
                     (void)scanf("%u", &value);
                     fra[position].bytes_in_queue = value;
                     break;
-         case '5' : (void)fprintf(stderr, "\n\n     Enter value [5] : ");
+         case '5' : (void)fprintf(stderr, _("\n\n     Enter value [5] : "));
                     (void)scanf("%u", &value);
                     fra[position].error_counter = value;
                     break;
@@ -171,7 +182,7 @@ main(int argc, char *argv[])
          case 'Q' :
          case 'q' : leave_flag = YES;
                     break;
-         default  : (void)printf("Wrong choice!\n");
+         default  : (void)printf(_("Wrong choice!\n"));
                     (void)sleep(1);
                     break;
       }
@@ -195,7 +206,7 @@ main(int argc, char *argv[])
 static void
 menu(int position)
 {
-   (void)fprintf(stdout, "\033[2J\033[3;1H"); /* clear the screen (CLRSCR) */
+   (void)fprintf(stdout, "\033[2J\033[3;1H"); /* Clear the screen (CLRSCR). */
    (void)fprintf(stdout, "\n\n                     FRA Editor (%s)\n\n", fra[position].dir_alias);
    (void)fprintf(stdout, "        +-----+------------------+----------------+\n");
    (void)fprintf(stdout, "        | Key | Description      | current value  |\n");
@@ -230,14 +241,14 @@ get_key(void)
        (signal(SIGTSTP, sig_handler) == SIG_ERR) ||
        (signal(SIGALRM, sig_alarm) == SIG_ERR))
    {
-      (void)fprintf(stderr, "ERROR   : signal() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : signal() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (tcgetattr(STDIN_FILENO, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcgetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcgetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -251,7 +262,7 @@ get_key(void)
 
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &set) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -260,7 +271,7 @@ get_key(void)
    {
       if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
       {
-         (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -269,7 +280,7 @@ get_key(void)
    alarm(5);
    if (read(STDIN_FILENO, &byte, 1) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : read() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : read() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -277,7 +288,7 @@ get_key(void)
 
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -300,7 +311,7 @@ sig_handler(int signo)
 {
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
    }
    exit(0);
@@ -312,7 +323,7 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] dir_alias|position\n",
+                 _("SYNTAX  : %s [-w working directory] dir_alias|position\n"),
                  progname);
    return;
 }

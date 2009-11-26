@@ -1,6 +1,6 @@
 /*
  *  attach_afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,10 +53,10 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                  /* mmap()                         */
+# include <sys/mman.h>                 /* mmap()                         */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                     /* O_RDONLY                       */
+# include <fcntl.h>                    /* O_RDONLY                       */
 #endif
 #include <errno.h>
 
@@ -96,7 +96,7 @@ attach_afd_status(int *fd)
       if (loop_counter > 1000) /* => 2 seconds */
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to open() <%s> : %s",
+                    _("Failed to open() `%s' : %s"),
                     afd_status_file, strerror(errno));
          return(INCORRECT);
       }
@@ -104,7 +104,7 @@ attach_afd_status(int *fd)
    if (fstat(*ptr_fd, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to fstat() <%s> : %s",
+                 _("Failed to fstat() `%s' : %s"),
                  afd_status_file, strerror(errno));
       (void)close(*ptr_fd);
       return(INCORRECT);
@@ -113,9 +113,9 @@ attach_afd_status(int *fd)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
-                 "Incorrect size, `%s' is %ld bytes and not %u bytes.",
+                 _("Incorrect size, `%s' is %ld bytes and not %u bytes."),
 #else
-                 "Incorrect size, `%s' is %lld bytes and not %u bytes.",
+                 _("Incorrect size, `%s' is %lld bytes and not %u bytes."),
 #endif
                  afd_status_file, (pri_off_t)stat_buf.st_size,
                  sizeof(struct afd_status));
@@ -131,7 +131,7 @@ attach_afd_status(int *fd)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "mmap() error : %s", strerror(errno));
+                 _("mmap() error : %s"), strerror(errno));
       (void)close(*ptr_fd);
       return(INCORRECT);
    }
@@ -140,7 +140,7 @@ attach_afd_status(int *fd)
       if (close(*ptr_fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
    }
    p_afd_status = (struct afd_status *)ptr;

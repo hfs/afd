@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,25 +27,25 @@ DESCR__S_M1
  **
  ** SYNOPSIS
  **   afd [options]
- **          -a            only start AFD
- **          -b            Blocks starting of AFD
- **          -c            only check if AFD is active
- **          -C            check if AFD is active, if not start it
- **          -d            only start afd_ctrl dialog
- **          -h            only check for heartbeat
- **          -H            check if heartbeat is active, if not start AFD
- **          -i            initialize AFD, by deleting fifodir
- **          -I            initialize AFD, by deleting everything except for
- **                        the etc directory
- **          -p <role>     use the given user role
- **          -r            remove blocking startup of AFD
- **          -s            shutdown AFD
- **          -S            silent AFD shutdown
- **          -u[ <user>]   different user
- **          -w <work dir> AFD working directory
- **          -v            Just print the version number.
- **          --version     Current version
- **          -z            Set shared shutdown bit.
+ **    -a                        only start AFD
+ **    -b                        Blocks starting of AFD
+ **    -c[ <timeout in seconds>] only check if AFD is active
+ **    -C[ <timeout in seconds>] check if AFD is active, if not start it
+ **    -d                        only start afd_ctrl dialog
+ **    -h[ <timeout in seconds>] only check for heartbeat
+ **    -H[ <timeout in seconds>] check if heartbeat is active, if not start AFD
+ **    -i                        initialize AFD, by deleting fifodir
+ **    -I                        initialize AFD, by deleting everything except
+ **                              for the etc directory
+ **    -p <role>                 use the given user role
+ **    -r                        remove blocking startup of AFD
+ **    -s                        shutdown AFD
+ **    -S                        silent AFD shutdown
+ **    -u[ <user>]               different user
+ **    -w <work dir>             AFD working directory
+ **    -v                        Just print the version number.
+ **    --version                 Current version
+ **    -z                        Set shared shutdown bit.
  **
  ** DESCRIPTION
  **   This program controls the startup or shutdown procedure of
@@ -92,6 +92,8 @@ DESCR__S_M1
  **                      not AFD_MON files.
  **   10.01.2007 H.Kiehl Do not return -1 when doing a shutdown and
  **                      AFD is not active.
+ **   03.02.2009 H.Kiehl Try handle the case better when the AFD_ACTIVE
+ **                      file gets deleted while AFD is still active.
  **
  */
 DESCR__E_M1
@@ -132,17 +134,21 @@ DESCR__E_M1
 #define SET_SHUTDOWN_BIT         14
 
 /* External global variables. */
-int         sys_log_fd = STDERR_FILENO;
-char        *p_work_dir,
-            afd_active_file[MAX_PATH_LENGTH],
-            afd_cmd_fifo[MAX_PATH_LENGTH];
-const char  *sys_log_name = SYSTEM_LOG_FIFO;
+#ifdef AFDBENCH_CONFIG
+int               pause_dir_check = NO;
+#endif
+int               sys_log_fd = STDERR_FILENO;
+char              *p_work_dir,
+                  afd_active_file[MAX_PATH_LENGTH],
+                  afd_cmd_fifo[MAX_PATH_LENGTH];
+const char        *sys_log_name = SYSTEM_LOG_FIFO;
+struct afd_status *p_afd_status;
 
 /* Local functions. */
-static void delete_fifodir_files(char *, int),
-            delete_log_files(char *, int),
-            usage(char *);
-static int  check_database(void);
+static void       delete_fifodir_files(char *, int),
+                  delete_log_files(char *, int),
+                  usage(char *);
+static int        check_database(void);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -204,7 +210,7 @@ main(int argc, char *argv[])
             (void)strcat(afd_user_file, AFD_USER_FILE);
 
             (void)fprintf(stderr,
-                          "Failed to access `%s', unable to determine users permissions.\n",
+                          _("Failed to access `%s', unable to determine users permissions.\n"),
                           afd_user_file);
          }
          exit(INCORRECT);
@@ -227,7 +233,7 @@ main(int argc, char *argv[])
          }
          else
          {
-            if (posi(perm_buffer, AFD_CTRL_PERM) == NULL)
+            if (lposi(perm_buffer, AFD_CTRL_PERM, AFD_CTRL_PERM_LENGTH) == NULL)
             {
                afd_ctrl_perm = NO_PERMISSION;
             }
@@ -235,7 +241,7 @@ main(int argc, char *argv[])
             {
                afd_ctrl_perm = YES;
             }
-            if (posi(perm_buffer, SHUTDOWN_PERM) == NULL)
+            if (lposi(perm_buffer, SHUTDOWN_PERM, SHUTDOWN_PERM_LENGTH) == NULL)
             {
                shutdown_perm = NO_PERMISSION;
             }
@@ -243,7 +249,7 @@ main(int argc, char *argv[])
             {
                shutdown_perm = YES;
             }
-            if (posi(perm_buffer, STARTUP_PERM) == NULL)
+            if (lposi(perm_buffer, STARTUP_PERM, STARTUP_PERM_LENGTH) == NULL)
             {
                startup_perm = NO_PERMISSION;
             }
@@ -251,7 +257,7 @@ main(int argc, char *argv[])
             {
                startup_perm = YES;
             }
-            if (posi(perm_buffer, INITIALIZE_PERM) == NULL)
+            if (lposi(perm_buffer, INITIALIZE_PERM, INITIALIZE_PERM_LENGTH) == NULL)
             {
                initialize_perm = NO_PERMISSION;
             }
@@ -273,7 +279,7 @@ main(int argc, char *argv[])
          break;
 
       default :
-         (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
+         (void)fprintf(stderr, _("Impossible!! Remove the programmer!\n"));
          exit(INCORRECT);
    }
 
@@ -284,21 +290,34 @@ main(int argc, char *argv[])
            ((argv[1][1] == 'C') || (argv[1][1] == 'c')) &&
            (argv[1][2] == '\0')))
       {
-         if (strcmp(argv[1], "-a") == 0) /* Start AFD */
+         if (strcmp(argv[1], "-a") == 0) /* Start AFD. */
          {
             if (startup_perm != YES)
             {
                (void)fprintf(stderr,
-                             "You do not have the permission to start the AFD.\n");
+                             _("You do not have the permission to start the AFD.\n"));
                exit(INCORRECT);
             }
             start_up = AFD_ONLY;
          }
-         else if (strcmp(argv[1], "-b") == 0) /* Block auto restart */
+#ifdef AFDBENCH_CONFIG
+         else if (strcmp(argv[1], "-A") == 0) /* Start AFD but no dir scans. */
+              {
+                 if (startup_perm != YES)
+                 {
+                    (void)fprintf(stderr,
+                                  _("You do not have the permission to start the AFD.\n"));
+                    exit(INCORRECT);
+                 }
+                 pause_dir_check = YES;
+                 start_up = AFD_ONLY;
+              }
+#endif
+         else if (strcmp(argv[1], "-b") == 0) /* Block auto restart. */
               {
                  start_up = MAKE_BLOCK_FILE;
               }
-         else if (strcmp(argv[1], "-c") == 0) /* Only check if AFD is active */
+         else if (strcmp(argv[1], "-c") == 0) /* Only check if AFD is active. */
               {
                  start_up = AFD_CHECK_ONLY;
                  if (argc == 3)
@@ -310,12 +329,12 @@ main(int argc, char *argv[])
                     default_heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
                  }
               }
-         else if (strcmp(argv[1], "-C") == 0) /* Only check if AFD is active */
+         else if (strcmp(argv[1], "-C") == 0) /* Only check if AFD is active. */
               {
                  if (startup_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to start the AFD.\n");
+                                  _("You do not have the permission to start the AFD.\n"));
                     exit(INCORRECT);
                  }
                  start_up = AFD_CHECK;
@@ -328,12 +347,12 @@ main(int argc, char *argv[])
                     default_heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
                  }
               }
-         else if (strcmp(argv[1], "-d") == 0) /* Start afd_ctrl */
+         else if (strcmp(argv[1], "-d") == 0) /* Start afd_ctrl. */
               {
                  if (afd_ctrl_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to start the AFD control dialog.\n");
+                                  _("You do not have the permission to start the AFD control dialog.\n"));
                     exit(INCORRECT);
                  }
                  start_up = AFD_CTRL_ONLY;
@@ -355,7 +374,7 @@ main(int argc, char *argv[])
                  if (startup_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to start the AFD.\n");
+                                  _("You do not have the permission to start the AFD.\n"));
                     exit(INCORRECT);
                  }
                  start_up = AFD_HEARTBEAT_CHECK;
@@ -373,7 +392,7 @@ main(int argc, char *argv[])
                  if (initialize_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to initialize the AFD.\n");
+                                  _("You do not have the permission to initialize the AFD.\n"));
                     exit(INCORRECT);
                  }
                  start_up = AFD_INITIALIZE;
@@ -383,34 +402,34 @@ main(int argc, char *argv[])
                  if (initialize_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to do a full initialization of AFD.\n");
+                                  _("You do not have the permission to do a full initialization of AFD.\n"));
                     exit(INCORRECT);
                  }
                  start_up = AFD_FULL_INITIALIZE;
               }
-         else if (strcmp(argv[1], "-s") == 0) /* Shutdown AFD */
+         else if (strcmp(argv[1], "-s") == 0) /* Shutdown AFD. */
               {
                  if (shutdown_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to shutdown the AFD. [%s]\n",
+                                  _("You do not have the permission to shutdown the AFD. [%s]\n"),
                                   user);
                     exit(INCORRECT);
                  }
                  start_up = SHUTDOWN_ONLY;
               }
-         else if (strcmp(argv[1], "-S") == 0) /* Silent AFD shutdown */
+         else if (strcmp(argv[1], "-S") == 0) /* Silent AFD shutdown. */
               {
                  if (shutdown_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to shutdown the AFD. [%s]\n",
+                                  _("You do not have the permission to shutdown the AFD. [%s]\n"),
                                   user);
                     exit(INCORRECT);
                  }
                  start_up = SILENT_SHUTDOWN_ONLY;
               }
-         else if (strcmp(argv[1], "-r") == 0) /* Removes blocking file */
+         else if (strcmp(argv[1], "-r") == 0) /* Removes blocking file. */
               {
                  start_up = REMOVE_BLOCK_FILE;
               }
@@ -419,14 +438,14 @@ main(int argc, char *argv[])
                  if (shutdown_perm != YES)
                  {
                     (void)fprintf(stderr,
-                                  "You do not have the permission to set the shutdown bit. [%s]\n",
+                                  _("You do not have the permission to set the shutdown bit. [%s]\n"),
                                   user);
                     exit(INCORRECT);
                  }
                  start_up = SET_SHUTDOWN_BIT;
               }
          else if ((strcmp(argv[1], "--help") == 0) ||
-                  (strcmp(argv[1], "-?") == 0)) /* Show usage */
+                  (strcmp(argv[1], "-?") == 0)) /* Show usage. */
               {
                  usage(argv[0]);
                  exit(0);
@@ -437,7 +456,7 @@ main(int argc, char *argv[])
                  exit(1);
               }
       }
-      else /* Start AFD and afd_ctrl */
+      else /* Start AFD and afd_ctrl. */
       {
          if ((startup_perm == YES) && (afd_ctrl_perm == YES))
          {
@@ -454,7 +473,7 @@ main(int argc, char *argv[])
               else
               {
                  (void)fprintf(stderr,
-                               "You do not have enough permissions to use this program.\n");
+                               _("You do not have enough permissions to use this program.\n"));
                  exit(INCORRECT);
               }
       }
@@ -469,7 +488,7 @@ main(int argc, char *argv[])
    if (chdir(work_dir) < 0)
    {
       (void)fprintf(stderr,
-                    "ERROR   : Failed to change directory to %s : %s (%s %d)\n",
+                    _("ERROR   : Failed to change directory to `%s' : %s (%s %d)\n"),
                     work_dir, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -494,8 +513,9 @@ main(int argc, char *argv[])
    {
       if (make_fifo(sys_log_fifo) < 0)
       {
-         (void)fprintf(stderr, "ERROR   : Could not create fifo %s. (%s %d)\n",
-                   sys_log_fifo, __FILE__, __LINE__);
+         (void)fprintf(stderr,
+                       _("ERROR   : Could not create fifo `%s'. (%s %d)\n"),
+                       sys_log_fifo, __FILE__, __LINE__);
          exit(INCORRECT);
       }
    }
@@ -506,36 +526,70 @@ main(int argc, char *argv[])
             n;
       pid_t ia_pid;
 
+      p_afd_status = NULL;
+      if (attach_afd_status(NULL) == SUCCESS)
+      {
+         char hostname[MAX_REAL_HOSTNAME_LENGTH];
+
+         if (gethostname(hostname, MAX_REAL_HOSTNAME_LENGTH) == 0)
+         {
+            if (strcmp(hostname, p_afd_status->hostname) != 0)
+            {
+               if (start_up == SHUTDOWN_ONLY)
+               {
+                  (void)fprintf(stderr,
+                                _("Shutdown can only be done on %s or use -z.\n"),
+                                p_afd_status->hostname);
+               }
+               exit(NOT_ON_CORRECT_HOST);
+            }
+         }
+         (void)detach_afd_status();
+      }
+
       /* First get the pid of init_afd before we send the */
       /* shutdown command.                                */
       if ((readfd = open(afd_active_file, O_RDONLY)) == -1)
       {
          if (errno != ENOENT)
          {
-            (void)fprintf(stderr, "Failed to open %s : %s (%s %d)\n",
+            (void)fprintf(stderr, _("Failed to open `%s' : %s (%s %d)\n"),
                           afd_active_file, strerror(errno),
                           __FILE__, __LINE__);
+            exit(INCORRECT);
          }
-         else
+         if ((n = shutdown_afd(user, 1L, YES)) == 2)
          {
             if (start_up == SHUTDOWN_ONLY)
             {
-               (void)fprintf(stderr, "There is no AFD active.\n");
+               (void)fprintf(stderr, _("There is no AFD active.\n"));
             }
+            n = AFD_IS_NOT_ACTIVE;
          }
-         exit(AFD_IS_NOT_ACTIVE);
+         else if (n != 0)
+              {
+                 if (start_up == SHUTDOWN_ONLY)
+                 {
+                    (void)fprintf(stderr,
+                                  _("ERROR   : An error (%d) occured when shutting down, see SYSTEM_LOG for more information.\n"),
+                                  n);
+                 }
+                 n = INCORRECT;
+              }
+
+         exit(n);
       }
       if ((n = read(readfd, &ia_pid, sizeof(pid_t))) != sizeof(pid_t))
       {
          if (n == 0)
          {
             (void)fprintf(stderr,
-                          "File %s is empty. Unable to determine if AFD is active.\n",
+                          _("File `%s' is empty. Unable to determine if AFD is active.\n"),
                           afd_active_file);
          }
          else
          {
-            (void)fprintf(stderr, "read() error : %s (%s %d)\n",
+            (void)fprintf(stderr, _("read() error : %s (%s %d)\n"),
                           strerror(errno),  __FILE__, __LINE__);
          }
          exit(INCORRECT);
@@ -547,9 +601,9 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stderr,
 #if SIZEOF_PID_T == 4
-                       "File %s contains an invalid pid (%d). Please try and terminate it by hand.\n",
+                       _("File %s contains an invalid pid (%d). Please try and terminate it by hand.\n"),
 #else
-                       "File %s contains an invalid pid (%lld). Please try and terminate it by hand.\n",
+                       _("File %s contains an invalid pid (%lld). Please try and terminate it by hand.\n"),
 #endif
                        afd_active_file, (pri_pid_t)ia_pid);
          exit(INCORRECT);
@@ -557,11 +611,11 @@ main(int argc, char *argv[])
 
       if (start_up == SHUTDOWN_ONLY)
       {
-         (void)fprintf(stdout, "Starting AFD shutdown ");
+         (void)fprintf(stdout, _("Starting AFD shutdown "));
          fflush(stdout);
       }
 
-      shutdown_afd(user);
+      (void)shutdown_afd(user, 10L, NO);
 
       /*
        * Wait for init_afd to terminate. But lets not wait forever.
@@ -586,14 +640,20 @@ main(int argc, char *argv[])
 
          if (loops++ >= 120)
          {
-            (void)fprintf(stdout, "\nTimeout reached, killing init_afd.\n");
+            (void)fprintf(stdout, _("\nTimeout reached, killing init_afd.\n"));
             if (kill(ia_pid, SIGINT) == -1)
             {
+               if (errno == ESRCH)
+               {
+                  (void)fprintf(stderr, _("init_afd already gone (%s %d)\n"),
+                                __FILE__, __LINE__);
+                  exit(0);
+               }
                (void)fprintf(stderr,
 #if SIZEOF_PID_T == 4
-                             "Failed to kill init_afd (%d) : %s (%s %d)\n",
+                             _("Failed to kill init_afd (%d) : %s (%s %d)\n"),
 #else
-                             "Failed to kill init_afd (%lld) : %s (%s %d)\n",
+                             _("Failed to kill init_afd (%lld) : %s (%s %d)\n"),
 #endif
                              (pri_pid_t)ia_pid, strerror(errno),
                              __FILE__, __LINE__);
@@ -602,7 +662,7 @@ main(int argc, char *argv[])
             {
                if (start_up == SHUTDOWN_ONLY)
                {
-                  (void)fprintf(stdout, "\nDone!\n");
+                  (void)fprintf(stdout, _("\nDone!\n"));
                }
             }
             break;
@@ -623,14 +683,15 @@ main(int argc, char *argv[])
 
          if (loops++ >= 40)
          {
-            (void)fprintf(stdout, "\nSecond timeout reached, killing init_afd the hard way.\n");
+            (void)fprintf(stdout,
+                          _("\nSecond timeout reached, killing init_afd the hard way.\n"));
             if (kill(ia_pid, SIGKILL) == -1)
             {
                (void)fprintf(stderr,
 #if SIZEOF_PID_T == 4
-                             "Failed to kill init_afd (%d) : %s (%s %d)\n",
+                             _("Failed to kill init_afd (%d) : %s (%s %d)\n"),
 #else
-                             "Failed to kill init_afd (%lld) : %s (%s %d)\n",
+                             _("Failed to kill init_afd (%lld) : %s (%s %d)\n"),
 #endif
                              (pri_pid_t)ia_pid, strerror(errno),
                              __FILE__, __LINE__);
@@ -648,7 +709,7 @@ main(int argc, char *argv[])
                       (char *) 0) == -1)
            {
               (void)fprintf(stderr,
-                            "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                            _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
                             exec_cmd, strerror(errno), __FILE__, __LINE__);
               exit(1);
            }
@@ -660,14 +721,14 @@ main(int argc, char *argv[])
            if (eaccess(auto_block_file, F_OK) == 0)
            {
               (void)fprintf(stderr,
-                            "AFD is currently disabled by system manager.\n");
+                            _("AFD is currently disabled by system manager.\n"));
               exit(INCORRECT);
            }
 
            if (check_database() == -1)
            {
               (void)fprintf(stderr,
-                            "ERROR   : Cannot read <%s%s%s> file : %s\n          Unable to start AFD.\n",
+                            _("ERROR   : Cannot read <%s%s%s> file : %s\n          Unable to start AFD.\n"),
                             p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
                             strerror(errno));
               exit(INCORRECT);
@@ -675,7 +736,7 @@ main(int argc, char *argv[])
 
            if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, NO) == 1)
            {
-              (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
+              (void)fprintf(stdout, _("AFD is active in %s\n"), p_work_dir);
               exit(AFD_IS_ACTIVE);
            }
 
@@ -695,7 +756,7 @@ main(int argc, char *argv[])
            {
               if (check_afd_heartbeat(default_heartbeat_timeout, NO) == 1)
               {
-                 (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
+                 (void)fprintf(stdout, _("AFD is active in %s\n"), p_work_dir);
                  exit(AFD_IS_ACTIVE);
               }
            }
@@ -703,7 +764,7 @@ main(int argc, char *argv[])
            {
               if (check_afd_heartbeat(default_heartbeat_timeout, YES) == 1)
               {
-                 (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
+                 (void)fprintf(stdout, _("AFD is active in %s\n"), p_work_dir);
                  exit(AFD_IS_ACTIVE);
               }
            }
@@ -714,14 +775,14 @@ main(int argc, char *argv[])
               if (eaccess(auto_block_file, F_OK) == 0)
               {
                  (void)fprintf(stderr,
-                               "AFD is currently disabled by system manager.\n");
+                               _("AFD is currently disabled by system manager.\n"));
                  exit(INCORRECT);
               }
 
               if (check_database() == -1)
               {
                  (void)fprintf(stderr,
-                               "Cannot read <%s%s%s> file : %s\nUnable to start AFD.\n",
+                               _("Cannot read `%s%s%s' file : %s\nUnable to start AFD.\n"),
                                p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
                                strerror(errno));
                  exit(NO_DIR_CONFIG);
@@ -734,7 +795,7 @@ main(int argc, char *argv[])
            }
            else
            {
-              (void)fprintf(stderr, "No AFD active in %s\n", p_work_dir);
+              (void)fprintf(stderr, _("No AFD active in %s\n"), p_work_dir);
            }
 
            exit(0);
@@ -751,7 +812,7 @@ main(int argc, char *argv[])
 #endif
            {
               (void)fprintf(stderr,
-                            "ERROR   : Failed to create block file %s : %s (%s %d)\n",
+                            _("ERROR   : Failed to create block file `%s' : %s (%s %d)\n"),
                             auto_block_file, strerror(errno),
                             __FILE__, __LINE__);
               exit(INCORRECT);
@@ -759,7 +820,7 @@ main(int argc, char *argv[])
            if (close(fd) == -1)
            {
               (void)fprintf(stderr,
-                            "WARNING : Failed to close() block file %s : %s (%s %d)\n",
+                            _("WARNING : Failed to close() block file `%s' : %s (%s %d)\n"),
                             auto_block_file, strerror(errno),
                             __FILE__, __LINE__);
            }
@@ -770,7 +831,7 @@ main(int argc, char *argv[])
            if (remove(auto_block_file) < 0)
            {
               (void)fprintf(stderr,
-                            "ERROR   : Failed to remove block file %s : %s (%s %d)\n",
+                            _("ERROR   : Failed to remove block file `%s' : %s (%s %d)\n"),
                             auto_block_file, strerror(errno),
                             __FILE__, __LINE__);
               exit(INCORRECT);
@@ -782,7 +843,7 @@ main(int argc, char *argv[])
            if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, NO) == 1)
            {
               (void)fprintf(stderr,
-                            "ERROR   : AFD is still active, unable to initialize.\n");
+                            _("ERROR   : AFD is still active, unable to initialize.\n"));
               exit(INCORRECT);
            }
            else
@@ -796,7 +857,7 @@ main(int argc, char *argv[])
               if (rec_rmdir(dirs) == INCORRECT)
               {
                  (void)fprintf(stderr,
-                               "WARNING : Failed to delete everything in %s.\n",
+                               _("WARNING : Failed to delete everything in %s.\n"),
                                dirs);
               }
               if (start_up == AFD_FULL_INITIALIZE)
@@ -805,14 +866,14 @@ main(int argc, char *argv[])
                  if (rec_rmdir(dirs) == INCORRECT)
                  {
                     (void)fprintf(stderr,
-                                  "WARNING : Failed to delete everything in %s.\n",
+                                  _("WARNING : Failed to delete everything in %s.\n"),
                                   dirs);
                  }
                  (void)sprintf(dirs, "%s%s", p_work_dir, AFD_ARCHIVE_DIR);
                  if (rec_rmdir(dirs) == INCORRECT)
                  {
                     (void)fprintf(stderr,
-                                  "WARNING : Failed to delete everything in %s.\n",
+                                  _("WARNING : Failed to delete everything in %s.\n"),
                                   dirs);
                  }
                  offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
@@ -823,16 +884,15 @@ main(int argc, char *argv[])
         }
    else if (start_up == SET_SHUTDOWN_BIT)
         {
-           int         fd;
-           off_t       offset;
-           char        *ptr,
-                       *shared_shutdown;
-           struct stat stat_buf;
+           int   fd;
+           off_t offset;
+           char  *ptr,
+                 *shared_shutdown;
 
            if ((fd = open(afd_active_file, O_RDWR)) == -1)
            {
               (void)fprintf(stderr,
-                            "ERROR   : Failed to open() %s : %s (%s %d)\n",
+                            _("ERROR   : Failed to open() `%s' : %s (%s %d)\n"),
                             afd_active_file, strerror(errno),
                             __FILE__, __LINE__);
               exit(INCORRECT);
@@ -840,7 +900,7 @@ main(int argc, char *argv[])
            if (fstat(fd, &stat_buf) == -1)
            {
               (void)fprintf(stderr,
-                            "ERROR   : Failed to fstat() %s : %s (%s %d)\n",
+                            _("ERROR   : Failed to fstat() `%s' : %s (%s %d)\n"),
                             afd_active_file, strerror(errno),
                             __FILE__, __LINE__);
               exit(INCORRECT);
@@ -850,9 +910,9 @@ main(int argc, char *argv[])
            {
               (void)fprintf(stderr,
 #if SIZEOF_OFF_T == 4
-                            "ERROR   : Unable to set shutdown bit due to incorrect size (%ld != %ld) of %s.\n",
+                            _("ERROR   : Unable to set shutdown bit due to incorrect size (%ld != %ld) of %s.\n"),
 #else
-                            "ERROR   : Unable to set shutdown bit due to incorrect size (%lld != %lld) of %s.\n",
+                            _("ERROR   : Unable to set shutdown bit due to incorrect size (%lld != %lld) of %s.\n"),
 #endif
                             (pri_off_t)(offset + 1),
                             (pri_off_t)stat_buf.st_size, afd_active_file);
@@ -866,7 +926,7 @@ main(int argc, char *argv[])
                                MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1)
 #endif
            {
-              (void)fprintf(stderr, "ERROR   : mmap() error : %s (%s %d)\n",
+              (void)fprintf(stderr, _("ERROR   : mmap() error : %s (%s %d)\n"),
                             strerror(errno), __FILE__, __LINE__);
               exit(INCORRECT);
            }
@@ -880,7 +940,7 @@ main(int argc, char *argv[])
    /* Check if starting of AFD is currently disabled.  */
    if (eaccess(auto_block_file, F_OK) == 0)
    {
-      (void)fprintf(stderr, "AFD is currently disabled by system manager.\n");
+      (void)fprintf(stderr, _("AFD is currently disabled by system manager.\n"));
       exit(INCORRECT);
    }
 
@@ -892,17 +952,17 @@ main(int argc, char *argv[])
       if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir, (char *) 0) == -1)
       {
          (void)fprintf(stderr,
-                       "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                       _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
                        exec_cmd, strerror(errno), __FILE__, __LINE__);
          exit(1);
       }
    }
-   else /* Start both */
+   else /* Start both. */
    {
       if (check_database() == -1)
       {
          (void)fprintf(stderr,
-                       "Cannot read <%s%s%s> file : %s\nUnable to start AFD.\n",
+                       _("Cannot read `%s%s%s' file : %s\nUnable to start AFD.\n"),
                        p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
                        strerror(errno));
          exit(INCORRECT);
@@ -915,7 +975,7 @@ main(int argc, char *argv[])
                     (char *) 0) == -1)
          {
             (void)fprintf(stderr,
-                          "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                          _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
                           exec_cmd, strerror(errno),
                           __FILE__, __LINE__);
             exit(1);
@@ -954,7 +1014,7 @@ check_database(void)
          {
             if (mkdir(db_file, DIR_MODE) == -1)
             {
-               (void)fprintf(stderr, "Failed to mkdir() `%s' : %s\n",
+               (void)fprintf(stderr, _("Failed to mkdir() `%s' : %s\n"),
                              db_file, strerror(errno));
                return(-1);
             }
@@ -967,7 +1027,7 @@ check_database(void)
       (void)sprintf(db_file, "%s %s 2>&1", AFD_AUTO_CONFIG, p_work_dir);
       if ((fp = popen(db_file, "r")) == NULL)
       {
-         (void)fprintf(stderr, "Failed to popen() `%s' : %s\n",
+         (void)fprintf(stderr, _("Failed to popen() `%s' : %s\n"),
                        db_file, strerror(errno));
          return(-1);
       }
@@ -978,7 +1038,8 @@ check_database(void)
       }
       if (db_file[0] != '\0')
       {
-         (void)fprintf(stderr, "%s failed : `%s'\n", AFD_AUTO_CONFIG, db_file);
+         (void)fprintf(stderr, _("%s failed : `%s'\n"),
+                       AFD_AUTO_CONFIG, db_file);
          ret = -1;
       }
       else
@@ -987,11 +1048,11 @@ check_database(void)
       }
       if (ferror(fp))
       {
-         (void)fprintf(stderr, "ferror() error : %s\n", strerror(errno));
+         (void)fprintf(stderr, _("ferror() error : %s\n"), strerror(errno));
       }
       if (pclose(fp) == -1)
       {
-         (void)fprintf(stderr, "Failed to pclose() : %s\n", strerror(errno));
+         (void)fprintf(stderr, _("Failed to pclose() : %s\n"), strerror(errno));
       }
       return(ret);
    }
@@ -1030,6 +1091,7 @@ delete_fifodir_files(char *fifodir, int offset)
             DC_LIST_FILE,
             DIR_NAME_FILE,
             JOB_ID_DATA_FILE,
+            DCPL_FILE_NAME,
             PWB_DATA_FILE,
             CURRENT_MSG_LIST_FILE,
             AMG_DATA_FILE,
@@ -1053,9 +1115,15 @@ delete_fifodir_files(char *fifodir, int offset)
             RETRY_FD_FIFO,
             FD_DELETE_FIFO,
             FD_WAKE_UP_FIFO,
+            TRL_CALC_FIFO,
+            QUEUE_LIST_READY_FIFO,
+            QUEUE_LIST_DONE_FIFO,
             PROBE_ONLY_FIFO,
 #ifdef _INPUT_LOG
             INPUT_LOG_FIFO,
+#endif
+#ifdef _DISTRIBUTION_LOG
+            DISTRIBUTION_LOG_FIFO,
 #endif
 #ifdef _OUTPUT_LOG
             OUTPUT_LOG_FIFO,
@@ -1129,6 +1197,9 @@ delete_log_files(char *logdir, int offset)
 #ifdef _INPUT_LOG
            INPUT_BUFFER_FILE_ALL,
 #endif
+#ifdef _DISTRIBUTION_LOG
+           DISTRIBUTION_BUFFER_FILE_ALL,
+#endif
 #ifdef _OUTPUT_LOG
            OUTPUT_BUFFER_FILE_ALL,
 #endif
@@ -1171,24 +1242,28 @@ delete_log_files(char *logdir, int offset)
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "Usage: %s[ -w <AFD working dir>][ -p <role>][ -u[ <user>]] [option]\n", progname);
-   (void)fprintf(stderr, "              -a          only start AFD\n");
-   (void)fprintf(stderr, "              -b          blocks starting of AFD\n");
-   (void)fprintf(stderr, "              -c          only check if AFD is active\n");
-   (void)fprintf(stderr, "              -C          check if AFD is active, if not start it\n");
-   (void)fprintf(stderr, "              -d          only start afd_ctrl dialog\n");
-   (void)fprintf(stderr, "              -h          only check for heartbeat\n");
-   (void)fprintf(stderr, "              -H          check if heartbeat is active, if not start AFD\n");
-   (void)fprintf(stderr, "              -i          initialize AFD, by deleting fifodir\n");
-   (void)fprintf(stderr, "              -I          initialize AFD, by deleting everything\n");
-   (void)fprintf(stderr, "                          except for etc directory\n");
-   (void)fprintf(stderr, "              -r          removes blocking startup of AFD\n");
-   (void)fprintf(stderr, "              -s          shutdown AFD\n");
-   (void)fprintf(stderr, "              -S          silent AFD shutdown\n");
-   (void)fprintf(stderr, "              -z          set shutdown bit\n");
-   (void)fprintf(stderr, "              --help      prints out this syntax\n");
-   (void)fprintf(stderr, "              -v          just print version number\n");
-   (void)fprintf(stderr, "              --version   show current version\n");
+   (void)fprintf(stderr, _("Usage: %s[ -w <AFD working dir>][ -p <role>][ -u[ <user>]] [option]\n"), progname);
+   (void)fprintf(stderr, _("\n   Other possible options:\n"));
+   (void)fprintf(stderr, _("    -a                        only start AFD\n"));
+#ifdef AFDBENCH_CONFIG
+   (void)fprintf(stderr, _("    -A                        only start AFD, but do not scan directories\n"));
+#endif
+   (void)fprintf(stderr, _("    -b                        blocks starting of AFD\n"));
+   (void)fprintf(stderr, _("    -c[ <timeout in seconds>] only check if AFD is active\n"));
+   (void)fprintf(stderr, _("    -C[ <timeout in seconds>] check if AFD is active, if not start it\n"));
+   (void)fprintf(stderr, _("    -d                        only start afd_ctrl dialog\n"));
+   (void)fprintf(stderr, _("    -h[ <timeout in seconds>] only check for heartbeat\n"));
+   (void)fprintf(stderr, _("    -H[ <timeout in seconds>] check if heartbeat is active, if not start AFD\n"));
+   (void)fprintf(stderr, _("    -i                        initialize AFD, by deleting fifodir\n"));
+   (void)fprintf(stderr, _("    -I                        initialize AFD, by deleting everything\n"));
+   (void)fprintf(stderr, _("                              except for etc directory\n"));
+   (void)fprintf(stderr, _("    -r                        removes blocking startup of AFD\n"));
+   (void)fprintf(stderr, _("    -s                        shutdown AFD\n"));
+   (void)fprintf(stderr, _("    -S                        silent AFD shutdown\n"));
+   (void)fprintf(stderr, _("    -z                        set shutdown bit\n"));
+   (void)fprintf(stderr, _("    --help                    prints out this syntax\n"));
+   (void)fprintf(stderr, _("    -v                        just print version number\n"));
+   (void)fprintf(stderr, _("    --version                 show current version\n"));
 
    return;
 }

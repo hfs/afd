@@ -51,13 +51,13 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>                /* read(), write(), close()            */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -67,87 +67,85 @@ com(char action)
 {
    int            write_fd,
                   read_fd,
-                  status;
-   char           buffer[20],
-                  cmd_fifo[MAX_PATH_LENGTH],
-                  resp_fifo[MAX_FILENAME_LENGTH];
+                  ret;
+   char           buffer[10],
+                  com_fifo[MAX_PATH_LENGTH],
+                  *ptr;
    fd_set         rset;
    struct timeval timeout;
 
    /* Build the fifo names. */
-   (void)strcpy(cmd_fifo, p_work_dir);
-   (void)strcat(cmd_fifo, FIFO_DIR);
-   (void)strcpy(resp_fifo, cmd_fifo);
-   (void)strcat(resp_fifo, DC_RESP_FIFO);
-   (void)strcat(cmd_fifo, DC_CMD_FIFO);
+   (void)strcpy(com_fifo, p_work_dir);
+   (void)strcat(com_fifo, FIFO_DIR);
+   ptr = com_fifo + strlen(com_fifo);
 
-   /* Open fifo to send command to job */
-   if ((write_fd = open(cmd_fifo, O_RDWR)) == -1)
+   /* Open fifo to send command to job. */
+   (void)strcpy(ptr, DC_CMD_FIFO);
+   if ((write_fd = open(com_fifo, O_RDWR)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s", cmd_fifo, strerror(errno));
+                 "Could not open fifo %s : %s", com_fifo, strerror(errno));
       exit(INCORRECT);
    }
 
-   /* Open fifo to wait for answer from job */
-   if ((read_fd = open(resp_fifo, (O_RDONLY | O_NONBLOCK))) == -1)
+   /* Open fifo to wait for answer from job. */
+   (void)strcpy(ptr, DC_RESP_FIFO);
+   if ((read_fd = open(com_fifo, (O_RDONLY | O_NONBLOCK))) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s", resp_fifo, strerror(errno));
+                 "Could not open fifo %s : %s", com_fifo, strerror(errno));
       exit(INCORRECT);
    }
 
-   /* Write command to command fifo */
-   buffer[0] = action;
-   buffer[1] = '\0';
-   if (write(write_fd, buffer, 2) != 2)
+   /* Write command to command fifo. */
+   if (write(write_fd, &action, 1) != 1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not write to fifo %s : %s", cmd_fifo, strerror(errno));
+                 "Could not write to fifo %s : %s",
+                 DC_CMD_FIFO, strerror(errno));
       exit(INCORRECT);
    }
 
-   /* Initialise descriptor set and timeout */
+   /* Initialise descriptor set and timeout. */
    FD_ZERO(&rset);
    FD_SET(read_fd, &rset);
-   timeout.tv_usec = 0;
+   timeout.tv_usec = 0L;
    timeout.tv_sec = JOB_TIMEOUT;
 
    /* Wait for message x seconds and then continue. */
-   status = select((read_fd + 1), &rset, NULL, NULL, &timeout);
+   ret = select((read_fd + 1), &rset, NULL, NULL, &timeout);
 
-   if ((status > 0) && (FD_ISSET(read_fd, &rset)))
+   if ((ret > 0) && (FD_ISSET(read_fd, &rset)))
    {
-      int length;
-
-      if ((length = read(read_fd, buffer, 10)) > 0)
+      if ((ret = read(read_fd, buffer, 10)) > 0)
       {
-         if (buffer[length - 1] != ACKN)
+         if (buffer[ret - 1] != ACKN)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Received garbage (%d) while reading from fifo.",
-                       buffer[length - 1]);
+                       buffer[ret - 1]);
          }
-
-         /* Should any action be taken??????????????????? */
+         ret = SUCCESS;
+      }
+      else
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Read problems (%d) : %s", ret, strerror(errno));
+         ret = INCORRECT;
       }
    }
-   else if (status < 0)
+   else if (ret < 0)
         {
            system_log(FATAL_SIGN, __FILE__, __LINE__,
                       "select() error : %s", strerror(errno));
            exit(INCORRECT);
         }
-   else if (status == 0)
+   else if (ret == 0)
         {
            /* The other side does not answer. */
            system_log(WARN_SIGN, __FILE__, __LINE__,
                       "Did not receive any reply from %s.", DC_PROC_NAME);
-
-           /* So what do we do now???????????  */
-           (void)close(write_fd);
-           (void)close(read_fd);
-           return(INCORRECT);
+           ret = INCORRECT;
         }
         else /* Impossible! Unknown error. */
         {
@@ -155,16 +153,11 @@ com(char action)
            exit(INCORRECT);
         }
 
-   if (close(write_fd) == -1)
-   {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
-   }
-   if (close(read_fd) == -1)
+   if ((close(write_fd) == -1) || (close(read_fd) == -1))
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
 
-   return(SUCCESS);
+   return(ret);
 }

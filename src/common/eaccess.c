@@ -1,6 +1,6 @@
 /*
  *  eaccess.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2002 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -170,7 +170,7 @@ check_group(uid_t euid, gid_t guid, struct group **p_group, struct passwd **pass
       if ((*p_group = getgrgid(guid)) == NULL)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to getgrid() : %s", strerror(errno));
+                    _("Failed to getgrgid() : %s"), strerror(errno));
          return(NO);
       }
    }
@@ -179,7 +179,7 @@ check_group(uid_t euid, gid_t guid, struct group **p_group, struct passwd **pass
       if ((*passwd = getpwuid(euid)) == NULL)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to getpwuid() : %s", strerror(errno));
+                    _("Failed to getpwuid() : %s"), strerror(errno));
          return(NO);
       }
    }

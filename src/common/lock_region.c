@@ -1,6 +1,6 @@
 /*
  *  lock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "fddefs.h"
@@ -92,7 +92,7 @@ lock_region(int fd, off_t offset)
       else
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "fcntl() error : %s", strerror(errno));
+                    _("fcntl() error : %s"), strerror(errno));
          exit(LOCK_REGION_ERROR);
       }
    }

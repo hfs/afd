@@ -1,7 +1,7 @@
 /*
  *  write_host_config.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,7 @@ DESCR__S_M3
  **   16.02.2006 H.Kiehl Added socket send and receive buffer.
  **   28.02.2006 H.Kiehl Added keep connected parameter.
  **   08.03.2006 H.Kiehl Added dupcheck on a per host basis.
+ **   03.01.2008 H.Kiehl Added warn time.
  **
  */
 DESCR__E_M3
@@ -69,7 +70,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
@@ -81,13 +82,14 @@ DESCR__E_M3
 # There are 22 parameters that can be configured for each remote\n\
 # host. They are:\n\
 #\n\
-# Keep connected          <----------------------------------------------+\n\
-# Duplicate check flag    <-------------------------------------------+  |\n\
-# Duplicate check timeout <----------------------------------------+  |  |\n\
-# Socket receive buffer   <-------------------------------------+  |  |  |\n\
-# Socket send buffer      <---------------------------------+   |  |  |  |\n\
-#                                                           |   |  |  |  |\n\
-# AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC\n\
+# Warn time               <-------------------------------------------------+\n\
+# Keep connected          <----------------------------------------------+  |\n\
+# Duplicate check flag    <-------------------------------------------+  |  |\n\
+# Duplicate check timeout <----------------------------------------+  |  |  |\n\
+# Socket receive buffer   <-------------------------------------+  |  |  |  |\n\
+# Socket send buffer      <---------------------------------+   |  |  |  |  |\n\
+#                                                           |   |  |  |  |  |\n\
+# AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC:WT\n\
 # |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |\n\
 # |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +-> TTL\n\
 # |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +-----> Transfer rate limit\n\
@@ -114,7 +116,7 @@ DESCR__E_M3
 #   <Transfer block size>:<Successful retries>:<File size offset>:\n\
 #   <Transfer timeout>:<no bursts>:<host status>:<special flag>:\n\
 #   <transfer rate limit>:<TTL>:<Socket send buffer>:<Socket receive buffer>:\n\
-#   <dupcheck timeout>:<dupcheck flag>:<Keep connected>\n"
+#   <dupcheck timeout>:<dupcheck flag>:<Keep connected>:<Warn time>\n"
 #else
 #define HOST_CONFIG_TEXT_PART1 "#\n\
 #                Host configuration file for the AFD\n\
@@ -123,11 +125,12 @@ DESCR__E_M3
 # There are 20 parameters that can be configured for each remote\n\
 # host. They are:\n\
 #\n\
-# Keep connected          <----------------------------------------+\n\
-# Socket receive buffer   <-------------------------------------+  |\n\
-# Socket send buffer      <---------------------------------+   |  |\n\
-#                                                           |   |  |\n\
-# AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:KC\n\
+# Warn time               <-------------------------------------------+\n\
+# Keep connected          <----------------------------------------+  |\n\
+# Socket receive buffer   <-------------------------------------+  |  |\n\
+# Socket send buffer      <---------------------------------+   |  |  |\n\
+#                                                           |   |  |  |\n\
+# AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:KC:WT\n\
 # |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |\n\
 # |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +-> TTL\n\
 # |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +-----> Transfer rate limit\n\
@@ -154,7 +157,7 @@ DESCR__E_M3
 #   <Transfer block size>:<Successful retries>:<File size offset>:\n\
 #   <Transfer timeout>:<no bursts>:<host status>:<special flag>:\n\
 #   <transfer rate limit>:<TTL>:<Socket send buffer>:<Socket receive buffer>:\n\
-#   <Keep connected>\n"
+#   <Keep connected>:<Warn time>\n"
 #endif
 
 #define HOST_CONFIG_TEXT_PART2 "#\n\
@@ -185,8 +188,8 @@ DESCR__E_M3
 # Retry interval         - If an error occurs, this is the delay (in\n\
 #                          seconds) before another transfer is initiated.\n\
 # Transfer block size    - The size of the blocks being used to send files\n\
-#                          to the remote host (in Bytes).\n\
-#                          DEFAULT: 1024\n\
+#                          to the remote host (in bytes).\n\
+#                          DEFAULT: 4096\n\
 # Successful retries     - This is only used when there is a secondary host\n\
 #                          and automatic switch over is active. It is the\n\
 #                          number of successful transfers to the secondary\n\
@@ -228,13 +231,16 @@ DESCR__E_M3
 #                          only bits number 1, 2, 3, 6 and 7 can be set. The\n\
 #                          meaning is as follows (the values in brackets\n\
 #                          are the integer values that may be set):\n\
-#                          1 (1)   - If set transfer is stopped for this host.\n\
-#                          2 (2)   - If set queue is stopped for this host.\n\
-#                          3 (4)   - If set host is NOT in DIR_CONFIG.\n\
-#                          5 (16)  - Error status offline.\n\
-#                          6 (32)  - If set this host is disabled.\n\
-#                          7 (64)  - If set and host switching is used\n\
-#                                    this tells that host two is active.\n\
+#                          1 (1)     - If set transfer is stopped for this host.\n\
+#                          2 (2)     - If set queue is stopped for this host.\n\
+#                          3 (4)     - If set host is NOT in DIR_CONFIG.\n\
+#                          5 (16)    - Error status offline.\n\
+#                          6 (32)    - If set this host is disabled.\n\
+#                          7 (64)    - If set and host switching is used\n\
+#                                      this tells that host two is active.\n\
+#                          16(32768) - If set do not delete files due to\n\
+#                                      age-limit and 'delete queued files'\n\
+#                                      option.\n\
 #                          DEFAULT: 0\n\
 # Protocol options       - To set some protocol specific features for this\n\
 #                          host. The following bits can be set (again the\n\
@@ -255,6 +261,11 @@ DESCR__E_M3
 #                          10(512) - When set it will replace the given scheme\n\
 #                                    with file if the hostname matches local\n\
 #                                    hostname or one in local_interface.list.\n\
+#                          11(1024)- Set TCP keepalive.\n\
+#                          12(2048)- Set sequence locking.\n\
+#                          13(4096)- Enable compression.\n\
+#                          14(8192)- Keep time stamp of source file.\n\
+#                          15(16384)- Sort file names.\n\
 #                          DEFAULT: 0\n\
 # Transfer rate limit    - The maximum number of kilobytes that may be\n\
 #                          transfered per second.\n\
@@ -278,29 +289,42 @@ DESCR__E_M3
 #                          which CRC to use and what action should be taken\n\
 #                          when we find a duplicate. The bits have the\n\
 #                          following meaning:\n\
-#                          1 (1)        - Only do CRC checksum for filename.\n\
-#                          2 (2)        - Only do CRC checksum for file content.\n\
-#                          3 (4)        - Cecksum for filename and content.\n\
-#                          4 (8)        - Checksum of filename without last suffix.\n\
-#                          16(32768)    - Do a CRC32 checksum.\n\
-#                          24(8388608)  - Delete the file.\n\
-#                          25(16777216) - Store the duplicate file.\n\
-#                          26(33554432) - Warn in SYSTEM_LOG.\n\
+#                          1 (1)          - Only do CRC checksum for filename.\n\
+#                          2 (2)          - Only do CRC checksum for file\n\
+#                                           content.\n\
+#                          3 (4)          - Checksum for filename and content.\n\
+#                          4 (8)          - Checksum of filename without last\n\
+#                                           suffix.\n\
+#                          5 (16)         - Checksum of filename and size.\n\
+#                          16(32768)      - Do a CRC32 checksum.\n\
+#                          24(8388608)    - Delete the file.\n\
+#                          25(16777216)   - Store the duplicate file.\n\
+#                          26(33554432)   - Warn in SYSTEM_LOG.\n\
+#                          32(2147483648) - Use full recipient as reference\n\
+#                                           instead of alias name.\n\
 #                          DEFAULT: 0\n\
 # Keep connected         - Keep connection for the given number of seconds\n\
 #                          after all files have been transmitted or some\n\
 #                          data was retrieved.\n\
 #                          DEFAULT: 0\n\
+# Warn time              - When the given time in seconds have elapsed with no\n\
+#                          data being send to this host, the script/program in\n\
+#                          $AFD_WORK_DIR/etc/action/target/warn/ with the\n\
+#                          <Alias hostname> as filename is executed with the\n\
+#                          parameter 'start'. As soon as data has been send\n\
+#                          successful the script/program is called again with\n\
+#                          the parameter 'stop'.\n\
+#                          DEFAULT: 0\n\
 #\n\
 # Example entry:\n\
-#  idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:-2:20:0:0:0:0:0:0:0:0:0:0\n\n"
+#  idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:-2:20:0:0:0:0:0:0:0:0:0:0:0\n\n"
 #else
 #define HOST_CONFIG_TEXT_PART3 "#  Keep connected         - Keep connection for the given number of seconds\n\
 #                           after all files have been transmitted.\n\
 #                           DEFAULT: 0\n\
 #\n\
 # Example entry:\n\
-#  idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:-2:20:0:0:0:0:0:0:0:0\n\n"
+#  idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:-2:20:0:0:0:0:0:0:0:0:0\n\n"
 #endif
 
 
@@ -357,7 +381,7 @@ write_host_config(int              no_of_hosts,
    if ((new_name = malloc(length + 2)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not malloc() %d bytes : %s",
+                 _("Could not malloc() %d bytes : %s"),
                  length + 2, strerror(errno));
       exit(INCORRECT);
    }
@@ -391,7 +415,7 @@ write_host_config(int              no_of_hosts,
 #endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not open() %s : %s", new_name, strerror(errno));
+                 _("Could not open() %s : %s"), new_name, strerror(errno));
       exit(INCORRECT);
    }
 
@@ -400,21 +424,21 @@ write_host_config(int              no_of_hosts,
    if (write(fd, HOST_CONFIG_TEXT_PART1, length) != length)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "write() error : %s", strerror(errno));
+                 _("write() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
    length = strlen(HOST_CONFIG_TEXT_PART2);
    if (write(fd, HOST_CONFIG_TEXT_PART2, length) != length)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "write() error : %s", strerror(errno));
+                 _("write() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
    length = strlen(HOST_CONFIG_TEXT_PART3);
    if (write(fd, HOST_CONFIG_TEXT_PART3, length) != length)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "write() error : %s", strerror(errno));
+                 _("write() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
 
@@ -423,9 +447,17 @@ write_host_config(int              no_of_hosts,
    {
       length = sprintf(line_buffer,
 #ifdef WITH_DUP_CHECK
-                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%d:%d:%d:%u:%d:%d:%u:%u:%ld:%u:%u\n",
+# if SIZEOF_TIME_T == 4
+                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%ld:%d:%u:%u:%d:%d:%u:%u:%ld:%u:%u:%ld\n",
+# else
+                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%ld:%d:%u:%u:%d:%d:%u:%u:%lld:%u:%u:%lld\n",
+# endif
 #else
-                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%d:%d:%d:%u:%d:%d:%u:%u:%u\n",
+# if SIZEOF_TIME_T == 4
+                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%ld:%d:%u:%u:%d:%d:%u:%u:%u:%ld\n",
+# else
+                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%ld:%d:%u:%u:%d:%d:%u:%u:%u:%lld\n",
+# endif
 #endif
                        p_hl[i].host_alias,
                        p_hl[i].real_hostname[0],
@@ -438,53 +470,59 @@ write_host_config(int              no_of_hosts,
                        p_hl[i].transfer_blksize,
                        p_hl[i].successful_retries,
                        (int)p_hl[i].file_size_offset,
-                       (int)p_hl[i].transfer_timeout,
+                       p_hl[i].transfer_timeout,
 #ifdef WHEN_WE_USE_FOR_THIS
                        (int)p_hl[i].number_of_no_bursts,
 #else
                        0,
 #endif
-                       (int)p_hl[i].host_status,
+                       p_hl[i].host_status,
                        p_hl[i].protocol_options,
                        p_hl[i].transfer_rate_limit,
                        p_hl[i].ttl,
                        p_hl[i].socksnd_bufsize,
                        p_hl[i].sockrcv_bufsize,
 #ifdef WITH_DUP_CHECK
-                       p_hl[i].dup_check_timeout,
+                       (pri_time_t)p_hl[i].dup_check_timeout,
                        p_hl[i].dup_check_flag,
 #endif
-                       p_hl[i].keep_connected);
+                       p_hl[i].keep_connected,
+                       (pri_time_t)p_hl[i].warn_time);
 
       if (write(fd, line_buffer, length) != length)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "write() error : %s", strerror(errno));
+                    _("write() error : %s"), strerror(errno));
          exit(INCORRECT);
       }
    }
 
 #ifdef _CYGWIN
+# ifdef HAVE_FDATASYNC
+   if (fdatasync(fd) == -1)
+# else
    if (fsync(fd) == -1)
+# endif
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Failed to fsync() %s : %s", new_name, strerror(errno));
+                 _("Failed to sync `%s' : %s"), new_name, strerror(errno));
    }
 #endif
    if (close(fd) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
+                 _("close() error : %s"), strerror(errno));
    }
    if ((unlink(host_config_file) == -1) && (errno != ENOENT))
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to unlink() %s : %s",
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 _("Failed to unlink() `%s' : %s"),
                  host_config_file, strerror(errno));
    }
    if (rename(new_name, host_config_file) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                "Failed to rename() %s to %s : %s",
+                _("Failed to rename() `%s' to `%s' : %s"),
                 new_name, host_config_file, strerror(errno));
       exit(INCORRECT);
    }
@@ -492,7 +530,8 @@ write_host_config(int              no_of_hosts,
    {
       if (close(lock_fd) == -1)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to close() %s : %s",
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to close() `%s' : %s"),
                     host_config_file, strerror(errno));
       }
    }
@@ -501,7 +540,8 @@ write_host_config(int              no_of_hosts,
    if (stat(host_config_file, &stat_buf) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to stat() %s : %s", host_config_file, strerror(errno));
+                 _("Failed to stat() `%s' : %s"),
+                 host_config_file, strerror(errno));
       exit(INCORRECT);
    }
 #ifdef GROUP_CAN_WRITE
@@ -511,7 +551,7 @@ write_host_config(int              no_of_hosts,
                 (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Can't change mode to %o for file %s : %s",
+                    _("Can't change mode to %o for file %s : %s"),
                     (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), host_config_file,
                     strerror(errno));
       }

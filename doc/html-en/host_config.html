@@ -14,13 +14,14 @@ visa versa. This file consists of a table with 17 entries for each
 host. See below for a description of each entry.
 </p>
 <pre>
-  Keep connected          &lt;----------------------------------------------+
-  Duplicate check flag    &lt;-------------------------------------------+  |
-  Duplicate check timeout &lt;----------------------------------------+  |  |
-  Socket receive buffer   &lt;-------------------------------------+  |  |  |
-  Socket send buffer      &lt;---------------------------------+   |  |  |  |
-                                                            |   |  |  |  |
-  AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC
+  Warn time               &lt;-------------------------------------------------+
+  Keep connected          &lt;----------------------------------------------+  |
+  Duplicate check flag    &lt;-------------------------------------------+  |  |
+  Duplicate check timeout &lt;----------------------------------------+  |  |  |
+  Socket receive buffer   &lt;-------------------------------------+  |  |  |  |
+  Socket send buffer      &lt;---------------------------------+   |  |  |  |  |
+                                                            |   |  |  |  |  |
+  AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC:WT
   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |
   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +-&gt; TTL
   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +-----&gt; Transfer rate limit
@@ -51,7 +52,7 @@ host. See below for a description of each entry.
        (MAX_HOSTNAME_LENGTH) characters long. If this is to small
        change MAX_HOSTNAME_LENGTH to a larger value and recompile AFD.
        Before you startup AFD with the new values you need to run 'afd -i'
-       to initialize internale AFD structures.</td>
+       to initialize internal AFD structures.</td>
 </tr>
 <tr>
    <th valign=top><a name="real_hostname_1">Real hostname 1</a></th>
@@ -79,7 +80,7 @@ host. See below for a description of each entry.
        order of the user name and the password. To enter the
        user name just enter $U&lt;user name&gt; and the password
        is entered with $P&lt;password&gt;. You may specify as
-       many user and password elments as you want, each one must
+       many user and password elements as you want, each one must
        however be separated by a ;. If you only put a $U followed
        directly by a ; it will take the user name from the recipient
        entry. The same goes for the password. If the remote server
@@ -110,7 +111,7 @@ host. See below for a description of each entry.
 </tr>
 <tr>
    <th valign=top><a name="sucessful_retries">Successful Retries</a></th>
-   <td>This is the number of sucessful retries to the secondary host
+   <td>This is the number of successful retries to the secondary host
        before it will try to send to the original host to see if it
        has become available again. If a value of less then one is specified
        it will NOT try to go back to the original host. It will from
@@ -153,7 +154,7 @@ host. See below for a description of each entry.
 <tr>
    <th valign=top><a name="host_status">Host status</a></th>
    <td>This indicates the status of the host, currently only bits number
-       1, 2, 3, 6 and 7 can be set. The meaning is as follows:
+       1, 2, 3, 5, 6, 7 and 16 can be set. The meaning is as follows:
        <table border>
        <tr>
           <th>Bit number</th>
@@ -176,6 +177,11 @@ host. See below for a description of each entry.
           <td>If set host is NOT in DIR_CONFIG.</td>
        </tr>
        <tr>
+          <td align=center>5</td>
+          <td align=center>16</td>
+          <td>Error status offline.</td>
+       </tr>
+       <tr>
           <td align=center>6</td>
           <td align=center>32</td>
           <td>If set this host is disabled.</td>
@@ -185,6 +191,16 @@ host. See below for a description of each entry.
           <td align=center>64</td>
           <td>If set and host switching is used this tells that
               host two is active.</td>
+       </tr>
+       <tr>
+          <td align=center>16</td>
+          <td align=center>32768</td>
+          <td>If set do not delete files due to
+              <a href="dir_config.html#age-limit">age-limit</a> and/or
+              <a href="dir_config.html#delete_queued_files">delete queued
+              files</a> option. This can be useful when the target host
+              is taken down for maintenance and you do not want to loose
+              any data.</td>
        </tr>
        </table>
        The default is zero.</td>
@@ -251,12 +267,46 @@ host. See below for a description of each entry.
           <td>If set FTP passive mode allows to be redirected to another
               address. Best is to not set this.</td>
        </tr>
+       <tr>
+          <td align=center>10</td>
+          <td align=center>512</td>
+          <td>When set it will replace the given scheme with file if the
+              hostname matches local hostname or one in
+              <a href="local_interface.html">local_interface.list</a>.
+       </tr>
+       <tr>
+          <td align=center>11</td>
+          <td align=center>1024</td>
+          <td>Set TCP keepalive.</td>
+       </tr>
+       <tr>
+          <td align=center>12</td>
+          <td align=center>2048</td>
+          <td>Set sequence locking.</td>
+       </tr>
+       <tr>
+          <td align=center>13</td>
+          <td align=center>4096</td>
+          <td>Enable compression.</td>
+       </tr>
+       <tr>
+          <td align=center>14</td>
+          <td align=center>8192</td>
+          <td>Try and preserve the time stamp if the protocol supports
+              this.</td>
+       </tr>
+       <tr>
+          <td align=center>15</td>
+          <td align=center>16384</td>
+          <td>Sort the files by their names before they are going to
+              be transmitted.</td>
+       </tr>
        </table>
        The default is zero.</td>
 </tr>
 <tr>
    <th valign=top><a name="transfer_rate_limit">Transfer rate limit</a></th>
-   <td>The maximum number of kilobytes that may be transfered per second.
+   <td>The maximum number of kilobytes that may be transferred per second.
        This option does nothing for the scheme file.</td>
 </tr>
 <tr>
@@ -287,14 +337,16 @@ host. See below for a description of each entry.
        use and what action should be taken when we find a duplicate. The
        bits have the following meaning:
        <pre>
-      1 (1)        - Only do CRC checksum for filename.
-      2 (2)        - Only do CRC checksum for file content.
-      3 (4)        - Cecksum for filename and content.
-      4 (8)        - Checksum of filename without last suffix.
-      16(32768)    - Do a CRC32 checksum.
-      24(8388608)  - Delete the file.
-      25(16777216) - Store the duplicate file.
-      26(33554432) - Warn in SYSTEM_LOG.
+      1 (1)          - Only do CRC checksum for filename.
+      2 (2)          - Only do CRC checksum for file content.
+      3 (4)          - Cecksum for filename and content.
+      4 (8)          - Checksum of filename without last suffix.
+      5 (16)         - Checksum of filename and size.
+      16(32768)      - Do a CRC32 checksum.
+      24(8388608)    - Delete the file.
+      25(16777216)   - Store the duplicate file.
+      26(33554432)   - Warn in SYSTEM_LOG.
+      32(2147483648) - Use full recipient as reference instead of alias name.
        </pre></td>
 </tr>
 <tr>
@@ -303,14 +355,23 @@ host. See below for a description of each entry.
        have been transmitted or a directory listing. Note this has
        only been implemented for retrieving.</td>
 </tr>
+<tr>
+   <th valign=top><a name="warn_time">Warn time</a></th>
+   <td>When the given time in seconds have elapsed with no data being
+       send to this host, the script/program in
+       $AFD_WORK_DIR/etc/action/target/warn/ with the host alias as filename
+       will be executed with the parameter 'start'. As soon as data has been
+       send successful the script/program is called again with the parameter
+       'stop'.</td>
+</tr>
 </table>
 <hr size=3 noshade>
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 27.03.2007
+   Last updated: 15.10.2009
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

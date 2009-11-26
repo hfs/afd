@@ -1,6 +1,6 @@
 /*
  *  get_afd_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -69,27 +69,27 @@ DESCR__E_M3
 int
 get_afd_path(int *argc, char *argv[], char *work_dir)
 {
-   /* See if directory is passed as argument */
+   /* See if directory is passed as argument. */
    if (get_arg(argc, argv, WORK_DIR_ID, work_dir, MAX_PATH_LENGTH) == INCORRECT)
    {
       char *ptr;
 
-      /* Check if the environment variable is set */
+      /* Check if the environment variable is set. */
       if ((ptr = getenv(WD_ENV_NAME)) != NULL)
       {
          if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
          {
             (void)fprintf(stderr,
-                          "ERROR   : Buffer for storing working directory is to short!\n");
+                          _("ERROR   : Buffer for storing working directory is to short!\n"));
             return(INCORRECT);
          }
       }
       else
       {
          (void)fprintf(stderr,
-                       "ERROR   : Failed to determine AFD working directory!\n");
+                       _("ERROR   : Failed to determine AFD working directory!\n"));
          (void)fprintf(stderr,
-                       "          No option %s or environment variable %s set.\n",
+                       _("          No option %s or environment variable %s set.\n"),
                        WORK_DIR_ID, WD_ENV_NAME);
          return(INCORRECT);
       }
@@ -100,7 +100,7 @@ get_afd_path(int *argc, char *argv[], char *work_dir)
       return(SUCCESS);
    }
    (void)fprintf(stderr,
-                 "ERROR   : Failed to create AFD working directory %s.\n",
+                 _("ERROR   : Failed to create AFD working directory %s.\n"),
                  work_dir);
    return(INCORRECT);
 }

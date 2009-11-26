@@ -385,17 +385,29 @@ o       Group transfer rate limit.               **    [DONE]
 o       Centralize log files via afd_mon.       ***    [DONE]
 o       Enable 'store remote list' also for
         local directories.                       **    [DONE]
+o       Program to reconstruct DIR_CONFIG from
+        internal database.                        *    [DONE]
+o       Implement an error queue for process FD
+        that stores job ID's of broken jobs.   ****    [DONE]
+o       Program to allow user to view data in
+        archive from show_olog/show_queue dialog. *    [DONE]
+o       Add an event log.                        **    [DONE]
+o       Implemented persistend connection for
+        transmitting files.                     ***    [DONE]
+o       Allow to set warn and/or error actions
+        for source and/or destination.            *    [UNDER CONSTRUCTION]
+o       Interface to allow user to handle events. *    [UNDER CONSTRUCTION]
 o       Dialog to view statistics.                *    [UNDER CONSTRUCTION]
 o       Create WMO server.                        *    [UNDER CONSTRUCTION]
 o       Command line tool that allows to follow
-        files within several AFD's.            ****    [TODO]
+        files within several AFD's.            ****    [UNDER CONSTRUCTION]
+o       Convert all dialogs to gtk+.            ***    [UNDER CONSTRUCTION]
 o       Follow directories. Add a dir option that
         tells AFD to search all subsequent
         directories.                             **    [TODO]
 o       Rename option for send in show_olog.      *    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
 o       Support for IP6.                        ***    [TODO]
-o       Convert all dialogs to gtk+.            ***    [TODO]
 o       Write process sf_sql to send files to
         a database.                               *    [TODO]
 o       Implement context sensitive help for
@@ -403,3 +415,7 @@ o       Implement context sensitive help for
 o       Create process that can do multi-casting.**    [TODO]
 o       Support for sending files via HTTP
         protocol.                                 *    [TODO]
+o       Create interface to add, remove and or
+        change individual jobs within AFD.      ***    [TODO]
+o       Make MAX_HOSTNAME_LENGTH changeable at
+        runtime.                                  *    [TODO]

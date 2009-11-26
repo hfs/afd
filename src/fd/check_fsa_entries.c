@@ -1,6 +1,6 @@
 /*
  *  check_fsa_entries.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,9 +50,13 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
+#include <string.h>            /* strcmp()                               */
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
+#ifdef WITH_ERROR_QUEUE
+extern int                        fsa_fd;
+#endif
 extern int                        no_of_dirs,
                                   no_of_hosts,
                                   *no_msg_queued;
@@ -67,9 +71,34 @@ void
 check_fsa_entries(void)
 {
    register int gotcha, i, j;
+#ifdef WITH_ERROR_QUEUE
+   time_t       now;
+
+   now = time(NULL);
+#endif
 
    for (i = 0; i < no_of_hosts; i++)
    {
+#ifdef WITH_ERROR_QUEUE
+      if (fsa[i].host_status & ERROR_QUEUE_SET)
+      {
+         if (host_check_error_queue(fsa[i].host_id, now,
+                                    fsa[i].retry_interval) == 0)
+         {
+# ifdef LOCK_DEBUG
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+# else
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+# endif
+            fsa[i].host_status &= ~ERROR_QUEUE_SET;
+# ifdef LOCK_DEBUG
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+# else
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+# endif
+         }
+      }
+#endif
       gotcha = NO;
       for (j = 0; j < *no_msg_queued; j++)
       {
@@ -117,13 +146,13 @@ check_fsa_entries(void)
             {
                for (j = 0; j < no_of_dirs; j++)
                {
-                  if ((fra[i].queued == YES) &&
+                  if ((fra[i].queued > 0) &&
                       (CHECK_STRCMP(fsa[i].host_alias, fra[j].host_alias) == 0))
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                 "Queued flag set for dir_alias %s, but active_transfers is 0. Unsetting queued flag.",
                                 fra[j].dir_alias);
-                     fra[i].queued = NO;
+                     fra[i].queued = 0;
                   }
                }
             }

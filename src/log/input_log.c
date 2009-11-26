@@ -1,6 +1,6 @@
 /*
  *  input_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -32,14 +32,15 @@ DESCR__S_M1
  **   This function reads from the fifo INPUT_LOG_FIFO any file name
  **   that has been picked up by the AMG. The data in the fifo has the
  **   following structure:
- **       <FS><DN><UN><FN>\0
- **         |   |   |   |
- **         |   |   |   +--------------> \0 terminated string of
- **         |   |   |                    the File Name.
- **         |   |   +------------------> int holding a unique number.
- **         |   +----------------------> Unsigned int holding the
- **         |                            Directory Number.
- **         +--------------------------> File Size of type off_t.
+ **       <FS><FT><DN><UN><FN>\0
+ **         |   |   |   |   |
+ **         |   |   |   |   +--------------> \0 terminated string of
+ **         |   |   |   |                    the File Name.
+ **         |   |   |   +------------------> int holding a unique number.
+ **         |   |   +----------------------> Unsigned int holding the
+ **         |   |                            Directory Number.
+ **         |   +--------------------------> File Time of type time_t.
+ **         +------------------------------> File Size of type off_t.
  **
  **   This data is then written to the input log file in the following
  **   format:
@@ -63,6 +64,7 @@ DESCR__S_M1
  **   14.06.2001 H.Kiehl Removed the above unneccessary checks.
  **   13.04.2002 H.Kiehl Added SEPARATOR_CHAR.
  **   27.09.2004 H.Kiehl Addition of unique number.
+ **   26.03.2008 H.Kiehl Receive input time via fifo.
  **
  */
 DESCR__E_M1
@@ -82,7 +84,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* External global variables */
+/* External global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *iobuf = NULL,
            *p_work_dir = NULL;
@@ -93,7 +95,6 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-#ifdef _INPUT_LOG
    FILE           *input_file;
    int            bytes_buffered = 0,
                   check_size,
@@ -109,7 +110,8 @@ main(int argc, char *argv[])
    int            writefd;
 #endif
    off_t          *file_size;
-   time_t         next_file_time,
+   time_t         *file_time,
+                  next_file_time,
                   now;
    unsigned int   *dir_number;
    long           fifo_size;
@@ -118,64 +120,80 @@ main(int argc, char *argv[])
                   log_file[MAX_PATH_LENGTH],
                   *p_end,
                   *p_file_name,
-                  work_dir[MAX_PATH_LENGTH];
+                  *work_dir;
    fd_set         rset;
    struct timeval timeout;
    struct stat    stat_buf;
 
    CHECK_FOR_VERSION(argc, argv);
 
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
-   else
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
    {
-      char input_log_fifo[MAX_PATH_LENGTH];
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s",
+                 strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
+   p_work_dir = work_dir;
 
-      p_work_dir = work_dir;
-
-      /* Create and open fifos that we need */
-      (void)strcpy(input_log_fifo, work_dir);
-      (void)strcat(input_log_fifo, FIFO_DIR);
-      (void)strcat(input_log_fifo, INPUT_LOG_FIFO);
+   /* Create and open fifos that we need. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, INPUT_LOG_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(input_log_fifo, &log_fd, &writefd) == -1)
+   if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-      if ((log_fd = open(input_log_fifo, O_RDWR)) == -1)
+   if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
+   {
+      if (errno == ENOENT)
       {
-         if (errno == ENOENT)
+         if (make_fifo(log_file) == SUCCESS)
          {
-            if (make_fifo(input_log_fifo) == SUCCESS)
-            {
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-               if (open_fifo_rw(input_log_fifo, &log_fd, &writefd) == -1)
+            if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-               if ((log_fd = open(input_log_fifo, O_RDWR)) == -1)
+            if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() fifo %s : %s",
-                             input_log_fifo, strerror(errno));
-                  exit(INCORRECT);
-               }
-            }
-            else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to create fifo %s.", input_log_fifo);
+                          "Failed to open() fifo %s : %s",
+                          log_file, strerror(errno));
                exit(INCORRECT);
             }
          }
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() fifo %s : %s",
-                       input_log_fifo, strerror(errno));
+                       "Failed to create fifo %s.", log_file);
             exit(INCORRECT);
          }
       }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() fifo %s : %s",
+                    log_file, strerror(errno));
+         exit(INCORRECT);
+      }
+   }
+
+   /*
+    * Lets determine the largest offset so the 'structure'
+    * is aligned correctly.
+    */
+   n = sizeof(off_t);
+   if (sizeof(time_t) > n)
+   {
+      n = sizeof(time_t);
+   }
+   if (sizeof(unsigned int) > n)
+   {
+      n = sizeof(unsigned int);
    }
    
    /*
@@ -184,17 +202,17 @@ main(int argc, char *argv[])
     */
    if ((fifo_size = fpathconf(log_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
-   if (fifo_size < (sizeof(off_t) + sizeof(unsigned int) + sizeof(int) + MAX_FILENAME_LENGTH))
+   if (fifo_size < (n + n + n + n + MAX_FILENAME_LENGTH + sizeof(char)))
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Fifo is NOT large enough to ensure atomic writes!");
-      fifo_size = sizeof(off_t) + sizeof(unsigned int) + sizeof(int) + MAX_FILENAME_LENGTH;
+      fifo_size = n + n + n + n + MAX_FILENAME_LENGTH + sizeof(char);
    }
 
-   /* Now lets allocate memory for the fifo buffer */
+   /* Now lets allocate memory for the fifo buffer. */
    if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -233,7 +251,7 @@ main(int argc, char *argv[])
    p_end += sprintf(log_file, "%s%s/%s",
                     work_dir, LOG_DIR, INPUT_BUFFER_FILE);
 
-   /* Calculate time when we have to start a new file */
+   /* Calculate time when we have to start a new file. */
    next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
 
    /* Is current log file already too old? */
@@ -245,22 +263,38 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         if (max_input_log_files > 1)
+         {
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         }
+         else
+         {
+            if (unlink(current_log_file) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() current log file `%s' : %s",
+                          current_log_file, strerror(errno));
+            }
+         }
       }
    }
 
+#ifdef WITH_LOG_CACHE
+   input_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
    input_file = open_log_file(current_log_file);
+#endif
 
    /* Position pointers in fifo so that we only need to read */
    /* the data as they are in the fifo.                      */
    file_size = (off_t *)(fifo_buffer);
-   dir_number = (unsigned int *)(fifo_buffer + sizeof(off_t));
-   unique_number = (int *)(fifo_buffer + sizeof(off_t) + sizeof(unsigned int));
-   p_file_name = (char *)(fifo_buffer + sizeof(off_t) + sizeof(unsigned int) +
-                          sizeof(int));
-   check_size = sizeof(off_t) + sizeof(unsigned int) + sizeof(int) + 1;
+   file_time = (time_t *)(fifo_buffer + n);
+   dir_number = (unsigned int *)(fifo_buffer + n + n);
+   unique_number = (int *)(fifo_buffer + n + n + n);
+   p_file_name = (char *)(fifo_buffer + n + n + n + n);
+   check_size = n + n + n + n + 1;
 
-   /* Ignore any SIGHUP signal */
+   /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -274,7 +308,7 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      /* Initialise descriptor set and timeout. */
       FD_SET(log_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 3L;
@@ -302,19 +336,30 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_input_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_file, strerror(errno));
+               }
+            }
+#ifdef WITH_LOG_CACHE
+            input_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
             input_file = open_log_file(current_log_file);
+#endif
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
          }
       }
       else if (FD_ISSET(log_fd, &rset))
            {
-              /*
-               * It is accurate enough to look at the time once only,
-               * even though we are writting in a loop to the output
-               * file.
-               */
               now = time(NULL);
 
               /*
@@ -359,7 +404,7 @@ main(int argc, char *argv[])
                           (void)fprintf(input_file, "%-*llx %s%c%llx%c%x%c%x\n",
 # endif
 #endif
-                                        LOG_DATE_LENGTH, (pri_time_t)now,
+                                        LOG_DATE_LENGTH, (pri_time_t)*file_time,
                                         p_file_name,
                                         SEPARATOR_CHAR,
                                         (pri_off_t)*file_size,
@@ -408,8 +453,24 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 if (max_input_log_files > 1)
+                 {
+                    reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 }
+                 else
+                 {
+                    if (unlink(current_log_file) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to unlink() current log file `%s' : %s",
+                                  current_log_file, strerror(errno));
+                    }
+                 }
+#ifdef WITH_LOG_CACHE
+                 input_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
                  input_file = open_log_file(current_log_file);
+#endif
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }
            }
@@ -421,7 +482,6 @@ main(int argc, char *argv[])
            }
    } /* for (;;) */
 
-#endif /* _INPUT_LOG */
    /* Should never come to this point. */
    exit(SUCCESS);
 }

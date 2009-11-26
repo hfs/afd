@@ -1,7 +1,7 @@
 /*
  *  get_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Local functions */
+/* Local functions. */
 static void usage(void);
 
 int                        sys_log_fd = STDERR_FILENO,   /* Not used!    */
@@ -72,7 +72,8 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   int  position = -1;
+   int  position = -1,
+        ret;
    char hostname[MAX_HOSTNAME_LENGTH + 1],
         *ptr,
         work_dir[MAX_PATH_LENGTH];
@@ -95,17 +96,27 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (fsa_attach_passive() < 0)
+   if ((ret = fsa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (ret == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
    if ((position = get_host_position(fsa, hostname, no_of_hosts)) < 0)
    {
       (void)fprintf(stderr,
-                    "ERROR   : Could not find host `%s' in FSA. (%s %d)\n",
+                    _("ERROR   : Could not find host `%s' in FSA. (%s %d)\n"),
                     hostname, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -124,6 +135,6 @@ static void
 usage(void)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : get_hostname [--version] [-w working directory] hostalias\n");
+                 _("SYNTAX  : get_hostname [--version] [-w working directory] hostalias\n"));
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,18 +51,20 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "mon_info.h"
 
 /* External global variables. */
 extern int                    afd_position;
 extern char                   afd_name[],
+                              *info_data,
                               label_l[NO_OF_MSA_ROWS][21],
                               label_r[NO_OF_MSA_ROWS][17];
 extern Display                *display;
 extern XtIntervalId           interval_id_host;
 extern XtAppContext           app;
-extern Widget                 text_wl[],
+extern Widget                 info_w,
+                              text_wl[],
                               text_wr[],
                               label_l_widget[],
                               label_r_widget[];
@@ -206,10 +208,12 @@ update_info(Widget w)
    {
       interval = 0;
 
-      /* Check if the information file for this AFD has changed */
-      if (check_info_file(afd_name) == YES)
+      /* Check if the information file for this AFD has changed. */
+      if (check_info_file(afd_name, AFD_INFO_FILE, YES) == YES)
       {
          flush = YES;
+         XmTextSetString(info_w, NULL);  /* Clears old entry. */
+         XmTextSetString(info_w, info_data);
       }
    }
 

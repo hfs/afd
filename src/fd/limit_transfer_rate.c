@@ -48,9 +48,9 @@ DESCR__S_M3
 DESCR__E_M3
 
 #ifdef HAVE_GETTIMEOFDAY
-#include <sys/time.h>
+# include <sys/time.h>
 #else
-#include <sys/times.h>
+# include <sys/times.h>
 #endif
 #include <unistd.h>
 #include <errno.h>

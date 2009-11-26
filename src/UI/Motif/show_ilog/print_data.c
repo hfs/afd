@@ -54,10 +54,10 @@ DESCR__E_M3
 #include <Xm/List.h>
 #include <Xm/LabelP.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_ilog.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display     *display;
 extern Widget      listbox_w,
                    printshell,
@@ -167,7 +167,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                int  status;
                char buf;
 
-               /* Send Control-D to printer queue */
+               /* Send Control-D to printer queue. */
                buf = CONTROL_D;
                if (write(fd, &buf, 1) != 1)
                {
@@ -260,7 +260,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
             int  status;
             char buf;
 
-            /* Send Control-D to printer queue */
+            /* Send Control-D to printer queue. */
             buf = CONTROL_D;
             if (write(fd, &buf, 1) != 1)
             {

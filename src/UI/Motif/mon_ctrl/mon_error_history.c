@@ -1,6 +1,6 @@
 /*
  *  mon_error_history.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,6 +59,7 @@ DESCR__E_M3
 /* External global variables. */
 extern Display                *display;
 extern Widget                 appshell;
+extern XmFontList             fontlist;
 extern unsigned long          color_pool[];
 extern unsigned int           glyph_height,
                               glyph_width;
@@ -67,6 +68,9 @@ extern struct mon_status_area *msa;
 
 /* Local global variables. */
 static Widget                 error_shell = NULL;
+
+/* Local function prototypes. */
+static void                   eh_input(Widget, XtPointer, XEvent *);
 
 
 /*######################## popup_error_history() ########################*/
@@ -136,7 +140,7 @@ popup_error_history(int x_root, int y_root, int afd_no)
          }
          length += str_length;
          lines++;
-         for (j = 0; j < ERROR_HISTORY_LENGTH; j++)
+         for (j = 1; j < ERROR_HISTORY_LENGTH; j++)
          {
             if ((ahl[i].error_history[j] == 0) || (lines >= max_lines))
             {
@@ -178,6 +182,8 @@ popup_error_history(int x_root, int y_root, int afd_no)
                                       XtNborderWidth,           0,
                                       NULL);
       XtManageChild(error_shell);
+      XtAddEventHandler(error_shell, ButtonPressMask | Button1MotionMask,
+                        False, (XtEventHandler)eh_input, NULL);
       form = XtVaCreateWidget("error_box",
                               xmFormWidgetClass, error_shell, NULL);
       XtManageChild(form);
@@ -200,8 +206,9 @@ popup_error_history(int x_root, int y_root, int afd_no)
       x_string = XmStringCreateLocalized(error_list);
       error_label = XtVaCreateWidget("error_label",
                                   xmLabelWidgetClass, form,
+                                  XmNfontList,        fontlist,
                                   XmNlabelString,     x_string,
-                                  XtNbackground,      color_pool[DEFAULT_BG],
+                                  XtNbackground,      color_pool[WHITE],
                                   XtNforeground,      color_pool[BLACK],
                                   NULL);
       XtManageChild(error_label);
@@ -231,5 +238,14 @@ destroy_error_history(void)
       error_shell = NULL;
    }
 
+   return;
+}
+
+
+/*+++++++++++++++++++++++++++++ eh_input() ++++++++++++++++++++++++++++++*/
+static void
+eh_input(Widget w, XtPointer client_data, XEvent *event)
+{
+   destroy_error_history();
    return;
 }

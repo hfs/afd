@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,7 @@ DESCR__E_M1
 #include "afd_info.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 Display                    *display;
 XtAppContext               app;
 XtIntervalId               interval_id_host;
@@ -85,8 +85,8 @@ Widget                     appshell,
                            label_l_widget[NO_OF_FSA_ROWS],
                            label_r_widget[NO_OF_FSA_ROWS],
                            info_w,
-                           pll_widget,  /* Pixmap label left  */
-                           plr_widget;  /* Pixmap label right */
+                           pll_widget,  /* Pixmap label left.  */
+                           plr_widget;  /* Pixmap label right. */
 Pixmap                     active_pixmap,
                            passive_pixmap;
 Colormap                   default_cmap;
@@ -99,9 +99,7 @@ unsigned long              color_pool[COLOR_POOL_SIZE];
 #ifdef HAVE_MMAP
 off_t                      fsa_size;
 #endif
-char                       *alias_info_file,
-                           *central_info_file,
-                           host_name[MAX_HOSTNAME_LENGTH + 1],
+char                       host_name[MAX_HOSTNAME_LENGTH + 1],
                            font_name[40],
                            host_alias_1[40],
                            host_alias_2[40],
@@ -128,7 +126,7 @@ struct filetransfer_status *fsa;
 struct prev_values         prev;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                afd_info_exit(void),
                            init_afd_info(int *, char **),
                            usage(char *);
@@ -179,7 +177,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    p_work_dir = work_dir;
    init_afd_info(&argc, argv);
 
@@ -205,6 +203,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
    if (euid != ruid)
    {
       if (seteuid(euid) == -1)
@@ -216,14 +215,19 @@ main(int argc, char *argv[])
 
    display = XtDisplay(appshell);
 
-   /* Create managing widget */
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
+
+   /* Create managing widget. */
    form = XmCreateForm(appshell, "form", NULL, 0);
 
    entry = XmFontListEntryLoad(display, font_name, XmFONT_IS_FONT, "TAG1");
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 
-   /* Prepare pixmaps */
+   /* Prepare pixmaps. */
    XtVaGetValues(form,
                  XmNbackground, &default_background,
                  XmNcolormap, &default_cmap,
@@ -245,18 +249,18 @@ main(int argc, char *argv[])
    {
       active_pixmap = XmGetPixmap(XtScreen(appshell),
                                   "active",
-                                  color_pool[NORMAL_STATUS], /* Foreground */
-                                  default_background);/* Background */
+                                  color_pool[NORMAL_STATUS], /* Foreground. */
+                                  default_background);/* Background. */
    }
    if (XmInstallImage(&ximage, "passive") == True)
    {
       passive_pixmap = XmGetPixmap(XtScreen(appshell),
                                    "passive",
-                                   color_pool[BUTTON_BACKGROUND], /* Foreground */
-                                   default_background);/* Background */
+                                   color_pool[BUTTON_BACKGROUND], /* Foreground. */
+                                   default_background);/* Background. */
    }
 
-   /* Create host label for host name */
+   /* Create host label for host name. */
    if ((fsa[host_position].host_toggle_str[0] != '\0') &&
        (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
        (passive_pixmap != XmUNSPECIFIED_PIXMAP))
@@ -347,7 +351,7 @@ main(int argc, char *argv[])
       text_wl[i] = XtVaCreateManagedWidget("text_wl",
                                            xmTextWidgetClass,        fsa_text,
                                            XmNfontList,              fontlist,
-                                           XmNcolumns,               AFD_INFO_LENGTH,
+                                           XmNcolumns,               AFD_INFO_STR_LENGTH,
                                            XmNtraversalOn,           False,
                                            XmNeditable,              False,
                                            XmNcursorPositionVisible, False,
@@ -363,18 +367,18 @@ main(int argc, char *argv[])
    }
    XtManageChild(rowcol1);
 
-   /* Fill up the text widget with some values */
+   /* Fill up the text widget with some values. */
    if ((fsa[host_position].protocol & FTP_FLAG) ||
        (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
        (fsa[host_position].protocol & SCP_FLAG) ||
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
        (fsa[host_position].protocol & WMO_FLAG) ||
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
        (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#endif
        (fsa[host_position].protocol & HTTP_FLAG) ||
        (fsa[host_position].protocol & SMTP_FLAG))
    {
@@ -384,20 +388,20 @@ main(int argc, char *argv[])
    {
       *tmp_str_line = '\0';
    }
-   (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+   (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
    XmTextSetString(text_wl[0], str_line);
-   (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, prev.real_hostname[0]);
+   (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, prev.real_hostname[0]);
    XmTextSetString(text_wl[1], str_line);
-   (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.files_send);
+   (void)sprintf(str_line, "%*u", AFD_INFO_STR_LENGTH, prev.files_send);
    XmTextSetString(text_wl[2], str_line);
    (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                   localtime(&prev.last_connection));
-   (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+   (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
    XmTextSetString(text_wl[3], str_line);
-   (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.total_errors);
+   (void)sprintf(str_line, "%*u", AFD_INFO_STR_LENGTH, prev.total_errors);
    XmTextSetString(text_wl[4], str_line);
 
-   /* Create the first horizontal separator */
+   /* Create the first horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -412,7 +416,7 @@ main(int argc, char *argv[])
    h_separator1 = XmCreateSeparator(form, "h_separator1", args, argcount);
    XtManageChild(h_separator1);
 
-   /* Create the vertical separator */
+   /* Create the vertical separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -489,7 +493,7 @@ main(int argc, char *argv[])
                               NULL);
       text_wr[i] = XtVaCreateManagedWidget("text_wr", xmTextWidgetClass, fsa_text,
                                            XmNfontList,              fontlist,
-                                           XmNcolumns,               AFD_INFO_LENGTH,
+                                           XmNcolumns,               AFD_INFO_STR_LENGTH,
                                            XmNtraversalOn,           False,
                                            XmNeditable,              False,
                                            XmNcursorPositionVisible, False,
@@ -505,20 +509,20 @@ main(int argc, char *argv[])
    }
    XtManageChild(rowcol2);
 
-   /* Fill up the text widget with some values */
+   /* Fill up the text widget with some values. */
    if (prev.toggle_pos != 0)
    {
       if ((fsa[host_position].protocol & FTP_FLAG) ||
           (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
           (fsa[host_position].protocol & SCP_FLAG) ||
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
           (fsa[host_position].protocol & WMO_FLAG) ||
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
           (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#endif
           (fsa[host_position].protocol & HTTP_FLAG) ||
           (fsa[host_position].protocol & SMTP_FLAG))
       {
@@ -528,20 +532,20 @@ main(int argc, char *argv[])
       {
          *tmp_str_line = '\0';
       }
-      (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
+      (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, tmp_str_line);
       XmTextSetString(text_wr[0], str_line);
    }
-   (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, prev.real_hostname[1]);
+   (void)sprintf(str_line, "%*s", AFD_INFO_STR_LENGTH, prev.real_hostname[1]);
    XmTextSetString(text_wr[1], str_line);
 #if SIZEOF_OFF_T == 4
-   (void)sprintf(str_line, "%*lu", AFD_INFO_LENGTH, prev.bytes_send);
+   (void)sprintf(str_line, "%*lu", AFD_INFO_STR_LENGTH, prev.bytes_send);
 #else
-   (void)sprintf(str_line, "%*llu", AFD_INFO_LENGTH, prev.bytes_send);
+   (void)sprintf(str_line, "%*llu", AFD_INFO_STR_LENGTH, prev.bytes_send);
 #endif
    XmTextSetString(text_wr[2], str_line);
-   (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.no_of_connections);
+   (void)sprintf(str_line, "%*u", AFD_INFO_STR_LENGTH, prev.no_of_connections);
    XmTextSetString(text_wr[3], str_line);
-   (void)sprintf(str_line, "%*d", AFD_INFO_LENGTH, prev.retry_interval / 60);
+   (void)sprintf(str_line, "%*d", AFD_INFO_STR_LENGTH, prev.retry_interval / 60);
    XmTextSetString(text_wr[4], str_line);
 
    length = sprintf(protocol_label_str, "Protocols : ");
@@ -591,7 +595,7 @@ main(int argc, char *argv[])
    {
       length += sprintf(&protocol_label_str[length], "SCP ");
    }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
    if (fsa[host_position].protocol & WMO_FLAG)
    {
@@ -619,7 +623,7 @@ main(int argc, char *argv[])
                                             XmNrightAttachment, XmATTACH_FORM,
                                             NULL);
 
-   /* Create the second first horizontal separator */
+   /* Create the second first horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -645,7 +649,7 @@ main(int argc, char *argv[])
    argcount++;
    buttonbox = XmCreateForm(form, "buttonbox", args, argcount);
 
-   /* Create the second horizontal separator */
+   /* Create the second horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -676,7 +680,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox);
 
-   /* Create log_text as a ScrolledText window */
+   /* Create log_text as a ScrolledText window. */
    argcount = 0;
    XtSetArg(args[argcount], XmNfontList,               fontlist);
    argcount++;
@@ -720,7 +724,7 @@ main(int argc, char *argv[])
    XtManageChild(info_w);
    XtManageChild(form);
 
-   /* Free font list */
+   /* Free font list. */
    XmFontListFree(fontlist);
 
 #ifdef WITH_EDITRES
@@ -728,25 +732,27 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
    wait_visible(appshell);
 
-   /* Read and display the information file */
-   check_info_file(host_name);
+   /* Read and display the information file. */
+   (void)check_info_file(host_name, HOST_INFO_FILE, YES);
+   XmTextSetString(info_w, NULL);  /* Clears old entry. */
+   XmTextSetString(info_w, info_data);
 
-   /* Call update_info() after UPDATE_INTERVAL ms */
+   /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_host = XtAppAddTimeOut(app, UPDATE_INTERVAL,
                                       (XtTimerCallbackProc)update_info,
                                       form);
 
-   /* We want the keyboard focus on the Done button */
+   /* We want the keyboard focus on the Done button. */
    XmProcessTraversal(button, XmTRAVERSE_CURRENT);
 
    /* Write window ID, so afd_ctrl can set focus if it is called again. */
    write_window_id(XtWindow(appshell), getpid(), AFD_INFO);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -757,8 +763,7 @@ main(int argc, char *argv[])
 static void
 init_afd_info(int *argc, char *argv[])
 {
-   size_t length1,
-          length2;
+   size_t length;
    char   *ptr;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
@@ -786,11 +791,19 @@ init_afd_info(int *argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Attach to the FSA */
-   if (fsa_attach_passive() < 0)
+   /* Attach to the FSA. */
+   if ((length = fsa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (length == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "This program is not able to attach to the FSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
@@ -802,13 +815,13 @@ init_afd_info(int *argc, char *argv[])
 
    if (fsa[host_position].toggle_pos == 0)
    {
-      /* There is NO secondary host */
+      /* There is NO secondary host. */
       (void)strcpy(host_alias_1, host_name);
       (void)strcpy(host_alias_2, NO_SECODARY_HOST);
    }
    else
    {
-      /* There IS a secondary host */
+      /* There IS a secondary host. */
       (void)strcpy(host_alias_1, host_name);
       ptr = host_alias_1 + strlen(host_alias_1);
       *ptr = fsa[host_position].host_toggle_str[1];
@@ -819,7 +832,7 @@ init_afd_info(int *argc, char *argv[])
       *(ptr + 1) = '\0';
    }
 
-   /* Initialize values in FSA structure */
+   /* Initialize values in FSA structure. */
    (void)strcpy(prev.real_hostname[0], fsa[host_position].real_hostname[0]);
    (void)strcpy(prev.real_hostname[1], fsa[host_position].real_hostname[1]);
    prev.retry_interval = fsa[host_position].retry_interval;
@@ -831,27 +844,6 @@ init_afd_info(int *argc, char *argv[])
    prev.host_toggle = fsa[host_position].host_toggle;
    prev.toggle_pos = fsa[host_position].toggle_pos;
    prev.protocol = fsa[host_position].protocol;
-
-   /* Create name of alias and central info file. */
-   length1 = strlen(p_work_dir) + 1 + strlen(ETC_DIR) + 1;
-   length2 = strlen(INFO_IDENTIFIER) + strlen(host_name) + 1;
-   if ((alias_info_file = malloc((length1 + length2))) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   (void)sprintf(alias_info_file, "%s%s/%s%s", p_work_dir,
-                 ETC_DIR, INFO_IDENTIFIER, host_name);
-   length2 = strlen(HOST_INFO_FILE) + 1;
-   if ((central_info_file = malloc((length1 + length2))) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   (void)sprintf(central_info_file, "%s%s/%s", p_work_dir,
-                 ETC_DIR, HOST_INFO_FILE);
 
    if (atexit(afd_info_exit) != 0)
    {

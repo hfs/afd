@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/List.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_queue.h"
 
 
@@ -78,7 +78,7 @@ view_files(int no_selected, int *select_list)
    int                 fd,
                        i,
                        length = 0,
-                       no_done = 0,  /* Number done             */
+                       no_done = 0,  /* Number done.             */
                        not_found = 0,
                        select_done = 0,
                        *select_done_list;

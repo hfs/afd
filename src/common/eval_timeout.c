@@ -44,7 +44,7 @@ DESCR__E_M3
 
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int timeout_flag;
 
 

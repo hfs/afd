@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ DESCR__S_M3
  **                  time_t                 current_time,
  **                  unsigned int           age_limit,
  **                  struct directory_entry *p_de,
+ **                  struct instant_db      *p_db,
  **                  int                    pos_in_fm,
  **                  int                    no_of_files,
  **                  char                   link_flag
@@ -70,22 +71,27 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISDIR()                  */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                 /* S_IRUSR, ...                       */
+# include <fcntl.h>                /* S_IRUSR, ...                       */
 #endif
 #include <unistd.h>                /* link(), mkdir(), unlink()          */
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        fra_fd;
 #ifndef _WITH_PTHREAD
 extern off_t                      *file_size_pool;
 extern time_t                     *file_mtime_pool;
 extern char                       **file_name_pool;
+extern unsigned char              *file_length_pool;
 #endif
+extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 #ifdef _DELETE_LOG
 extern struct delete_log          dl;
+#endif
+#ifdef _DISTRIBUTION_LOG
+extern struct file_dist_list      **file_dist_pool;
 #endif
 
 
@@ -99,11 +105,16 @@ save_files(char                   *src_path,
            off_t                  *file_size_pool,
            time_t                 *file_mtime_pool,
            char                   **file_name_pool,
+           unsigned char          *file_length_pool,
 #endif
            struct directory_entry *p_de,
+           struct instant_db      *p_db,
            int                    pos_in_fm,
            int                    no_of_files,
            char                   link_flag,
+#ifdef _DISTRIBUTION_LOG
+           int                    dist_type,
+#endif
            int                    time_job)
 {
    register int i,
@@ -167,28 +178,37 @@ save_files(char                   *src_path,
             {
                diff_time = 0;
             }
-            (void)strcpy(p_src, file_name_pool[i]);
-            if ((age_limit > 0) && (diff_time > age_limit))
+            (void)memcpy(p_src, file_name_pool[i],
+                         (size_t)(file_length_pool[i] + 1));
+            if ((age_limit > 0) &&
+                ((fsa[p_db->position].host_status & DO_NOT_DELETE_DATA) == 0) &&
+                (diff_time > age_limit))
             {
 #ifdef _DELETE_LOG
                size_t dl_real_size;
 
-               (void)strcpy(dl.file_name, file_name_pool[i]);
-               (void)sprintf(dl.host_name, "%-*s %x",
+               (void)memcpy(dl.file_name, file_name_pool[i],
+                            (size_t)(file_length_pool[i] + 1));
+               (void)sprintf(dl.host_name, "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, "-", AGE_INPUT);
                *dl.file_size = file_size_pool[i];
-               *dl.job_number = p_de->dir_id;
-               *dl.file_name_length = strlen(file_name_pool[i]);
+               *dl.dir_id = p_de->dir_id;
+               *dl.job_id = p_db->job_id;
+               *dl.input_time = 0L;
+               *dl.split_job_counter = 0;
+               *dl.unique_number = 0;
+               *dl.file_name_length = file_length_pool[i];
                dl_real_size = *dl.file_name_length + dl.size +
                               sprintf((dl.file_name + *dl.file_name_length + 1),
-                                      "%s >%d (%s %d)", DIR_CHECK,
+                                      "%s%c>%d (%s %d)",
+                                      DIR_CHECK, SEPARATOR_CHAR,
                                       diff_time, __FILE__, __LINE__);
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "write() error : %s", strerror(errno));
                }
-#endif /* _DELETE_LOG */
+#endif
                if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
                   if (unlink(src_path) == -1)
@@ -198,10 +218,14 @@ save_files(char                   *src_path,
                                 src_path, strerror(errno));
                   }
                }
+#ifdef _DISTRIBUTION_LOG
+               dist_type = AGE_LIMIT_DELETE_DIS_TYPE;
+#endif
             }
             else
             {
-               (void)strcpy(p_dest, file_name_pool[i]);
+               (void)memcpy(p_dest, file_name_pool[i],
+                            (size_t)(file_length_pool[i] + 1));
 
                if (link_flag & IN_SAME_FILESYSTEM)
                {
@@ -227,6 +251,9 @@ save_files(char                   *src_path,
                                    "Failed to rename() file `%s' to `%s'",
                                    src_path, dest_path);
                         errno = 0;
+#ifdef _DISTRIBUTION_LOG
+                        dist_type = ERROR_DIS_TYPE;
+#endif
                      }
                      else
                      {
@@ -263,6 +290,9 @@ save_files(char                   *src_path,
                                          "Failed to unlink() file `%s' : %s",
                                          dest_path, strerror(errno));
                               errno = 0;
+#ifdef _DISTRIBUTION_LOG
+                              dist_type = ERROR_DIS_TYPE;
+#endif
                            }
                            else
                            {
@@ -275,6 +305,9 @@ save_files(char                   *src_path,
                                             src_path, dest_path,
                                             strerror(errno));
                                  errno = 0;
+#ifdef _DISTRIBUTION_LOG
+                                 dist_type = ERROR_DIS_TYPE;
+#endif
                               }
                               else
                               {
@@ -289,6 +322,9 @@ save_files(char                   *src_path,
                                       "Failed to link file `%s' to `%s' : %s",
                                       src_path, dest_path, strerror(errno));
                            errno = 0;
+#ifdef _DISTRIBUTION_LOG
+                           dist_type = ERROR_DIS_TYPE;
+#endif
                         }
                      }
                      else
@@ -306,6 +342,9 @@ save_files(char                   *src_path,
                                 "Failed to copy file `%s' to `%s'",
                                 src_path, dest_path);
                      errno = 0;
+#ifdef _DISTRIBUTION_LOG
+                     dist_type = ERROR_DIS_TYPE;
+#endif
                   }
                   else
                   {
@@ -324,6 +363,14 @@ save_files(char                   *src_path,
                   }
                }
             }
+#ifdef _DISTRIBUTION_LOG
+            if (dist_type < NO_OF_DISTRIBUTION_TYPES)
+            {
+               file_dist_pool[i][dist_type].jid_list[file_dist_pool[i][dist_type].no_of_dist] = p_db->job_id;
+               file_dist_pool[i][dist_type].proc_cycles[file_dist_pool[i][dist_type].no_of_dist] = (unsigned char)(p_db->no_of_loptions - p_db->no_of_time_entries);
+               file_dist_pool[i][dist_type].no_of_dist++;
+            }
+#endif
 
             /* No need to test any further filters. */
             break;

@@ -1,7 +1,7 @@
 /*
  *  check_dir_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,7 +60,6 @@ DESCR__E_M3
 /* External global variables. */
 extern Display                    *display;
 extern XtAppContext               app;
-extern XtIntervalId               interval_id_dir;
 extern char                       line_style,
                                   *p_work_dir;
 extern float                      max_bar_length;
@@ -94,7 +93,8 @@ check_dir_status(Widget w)
                  location_where_changed,
                  new_bar_length,
                  old_bar_length,
-                 redo_warn_time_bar;
+                 redo_warn_time_bar,
+                 redraw_everything = NO;
    u_off_t       bytes_received;
    unsigned int  files_received,
                  prev_dir_flag;
@@ -150,9 +150,9 @@ check_dir_status(Widget w)
             (void)memcpy(&new_connect_data[i], &connect_data[pos],
                          sizeof(struct dir_line));
          }
-         else /* A directory host has been added */
+         else /* A directory host has been added. */
          {
-            /* Initialise values for new host */
+            /* Initialise values for new host. */
             (void)strcpy(new_connect_data[i].dir_alias, fra[i].dir_alias);
             (void)sprintf(new_connect_data[i].dir_display_str, "%-*s",
                           MAX_DIR_ALIAS_LENGTH, new_connect_data[i].dir_alias);
@@ -181,6 +181,8 @@ check_dir_status(Widget w)
             CREATE_EC_STRING(new_connect_data[i].str_ec,
                              new_connect_data[i].error_counter);
             new_connect_data[i].last_retrieval = fra[i].last_retrieval;
+            new_connect_data[i].start_event_handle = fra[i].start_event_handle;
+            new_connect_data[i].end_event_handle = fra[i].end_event_handle;
             if (*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME)
             {
                new_connect_data[i].warn_time = 0;
@@ -247,7 +249,7 @@ check_dir_status(Widget w)
             {
                if ((pos = check_fra_data(connect_data[i].dir_alias)) == INCORRECT)
                {
-                  /* Host has been deleted */
+                  /* Host has been deleted. */
                   no_selected--;
                }
             }
@@ -266,7 +268,7 @@ check_dir_status(Widget w)
             {
                if ((pos = check_fra_data(connect_data[i].dir_alias)) == INCORRECT)
                {
-                  /* Host has been deleted */
+                  /* Host has been deleted. */
                   no_selected--;
                }
             }
@@ -288,7 +290,7 @@ check_dir_status(Widget w)
       free(new_connect_data);
 
       /* Resize window if necessary. */
-      if (resize_dir_window() == YES)
+      if ((redraw_everything = resize_dir_window()) == YES)
       {
          if (no_of_columns != 0)
          {
@@ -411,7 +413,7 @@ check_dir_status(Widget w)
 
          if (line_style != CHARACTERS_ONLY)
          {
-            /* Arithmetischer Mittelwert */
+            /* Arithmetischer Mittelwert. */
             connect_data[i].average_tr = (connect_data[i].average_tr +
                                          connect_data[i].bytes_per_sec) / 2.0;
             if (connect_data[i].average_tr > connect_data[i].max_average_tr)
@@ -426,7 +428,7 @@ check_dir_status(Widget w)
          if ((line_style != CHARACTERS_ONLY) &&
              (connect_data[i].average_tr > 0.0))
          {
-            /* Arithmetischer Mittelwert */
+            /* Arithmetischer Mittelwert. */
             connect_data[i].average_tr = (connect_data[i].average_tr +
                                          connect_data[i].bytes_per_sec) / 2.0;
             if (connect_data[i].average_tr > connect_data[i].max_average_tr)
@@ -456,7 +458,7 @@ check_dir_status(Widget w)
 
          if (line_style != CHARACTERS_ONLY)
          {
-            /* Arithmetischer Mittelwert */
+            /* Arithmetischer Mittelwert. */
             connect_data[i].average_fr = (connect_data[i].average_fr +
                                          connect_data[i].files_per_sec) / 2.0;
             if (connect_data[i].average_fr > connect_data[i].max_average_fr)
@@ -471,7 +473,7 @@ check_dir_status(Widget w)
          if ((line_style != CHARACTERS_ONLY) &&
              (connect_data[i].average_fr > 0.0))
          {
-            /* Arithmetischer Mittelwert */
+            /* Arithmetischer Mittelwert. */
             connect_data[i].average_fr = (connect_data[i].average_fr +
                                          connect_data[i].files_per_sec) / 2.0;
             if (connect_data[i].average_fr > connect_data[i].max_average_fr)
@@ -836,7 +838,7 @@ check_dir_status(Widget w)
               }
       }
 
-      /* Redraw the line */
+      /* Redraw the line. */
       if (i >= location_where_changed)
       {
 #ifdef _DEBUG
@@ -847,7 +849,13 @@ check_dir_status(Widget w)
       }
    }
 
-   /* Make sure all changes are shown */
+   if (redraw_everything == YES)
+   {
+      redraw_all();
+      flush = YES;
+   }
+
+   /* Make sure all changes are shown. */
    if ((flush == YES) || (flush == YUP))
    {
       XFlush(display);
@@ -868,9 +876,9 @@ check_dir_status(Widget w)
 #endif
    }
 
-   /* Redraw every redraw_time_line ms */
-   interval_id_dir = XtAppAddTimeOut(app, redraw_time_line,
-                                     (XtTimerCallbackProc)check_dir_status, w);
+   /* Redraw every redraw_time_line ms. */
+   (void)XtAppAddTimeOut(app, redraw_time_line,
+                         (XtTimerCallbackProc)check_dir_status, w);
  
    return;
 }

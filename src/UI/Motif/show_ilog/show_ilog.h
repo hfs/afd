@@ -1,6 +1,6 @@
 /*
  *  show_ilog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@
 #define FILE_SIZE_FORMAT        "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT             "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
 
-/* Maximum length of the file name that is displayed */
+/* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT       50
 #define SHOW_LONG_FORMAT        70
 #define DATE_TIME_HEADER        "Date   Time     "
@@ -79,6 +79,7 @@ struct item_list
 /* Structure to hold the data for a single entry in the AMG history file. */
 struct db_entry
        {
+          unsigned int job_id;
           int          no_of_files;
           int          no_of_loptions;
           int          no_of_soptions;
@@ -106,6 +107,29 @@ struct info_data
           struct db_entry    *dbe;
        };
 
+/* Structure holding all ALDA information. */
+struct alda_call_data
+       {
+           char          alias_name[MAX_REAL_HOSTNAME_LENGTH + 1];
+           char          real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+           char          final_name[MAX_PATH_LENGTH + 1];
+           off_t         final_size;
+           char          hr_final_size[12];
+           time_t        delivery_time;
+           char          transmission_time[MAX_INT_LENGTH + 1 + 2 + 1 + 2 + 1 + 1];
+           unsigned int  output_job_id;
+           unsigned int  retries;
+           unsigned int  split_job_counter;
+           char          archive_dir[MAX_PATH_LENGTH + 1];
+           time_t        delete_time;
+           unsigned int  delete_job_id;
+           unsigned int  distribution_type;
+           unsigned int  no_of_distribution_types;
+           unsigned int  *job_id_list;
+           unsigned int  delete_type;
+           char          user_process[MAX_USER_NAME_LENGTH + 1];
+           char          add_reason[MAX_PATH_LENGTH + 1];
+       };
 /* Permission structure for show_ilog. */
 struct sol_perm
        {
@@ -180,7 +204,8 @@ extern int  get_sum_data(int, time_t *, double *);
 extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
             close_button(Widget, XtPointer, XtPointer),
             continues_toggle(Widget, XtPointer, XtPointer),
-            format_info(char **),
+            eval_alda_data(char *),
+            format_info(char **, int),
             get_info(int),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),

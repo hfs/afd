@@ -1,6 +1,6 @@
 /*
  *  remove_host.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,13 +46,13 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>            /* free()                                 */
-#include <unistd.h>            /* write(), close()                       */
+#include <unistd.h>            /* write(), close(), unlink()             */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <Xm/Xm.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "edit_hc.h"
 
 /* External global variables. */
@@ -75,7 +75,7 @@ remove_host(char *host_name)
    (void)sprintf(host_config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
 
-   if (read_file(host_config_file, &file_buffer) == INCORRECT)
+   if (read_file_no_cr(host_config_file, &file_buffer) == INCORRECT)
    {
       char tmp_file[256];
 
@@ -159,6 +159,12 @@ remove_host(char *host_name)
    {
       free(file_buffer);
    }
+#ifdef WITH_DUP_CHECK
+   (void)sprintf(host_config_file, "%s%s%s/%u",
+                 p_work_dir, AFD_FILE_DIR, CRC_DIR,
+                 get_str_checksum(host_name));
+   (void)unlink(host_config_file);
+#endif
 
    return(SUCCESS);
 }

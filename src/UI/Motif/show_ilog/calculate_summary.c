@@ -64,7 +64,7 @@ DESCR__E_M3
 #include <string.h>              /* memset()                             */
 #include "show_ilog.h"
 
-/* External global variables */
+/* External global variables. */
 extern int file_name_length;
 
 

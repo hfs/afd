@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2007 Holger Kiehl
+## Copyright (C) 2007, 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -18,8 +18,8 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 noinst_HEADERS       = gtk_common_defs.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
-                       -I../afd_ctrl -I../show_olog
+INCLUDES             = @AFD_GTK_CFLAGS@ -I../../.. -I../../../init_afd\
+                       -I../../common -I../gafd_ctrl -I../show_olog
 lib_LIBRARIES        = libgtkafd.a
 libgtkafd_a_SOURCES  = check_info_file.c\
                        check_nummeric.c\

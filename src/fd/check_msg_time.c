@@ -46,7 +46,7 @@ DESCR__E_M3
 #include <unistd.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                  *no_msg_cached;
 extern char                 *p_msg_dir,
                             msg_dir[];

@@ -1,6 +1,6 @@
 /*
  *  startup_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,6 +53,9 @@ DESCR__E_M3
 #include "version.h"
 
 /* External global variables. */
+#ifdef AFDBENCH_CONFIG
+extern int  pause_dir_check;
+#endif
 extern char *p_work_dir;
 
 
@@ -68,7 +71,6 @@ startup_afd(void)
                   status;
    fd_set         rset;
    char           buffer[2],
-                  exec_cmd[AFD_LENGTH + 1],
                   probe_only_fifo[MAX_PATH_LENGTH];
    struct timeval timeout;
    struct stat    stat_buf_fifo;
@@ -82,7 +84,7 @@ startup_afd(void)
       if (make_fifo(probe_only_fifo) < 0)
       {
          (void)fprintf(stderr,
-                       "Could not create fifo %s. (%s %d)\n",
+                       _("Could not create fifo `%s'. (%s %d)\n"),
                        probe_only_fifo, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -94,33 +96,57 @@ startup_afd(void)
 #endif
    {
       (void)fprintf(stderr,
-                    "Could not open fifo %s : %s (%s %d)\n",
+                    _("Could not open fifo `%s' : %s (%s %d)\n"),
                     probe_only_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    /* Start AFD. */
-   (void)strcpy(exec_cmd, AFD);
    switch (fork())
    {
-      case -1 : /* Could not generate process */
+      case -1 : /* Could not generate process. */
          (void)fprintf(stderr,
-                       "Could not create a new process : %s (%s %d)\n",
+                       _("Could not create a new process : %s (%s %d)\n"),
                        strerror(errno),  __FILE__, __LINE__);
          return(NO);
 
-      case  0 : /* Child process */
-         if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, p_work_dir,
+      case  0 : /* Child process. */
+#ifdef AFDBENCH_CONFIG
+         if (pause_dir_check == YES)
+         {
+            if (execlp(AFD, AFD, WORK_DIR_ID, p_work_dir, "-A",
+                       (char *) 0) < 0)
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
+                             AFD, strerror(errno), __FILE__, __LINE__);
+               exit(1);
+            }
+         }
+         else
+         {
+            if (execlp(AFD, AFD, WORK_DIR_ID, p_work_dir,
+                       (char *) 0) < 0)
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
+                             AFD, strerror(errno), __FILE__, __LINE__);
+               exit(1);
+            }
+         }
+#else
+         if (execlp(AFD, AFD, WORK_DIR_ID, p_work_dir,
                     (char *) 0) < 0)
          {
             (void)fprintf(stderr,
-                          "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                          exec_cmd, strerror(errno), __FILE__, __LINE__);
+                          _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
+                          AFD, strerror(errno), __FILE__, __LINE__);
             exit(1);
          }
+#endif
          exit(0);
 
-      default : /* Parent process */
+      default : /* Parent process. */
          break;
    }
 
@@ -138,7 +164,7 @@ startup_afd(void)
    {
       /* No answer from the other AFD. Lets assume it */
       /* not able to startup properly.                */
-      (void)fprintf(stderr, "%s does not reply. (%s %d)\n",
+      (void)fprintf(stderr, _("%s does not reply. (%s %d)\n"),
                     AFD, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -155,28 +181,28 @@ startup_afd(void)
               else
               {
                  (void)fprintf(stderr,
-                               "Reading garbage from fifo %s. (%s %d)\n",
+                               _("Reading garbage from fifo `%s'. (%s %d)\n"),
                                probe_only_fifo,  __FILE__, __LINE__);
                  exit(INCORRECT);
               }
            }
            else if (n < 0)
                 {
-                   (void)fprintf(stderr, "read() error : %s (%s %d)\n",
+                   (void)fprintf(stderr, _("read() error : %s (%s %d)\n"),
                                  strerror(errno),  __FILE__, __LINE__);
                    exit(INCORRECT);
                 }
         }
         else if (status < 0)
              {
-                (void)fprintf(stderr, "Select error : %s (%s %d)\n",
+                (void)fprintf(stderr, _("select() error : %s (%s %d)\n"),
                               strerror(errno),  __FILE__, __LINE__);
                 exit(INCORRECT);
              }
              else
              {
                 (void)fprintf(stderr,
-                              "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
+                              _("Unknown condition. Maybe you can tell what's going on here. (%s %d)\n"),
                               __FILE__, __LINE__);
                 exit(INCORRECT);
              }

@@ -47,8 +47,8 @@ time by filling in some of the following values:
 <tr>
    <td>&nbsp;<b>4</b>&nbsp;</td>
    <td>Here it is possible to enter the length/size of a file. If a &lt; or
-       a &gt; sign it will search for files less then or greater then the
-       given size.</td>
+       a &gt; sign is put before the size value, it will search for files
+       less then or greater then the given size.</td>
 </tr>
 <tr>
    <td>&nbsp;<b>5</b>&nbsp;</td>
@@ -64,51 +64,129 @@ time by filling in some of the following values:
 </tr>
 <tr>
    <td>&nbsp;<b>7</b>&nbsp;</td>
-   <td>These toggle buttons allow the user to narrow down the search
-       where or why the file was deleted:
+   <td><p>
+       <center><img src="../images/select_delete_reasons.gif" alt="[window
+       showing possible delete reasons]"></center>
+       </p>
+       Pressing the Delete reason button will popup another window
+       allowing to choose from a list of delete reasons to allow the
+       user to narrow down the search where or why the file was deleted:
        <table border>
        <tr>
-          <td>AGE(O)</td>
+          <td>Age-limit(O)</td>
           <td>Files deleted due to some age limit being reached on output.</td>
        </tr>
        <tr>
-          <td>AGE(I)</td>
+          <td>Age-limit(I)</td>
           <td>Files deleted due to some age limit being reached on input.</td>
        </tr>
        <tr>
-          <td>DUP(I)</td>
-          <td>Duplicate files deleted on input. See directory option
-              <a href="dir_config.html#dupcheck_input">dupceck</a>.</td>
-       </tr>
-       <tr>
-          <td>DUP(O)</td>
-          <td>Duplicate files deleted on output. See option
-              <a href="dir_config.html#dupcheck_output">dupceck</a>.</td>
-       </tr>
-       <tr>
-          <td>USER</td>
+          <td>User delete</td>
           <td>Deleted by some user action.</td>
        </tr>
        <tr>
-          <td>EXEC</td>
+          <td>Exec delete</td>
           <td>Deleted because the <a href="dir_config.html#exec">exec</a>
               option failed and deletion was configured in this case.</td>
        </tr>
        <tr>
-          <td>DUF</td>
+          <td>Missing msg</td>
+          <td>Process fd had to delete the data for this job because the
+              message file in $AFD_WORK_DIR/messages could not be
+              read for what ever reason.</td>
+       </tr>
+       <tr>
+          <td>Duplicate(I)</td>
+          <td>Duplicate files deleted on input. See directory option
+              <a href="dir_config.html#dupcheck_input">dupceck</a>.</td>
+       </tr>
+       <tr>
+          <td>Duplicate(O)</td>
+          <td>Duplicate files deleted on output. See option
+              <a href="dir_config.html#dupcheck_output">dupceck</a>.</td>
+       </tr>
+       <tr>
+          <td>Unknown file</td>
           <td>There was no rule to distribute this file and the directory
               option <a href="dir_config.html#delete_unknown_files">delete
               unknown files</a> is set or the system default
               was set to delete this.</td>
        </tr>
        <tr>
-          <td>OTHER(I/O)</td>
-          <td>If they do not fall under the above reasons. They can be
-              because of internal reasons like the system does not have
-              enough resources. Or when the sending process detects that
-              the same file name is being transmitted into the same
-              remote directory, it will be deleted. (I) will show
-              that it was deleted on input and (O) on output.</td>
+          <td>Job ID error</td>
+          <td>The given job ID was not found, thus it no longer exists
+              within AFD and all data for this job is deleted.</td>
+       </tr>
+       <tr>
+          <td>Old lock file</td>
+          <td>The directory option <a href="dir_config.html#delete_old_locked_files">
+              delete old locked files</a> is set and the locked file is older
+              then the specified locked file modification time and was thus
+              deleted.</td>
+       </tr>
+       <tr>
+          <td>Queued file</td>
+          <td>The directory option <a href="dir_config.html#delete_queued_files">
+              delete queued files</a> is set and the file in the queue was
+              deleted because it was older then the specified time.</td>
+       </tr>
+       <tr>
+          <td>Delete option</td>
+          <td>This file was deleted due to the <a href="dir_config.html#delete">
+              delete</a> option in DIR_CONFIG.</td>
+       </tr>
+       <tr>
+          <td>Del stale job</td>
+          <td>This file was deleted by process fd because either, the syntax
+              of calling sf_xxx/gf_xxx is wrong, the sf_xxx could not
+              determine the job ID or the FTP LIST command has failed.</td>
+       </tr>
+       <tr>
+          <td>Update DB del</td>
+          <td>An update database was issued either with <a href=
+              "tools.html#udc">udc</a> or <a href="afd_ctrl.html#reread_dir_config">
+              Reread DIR_CONFIG</a> and data for a job that no longer
+              existed has been deleted.</td>
+       </tr>
+       <tr>
+          <td>Other proc</td>
+          <td>The file was deleted because another process was sending
+              the same file name to the same destination at the same
+              time.</td>
+       </tr>
+       <tr>
+          <td>Del pool dir</td>
+          <td>The pool directory and its contents was deleted because
+              the job could no longer be located.</td>
+       </tr>
+       <tr>
+          <td>Exec stored</td>
+          <td>The <a href="dir_config.html#exec">exec</a> option was
+              specified with the -s option but AFD failed to store
+              the file.</td>
+       </tr>
+       <tr>
+          <td>Host disabled</td>
+          <td>Data was deleted because the host has been disabled.</td>
+       </tr>
+       <tr>
+          <td>Convert fail</td>
+          <td>The conversion <a href="dir_config.html#fax2gts">fax2gts</a>
+              or <a href="dir_config.html#tiff2gts">tiff2gts</a> has
+              failed so the data was deleted.</td>
+       </tr>
+       <tr>
+          <td>Rename overwr</td>
+          <td>The <a href="dir_config.html#basename">basename</a>,
+              <a href="dir_config.html#extension">extension</a> or
+              <a href="dir_config.html#rename">rename</a> was specified
+              with the overwrite option anfd data has been
+              overwritten due to having the same name.</td>
+       </tr>
+       <tr>
+          <td>Mail recp rej</td>
+          <td>The mail server rejects the mail recipient. Most properly
+              because the recipient is not known by the mail server.</td>
        </tr>
        </table>
    </td>
@@ -162,7 +240,7 @@ each item:
 </tr>
 <tr>
    <td>Hostname</td>
-   <td>iThe hostname where it was suppose to be send.</td>
+   <td>The hostname where it was suppose to be send.</td>
 </tr>
 <tr>
    <td>Reason</td>
@@ -231,7 +309,7 @@ Right under the list widget is a summary line which looks as follows:
 </tr>
 <tr>
    <td>&nbsp;<b>5</b>&nbsp;</td>
-   <td>Total number of bytes transfered.</td>
+   <td>Total number of bytes transferred.</td>
 </tr>
 </table>
 </center>
@@ -281,9 +359,9 @@ At the bottom is a line with three buttons which have the following meaning:
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 2005 by H.Kiehl<br>
+   Copyright &copy; 2005 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 05.07.2005
+   Last updated: 25.11.2009
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

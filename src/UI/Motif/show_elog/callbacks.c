@@ -298,7 +298,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
  
-      case HOST_ALIAS_NO_ENTER : /* Read the recipient */
+      case HOST_ALIAS_NO_ENTER : /* Read the recipient. */
       case HOST_ALIAS :
          {
             int i = 0,
@@ -506,7 +506,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    switch (length)
    {
-      case 0 : /* Assume user means current time */
+      case 0 : /* Assume user means current time. */
                {
                   char time_str[9];
 
@@ -623,7 +623,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    if (length == 4) /* hhmm */
    {
-      struct tm *bd_time;     /* Broken-down time */
+      struct tm *bd_time;     /* Broken-down time. */
 
       hour = atoi(str);
       if ((hour < 0) || (hour > 23))
@@ -647,7 +647,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    else if (length == 6) /* DDhhmm */
         {
            int       day = atoi(str);
-           struct tm *bd_time;     /* Broken-down time */
+           struct tm *bd_time;     /* Broken-down time. */
 
            if ((day < 0) || (day > 31))
            {
@@ -679,7 +679,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
         {
            int       month = atoi(str),
                      day;
-           struct tm *bd_time;     /* Broken-down time */
+           struct tm *bd_time;     /* Broken-down time. */
 
            if ((month < 0) || (month > 12))
            {

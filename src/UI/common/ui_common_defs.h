@@ -1,6 +1,6 @@
 /*
  *  ui_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,147 +28,171 @@
 # define XT_PTR_TYPE long
 #endif
 
-#define MAXARGS                         20
-#define MAX_INTENSITY                   65535
-#define STARTING_REDRAW_TIME            500
-#define MIN_REDRAW_TIME                 1500
-#define MAX_REDRAW_TIME                 4000
-#define REDRAW_STEP_TIME                500
-#define DEFAULT_FRAME_SPACE             4
-#define SPACE_ABOVE_LINE                1
-#define SPACE_BELOW_LINE                2
-#define BUTTON_SPACING                  3
-#define LED_SPACING                     1
-#define PROC_LED_SPACING                3
-#define DEFAULT_FILENAME_DISPLAY_LENGTH 25
-#define DEFAULT_NO_OF_HISTORY_LOGS      0
-#define DEFAULT_WINDOW_ID_STEPSIZE      5
-#define ZOMBIE_CHECK_INTERVAL           2000 /* 2 seconds */
-#define MAX_VIEW_DATA_WINDOWS           4
-#define ADDITIONAL_INFO_LENGTH          50
+#define MAXARGS                          20
+#define MAX_INTENSITY                    65535
+#define STARTING_REDRAW_TIME             500
+#define MIN_REDRAW_TIME                  1500
+#define MAX_REDRAW_TIME                  4000
+#define REDRAW_STEP_TIME                 500
+#define DEFAULT_FRAME_SPACE              4
+#define SPACE_ABOVE_LINE                 1
+#define SPACE_BELOW_LINE                 2
+#define BUTTON_SPACING                   3
+#define LED_SPACING                      1
+#define PROC_LED_SPACING                 3
+#define DEFAULT_AFD_ALIAS_DISPLAY_LENGTH 12
+#define DEFAULT_DIR_ALIAS_DISPLAY_LENGTH 10
+#define DEFAULT_HOSTNAME_DISPLAY_LENGTH  MAX_HOSTNAME_LENGTH
+#define DEFAULT_FILENAME_DISPLAY_LENGTH  25
+#define DEFAULT_NO_OF_HISTORY_LOGS       0
+#define DEFAULT_WINDOW_ID_STEPSIZE       5
+#define ZOMBIE_CHECK_INTERVAL            2000 /* 2 seconds */
+#define MAX_VIEW_DATA_WINDOWS            4
+#define ADDITIONAL_INFO_LENGTH           50
 
 /* Definitions for the printer interface. */
-#define SELECTION_TOGGLE                1
-#define ALL_TOGGLE                      2
-#define PRINTER_TOGGLE                  3
-#define FILE_TOGGLE                     4
-#define MAIL_TOGGLE                     5
-#define CONTROL_D                       '\004'
+#define SELECTION_TOGGLE                 1
+#define ALL_TOGGLE                       2
+#define PRINTER_TOGGLE                   3
+#define FILE_TOGGLE                      4
+#define MAIL_TOGGLE                      5
+#define CONTROL_D                        '\004'
+
+/* Definitions for showing protocols. */
+#define SHOW_FTP                         1
+#define SHOW_FILE                        2
+#define SHOW_HTTP                        4
+#define SHOW_SMTP                        8
+#ifdef _WITH_SCP_SUPPORT
+# define SHOW_SCP                        16
+#endif
+#ifdef _WITH_WMO_SUPPORT
+# define SHOW_WMO                        32
+#endif
+#ifdef _WITH_MAP_SUPPORT
+# define SHOW_MAP                        64
+#endif
+#ifdef WITH_SSL
+# define SHOW_FTPS                       128
+# define SHOW_HTTPS                      256
+# define SHOW_SMTPS                      512
+#endif
+#define SHOW_SFTP                        1024
 
 /* Definitions for all X programs of the AFD. */
-#define MAX_MESSAGE_LENGTH              80
+#define MAX_MESSAGE_LENGTH               80
 
-#define PRINTER_INFO_LENGTH             40
+#define PRINTER_INFO_LENGTH              40
 
 /* Definitions for the different message dialogs. */
-#define INFO_DIALOG                     INFO_NO
-#define CONFIG_DIALOG                   CONFIG_NO
-#define WARN_DIALOG                     WARN_NO
-#define ERROR_DIALOG                    ERROR_NO
-#define FATAL_DIALOG                    FATAL_NO
-#define ABORT_DIALOG                    6
-#define QUESTION_DIALOG                 7
+#define INFO_DIALOG                      INFO_NO
+#define CONFIG_DIALOG                    CONFIG_NO
+#define WARN_DIALOG                      WARN_NO
+#define ERROR_DIALOG                     ERROR_NO
+#define FATAL_DIALOG                     FATAL_NO
+#define ABORT_DIALOG                     6
+#define QUESTION_DIALOG                  7
 
 /* LED indicators. */
-#define AMG_LED                         0
-#define FD_LED                          1
-#define AW_LED                          2
-#define AFDD_LED                        3
-#define AFDMON_LED                      4
+#define AMG_LED                          0
+#define FD_LED                           1
+#define AW_LED                           2
+#define AFDD_LED                         3
+#define AFDMON_LED                       4
 
 /* Definitions for testing connections. */
-#define SHOW_PING_TEST                  "Ping"
-#define SHOW_TRACEROUTE_TEST            "Traceroute"
-#define PING_W                          0           
-#define TRACEROUTE_W                    1
+#define SHOW_PING_TEST                   "Ping"
+#define SHOW_TRACEROUTE_TEST             "Traceroute"
+#define PING_W                           0           
+#define TRACEROUTE_W                     1
 
 /* Bits to indicate the line style. The first two bits are not used */
 /* and are kept for backwards compatibility.                        */
-#define SHOW_LEDS                       4
-#define SHOW_JOBS                       8
-#define SHOW_CHARACTERS                 16
-#define SHOW_BARS                       32
+#define SHOW_LEDS                        4
+#define SHOW_JOBS                        8
+#define SHOW_CHARACTERS                  16
+#define SHOW_BARS                        32
 
 /* Definitions for the Setup pulldown. */
-#define FONT_W                          0
-#define ROWS_W                          1
-#define STYLE_W                         2
-#define SAVE_W                          3
+#define FONT_W                           0
+#define ROWS_W                           1
+#define STYLE_W                          2
+#define SAVE_W                           3
 
 /* Definitions for the Help pulldown. */
-#define ABOUT_W                         0
-#define HYPER_W                         1
-#define VERSION_W                       2
+#define ABOUT_W                          0
+#define HYPER_W                          1
+#define VERSION_W                        2
 
 /* Definitions for the Font pulldown. */
-#define FONT_0_W                        0
-#define FONT_1_W                        1
-#define FONT_2_W                        2
-#define FONT_3_W                        3
-#define FONT_4_W                        4
-#define FONT_5_W                        5
-#define FONT_6_W                        6
-#define FONT_7_W                        7
-#define FONT_8_W                        8
-#define FONT_9_W                        9
-#define FONT_10_W                       10
-#define FONT_11_W                       11
-#define FONT_12_W                       12
-#define NO_OF_FONTS                     13
+#define FONT_0_W                         0
+#define FONT_1_W                         1
+#define FONT_2_W                         2
+#define FONT_3_W                         3
+#define FONT_4_W                         4
+#define FONT_5_W                         5
+#define FONT_6_W                         6
+#define FONT_7_W                         7
+#define FONT_8_W                         8
+#define FONT_9_W                         9
+#define FONT_10_W                        10
+#define FONT_11_W                        11
+#define FONT_12_W                        12
+#define NO_OF_FONTS                      13
 
 /* Definitions for the Row pulldown. */
-#define ROW_0_W                         0
-#define ROW_1_W                         1
-#define ROW_2_W                         2
-#define ROW_3_W                         3
-#define ROW_4_W                         4
-#define ROW_5_W                         5
-#define ROW_6_W                         6
-#define ROW_7_W                         7
-#define ROW_8_W                         8
-#define ROW_9_W                         9
-#define ROW_10_W                        10
-#define ROW_11_W                        11
-#define ROW_12_W                        12
-#define ROW_13_W                        13
-#define ROW_14_W                        14
-#define ROW_15_W                        15
-#define ROW_16_W                        16
-#define NO_OF_ROWS                      17
+#define ROW_0_W                          0
+#define ROW_1_W                          1
+#define ROW_2_W                          2
+#define ROW_3_W                          3
+#define ROW_4_W                          4
+#define ROW_5_W                          5
+#define ROW_6_W                          6
+#define ROW_7_W                          7
+#define ROW_8_W                          8
+#define ROW_9_W                          9
+#define ROW_10_W                         10
+#define ROW_11_W                         11
+#define ROW_12_W                         12
+#define ROW_13_W                         13
+#define ROW_14_W                         14
+#define ROW_15_W                         15
+#define ROW_16_W                         16
+#define NO_OF_ROWS                       17
 
 /* Definitions for the Line Style pulldown widgets. */
-#define STYLE_0_W                       0
-#define STYLE_1_W                       1
-#define STYLE_2_W                       2
-#define STYLE_3_W                       3
+#define STYLE_0_W                        0
+#define STYLE_1_W                        1
+#define STYLE_2_W                        2
+#define STYLE_3_W                        3
 
 /* Definitions of popup selections. */
-#define S_LOG_SEL                       100    /* System Log */
-#define E_LOG_SEL                       101    /* Event Log */
-#define R_LOG_SEL                       102    /* Receive Log */
-#define T_LOG_SEL                       103    /* Transfer Log */
-#define TD_LOG_SEL                      104    /* Transfer Debug Log */
-#define I_LOG_SEL                       105    /* Input Log */
-#define O_LOG_SEL                       106    /* Output Log */
-#define D_LOG_SEL                       107    /* Delete Log */
-#define EXIT_SEL                        108
-#define VIEW_FILE_LOAD_SEL              109
-#define VIEW_KBYTE_LOAD_SEL             110
-#define VIEW_CONNECTION_LOAD_SEL        111
-#define VIEW_TRANSFER_LOAD_SEL          112
-#define PING_SEL                        113
-#define TRACEROUTE_SEL                  114
-#define DIR_CTRL_SEL                    115
-#define SHOW_QUEUE_SEL                  116
-#define AFD_CTRL_SEL                    117
-#define CONTROL_AMG_SEL                 118
-#define CONTROL_FD_SEL                  119
-#define REREAD_DIR_CONFIG_SEL           120
-#define REREAD_HOST_CONFIG_SEL          121
-#define EDIT_DC_SEL                     122
-#define EDIT_HC_SEL                     123
-#define STARTUP_AFD_SEL                 124
-#define SHUTDOWN_AFD_SEL                125
+#define S_LOG_SEL                        100    /* System Log */
+#define E_LOG_SEL                        101    /* Event Log */
+#define R_LOG_SEL                        102    /* Receive Log */
+#define T_LOG_SEL                        103    /* Transfer Log */
+#define TD_LOG_SEL                       104    /* Transfer Debug Log */
+#define I_LOG_SEL                        105    /* Input Log */
+#define O_LOG_SEL                        106    /* Output Log */
+#define D_LOG_SEL                        107    /* Delete Log */
+#define EXIT_SEL                         108
+#define VIEW_FILE_LOAD_SEL               109
+#define VIEW_KBYTE_LOAD_SEL              110
+#define VIEW_CONNECTION_LOAD_SEL         111
+#define VIEW_TRANSFER_LOAD_SEL           112
+#define PING_SEL                         113
+#define TRACEROUTE_SEL                   114
+#define DIR_CTRL_SEL                     115
+#define SHOW_QUEUE_SEL                   116
+#define AFD_CTRL_SEL                     117
+#define CONTROL_AMG_SEL                  118
+#define CONTROL_FD_SEL                   119
+#define REREAD_DIR_CONFIG_SEL            120
+#define REREAD_HOST_CONFIG_SEL           121
+#define EDIT_DC_SEL                      122
+#define EDIT_HC_SEL                      123
+#define STARTUP_AFD_SEL                  124
+#define SHUTDOWN_AFD_SEL                 125
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
 /*         afd_ctrl.h        0 - 39                    */
@@ -177,70 +201,75 @@
 /*         ui_common_defs.h 100 onwards.               */
 
 #ifndef PI
-#define PI                              3.141592654
+#define PI                               3.141592654
 #endif
 
-#define STATIC                          2
-#define YUP                             2
+#define STATIC                           2
+#define YUP                              2
 
-#define FONT_ID                         "Default font:"
-#define ROW_ID                          "Number of rows:"
-#define STYLE_ID                        "Line style:"
-#define FILENAME_DISPLAY_LENGTH_ID      "Filename display length:"
-#define NO_OF_HISTORY_LENGTH_ID         "History log length:"
-#define UNIMPORTANT_ID                  "Short host line:"
+#define FONT_ID                          "Default font:"
+#define ROW_ID                           "Number of rows:"
+#define STYLE_ID                         "Line style:"
+#define HOSTNAME_DISPLAY_LENGTH_ID       "Hostname display length:"
+#define FILENAME_DISPLAY_LENGTH_ID       "Filename display length:"
+#define NO_OF_HISTORY_LENGTH_ID          "History log length:"
+#define UNIMPORTANT_ID                   "Short host line:"
 
-#define NO_INFO_AVAILABLE               "No information available for this host."
+#define INFO_IDENTIFIER                  "INFO-"
+#define AFD_INFO_FILE                    "afd.info"
+#define HOST_INFO_FILE                   "host.info"
+
+#define NO_INFO_AVAILABLE                "No information available for this host."
 
 /* Different line styles. */
-#define BARS_ONLY                       0
-#define CHARACTERS_ONLY                 1
-#define CHARACTERS_AND_BARS             2
+#define BARS_ONLY                        0
+#define CHARACTERS_ONLY                  1
+#define CHARACTERS_AND_BARS              2
 
 /* Definitions for program afd_load. */
-#define SHOW_FILE_LOAD                  "Files"
-#define SHOW_KBYTE_LOAD                 "KBytes"
-#define SHOW_CONNECTION_LOAD            "Connections"
-#define SHOW_TRANSFER_LOAD              "Active-Transfers"
-#define FILE_LOAD_W                     0
-#define KBYTE_LOAD_W                    1
-#define CONNECTION_LOAD_W               2
-#define TRANSFER_LOAD_W                 3
+#define SHOW_FILE_LOAD                   "Files"
+#define SHOW_KBYTE_LOAD                  "KBytes"
+#define SHOW_CONNECTION_LOAD             "Connections"
+#define SHOW_TRANSFER_LOAD               "Active-Transfers"
+#define FILE_LOAD_W                      0
+#define KBYTE_LOAD_W                     1
+#define CONNECTION_LOAD_W                2
+#define TRANSFER_LOAD_W                  3
 
 /* List of fonts that should be available. */
-#define FONT_0                          "5x7"
-#define FONT_1                          "5x8"
-#define FONT_2                          "6x9"
-#define FONT_3                          "6x10"
-#define FONT_4                          "6x12"
-#define FONT_5                          "6x13"
-#define FONT_6                          "7x13"
-#define FONT_7                          "7x14"
-#define FONT_8                          "8x13"
-#define FONT_9                          "8x16"
-#define FONT_10                         "9x15"
-#define FONT_11                         "10x20"
-#define FONT_12                         "12x24"
-#define DEFAULT_FONT                    "6x13"
+#define FONT_0                           "5x7"
+#define FONT_1                           "5x8"
+#define FONT_2                           "6x9"
+#define FONT_3                           "6x10"
+#define FONT_4                           "6x12"
+#define FONT_5                           "6x13"
+#define FONT_6                           "7x13"
+#define FONT_7                           "7x14"
+#define FONT_8                           "8x13"
+#define FONT_9                           "8x16"
+#define FONT_10                          "9x15"
+#define FONT_11                          "10x20"
+#define FONT_12                          "12x24"
+#define DEFAULT_FONT                     "6x13"
 
 /* List of number of rows in a column. */
-#define ROW_0                           "2"
-#define ROW_1                           "4"
-#define ROW_2                           "6"
-#define ROW_3                           "8"
-#define ROW_4                           "10"
-#define ROW_5                           "14"
-#define ROW_6                           "16"
-#define ROW_7                           "20"
-#define ROW_8                           "25"
-#define ROW_9                           "30"
-#define ROW_10                          "40"
-#define ROW_11                          "50"
-#define ROW_12                          "60"
-#define ROW_13                          "70"
-#define ROW_14                          "80"
-#define ROW_15                          "90"
-#define ROW_16                          "100"
+#define ROW_0                            "2"
+#define ROW_1                            "4"
+#define ROW_2                            "6"
+#define ROW_3                            "8"
+#define ROW_4                            "10"
+#define ROW_5                            "14"
+#define ROW_6                            "16"
+#define ROW_7                            "20"
+#define ROW_8                            "25"
+#define ROW_9                            "30"
+#define ROW_10                           "40"
+#define ROW_11                           "50"
+#define ROW_12                           "60"
+#define ROW_13                           "70"
+#define ROW_14                           "80"
+#define ROW_15                           "90"
+#define ROW_16                           "100"
 
 /* All colors for status, background, foreground, etc. */
 #define DEFAULT_BG_COLOR                   "LightBlue1"
@@ -303,10 +332,10 @@
 #define BUTTON_BACKGROUND_COLOR_1          "LightSkyBlue"
 #define BUTTON_BACKGROUND_COLOR_2          "DeepSkyBlue1"
 #define BUTTON_BACKGROUND_COLOR_3          "SteelBlue2"
-#define EMAIL_ACTIVE_COLOR                 "pink"
-#define EMAIL_ACTIVE_COLOR_1               "LightPink"
-#define EMAIL_ACTIVE_COLOR_2               "MistyRose1"
-#define EMAIL_ACTIVE_COLOR_3               "RosyBrown1"
+#define SMTP_ACTIVE_COLOR                  "pink"
+#define SMTP_ACTIVE_COLOR_1                "LightPink"
+#define SMTP_ACTIVE_COLOR_2                "MistyRose1"
+#define SMTP_ACTIVE_COLOR_3                "RosyBrown1"
 #define CHAR_BACKGROUND_COLOR              "lightskyblue2"
 #define CHAR_BACKGROUND_COLOR_1            "SkyBlue1"
 #define CHAR_BACKGROUND_COLOR_2            "LightBlue1"
@@ -325,6 +354,10 @@
 #define SFTP_BURST_TRANSFER_ACTIVE_COLOR_1 "PapayaWhip"
 #define SFTP_BURST_TRANSFER_ACTIVE_COLOR_2 "AntiqueWhite"
 #define SFTP_BURST_TRANSFER_ACTIVE_COLOR_3 "MistyRose"
+#define SMTP_BURST_TRANSFER_ACTIVE_COLOR   "HotPink"
+#define SMTP_BURST_TRANSFER_ACTIVE_COLOR_1 "DeepPink"
+#define SMTP_BURST_TRANSFER_ACTIVE_COLOR_2 "LightPink"
+#define SMTP_BURST_TRANSFER_ACTIVE_COLOR_3 "PaleVioletRed"
 
 
 /* Position of each color in global array. */
@@ -681,6 +714,83 @@ struct view_process_list
                 }                                  \
         }
 
+#define CREATE_JQ_STRING(str, value)               \
+        {                                          \
+           (str)[3] = '\0';                        \
+           if ((value) < KILOFILE)                 \
+           {                                       \
+              if ((value) < 10)                    \
+              {                                    \
+                 (str)[0] = ' ';                   \
+                 (str)[1] = ' ';                   \
+                 (str)[2] = (value) + '0';         \
+              }                                    \
+              else if ((value) < 100)              \
+                   {                               \
+                      (str)[0] = ' ';              \
+                      (str)[1] = ((value) / 10) + '0';\
+                      (str)[2] = ((value) % 10) + '0';\
+                   }                               \
+                   else                            \
+                   {                               \
+                      (str)[0] = (((value) / 100) % 10) + '0';\
+                      (str)[1] = (((value) / 10) % 10) + '0';\
+                      (str)[2] = ((value) % 10) + '0';\
+                   }                               \
+           }                                       \
+           else                                    \
+           {                                       \
+              if ((value) < MEGAFILE)              \
+              {                                    \
+                 int num = (value) / KILOFILE;     \
+                                                   \
+                 (str)[2] = 'k';                   \
+                 if (num < 10)                     \
+                 {                                 \
+                    (str)[0] = ' ';                \
+                    (str)[1] = num + '0';          \
+                 }                                 \
+                 else                              \
+                 {                                 \
+                    (str)[0] = (num / 10) + '0';   \
+                    (str)[1] = (num % 10) + '0';   \
+                 }                                 \
+              }                                    \
+              else if ((value) < GIGAFILE)         \
+                   {                               \
+                      int num = (value) / MEGAFILE;\
+                                                   \
+                      (str)[2] = 'm';              \
+                      if (num < 10)                \
+                      {                            \
+                         (str)[0] = ' ';           \
+                         (str)[1] = num + '0';     \
+                      }                            \
+                      else                         \
+                      {                            \
+                         (str)[0] = (num / 10) + '0';\
+                         (str)[1] = (num % 10) + '0';\
+                      }                            \
+                   }                               \
+                   else                            \
+                   {                               \
+                      int num = (value) / GIGAFILE;\
+                                                   \
+                      (str)[2] = 'g';              \
+                      if (num < 10)                \
+                      {                            \
+                         (str)[0] = ' ';           \
+                         (str)[1] = num + '0';     \
+                      }                            \
+                      else                         \
+                      {                            \
+                         (str)[0] = (num / 10) + '0';\
+                         (str)[1] = (num % 10) + '0';\
+                      }                            \
+                   }                               \
+           }                                       \
+        }
+
 #define CREATE_FS_STRING(str, value)\
    {\
       (str)[4] = '\0';\
@@ -920,7 +1030,6 @@ struct view_process_list
 
 /* Function Prototypes. */
 extern int    check_host_permissions(char *, char **, int),
-              get_current_jid_list(void),
               sfilter(char const *, char const *, char),
               store_host_names(char ***, char *),
               xrec(char, char *, ...);
@@ -936,10 +1045,10 @@ extern void   check_window_ids(char *),
               locate_xy(int, int *, int *),
               lookup_color(XColor *),
               print_file_size(char *, off_t),
-              read_setup(char *, char *, int *, int *, char **, int),
+              read_setup(char *, char *, int *, int *, int *, char **, int),
               remove_window_id(pid_t, char *),
               view_data(char *, char *),
               write_window_id(Window, pid_t, char *),
-              write_setup(int, int, char **, int, int);
+              write_setup(int, int, int, char **, int, int);
 
 #endif /* __ui_common_defs_h */

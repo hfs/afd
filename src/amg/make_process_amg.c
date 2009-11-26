@@ -1,6 +1,6 @@
 /*
  *  make_process_amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -57,7 +57,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int no_of_local_dirs;
 
 

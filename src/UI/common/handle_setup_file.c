@@ -1,7 +1,7 @@
 /*
  *  handle_setup_file.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,11 +28,13 @@ DESCR__S_M3
  ** SYNOPSIS
  **   void read_setup(char *file_name,
  **                   char *profile,
+ **                   int  *hostname_display_length,
  **                   int  *filename_display_length,
  **                   int  *his_log_set,
  **                   char **hosts,
  **                   int  max_hostname_length)
- **   void write_setup(int  filename_display_length,
+ **   void write_setup(int  hostname_display_length,
+ **                    int  filename_display_length,
  **                    int  his_log_set,
  **                    char **hosts,
  **                    int  max_no_hosts,
@@ -61,6 +63,7 @@ DESCR__S_M3
  **   10.09.2000 H.Kiehl Added history log for mon_ctrl dialog.
  **   25.12.2001 H.Kiehl Ignore display and screen number for file name.
  **   27.03.2004 H.Kiehl Enable user to load a certain profile.
+ **   26.04.2008 H.Kiehl Added parameter for hostname display length.
  **
  */
 DESCR__E_M3
@@ -90,6 +93,7 @@ static char setup_file[MAX_PATH_LENGTH] = { 0 };
 void
 read_setup(char *file_name,
            char *profile,
+           int  *hostname_display_length,
            int  *filename_display_length,
            int  *his_log_set,
            char **hosts,
@@ -296,6 +300,37 @@ read_setup(char *file_name,
       }
    }
 
+   /* Get the hostname display length. */
+   if (hostname_display_length != NULL)
+   {
+      if ((ptr = posi(buffer, HOSTNAME_DISPLAY_LENGTH_ID)) != NULL)
+      {
+         int  i = 0;
+         char tmp_buffer[MAX_INT_LENGTH + 1];
+
+         ptr--;
+         while ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            ptr++;
+         }
+         while ((*ptr != '\n') && (*ptr != '\0') && (i < MAX_INT_LENGTH))
+         {
+            tmp_buffer[i] = *ptr;
+            i++; ptr++;
+         }
+         tmp_buffer[i] = '\0';
+         *hostname_display_length = atoi(tmp_buffer);
+         if (*hostname_display_length > MAX_HOSTNAME_LENGTH)
+         {
+            *hostname_display_length = MAX_HOSTNAME_LENGTH;
+         }
+      }
+      else
+      {
+         *hostname_display_length = DEFAULT_HOSTNAME_DISPLAY_LENGTH;
+      }
+   }
+
    /* Get the filename display length. */
    if (filename_display_length != NULL)
    {
@@ -408,7 +443,8 @@ read_setup(char *file_name,
 
 /*############################# write_setup() ###########################*/
 void
-write_setup(int  filename_display_length,
+write_setup(int  hostname_display_length,
+            int  filename_display_length,
             int  his_log_set,
             char **hosts,
             int  max_no_hosts,
@@ -468,6 +504,10 @@ write_setup(int  filename_display_length,
    buf_length = strlen(FONT_ID) +  1 + strlen(font_name) + 1 +
                 strlen(ROW_ID) + 1 + MAX_INT_LENGTH + 1 +
                 strlen(STYLE_ID) + 1 + MAX_INT_LENGTH + 1;
+   if (hostname_display_length != -1)
+   {
+      buf_length += strlen(HOSTNAME_DISPLAY_LENGTH_ID) + 1 + MAX_INT_LENGTH + 1;
+   }
    if (filename_display_length != -1)
    {
       buf_length += strlen(FILENAME_DISPLAY_LENGTH_ID) + 1 + MAX_INT_LENGTH + 1;
@@ -520,6 +560,11 @@ write_setup(int  filename_display_length,
       length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
                        STYLE_ID, line_style);
+      if (hostname_display_length != -1)
+      {
+         length += sprintf(&buffer[length], "%s %d\n",
+                           HOSTNAME_DISPLAY_LENGTH_ID, hostname_display_length);
+      }
       if (filename_display_length != -1)
       {
          length += sprintf(&buffer[length], "%s %d\n",
@@ -574,6 +619,11 @@ write_setup(int  filename_display_length,
       length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
                        STYLE_ID, line_style);
+      if (hostname_display_length != -1)
+      {
+         length += sprintf(&buffer[length], "%s %d\n",
+                           HOSTNAME_DISPLAY_LENGTH_ID, hostname_display_length);
+      }
       if (filename_display_length != -1)
       {
          length += sprintf(&buffer[length], "%s %d\n",

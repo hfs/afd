@@ -1,7 +1,7 @@
 /*
  *  get_update_config_str.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,7 @@ get_dc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Warning: ");
+               (void)strcpy(str, _("Warning: "));
                length = 9;
             }
             else
@@ -95,7 +95,7 @@ get_dc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s, but %u warnings.",
+            (void)sprintf(str + length, _("%s, but %u warnings."),
                           NO_CHANGE_IN_DIR_CONFIG_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -103,7 +103,7 @@ get_dc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Info   : ");
+               (void)strcpy(str, _("Info   : "));
                length = 9;
             }
             else
@@ -124,7 +124,7 @@ get_dc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Warning: ");
+               (void)strcpy(str, _("Warning: "));
                length = 9;
             }
             else
@@ -132,7 +132,7 @@ get_dc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s with %u warnings.",
+            (void)sprintf(str + length, _("%s with %u warnings."),
                           DIR_CONFIG_UPDATED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -140,7 +140,7 @@ get_dc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Info   : ");
+               (void)strcpy(str, _("Info   : "));
                length = 9;
             }
             else
@@ -159,7 +159,7 @@ get_dc_result_str(char *str,
       case DIR_CONFIG_UPDATED_DC_PROBLEMS :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -169,7 +169,7 @@ get_dc_result_str(char *str,
          }
          if (warn_counter > 0)
          {
-            (void)sprintf(str + length, "%s with %u warnings.",
+            (void)sprintf(str + length, _("%s with %u warnings."),
                           DIR_CONFIG_UPDATED_DC_PROBLEMS_STR, warn_counter);
          }
          else
@@ -183,7 +183,7 @@ get_dc_result_str(char *str,
       case DIR_CONFIG_NO_VALID_DATA :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -198,7 +198,7 @@ get_dc_result_str(char *str,
       case DIR_CONFIG_EMPTY :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -213,7 +213,7 @@ get_dc_result_str(char *str,
       case DIR_CONFIG_ACCESS_ERROR :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -228,7 +228,7 @@ get_dc_result_str(char *str,
       case DIR_CONFIG_NOTHING_DONE :
          if (type == NULL)
          {
-            (void)strcpy(str, "Warning: ");
+            (void)strcpy(str, _("Warning: "));
             length = 9;
          }
          else
@@ -243,7 +243,7 @@ get_dc_result_str(char *str,
       case INCORRECT :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -258,7 +258,7 @@ get_dc_result_str(char *str,
       default :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -291,7 +291,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Warning: ");
+               (void)strcpy(str, _("Warning: "));
                length = 9;
             }
             else
@@ -299,7 +299,7 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s, but %u warnings.",
+            (void)sprintf(str + length, _("%s, but %u warnings."),
                           NO_CHANGE_IN_HOST_CONFIG_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -307,7 +307,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Info   : ");
+               (void)strcpy(str, _("Info   : "));
                length = 9;
             }
             else
@@ -326,7 +326,7 @@ get_hc_result_str(char *str,
       case HOST_CONFIG_RECREATED :
          if (type == NULL)
          {
-            (void)strcpy(str, "Warning: ");
+            (void)strcpy(str, _("Warning: "));
             length = 9;
          }
          else
@@ -346,7 +346,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Warning: ");
+               (void)strcpy(str, _("Warning: "));
                length = 9;
             }
             else
@@ -354,7 +354,7 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s with %u warnings.",
+            (void)sprintf(str + length, _("%s with %u warnings."),
                           HOST_CONFIG_DATA_CHANGED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -362,7 +362,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Info   : ");
+               (void)strcpy(str, _("Info   : "));
                length = 9;
             }
             else
@@ -383,7 +383,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Warning: ");
+               (void)strcpy(str, _("Warning: "));
                length = 9;
             }
             else
@@ -391,7 +391,7 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s, but %u warnings.",
+            (void)sprintf(str + length, _("%s, but %u warnings."),
                           HOST_CONFIG_DATA_ORDER_CHANGED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -399,7 +399,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Info   : ");
+               (void)strcpy(str, _("Info   : "));
                length = 9;
             }
             else
@@ -421,7 +421,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Warning: ");
+               (void)strcpy(str, _("Warning: "));
                length = 9;
             }
             else
@@ -429,7 +429,7 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s with %u warnings.",
+            (void)sprintf(str + length, _("%s with %u warnings."),
                           HOST_CONFIG_ORDER_CHANGED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -437,7 +437,7 @@ get_hc_result_str(char *str,
          {
             if (type == NULL)
             {
-               (void)strcpy(str, "Info   : ");
+               (void)strcpy(str, _("Info   : "));
                length = 9;
             }
             else
@@ -456,7 +456,7 @@ get_hc_result_str(char *str,
       case HOST_CONFIG_UPDATED_DC_PROBLEMS :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -466,7 +466,7 @@ get_hc_result_str(char *str,
          }
          if (warn_counter > 0)
          {
-            (void)sprintf(str + length, "%s with %u warnings.",
+            (void)sprintf(str + length, _("%s with %u warnings."),
                           HOST_CONFIG_UPDATED_DC_PROBLEMS_STR, warn_counter);
          }
          else
@@ -480,7 +480,7 @@ get_hc_result_str(char *str,
       case INCORRECT :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else
@@ -495,7 +495,7 @@ get_hc_result_str(char *str,
       default :
          if (type == NULL)
          {
-            (void)strcpy(str, "ERROR  : ");
+            (void)strcpy(str, _("ERROR  : "));
             length = 9;
          }
          else

@@ -1,6 +1,6 @@
 /*
  *  convert_grib2wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,7 +88,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
    if ((fd = open(file, O_RDONLY)) == -1)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to open() %s : %s", file, strerror(errno));
+                  _("Failed to open() `%s' : %s"), file, strerror(errno));
       ret = INCORRECT;
    }
    else
@@ -98,7 +98,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
       if (fstat(fd, &stat_buf) == -1)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to fstat() %s : %s", file, strerror(errno));
+                     _("Failed to fstat() `%s' : %s"), file, strerror(errno));
          ret = INCORRECT;
       }
       else
@@ -106,7 +106,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
          if (stat_buf.st_size < 20)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "File is to short to convert.");
+                        _("File is to short to convert."));
             ret = INCORRECT;
          }
          else
@@ -117,7 +117,8 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                                MAP_SHARED, fd, 0)) == (caddr_t) -1)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to mmap() %s : %s", file, strerror(errno));
+                           _("Failed to mmap() `%s' : %s"),
+                           file, strerror(errno));
                ret = INCORRECT;
             }
             else
@@ -130,12 +131,12 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                                  stat_buf.st_mode)) == -1)
                {
                   receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to open() %s : %s",
+                              _("Failed to open() `%s' : %s"),
                               tmp_file, strerror(errno));
                   if (munmap(buffer, stat_buf.st_size) == -1)
                   {
                      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                 "Failed to munmap() from %s : %s",
+                                 _("Failed to munmap() from `%s' : %s"),
                                  file, strerror(errno));
                   }
                   ret = INCORRECT;
@@ -159,7 +160,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                                                  &total_length)) == NULL)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to locate a valid start identifier in %s",
+                                    _("Failed to locate a valid start identifier in %s"),
                                     file);
                         ret = INCORRECT;
                         break;
@@ -172,7 +173,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                                                           total_length)) == 0)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to locate end in %s.",
+                                       _("Failed to locate end in %s."),
                                        file);
                            ret = INCORRECT;
                            break;
@@ -190,7 +191,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                      if (message_length > (total_length + id_length[i]))
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "message length %lu greater then total length %d.",
+                                    _("message length %lu greater then total length %d."),
                                     message_length, total_length + id_length[i]);
                         break;
                      }
@@ -213,7 +214,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                      if (write(to_fd, header, 35) != 35)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to write() to %s : %s",
+                                    _("Failed to write() to `%s' : %s"),
                                     tmp_file, strerror(errno));
                         ret = INCORRECT;
                         break;
@@ -221,7 +222,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                      if (write(to_fd, ptr - 4, data_length) != data_length)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to write() to %s : %s",
+                                    _("Failed to write() to `%s' : %s"),
                                     tmp_file, strerror(errno));
                         ret = INCORRECT;
                         break;
@@ -229,7 +230,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                      if (write(to_fd, "\015\015\012\03", 4) != 4)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to write() to %s : %s",
+                                    _("Failed to write() to `%s' : %s"),
                                     tmp_file, strerror(errno));
                         ret = INCORRECT;
                         break;
@@ -238,7 +239,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                      if (data_length > (total_length + 4))
                      {
                         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                    "Hmmm, data_length (%d) > total_length (%u)?",
+                                    _("Hmmm, data_length (%d) > total_length (%u)?"),
                                     data_length, (total_length + 4));
                      }
                      ptr = ptr - 4 + data_length;
@@ -248,22 +249,22 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                   if (close(to_fd) == -1)
                   {
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                 "Failed to close() %s : %s",
+                                 _("Failed to close() `%s' : %s"),
                                  tmp_file, strerror(errno));
                   }
                }
                if (munmap(buffer, stat_buf.st_size) == -1)
                {
                   receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to munmap() from %s : %s",
+                              _("Failed to munmap() from `%s' : %s"),
                               file, strerror(errno));
                }
 
-               /* Remove the original file */
+               /* Remove the original file. */
                if (unlink(file) < 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to unlink() original file %s : %s",
+                              _("Failed to unlink() original file `%s' : %s"),
                               file, strerror(errno));
                }
 
@@ -272,7 +273,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                   if (rename(tmp_file, file) == -1)
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Failed to rename() %s to %s : %s",
+                                 _("Failed to rename() `%s' to `%s' : %s"),
                                  tmp_file, file, strerror(errno));
                   }
                }
@@ -282,7 +283,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
       if (close(fd) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to close() %s : %s", file, strerror(errno));
+                     _("Failed to close() `%s' : %s"), file, strerror(errno));
       }
    }
    return(ret);

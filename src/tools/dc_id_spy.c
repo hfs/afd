@@ -85,14 +85,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DC_LIST_FILE);
    if ((fd = open(file, O_RDWR)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -105,13 +105,13 @@ main(int argc, char *argv[])
                        MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
    {
-      (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (close(fd) == -1)
    {
-      (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    no_of_dc_ids = (int *)ptr;
@@ -120,8 +120,8 @@ main(int argc, char *argv[])
 
    if (*no_of_dc_ids > 0)
    {
-      (void)fprintf(stdout, "No of DIR_CONFIG ID's : %d\n", *no_of_dc_ids);
-      (void)fprintf(stdout, "Id         DIR_CONFIG\n");
+      (void)fprintf(stdout, _("No of DIR_CONFIG ID's : %d\n"), *no_of_dc_ids);
+      (void)fprintf(stdout, _("Id         DIR_CONFIG\n"));
       for (i = 0; i < *no_of_dc_ids; i++)
       {
          (void)fprintf(stdout, "%-10x %s\n",
@@ -130,7 +130,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stdout, "No DIR_CONFIG's.\n");
+      (void)fprintf(stdout, _("No DIR_CONFIG's.\n"));
    }
 
    ptr -= AFD_WORD_OFFSET;

@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>                 /* struct tm                       */
+# include <sys/time.h>                /* struct tm                       */
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */

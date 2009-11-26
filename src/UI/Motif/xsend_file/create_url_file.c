@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "xsend_file.h"
 
-/* External global variables */
+/* External global variables. */
 extern char             url_file_name[];
 extern struct send_data *db;
 
@@ -143,21 +143,24 @@ create_url_file(void)
            }
 
       length += sprintf(&buffer[length], "%s", db->user);
-      if ((db->password != NULL) && (db->password[0] != '\0'))
+      if (db->protocol != SMTP)
       {
-         length += sprintf(&buffer[length], ":%s", db->password);
-      }
-      length += sprintf(&buffer[length], "@%s", db->hostname);
-      if (db->target_dir[0] != '\0')
-      {
-         if ((db->target_dir[0] != '/') ||
-             ((db->target_dir[0] == '/') && (db->target_dir[1] != '/')))
+         if ((db->password != NULL) && (db->password[0] != '\0'))
          {
-            length += sprintf(&buffer[length], "/%s", db->target_dir);
+            length += sprintf(&buffer[length], ":%s", db->password);
          }
-         else
+         length += sprintf(&buffer[length], "@%s", db->hostname);
+         if (db->target_dir[0] != '\0')
          {
-            length += sprintf(&buffer[length], "%s", db->target_dir);
+            if ((db->target_dir[0] != '/') ||
+                ((db->target_dir[0] == '/') && (db->target_dir[1] != '/')))
+            {
+               length += sprintf(&buffer[length], "/%s", db->target_dir);
+            }
+            else
+            {
+               length += sprintf(&buffer[length], "%s", db->target_dir);
+            }
          }
       }
       if (db->smtp_server[0] != '\0')

@@ -1,6 +1,6 @@
 /*
  *  fra_version.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,8 @@ static void                usage(void);
 int
 main(int argc, char *argv[])
 {
-   int  set_version;
+   int  ret,
+        set_version;
    char *ptr,
         work_dir[MAX_PATH_LENGTH];
 
@@ -102,10 +103,20 @@ main(int argc, char *argv[])
       set_version = -1;
    }
 
-   if (fra_attach() < 0)
+   if ((ret = fra_attach()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FRA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (ret == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : Failed to attach to FRA. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
    ptr = (char *)fra;
@@ -115,12 +126,12 @@ main(int argc, char *argv[])
       int current_version = (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1));
 
       *(ptr + SIZEOF_INT + 1 + 1 + 1) = set_version;
-      (void)fprintf(stdout, "Changed FRA version number from %d to %d\n",
+      (void)fprintf(stdout, _("Changed FRA version number from %d to %d\n"),
                     current_version, set_version);
    }
    else
    {
-      (void)fprintf(stdout, "Current FRA version: %d\n",
+      (void)fprintf(stdout, _("Current FRA version: %d\n"),
                     (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
    }
    (void)fra_detach();
@@ -134,6 +145,6 @@ static void
 usage(void)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : fra_version [--version] [-w working directory] [<version number>]\n");
+                 _("SYNTAX  : fra_version [--version] [-w working directory] [<version number>]\n"));
    return;
 }

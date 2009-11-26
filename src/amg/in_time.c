@@ -1,6 +1,6 @@
 /*
  *  in_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ DESCR__E_M3
 
 #include <time.h>
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include "amgdefs.h"
 #include "bit_array.h"
@@ -63,7 +63,7 @@ in_time(time_t               current_time,
 {
    int       i,
              wday;
-   struct tm *bd_time;     /* Broken-down time */
+   struct tm *bd_time;     /* Broken-down time. */
 
    bd_time = localtime(&current_time);
 
@@ -86,28 +86,17 @@ in_time(time_t               current_time,
             {
                if (te[i].hour & bit_array[bd_time->tm_hour])
                {
-                  /* Evaluate minute (0-59) [0-59] */
-#ifdef _WORKING_LONG_LONG
-                  if (((ALL_MINUTES & te[i].minute) == ALL_MINUTES) ||
-                      ((ALL_MINUTES & te[i].continuous_minute) == ALL_MINUTES))
-                  {
-                     return(YES);
-                  }
-                  else
-                  {
-                     if ((te[i].minute & bit_array_long[bd_time->tm_min]) ||
-                         (te[i].continuous_minute & bit_array_long[bd_time->tm_min]))
-                     {
-                        return(YES);
-                     }
-                  }
+                  /* Evaluate minute (0-59) [0-59]. */
+#ifdef HAVE_LONG_LONG
+                  if ((te[i].minute & bit_array_long[bd_time->tm_min]) ||
+                      (te[i].continuous_minute & bit_array_long[bd_time->tm_min]))
 #else
                   if (bittest(te[i].minute, bd_time->tm_min) ||
                       bittest(te[i].continuous_minute, bd_time->tm_min))
+#endif
                   {
                      return(YES);
                   }
-#endif
                }
             }
          }

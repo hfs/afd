@@ -60,10 +60,10 @@ check_nummeric(Widget w, XtPointer client_data, XtPointer call_data)
    int                        i;
    XmTextVerifyCallbackStruct *cbs = (XmTextVerifyCallbackStruct *)call_data;
 
-   /* Check for backspace */
+   /* Check for backspace. */
    if (cbs->text->length == 0)
    {
-      /* reset pointer because of bug in X11: it must be zero */
+      /* Reset pointer because of bug in X11: it must be zero. */
       cbs->text->ptr = NULL;
    }
    else

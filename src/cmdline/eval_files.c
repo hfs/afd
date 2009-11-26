@@ -1,6 +1,6 @@
 /*
  *  eval_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -64,7 +64,7 @@ eval_config_file(char *file_name, struct data *p_db)
    off_t length;
    char  *buffer;
 
-   if ((length = read_file(file_name, &buffer)) != INCORRECT)
+   if ((length = read_file_no_cr(file_name, &buffer)) != INCORRECT)
    {
       char *ptr = buffer;
 
@@ -87,7 +87,7 @@ eval_config_file(char *file_name, struct data *p_db)
             if (*ptr == '\0')
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Just telling me the sheme and nothing else is not of much use! (%s %d)\n",
+                         _("Just telling me the sheme and nothing else is not of much use! (%s %d)\n"),
                          __FILE__, __LINE__);
                exit(INCORRECT);
             }
@@ -105,14 +105,14 @@ eval_config_file(char *file_name, struct data *p_db)
             if (*ptr == '\0')
             {      
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Hmm. This does NOT look like URL for me!? (%s %d)\n",
+                         _("Hmm. This does NOT look like URL for me!? (%s %d)\n"),
                          __FILE__, __LINE__);
                exit(INCORRECT);  
             }      
             if (i == MAX_USER_NAME_LENGTH)
             {      
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Unable to store user name. It is longer than %d Bytes! (%s %d)\n",
+                         _("Unable to store user name. It is longer than %d bytes! (%s %d)\n"),
                          MAX_USER_NAME_LENGTH, __FILE__, __LINE__);
                exit(INCORRECT);  
             }      
@@ -121,7 +121,7 @@ eval_config_file(char *file_name, struct data *p_db)
          else
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "This definitely is GARBAGE! Get a new administrator!!! (%s %d)\n",
+                      _("This definitely is GARBAGE! Get a new administrator!!! (%s %d)\n"),
                       __FILE__, __LINE__);
             exit(INCORRECT);
          }
@@ -144,14 +144,14 @@ eval_config_file(char *file_name, struct data *p_db)
             if ((i == 0) && (*ptr != '@'))
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Hmmm. How am I suppose to find the hostname? (%s %d)\n",
+                         _("Hmmm. How am I suppose to find the hostname? (%s %d)\n"),
                          __FILE__, __LINE__);
                exit(INCORRECT);
             }
             if (i == MAX_USER_NAME_LENGTH)
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Unable to store password. It is longer than %d Bytes! (%s %d)\n",
+                         _("Unable to store password. It is longer than %d bytes! (%s %d)\n"),
                          MAX_USER_NAME_LENGTH, __FILE__, __LINE__);
                exit(INCORRECT);
             }
@@ -171,7 +171,7 @@ eval_config_file(char *file_name, struct data *p_db)
               else
               {
                  (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Hmmm. How am I suppose to find the hostname? (%s %d)\n",
+                           _("Hmmm. How am I suppose to find the hostname? (%s %d)\n"),
                            __FILE__, __LINE__);
                  exit(INCORRECT);
               }
@@ -191,7 +191,7 @@ eval_config_file(char *file_name, struct data *p_db)
          if (i == MAX_FILENAME_LENGTH)
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Unable to store hostname. It is longer than %d Bytes! (%s %d)\n",
+                      _("Unable to store hostname. It is longer than %d bytes! (%s %d)\n"),
                       MAX_FILENAME_LENGTH, __FILE__, __LINE__);
             exit(INCORRECT);
          }
@@ -233,7 +233,7 @@ eval_config_file(char *file_name, struct data *p_db)
             if (i == MAX_PATH_LENGTH)
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Unable to store remote dir. It is longer than %d Bytes! (%s %d)\n",
+                         _("Unable to store remote dir. It is longer than %d bytes! (%s %d)\n"),
                          MAX_PATH_LENGTH, __FILE__, __LINE__);
                exit(INCORRECT);
             }
@@ -265,7 +265,7 @@ eval_config_file(char *file_name, struct data *p_db)
                   {
                      *ptr = '\0';
                      (void)rec(sys_log_fd, ERROR_SIGN,
-                               "Actually I was expecting <type=> and not <%s=> (%s %d)\n",
+                               _("Actually I was expecting <type=> and not <%s=> (%s %d)\n"),
                                ptr_tmp, __FILE__, __LINE__);
                      *ptr = '=';
                      exit(INCORRECT);
@@ -283,7 +283,7 @@ eval_config_file(char *file_name, struct data *p_db)
                      case 'I': p_db->transfer_mode = 'I';
                                break;
                      default : (void)rec(sys_log_fd, ERROR_SIGN,
-                                         "Unknown ftp type (%d). Changing to I. (%s %d)\n",
+                                         _("Unknown ftp type (%d). Changing to I. (%s %d)\n"),
                                          *ptr, __FILE__, __LINE__);
                                p_db->transfer_mode = 'I';
                                break;
@@ -297,7 +297,7 @@ eval_config_file(char *file_name, struct data *p_db)
                        {
                           *ptr = '\0';
                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                    "Actually I was expecting <server=> and not <%s=> (%s %d)\n",
+                                    _("Actually I was expecting <server=> and not <%s=> (%s %d)\n"),
                                     ptr_tmp, __FILE__, __LINE__);
                           *ptr = '=';
                           exit(INCORRECT);
@@ -313,7 +313,7 @@ eval_config_file(char *file_name, struct data *p_db)
                        if (i == MAX_USER_NAME_LENGTH)
                        {
                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                    "Unable to store server name. It is longer than %d Bytes! (%s %d)\n",
+                                    _("Unable to store server name. It is longer than %d bytes! (%s %d)\n"),
                                     MAX_USER_NAME_LENGTH, __FILE__, __LINE__);
                           exit(INCORRECT);
             }
@@ -339,7 +339,7 @@ eval_filename_file(char *file_name, struct data *p_db)
    int  ret;
    char *buffer;
 
-   if (read_file(file_name, &buffer) == INCORRECT)
+   if (read_file_no_cr(file_name, &buffer) == INCORRECT)
    {
       ret = INCORRECT;
    }
@@ -447,7 +447,8 @@ eval_filename_file(char *file_name, struct data *p_db)
       else
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "No files in %s (%s %d)\n", file_name, __FILE__, __LINE__);
+                   _("No files in %s (%s %d)\n"),
+                   file_name, __FILE__, __LINE__);
          ret = INCORRECT;
       }
 

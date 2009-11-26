@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
@@ -69,7 +69,7 @@ check_lock(char *file, char block_flag)
       if (errno != ENOENT)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not open() <%s> : %s", file, strerror(errno));
+                    _("Could not open() `%s' : %s"), file, strerror(errno));
       }
       return(INCORRECT);
    }
@@ -82,7 +82,7 @@ check_lock(char *file, char block_flag)
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not set write lock : %s", strerror(errno));
+                    _("Could not set write lock : %s"), strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -95,7 +95,7 @@ check_lock(char *file, char block_flag)
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not unlock <%s> : %s", file, strerror(errno));
+                    _("Could not unlock `%s' : %s"), file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -107,7 +107,7 @@ check_lock(char *file, char block_flag)
       if (fcntl(fd, F_GETLK, &tlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not set write lock : %s", strerror(errno));
+                    _("Could not set write lock : %s"), strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -125,7 +125,7 @@ check_lock(char *file, char block_flag)
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
+                 _("close() error : %s"), strerror(errno));
    }
 
    return(0);

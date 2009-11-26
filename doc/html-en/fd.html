@@ -69,7 +69,7 @@ The FTP-clients of the AFD currently has the following features:
        secure sockets (TLS/SSL).</li>
    <li>Change the transfer type.</li>
    <li>Change the remote directory.</li>
-   <li>Create the remote directory, recursivly if necessary.</li>
+   <li>Create the remote directory, recursively if necessary.</li>
    <li>Rename a file.</li>
    <li>Delete files on the remote site. This is useful when
        sending lock files.</li>
@@ -92,7 +92,7 @@ The FTP-clients of the AFD currently has the following features:
 <p>
 'sf_sftp' is the process responsible to transmit (push) files via
 <a href="glossary.html#SFTP">SFTP</a>. To connect to a remote system it
-uses the local ssh program, once the connection is settup it uses
+uses the local ssh program, once the connection is setup it uses
 it's own client to do the communication according to the draft
 <a href="../txt/draft-ietf-secsh-filexfer-13.txt">SSH File Transfer Protocol
 </a>. This has the advantage that the transfer of a file can be monitored
@@ -108,7 +108,7 @@ The SFTP-clients of the AFD currently has the following features:
 </p>
 <ul>
    <li>Change the remote directory.</li>
-   <li>Create the remote directory, recursivly if necessary.</li>
+   <li>Create the remote directory, recursively if necessary.</li>
    <li>Rename a file.</li>
    <li>Delete files on the remote site. This is useful when
        sending lock files.</li>
@@ -117,7 +117,7 @@ The SFTP-clients of the AFD currently has the following features:
        interrupted. This is very useful with very large files and buggy
        connections.</li>
    <li>Get a 'dir' listing from the remote site.</li>
-   <li>To increase speed for writting it can send several write request
+   <li>To increase speed for writing it can send several write request
        at once.</li>
    <li>Show all commands it sends and receives from the remote server
        in a log file (see <a href="log.html#transfer_debug_log">Transfer
@@ -143,7 +143,7 @@ file that it has copied.
 <p>
 This program is only useful if files should be send with the WMO-socket
 procedure. Since WMO-sockets are insecure (data can be lost) it can be
-optionaly configured to acknowledge each message.
+optionally configured to acknowledge each message.
 </p>
 <h3 align=center><u><a name="get_file_http">Get File HTTP</a></u></h3>
 <p>

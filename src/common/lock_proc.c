@@ -1,6 +1,6 @@
 /*
  *  lock_proc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,14 +51,14 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
-/* Local global variables */
+/* Local global variables. */
 static int  fd;
 
 
@@ -67,7 +67,7 @@ char *
 lock_proc(int proc_id, int test_lock)
 {
    off_t        offset;
-   static char  user_str[MAX_FULL_USER_ID_LENGTH + MAX_INT_LENGTH + 1];
+   static char  user_str[MAX_FULL_USER_ID_LENGTH + 6 + MAX_INT_LENGTH + 2 + 1];
    char         file[MAX_PATH_LENGTH],
                 *ptr;
    struct stat  stat_buf;
@@ -87,14 +87,14 @@ lock_proc(int proc_id, int test_lock)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to open() <%s> : %s", file, strerror(errno));
+                    _("Failed to coe_open() `%s' : %s"), file, strerror(errno));
          exit(INCORRECT);
       }
    }
    else if (errno != 0)
         {
            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to stat() <%s> : %s", file, strerror(errno));
+                      _("Failed to stat() `%s' : %s"), file, strerror(errno));
            exit(INCORRECT);
         }
         else /* The file already exists. */
@@ -102,17 +102,18 @@ lock_proc(int proc_id, int test_lock)
            if ((fd = coe_open(file, O_RDWR)) == -1)
            {
               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open() %s : %s", file, strerror(errno));
+                         _("Failed to coe_open() `%s' : %s"),
+                         file, strerror(errno));
               exit(INCORRECT);
            }
         }
 
-   /* Position file desciptor over user */
+   /* Position file desciptor over user. */
    offset = NO_OF_LOCK_PROC + ((proc_id + 1) * MAX_FULL_USER_ID_LENGTH);
    if (lseek(fd, offset, SEEK_SET) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "lseek() error : %s", strerror(errno));
+                 _("lseek() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
 
@@ -125,7 +126,7 @@ lock_proc(int proc_id, int test_lock)
       if (fcntl(fd, F_GETLK, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not get write lock : %s", strerror(errno));
+                    _("Could not get write lock : %s"), strerror(errno));
          exit(INCORRECT);
       }
       if (wlock.l_type == F_UNLCK)
@@ -133,7 +134,7 @@ lock_proc(int proc_id, int test_lock)
          if (close(fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
          return(NULL);
       }
@@ -141,21 +142,19 @@ lock_proc(int proc_id, int test_lock)
       if (read(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "read() error : %s", strerror(errno));
+                    _("read() error : %s"), strerror(errno));
          exit(INCORRECT);
       }
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
       ptr = user_str + strlen(user_str);
-      *ptr = ' ';
-      ptr++;
 #if SIZEOF_PID_T == 4
-      (void)sprintf(ptr, "%d", (pri_pid_t)wlock.l_pid);
+      (void)sprintf(ptr, " [pid=%d]", (pri_pid_t)wlock.l_pid);
 #else
-      (void)sprintf(ptr, "%lld", (pri_pid_t)wlock.l_pid);
+      (void)sprintf(ptr, " [pid=%lld]", (pri_pid_t)wlock.l_pid);
 #endif
 
       return(user_str);
@@ -170,29 +169,35 @@ lock_proc(int proc_id, int test_lock)
             if (read(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "read() error : %s", strerror(errno));
+                          _("read() error : %s"), strerror(errno));
                exit(INCORRECT);
+            }
+            ptr = user_str + strlen(user_str);
+            wlock.l_type = F_RDLCK;
+            if (fcntl(fd, F_GETLK, &wlock) == -1)
+            {
+               *ptr = '\0';
+            }
+            else
+            {
+#if SIZEOF_PID_T == 4
+               (void)sprintf(ptr, " [pid=%d]", (pri_pid_t)wlock.l_pid);
+#else
+               (void)sprintf(ptr, " [pid=%lld]", (pri_pid_t)wlock.l_pid);
+#endif
             }
             if (close(fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "close() error : %s", strerror(errno));
+                          _("close() error : %s"), strerror(errno));
             }
-            ptr = user_str + strlen(user_str);
-            *ptr = ' ';
-            ptr++;
-#if SIZEOF_PID_T == 4
-            (void)sprintf(ptr, "%d", (pri_pid_t)wlock.l_pid);
-#else
-            (void)sprintf(ptr, "%lld", (pri_pid_t)wlock.l_pid);
-#endif
 
             return(user_str);
          }
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not set write lock : %s", strerror(errno));
+                       _("Could not set write lock : %s"), strerror(errno));
             exit(INCORRECT);
          }
       }
@@ -201,7 +206,7 @@ lock_proc(int proc_id, int test_lock)
       if (write(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "write() error : %s", strerror(errno));
+                    _("write() error : %s"), strerror(errno));
          exit(INCORRECT);
       }
    }

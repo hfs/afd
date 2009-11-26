@@ -1,6 +1,6 @@
 /*
  *  fsa_detach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,11 +48,11 @@ DESCR__E_M3
 #include <string.h>                      /* strerror(), strlen()         */
 #include <unistd.h>                      /* close()                      */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* mmap(), munmap()             */
+# include <sys/mman.h>                   /* mmap(), munmap()             */
 #endif
 #include <errno.h>
 
-/* Global variables */
+/* Global variables. */
 extern int                        fsa_fd,
                                   fsa_id,
                                   no_of_hosts;
@@ -72,7 +72,7 @@ fsa_detach(int sync)
       if (close(fsa_fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
       fsa_fd = -1;
    }
@@ -81,28 +81,28 @@ fsa_detach(int sync)
    /* no_of_hosts is stale.                   */
    if (no_of_hosts > 0)
    {
-      /* Detach from FSA */
+      /* Detach from FSA. */
 #ifdef HAVE_MMAP
       if (sync == YES)
       {
          if (msync(((char *)fsa - AFD_WORD_OFFSET), fsa_size, MS_SYNC) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to msync() FSA : %s", strerror(errno));
+                       _("Failed to msync() FSA : %s"), strerror(errno));
             return(INCORRECT);
          }
       }
       if (munmap(((char *)fsa - AFD_WORD_OFFSET), fsa_size) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to munmap() FSA : %s", strerror(errno));
+                    _("Failed to munmap() FSA : %s"), strerror(errno));
          return(INCORRECT);
       }
 #else
       if (munmap_emu((void *)((char *)fsa - AFD_WORD_OFFSET)) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to munmap_emu() FSA : %s", strerror(errno));
+                    _("Failed to munmap_emu() FSA : %s"), strerror(errno));
          return(INCORRECT);
       }
 #endif

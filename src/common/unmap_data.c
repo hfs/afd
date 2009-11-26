@@ -1,6 +1,6 @@
 /*
  *  unmap_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,10 +48,11 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
+#include <string.h>                /* strerror()                         */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>              /* msync(), munmap()                  */
+# include <sys/mman.h>             /* msync(), munmap()                  */
 #endif
 #include <unistd.h>                /* fstat()                            */
 #include <errno.h>
@@ -69,7 +70,7 @@ unmap_data(int fd, void **area)
       if (fstat(fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "fstat() error : %s", strerror(errno));
+                    _("fstat() error : %s"), strerror(errno));
       }
       else
       {
@@ -78,12 +79,12 @@ unmap_data(int fd, void **area)
          if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "msync() error : %s", strerror(errno));
+                       _("msync() error : %s"), strerror(errno));
          }
          if (munmap(ptr, stat_buf.st_size) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "munmap() error : %s", strerror(errno));
+                       _("munmap() error : %s"), strerror(errno));
          }
          else
          {
@@ -96,12 +97,12 @@ unmap_data(int fd, void **area)
       if (msync_emu(ptr) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "msync_emu() error : %s", strerror(errno));
+                    _("msync_emu() error : %s"), strerror(errno));
       }
       if (munmap_emu(ptr) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "munmap_emu() error : %s", strerror(errno));
+                    _("munmap_emu() error : %s"), strerror(errno));
       }
       else
       {
@@ -112,7 +113,7 @@ unmap_data(int fd, void **area)
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
+                 _("close() error : %s"), strerror(errno));
    }
 
    return;

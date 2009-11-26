@@ -123,7 +123,7 @@ select_dir_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       /* Create managing widget. */
       main_form_w = XmCreateForm(findshell, "main_form", NULL, 0);
 
-      /* Prepare font */
+      /* Prepare font. */
       if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), font_name,
                                        XmFONT_IS_FONT, "TAG1")) == NULL)
       {

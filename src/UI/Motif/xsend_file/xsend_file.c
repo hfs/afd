@@ -1,6 +1,6 @@
 /*
  *  xsend_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ DESCR__E_M1
 # include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "xsend_file.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
@@ -192,6 +192,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -210,14 +211,19 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Create managing widget */
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
+
+   /* Create managing widget. */
    main_form_w = XmCreateForm(appshell, "main_form_w", NULL, 0);
 
-   /* Prepare font */
-   if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), font_name,
+   /* Prepare font. */
+   if ((entry = XmFontListEntryLoad(display, font_name,
                                     XmFONT_IS_FONT, "TAG1")) == NULL)
    {
-      if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), "fixed",
+      if ((entry = XmFontListEntryLoad(display, "fixed",
                                        XmFONT_IS_FONT, "TAG1")) == NULL)
       {
          (void)fprintf(stderr,
@@ -342,8 +348,8 @@ main(int argc, char *argv[])
                      XmNrightAttachment, XmATTACH_FORM,
                      NULL);
 
-   /* Distribution type (FTP, SMTP, LOC, etc) */
-   /* Create a pulldown pane and attach it to the option menu */
+   /* Distribution type (FTP, SMTP, LOC, etc). */
+   /* Create a pulldown pane and attach it to the option menu. */
    argcount = 0;
    XtSetArg(args[argcount], XmNfontList, fontlist);
    argcount++;
@@ -401,7 +407,7 @@ main(int argc, char *argv[])
 # endif
 #endif /* _WHEN_DONE */
 
-   /* User */
+   /* User. */
    user_name_label_w = XtVaCreateManagedWidget("User :",
                         xmLabelGadgetClass,  recipientbox_w,
                         XmNfontList,         fontlist,
@@ -435,7 +441,7 @@ main(int argc, char *argv[])
       XtSetSensitive(user_name_w, False);
    }
 
-   /* Password */
+   /* Password. */
    password_label_w = XtVaCreateManagedWidget("Password :",
                         xmLabelGadgetClass,  recipientbox_w,
                         XmNfontList,         fontlist,
@@ -469,7 +475,7 @@ main(int argc, char *argv[])
    XtAddCallback(password_w, XmNactivateCallback, enter_passwd,
                  (XtPointer)PASSWORD_ENTER);
 
-   /* Hostname */
+   /* Hostname. */
    hostname_label_w = XtVaCreateManagedWidget("Hostname :",
                         xmLabelGadgetClass,  recipientbox_w,
                         XmNfontList,         fontlist,
@@ -503,7 +509,7 @@ main(int argc, char *argv[])
       XtSetSensitive(hostname_w, False);
    }
 
-   /* Proxy */
+   /* Proxy. */
    proxy_label_w = XtVaCreateManagedWidget("Proxy:",
                         xmLabelGadgetClass,  recipientbox_w,
                         XmNfontList,         fontlist,
@@ -567,7 +573,7 @@ main(int argc, char *argv[])
                         XmNrightAttachment, XmATTACH_FORM,
                         NULL);
 
-   /* Directory */
+   /* Directory. */
    target_dir_label_w = XtVaCreateManagedWidget("Directory :",
                         xmLabelGadgetClass,  optionbox_w,
                         XmNfontList,         fontlist,
@@ -677,7 +683,7 @@ main(int argc, char *argv[])
       XtSetSensitive(timeout_w, False);
    }
 
-   /* Port */
+   /* Port. */
    port_label_w = XtVaCreateManagedWidget("Port :",
                         xmLabelGadgetClass,  optionbox_w,
                         XmNfontList,         fontlist,
@@ -741,7 +747,7 @@ main(int argc, char *argv[])
                         XmNrightAttachment, XmATTACH_FORM,
                         NULL);
 
-   /* Transfer type (ASCII, BINARY, DOS, etc) */
+   /* Transfer type (ASCII, BINARY, DOS, etc). */
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,  XmATTACH_FORM);
    argcount++;
@@ -822,7 +828,7 @@ main(int argc, char *argv[])
    separator_w = XmCreateSeparator(optionbox_w, "separator", args, argcount);
    XtManageChild(separator_w);
 
-   /* Lock type (DOT, OFF, DOT_VMS and prefix */
+   /* Lock type (DOT, OFF, DOT_VMS and prefix. */
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,  XmATTACH_FORM);
    argcount++;
@@ -1278,13 +1284,13 @@ init_xsend_file(int  *argc,
         {
            db->port = DEFAULT_SSH_PORT;
         }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
    else if (db->protocol == WMO)
         {
            db->port = -1;
         }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 
    return;
 }

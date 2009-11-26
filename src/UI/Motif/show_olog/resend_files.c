@@ -1,6 +1,6 @@
 /*
  *  resend_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/List.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_olog.h"
 #include "fddefs.h"
 
@@ -109,7 +109,7 @@ static char             archive_dir[MAX_PATH_LENGTH],
 
 /* Local function prototypes. */
 static int              get_archive_data(int, int),
-                        send_new_message(char *, time_t, unsigned short,
+                        send_new_message(char *, time_t, unsigned int,
                                          unsigned int, unsigned int, char,
                                          int, off_t),
                         get_file(char *, char *, off_t *);
@@ -125,14 +125,14 @@ resend_files(int no_selected, int *select_list)
                       k,
                       total_no_of_items,
                       length = 0,
-                      to_do = 0,    /* Number still to be done */
-                      no_done = 0,  /* Number done             */
+                      to_do = 0,    /* Number still to be done. */
+                      no_done = 0,  /* Number done.             */
                       not_found = 0,
                       not_archived = 0,
                       not_in_archive = 0,
                       select_done = 0,
                       *select_done_list,
-                      unique_number;
+                      *unique_number;
    unsigned int       current_job_id = 0,
                       last_job_id = 0,
                       split_job_counter;
@@ -163,7 +163,7 @@ resend_files(int no_selected, int *select_list)
    }
 
    /* Open counter file, so we can create new unique name. */
-   if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
+   if ((counter_fd = open_counter_file(COUNTER_FILE, &unique_number)) < 0)
    {
       (void)xrec(FATAL_DIALOG, "Failed to open counter file. (%s %d)",
                  __FILE__, __LINE__);
@@ -240,7 +240,7 @@ resend_files(int no_selected, int *select_list)
                           strerror(errno), __FILE__, __LINE__);
                free((void *)rl);
                free((void *)select_done_list);
-               (void)close(counter_fd);
+               close_counter_file(counter_fd, &unique_number);
                return;
             }
 
@@ -312,7 +312,7 @@ resend_files(int no_selected, int *select_list)
                      int m;
 
                      if (send_new_message(p_msg_name, creation_time,
-                                          (unsigned short)unique_number,
+                                          (unsigned int)*unique_number,
                                           split_job_counter,
                                           current_job_id, id.priority,
                                           max_copied_files,
@@ -324,7 +324,7 @@ resend_files(int no_selected, int *select_list)
                         write_fsa(NO, max_copied_files, total_file_size);
                         free((void *)rl);
                         free((void *)select_done_list);
-                        (void)close(counter_fd);
+                        close_counter_file(counter_fd, &unique_number);
                         return;
                      }
 
@@ -347,14 +347,14 @@ resend_files(int no_selected, int *select_list)
                   split_job_counter = 0;
                   if (create_name(dest_dir, id.priority, creation_time,
                                   current_job_id, &split_job_counter,
-                                  &unique_number, p_msg_name, counter_fd) < 0)
+                                  unique_number, p_msg_name, counter_fd) < 0)
                   {
                      (void)xrec(FATAL_DIALOG,
                                 "Failed to create a unique directory : (%s %d)",
                                 __FILE__, __LINE__);
                      free((void *)rl);
                      free((void *)select_done_list);
-                     (void)close(counter_fd);
+                     close_counter_file(counter_fd, &unique_number);
                      return;
                   }
                   p_dest_dir_end = p_msg_name;
@@ -399,7 +399,7 @@ resend_files(int no_selected, int *select_list)
          int m;
 
          if (send_new_message(p_msg_name, creation_time,
-                              (unsigned short)unique_number,
+                              (unsigned int)*unique_number,
                               split_job_counter, last_job_id, id.priority,
                               select_done, total_file_size) < 0)
          {
@@ -408,7 +408,7 @@ resend_files(int no_selected, int *select_list)
             write_fsa(NO, select_done, total_file_size);
             free((void *)rl);
             free((void *)select_done_list);
-            (void)close(counter_fd);
+            close_counter_file(counter_fd, &unique_number);
             return;
          }
 
@@ -437,7 +437,7 @@ resend_files(int no_selected, int *select_list)
 
    if ((no_done == 0) && (dest_dir[0] != '\0') && (p_dest_dir_end != NULL))
    {
-      /* Remove the directory we created in the files dir */
+      /* Remove the directory we created in the files dir. */
       *p_dest_dir_end = '\0';
    }
 
@@ -511,11 +511,7 @@ resend_files(int no_selected, int *select_list)
    free((void *)rl);
    free((void *)select_done_list);
 
-   if (close(counter_fd) == -1)
-   {
-      (void)xrec(WARN_DIALOG, "close() error : %s (%s %d)",
-                 strerror(errno), __FILE__, __LINE__);
-   }
+   close_counter_file(counter_fd, &unique_number);
 
    if (fsa_detach(NO) < 0)
    {
@@ -541,7 +537,8 @@ resend_files(int no_selected, int *select_list)
 static int
 get_archive_data(int pos, int file_no)
 {
-   int  i;
+   int  i,
+        type_offset;
    char buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
         *ptr,
         *p_unique_string;
@@ -559,7 +556,26 @@ get_archive_data(int pos, int file_no)
       return(INCORRECT);
    }
 
-   ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
+   if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2] == ' ')
+   {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+      type_offset = 5;
+#else
+      if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4] == ' ')
+      {
+         type_offset = 5;
+      }
+      else
+      {
+         type_offset = 3;
+      }
+#endif
+   }
+   else
+   {
+      type_offset = 1;
+   }
+   ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2];
 
    /* Mark end of file name. */
    while (*ptr != SEPARATOR_CHAR)
@@ -569,7 +585,7 @@ get_archive_data(int pos, int file_no)
    *(ptr++) = '\0';
    if (*ptr != SEPARATOR_CHAR)
    {
-      /* Ignore  the remote file name */
+      /* Ignore the remote file name. */
       while (*ptr != SEPARATOR_CHAR)
       {
          ptr++;
@@ -590,6 +606,16 @@ get_archive_data(int pos, int file_no)
       ptr++;
    }
    ptr++;
+
+   /* Away with number of retries. */
+   if (type_offset > 1)
+   {
+      while (*ptr != SEPARATOR_CHAR)
+      {
+         ptr++;
+      }
+      ptr++;
+   }
 
    /* Away with the job ID. */
    while (*ptr != SEPARATOR_CHAR)
@@ -622,7 +648,7 @@ get_archive_data(int pos, int file_no)
    *(p_archive_name + i++) = '_';
 
    /* Copy the file name to the archive directory. */
-   (void)strcpy((p_archive_name + i), &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3]);
+   (void)strcpy((p_archive_name + i), &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2]);
    p_file_name = p_archive_name + i;
 
    return(SUCCESS);
@@ -634,14 +660,14 @@ get_archive_data(int pos, int file_no)
 /* Description: Sends a message via fifo to the FD.                      */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static int
-send_new_message(char           *p_msg_name,
-                 time_t         creation_time,
-                 unsigned short unique_number,
-                 unsigned int   split_job_counter,
-                 unsigned int   job_id,
-                 char           priority,
-                 int            files_to_send,
-                 off_t          file_size_to_send)
+send_new_message(char         *p_msg_name,
+                 time_t       creation_time,
+                 unsigned int unique_number,
+                 unsigned int split_job_counter,
+                 unsigned int job_id,
+                 char         priority,
+                 int          files_to_send,
+                 off_t        file_size_to_send)
 {
    unsigned short dir_no;
    int            fd,
@@ -665,7 +691,7 @@ send_new_message(char           *p_msg_name,
       return(INCORRECT);
    }
    dir_no = (unsigned short)strtoul(ptr + 1, NULL, 16);
-   /* Write data to FSA so it can be seen in 'afd_ctrl' */
+   /* Write data to FSA so it can be seen in 'afd_ctrl'. */
    write_fsa(YES, files_to_send, file_size_to_send);
 
    (void)strcpy(msg_fifo, p_work_dir);
@@ -708,19 +734,18 @@ send_new_message(char           *p_msg_name,
                         sizeof(unsigned int) +
                         sizeof(unsigned int)) = files_to_send;
 #endif
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                        sizeof(unsigned int) + sizeof(unsigned int) +
+                        sizeof(off_t)) = unique_number;
       *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                           sizeof(unsigned int) + sizeof(unsigned int) +
-                          sizeof(off_t)) = dir_no;
-      *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-                          sizeof(unsigned int) + sizeof(unsigned int) +
-                          sizeof(off_t) +
-                          sizeof(unsigned short)) = unique_number;
+                          sizeof(off_t) + sizeof(unsigned int)) = dir_no;
       *(char *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                 sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) +
-                sizeof(unsigned short) + sizeof(unsigned short)) = priority;
+                sizeof(unsigned int) + sizeof(unsigned short)) = priority;
       *(char *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                 sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) +
-                sizeof(unsigned short) + sizeof(unsigned short) +
+                sizeof(unsigned int) + sizeof(unsigned short) +
                 sizeof(char)) = SHOW_OLOG_NO;
 
       /* Send the message. */
@@ -963,14 +988,46 @@ write_fsa(int add, int files_to_send, off_t file_size_to_send)
 {
    if (files_to_send > 0)
    {
-      char real_hostname[MAX_HOSTNAME_LENGTH + 1],
-           truncated_hostname[MAX_HOSTNAME_LENGTH + 1];
+      unsigned int error_mask,
+                   scheme;
+      char         real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
+                   smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1],
+                   truncated_hostname[MAX_HOSTNAME_LENGTH + 1],
+                   user[MAX_USER_NAME_LENGTH + 1];
 
       get_info(GOT_JOB_ID);
-      if (get_hostname(id.recipient, real_hostname) == SUCCESS)
+      if ((error_mask = url_evaluate(id.recipient, &scheme, user, NULL, NULL,
+#ifdef WITH_SSH_FINGERPRINT
+                                     NULL, NULL,
+#endif
+                                     NULL, NO, real_hostname, NULL, NULL, NULL,
+                                     NULL, NULL, NULL, smtp_server)) == 0)
       {
          int position;
 
+         if (user[0] == '\0')
+         {
+            if (real_hostname[0] == MAIL_GROUP_IDENTIFIER)
+            {
+               position = 0;
+               while (real_hostname[position + 1] != '\0')
+               {
+                  real_hostname[position] = real_hostname[position + 1];
+                  position++;
+               }
+               real_hostname[position] = '\0';
+            }
+         }
+         if ((scheme & SMTP_FLAG) && (smtp_server[0] != '\0'))
+         {
+            position = 0;
+            while (smtp_server[position] != '\0')
+            {
+               real_hostname[position] = smtp_server[position];
+               position++;
+            }
+            real_hostname[position] = '\0';
+         }
          t_hostname(real_hostname, truncated_hostname);
          if ((position = get_host_position(fsa, truncated_hostname,
                                            no_of_hosts)) != INCORRECT)
@@ -1014,6 +1071,15 @@ write_fsa(int add, int files_to_send, off_t file_size_to_send)
           *       into the FSA.
           */
       }
+      else
+      {
+         char error_msg[MAX_URL_ERROR_MSG];
+
+         url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
+         (void)fprintf(stderr,
+                       "Unable to update FSA due to incorrect url `%s' : %s.\n",
+                       id.recipient, error_msg);
+      }
    }
 
    return;
@@ -1030,7 +1096,7 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 

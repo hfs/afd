@@ -1,7 +1,7 @@
 /*
  *  handle_error_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2007 Deutscher Wetterdienst (DWD),
- *                Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,14 +30,27 @@ DESCR__S_M3
  **   int  detach_error_queue(void)
  **   void add_to_error_queue(unsigned int               job_id,
  **                           struct filetransfer_status *fsa,
- **                           int                        error_id)
- **   int  check_error_queue(unsigned int job_id, int queue_threshold)
+ **                           int                        fsa_pos,
+ **                           int                        fsa_fd,
+ **                           int                        error_id,
+ **                           time_t                     next_retry_time)
+ **   int  check_error_queue(unsigned int job_id,
+ **                          int          queue_threshold,
+ **                          time_t       now,
+ **                          int          retry_interval)
+ **   int  host_check_error_queue(unsigned int host_id,
+ **                               time_t       now,
+ **                               int          retry_interval)
  **   int  remove_from_error_queue(unsigned int               job_id,
- **                                struct filetransfer_status *fsa)
+ **                                struct filetransfer_status *fsa,
+ **                                int                        fsa_pos,
+ **                                int                        fsa_fd)
+ **   int  update_time_error_queue(unsigned int job_id, time_t next_retry_time)
  **   void validate_error_queue(int                        no_of_current_jobs,
  **                             unsigned int               *cml,
  **                             int                        no_of_hosts,
- **                             struct filetransfer_status *fsa)
+ **                             struct filetransfer_status *fsa,
+ **                             int                        fsa_fd)
  **   int  print_error_queue(FILE *fp)
  **
  ** DESCRIPTION
@@ -50,6 +63,8 @@ DESCR__S_M3
  ** HISTORY
  **   06.11.2006 H.Kiehl Created
  **   04.09.2007 H.Kiehl Added function validate_error_queue().
+ **   24.06.2009 H.Kiehl Added next_retry_time to structure.
+ **   05.08.2009 H.Kiehl Added function host_check_error_queue().
  **
  */
 DESCR__E_M3
@@ -58,8 +73,9 @@ DESCR__E_M3
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>
+# include <sys/mman.h>
 #endif
 #include <errno.h>
 
@@ -67,13 +83,16 @@ DESCR__E_M3
 extern char               *p_work_dir;
 
 /* Local definitions. */
-#define ERROR_QUE_BUF_SIZE 2
+#define RETRY_IN_USE                1
+#define CURRENT_ERROR_QUEUE_VERSION 1
+#define ERROR_QUE_BUF_SIZE          2
 struct error_queue
        {
+          time_t       next_retry_time;
           unsigned int job_id;
           unsigned int no_to_be_queued; /* Number to be queued. */
           unsigned int host_id;
-          unsigned int special_flag; /* Not used. */
+          unsigned int special_flag;
        };
 
 /* Local variables. */
@@ -97,17 +116,31 @@ attach_error_queue(void)
 
       eq_size = (ERROR_QUE_BUF_SIZE * sizeof(struct error_queue)) + AFD_WORD_OFFSET;
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, ERROR_QUEUE_FILE);
-      if ((ptr = attach_buf(fullname, &eq_fd, eq_size, NULL,
+      if ((ptr = attach_buf(fullname, &eq_fd, &eq_size, NULL,
                             FILE_MODE, NO)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to mmap() `%s' : %s", fullname, strerror(errno));
+                    _("Failed to mmap() `%s' : %s"), fullname, strerror(errno));
          if (eq_fd != -1)
          {
             (void)close(eq_fd);
             eq_fd = -1;
          }
          return(INCORRECT);
+      }
+      if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_ERROR_QUEUE_VERSION)
+      {
+         if ((ptr = convert_error_queue(eq_fd, fullname, &eq_size, ptr,
+                                        *(ptr + SIZEOF_INT + 1 + 1 + 1),
+                                        CURRENT_ERROR_QUEUE_VERSION)) == NULL)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to convert error queue file %s!",
+                       fullname);
+            (void)detach_error_queue();
+
+            return(INCORRECT);
+         }
       }
       no_of_error_ids = (int *)ptr;
       ptr += AFD_WORD_OFFSET;
@@ -127,14 +160,14 @@ detach_error_queue(void)
       if (close(eq_fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
       eq_fd = -1;
    }
 
    if (eq != NULL)
    {
-      /* Detach from FSA */
+      /* Detach from FSA. */
 #ifdef HAVE_MMAP
       if (munmap(((char *)eq - AFD_WORD_OFFSET), eq_size) == -1)
 #else
@@ -142,7 +175,8 @@ detach_error_queue(void)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to munmap() from error queue : %s", strerror(errno));
+                    _("Failed to munmap() from error queue : %s"),
+                    strerror(errno));
          return(INCORRECT);
       }
       eq = NULL;
@@ -156,7 +190,10 @@ detach_error_queue(void)
 void
 add_to_error_queue(unsigned int               job_id,
                    struct filetransfer_status *fsa,
-                   int                        error_id)
+                   int                        fsa_pos,
+                   int                        fsa_fd,
+                   int                        error_id,
+                   time_t                     next_retry_time)
 {
    int detach,
        i;
@@ -187,16 +224,24 @@ add_to_error_queue(unsigned int               job_id,
    {
       if (eq[i].job_id == job_id)
       {
-         if ((fsa->host_status & ERROR_QUEUE_SET) == 0)
+         eq[i].next_retry_time = next_retry_time;
+         if ((fsa[fsa_pos].host_status & ERROR_QUEUE_SET) == 0)
          {
-            fsa->host_status |= ERROR_QUEUE_SET;
 #ifdef LOCK_DEBUG
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+            fsa[fsa_pos].host_status |= ERROR_QUEUE_SET;
+#ifdef LOCK_DEBUG
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
             unlock_region(eq_fd, 1, __FILE__, __LINE__);
 #else
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS));
             unlock_region(eq_fd, 1);
 #endif
             event_log(0L, EC_HOST, ET_EXT, EA_START_ERROR_QUEUE, "%s%c%x%c%x",
-                      fsa->host_alias, SEPARATOR_CHAR, job_id,
+                      fsa[fsa_pos].host_alias, SEPARATOR_CHAR, job_id,
                       SEPARATOR_CHAR, error_id);
          }
          else
@@ -216,19 +261,28 @@ add_to_error_queue(unsigned int               job_id,
       }
    }
    check_error_queue_space();
+   eq[*no_of_error_ids].next_retry_time = next_retry_time;
    eq[*no_of_error_ids].job_id = job_id;
    eq[*no_of_error_ids].no_to_be_queued = 0;
-   eq[*no_of_error_ids].host_id = fsa->host_id;
+   eq[*no_of_error_ids].host_id = fsa[fsa_pos].host_id;
    eq[*no_of_error_ids].special_flag = 0;
    (*no_of_error_ids)++;
-   fsa->host_status |= ERROR_QUEUE_SET;
 #ifdef LOCK_DEBUG
+   lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+   lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+   fsa[fsa_pos].host_status |= ERROR_QUEUE_SET;
+#ifdef LOCK_DEBUG
+   unlock_region(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
    unlock_region(eq_fd, 1, __FILE__, __LINE__);
 #else
+   unlock_region(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS));
    unlock_region(eq_fd, 1);
 #endif
    event_log(0L, EC_HOST, ET_EXT, EA_START_ERROR_QUEUE, "%s%c%x%c%x",
-             fsa->host_alias, SEPARATOR_CHAR, job_id, SEPARATOR_CHAR, error_id);
+             fsa[fsa_pos].host_alias, SEPARATOR_CHAR, job_id,
+             SEPARATOR_CHAR, error_id);
 
    if (detach == YES)
    {
@@ -247,11 +301,14 @@ add_to_error_queue(unsigned int               job_id,
 /*       ERROR_QUEUE_SET never gets unset!                               */
 /*#######################################################################*/
 int
-check_error_queue(unsigned int job_id, int queue_threshold)
+check_error_queue(unsigned int job_id,
+                  int          queue_threshold,
+                  time_t       now,
+                  int          retry_interval)
 {
    int detach,
        i,
-       ret = 0;
+       ret = NO;
 
    if (eq_fd == -1)
    {
@@ -281,7 +338,31 @@ check_error_queue(unsigned int job_id, int queue_threshold)
          if ((queue_threshold == -1) ||
              (eq[i].no_to_be_queued >= queue_threshold))
          {
-            ret = 1;
+            if (now == 0)
+            {
+               ret = YES;
+            }
+            else
+            {
+               if (now < eq[i].next_retry_time)
+               {
+                  ret = YES;
+               }
+               else
+               {
+                  if (eq[i].special_flag & RETRY_IN_USE)
+                  {
+                     if (now < (eq[i].next_retry_time + retry_interval))
+                     {
+                        ret = YES;
+                     }
+                  }
+                  else
+                  {
+                     eq[i].special_flag |= RETRY_IN_USE;
+                  }
+               }
+            }
          }
          else
          {
@@ -304,9 +385,82 @@ check_error_queue(unsigned int job_id, int queue_threshold)
 }
 
 
+/*###################### host_check_error_queue() #######################*/
+int
+host_check_error_queue(unsigned int host_id, time_t now, int retry_interval)
+{
+   int detach,
+       entries_found = 0,
+       i;
+
+   if (eq_fd == -1)
+   {
+      if (attach_error_queue() == SUCCESS)
+      {
+         detach = YES;
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   }
+   else
+   {
+      detach = NO;
+   }
+
+#ifdef LOCK_DEBUG
+   lock_region_w(eq_fd, 1, __FILE__, __LINE__);
+#else
+   lock_region_w(eq_fd, 1);
+#endif
+   for (i = 0; i < *no_of_error_ids; i++)
+   {
+      if (eq[i].host_id == host_id)
+      {
+         if ((eq[i].next_retry_time + (4 * retry_interval)) < now)
+         {
+            /* Lets remove this entry from the error queue. */
+            system_log(DEBUG_SIGN, NULL, 0,
+                       _("Hmm, removed possible stuck job %x from error queue."),
+                       eq[i].job_id);
+            if (i != (*no_of_error_ids - 1))
+            {
+               size_t move_size;
+
+               move_size = (*no_of_error_ids - 1 - i) * sizeof(struct error_queue);
+               (void)memmove(&eq[i], &eq[i + 1], move_size);
+            }
+            (*no_of_error_ids)--;
+            i--;
+         }
+         else
+         {
+            entries_found++;
+         }
+      }
+   }
+#ifdef LOCK_DEBUG
+   unlock_region(eq_fd, 1, __FILE__, __LINE__);
+#else
+   unlock_region(eq_fd, 1);
+#endif
+
+   if (detach == YES)
+   {
+      (void)detach_error_queue();
+   }
+
+   return(entries_found);
+}
+
+
 /*##################### remove_from_error_queue() #######################*/
 int
-remove_from_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
+remove_from_error_queue(unsigned int               job_id,
+                        struct filetransfer_status *fsa,
+                        int                        fsa_pos,
+                        int                        fsa_fd)
 {
    int detach,
        gotcha = NO,   /* Are there other ID's from the same host? */
@@ -360,14 +514,24 @@ remove_from_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
             }
             if ((gotcha == NO) && (fsa->host_status & ERROR_QUEUE_SET))
             {
+#ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+               lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
                fsa->host_status &= ~ERROR_QUEUE_SET;
+#ifdef LOCK_DEBUG
+               unlock_region(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+               unlock_region(fsa_fd, (AFD_WORD_OFFSET + (fsa_pos * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
                event_log(0L, EC_HOST, ET_EXT, EA_STOP_ERROR_QUEUE, "%s%c%x",
                          fsa->host_alias, SEPARATOR_CHAR, job_id);
             }
             else
             {
                system_log(DEBUG_SIGN, NULL, 0,
-                          "%s: Removed job %x from error queue.",
+                          _("%s: Removed job %x from error queue."),
                           fsa->host_dsp_name, job_id);
             }
          }
@@ -412,13 +576,14 @@ void
 validate_error_queue(int                        no_of_current_jobs,
                      unsigned int               *cml,
                      int                        no_of_hosts,
-                     struct filetransfer_status *fsa)
+                     struct filetransfer_status *fsa,
+                     int                        fsa_fd)
 {
-   int detach,
-       gotcha,
-       i,
-       j,
-       prev_host_id = -1;
+   int          detach,
+                gotcha,
+                i,
+                j;
+   unsigned int prev_host_id = 0;
 
    if (eq_fd == -1)
    {
@@ -461,7 +626,7 @@ validate_error_queue(int                        no_of_current_jobs,
           */
          if (prev_host_id != eq[i].host_id)
          {
-            prev_host_id = -1;
+            prev_host_id = 0;
             for (j = 0; j < no_of_hosts; j++)
             {
                if (fsa[j].host_id == eq[i].host_id)
@@ -471,17 +636,41 @@ validate_error_queue(int                        no_of_current_jobs,
                }
             }
          }
-         if (prev_host_id == -1)
+         if (prev_host_id == 0)
          {
             system_log(DEBUG_SIGN, NULL, 0,
-                       "%u: Removed job %x from error queue, since it was removed from DIR_CONFIG.",
+                       _("%u: Removed job %x from error queue, since it was removed from DIR_CONFIG."),
                        eq[i].host_id, eq[i].job_id);
          }
          else
          {
             system_log(DEBUG_SIGN, NULL, 0,
-                       "%s: Removed job %x from error queue, since it was removed from DIR_CONFIG.",
+                       _("%s: Removed job %x from error queue, since it was removed from DIR_CONFIG."),
                        fsa[j].host_dsp_name, eq[i].job_id);
+
+            /*
+             * This is a good time to reset the error counter. The queue
+             * could have stopped automatically, so this will enable the
+             * queue again.
+             */
+            if (fsa[j].error_counter > 0)
+            {
+               int lock_offset;
+
+               lock_offset = AFD_WORD_OFFSET +
+                             (j * sizeof(struct filetransfer_status));
+#ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
+#else
+               lock_region_w(fsa_fd, lock_offset + LOCK_EC);
+#endif
+               fsa[j].error_counter = 0;
+#ifdef LOCK_DEBUG
+               unlock_region(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
+#else
+               unlock_region(fsa_fd, lock_offset + LOCK_EC);
+#endif
+            }
          }
          if (i != (*no_of_error_ids - 1))
          {
@@ -489,8 +678,8 @@ validate_error_queue(int                        no_of_current_jobs,
 
             move_size = (*no_of_error_ids - 1 - i) * sizeof(struct error_queue);
             (void)memmove(&eq[i], &eq[i + 1], move_size);
-            i--;
          }
+         i--;
          (*no_of_error_ids)--;
       }
       else
@@ -507,7 +696,7 @@ validate_error_queue(int                        no_of_current_jobs,
                if ((fsa[j].host_status & ERROR_QUEUE_SET) == 0)
                {
                   system_log(DEBUG_SIGN, NULL, 0,
-                             "%s: Removed job %x from error queue, since the error queue is not set.",
+                             _("%s: Removed job %x from error queue, since the error queue flag is not set."),
                              fsa[j].host_dsp_name, eq[i].job_id);
                   if (i != (*no_of_error_ids - 1))
                   {
@@ -515,21 +704,37 @@ validate_error_queue(int                        no_of_current_jobs,
 
                      move_size = (*no_of_error_ids - 1 - i) * sizeof(struct error_queue);
                      (void)memmove(&eq[i], &eq[i + 1], move_size);
-                     i--;
                   }
+                  i--;
                   (*no_of_error_ids)--;
                }
             }
          }
       }
    }
+#ifdef LOCK_DEBUG
+   unlock_region(eq_fd, 1, __FILE__, __LINE__);
+#else
+   unlock_region(eq_fd, 1);
+#endif
+
    if (*no_of_error_ids == 0)
    {
       for (i = 0; i < no_of_hosts; i++)
       {
          if (fsa[i].host_status & ERROR_QUEUE_SET)
          {
-            fsa[i].host_status ^= ERROR_QUEUE_SET;
+#ifdef LOCK_DEBUG
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+            fsa[i].host_status &= ~ERROR_QUEUE_SET;
+#ifdef LOCK_DEBUG
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
             event_log(0L, EC_HOST, ET_AUTO, EA_STOP_ERROR_QUEUE,
                       "%s%cCorrecting since error queue is empty.",
                       fsa[i].host_alias, SEPARATOR_CHAR);
@@ -537,6 +742,54 @@ validate_error_queue(int                        no_of_current_jobs,
       }
    }
 
+   if (detach == YES)
+   {
+      (void)detach_error_queue();
+   }
+
+   return;
+}
+
+
+/*###################### update_time_error_queue() ######################*/
+int
+update_time_error_queue(unsigned int job_id, time_t next_retry_time)
+{
+   int detach,
+       i,
+       ret = NEITHER;
+
+   if (eq_fd == -1)
+   {
+      if (attach_error_queue() == SUCCESS)
+      {
+         detach = YES;
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   }
+   else
+   {
+      detach = NO;
+   }
+
+#ifdef LOCK_DEBUG
+   lock_region_w(eq_fd, 1, __FILE__, __LINE__);
+#else
+   lock_region_w(eq_fd, 1);
+#endif
+   for (i = 0; i < *no_of_error_ids; i++)
+   {
+      if (eq[i].job_id == job_id)
+      {
+         eq[i].next_retry_time = next_retry_time;
+         eq[i].special_flag &= ~RETRY_IN_USE;
+         ret = SUCCESS;
+         break;
+      }
+   }
 #ifdef LOCK_DEBUG
    unlock_region(eq_fd, 1, __FILE__, __LINE__);
 #else
@@ -547,8 +800,7 @@ validate_error_queue(int                        no_of_current_jobs,
    {
       (void)detach_error_queue();
    }
-
-   return;
+   return(ret);
 }
 
 
@@ -577,9 +829,9 @@ print_error_queue(FILE *fp)
 
    for (i = 0; i < *no_of_error_ids; i++)
    {
-      (void)fprintf(fp, "%x %u %x %u\n",
+      (void)fprintf(fp, "%x %u %x %u %s",
                     eq[i].job_id, eq[i].no_to_be_queued, eq[i].host_id,
-                    eq[i].special_flag);
+                    eq[i].special_flag, ctime(&eq[i].next_retry_time));
    }
 
    if (detach == YES)
@@ -607,7 +859,7 @@ check_error_queue_space(void)
       if ((ptr = mmap_resize(eq_fd, ptr, eq_size)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "mmap() error : %s", strerror(errno));
+                    _("mmap() error : %s"), strerror(errno));
          exit(INCORRECT);
       }
       no_of_error_ids = (int *)ptr;

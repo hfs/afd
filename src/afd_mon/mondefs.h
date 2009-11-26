@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,6 +51,18 @@
 #define OLD_ADL_FILE_NAME_ALL    "/afd_old_dir_list.*"
 #define TMP_ADL_FILE_NAME        "/afd_tmp_dir_list."
 #define TMP_ADL_FILE_NAME_ALL    "/afd_tmp_dir_list.*"
+#ifdef _INPUT_LOG
+# define MAX_ADL_FILES_DEF       MAX_INPUT_LOG_FILES_DEF
+# define MAX_ADL_FILES           MAX_INPUT_LOG_FILES
+#else
+# ifdef _DISTRIBUTION_LOG
+#  define MAX_ADL_FILES_DEF      MAX_DISTRIBUTION_LOG_FILES_DEF
+#  define MAX_ADL_FILES          MAX_DISTRIBUTION_LOG_FILES
+# else
+#  define MAX_ADL_FILES_DEF      "MAX_AFD_DIR_LIST_FILES"
+#  define MAX_ADL_FILES          7
+# endif
+#endif
 #define AHL_FILE_NAME            "/afd_host_list."
 #define AHL_FILE_NAME_ALL        "/afd_host_list.*"
 #define AJL_FILE_NAME            "/afd_job_list."
@@ -59,6 +71,13 @@
 #define OLD_AJL_FILE_NAME_ALL    "/afd_old_job_list.*"
 #define TMP_AJL_FILE_NAME        "/afd_tmp_job_list."
 #define TMP_AJL_FILE_NAME_ALL    "/afd_tmp_job_list.*"
+#ifdef _OUTPUT_LOG
+# define MAX_AJL_FILES_DEF       MAX_OUTPUT_LOG_FILES_DEF
+# define MAX_AJL_FILES           MAX_OUTPUT_LOG_FILES
+#else
+# define MAX_AJL_FILES_DEF       "MAX_AFD_JOB_LIST_FILES"
+# define MAX_AJL_FILES           7
+#endif
 #define MON_CMD_FIFO             "/afd_mon_cmd.fifo"
 #define MON_RESP_FIFO            "/afd_mon_resp.fifo"
 #define MON_PROBE_ONLY_FIFO      "/afd_mon_probe_only.fifo"
@@ -115,7 +134,7 @@
 #define MINUS_Y_FLAG             2
 #define DONT_USE_FULL_PATH_FLAG  4
 #define ENABLE_SSL_ENCRYPTION    8 /* Still to be implemented. */
-/* NOTE: afddefs.h defines bits 5 - 15 . */
+/* NOTE: afddefs.h defines bits 5 - 16 . */
 
 /* Different toggling status for switching AFD's. */
 #define NO_SWITCHING             0
@@ -185,7 +204,10 @@ struct mon_list
                                                  /*+------+-------------+*/
                                                  /*|Bit(s)|   Meaning   |*/
                                                  /*+------+-------------+*/
-                                                 /*| 15-32| Not used.   |*/
+                                                 /*| 17-32| Not used.   |*/
+                                                 /*| 16   | Distribution|*/
+                                                 /*|      | Log.        |*/
+                                                 /*| 15   | Event Log   |*/
                                                  /*| 14   | Compression1|*/
                                                  /*| 13   | Job data    |*/
                                                  /*| 12   | Delete Log  |*/
@@ -244,7 +266,7 @@ struct afd_mon_status
  *    -------+---------------+---------------------------------------
  *     9 - 16|               | Not used.
  *-----------------------------------------------------------------------*/
-#define CURRENT_MSA_VERSION           1
+#define CURRENT_MSA_VERSION           2
 struct mon_status_area
        {
           char          r_work_dir[MAX_PATH_LENGTH];
@@ -281,6 +303,9 @@ struct mon_status_area
           int           jobs_in_queue;           /* The number of jobs   */
                                                  /* still to be done     */
                                                  /* by the FD.           */
+          long          danger_no_of_jobs;       /* The number of jobs   */
+                                                 /* when this field      */
+                                                 /* should become orange.*/
           int           no_of_transfers;         /* The number of        */
                                                  /* active transfers.    */
           int           top_no_of_transfers[STORAGE_TIME];
@@ -316,7 +341,10 @@ struct mon_status_area
                                                  /*+------+-------------+*/
                                                  /*|Bit(s)|   Meaning   |*/
                                                  /*+------+-------------+*/
-                                                 /*| 15-32| Not used.   |*/
+                                                 /*| 17-32| Not used.   |*/
+                                                 /*| 16   | Distribution|*/
+                                                 /*|      | Log.        |*/
+                                                 /*| 15   | Event Log   |*/
                                                  /*| 14   | Compression1|*/
                                                  /*| 13   | Job data    |*/
                                                  /*| 12   | Delete Log  |*/

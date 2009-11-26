@@ -54,7 +54,7 @@ DESCR__E_M3
 #include <Xm/Label.h>
 #include "motif_common_defs.h"
 
-/* Local global variables */
+/* Local global variables. */
 static char   status_message[MAX_MESSAGE_LENGTH];
 
 

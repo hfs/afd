@@ -1,6 +1,6 @@
 /*
  *  check_logs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -130,7 +130,7 @@ check_logs(time_t now)
                if ((fd = open(log_dir, O_RDONLY)) == -1)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() `%s' : %s",
+                             _("Failed to open() `%s' : %s"),
                              log_dir, strerror(errno));
                }
                else
@@ -138,7 +138,7 @@ check_logs(time_t now)
                   if (fstat(fd, &stat_buf) == -1)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "Failed to fstat() `%s' : %s",
+                                _("Failed to fstat() `%s' : %s"),
                                 log_dir, strerror(errno));
                      (void)close(fd);
                   }
@@ -158,9 +158,9 @@ check_logs(time_t now)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
-                                   "Failed to lseek() %ld bytes in `%s' : %s",
+                                   _("Failed to lseek() %ld bytes in `%s' : %s"),
 #else
-                                   "Failed to lseek() %lld bytes in `%s' : %s",
+                                   _("Failed to lseek() %lld bytes in `%s' : %s"),
 #endif
                                    (pri_off_t)seek_offset, log_dir,
                                    strerror(errno));
@@ -171,7 +171,7 @@ check_logs(time_t now)
                         if ((ld[i].fp = fdopen(fd, "r")) == NULL)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to fdopen() `%s' : %s",
+                                      _("Failed to fdopen() `%s' : %s"),
                                       log_dir, strerror(errno));
                            (void)close(fd);
                         }
@@ -240,13 +240,13 @@ check_logs(time_t now)
                         if (fclose(ld[i].fp) == EOF)
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Failed to fclose() log file : %s",
+                                      _("Failed to fclose() log file : %s"),
                                       strerror(errno));
                         }
                         if ((ld[i].fp = fopen(log_dir, "r")) == NULL)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to fopen() `%s' : %s",
+                                      _("Failed to fopen() `%s' : %s"),
                                       log_dir, strerror(errno));
                         }
                         else
@@ -283,7 +283,7 @@ check_logs(time_t now)
                   if (fclose(ld[i].fp) == EOF)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Failed to fclose() log file : %s",
+                                _("Failed to fclose() log file : %s"),
                                 strerror(errno));
                   }
                   ld[i].fp = NULL;
@@ -297,12 +297,12 @@ check_logs(time_t now)
                         if (fstat(fileno(ld[i].fp), &stat_buf) == -1)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to fstat() `%s' : %s",
+                                      _("Failed to fstat() `%s' : %s"),
                                       log_dir, strerror(errno));
                            if (fclose(ld[i].fp) == EOF)
                            {
                               system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Failed to fclose() log file : %s",
+                                         _("Failed to fclose() log file : %s"),
                                          strerror(errno));
                            }
                            ld[i].fp = NULL;
@@ -414,7 +414,7 @@ get_log_inode(char  *log_dir,
       if ((dp = opendir(log_dir)) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to opendir() `%s' : %s", log_dir, strerror(errno));
+                    _("Failed to opendir() `%s' : %s"), log_dir, strerror(errno));
          return(INCORRECT);
       }
       else
@@ -435,7 +435,7 @@ get_log_inode(char  *log_dir,
                      if (errno != ENOENT)
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Can't access file <%s> : %s",
+                                   _("Can't access file `%s' : %s"),
                                    log_dir, strerror(errno));
                      }
                   }
@@ -469,7 +469,7 @@ get_log_inode(char  *log_dir,
                            if (*current_log_no == -1)
                            {
                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                         "Hmm, unable to determine the log number for `%s'.",
+                                         _("Hmm, unable to determine the log number for `%s'."),
                                          p_dir->d_name);
 
                               /* Since we could NOT open the orginal  */
@@ -490,13 +490,13 @@ get_log_inode(char  *log_dir,
          if (errno)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "readdir() error : %s", strerror(errno));
+                       _("readdir() error : %s"), strerror(errno));
          }
 
          if (closedir(dp) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "closedir() error : %s", strerror(errno));
+                       _("closedir() error : %s"), strerror(errno));
          }
       }
    }
@@ -523,7 +523,7 @@ get_log_inode(char  *log_dir,
             if ((fp = fopen(log_dir, "a")) == NULL)
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
-                          "Failed to fopen() `%s' : %s",
+                          _("Failed to fopen() `%s' : %s"),
                           log_dir, strerror(errno));
                return(INCORRECT);
             }
@@ -532,7 +532,7 @@ get_log_inode(char  *log_dir,
                if (fstat(fileno(fp), &stat_buf) < 0)
                {
                   system_log(FATAL_SIGN, __FILE__, __LINE__,
-                             "Failed to fstat() `%s' : %s",
+                             _("Failed to fstat() `%s' : %s"),
                              log_dir, strerror(errno));
                   (void)fclose(fp);
                   return(INCORRECT);
@@ -545,7 +545,7 @@ get_log_inode(char  *log_dir,
                if (fclose(fp) == EOF)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to fclose() `%s' : %s",
+                             _("Failed to fclose() `%s' : %s"),
                              log_dir, strerror(errno));
                }
             }
@@ -553,7 +553,8 @@ get_log_inode(char  *log_dir,
          else
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() `%s' : %s", log_dir, strerror(errno));
+                       _("Failed to stat() `%s' : %s"),
+                       log_dir, strerror(errno));
             return(INCORRECT);
          }
       }
@@ -615,16 +616,16 @@ log_write(char *block, int size)
    {
       /* Timeout has arrived. */
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "log_write(): Log data connection timeout (%ld).",
+                 _("log_write(): Log data connection timeout (%ld)."),
                  AFDD_CMD_TIMEOUT);
       return(INCORRECT);
    }
    else if (FD_ISSET(cmd_sd, &wset))
         {
-           if ((status = write(cmd_sd, block, size)) != size)
+           if ((status = writen(cmd_sd, block, size, 0)) != size)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "log_write(): Failed to write() %d Bytes (%d) : %s",
+                         _("log_write(): Failed to writen() %d bytes (%d) : %s"),
                          size, status, strerror(errno));
               return(INCORRECT);
            }
@@ -632,7 +633,7 @@ log_write(char *block, int size)
         else
         {
            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "log_write(): select() error : %s", strerror(errno));
+                      _("log_write(): select() error : %s"), strerror(errno));
            return(INCORRECT);
         }
 

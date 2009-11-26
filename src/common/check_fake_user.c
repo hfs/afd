@@ -1,6 +1,6 @@
 /*
  *  check_fake_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ check_fake_user(int *argc, char *argv[], char *config_file, char *fake_user)
             if (MAX_FULL_USER_ID_LENGTH < strlen(argv[i + 1]))
             {
                (void)fprintf(stderr,
-                             "Buffer for storing fake user to short. (%s %d\n",
+                             _("Buffer for storing fake user to short. (%s %d)\n"),
                              __FILE__, __LINE__);
                fake_user[0] = '\0';
                return;
@@ -140,7 +140,7 @@ check_fake_user(int *argc, char *argv[], char *config_file, char *fake_user)
          (void)sprintf(full_config_name, "%s%s%s",
                        p_work_dir, ETC_DIR, config_file);
          if ((eaccess(full_config_name, F_OK) == 0) &&
-             (read_file(full_config_name, &buffer) != INCORRECT))
+             (read_file_no_cr(full_config_name, &buffer) != INCORRECT))
          {
             char fake_user_list[MAX_PATH_LENGTH];
 
@@ -172,7 +172,7 @@ check_fake_user(int *argc, char *argv[], char *config_file, char *fake_user)
                   real_user[length + 2] = '\0';
 
                   ptr = fake_user_list;
-                  while ((ptr = posi(ptr, real_user)) != NULL)
+                  while ((ptr = lposi(ptr, real_user, length + 2)) != NULL)
                   {
                      ptr--;
                      tmp_ptr = ptr;

@@ -1,6 +1,6 @@
 /*
  *  dir_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -212,6 +212,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -223,6 +224,11 @@ main(int argc, char *argv[])
    }
 
    display = XtDisplay(appshell);
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
@@ -319,7 +325,7 @@ main(int argc, char *argv[])
                  prev.real_dir_name);
    XmTextSetString(dirname_text_w, str_line);
 
-   /* Create the horizontal separator */
+   /* Create the horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
    argcount++;
@@ -657,7 +663,7 @@ main(int argc, char *argv[])
    XmTextSetString(text_wr[MAX_COPIED_FILES_POS], str_line);
    (void)sprintf(str_line, "%*u", DIR_INFO_LENGTH_R, prev.files_received);
    XmTextSetString(text_wr[FILES_RECEIVED_POS], str_line);
-   if (prev.time_option == YES)
+   if (prev.no_of_time_entries > 0)
    {
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                      localtime(&prev.next_check_time));
@@ -681,6 +687,14 @@ main(int argc, char *argv[])
       {
          length += sprintf(&dupcheck_label_str[length], "Filename");
       }
+      else if (prev.dup_check_flag & DC_FILENAME_AND_SIZE)
+           {
+              length += sprintf(&dupcheck_label_str[length], "Filename + size");
+           }
+      else if (prev.dup_check_flag & DC_NAME_NO_SUFFIX)
+           {
+              length += sprintf(&dupcheck_label_str[length], "Filename no suffix");
+           }
       else if (prev.dup_check_flag & DC_FILE_CONTENT)
            {
               length += sprintf(&dupcheck_label_str[length], "File content");
@@ -803,7 +817,7 @@ main(int argc, char *argv[])
    XtRealizeWidget(appshell);
    wait_visible(appshell);
 
-   /* Call update_info() after UPDATE_INTERVAL ms */
+   /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_dir = XtAppAddTimeOut(app, UPDATE_INTERVAL,
                                       (XtTimerCallbackProc)update_info,
                                       form_w);
@@ -888,7 +902,7 @@ init_dir_info(int *argc, char *argv[])
          exit(INCORRECT);
 
       case SUCCESS : /* Lets evaluate the permissions and see what */
-                      /* the user may do.                           */
+                     /* the user may do.                           */
          if ((perm_buffer[0] == 'a') && (perm_buffer[1] == 'l') &&
              (perm_buffer[2] == 'l') && ((perm_buffer[3] == '\0') ||
              (perm_buffer[3] == ' ') || (perm_buffer[3] == '\t')))
@@ -935,10 +949,18 @@ init_dir_info(int *argc, char *argv[])
    }
 
    /* Attach to the FRA. */
-   if (fra_attach_passive() < 0)
+   if ((i = fra_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "Failed to attach to FRA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "This program is not able to attach to the FRA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "Failed to attach to FRA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
    for (i = 0; i < no_of_dirs; i++)
@@ -1033,7 +1055,7 @@ init_dir_info(int *argc, char *argv[])
    prev.queued_file_time     = fra[fra_pos].queued_file_time;
    prev.locked_file_time     = fra[fra_pos].locked_file_time;
    prev.end_character        = fra[fra_pos].end_character;
-   prev.time_option          = fra[fra_pos].time_option;
+   prev.no_of_time_entries   = fra[fra_pos].no_of_time_entries;
    prev.delete_files_flag    = fra[fra_pos].delete_files_flag;
    prev.stupid_mode          = fra[fra_pos].stupid_mode;
    prev.remove               = fra[fra_pos].remove;

@@ -1,6 +1,6 @@
 /*
  *  wmo2ascii.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
    if ((from_fd = open(from, O_RDONLY)) == -1)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "wmo2ascii(): Failed to open() %s : %s",
+                  _("wmo2ascii(): Failed to open() `%s' : %s"),
                   from, strerror(errno));
    }
    else
@@ -91,7 +91,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
       if (fstat(from_fd, &stat_buf) == -1)
       {
          receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                     "wmo2ascii(): Failed to stat() : %s",
+                     _("wmo2ascii(): Failed to stat() `%s' : %s"),
                      from, strerror(errno));
       }
       else
@@ -106,7 +106,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                               stat_buf.st_mode)) == -1)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "wmo2ascii(): Failed to open() %s : %s",
+                           _("wmo2ascii(): Failed to open() `%s' : %s"),
                            to, strerror(errno));
             }
             else
@@ -118,7 +118,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                    ((write_buffer = malloc(stat_buf.st_blksize + 1)) == NULL))
                {
                   receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              "wmo2ascii(): malloc() error : %s",
+                              _("wmo2ascii(): malloc() error : %s"),
                               strerror(errno));
                }
                else
@@ -129,7 +129,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                                              stat_buf.st_blksize)) == -1)
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "wmo2ascii(): Failed to read() %s : %s",
+                                 _("wmo2ascii(): Failed to read() `%s' : %s"),
                                  from, strerror(errno));
                   }
                   else
@@ -186,10 +186,11 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                      }
 
                      length = write_ptr - write_buffer;
-                     if (write(to_fd, write_buffer, length) != length)
+                     if (writen(to_fd, write_buffer, length,
+                                stat_buf.st_blksize) != length)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "wmo2ascii(): Failed to write() %s : %s",
+                                    _("wmo2ascii(): Failed to writen() `%s' : %s"),
                                     to, strerror(errno));
                      }
                      else
@@ -201,7 +202,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                                                       stat_buf.st_blksize)) == -1)
                            {
                               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                          "wmo2ascii(): Failed to read() %s : %s",
+                                          _("wmo2ascii(): Failed to read() `%s' : %s"),
                                           from, strerror(errno));
                               (void)close(from_fd);
                               (void)close(to_fd);
@@ -225,10 +226,11 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                               read_ptr++;
                            }
                            length = write_ptr - write_buffer;
-                           if (write(to_fd, write_buffer, length) != length)
+                           if (writen(to_fd, write_buffer, length,
+                                      stat_buf.st_blksize) != length)
                            {
                               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                          "wmo2ascii(): Failed to write() %s : %s",
+                                          _("wmo2ascii(): Failed to writen() `%s' : %s"),
                                           to, strerror(errno));
                               (void)close(from_fd);
                               (void)close(to_fd);
@@ -242,13 +244,13 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                         if (unlink(from) == -1)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "wmo2ascii(): Failed to unlink() %s : %s",
+                                       _("wmo2ascii(): Failed to unlink() `%s' : %s"),
                                        from, strerror(errno));
                         }
                         if (rename(to, from) == -1)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "wmo2ascii(): Failed to rename() %s to %s : %s",
+                                       _("wmo2ascii(): Failed to rename() `%s' to `%s' : %s"),
                                        to, from, strerror(errno));
                         }
                         else
@@ -264,7 +266,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                if (close(to_fd) == -1)
                {
                   receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "wmo2ascii(): Failed to close() %s : %s",
+                              _("wmo2ascii(): Failed to close() `%s' : %s"),
                               to, strerror(errno));
                }
             }
@@ -273,7 +275,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
       if (close(from_fd) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "wmo2ascii(): Failed to close() %s : %s",
+                     _("wmo2ascii(): Failed to close() `%s' : %s"),
                      from, strerror(errno));
       }
    }

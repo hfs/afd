@@ -25,6 +25,8 @@ any parameters it will show all commands it knows:
                   -Q      stop queue
                   -t      start transfer
                   -T      stop transfer
+                  -g      enable delete data for host
+                  -G      disable delete data for host
                   -e      enable host
                   -E      disable host
                   -s      switch host
@@ -36,6 +38,8 @@ any parameters it will show all commands it knows:
        FRA options:
                   -b      enable directory
                   -B      disable directory
+                  -j      start directory
+                  -J      stop directory
                   -R      rescan directory
                   -W      toggle enable/disable directory
    General options:
@@ -60,7 +64,7 @@ or position.
 <p>
 The program afdcfg allows you to enable/disable archiving and/or
 retrieving of files from remote hosts. The disabling of archiving
-can be usfull when you notice that your disk space gets to low or
+can be useful when you notice that your disk space gets to low or
 you want to reduce the load on the node. The other option to enable/
 disable retrieving of files is good when you have two nodes with
 identical configured AFD's and one node is configured as hot standby.
@@ -70,15 +74,18 @@ annoying. The syntax of afdcfg is as follows:
 </p>
 <pre>
    SYNTAX  : afdcfg [-w working directory] options
-                                           -a      enable archive
-                                           -A      disable archive
-                                           -c      enable create target dir
-                                           -C      disable create target dir
-                                           -d      enable dir warn time
-                                           -D      disable dir warn time
-                                           -r      enable retrieving of files
-                                           -R      disable retrieving of files
-                                           -s      status of the above flags
+             -a      enable archive
+             -A      disable archive
+             -c      enable create target dir
+             -C      disable create target dir
+             -d      enable dir warn time
+             -du     enable + update directory warn time
+             -D      disable dir warn time
+             -h      enable host warn time
+             -H      disable host warn time
+             -r      enable retrieving of files
+             -R      disable retrieving of files
+             -s      status of the above flags
 </pre>
 <h3 align=center><a name="fsa_view"><u>View FSA (fsa_view)</u></a></h3>
 <p>
@@ -87,7 +94,7 @@ program called fsa_view. An example output might look as follows:
 </p>
 <pre>
 afd@r2d2:~$ fsa_view fiau_
-    Number of hosts: 34   FSA ID: 1  Struct Version: 2  Pagesize: 4096
+    Number of hosts: 34   FSA ID: 1  Struct Version: 3  Pagesize: 4096
 
 =============================&gt; fiau_ &lt;=============================
 Host alias CRC       : e831dc61
@@ -126,6 +133,9 @@ TTL                  : 0
 Time of last retry   : Sat Apr  8 23:36:41 2006
 Last connection      : Sat Apr  8 23:36:41 2006
 First error time     : Not set.
+Start event handle   : Not set.
+End event handle     : Not set.
+Warn time            : Not set.
 Total file counter   : 0
 Total file size      : 0
 File counter done    : 104
@@ -194,7 +204,7 @@ follows:
 </p>
 <pre>
 afd@r2d2:~$ fra_view 3
-     Number of directories: 42   FRA ID: 32  Struct Version: 4
+     Number of directories: 42   FRA ID: 32  Struct Version: 5
 
 ============================&gt; testmaus (4) &lt;============================
 Directory alias      : testmaus
@@ -236,25 +246,30 @@ Delete input files   : NO
 Report unknown files : YES
 Important directory  : NO
 End character        : NONE
-Time option          : YES
+Time option          : 1
 Next check time      : Sun Jun 19 11:32:00 2005
-Minute (uchar[8])    : 01000000 00001000 00100001 10000100 00010000 01000010 00001000 00100001
-Continues (uchar[8]) : 01000000 00001000 00100001 10000100 00010000 01000010 00001000 00100001
+Minute (long long)   : 01000000 00001000 00100001 10000100 00010000 01000010 00001000 00100001
+Continues (long long): 01000000 00001000 00100001 10000100 00010000 01000010 00001000 00100001
 Hour (uint)          : 00000000 11111111 11111111 11111111
 Day of month (uint)  : 01111111 11111111 11111111 11111111
 Month (short)        : 00001111 11111111
 Day of week (uchar)  : 01111111
-Minute (uchar[8])    : 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-Continues (uchar[8]) : 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Minute (long long)   : 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Continues (long long): 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
 Hour (uint)          : 00000000 00000000 00000000 00000000
 Day of month (uint)  : 00000000 00000000 00000000 00000000
 Month (short)        : 00000000 00000000
 Day of week (uchar)  : 00000000
 Last retrieval       : Sun Jun 19 10:39:10 2005
 </pre>
+<p>
+This program can take two parameters -s and -d. -s will only print out the
+dir_alias and if the directory has been stopped or not. -d has the same
+meaning for disabled directories.
+</p>
 <h3 align=center><a name="afd_status"><u>AFD Status (afd_status)</u></a></h3>
 <p>
-The program afd_status prints the current status of the AFD that is diaplayed
+The program afd_status prints the current status of the AFD that is displayed
 at the bottom row of the afd_ctrl dialog.
 </p>
 <pre>
@@ -407,7 +422,7 @@ When there is a change in the HOST_CONFIG and you do not want to use the
 just use uhc.
 </p>
 <p>
-Both udc and uhc return 0 when the update was performed succesfully. On
+Both udc and uhc return 0 when the update was performed successfully. On
 error either 3 or -1 is returned. If it returns 2 the update was done but
 there are warnings, meaning that you have to check the SYSTEM_LOG for
 possible errors in DIR_CONFIG or HOST_CONFIG.
@@ -442,7 +457,7 @@ the DIR_CONFIG if you lost it or it is damaged and AFD is still active.
 (show_exec_stat)</u></a></h3>
 <p>
 If called will cause dir_check to print out some exec statistics about
-CPU usage in SYSTEM_LOG. This is very usfull to find the jobs that cause
+CPU usage in SYSTEM_LOG. This is very useful to find the jobs that cause
 most of the load. Below is an example output:
 </p>
 <pre>
@@ -470,6 +485,53 @@ with this program. The syntax is as follows:
 <pre>
    Usage: set_pw [-w &lt;AFD work dir&gt;] [--version] [-s] -i &lt;job id&gt;|-c &lt;user@hostname&gt;
 </pre>
+<p>
+All passwords are stored at one location within AFD regardless if you
+have the password in DIR_CONFIG or you use set_pw. If you have the password
+in DIR_CONFIG and you set it with set_pw, always the last set password will
+be used by AFD. In the case of DIR_CONFIG the password will ALWAYS be set
+when you do a reread DIR_CONFIG. Also note that when you have in DIR_CONFIG
+multiple entries of the same username and hostalias and you remove all the
+passwords except for one. AFD will still always take the password from
+DIR_CONFIG each time you reread DIR_CONFIG. The identifier for a password
+within AFD is always the username and hostalias ie.  username@hostalias. And
+this will be stored only once.
+</p>
+<p>
+To explain it better, lets use an example. Say in DIR_CONFIG you have the
+following recipient:
+</p>
+<pre>
+     ftp://donald:secret@hollywood//home/user
+</pre>
+<p>
+If you reread DIR_CONFIG then AFD will have in its password database a entry
+donald@hollywood with its password. If you now set the password with set_pw
+(set_pw -c donald@hollywood) to secret2, AFD will from this time onwards always
+use secret2 for donald@hollywood. If you now reread DIR_CONFIG it will
+now use secret as password, ie. it will overwrite the password from set_pw.
+</p>
+<p>
+So if you always have put all passwords in DIR_CONFIG you can remove all
+passwords from it and everything should work as expected. To remove the
+password use the following syntax:
+</p>
+<pre>
+     ftp://donald@hollywood//home/user
+</pre>
+<p>
+Do <b>NOT</b> use this syntax:
+<pre>
+     ftp://donald:secret@hollywood//home/user
+</pre>
+<p>
+The above will always remove any password when rereading DIR_CONFIG.
+</p>
+<p>
+You can also set the password by putting it once in DIR_CONFIG, reread
+the DIR_CONFIG, remove the password from DIR_CONFIG and then reread DIR_CONFIG
+again. The password is now always set within AFD.
+</p>
 <h3 align=center><a name="mafdcmd"><u>AFD monitor commands (mafdcmd)</u></a></h3>
 <p>
 With this program you can send many commands that you can also
@@ -511,7 +573,7 @@ user interaction, so it can be used from any shell scripts or programs such as
      -b &lt;block size&gt;                    - FTP block size in bytes. Default 4096
                                           Bytes.
      -c &lt;config file&gt;                   - Configuration file holding user name,
-                                          password und target directory in URL
+                                          password and target directory in URL
                                           format.
      -C                                 - If target directory does not exist create
                                           it.
@@ -525,6 +587,8 @@ user interaction, so it can be used from any shell scripts or programs such as
      -l &lt;DOT | DOT_VMS | OFF | xyz.&gt;    - How to lock the file on the remote site.
      -m &lt;A | I | D&gt;                     - FTP transfer mode, ASCII, binary or DOS.
                                           Default is binary.
+     -o &lt;mode&gt;                          - Changes the permission of each file
+                                                distributed.
      -p &lt;port number&gt;                   - Remote port number of FTP-server.
      -P &lt;proxy procedure&gt;               - Use the given proxy procedure to
                                           login. See documentation for more
@@ -554,7 +618,7 @@ user interaction, so it can be used from any shell scripts or programs such as
           4 - Failed to set ascii/binary mode.
           5 - Failed to send NLST command.
          10 - Failed to open remote file.
-         11 - Error when writting into remote file.
+         11 - Error when writing into remote file.
          12 - Failed to close remote file.
          13 - Failed to rename remote file.
          14 - Remote directory could not be set.
@@ -609,7 +673,7 @@ user interaction, so it can be used from any shell scripts or programs such as
           4 - Failed to set ascii/binary mode.
           5 - Failed to send NLST command.
          10 - Failed to open remote file.
-         11 - Error when writting into remote file.
+         11 - Error when writing into remote file.
          12 - Failed to close remote file.
          13 - Failed to rename remote file.
          14 - Remote directory could not be set.
@@ -627,9 +691,9 @@ user interaction, so it can be used from any shell scripts or programs such as
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 2001 - 2007 by H.Kiehl<br>
+   Copyright &copy; 2001 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 12.11.2007
+   Last updated: 15.10.2009
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

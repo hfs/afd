@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include "afdddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        no_of_hosts;
 extern unsigned char              **old_error_history;
 extern struct filetransfer_status *fsa;

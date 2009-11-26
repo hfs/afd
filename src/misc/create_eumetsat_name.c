@@ -1,7 +1,7 @@
 /*
  *  create_eumetsat_name.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1999 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -84,18 +84,19 @@ main(int argc, char *argv[])
 
    if ((argc != 2) && (argc != 3))
    {
-      (void)fprintf(stderr, "Usage: %s <file name> [<rename rule>]\n", argv[0]);
+      (void)fprintf(stderr,
+                    _("Usage: %s <file name> [<rename rule>]\n"), argv[0]);
       exit(1);
    }
    if (strlen(argv[1]) < 19)
    {
-      (void)fprintf(stderr, "Filename to short.\n");
+      (void)fprintf(stderr, _("Filename to short.\n"));
       exit(1);
    }
 
    if (stat(argv[1], &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to stat() %s : %s\n",
+      (void)fprintf(stderr, _("Failed to stat() `%s' : %s\n"),
                     argv[1], strerror(errno));
       exit(1);
    }
@@ -296,14 +297,14 @@ main(int argc, char *argv[])
       /* Open source file */
       if ((from_fd = open(argv[1], O_RDONLY)) == -1)
       {
-         (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                        argv[1], strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
       if (fstat(from_fd, &stat_buf) == -1)
       {
-         (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                        argv[1], strerror(errno), __FILE__, __LINE__);
          (void)close(from_fd);
          exit(INCORRECT);
@@ -318,7 +319,7 @@ main(int argc, char *argv[])
 
       if ((buffer = malloc(hunk)) == NULL)
       {
-         (void)fprintf(stderr, "Failed to allocate memory : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to allocate memory : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
          (void)close(from_fd);
          exit(INCORRECT);
@@ -329,7 +330,7 @@ main(int argc, char *argv[])
                         O_WRONLY | O_CREAT | O_TRUNC,
                         S_IRUSR|S_IWUSR)) == -1)
       {
-         (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                        newname, strerror(errno), __FILE__, __LINE__);
          free(buffer);
          (void)close(from_fd);
@@ -337,7 +338,7 @@ main(int argc, char *argv[])
       }
       if (write(to_fd, wmo_header, (WMO_HEADER_OFFSET + 21)) != (WMO_HEADER_OFFSET + 21))
       {
-         (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to write() `%s' : %s (%s %d)\n"),
                        newname, strerror(errno), __FILE__, __LINE__);
          free(buffer);
          (void)close(from_fd);
@@ -350,7 +351,7 @@ main(int argc, char *argv[])
          /* Try read file in one hunk */
          if (read(from_fd, buffer, hunk) != hunk)
          {
-            (void)fprintf(stderr, "Failed to read() %s : %s (%s %d)\n",
+            (void)fprintf(stderr, _("Failed to read() `%s' : %s (%s %d)\n"),
                           argv[1], strerror(errno), __FILE__, __LINE__);
             free(buffer);
             (void)close(from_fd);
@@ -361,7 +362,7 @@ main(int argc, char *argv[])
          /* Try write file in one hunk */
          if (write(to_fd, buffer, hunk) != hunk)
          {
-            (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
+            (void)fprintf(stderr, _("Failed to write() `%s' : %s (%s %d)\n"),
                           newname, strerror(errno), __FILE__, __LINE__);
             free(buffer);
             (void)close(from_fd);
@@ -377,7 +378,7 @@ main(int argc, char *argv[])
       free(buffer);
       if (close(from_fd) == -1)
       {
-         (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                        argv[1], strerror(errno), __FILE__, __LINE__);
       }
       wmo_header[0] = '\015'; /* CR */
@@ -386,7 +387,7 @@ main(int argc, char *argv[])
       wmo_header[3] = 3;
       if (write(to_fd, wmo_header, 4) != 4)
       {
-         (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to write() `%s' : %s (%s %d)\n"),
                        newname, strerror(errno), __FILE__, __LINE__);
          free(buffer);
          (void)close(from_fd);
@@ -395,12 +396,12 @@ main(int argc, char *argv[])
       }
       if (close(to_fd) == -1)
       {
-         (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                        newname, strerror(errno), __FILE__, __LINE__);
       }
       if (remove(argv[1]) == -1)
       {
-         (void)fprintf(stderr, "Failed to remove() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to remove() `%s' : %s (%s %d)\n"),
                        argv[1], strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -441,7 +442,7 @@ main(int argc, char *argv[])
 
       if (rename(argv[1], newname) == -1)
       {
-         (void)fprintf(stderr, "Failed to rename %s to %s : %s\n",
+         (void)fprintf(stderr, _("Failed to rename() `%s' to `%s' : %s\n"),
                        argv[1], newname, strerror(errno));
          exit(1);
       }

@@ -50,10 +50,10 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_cmd.h"
 
-/* External global variables */
+/* External global variables. */
 extern Widget  cmd_output,
                printshell,
                statusbox_w;
@@ -123,7 +123,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       {
          char buf;
 
-         /* Send Control-D to printer queue */
+         /* Send Control-D to printer queue. */
          buf = CONTROL_D;
          if (write(fd, &buf, 1) != 1)
          {

@@ -6,6 +6,13 @@
 /* With afd_ctrl dialog checking for main AFD process */
 #undef AFD_CTRL_PROC_CHECK
 
+/* Define to 1 if translation of program messages to the user's native
+   language is requested. */
+#undef ENABLE_NLS
+
+/* Expand path in message */
+#undef EXPAND_PATH_IN_MESSAGE
+
 /* With reusing FTP data port */
 #undef FTP_REUSE_DATA_PORT
 
@@ -17,6 +24,18 @@
 
 /* Define to 1 if you have the <arpa/telnet.h> header file. */
 #undef HAVE_ARPA_TELNET_H
+
+/* Define to 1 if you have the MacOS X function CFLocaleCopyCurrent in the
+   CoreFoundation framework. */
+#undef HAVE_CFLOCALECOPYCURRENT
+
+/* Define to 1 if you have the MacOS X function CFPreferencesCopyAppValue in
+   the CoreFoundation framework. */
+#undef HAVE_CFPREFERENCESCOPYAPPVALUE
+
+/* Define if the GNU dcgettext() function is already present or preinstalled.
+   */
+#undef HAVE_DCGETTEXT
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -34,11 +53,23 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
+/* Define to 1 if you have the `fdatasync' function. */
+#undef HAVE_FDATASYNC
+
 /* Define to 1 if you have the `gethostname' function. */
 #undef HAVE_GETHOSTNAME
 
+/* Define to 1 if you have the `getline' function. */
+#undef HAVE_GETLINE
+
 /* Define to 1 if you have the `getpt' function. */
 #undef HAVE_GETPT
+
+/* Define if the GNU gettext() function is already present or preinstalled. */
+#undef HAVE_GETTEXT
+
+/* Define if you have the iconv() function and it works. */
+#undef HAVE_ICONV
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -78,6 +109,9 @@
 
 /* Define this if you have Motif */
 #undef HAVE_MOTIF
+
+/* Define if you have ncurses.h */
+#undef HAVE_NCURSES_H
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
@@ -189,14 +223,26 @@
 /* Define to 1 if you have the <util.h> header file. */
 #undef HAVE_UTIL_H
 
+/* Define to 1 if you have the <utime.h> header file. */
+#undef HAVE_UTIME_H
+
 /* Define to 1 if `utime(file, NULL)' sets file's timestamp to the present. */
 #undef HAVE_UTIME_NULL
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
 
+/* With XPM support */
+#undef HAVE_XPM
+
 /* Define to 1 if you have the `_getpty' function. */
 #undef HAVE__GETPTY
+
+/* With ignoring duplicate jobs */
+#undef IGNORE_DUPLICATE_JOB_IDS
+
+/* Define this if you have Lesstif */
+#undef LESSTIF_WORKAROUND
 
 /* With debug messages of locking */
 #undef LOCK_DEBUG
@@ -219,49 +265,44 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* Define to 1 if the C compiler supports function prototypes. */
-#undef PROTOTYPES
-
 /* Report empty directory scans */
 #undef REPORT_EMPTY_DIR_SCANS
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
-/* Define to 1 if the `setvbuf' function takes the buffering type as its
-   second argument and the buffer pointer as the third, as on System V before
-   release 3. */
-#undef SETVBUF_REVERSED
-
 /* With show exec times */
 #undef SHOW_EXEC_TIMES
 
-/* The size of a `ino_t', as computed by sizeof. */
+/* The size of `ino_t', as computed by sizeof. */
 #undef SIZEOF_INO_T
 
-/* The size of a `int', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of a `nlink_t', as computed by sizeof. */
+/* The size of `nlink_t', as computed by sizeof. */
 #undef SIZEOF_NLINK_T
 
-/* The size of a `off_t', as computed by sizeof. */
+/* The size of `off_t', as computed by sizeof. */
 #undef SIZEOF_OFF_T
 
-/* The size of a `pid_t', as computed by sizeof. */
+/* The size of `pid_t', as computed by sizeof. */
 #undef SIZEOF_PID_T
 
-/* The size of a `size_t', as computed by sizeof. */
+/* The size of `size_t', as computed by sizeof. */
 #undef SIZEOF_SIZE_T
 
-/* The size of a `ssize_t', as computed by sizeof. */
+/* The size of `ssize_t', as computed by sizeof. */
 #undef SIZEOF_SSIZE_T
 
-/* The size of a `time_t', as computed by sizeof. */
+/* The size of `time_t', as computed by sizeof. */
 #undef SIZEOF_TIME_T
+
+/* The size of `uid_t', as computed by sizeof. */
+#undef SIZEOF_UID_T
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
@@ -272,11 +313,36 @@
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
 
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# undef _POSIX_PTHREAD_SEMANTICS
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# undef _TANDEM_SOURCE
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# undef __EXTENSIONS__
+#endif
+
+
 /* Version number of package */
 #undef VERSION
 
 /* Without fifo RW support */
 #undef WITHOUT_FIFO_RW_SUPPORT
+
+/* With afd_mon support */
+#undef WITH_AFD_MON
 
 /* With automatic creation of configuration */
 #undef WITH_AUTO_CONFIG
@@ -299,11 +365,11 @@
 /* With eumetsat header support */
 #undef WITH_EUMETSAT_HEADERS
 
+/* With ALDA cache positioning support */
+#undef WITH_LOG_CACHE
+
 /* With MS FTP error workaround */
 #undef WITH_MS_ERROR_WORKAROUND
-
-/* With multiple directory definitions */
-#undef WITH_MULTI_DIR_DEFINITION
 
 /* Enable multiple directory scans */
 #undef WITH_MULTI_DIR_SCANS
@@ -338,6 +404,9 @@
 /* With delete log support */
 #undef _DELETE_LOG
 
+/* With distribution log support */
+#undef _DISTRIBUTION_LOG
+
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS
 
@@ -347,8 +416,18 @@
 /* Define for large files, on AIX-style hosts. */
 #undef _LARGE_FILES
 
+/* Define to 1 if on MINIX. */
+#undef _MINIX
+
 /* With output log support */
 #undef _OUTPUT_LOG
+
+/* Define to 2 if the system does not provide POSIX.1 features except with
+   this defined. */
+#undef _POSIX_1_SOURCE
+
+/* Define to 1 if you need to in order for `stat' and other things to work. */
+#undef _POSIX_SOURCE
 
 /* With production log support */
 #undef _PRODUCTION_LOG
@@ -365,9 +444,6 @@
 /* With WMO socket support */
 #undef _WITH_WMO_SUPPORT
 
-/* Define like PROTOTYPES; this can be used by system headers. */
-#undef __PROTOTYPES
-
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
 
@@ -380,13 +456,13 @@
 /* Set my_socklen_t to socklen_t if set */
 #undef my_socklen_t
 
-/* Define to `long' if <sys/types.h> does not define. */
+/* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to `int' if <sys/types.h> doesn't define. */

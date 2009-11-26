@@ -1,6 +1,6 @@
 /*
  *  calc_next_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,11 +60,11 @@ DESCR__E_M3
 #include <stdlib.h>                 /* exit()                            */
 #include <time.h>
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include "bit_array.h"
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int check_day(struct bd_time_entry *, struct tm *),
            check_month(struct bd_time_entry *, struct tm *),
            get_greatest_dom(int, int);
@@ -119,7 +119,7 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
    }
 
    /* Evaluate minute (0-59) [0-59] */
-#ifdef _WORKING_LONG_LONG
+#ifdef HAVE_LONG_LONG
    if (((ALL_MINUTES & te->minute) == ALL_MINUTES) ||
        ((ALL_MINUTES & te->continuous_minute) == ALL_MINUTES))
    {
@@ -153,7 +153,7 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
       if (gotcha == NO)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to locate any valid minute!?");
+                    _("Failed to locate any valid minute!?"));
          return(0);
       }
       bd_time->tm_min = i;
@@ -183,7 +183,7 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
    if (gotcha == NO)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to locate any valid minute!?");
+                 _("Failed to locate any valid minute!?"));
       return(0);
    }
    bd_time->tm_min = i;
@@ -225,13 +225,13 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
       if (gotcha == NO)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to locate any valid hour!?");
+                    _("Failed to locate any valid hour!?"));
          return(0);
       }
       if (bd_time->tm_hour != i)
       {
          bd_time->tm_hour = i;
-#ifdef _WORKING_LONG_LONG
+#ifdef HAVE_LONG_LONG
          if (((ALL_MINUTES & te->minute) == ALL_MINUTES) ||
              ((ALL_MINUTES & te->continuous_minute) == ALL_MINUTES))
          {
@@ -301,7 +301,7 @@ check_month(struct bd_time_entry *te, struct tm *bd_time)
       if (gotcha == NO)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to locate any valid month!?");
+                    _("Failed to locate any valid month!?"));
          return(INCORRECT);
       }
       if (bd_time->tm_mon != i)
@@ -376,7 +376,7 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
       if (gotcha == NO)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to locate any valid day of month!?");
+                    _("Failed to locate any valid day of month!?"));
          return(INCORRECT);
       }
       if (bd_time->tm_mday != (i + 1))
@@ -463,7 +463,7 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
             if (gotcha == NO)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to locate any valid day of week!?");
+                          _("Failed to locate any valid day of week!?"));
                return(INCORRECT);
             }
             if (offset_counter > 0)
@@ -502,7 +502,7 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
          if (gotcha == NO)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to locate any valid day of month!?");
+                       _("Failed to locate any valid day of month!?"));
             return(INCORRECT);
          }
          if (bd_time->tm_mday != (i + 1))
@@ -572,7 +572,7 @@ get_greatest_dom(int month, int year)
          break;
       default :
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Get a new operating system!");
+                    _("Get a new operating system!"));
          exit(INCORRECT);
    }
 

@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = dir_ctrl.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
-                       -I../common -I../../../init_afd -I../show_log
+                       -I../common -I../../../init_afd -I../mshow_log
 bin_PROGRAMS         = dir_ctrl
 dir_ctrl_SOURCES     = check_dir_status.c\
                        dir_ctrl.c\
@@ -28,6 +28,7 @@ dir_ctrl_SOURCES     = check_dir_status.c\
                        dir_window_size.c\
                        draw_dir_line.c\
                        mouse_handler.c\
+                       redraw_all.c\
                        resize_dir_window.c\
                        select_dir_dialog.c\
                        setup_dir_window.c

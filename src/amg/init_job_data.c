@@ -1,6 +1,6 @@
 /*
  *  init_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <unistd.h>       /* read()                                      */
 #include <dirent.h>       /* opendir(), closedir(), readdir(), DIR       */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
@@ -75,6 +75,7 @@ extern struct dir_name_buf *dnb;
 void
 init_job_data(void)
 {
+   int         new_job_id_data_file;
    char        *ptr,
                job_id_data_file[MAX_PATH_LENGTH],
                dir_name_file[MAX_PATH_LENGTH],
@@ -94,10 +95,20 @@ init_job_data(void)
    (void)strcat(msg_dir, "/");
    p_msg_dir = msg_dir + strlen(msg_dir);
 
+   /* Check if job ID data file exists. */
+   if (stat(job_id_data_file, &stat_buf) == -1)
+   {
+      new_job_id_data_file = YES;
+   }
+   else
+   {
+      new_job_id_data_file = NO;
+   }
+
    /* Attach job ID data. */
    new_size = (JOB_ID_DATA_STEP_SIZE * sizeof(struct job_id_data)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(job_id_data_file, &jd_fd, new_size,
+   if ((ptr = attach_buf(job_id_data_file, &jd_fd, &new_size,
                          "AMG1", FILE_MODE, NO)) == (caddr_t) -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -109,12 +120,34 @@ init_job_data(void)
    if ((*no_of_job_ids == 0) ||
        (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION))
    {
-      if ((*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION) &&
-          (*no_of_job_ids != 0))
+      if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
       {
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "Removing old JID database with version %d, creating new version %d.",
-                    (int)*(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
+         if (*no_of_job_ids == 0)
+         {
+            if (new_job_id_data_file == NO)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Removing old JID database with version %d, creating new version %d.",
+                          (int)*(ptr + SIZEOF_INT + 1 + 1 + 1),
+                          CURRENT_JID_VERSION);
+            }
+         }
+         else
+         {
+            if ((ptr = convert_jid(jd_fd, job_id_data_file, &new_size,
+                                   *no_of_job_ids,
+                                   *(ptr + SIZEOF_INT + 1 + 1 + 1),
+                                   CURRENT_JID_VERSION)) == NULL)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to convert_jid() %s", job_id_data_file);
+               *no_of_job_ids = 0;
+            }
+            else
+            {
+               no_of_job_ids = (int *)ptr;
+            }
+         }
       }
       *(ptr + SIZEOF_INT + 1) = 0;                         /* Not used. */
       *(ptr + SIZEOF_INT + 1 + 1) = 0;                     /* Not used. */
@@ -136,7 +169,7 @@ init_job_data(void)
    /* Attach directory names. */
    new_size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(dir_name_file, &dnb_fd, new_size,
+   if ((ptr = attach_buf(dir_name_file, &dnb_fd, &new_size,
                          "AMG2", FILE_MODE, YES)) == (caddr_t) -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -160,7 +193,8 @@ init_job_data(void)
    dnb = (struct dir_name_buf *)ptr;
 
    /* Attach file mask. */
-   if ((ptr = attach_buf(file_mask_file, &fmd_fd, AFD_WORD_OFFSET,
+   new_size = AFD_WORD_OFFSET;
+   if ((ptr = attach_buf(file_mask_file, &fmd_fd, &new_size,
                          "AMG3", FILE_MODE, YES)) == (caddr_t) -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -168,14 +202,8 @@ init_job_data(void)
                  file_mask_file, strerror(errno));
       exit(INCORRECT);
    }
-   if (fstat(fmd_fd, &stat_buf) == -1)
-   {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "fstat() error : %s", strerror(errno));
-      exit(INCORRECT);
-   }
-   fmd_end = ptr + stat_buf.st_size;
-   fmd_size = stat_buf.st_size;
+   fmd_end = ptr + new_size;
+   fmd_size = new_size;
    no_of_file_masks = (int *)ptr;
    if (*no_of_file_masks == 0)
    {                       

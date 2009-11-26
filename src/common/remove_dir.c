@@ -1,6 +1,6 @@
 /*
  *  remove_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ try_again2:
    if ((dp = opendir(dirname)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() `%s' : %s", dirname, strerror(errno));
+                 _("Failed to opendir() `%s' : %s"), dirname, strerror(errno));
       return(INCORRECT);
    }
    if (*(ptr - 1) != '/')
@@ -110,11 +110,27 @@ try_again:
             {
 #endif
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Failed to delete `%s' : %s", dirname, strerror(errno));
+                       _("Failed to delete `%s' : %s"),
+                       dirname, strerror(errno));
 #ifdef WITH_UNLINK_DELAY
             }
 #endif
          }
+#ifdef EISDIR
+         else if (errno == EISDIR)
+              {
+                 (void)closedir(dp);
+                 if (addchar == YES)
+                 {
+                    ptr[-1] = 0;
+                 }
+                 else
+                 {
+                    *ptr = '\0';
+                 }
+                 return(FILE_IS_DIR);
+              }
+#endif
 #ifdef WITH_UNLINK_DELAY
          else if ((errno == EBUSY) && (wait_time > 0) &&
                   (loops < (10 * wait_time)))
@@ -136,7 +152,7 @@ try_again:
                     if (stat(dirname, &stat_buf) == -1)
                     {
                        system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Failed to stat() `%s' : %s",
+                                  _("Failed to stat() `%s' : %s"),
                                   dirname, strerror(errno));
                     }
                     else
@@ -148,7 +164,7 @@ try_again:
                     }
                  }
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to delete `%s' : %s",
+                            _("Failed to delete `%s' : %s"),
                             dirname, strerror(save_errno));
                  (void)closedir(dp);
                  if (addchar == YES)
@@ -174,7 +190,7 @@ try_again:
    if (closedir(dp) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to closedir() `%s' : %s", dirname, strerror(errno));
+                 _("Failed to closedir() `%s' : %s"), dirname, strerror(errno));
       return(INCORRECT);
    }
    if (rmdir(dirname) == -1)
@@ -188,7 +204,8 @@ try_again:
       }
 #endif
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to rmdir() `%s' : %s", dirname, strerror(errno));
+                 _("Failed to delete directory `%s' with rmdir() : %s"),
+                 dirname, strerror(errno));
       return(INCORRECT);
    }
 

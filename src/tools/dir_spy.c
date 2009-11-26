@@ -1,6 +1,6 @@
 /*
  *  dir_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,7 +52,7 @@ DESCR__E_M1
 #include <fcntl.h>                  /* open()                            */
 #include <unistd.h>                 /* fstat(), lseek(), write()         */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap()                            */
+# include <sys/mman.h>              /* mmap()                            */
 #endif
 #include <errno.h>
 #include "version.h"
@@ -92,13 +92,13 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
    }
 
-   if (get_arg(&argc, argv, "-d", str_dir_id, MAX_INT_LENGTH) == INCORRECT)
+   if (get_arg(&argc, argv, "-d", str_dir_id, MAX_INT_HEX_LENGTH) == INCORRECT)
    {
       search_dir_id = 0;
       str_dir_id[0] = '\0';
@@ -111,14 +111,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((fd = open(file, O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -131,13 +131,13 @@ main(int argc, char *argv[])
                        MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
    {
-      (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (close(fd) == -1)
    {
-      (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    no_of_dir_names = (int *)ptr;
@@ -148,7 +148,7 @@ main(int argc, char *argv[])
    {
       if (str_dir_id[0] == '\0')
       {
-         (void)fprintf(stdout, "No of directories : %d\n", *no_of_dir_names);
+         (void)fprintf(stdout, _("No of directories : %d\n"), *no_of_dir_names);
          (void)fprintf(stdout, "Pos   Dir-ID     Dir-name [| Original name]\n");
          for (i = 0; i < *no_of_dir_names; i++)
          {
@@ -187,13 +187,13 @@ main(int argc, char *argv[])
                exit(SUCCESS);
             }
          }
-         (void)fprintf(stdout, "Directory ID %u not found.\n", search_dir_id);
+         (void)fprintf(stdout, _("Directory ID %u not found.\n"), search_dir_id);
          ret = INCORRECT;
       }
    }
    else
    {
-      (void)fprintf(stdout, "No directories.\n");
+      (void)fprintf(stdout, _("No directories.\n"));
       ret = INCORRECT;
    }
 
@@ -204,7 +204,7 @@ main(int argc, char *argv[])
    if (munmap_emu(ptr) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to munmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
 
@@ -216,7 +216,7 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "Usage : %s[ -w <AFD work dir>][ --version][ -d <dir ID>]\n",
+                 _("Usage : %s[ -w <AFD work dir>][ --version][ -d <dir ID>]\n"),
                  progname);
    return;
 }

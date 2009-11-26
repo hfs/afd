@@ -1,6 +1,6 @@
 /*
  *  tiff2gts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,7 +61,7 @@ DESCR__E_M3
 #define OFFSET_START    8
 #define OFFSET_END      12
 
-/* Function prototypes */
+/* Function prototypes. */
 static void byte_swap(char *);
 
 
@@ -84,14 +84,15 @@ tiff2gts(char *path, char* filename)
    if (stat(fullname, &stat_buf) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Can't access file %s : %s", fullname, strerror(errno));
+                  _("Failed to stat() file `%s' : %s"),
+                  fullname, strerror(errno));
       return(INCORRECT);
    }
 
    if (stat_buf.st_size <= (OFFSET_END + 4))
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Could not convert file %s. File does not have the correct length.",
+                  _("Could not convert file `%s'. File does not have the correct length."),
                   filename);
       return(INCORRECT);
    }
@@ -99,14 +100,14 @@ tiff2gts(char *path, char* filename)
    if ((buf = malloc(stat_buf.st_size)) == NULL)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "malloc() error : %s", strerror(errno));
+                  _("malloc() error : %s"), strerror(errno));
       return(INCORRECT);
    }
 
    if ((fd = open(fullname, O_RDONLY, 0)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to open() %s : %s", fullname, strerror(errno));
+                  _("Failed to open() `%s' : %s"), fullname, strerror(errno));
       free(buf);
       return(INCORRECT);
    }
@@ -114,7 +115,7 @@ tiff2gts(char *path, char* filename)
    if (read(fd, buf, stat_buf.st_size) != stat_buf.st_size)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "read() error : %s", fullname, strerror(errno));
+                  _("read() error : %s"), fullname, strerror(errno));
       free(buf);
       (void)close(fd);
       return(INCORRECT);
@@ -159,15 +160,15 @@ tiff2gts(char *path, char* filename)
    if (data_size > stat_buf.st_size)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "File %s is corrupt. Data size (%d) larger then file size (%d).",
+                  _("File %s is corrupt. Data size (%d) larger then file size (%d)."),
                   filename, data_size, stat_buf.st_size);
       free(buf);
       return(INCORRECT);
    }
-   else if (data_size <= 0)
+   else if (data_size <= 1)
         {
            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                       "File %s is corrupt. Data size (%d) less then or equal to file size (%d).",
+                       _("File %s is corrupt. Data size (%d) less then or equal to file size (%d)."),
                        filename, data_size, stat_buf.st_size);
            free(buf);
            return(INCORRECT);
@@ -180,7 +181,8 @@ tiff2gts(char *path, char* filename)
    if ((fd = open(dest_file_name, (O_WRONLY | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to open() %s : %s", dest_file_name, strerror(errno));
+                  _("Failed to open() %s : %s"),
+                  dest_file_name, strerror(errno));
       free(buf);
       return(INCORRECT);
    }
@@ -188,7 +190,7 @@ tiff2gts(char *path, char* filename)
    if (write(fd, &buf[data_start], data_size) != data_size)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to write() to `%s' : %s",
+                  _("Failed to write() to `%s' : %s"),
                   dest_file_name, strerror(errno));
       free(buf);
       (void)close(fd);
@@ -199,23 +201,23 @@ tiff2gts(char *path, char* filename)
    if (close(fd) == -1)
    {
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                  "close() error : %s", strerror(errno));
+                  _("close() error : %s"), strerror(errno));
    }
 
-   /* Remove the original file */
+   /* Remove the original file. */
    if (unlink(fullname) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to unlink() original TIFF file %s : %s",
+                  _("Failed to unlink() original TIFF file `%s' : %s"),
                   fullname, strerror(errno));
    }
 
-   /* Rename file to its new name */
+   /* Rename file to its new name. */
    (void)sprintf(fullname, "%s/%s", path, filename);
    if (rename(dest_file_name, fullname) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to rename() file %s to %s : %s",
+                  _("Failed to rename() file `%s' to `%s' : %s"),
                   dest_file_name, fullname, strerror(errno));
    }
 

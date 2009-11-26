@@ -15,4 +15,4 @@ endif
 
 MAINTAINERCLEANFILES = Makefile.in
 bin_SCRIPTS          = afdalarm afd_auto_config rafdd_cmd rafdd_cmd_ssh\
-                       afd_unused_infos $(AFD_MON_FILES)
+                       afd_unused_infos mirror_fra_cfg $(AFD_MON_FILES)

@@ -20,7 +20,7 @@
 #ifndef __commondefs_h
 #define __commondefs_h
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int     command(int, char *, ...);
 #ifdef WITH_SSL
 extern ssize_t ssl_write(SSL *, const char *, size_t);

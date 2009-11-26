@@ -1,6 +1,6 @@
 /*
  *  handle_time_jobs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   handle_time_jobs - process all time jobs of AMG
  **
  ** SYNOPSIS
- **   void handle_time_jobs(int *no_of_process, time_t now);
+ **   void handle_time_jobs(time_t now);
  **
  ** DESCRIPTION
  **   The function handle_time_jobs() searches the time directory for
@@ -56,7 +56,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        amg_counter_fd,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                                   fin_writefd,
@@ -64,7 +64,7 @@ extern int                        amg_counter_fd,
                                   fin_fd,
 #endif
                                   max_process,
-                                  no_of_jobs,
+                                  *no_of_process,
                                   no_of_time_jobs,
                                   *time_job_list;
 extern char                       outgoing_file_dir[],
@@ -72,24 +72,25 @@ extern char                       outgoing_file_dir[],
                                   *file_name_buffer,
 #endif
                                   time_dir[];
-extern struct dc_proc_list        *dcpl;      /* Dir Check Process List */
+extern struct dc_proc_list        *dcpl;      /* Dir Check Process List. */
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
-extern struct fileretrieve_status *fra;
+extern struct fileretrieve_status *fra,
+                                  *p_fra;
 
-/* Local variables */
+/* Local variables. */
 static unsigned int               files_handled;
 static size_t                     time_dir_length;
 
-/* Local function prototypes */
-static void                       handle_time_dir(int, int *);
+/* Local function prototypes. */
+static void                       handle_time_dir(int);
 
 #define MAX_FILES_FOR_TIME_JOBS   800
 
 
 /*######################### handle_time_jobs() ##########################*/
 void
-handle_time_jobs(int *no_of_process, time_t now)
+handle_time_jobs(time_t now)
 {
    register int i;
 
@@ -101,7 +102,7 @@ handle_time_jobs(int *no_of_process, time_t now)
    {
       if (db[time_job_list[i]].next_start_time <= now)
       {
-         handle_time_dir(i, no_of_process);
+         handle_time_dir(i);
          if (files_handled > MAX_FILES_FOR_TIME_JOBS)
          {
             break;
@@ -117,7 +118,7 @@ handle_time_jobs(int *no_of_process, time_t now)
 
 /*++++++++++++++++++++++++++ handle_time_dir() ++++++++++++++++++++++++++*/
 static void
-handle_time_dir(int time_job_no, int *no_of_process)
+handle_time_dir(int time_job_no)
 {
    char *time_dir_ptr;
    DIR  *dp;
@@ -298,8 +299,8 @@ handle_time_dir(int time_job_no, int *no_of_process)
                if (move_file(time_dir, dest_file_path) < 0)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to move file %s to %s",
-                             time_dir, dest_file_path);
+                             "Failed to move file %s to %s : %s",
+                             time_dir, dest_file_path, strerror(errno));
                }
                else
                {
@@ -308,10 +309,10 @@ handle_time_dir(int time_job_no, int *no_of_process)
                   {
                      size_t new_size;
 
-                     /* Calculate new size of file name buffer */
+                     /* Calculate new size of file name buffer. */
                      new_size = ((files_moved / FILE_NAME_STEP_SIZE) + 1) * FILE_NAME_STEP_SIZE * MAX_FILENAME_LENGTH;
 
-                     /* Increase the space for the file name buffer */
+                     /* Increase the space for the file name buffer. */
                      if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
                      {
                         system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -321,7 +322,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
                      }
                   }
                   (void)strcpy((file_name_buffer + (files_moved * MAX_FILENAME_LENGTH)), p_dir->d_name);
-#endif /* !_WITH_PTHREAD */
+#endif
                   files_handled++;
                   files_moved++;
                   file_size_moved += stat_buf.st_size;
@@ -331,6 +332,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
 
          if (files_moved > 0)
          {
+            p_fra = &fra[db[time_job_list[time_job_no]].fra_pos];
             if ((db[time_job_list[time_job_no]].lfs & GO_PARALLEL) &&
                 (*no_of_process < max_process) &&
                 (fra[db[time_job_list[time_job_no]].fra_pos].no_of_process < fra[db[time_job_list[time_job_no]].fra_pos].max_process) &&
@@ -343,10 +345,10 @@ handle_time_dir(int time_job_no, int *no_of_process)
                              "Failed to fork() : %s", strerror(errno));
                   send_message(outgoing_file_dir, unique_name, split_job_counter,
                                unique_number, creation_time,
-                               time_job_list[time_job_no],
-                               files_moved, file_size_moved);
+                               time_job_list[time_job_no], 0,
+                               files_moved, file_size_moved, YES);
                }
-               else if (dcpl[*no_of_process].pid == 0) /* Child process */
+               else if (dcpl[*no_of_process].pid == 0) /* Child process. */
                     {
                        pid_t pid;
 #ifdef _FIFO_DEBUG
@@ -356,7 +358,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
                        send_message(outgoing_file_dir, unique_name,
                                     split_job_counter, unique_number,
                                     creation_time, time_job_list[time_job_no],
-                                    files_moved, file_size_moved);
+                                    0, files_moved, file_size_moved, YES);
 
                        /* Tell parent we completed our task. */
 #ifdef _FIFO_DEBUG
@@ -376,10 +378,11 @@ handle_time_dir(int time_job_no, int *no_of_process)
                        }
                        exit(SUCCESS);
                     }
-                    else /* Parent process */
+                    else /* Parent process. */
                     {
                        fra[db[time_job_list[time_job_no]].fra_pos].no_of_process++;
                        dcpl[*no_of_process].fra_pos = db[time_job_list[time_job_no]].fra_pos;
+                       dcpl[*no_of_process].job_id = db[time_job_list[time_job_no]].job_id;
                        (*no_of_process)++;
                     }
             }
@@ -387,8 +390,8 @@ handle_time_dir(int time_job_no, int *no_of_process)
             {
                send_message(outgoing_file_dir, unique_name, split_job_counter,
                             unique_number, creation_time,
-                            time_job_list[time_job_no],
-                            files_moved, file_size_moved);
+                            time_job_list[time_job_no], 0,
+                            files_moved, file_size_moved, YES);
             }
          } /* if (files_moved > 0) */
       } while ((p_dir != NULL) && (files_handled < MAX_FILES_FOR_TIME_JOBS));

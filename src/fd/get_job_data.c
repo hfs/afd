@@ -1,6 +1,6 @@
 /*
  *  get_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,17 +36,13 @@ DESCR__S_M3
  **   SUCCESS when it managed to store the message, otherwise INCORRECT
  **   is returned.
  **
- ** SEE ALSO
- **   common/get_hostname.c, common/create_message.c, fd/eval_recipient.c,
- **   amg/store_passwd.c, fd/init_msg_buffer.c, tools/get_dc_data.c,
- **   tools/set_pw.c
- **
  ** AUTHOR
  **   H.Kiehl
  **
  ** HISTORY
  **   19.01.1998 H.Kiehl Created
  **   31.01.2005 H.Kiehl Store the port as well.
+ **   15.04.2008 H.Kiehl Accept url's without @ sign such as http://idefix.
  **
  */
 DESCR__E_M3
@@ -63,7 +59,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        mdb_fd,
                                   no_of_hosts,
                                   *no_msg_cached;
@@ -80,15 +76,19 @@ get_job_data(unsigned int job_id,
              time_t       msg_mtime,
              off_t        msg_size)
 {
-   int  fd,
-        port,
-        pos,
-        length;
-   char sheme,
-        *file_buf,
-        *ptr,
-        *p_start,
-        host_name[MAX_HOSTNAME_LENGTH + 1];
+   unsigned int error_mask,
+                scheme;
+   int          fd,
+                port,
+                pos;
+   char         protocol,
+                *file_buf,
+                *ptr,
+                *p_start,
+                real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
+                host_alias[MAX_HOSTNAME_LENGTH + 1],
+                user[MAX_USER_NAME_LENGTH + 1],
+                smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
 
    (void)sprintf(p_msg_dir, "%x", job_id);
 
@@ -154,7 +154,8 @@ retry:
    /*
     * First let's evaluate the recipient.
     */
-   if ((ptr = posi(file_buf, DESTINATION_IDENTIFIER)) == NULL)
+   if ((ptr = lposi(file_buf, DESTINATION_IDENTIFIER,
+                    DESTINATION_IDENTIFIER_LENGTH)) == NULL)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
                  "Removing %s. It is not a message.", msg_dir);
@@ -171,132 +172,31 @@ retry:
       goto retry;
    }
 
-   /* Lets determine the sheme. */
+   /* Lets determine the recipient. */
    p_start = ptr;
-   while ((*ptr != ':') && (*ptr != '\n'))
+   while ((*ptr != '\n') && (*ptr != '\0'))
    {
       ptr++;
    }
-   if (*ptr == ':')
+   if (*ptr == '\n')
    {
       *ptr = '\0';
-      if ((*p_start == 'f') && (*(p_start + 1) == 't') &&
-#ifdef WITH_SSL
-          (*(p_start + 2) == 'p') && ((*(p_start + 3) == '\0') ||
-          (((*(p_start + 3) == 's') || (*(p_start + 3) == 'S')) &&
-          (*(p_start + 4) == '\0'))))
-#else
-          (*(p_start + 2) == 'p') && (*(p_start + 3) == '\0'))
-#endif
-      {
-         sheme = FTP;
-      }
-      else
-      {
-         if (CHECK_STRCMP(p_start, LOC_SHEME) != 0)
-         {
-#ifdef _WITH_SCP_SUPPORT
-            if (CHECK_STRCMP(p_start, SCP_SHEME) != 0)
-            {
-#endif /* _WITH_SCP_SUPPORT */
-#ifdef _WITH_WMO_SUPPORT
-               if (CHECK_STRCMP(p_start, WMO_SHEME) != 0)
-               {
-#endif
-#ifdef _WITH_MAP_SUPPORT
-                  if (CHECK_STRCMP(p_start, MAP_SHEME) != 0)
-                  {
-#endif
-                     if ((*p_start == 's') &&
-                         (*(p_start + 1) == 'f') &&
-                         (*(p_start + 2) == 't') &&
-                         (*(p_start + 3) == 'p') &&
-                         (*(p_start + 4) == '\0'))
-                     {
-                        sheme = SFTP;
-                     }
-                     else
-                     {
-                        if ((*p_start == 'h') &&
-                            (*(p_start + 1) == 't') &&
-                            (*(p_start + 2) == 't') &&
-                            (*(p_start + 3) == 'p') &&
-#ifdef WITH_SSL
-                            ((*(p_start + 4) == '\0') ||
-                             ((*(p_start + 4) == 's') &&
-                              (*(p_start + 5) == '\0'))))
-#else
-                            (*(p_start + 4) == '\0'))
-#endif
-                        {
-                           sheme = HTTP;
-                        }
-                        else
-                        {
-                           if ((*p_start == 'm') &&
-                               (*(p_start + 1) == 'a') &&
-                               (*(p_start + 2) == 'i') &&
-                               (*(p_start + 3) == 'l') &&
-                               (*(p_start + 4) == 't') &&
-                               (*(p_start + 5) == 'o') &&
-#ifdef WITH_SSL
-                               ((*(p_start + 6) == '\0') ||
-                                ((*(p_start + 6) == 's') &&
-                                 (*(p_start + 7) == '\0'))))
-#else
-                               (*(p_start + 6) == '\0'))
-#endif
-                           {
-                              sheme = SMTP;
-                           }
-                           else
-                           {
-                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Removing %s because of unknown sheme [%s].",
-                                         msg_dir, p_start);
-                              if (unlink(msg_dir) == -1)
-                              {
-                                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                                            "Failed to unlink() %s : %s",
-                                            msg_dir, strerror(errno));
-                              }
-                              free(file_buf);
-                              return(INCORRECT);
-                           }
-                        }
-                     }
-#ifdef _WITH_MAP_SUPPORT
-                  }
-                  else
-                  {
-                     sheme = MAP;
-                  }
-#endif
-#ifdef _WITH_WMO_SUPPORT
-               }
-               else
-               {
-                  sheme = WMO;
-               }
-#endif
-#ifdef _WITH_SCP_SUPPORT
-            }
-            else
-            {
-               sheme = SCP;
-            }
-#endif /* _WITH_SCP_SUPPORT */
-         }
-         else
-         {
-            sheme = LOC;
-         }
-      }
+      ptr++;
    }
-   else
+   if ((error_mask = url_evaluate(p_start, &scheme, user, NULL, NULL,
+#ifdef WITH_SSH_FINGERPRINT
+                                  NULL, NULL,
+#endif
+                                  NULL, NO, real_hostname, &port,
+                                  NULL, NULL, NULL, NULL, NULL,
+                                  smtp_server)) != 0)
    {
+      char error_msg[MAX_URL_ERROR_MSG];
+
+      url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Removing %s. Could not locate end of sheme [:].", msg_dir);
+                 "Removing %s. Could not decode URL `%s' : %s",
+                 msg_dir, p_start, error_msg);
       if (unlink(msg_dir) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -306,167 +206,91 @@ retry:
       return(INCORRECT);
    }
 
-   ptr += 3;
-   length = 0;
-   if (*ptr == MAIL_GROUP_IDENTIFIER)
+   if (scheme & FTP_FLAG)
    {
-      ptr++;
-      while ((*ptr != '@') && (*ptr != ':') && (*ptr != '\n') &&
-             (*ptr != ';') && (length < MAX_HOSTNAME_LENGTH))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         host_name[length] = *ptr;
-         ptr++; length++;
-      }
+      protocol = FTP;
    }
-
-   /* On we go with the hostname. */
-   while ((*ptr != '@') && (*ptr != '\n') && (*ptr != ';'))
-   {
-      if (*ptr == '\\')
-      {
-         ptr++;
-      }
-      ptr++;
-   }
-#ifdef WITH_SSH_FINGERPRINT
-   if (*ptr == ';')
-   {
-      char *tmp_ptr = ptr + 1;
-
-      while ((*tmp_ptr != '@') && (*tmp_ptr != '\n') && (*tmp_ptr != ';'))
-      {
-         if (*tmp_ptr == '\\')
-         {
-            tmp_ptr++;
-         }
-         tmp_ptr++;
-      }
-      if ((*tmp_ptr == '@') || (*tmp_ptr == ';'))
-      {
-         ptr = tmp_ptr;
-      }
-   }
+   else if (scheme & LOC_FLAG)
+        {
+           protocol = LOC;
+        }
+   else if (scheme & SMTP_FLAG)
+        {
+           protocol = SMTP;
+        }
+   else if (scheme & SFTP_FLAG)
+        {
+           protocol = SFTP;
+        }
+   else if (scheme & HTTP_FLAG)
+        {
+           protocol = HTTP;
+        }
+#ifdef _WITH_SCP_SUPPORT
+   else if (scheme & SCP_FLAG)
+        {
+           protocol = SCP;
+        }
 #endif
-   if (*ptr == '@')
+#ifdef _WITH_WMO_SUPPORT
+   else if (scheme & WMO_FLAG)
+        {
+           protocol = WMO;
+        }
+#endif
+#ifdef _WITH_MAP_SUPPORT
+   else if (scheme & MAP_FLAG)
+        {
+           protocol = MAP;
+        }
+#endif
+        else
+        {
+           system_log(WARN_SIGN, __FILE__, __LINE__,
+                      "Removing %s because of unknown scheme [%s].",
+                      msg_dir, p_start);
+           if (unlink(msg_dir) == -1)
+           {
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Failed to unlink() %s : %s",
+                         msg_dir, strerror(errno));
+           }
+           free(file_buf);
+           return(INCORRECT);
+        }
+
+   if (user[0] == '\0')
    {
-      ptr++;
-      length = 0;
-      while ((*ptr != '/') && (*ptr != '.') &&
-             (*ptr != ':') && (*ptr != '\n') &&
-             (*ptr != ';') && (length < MAX_HOSTNAME_LENGTH))
+      if (real_hostname[0] == MAIL_GROUP_IDENTIFIER)
       {
-         if (*ptr == '\\')
+         fd = 0;
+         while (real_hostname[fd + 1] != '\0')
          {
-            ptr++;
+            real_hostname[fd] = real_hostname[fd + 1];
+            fd++;
          }
-         host_name[length] = *ptr;
-         ptr++; length++;
+         real_hostname[fd] = '\0';
       }
    }
-
-   /* Ignore rest of host name. */
-   if ((*ptr == '.') ||
-       ((length == MAX_HOSTNAME_LENGTH) && (*ptr != '/')))
+   if ((scheme & SMTP_FLAG) && (smtp_server[0] != '\0'))
    {
-      while ((*ptr != '\n') && (*ptr != '/') &&
-             (*ptr != ':') && (*ptr != ';'))
+      fd = 0;
+      while (smtp_server[fd] != '\0')
       {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         ptr++;
+         real_hostname[fd] = smtp_server[fd];
+         fd++;
       }
+      real_hostname[fd] = '\0';
    }
+   t_hostname(real_hostname, host_alias);
 
-   /* Store port if it is there. */
-   if (*ptr == ':')
+   if (host_alias[0] != '\0')
    {
-      char *ptr_tmp;
-
-      ptr++;
-      ptr_tmp = ptr;
-      while ((*ptr != '/') && (*ptr != '\n') && (*ptr != ';') && (*ptr != '\0'))
-      {
-         ptr++;
-      }
-      if (ptr != ptr_tmp) /* Ensure that port number is there. */
-      {
-         if ((*ptr == '/') || (*ptr != '\n') || (*ptr != ';'))
-         {
-            char tmp_char;
-
-            tmp_char = *ptr;
-            *ptr = '\0';
-            port = atoi(ptr_tmp);
-            *ptr = tmp_char;
-         }
-         else if (*ptr == '\0')
-              {
-                 port = atoi(ptr_tmp);
-              }
-              else
-              {
-                 port = -1;
-              }
-      }
-      else
-      {
-         port = -1;
-      }
-   }
-   else
-   {
-      port = -1;
-   }
-
-   /* No need for the directory. */
-   if (*ptr == '/')
-   {
-      while ((*ptr != '\n') && (*ptr != ';') && (*ptr != '\0'))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         ptr++;
-      }
-   }
-
-   /*
-    * NOTE: For mail we take the hostname from the "server=" if
-    *       it does exist.
-    */
-   if ((*ptr == ';') && (*(ptr + 1) == 's') && (*(ptr + 2) == 'e') &&
-       (*(ptr + 3) == 'r') && (*(ptr + 4) == 'v') &&
-       (*(ptr + 5) == 'e') && (*(ptr + 6) == 'r') &&
-       (*(ptr + 7) == '='))
-   {
-      /* Store the hostname. */
-      ptr += 8;
-      length = 0;
-      while ((*ptr != '\n') && (*ptr != '.') && (length < MAX_HOSTNAME_LENGTH))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         host_name[length] = *ptr;
-         length++; ptr++;
-      }
-   }
-   if (length > 0)
-   {
-      host_name[length] = '\0';
-      if ((pos = get_host_position(fsa, host_name, no_of_hosts)) == -1)
+      if ((pos = get_host_position(fsa, host_alias, no_of_hosts)) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Failed to locate host %s in FSA [%s]. Ignoring!",
-                    host_name, msg_dir);
+                    host_alias, msg_dir);
          free(file_buf);
          return(INCORRECT);
       }
@@ -507,10 +331,10 @@ retry:
          tmp_ptr += AFD_WORD_OFFSET;
          mdb = (struct msg_cache_buf *)tmp_ptr;
       }
-      (void)strcpy(mdb[*no_msg_cached - 1].host_name, host_name);
+      (void)strcpy(mdb[*no_msg_cached - 1].host_name, host_alias);
       mdb[*no_msg_cached - 1].fsa_pos = pos;
       mdb[*no_msg_cached - 1].job_id = job_id;
-      if ((ptr = posi(ptr, AGE_LIMIT_ID)) == NULL)
+      if ((ptr = lposi(ptr, AGE_LIMIT_ID, AGE_LIMIT_ID_LENGTH)) == NULL)
       {
          mdb[*no_msg_cached - 1].age_limit = 0;
       }
@@ -538,17 +362,17 @@ retry:
             mdb[*no_msg_cached - 1].age_limit = 0;
          }
       }
-      mdb[*no_msg_cached - 1].type = sheme;
+      mdb[*no_msg_cached - 1].type = protocol;
       mdb[*no_msg_cached - 1].port = port;
       mdb[*no_msg_cached - 1].msg_time = msg_mtime;
       mdb[*no_msg_cached - 1].last_transfer_time = 0L;
    }
    else
    {
-      (void)strcpy(mdb[mdb_position].host_name, host_name);
+      (void)strcpy(mdb[mdb_position].host_name, host_alias);
       mdb[mdb_position].fsa_pos = pos;
       mdb[mdb_position].job_id = job_id;
-      if ((ptr = posi(ptr, AGE_LIMIT_ID)) == NULL)
+      if ((ptr = lposi(ptr, AGE_LIMIT_ID, AGE_LIMIT_ID_LENGTH)) == NULL)
       {
          mdb[mdb_position].age_limit = 0;
       }
@@ -576,7 +400,7 @@ retry:
             mdb[mdb_position].age_limit = 0;
          }
       }
-      mdb[mdb_position].type = sheme;
+      mdb[mdb_position].type = protocol;
       mdb[mdb_position].port = port;
       mdb[mdb_position].msg_time = msg_mtime;
       /*

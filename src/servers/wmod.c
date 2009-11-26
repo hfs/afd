@@ -342,6 +342,7 @@ main(int argc, char *argv[])
    (void)memset((struct sockaddr *) &data, 0, sizeof(data));
    data.sin_family = AF_INET;
    data.sin_addr.s_addr = INADDR_ANY;
+   peer_addrlen = sizeof(peer_address);
 
    do
    {
@@ -503,6 +504,8 @@ main(int argc, char *argv[])
 
       zombie_check();
    } /* for (;;) */
+
+   exit(SUCCESS);
 }
 
 
@@ -611,7 +614,7 @@ zombie_check(void)
          if (WIFEXITED(status))
          {
             pl[i].pid = 0;
-            fsa[fsa_pos].job_status[pl[i].job_pos].proc_id = NO_ID;
+            fsa[fsa_pos].job_status[pl[i].job_pos].proc_id = -1;
             fsa[fsa_pos].active_transfers--;
             if (fsa[fsa_pos].active_transfers < 0)
             {
@@ -642,7 +645,7 @@ zombie_check(void)
                {
                   /* abnormal termination */
                   pl[i].pid = 0;
-                  fsa[fsa_pos].job_status[pl[i].job_pos].proc_id = NO_ID;
+                  fsa[fsa_pos].job_status[pl[i].job_pos].proc_id = -1;
                   fsa[fsa_pos].active_transfers--;
                   if (fsa[fsa_pos].active_transfers < 0)
                   {

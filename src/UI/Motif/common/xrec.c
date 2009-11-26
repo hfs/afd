@@ -116,7 +116,7 @@ xrec(char type, char *fmt, ...)
       case FATAL_DIALOG   :
       case ABORT_DIALOG   : /* Fatal error message and OK button. */
          {
-            static int answer;
+            int answer;
 
             answer = NEITHER;
             XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
@@ -149,9 +149,9 @@ xrec(char type, char *fmt, ...)
 
       case QUESTION_DIALOG: /* Message and YES+NO button. */
          {
-            static int answer;
-            XmString   yes_string,
-                       no_string;
+            int      answer;
+            XmString yes_string,
+                     no_string;
 
             answer = NEITHER;
             yes_string = XmStringCreateLocalized("Yes");

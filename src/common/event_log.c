@@ -1,6 +1,6 @@
 /*
  *  event_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -115,7 +115,7 @@ event_log(time_t       event_time,
 #endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Could not open fifo %s : %s",
+                             _("Could not open fifo `%s' : %s"),
                              event_log_fifo, strerror(errno));
                   return;
                }
@@ -124,7 +124,7 @@ event_log(time_t       event_time,
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not open fifo %s : %s",
+                       _("Could not open fifo `%s' : %s"),
                        event_log_fifo, strerror(errno));
             return;
          }
@@ -163,7 +163,7 @@ event_log(time_t       event_time,
    event_buffer[length++] = '\n';
    if (write(event_log_fd, event_buffer, length) != length)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__, "write() error : %s",
+      system_log(ERROR_SIGN, __FILE__, __LINE__, _("write() error : %s"),
                  strerror(errno));
    }
 

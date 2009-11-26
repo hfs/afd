@@ -1,6 +1,6 @@
 /*
  *  draw_dir_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ DESCR__S_M3
  **   01.09.2000 H.Kiehl Created
  **   05.05.2002 H.Kiehl Show the number files currently in the directory.
  **   28.09.2006 H.Kiehl Added error counter.
+ **   24.02.2008 H.Kiehl For drawing areas, draw to offline pixmap as well.
  **
  */
 DESCR__E_M3
@@ -61,6 +62,8 @@ DESCR__E_M3
 #include "dir_ctrl.h"
 
 extern Display                    *display;
+extern Pixmap                     label_pixmap,
+                                  line_pixmap;
 extern Window                     label_window,
                                   line_window;
 extern GC                         letter_gc,
@@ -110,14 +113,19 @@ draw_dir_label_line(void)
 
    for (i = 0; i < no_of_columns; i++)
    {
-      /* First draw the background in the appropriate color */
+      /* First draw the background in the appropriate color. */
       XFillRectangle(display, label_window, label_bg_gc,
                      x + 2,
                      2,
                      x + line_length - 2,
                      line_height - 4);
+      XFillRectangle(display, label_pixmap, label_bg_gc,
+                     x + 2,
+                     2,
+                     x + line_length - 2,
+                     line_height - 4);
 
-      /* Now draw left, top and bottom end for button style */
+      /* Now draw left, top and bottom end for button style. */
       XDrawLine(display, label_window, black_line_gc,
                 x,
                 0,
@@ -148,15 +156,50 @@ draw_dir_label_line(void)
                 line_height - 1,
                 x + line_length,
                 line_height - 1);
+      XDrawLine(display, label_pixmap, black_line_gc,
+                x,
+                0,
+                x,
+                line_height);
+      XDrawLine(display, label_pixmap, white_line_gc,
+                x + 1,
+                1,
+                x + 1,
+                line_height - 3);
+      XDrawLine(display, label_pixmap, black_line_gc,
+                x,
+                0,
+                x + line_length,
+                0);
+      XDrawLine(display, label_pixmap, white_line_gc,
+                x + 1,
+                1,
+                x + line_length,
+                1);
+      XDrawLine(display, label_pixmap, black_line_gc,
+                x,
+                line_height - 2,
+                x + line_length,
+                line_height - 2);
+      XDrawLine(display, label_pixmap, white_line_gc,
+                x,
+                line_height - 1,
+                x + line_length,
+                line_height - 1);
 
-      /* Draw string "   DIR     F" */
+      /* Draw string "   DIR     F". */
       XDrawString(display, label_window, letter_gc,
                   x + DEFAULT_FRAME_SPACE,
                   text_offset + SPACE_ABOVE_LINE,
                   "   DIR     F",
                   12);
+      XDrawString(display, label_pixmap, letter_gc,
+                  x + DEFAULT_FRAME_SPACE,
+                  text_offset + SPACE_ABOVE_LINE,
+                  "   DIR     F",
+                  12);
 
-      /* See if we need to extend heading for "Character" display */
+      /* See if we need to extend heading for "Character" display. */
       if (line_style != BARS_ONLY)
       {
          /*
@@ -175,18 +218,33 @@ draw_dir_label_line(void)
                      text_offset + SPACE_ABOVE_LINE,
                      " fd   bd   fq   bq  pr  tr   fr  ec",
                      35);
+         XDrawString(display, label_pixmap, letter_gc,
+                     x + x_offset_characters,
+                     text_offset + SPACE_ABOVE_LINE,
+                     " fd   bd   fq   bq  pr  tr   fr  ec",
+                     35);
       }
 
       x += line_length;
    }
 
-   /* Draw right end for button style */
+   /* Draw right end for button style. */
    XDrawLine(display, label_window, black_line_gc,
              x - 2,
              0,
              x - 2,
              line_height - 2);
    XDrawLine(display, label_window, white_line_gc,
+             x - 1,
+             1,
+             x - 1,
+             line_height - 2);
+   XDrawLine(display, label_pixmap, black_line_gc,
+             x - 2,
+             0,
+             x - 2,
+             line_height - 2);
+   XDrawLine(display, label_pixmap, white_line_gc,
              x - 1,
              1,
              x - 1,
@@ -202,6 +260,7 @@ draw_dir_line_status(int pos, signed char delta)
 {
    int x = 0,
        y = 0;
+   GC  tmp_gc;
 
    /* First locate position of x and y. */
    locate_xy(pos, &x, &y);
@@ -214,20 +273,19 @@ draw_dir_line_status(int pos, signed char delta)
    {
       if (connect_data[pos].inverse == ON)
       {
-         XFillRectangle(display, line_window, normal_bg_gc, x, y,
-                        line_length, line_height);
+         tmp_gc = normal_bg_gc;
       }
       else
       {
-         XFillRectangle(display, line_window, locked_bg_gc, x, y,
-                        line_length, line_height);
+         tmp_gc = locked_bg_gc;
       }
    }
    else
    {
-      XFillRectangle(display, line_window, default_bg_gc, x, y,
-                     line_length, line_height);
+      tmp_gc = default_bg_gc;
    }
+   XFillRectangle(display, line_window, tmp_gc, x, y, line_length, line_height);
+   XFillRectangle(display, line_pixmap, tmp_gc, x, y, line_length, line_height);
 
    /* Write destination identifier to screen. */
    draw_dir_identifier(pos, x, y);
@@ -266,28 +324,30 @@ draw_dir_line_status(int pos, signed char delta)
       /* Show beginning and end of bars. */
       if (connect_data[pos].inverse > OFF)
       {
-         XDrawLine(display, line_window, white_line_gc,
-                   x + x_offset_bars - 1,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars - 1,
-                   y + glyph_height);
-         XDrawLine(display, line_window, white_line_gc,
-                   x + x_offset_bars + (int)max_bar_length,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+         tmp_gc = white_line_gc;
       }
       else
       {
-         XDrawLine(display, line_window, black_line_gc,
-                   x + x_offset_bars - 1,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars - 1,
-                   y + glyph_height);
-         XDrawLine(display, line_window, black_line_gc,
-                   x + x_offset_bars + (int)max_bar_length,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+         tmp_gc = black_line_gc;
       }
+      XDrawLine(display, line_window, tmp_gc,
+                x + x_offset_bars - 1,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars - 1,
+                y + glyph_height);
+      XDrawLine(display, line_window, tmp_gc,
+                x + x_offset_bars + (int)max_bar_length,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+      XDrawLine(display, line_pixmap, tmp_gc,
+                x + x_offset_bars - 1,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars - 1,
+                y + glyph_height);
+      XDrawLine(display, line_pixmap, tmp_gc,
+                x + x_offset_bars + (int)max_bar_length,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars + (int)max_bar_length, y + glyph_height);
    }
 
    return;
@@ -303,6 +363,8 @@ draw_dir_blank_line(int pos)
    locate_xy(pos, &x, &y);
 
    XFillRectangle(display, line_window, default_bg_gc, x, y,
+                  line_length, line_height);
+   XFillRectangle(display, line_pixmap, default_bg_gc, x, y,
                   line_length, line_height);
 
    return;
@@ -330,6 +392,11 @@ draw_dir_identifier(int pos, int x, int y)
              GCForeground | GCBackground, &gc_values);
 
    XDrawImageString(display, line_window, color_letter_gc,
+                    DEFAULT_FRAME_SPACE + x,
+                    y + text_offset + SPACE_ABOVE_LINE,
+                    connect_data[pos].dir_display_str,
+                    MAX_DIR_ALIAS_LENGTH);
+   XDrawImageString(display, line_pixmap, color_letter_gc,
                     DEFAULT_FRAME_SPACE + x,
                     y + text_offset + SPACE_ABOVE_LINE,
                     connect_data[pos].dir_display_str,
@@ -378,6 +445,10 @@ draw_dir_full_marker(int pos, int x, int y, int dir_full)
       tmp_gc = color_letter_gc;
    }
    XDrawImageString(display, line_window, tmp_gc,
+                    x + x_offset_dir_full,
+                    y + text_offset + SPACE_ABOVE_LINE,
+                    str, 1);
+   XDrawImageString(display, line_pixmap, tmp_gc,
                     x + x_offset_dir_full,
                     y + text_offset + SPACE_ABOVE_LINE,
                     str, 1);
@@ -444,6 +515,8 @@ draw_dir_type(int pos, int x, int y)
       tmp_gc = letter_gc;
    }
    XDrawString(display, line_window, tmp_gc, x + x_offset_type,
+               y + text_offset + SPACE_ABOVE_LINE, str, 4);
+   XDrawString(display, line_pixmap, tmp_gc, x + x_offset_type,
                y + text_offset + SPACE_ABOVE_LINE, str, 4);
 
    return;
@@ -540,7 +613,11 @@ draw_dir_chars(int pos, char type, int x, int y)
                     y + text_offset + SPACE_ABOVE_LINE,
                     ptr,
                     length);
-
+   XDrawImageString(display, line_pixmap, tmp_gc,
+                    x + x_offset_characters + x_offset,
+                    y + text_offset + SPACE_ABOVE_LINE,
+                    ptr,
+                    length);
 
    return;
 }
@@ -577,9 +654,12 @@ draw_dir_bar(int         pos,
       XFillRectangle(display, line_window, tmp_gc, x_offset, y_offset,
                      connect_data[pos].bar_length[(int)bar_no],
                      bar_thickness_3);
+      XFillRectangle(display, line_pixmap, tmp_gc, x_offset, y_offset,
+                     connect_data[pos].bar_length[(int)bar_no],
+                     bar_thickness_3);
    }
 
-   /* Remove color behind shrunken bar */
+   /* Remove color behind shrunken bar. */
    if (delta < 0)
    {
       if (connect_data[pos].inverse == OFF)
@@ -598,6 +678,11 @@ draw_dir_bar(int         pos,
          }
       }
       XFillRectangle(display, line_window, tmp_gc,
+                     x_offset + connect_data[pos].bar_length[(int)bar_no],
+                     y_offset,
+                     (int)max_bar_length - connect_data[pos].bar_length[(int)bar_no],
+                     bar_thickness_3);
+      XFillRectangle(display, line_pixmap, tmp_gc,
                      x_offset + connect_data[pos].bar_length[(int)bar_no],
                      y_offset,
                      (int)max_bar_length - connect_data[pos].bar_length[(int)bar_no],

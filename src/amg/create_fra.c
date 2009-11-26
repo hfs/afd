@@ -1,6 +1,6 @@
 /*
  *  create_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,11 +70,11 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap(), munmap()                  */
+# include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
 #include <unistd.h>                 /* read(), write(), close(), lseek() */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
@@ -143,7 +143,7 @@ create_fra(int no_of_dirs)
          }
       }
 
-      /* Read the FRA file ID */
+      /* Read the FRA file ID. */
       if (read(fra_id_fd, &old_fra_id, sizeof(int)) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -170,7 +170,7 @@ create_fra(int no_of_dirs)
     */
    if (old_fra_id > -1)
    {
-      /* Attach to old region */
+      /* Attach to old region. */
       ptr = old_fra_stat + strlen(old_fra_stat);
       (void)sprintf(ptr, ".%d", old_fra_id);
 
@@ -244,7 +244,7 @@ create_fra(int no_of_dirs)
       {
          old_no_of_dirs = *(int *)ptr;
 
-         /* Mark it as stale */
+         /* Mark it as stale. */
          *(int *)ptr = STALE;
 
          /* Check if the version has changed. */
@@ -287,7 +287,7 @@ create_fra(int no_of_dirs)
    /*
     * Create the new mmap region.
     */
-   /* First calculate the new size */
+   /* First calculate the new size. */
    fra_size = AFD_WORD_OFFSET +
               (no_of_dirs * sizeof(struct fileretrieve_status));
 
@@ -302,7 +302,7 @@ create_fra(int no_of_dirs)
    (void)sprintf(new_fra_stat, "%s%s%s.%d",
                  p_work_dir, FIFO_DIR, FRA_STAT_FILE, fra_id);
 
-   /* Now map the new FRA region to a file */
+   /* Now map the new FRA region to a file. */
    if ((fra_fd = open(new_fra_stat, (O_RDWR | O_CREAT | O_TRUNC),
                       FILE_MODE)) == -1)
    {
@@ -320,6 +320,7 @@ create_fra(int no_of_dirs)
     */
    loops = fra_size / 4096;
    rest = fra_size % 4096;
+   (void)memset(buffer, 0, 4096);
    for (i = 0; i < loops; i++)
    {
       if (write(fra_fd, buffer, 4096) != 4096)
@@ -351,7 +352,6 @@ create_fra(int no_of_dirs)
                  "mmap() error : %s", strerror(errno));
       exit(INCORRECT);
    }
-   (void)memset(ptr, 0, fra_size);
 
    /* Write number of directories to new memory mapped region. */
    *(int *)ptr = no_of_dirs;
@@ -385,7 +385,7 @@ create_fra(int no_of_dirs)
          fra[i].report_unknown_files   = dd[i].report_unknown_files;
          fra[i].end_character          = dd[i].end_character;
          fra[i].important_dir          = dd[i].important_dir;
-         fra[i].time_option            = dd[i].time_option;
+         fra[i].no_of_time_entries     = dd[i].no_of_time_entries;
          fra[i].remove                 = dd[i].remove;
          fra[i].stupid_mode            = dd[i].stupid_mode;
          fra[i].force_reread           = dd[i].force_reread;
@@ -407,6 +407,8 @@ create_fra(int no_of_dirs)
          fra[i].max_errors             = dd[i].max_errors;
          fra[i].in_dc_flag             = dd[i].in_dc_flag;
          fra[i].last_retrieval         = 0L;
+         fra[i].start_event_handle     = 0L;
+         fra[i].end_event_handle       = 0L;
          fra[i].bytes_received         = 0;
          fra[i].files_in_dir           = 0;
          fra[i].files_queued           = 0;
@@ -415,7 +417,7 @@ create_fra(int no_of_dirs)
          fra[i].files_received         = 0;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
-         fra[i].queued                 = NO;
+         fra[i].queued                 = 0;
          fra[i].error_counter          = 0;
          if (dd[i].accept_dot_files == NO)
          {
@@ -439,10 +441,13 @@ create_fra(int no_of_dirs)
             fra[i].dir_flag |= INOTIFY_CLOSE;
          }
 #endif
-         if (fra[i].time_option == YES)
+         if (fra[i].no_of_time_entries > 0)
          {
-            (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
-            fra[i].next_check_time = calc_next_time(&fra[i].te, current_time);
+            (void)memcpy(&fra[i].te[0], &dd[i].te[0],
+                         (fra[i].no_of_time_entries * sizeof(struct bd_time_entry)));
+            fra[i].next_check_time = calc_next_time_array(fra[i].no_of_time_entries,
+                                                          &fra[i].te[0],
+                                                          current_time);
          }
          (void)memset(&fra[i].ate, 0, sizeof(struct bd_time_entry));
       } /* for (i = 0; i < no_of_dirs; i++) */
@@ -467,7 +472,7 @@ create_fra(int no_of_dirs)
          fra[i].report_unknown_files   = dd[i].report_unknown_files;
          fra[i].end_character          = dd[i].end_character;
          fra[i].important_dir          = dd[i].important_dir;
-         fra[i].time_option            = dd[i].time_option;
+         fra[i].no_of_time_entries     = dd[i].no_of_time_entries;
          fra[i].remove                 = dd[i].remove;
          fra[i].stupid_mode            = dd[i].stupid_mode;
          fra[i].force_reread           = dd[i].force_reread;
@@ -490,10 +495,13 @@ create_fra(int no_of_dirs)
          fra[i].max_errors             = dd[i].max_errors;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
-         if (fra[i].time_option == YES)
+         if (fra[i].no_of_time_entries > 0)
          {
-            (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
-            fra[i].next_check_time = calc_next_time(&fra[i].te, current_time);
+            (void)memcpy(&fra[i].te[0], &dd[i].te[0],
+                         (fra[i].no_of_time_entries * sizeof(struct bd_time_entry)));
+            fra[i].next_check_time = calc_next_time_array(fra[i].no_of_time_entries,
+                                                          &fra[i].te[0],
+                                                          current_time);
          }
 
          /*
@@ -519,6 +527,8 @@ create_fra(int no_of_dirs)
          if (gotcha == YES)
          {
             fra[i].last_retrieval         = old_fra[k].last_retrieval;
+            fra[i].start_event_handle     = old_fra[k].start_event_handle;
+            fra[i].end_event_handle       = old_fra[k].end_event_handle;
             fra[i].bytes_received         = old_fra[k].bytes_received;
             fra[i].files_received         = old_fra[k].files_received;
             fra[i].files_in_dir           = old_fra[k].files_in_dir;
@@ -547,8 +557,14 @@ create_fra(int no_of_dirs)
                  ((current_time - fra[i].last_retrieval) < fra[i].warn_time)))
             {
                fra[i].dir_flag &= ~WARN_TIME_REACHED;
-               SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
+               SET_DIR_STATUS(fra[i].dir_flag,
+                              current_time,
+                              fra[i].start_event_handle,
+                              fra[i].end_event_handle,
+                              fra[i].dir_status);
                error_action(fra[i].dir_alias, "stop", DIR_WARN_ACTION);
+               event_log(0L, EC_DIR, ET_AUTO, EA_WARN_TIME_UNSET, "%s",
+                         fra[i].dir_alias);
             }
 #ifdef WITH_INOTIFY
             if ((fra[i].dir_flag & INOTIFY_RENAME) &&
@@ -579,6 +595,8 @@ create_fra(int no_of_dirs)
          else /* This directory is not in the old FRA, therefor it is new. */
          {
             fra[i].last_retrieval         = 0L;
+            fra[i].start_event_handle     = 0L;
+            fra[i].end_event_handle       = 0L;
             fra[i].bytes_received         = 0;
             fra[i].files_received         = 0;
             fra[i].files_in_dir           = 0;
@@ -609,7 +627,7 @@ create_fra(int no_of_dirs)
                fra[i].dir_flag |= INOTIFY_CLOSE;
             }
 #endif
-            fra[i].queued                 = NO;
+            fra[i].queued                 = 0;
             fra[i].wait_for_filename[0]   = '\0';
             fra[i].accumulate_size        = 0;
             fra[i].accumulate             = 0;
@@ -626,11 +644,11 @@ create_fra(int no_of_dirs)
    free((void *)dd);
    dd = NULL;
 
-   /* Reposition fra pointer after no_of_dirs */
+   /* Reposition fra pointer after no_of_dirs. */
    ptr = (char *)fra;
    ptr -= AFD_WORD_OFFSET;
    *(ptr + SIZEOF_INT + 1 + 1) = 0;                     /* Not used. */
-   *(ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_FRA_VERSION; /* FRA version number */
+   *(ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_FRA_VERSION; /* FRA version number. */
    (void)memset((ptr + SIZEOF_INT + 4), 0, SIZEOF_INT); /* Not used. */
    *(ptr + SIZEOF_INT + 4 + SIZEOF_INT) = 0;            /* Not used. */
    *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 1) = 0;        /* Not used. */
@@ -690,7 +708,7 @@ create_fra(int no_of_dirs)
     * Copy the new fra_id into the locked FRA_ID_FILE file, unlock
     * and close the file.
     */
-   /* Go to beginning in file */
+   /* Go to beginning in file. */
    if (lseek(fra_id_fd, 0, SEEK_SET) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -698,7 +716,7 @@ create_fra(int no_of_dirs)
                  fra_id_file, strerror(errno));
    }
 
-   /* Write new value into FRA_ID_FILE file */
+   /* Write new value into FRA_ID_FILE file. */
    if (write(fra_id_fd, &fra_id, sizeof(int)) != sizeof(int))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -706,7 +724,7 @@ create_fra(int no_of_dirs)
       exit(INCORRECT);
    }
 
-   /* Unlock file which holds the fsa_id */
+   /* Unlock file which holds the fsa_id. */
    if (old_fra_fd != -1)
    {
       if (fcntl(fra_id_fd, F_SETLKW, &ulock) < 0)
@@ -716,14 +734,14 @@ create_fra(int no_of_dirs)
       }
    }
 
-   /* Close the FRA ID file */
+   /* Close the FRA ID file. */
    if (close(fra_id_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
 
-   /* Close file with new FRA */
+   /* Close file with new FRA. */
    if (close(fra_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -731,7 +749,7 @@ create_fra(int no_of_dirs)
    }
    fra_fd = -1;
 
-   /* Close old FRA file */
+   /* Close old FRA file. */
    if (old_fra_fd != -1)
    {
       if (close(old_fra_fd) == -1)

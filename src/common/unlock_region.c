@@ -1,6 +1,6 @@
 /*
  *  unlock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   unlock_region - locks a file
  **
  ** SYNOPSIS
- **   int unlock_region(int fd, off_t offset)
+ **   int unlock_region(const int fd, const off_t offset)
  **
  ** DESCRIPTION
  **   This function unlocks the region specified by offset plus
@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "fddefs.h"
@@ -61,7 +61,7 @@ void
 #ifdef LOCK_DEBUG
 unlock_region(int fd, off_t offset, char *file, int line)
 #else
-unlock_region(int fd, off_t offset)
+unlock_region(const int fd, const off_t offset)
 #endif
 {
    struct flock ulock;
@@ -83,7 +83,7 @@ unlock_region(int fd, off_t offset)
    if (fcntl(fd, F_SETLK, &ulock) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "fcntl() error : %s", strerror(errno));
+                 _("fcntl() error : %s"), strerror(errno));
       exit(UNLOCK_REGION_ERROR);
    }
 

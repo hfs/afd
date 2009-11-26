@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@ DESCR__S_M1
  **   09.02.2002 H.Kiehl Wait for all children to terminate before exiting.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **   18.09.2003 H.Kiehl Check if time goes backward.
+ **   01.03.2008 H.Kiehl check_file_dir() is now performed by dir_check.
  **
  */
 DESCR__E_M1
@@ -112,12 +113,15 @@ DESCR__E_M1
 
 
 /* Global variables. */
-int                        afd_status_fd,
+int                        afd_file_dir_length,
+                           afd_status_fd,
+                           dcpl_fd = -1,
                            event_log_fd = STDERR_FILENO,
+                           force_check = NO,
                            fra_id,         /* ID of FRA.                 */
-                           fra_fd = -1,    /* Needed by fra_attach()     */
+                           fra_fd = -1,    /* Needed by fra_attach().    */
                            fsa_id,         /* ID of FSA.                 */
-                           fsa_fd = -1,    /* Needed by fsa_attach()     */
+                           fsa_fd = -1,    /* Needed by fsa_attach().    */
 #ifdef WITH_INOTIFY
                            inotify_fd,
                            *iwl,
@@ -128,7 +132,8 @@ int                        afd_status_fd,
                            no_of_dirs = 0,
                            no_fork_jobs,
                            no_of_hosts = 0,
-                           no_of_process = 0,
+                           no_of_orphaned_procs,
+                           *no_of_process,
                            *no_of_file_masks,
                            *no_msg_buffered,
                            no_of_time_jobs,
@@ -143,6 +148,7 @@ int                        afd_status_fd,
                            no_of_local_dirs,/* No. of directories in the */
                                             /* DIR_CONFIG file that are  */
                                             /* local.                    */
+                           *amg_counter,
                            amg_counter_fd,  /* File descriptor for AMG   */
                                             /* counter file.             */
                            fin_fd,
@@ -165,6 +171,7 @@ int                        afd_status_fd,
 unsigned int               default_age_limit;
 time_t                     default_exec_timeout;
 off_t                      amg_data_size;
+pid_t                      *opl;
 #ifdef HAVE_MMAP
 off_t                      fra_size,
                            fsa_size;
@@ -194,7 +201,10 @@ char                       *p_mmap = NULL,
 #endif
                            *afd_file_dir,
                            outgoing_file_dir[MAX_PATH_LENGTH];
-struct dc_proc_list        *dcpl;      /* Dir Check Process List */
+#ifndef _WITH_PTHREAD
+unsigned char              *file_length_pool;
+#endif
+struct dc_proc_list        *dcpl;      /* Dir Check Process List.*/
 struct directory_entry     *de;
 struct instant_db          *db = NULL;
 struct filetransfer_status *fsa;
@@ -216,9 +226,14 @@ int                        il_fd,
 unsigned int               *il_dir_number;
 size_t                     il_size;
 off_t                      *il_file_size;
+time_t                     *il_time;
 char                       *il_file_name,
                            *il_data;
 #endif /* _INPUT_LOG */
+#ifdef _DISTRIBUTION_LOG
+unsigned int               max_jobs_per_file;
+struct file_dist_list      **file_dist_pool;
+#endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local variables. */
@@ -230,25 +245,24 @@ static void                *do_one_dir(void *);
 #endif
 static void                add_to_proc_stat(unsigned int),
                            check_fifo(int, int),
+                           check_orphaned_procs(time_t),
                            check_pool_dir(time_t),
                            sig_bus(int),
                            sig_segv(int);
-static pid_t               get_one_zombie(pid_t);
+static pid_t               get_one_zombie(pid_t, time_t);
 static int                 get_process_pos(pid_t),
 #ifdef _WITH_PTHREAD
-                           handle_dir(int, time_t *, char *, char *, char *, off_t *, time_t *, char **);
+                           handle_dir(int, time_t *, char *, char *, off_t *, time_t *, char **);
 #else
-                           handle_dir(int, time_t *, char *, char *, char *, int *);
+                           handle_dir(int, time_t *, char *, char *, int *);
 #endif
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-#ifdef REPORT_DIR_TIME_INTERVAL
-   int              check_time = YES;
-#endif
-   int              del_time_job_fd,
+   int              check_time = YES,
+                    del_time_job_fd,
                     fifo_size,
                     i,
                     last_fdc_pos = 0,
@@ -266,25 +280,19 @@ main(int argc, char *argv[])
                     read_fd,
                     status,
                     write_fd;
-#ifdef REPORT_DIR_TIME_INTERVAL
-   unsigned int     average_diff_time = 0;
-#endif /* REPORT_DIR_TIME_INTERVAL */
-   time_t           fd_search_start_time,
-                    next_time_check,
-                    next_search_time,
-#ifdef REPORT_DIR_TIME_INTERVAL
+   unsigned int     average_diff_time = 0,
+                    no_of_dir_searches = 0;
+   time_t           diff_time,
                     max_diff_time = 0L,
                     max_diff_time_time = 0L,
+                    next_dir_check_time,
+                    next_rename_rule_check_time,
                     next_report_time,
-                    diff_time,
-#endif /* REPORT_DIR_TIME_INTERVAL */
+                    next_search_time,
+                    next_time_check,
                     now,
                     rescan_time = DEFAULT_RESCAN_TIME,
-                    next_rename_rule_check_time,
                     sleep_time;
-#ifdef REPORT_DIR_TIME_INTERVAL
-   unsigned int     no_of_dir_searches = 0;
-#endif /* REPORT_DIR_TIME_INTERVAL */
    char             *fifo_buffer,
 #ifdef _FIFO_DEBUG
                     cmd[2],
@@ -338,21 +346,29 @@ main(int argc, char *argv[])
    }
 
 #ifdef _INPUT_LOG
-   il_size = sizeof(off_t) + sizeof(unsigned int) + sizeof(int) +
-             MAX_FILENAME_LENGTH + sizeof(char);
+   n = sizeof(off_t);
+   if (sizeof(time_t) > n)
+   {
+      n = sizeof(time_t);
+   }
+   if (sizeof(unsigned int) > n)
+   {
+      n = sizeof(unsigned int);
+   }
+   il_size = n + n + n + n + MAX_FILENAME_LENGTH + sizeof(char);
    if ((il_data = malloc(il_size)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to malloc() %d bytes : %s", il_size, strerror(errno));
       exit(INCORRECT);
    }
-   il_size = sizeof(off_t) + sizeof(unsigned int) + sizeof(int) + sizeof(char);
-   /* NOTE: + sizeof(char) is for '\0' at end of file name!!!! */
+   il_size = n + n + n + n + sizeof(char);
+   /* NOTE: + sizeof(char) is for '\0' at end of file name! */
    il_file_size = (off_t *)(il_data);
-   il_dir_number = (unsigned int *)(il_data + sizeof(off_t));
-   il_unique_number = (int *)(il_data + sizeof(off_t) + sizeof(unsigned int));
-   il_file_name = (char *)(il_data + sizeof(off_t) + sizeof(unsigned int) +
-                           sizeof(int));
+   il_time = (time_t *)(il_data + n);
+   il_dir_number = (unsigned int *)(il_data + n + n);
+   il_unique_number = (int *)(il_data + n + n + n);
+   il_file_name = (char *)(il_data + n + n + n + n);
 #endif /* _INPUT_LOG */
 
 #ifndef _WITH_PTHREAD
@@ -363,7 +379,7 @@ main(int argc, char *argv[])
                  "malloc() error : %s", strerror(errno));
       exit(INCORRECT);
    }
-#endif /* !_WITH_PTHREAD */
+#endif
 
    /*
     * Determine the size of the fifo buffer. Then create a buffer
@@ -371,7 +387,7 @@ main(int argc, char *argv[])
     */
    if ((i = (int)fpathconf(fin_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;                                     
    }
    else
@@ -387,8 +403,11 @@ main(int argc, char *argv[])
                  fifo_size, strerror(errno));                   
       exit(INCORRECT);
    }
+#ifdef _DISTRIBUTION_LOG
+   init_dis_log();
+#endif
 
-   /* Find largest file descriptor */
+   /* Find largest file descriptor. */
    max_fd = del_time_job_fd;
    if (read_fd > max_fd)
    {
@@ -407,23 +426,18 @@ main(int argc, char *argv[])
    max_fd++;
    FD_ZERO(&rset);
 
-   /* Set flag to indicate that the the dir_check is active. */
-   if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
-   {
-      p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-   }
-   fd_search_start_time = time(NULL);
+   now = time(NULL);
 
-   next_time_check = (fd_search_start_time / TIME_CHECK_INTERVAL) *
+   next_time_check = (now / TIME_CHECK_INTERVAL) *
                       TIME_CHECK_INTERVAL + TIME_CHECK_INTERVAL;
-   next_search_time = (fd_search_start_time / OLD_FILE_SEARCH_INTERVAL) *
+   next_search_time = (now / OLD_FILE_SEARCH_INTERVAL) *
                       OLD_FILE_SEARCH_INTERVAL + OLD_FILE_SEARCH_INTERVAL;
-   next_rename_rule_check_time = (fd_search_start_time / READ_RULES_INTERVAL) *
+   next_rename_rule_check_time = (now / READ_RULES_INTERVAL) *
                                  READ_RULES_INTERVAL + READ_RULES_INTERVAL;
-#ifdef REPORT_DIR_TIME_INTERVAL
-   next_report_time = (fd_search_start_time / REPORT_DIR_TIME_INTERVAL) *
+   next_report_time = (now / REPORT_DIR_TIME_INTERVAL) *
                       REPORT_DIR_TIME_INTERVAL + REPORT_DIR_TIME_INTERVAL;
-#endif /* REPORT_DIR_TIME_INTERVAL */
+   next_dir_check_time = (now / DIR_CHECK_TIME) * DIR_CHECK_TIME +
+                         DIR_CHECK_TIME;
 
    /* Tell user we are starting dir_check. */
    system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)",
@@ -433,7 +447,7 @@ main(int argc, char *argv[])
     * Before we start lets make shure that there are no old
     * jobs in the pool directory.
     */
-   check_pool_dir(fd_search_start_time);
+   check_pool_dir(now);
 
    /*
     * The following loop checks all user directories for new
@@ -443,7 +457,6 @@ main(int argc, char *argv[])
     */
    for (;;)
    {
-#ifdef REPORT_DIR_TIME_INTERVAL
       if (check_time == NO)
       {
          check_time = YES;
@@ -452,18 +465,19 @@ main(int argc, char *argv[])
       {
          now = time(NULL);
       }
-#else
-      now = time(NULL);
-#endif /* REPORT_DIR_TIME_INTERVAL */
       if (now >= next_rename_rule_check_time)
       {
          get_rename_rules(rule_file, YES);
+         if (no_of_orphaned_procs > 0)
+         {
+            check_orphaned_procs(now);
+         }
          next_rename_rule_check_time = (now / READ_RULES_INTERVAL) *
                                        READ_RULES_INTERVAL + READ_RULES_INTERVAL;
       }
       if (now >= next_search_time)
       {
-         while (get_one_zombie(-1) > 0)
+         while (get_one_zombie(-1, now) > 0)
          {
             /* Do nothing. */;
          }
@@ -473,17 +487,24 @@ main(int argc, char *argv[])
       }
       if (now >= next_time_check)
       {
-         handle_time_jobs(&no_of_process, now);
+         handle_time_jobs(now);
          next_time_check = (time(&now) / TIME_CHECK_INTERVAL) *
                             TIME_CHECK_INTERVAL + TIME_CHECK_INTERVAL;
       }
-#ifdef REPORT_DIR_TIME_INTERVAL
+      if ((p_afd_status->fd == ON) &&
+          ((force_check == YES) || (now >= next_dir_check_time)))
+      {
+         check_file_dir(now);
+         next_dir_check_time = ((time(&now) / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
+                               DIR_CHECK_TIME;
+         force_check = NO;
+      }
       if (now >= next_report_time)
       {
 #ifdef MAX_DIFF_TIME
          if (max_diff_time > MAX_DIFF_TIME)
          {
-#endif /* MAX_DIFF_TIME */
+#endif
             char time_str[10];
 
             average_diff_time = average_diff_time / no_of_dir_searches;
@@ -495,7 +516,7 @@ main(int argc, char *argv[])
                        max_diff_time, time_str, no_of_dir_searches);
 #ifdef MAX_DIFF_TIME
          }
-#endif /* MAX_DIFF_TIME */
+#endif
          average_diff_time = 0;
          max_diff_time = max_diff_time_time = 0L;
          no_of_dir_searches = 0;
@@ -503,7 +524,6 @@ main(int argc, char *argv[])
                             REPORT_DIR_TIME_INTERVAL +
                             REPORT_DIR_TIME_INTERVAL;
       }
-#endif /* REPORT_DIR_TIME_INTERVAL */
       if (first_time == YES)
       {
          sleep_time = 0L;
@@ -560,7 +580,7 @@ main(int argc, char *argv[])
                     }
                     else
                     {
-                       (void)get_one_zombie(pid);
+                       (void)get_one_zombie(pid, now);
                     }
                     bytes_done += sizeof(pid_t);
                  } while ((n > bytes_done) &&
@@ -578,20 +598,16 @@ main(int argc, char *argv[])
                                  IP_FIN_FIFO, strerror(errno));
                    }
            }
-#ifdef WITH_INOTIFY
-      else if ((status > 0) && (FD_ISSET(inotify_fd, &rset)))
-           {
-              if ((n = read(inotify_fd, ibuf, ibuf_size)) > 0)
-              {
-              }
-           }
-      if (now > next_scan_time)
-      {
-         next_scan_time = (now / sleep_time) * sleep_time + sleep_time;
-#else
       else if (status == 0)
            {
+#ifdef AFDBENCH_CONFIG
+           if ((p_afd_status->amg_jobs & PAUSE_DISTRIBUTION) == 0)
+           {
 #endif
+              int         ret;
+              time_t      start_time = now + sleep_time;
+              struct stat dir_stat_buf;
+
               if (check_fsa(NO) == YES)
               {
                  /*
@@ -610,330 +626,477 @@ main(int argc, char *argv[])
               }
 
               /*
-               * Check if FD is currently performing a directory
-               * check of the file directory, to see if there are
-               * any jobs without messages. This can only be done
-               * safely when dir_check() is not currently inserting
-               * new jobs.
+               * If there are messages in the queue, check if we
+               * can pass them to the FD. If we don't do it here
+               * the messages will be stuck in the queue until
+               * a new file enters the system.
                */
-#ifdef LOCK_DEBUG
-              lock_region_w(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE, __FILE__, __LINE__);
-#else
-              lock_region_w(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
-#endif
-              if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0)
+              if ((p_afd_status->fd == ON) && (*no_msg_buffered > 0))
               {
-                 int         ret;
-                 time_t      start_time = now + sleep_time;
-                 struct stat dir_stat_buf;
-
-                 /* Set flag to indicate that the the dir_check is active. */
-                 if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
-                 {
-                    p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-                 }
-#ifdef LOCK_DEBUG
-                 unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE, __FILE__, __LINE__);
-#else
-                 unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
-#endif
-
-                 /*
-                  * If there are messages in the queue, check if we
-                  * can pass them to the FD. If we don't do it here
-                  * the messages will be stuck in the queue until
-                  * a new file enters the system.
-                  */
-                 if ((p_afd_status->fd == ON) && (*no_msg_buffered > 0))
-                 {
-                    clear_msg_buffer();
-                 }
+                 clear_msg_buffer();
+              }
 
 #ifdef _WITH_PTHREAD
-                 /*
-                  * Create a threat for each directory we have to read.
-                  * Lets use the peer model.
-                  */
-                 for (i = 0; i < no_of_local_dirs; i++)
+              /*
+               * Create a threat for each directory we have to read.
+               * Lets use the peer model.
+               */
+              for (i = 0; i < no_of_local_dirs; i++)
+              {
+                 if (((fra[de[i].fra_pos].dir_flag & DIR_DISABLED) == 0) &&
+                     ((fra[de[i].fra_pos].dir_flag & DIR_STOPPED) == 0) &&
+                     ((fra[de[i].fra_pos].fsa_pos != -1) ||
+                      (fra[de[i].fra_pos].no_of_time_entries == 0) ||
+                      (fra[de[i].fra_pos].next_check_time <= start_time)))
                  {
-                    if (((fra[de[i].fra_pos].dir_flag & DIR_DISABLED) == 0) &&
-                        ((fra[de[i].fra_pos].fsa_pos != -1) ||
-                         (fra[de[i].fra_pos].time_option == NO) ||
-                         (fra[de[i].fra_pos].next_check_time <= start_time)))
+                    if ((rtn = pthread_create(&thread[i], NULL,
+                                              do_one_dir,
+                                              (void *)&p_data[i])) != 0)
                     {
-                       if ((rtn = pthread_create(&thread[i], NULL,
-                                                 do_one_dir,
-                                                 (void *)&p_data[i])) != 0)
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "pthread_create() error : %s",
+                                  strerror(rtn));
+                    }
+                 }
+                 else
+                 {
+                    thread[i] = NULL;
+                 }
+              }
+
+              for (i = 0; i < no_of_local_dirs; i++)
+              {
+                 if (tread[i] != NULL)
+                 {
+                    int j;
+
+                    if ((rtn = pthread_join(thread[i], &statusp)) != 0)
+                    {
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "pthread_join() error : %s",
+                                  strerror(rtn));
+                    }
+                    if (statusp == PTHREAD_CANCELED)
+                    {
+                       system_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Thread has been cancelled.");
+                    }
+                    for (j = 0; j < fra[de[i].fra_pos].max_copied_files; j++)
+                    {
+                       p_data[i].file_name_pool[j][0] = '\0';
+                    }
+
+                    if ((fra[de[i].fra_pos].fsa_pos == -1) &&
+                        (fra[de[i].fra_pos].no_of_time_entries > 0))
+                    {
+                       fra[de[i].fra_pos].next_check_time = calc_next_time_array(fra[de[i].fra_pos].no_of_time_entries,
+                                                                                 &fra[de[i].fra_pos].te[0],
+                                                                                 start_time);
+                    }
+                 }
+              }
+
+              /* Check if any process is finished. */
+              if (*no_of_process > 0)
+              {
+                 while (get_one_zombie(-1, now) > 0)
+                 {
+                    /* Do nothing. */;
+                 }
+              }
+
+              /*
+               * When starting and all directories are full with
+               * files, it will take far too long before the dir_check
+               * checks if it has to stop. So lets check the fifo
+               * every time we have checked a directory.
+               */
+              check_fifo(read_fd, write_fd);
+#else
+              /*
+               * Since it can take very long until we hace travelled
+               * through all directories lets always check the time
+               * and ensure we do not take too long.
+               */
+              fdc = fpdc = 0;
+              for (i = 0; i < no_of_local_dirs; i++)
+              {
+                 if (((fra[de[i].fra_pos].dir_flag & DIR_DISABLED) == 0) &&
+                     ((fra[de[i].fra_pos].dir_flag & DIR_STOPPED) == 0) &&
+                     ((fra[de[i].fra_pos].fsa_pos != -1) ||
+                      (fra[de[i].fra_pos].no_of_time_entries == 0) ||
+                      (fra[de[i].fra_pos].next_check_time <= start_time)))
+                 {
+                    if (stat(de[i].dir, &dir_stat_buf) < 0)
+                    {
+                       p_fra = &fra[de[i].fra_pos];
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, start_time,
+                                  "Can't access directory entry %d %s : %s",
+                                  i, de[i].dir, strerror(errno));
+                       if (fra[de[i].fra_pos].fsa_pos == -1)
                        {
-                          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                     "pthread_create() error : %s",
-                                     strerror(rtn));
+                          lock_region_w(fra_fd,
+# ifdef LOCK_DEBUG
+                                        (char *)&fra[de[i].fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
+# else
+                                        (char *)&fra[de[i].fra_pos].error_counter - (char *)fra);
+# endif
+                          fra[de[i].fra_pos].error_counter += 1;
+                          if ((fra[de[i].fra_pos].error_counter >= fra[de[i].fra_pos].max_errors) &&
+                              ((fra[de[i].fra_pos].dir_flag & DIR_ERROR_SET) == 0))
+                          {
+                             fra[de[i].fra_pos].dir_flag |= DIR_ERROR_SET;
+                             SET_DIR_STATUS(fra[de[i].fra_pos].dir_flag,
+                                            now,
+                                            fra[de[i].fra_pos].start_event_handle,
+                                            fra[de[i].fra_pos].end_event_handle,
+                                            fra[de[i].fra_pos].dir_status);
+                          }
+                          unlock_region(fra_fd,
+# ifdef LOCK_DEBUG
+                                        (char *)&fra[de[i].fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
+# else
+                                        (char *)&fra[de[i].fra_pos].error_counter - (char *)fra);
+# endif
                        }
                     }
                     else
                     {
-                       thread[i] = NULL;
-                    }
-                 }
+                       int pdf = NO;  /* Paused dir flag. */
 
-                 for (i = 0; i < no_of_local_dirs; i++)
-                 {
-                    if (tread[i] != NULL)
-                    {
-                       int j;
-
-                       if ((rtn = pthread_join(thread[i], &statusp)) != 0)
+                       /*
+                        * Handle any new files that have arrived.
+                        */
+                       if ((fra[de[i].fra_pos].force_reread == YES) ||
+                           (dir_stat_buf.st_mtime >= de[i].search_time))
                        {
-                          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                     "pthread_join() error : %s",
-                                     strerror(rtn));
-                       }
-                       if (statusp == PTHREAD_CANCELED)
-                       {
-                          system_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Thread has been cancelled.");
-                       }
-                       for (j = 0; j < fra[de[i].fra_pos].max_copied_files; j++)
-                       {
-                          p_data[i].file_name_pool[j][0] = '\0';
-                       }
-
-                       if ((fra[de[i].fra_pos].fsa_pos == -1) &&
-                           (fra[de[i].fra_pos].time_option == YES))
-                       {
-                          fra[de[i].fra_pos].next_check_time = calc_next_time(&fra[de[i].fra_pos].te, start_time);
-                       }
-                    }
-                 }
-
-                 /* Check if any process is finished. */
-                 if (no_of_process > 0)
-                 {
-                    while (get_one_zombie(-1) > 0)
-                    {
-                       /* Do nothing. */;
-                    }
-                 }
-
-                 /*
-                  * When starting and all directories are full with
-                  * files, it will take far too long before the dir_check
-                  * checks if it has to stop. So lets check the fifo
-                  * every time we have checked a directory.
-                  */
-                 check_fifo(read_fd, write_fd);
-#else
-                 /*
-                  * Since it can take very long until we hace travelled
-                  * through all directories lets always check the time
-                  * and ensure we do not take too long.
-                  */
-                 fdc = fpdc = 0;
-                 for (i = 0; i < no_of_local_dirs; i++)
-                 {
-                    if (((fra[de[i].fra_pos].dir_flag & DIR_DISABLED) == 0) &&
-                        ((fra[de[i].fra_pos].fsa_pos != -1) ||
-                         (fra[de[i].fra_pos].time_option == NO) ||
-                         (fra[de[i].fra_pos].next_check_time <= start_time)))
-                    {
-                       if (stat(de[i].dir, &dir_stat_buf) < 0)
-                       {
-                          p_fra = &fra[de[i].fra_pos];
-                          receive_log(ERROR_SIGN, __FILE__, __LINE__, start_time,
-                                     "Can't access directory entry %d %s : %s",
-                                     i, de[i].dir, strerror(errno));
-                          if (fra[de[i].fra_pos].fsa_pos == -1)
+                          /* The directory time has changed. New files */
+                          /* have arrived!                             */
+                          /* NOTE: Directories where we may not remove */
+                          /*       are NOT counted as full. If we do   */
+                          /*       so we might end up in an endless    */
+                          /*       loop.                               */
+# ifdef WITH_MULTI_DIR_SCANS
+                          if ((handle_dir(i, &dir_stat_buf.st_mtime, NULL, NULL,
+# else
+                          if ((handle_dir(i, NULL, NULL, NULL,
+# endif
+                                          &pdf) == YES) &&
+                              ((fra[de[i].fra_pos].remove == YES) ||
+                               (fra[de[i].fra_pos].stupid_mode != YES)))
                           {
-                             lock_region_w(fra_fd,
-#ifdef LOCK_DEBUG
-                                           (char *)&fra[de[i].fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
-#else
-                                           (char *)&fra[de[i].fra_pos].error_counter - (char *)fra);
-#endif
-                             fra[de[i].fra_pos].error_counter += 1;
-                             if ((fra[de[i].fra_pos].error_counter >= fra[de[i].fra_pos].max_errors) &&
-                                 ((fra[de[i].fra_pos].dir_flag & DIR_ERROR_SET) == 0))
-                             {
-                                fra[de[i].fra_pos].dir_flag |= DIR_ERROR_SET;
-                                SET_DIR_STATUS(fra[de[i].fra_pos].dir_flag,
-                                               fra[de[i].fra_pos].dir_status);
-                             }
-                             unlock_region(fra_fd,
-#ifdef LOCK_DEBUG
-                                           (char *)&fra[de[i].fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
-#else
-                                           (char *)&fra[de[i].fra_pos].error_counter - (char *)fra);
-#endif
+                             full_dir[fdc] = i;
+                             fdc++;
                           }
                        }
+# ifdef REPORT_UNCHANGED_TIMESTAMP
                        else
                        {
-                          int pdf = NO;  /* Paused dir flag. */
+                          p_fra = &fra[de[i].fra_pos];
+                          receive_log(INFO_SIGN, NULL, 0, start_time,
+                                      "Directory timestamp unchanged.");
+                       }
+# endif
 
-                          /*
-                           * Handle any new files that have arrived.
-                           */
-                          if ((fra[de[i].fra_pos].force_reread == YES) ||
-                              (dir_stat_buf.st_mtime >= de[i].search_time))
+                       /*
+                        * Handle any paused hosts in this directory.
+                        * We do NOT check the pdf flag here since it is
+                        * very unlikely that the paused status has changed
+                        * so quickly.
+                        */
+                       if (dir_stat_buf.st_nlink > 2)
+                       {
+                          int dest_count = 0,
+                              nfg = 0;
+
+                          while ((p_paused_host = check_paused_dir(&de[i],
+                                                                   &nfg,
+                                                                   &dest_count,
+                                                                   &pdf)) != NULL)
                           {
-                             /* The directory time has changed. New files */
-                             /* have arrived!                             */
-                             /* NOTE: Directories where we may not remove */
-                             /*       are NOT counted as full. If we do   */
-                             /*       so we might end up in an endless    */
-                             /*       loop.                               */
-#ifdef WITH_MULTI_DIR_SCANS
-                             if ((handle_dir(i, &dir_stat_buf.st_mtime, NULL, NULL,
-#else
-                             if ((handle_dir(i, NULL, NULL, NULL,
-#endif
-                                             afd_file_dir, &pdf) == YES) &&
-                                 ((fra[de[i].fra_pos].remove == YES) ||
-                                  (fra[de[i].fra_pos].stupid_mode != YES)))
+                             if (handle_dir(i, &start_time, p_paused_host,
+                                            NULL, NULL) == YES)
                              {
-                                full_dir[fdc] = i;
-                                fdc++;
+                                full_paused_dir[fpdc] = i;
+                                fpdc++;
                              }
+                             pdf = YES;
                           }
-#ifdef REPORT_UNCHANGED_TIMESTAMP
+                       }
+                       if ((pdf == NO) &&
+                           (fra[de[i].fra_pos].dir_flag & FILES_IN_QUEUE) &&
+                           (fra[de[i].fra_pos].dir_status != DIRECTORY_ACTIVE))
+                       {
+                          fra[de[i].fra_pos].dir_flag ^= FILES_IN_QUEUE;
+                          if (fra[de[i].fra_pos].files_queued > 0)
+                          {
+                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                        "Hmm, the number of files in %s [%d] should be 0 but currently is %d. Resetting.",
+                                        fra[de[i].fra_pos].dir_alias,
+                                        de[i].fra_pos,
+                                        fra[de[i].fra_pos].files_queued);
+                             fra[de[i].fra_pos].files_queued = 0;
+                          }
+                          if (fra[de[i].fra_pos].bytes_in_queue > 0)
+                          {
+                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
+# if SIZEOF_OFF_T == 4
+                                        "Hmm, the number of bytes in %s [%d] should be 0 but currently is %ld. Resetting.",
+# else
+                                        "Hmm, the number of bytes in %s [%d] should be 0 but currently is %lld. Resetting.",
+# endif
+                                        fra[de[i].fra_pos].dir_alias,
+                                        de[i].fra_pos,
+                                        (pri_off_t)fra[de[i].fra_pos].bytes_in_queue);
+                             fra[de[i].fra_pos].bytes_in_queue = 0;
+                          }
+                       }
+                    }
+
+                    /* Check if any process is finished. */
+                    if (*no_of_process > 0)
+                    {
+                       while (get_one_zombie(-1, now) > 0)
+                       {
+                          /* Do nothing. */;
+                       }
+                    }
+
+                    if ((fra[de[i].fra_pos].fsa_pos == -1) &&
+                        (fra[de[i].fra_pos].no_of_time_entries > 0) &&
+                        ((fdc == 0) || (full_dir[fdc - 1] != i)))
+                    {
+                       fra[de[i].fra_pos].next_check_time = calc_next_time_array(fra[de[i].fra_pos].no_of_time_entries,
+                                                                                 &fra[de[i].fra_pos].te[0],
+                                                                                 start_time);
+                    }
+                 }
+                 if (((*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME) == 0) &&
+                     ((fra[de[i].fra_pos].dir_flag & WARN_TIME_REACHED) == 0) &&
+                     (fra[de[i].fra_pos].warn_time > 0) &&
+                     ((start_time - fra[de[i].fra_pos].last_retrieval) > fra[de[i].fra_pos].warn_time))
+                 {
+                    fra[de[i].fra_pos].dir_flag |= WARN_TIME_REACHED;
+                    SET_DIR_STATUS(fra[de[i].fra_pos].dir_flag,
+                                   now,
+                                   fra[de[i].fra_pos].start_event_handle,
+                                   fra[de[i].fra_pos].end_event_handle,
+                                   fra[de[i].fra_pos].dir_status);
+                    p_fra = &fra[de[i].fra_pos];
+                    receive_log(WARN_SIGN, NULL, 0, start_time,
+                                "Warn time (%ld) for directory `%s' reached.",
+                                fra[de[i].fra_pos].warn_time, de[i].dir);
+                    error_action(de[i].alias, "start", DIR_WARN_ACTION);
+                    event_log(0L, EC_DIR, ET_AUTO, EA_WARN_TIME_SET, "%s",
+                              fra[de[i].fra_pos].dir_alias);
+                 }
+              } /* for (i = 0; i < no_of_local_dirs; i++) */
+
+              /* Check if time went backwards. */
+              now = time(NULL);
+              if ((now < start_time) && ((start_time - now) > 10))
+              {
+                 for (i = 0; i < no_of_local_dirs; i++)
+                 {
+                    if (de[i].search_time > now)
+                    {
+                       de[i].search_time = now - 1;
+                    }
+                 }
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Time went backwards %d seconds.",
+                            (int)(start_time - now));
+              }
+
+              diff_time = now - start_time;
+              if (diff_time > max_diff_time)
+              {
+                 max_diff_time = diff_time;
+                 max_diff_time_time = now;
+              }
+              average_diff_time += diff_time;
+              no_of_dir_searches++;
+              if ((fdc == 0) && (fpdc == 0))
+              {
+                 check_time = NO;
+              }
+              else
+              {
+                 now = time(NULL);
+                 diff_time = now - start_time;
+                 if ((full_scan_timeout == 0) ||
+                     (diff_time < full_scan_timeout))
+                 {
+                    int j;
+
+                    while (fdc > 0)
+                    {
+                       now = time(NULL);
+                       diff_time = now - start_time;
+
+                       /*
+                        * When starting and all directories are full with
+                        * files, it will take far too long before dir_check
+                        * checks if it has to stop. So lets check the fifo
+                        * every time we have checked a directory.
+                        */
+                       if (diff_time > 5)
+                       {
+                          check_fifo(read_fd, write_fd);
+                       }
+
+                       /*
+                        * Now lets check all those directories that
+                        * still have files but we stopped the
+                        * handling for this directory because of
+                        * a certain limit.
+                        */
+                       for (i = last_fdc_pos; i < fdc; i++)
+                       {
+                          now = time(NULL);
+                          do
+                          {
+                             if ((ret = handle_dir(full_dir[i], NULL, NULL,
+                                                   NULL, NULL)) == NO)
+                             {
+                                if (fra[de[full_dir[i]].fra_pos].dir_flag & MAX_COPIED)
+                                {
+                                   fra[de[full_dir[i]].fra_pos].dir_flag ^= MAX_COPIED;
+                                }
+                                if (i < fdc)
+                                {
+                                   (void)memmove(&full_dir[i],
+                                                 &full_dir[i + 1],
+                                                 ((fdc - i) * sizeof(int)));
+                                }
+                                fdc--;
+                                i--;
+                             }
+                             diff_time = time(NULL) - now;
+                          } while ((ret == YES) &&
+                                   (diff_time < one_dir_copy_timeout) &&
+                                   ((full_scan_timeout == 0) ||
+                                    (diff_time < full_scan_timeout)));
+                          if ((full_scan_timeout != 0) &&
+                              (diff_time >= full_scan_timeout))
+                          {
+                             last_fdc_pos = i;
+                             for (i = 0; i < fdc; i++)
+                             {
+                                if ((fra[de[full_dir[i]].fra_pos].fsa_pos == -1) &&
+                                    (fra[de[full_dir[i]].fra_pos].no_of_time_entries > 0))
+                                {
+                                   fra[de[full_dir[i]].fra_pos].next_check_time = now - 5;
+                                   de[full_dir[i]].search_time = 0;
+                                }
+                             }
+                             fdc = 0;
+                          }
                           else
                           {
-                             p_fra = &fra[de[i].fra_pos];
-                             receive_log(INFO_SIGN, NULL, 0, start_time,
-                                         "Directory timestamp unchanged.");
-                          }
-#endif
-
-                          /*
-                           * Handle any paused hosts in this directory.
-                           * We do NOT check the pdf flag here since it is
-                           * very unlikely that the paused status has changed
-                           * so quickly.
-                           */
-                          if (dir_stat_buf.st_nlink > 2)
-                          {
-                             int dest_count = 0,
-                                 nfg = 0;
-
-                             while ((p_paused_host = check_paused_dir(&de[i],
-                                                                      &nfg,
-                                                                      &dest_count,
-                                                                      &pdf)) != NULL)
+                             if ((i > -1) && (fdc > 0))
                              {
-                                if (handle_dir(i, &start_time, p_paused_host,
-                                               NULL, afd_file_dir, NULL) == YES)
+                                if ((fra[de[full_dir[i]].fra_pos].fsa_pos == -1) &&
+                                    (fra[de[full_dir[i]].fra_pos].no_of_time_entries > 0))
                                 {
-                                   full_paused_dir[fpdc] = i;
-                                   fpdc++;
+                                   fra[de[full_dir[i]].fra_pos].next_check_time = now - 5;
+                                   de[full_dir[i]].search_time = 0;
                                 }
-                                pdf = YES;
                              }
-                          }
-                          if ((pdf == NO) &&
-                              (fra[de[i].fra_pos].dir_flag & FILES_IN_QUEUE) &&
-                              (fra[de[i].fra_pos].dir_status != DIRECTORY_ACTIVE))
-                          {
-                             fra[de[i].fra_pos].dir_flag ^= FILES_IN_QUEUE;
-                             if (fra[de[i].fra_pos].files_queued > 0)
+                             if ((diff_time >= one_dir_copy_timeout) &&
+                                 (ret == YES))
                              {
-                                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                           "Hmm, the number of files in %s [%d] should be 0 but currently is %d. Resetting.",
-                                           fra[de[i].fra_pos].dir_alias,
-                                           de[i].fra_pos,
-                                           fra[de[i].fra_pos].files_queued);
-                                fra[de[i].fra_pos].files_queued = 0;
-                             }
-                             if (fra[de[i].fra_pos].bytes_in_queue > 0)
-                             {
-                                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-#if SIZEOF_OFF_T == 4
-                                           "Hmm, the number of bytes in %s [%d] should be 0 but currently is %ld. Resetting.",
-#else
-                                           "Hmm, the number of bytes in %s [%d] should be 0 but currently is %lld. Resetting.",
-#endif
-                                           fra[de[i].fra_pos].dir_alias,
-                                           de[i].fra_pos,
-                                           (pri_off_t)fra[de[i].fra_pos].bytes_in_queue);
-                                fra[de[i].fra_pos].bytes_in_queue = 0;
+                                first_time = YES;
+                                if (i < fdc)
+                                {
+                                   (void)memmove(&full_dir[i],
+                                                 &full_dir[i + 1],
+                                                 ((fdc - i) * sizeof(int)));
+                                }
+                                fdc--;
+                                i--;
                              }
                           }
                        }
-
-                       /* Check if any process is finished. */
-                       if (no_of_process >= max_process)
+                       for (j = i; j < last_fdc_pos; j++)
                        {
-                          while (get_one_zombie(-1) > 0)
+                          now = time(NULL);
+                          do
                           {
-                             /* Do nothing. */;
+                             if ((ret = handle_dir(full_dir[j], NULL, NULL,
+                                                   NULL, NULL)) == NO)
+                             {
+                                if (fra[de[full_dir[j]].fra_pos].dir_flag & MAX_COPIED)
+                                {
+                                   fra[de[full_dir[j]].fra_pos].dir_flag ^= MAX_COPIED;
+                                }
+                                if (j < fdc)
+                                {
+                                   (void)memmove(&full_dir[j],
+                                                 &full_dir[j + 1],
+                                                 ((fdc - j) * sizeof(int)));
+                                }
+                                fdc--;
+                                j--;
+                             }
+                             diff_time = time(NULL) - now;
+                          } while ((ret == YES) &&
+                                   (diff_time < one_dir_copy_timeout) &&
+                                   ((full_scan_timeout == 0) ||
+                                    (diff_time < full_scan_timeout)));
+                          if ((full_scan_timeout != 0) &&
+                              (diff_time >= full_scan_timeout))
+                          {
+                             last_fdc_pos = j;
+                             for (j = 0; j < fdc; j++)
+                             {
+                                if ((fra[de[full_dir[j]].fra_pos].fsa_pos == -1) &&
+                                    (fra[de[full_dir[j]].fra_pos].no_of_time_entries > 0))
+                                {
+                                   fra[de[full_dir[j]].fra_pos].next_check_time = 0;
+                                   de[full_dir[j]].search_time = 0;
+                                }
+                             }
+                             fdc = 0;
+                          }
+                          else
+                          {
+                             if ((j > -1) && (fdc > 0))
+                             {
+                                if ((fra[de[full_dir[j]].fra_pos].fsa_pos == -1) &&
+                                    (fra[de[full_dir[j]].fra_pos].no_of_time_entries > 0))
+                                {
+                                   fra[de[full_dir[j]].fra_pos].next_check_time = 0;
+                                   de[full_dir[j]].search_time = 0;
+                                }
+                             }
+                             if ((diff_time >= one_dir_copy_timeout) &&
+                                 (ret == YES))
+                             {
+                                first_time = YES;
+                                if (j < fdc)
+                                {
+                                   (void)memmove(&full_dir[j],
+                                                 &full_dir[j + 1],
+                                                 ((fdc - j) * sizeof(int)));
+                                }
+                                fdc--;
+                                j--;
+                             }
                           }
                        }
+                    } /* while (fdc > 0) */
 
-                       if ((fra[de[i].fra_pos].fsa_pos == -1) &&
-                           (fra[de[i].fra_pos].time_option == YES) &&
-                           ((fdc == 0) || (full_dir[fdc - 1] != i)))
-                       {
-                          fra[de[i].fra_pos].next_check_time = calc_next_time(&fra[de[i].fra_pos].te, start_time);
-                       }
-                    }
-                    if (((*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME) == 0) &&
-                        ((fra[de[i].fra_pos].dir_flag & WARN_TIME_REACHED) == 0) &&
-                        (fra[de[i].fra_pos].warn_time > 0) &&
-                        ((start_time - fra[de[i].fra_pos].last_retrieval) > fra[de[i].fra_pos].warn_time))
+                    if ((fdc == 0) && ((full_scan_timeout == 0) ||
+                        (diff_time < full_scan_timeout)))
                     {
-                       fra[de[i].fra_pos].dir_flag |= WARN_TIME_REACHED;
-                       SET_DIR_STATUS(fra[de[i].fra_pos].dir_flag,
-                                      fra[de[i].fra_pos].dir_status);
-                       p_fra = &fra[de[i].fra_pos];
-                       receive_log(WARN_SIGN, NULL, 0, start_time,
-                                   "Warn time (%ld) for directory `%s' reached.",
-                                   fra[de[i].fra_pos].warn_time, de[i].dir);
-                       error_action(de[i].alias, "start", DIR_WARN_ACTION);
+                       last_fdc_pos = 0;
                     }
-                 } /* for (i = 0; i < no_of_local_dirs; i++) */
 
-                 /* Check if time went backwards. */
-                 now = time(NULL);
-                 if ((now < start_time) && ((start_time - now) > 10))
-                 {
-                    for (i = 0; i < no_of_local_dirs; i++)
-                    {
-                       if (de[i].search_time > now)
-                       {
-                          de[i].search_time = now - 1;
-                       }
-                    }
-                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Time went backwards %d seconds.",
-                               (int)(start_time - now));
-                 }
-
-#ifdef REPORT_DIR_TIME_INTERVAL
-                 diff_time = now - start_time;
-                 if (diff_time > max_diff_time)
-                 {
-                    max_diff_time = diff_time;
-                    max_diff_time_time = now;
-                 }
-                 average_diff_time += diff_time;
-                 no_of_dir_searches++;
-                 if ((fdc == 0) && (fpdc == 0))
-                 {
-                    check_time = NO;
-                 }
-                 else
-                 {
-#else
-                 if ((fdc > 0) || (fpdc > 0))
-                 {
-#endif /* REPORT_DIR_TIME_INTERVAL */
-                    now = time(NULL);
-                    diff_time = now - start_time;
                     if ((full_scan_timeout == 0) ||
                         (diff_time < full_scan_timeout))
                     {
-                       int j;
-
-                       while (fdc > 0)
+                       while (fpdc > 0)
                        {
                           now = time(NULL);
                           diff_time = now - start_time;
@@ -955,26 +1118,22 @@ main(int argc, char *argv[])
                            * handling for this directory because of
                            * a certain limit.
                            */
-                          for (i = last_fdc_pos; i < fdc; i++)
+                          for (i = last_fpdc_pos; i < fpdc; i++)
                           {
                              now = time(NULL);
                              do
                              {
-                                if ((ret = handle_dir(full_dir[i], NULL, NULL,
-                                                      NULL, afd_file_dir,
+                                if ((ret = handle_dir(full_paused_dir[i],
+                                                      &now, NULL, NULL,
                                                       NULL)) == NO)
                                 {
-                                   if (fra[de[full_dir[i]].fra_pos].dir_flag & MAX_COPIED)
+                                   if (i < fpdc)
                                    {
-                                      fra[de[full_dir[i]].fra_pos].dir_flag ^= MAX_COPIED;
+                                      (void)memmove(&full_paused_dir[i],
+                                                    &full_paused_dir[i + 1],
+                                                    ((fpdc - i) * sizeof(int)));
                                    }
-                                   if (i < fdc)
-                                   {
-                                      (void)memmove(&full_dir[i],
-                                                    &full_dir[i + 1],
-                                                    ((fdc - i) * sizeof(int)));
-                                   }
-                                   fdc--;
+                                   fpdc--;
                                    i--;
                                 }
                                 diff_time = time(NULL) - now;
@@ -985,64 +1144,42 @@ main(int argc, char *argv[])
                              if ((full_scan_timeout != 0) &&
                                  (diff_time >= full_scan_timeout))
                              {
-                                last_fdc_pos = i;
-                                for (i = 0; i < fdc; i++)
-                                {
-                                   if ((fra[de[full_dir[i]].fra_pos].fsa_pos == -1) &&
-                                       (fra[de[full_dir[i]].fra_pos].time_option == YES))
-                                   {
-                                      fra[de[full_dir[i]].fra_pos].next_check_time = now - 5;
-                                      de[full_dir[i]].search_time = 0;
-                                   }
-                                }
-                                fdc = 0;
+                                fpdc = 0;
+                                last_fpdc_pos = i;
                              }
                              else
                              {
-                                if ((i > -1) && (fdc > 0))
-                                {
-                                   if ((fra[de[full_dir[i]].fra_pos].fsa_pos == -1) &&
-                                       (fra[de[full_dir[i]].fra_pos].time_option == YES))
-                                   {
-                                      fra[de[full_dir[i]].fra_pos].next_check_time = now - 5;
-                                      de[full_dir[i]].search_time = 0;
-                                   }
-                                }
                                 if ((diff_time >= one_dir_copy_timeout) &&
                                     (ret == YES))
                                 {
                                    first_time = YES;
-                                   if (i < fdc)
+                                   if (i < fpdc)
                                    {
-                                      (void)memmove(&full_dir[i],
-                                                    &full_dir[i + 1],
-                                                    ((fdc - i) * sizeof(int)));
+                                      (void)memmove(&full_paused_dir[i],
+                                                    &full_paused_dir[i + 1],
+                                                    ((fpdc - i) * sizeof(int)));
                                    }
-                                   fdc--;
+                                   fpdc--;
                                    i--;
                                 }
                              }
                           }
-                          for (j = i; j < last_fdc_pos; j++)
+                          for (j = i; j < last_fpdc_pos; j++)
                           {
                              now = time(NULL);
                              do
                              {
-                                if ((ret = handle_dir(full_dir[j], NULL, NULL,
-                                                      NULL, afd_file_dir,
+                                if ((ret = handle_dir(full_paused_dir[j],
+                                                      &now, NULL, NULL,
                                                       NULL)) == NO)
                                 {
-                                   if (fra[de[full_dir[j]].fra_pos].dir_flag & MAX_COPIED)
+                                   if (j < fpdc)
                                    {
-                                      fra[de[full_dir[j]].fra_pos].dir_flag ^= MAX_COPIED;
+                                      (void)memmove(&full_paused_dir[j],
+                                                    &full_paused_dir[j + 1],
+                                                    ((fpdc - j) * sizeof(int)));
                                    }
-                                   if (j < fdc)
-                                   {
-                                      (void)memmove(&full_dir[j],
-                                                    &full_dir[j + 1],
-                                                    ((fdc - j) * sizeof(int)));
-                                   }
-                                   fdc--;
+                                   fpdc--;
                                    j--;
                                 }
                                 diff_time = time(NULL) - now;
@@ -1053,246 +1190,60 @@ main(int argc, char *argv[])
                              if ((full_scan_timeout != 0) &&
                                  (diff_time >= full_scan_timeout))
                              {
-                                last_fdc_pos = j;
-                                for (j = 0; j < fdc; j++)
-                                {
-                                   if ((fra[de[full_dir[j]].fra_pos].fsa_pos == -1) &&
-                                       (fra[de[full_dir[j]].fra_pos].time_option == YES))
-                                   {
-                                      fra[de[full_dir[j]].fra_pos].next_check_time = 0;
-                                      de[full_dir[j]].search_time = 0;
-                                   }
-                                }
-                                fdc = 0;
+                                fpdc = 0;
+                                last_fpdc_pos = j;
                              }
                              else
                              {
-                                if ((j > -1) && (fdc > 0))
-                                {
-                                   if ((fra[de[full_dir[j]].fra_pos].fsa_pos == -1) &&
-                                       (fra[de[full_dir[j]].fra_pos].time_option == YES))
-                                   {
-                                      fra[de[full_dir[j]].fra_pos].next_check_time = 0;
-                                      de[full_dir[j]].search_time = 0;
-                                   }
-                                }
                                 if ((diff_time >= one_dir_copy_timeout) &&
                                     (ret == YES))
                                 {
                                    first_time = YES;
-                                   if (j < fdc)
+                                   if (j < fpdc)
                                    {
-                                      (void)memmove(&full_dir[j],
-                                                    &full_dir[j + 1],
-                                                    ((fdc - j) * sizeof(int)));
+                                      (void)memmove(&full_paused_dir[j],
+                                                    &full_paused_dir[j + 1],
+                                                    ((fpdc - j) * sizeof(int)));
                                    }
-                                   fdc--;
+                                   fpdc--;
                                    j--;
                                 }
                              }
                           }
-                       } /* while (fdc > 0) */
+                       } /* while (fpdc > 0) */
 
-                       if ((fdc == 0) && ((full_scan_timeout == 0) ||
+                       if ((fpdc == 0) && ((full_scan_timeout == 0) ||
                            (diff_time < full_scan_timeout)))
                        {
-                          last_fdc_pos = 0;
-                       }
-
-                       if ((full_scan_timeout == 0) ||
-                           (diff_time < full_scan_timeout))
-                       {
-                          while (fpdc > 0)
-                          {
-                             now = time(NULL);
-                             diff_time = now - start_time;
-
-                             /*
-                              * When starting and all directories are full with
-                              * files, it will take far too long before dir_check
-                              * checks if it has to stop. So lets check the fifo
-                              * every time we have checked a directory.
-                              */
-                             if (diff_time > 5)
-                             {
-                                check_fifo(read_fd, write_fd);
-                             }
-
-                             /*
-                              * Now lets check all those directories that
-                              * still have files but we stopped the
-                              * handling for this directory because of
-                              * a certain limit.
-                              */
-                             for (i = last_fpdc_pos; i < fpdc; i++)
-                             {
-                                now = time(NULL);
-                                do
-                                {
-                                   if ((ret = handle_dir(full_paused_dir[i],
-                                                         &now, NULL, NULL,
-                                                         afd_file_dir,
-                                                         NULL)) == NO)
-                                   {
-                                      if (i < fpdc)
-                                      {
-                                         (void)memmove(&full_paused_dir[i],
-                                                       &full_paused_dir[i + 1],
-                                                       ((fpdc - i) * sizeof(int)));
-                                      }
-                                      fpdc--;
-                                      i--;
-                                   }
-                                   diff_time = time(NULL) - now;
-                                } while ((ret == YES) &&
-                                         (diff_time < one_dir_copy_timeout) &&
-                                         ((full_scan_timeout == 0) ||
-                                          (diff_time < full_scan_timeout)));
-                                if ((full_scan_timeout != 0) &&
-                                    (diff_time >= full_scan_timeout))
-                                {
-                                   fpdc = 0;
-                                   last_fpdc_pos = i;
-                                }
-                                else
-                                {
-                                   if ((diff_time >= one_dir_copy_timeout) &&
-                                       (ret == YES))
-                                   {
-                                      first_time = YES;
-                                      if (i < fpdc)
-                                      {
-                                         (void)memmove(&full_paused_dir[i],
-                                                       &full_paused_dir[i + 1],
-                                                       ((fpdc - i) * sizeof(int)));
-                                      }
-                                      fpdc--;
-                                      i--;
-                                   }
-                                }
-                             }
-                             for (j = i; j < last_fpdc_pos; j++)
-                             {
-                                now = time(NULL);
-                                do
-                                {
-                                   if ((ret = handle_dir(full_paused_dir[j],
-                                                         &now, NULL, NULL,
-                                                         afd_file_dir,
-                                                         NULL)) == NO)
-                                   {
-                                      if (j < fpdc)
-                                      {
-                                         (void)memmove(&full_paused_dir[j],
-                                                       &full_paused_dir[j + 1],
-                                                       ((fpdc - j) * sizeof(int)));
-                                      }
-                                      fpdc--;
-                                      j--;
-                                   }
-                                   diff_time = time(NULL) - now;
-                                } while ((ret == YES) &&
-                                         (diff_time < one_dir_copy_timeout) &&
-                                         ((full_scan_timeout == 0) ||
-                                          (diff_time < full_scan_timeout)));
-                                if ((full_scan_timeout != 0) &&
-                                    (diff_time >= full_scan_timeout))
-                                {
-                                   fpdc = 0;
-                                   last_fpdc_pos = j;
-                                }
-                                else
-                                {
-                                   if ((diff_time >= one_dir_copy_timeout) &&
-                                       (ret == YES))
-                                   {
-                                      first_time = YES;
-                                      if (j < fpdc)
-                                      {
-                                         (void)memmove(&full_paused_dir[j],
-                                                       &full_paused_dir[j + 1],
-                                                       ((fpdc - j) * sizeof(int)));
-                                      }
-                                      fpdc--;
-                                      j--;
-                                   }
-                                }
-                             }
-                          } /* while (fpdc > 0) */
-
-                          if ((fpdc == 0) && ((full_scan_timeout == 0) ||
-                              (diff_time < full_scan_timeout)))
-                          {
-                             last_fpdc_pos = 0;
-                          }
-                       }
-                    }
-                    else
-                    {
-                       for (i = 0; i < fdc; i++)
-                       {
-                          if ((fra[de[full_dir[i]].fra_pos].fsa_pos == -1) &&
-                              (fra[de[full_dir[i]].fra_pos].time_option == YES))
-                          {
-                             fra[de[full_dir[i]].fra_pos].next_check_time = now - 5;
-                          }
-                       }
-                    }
-
-                    /* Check if any process is finished. */
-                    if (no_of_process > 0)
-                    {
-                       while (get_one_zombie(-1) > 0)
-                       {
-                          /* Do nothing. */;
-                       }
-                    }
-                 }
-#endif /* !_WITH_PTHREAD */
-              }
-              else
-              {
-                 if (p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE)
-                 {
-                    /*
-                     * NOTE: We may only indicate that dir_check is NOT
-                     *       active when none of its children are active!
-                     *       Else the function check_file_dir() from
-                     *       the FD will generate a new job from it.
-                     */
-                    if (no_of_process == 0)
-                    {
-                       /*
-                        * Show FD that we are waiting for it to finish it's
-                        * file directory check by deactivating the
-                        * DIR_CHECK_ACTIVE flag. Remember the time when the
-                        * flag has been deactivated, otherwise when the FD
-                        * crashes we will wait forever!
-                        */
-                       if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
-                       {
-                          p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-                          (void)time(&fd_search_start_time);
+                          last_fpdc_pos = 0;
                        }
                     }
                  }
                  else
                  {
-                    if (((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0) &&
-                        ((time(NULL) - fd_search_start_time) > 30))
+                    for (i = 0; i < fdc; i++)
                     {
-                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "Reseting FD_DIR_CHECK_ACTIVE flag due to timeout!");
-                       p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-                       p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
+                       if ((fra[de[full_dir[i]].fra_pos].fsa_pos == -1) &&
+                           (fra[de[full_dir[i]].fra_pos].no_of_time_entries > 0))
+                       {
+                          fra[de[full_dir[i]].fra_pos].next_check_time = now - 5;
+                       }
                     }
                  }
-#ifdef LOCK_DEBUG
-                 unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE, __FILE__, __LINE__);
-#else
-                 unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
-#endif
+
+                 /* Check if any process is finished. */
+                 if (*no_of_process > 0)
+                 {
+                    while (get_one_zombie(-1, now) > 0)
+                    {
+                       /* Do nothing. */;
+                    }
+                 }
               }
+#endif /* !_WITH_PTHREAD */
+#ifdef AFDBENCH_CONFIG
+           }
+#endif
            }
       else if ((status > 0) && (FD_ISSET(del_time_job_fd, &rset)))
            {
@@ -1316,7 +1267,8 @@ main(int argc, char *argv[])
 #ifdef _DELETE_LOG
                           remove_time_dir(p_host_name,
                                           db[time_job_list[i]].job_id,
-                                          USER_DEL);
+                                          db[time_job_list[i]].dir_id,
+                                          USER_DEL, __FILE__, __LINE__);
 #else
                           remove_time_dir(p_host_name,
                                           db[time_job_list[i]].job_id);
@@ -1346,8 +1298,35 @@ main(int argc, char *argv[])
            }
    } /* for (;;) */
 
-   /* free memory for pid array */
-   free(dcpl);
+   /* Unmap from pid array. */
+   if (dcpl_fd > 0)
+   {
+      (void)close(dcpl_fd);
+   }
+   if (dcpl != NULL)
+   {
+#ifdef HAVE_MMAP
+      size_t dcpl_size;
+
+      dcpl_size = (max_process * sizeof(struct dc_proc_list)) + AFD_WORD_OFFSET;
+      if (munmap(((char *)dcpl - AFD_WORD_OFFSET), dcpl_size) == -1)
+#else
+      if (munmap_emu((void *)((char *)dcpl - AFD_WORD_OFFSET)) == -1)
+#endif
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() from %s : %s",
+                    DCPL_FILE_NAME, strerror(errno));
+         exit(INCORRECT);
+      }
+      dcpl = NULL;
+   }
+   if (opl != NULL)
+   {
+      free(opl);
+      opl = NULL;
+      no_of_orphaned_procs = 0;
+   }
    for (i = 0; i < no_of_local_dirs; i++)
    {
       int j;
@@ -1398,9 +1377,9 @@ do_one_dir(void *arg)
    {
       /* The directory time has changed. New files */
       /* have arrived!                             */
-      while (handle_dir(data->i, &now, NULL, NULL, data->afd_file_dir,
-                        data->file_size_pool,
-                        data->file_mtime_pool, data->file_name_pool) == YES)
+      while (handle_dir(data->i, &now, NULL, NULL,
+                        data->file_size_pool, data->file_mtime_pool,
+                        data->file_name_pool, data->file_length_pool) == YES)
       {
          /*
           * There are still files left in the directory
@@ -1434,8 +1413,9 @@ do_one_dir(void *arg)
       {
          now = time(NULL);
          while (handle_dir(data->i, &now, p_paused_host, NULL,
-                           data->afd_file_dir, data->file_size_pool,
-                           data->file_mtime_pool, data->file_name_pool) == YES)
+                           data->file_size_pool,
+                           data->file_mtime_pool, data->file_name_pool,
+                           data->file_length_pool) == YES)
          {
             /*
              * There are still files left in the directory
@@ -1463,6 +1443,9 @@ do_one_dir(void *arg)
    {
       fra[de[data->i].fra_pos].dir_flag |= WARN_TIME_REACHED;
       SET_DIR_STATUS(fra[de[data->i].fra_pos].dir_flag,
+                     now,
+                     fra[de[data->i].fra_pos].start_event_handle,
+                     fra[de[data->i].fra_pos].end_event_handle,
                      fra[de[data->i].fra_pos].dir_status);
       p_fra = &fra[de[data->i].fra_pos];
       receive_log(WARN_SIGN, NULL, 0, start_time,
@@ -1506,11 +1489,11 @@ check_pool_dir(time_t now)
             (void)strcpy(work_ptr, p_dir->d_name);
             (void)strcat(work_ptr, "/");
 #ifdef _WITH_PTHREAD
-            (void)handle_dir(-1, &now, NULL, pool_dir, afd_file_dir,
+            (void)handle_dir(-1, &now, NULL, pool_dir,
                              data->file_size_pool, data->file_mtime_pool,
-                             data->file_name_pool);
+                             data->file_name_pool, data->file_length_pool);
 #else
-            (void)handle_dir(-1, &now, NULL, pool_dir, afd_file_dir, NULL);
+            (void)handle_dir(-1, &now, NULL, pool_dir, NULL);
 #endif
             dir_counter++;
          }
@@ -1543,27 +1526,26 @@ check_pool_dir(time_t now)
 /*+++++++++++++++++++++++++++ handle_dir() ++++++++++++++++++++++++++++++*/
 static int
 #ifdef _WITH_PTHREAD
-handle_dir(int    dir_pos,
-           time_t *now,
-           char   *host_name,
-           char   *pool_dir,
-           char   *afd_file_dir,
-           off_t  *file_size_pool,
-           time_t *file_mtime_pool,
-           char   **file_name_pool)
+handle_dir(int           dir_pos,
+           time_t        *now,
+           char          *host_name,
+           char          *pool_dir,
+           off_t         *file_size_pool,
+           time_t        *file_mtime_pool,
+           char          **file_name_pool,
+           unsigned char *file_length_pool)
 #else
 handle_dir(int    dir_pos,
            time_t *now,
            char   *host_name,
            char   *pool_dir,
-           char   *afd_file_dir,
            int    *pdf)
 #endif
 {
    if ((pool_dir != NULL) || /* NOTE: this must be first since if this is */
                              /*       not NULL, dir_pos is -1!!!!         */
        (fra[de[dir_pos].fra_pos].dir_flag & LINK_NO_EXEC) ||
-       ((no_of_process < max_process) &&
+       ((*no_of_process < max_process) &&
         ((pool_dir != NULL) ||
          (fra[de[dir_pos].fra_pos].no_of_process < fra[de[dir_pos].fra_pos].max_process))))
    {
@@ -1600,6 +1582,8 @@ handle_dir(int    dir_pos,
 
       if (pool_dir == NULL)
       {
+         int rescan_dir;
+
          (void)strcpy(src_file_dir, de[dir_pos].dir);
 
          if ((host_name == NULL) &&
@@ -1623,13 +1607,17 @@ handle_dir(int    dir_pos,
             }
             files_moved = check_files(&de[dir_pos],
                                       src_file_dir,
-                                      NULL,
+                                      NO,
                                       paused_dir,
                                       PAUSED_REMOTE,
-                                      &unique_number,
+                                      amg_counter,
                                       current_time,
+                                      &rescan_dir,
 #ifdef _WITH_PTHREAD
-                                      file_size_pool, file_mtime_pool, file_name_pool,
+                                      file_size_pool,
+                                      file_mtime_pool,
+                                      file_name_pool,
+                                      file_length_pool,
 #endif
                                       &total_file_size);
             if (files_moved > 0)
@@ -1666,6 +1654,9 @@ handle_dir(int    dir_pos,
                 (fra[de[dir_pos].fra_pos].dir_status == DIRECTORY_ACTIVE))
             {
                SET_DIR_STATUS(fra[de[dir_pos].fra_pos].dir_flag,
+                              *now,
+                              fra[de[dir_pos].fra_pos].start_event_handle,
+                              fra[de[dir_pos].fra_pos].end_event_handle,
                               fra[de[dir_pos].fra_pos].dir_status);
             }
 
@@ -1709,15 +1700,17 @@ handle_dir(int    dir_pos,
             {
                files_moved = check_files(&de[dir_pos],
                                          src_file_dir,
-                                         NULL,
+                                         NO,
                                          orig_file_path,
                                          NO,
-                                         &unique_number,
+                                         amg_counter,
                                          current_time,
+                                         &rescan_dir,
 #ifdef _WITH_PTHREAD
                                          file_size_pool,
                                          file_mtime_pool,
                                          file_name_pool,
+                                         file_length_pool,
 #endif
                                          &total_file_size);
                remove_orig_file_path = NO;
@@ -1727,24 +1720,28 @@ handle_dir(int    dir_pos,
                p_afd_status->dir_scans++;
                files_moved = check_files(&de[dir_pos],
                                          src_file_dir,
-                                         afd_file_dir,
+                                         YES,
                                          orig_file_path,
                                          (host_name == NULL) ? YES : NO,
-                                         &unique_number,
+                                         amg_counter,
                                          current_time,
+                                         &rescan_dir,
 #ifdef _WITH_PTHREAD
                                          file_size_pool,
                                          file_mtime_pool,
                                          file_name_pool,
+                                         file_length_pool,
 #endif
                                          &total_file_size);
-               if ((files_moved == INCORRECT) && (host_name == NULL))
+               if (((files_moved == INCORRECT) || (rescan_dir == YES)) &&
+                   (host_name == NULL))
                {
                   /* Set back search time otherwise we will not        */
                   /* try to rescan the directory after error recovery. */
                   de[dir_pos].search_time = orig_search_time;
                }
             }
+            unique_number = *amg_counter;
          }
       }
       else
@@ -1753,11 +1750,22 @@ handle_dir(int    dir_pos,
 #ifdef _WITH_PTHREAD
          files_moved = count_pool_files(&dir_pos, pool_dir,
                                         file_size_pool, file_mtime_pool,
-                                        file_name_pool);
+                                        file_name_pool, file_length_pool);
 #else
          files_moved = count_pool_files(&dir_pos, pool_dir);
 #endif
-         p_fra = &fra[dir_pos];
+         /*
+          * NOTE: If dir_pos is -1 count_pool_files() did
+          *       not find the original files. Lets not
+          *       set p_fra. This is actually not needed
+          *       since files_moved is 0 so it will not
+          *       go through any code where p_fra is needed.
+          *       But just to be save.
+          */
+         if (dir_pos != -1)
+         {
+            p_fra = &fra[dir_pos];
+         }
          if (now == NULL)
          {
             current_time = time(NULL);
@@ -1766,11 +1774,14 @@ handle_dir(int    dir_pos,
          {
             current_time = *now;
          }
+         unique_number = *amg_counter;
       }
       if (files_moved > 0)
       {
          unsigned int split_job_counter;
-         time_t       creation_time;
+#ifdef _DISTRIBUTION_LOG
+         unsigned int no_of_distribution_types;
+#endif
 
          unique_name[0] = '/';
 #ifdef _DEBUG_THREAD
@@ -1790,8 +1801,14 @@ handle_dir(int    dir_pos,
          {
             for (k = 0; k < de[dir_pos].fme[j].dest_count; k++)
             {
+#ifdef IGNORE_DUPLICATE_JOB_IDS
+               if ((db[de[dir_pos].fme[j].pos[k]].job_id != 0) &&
+                   ((host_name == NULL) ||
+                    (CHECK_STRCMP(host_name, db[de[dir_pos].fme[j].pos[k]].host_alias) == 0)))
+#else
                if ((host_name == NULL) ||
                    (CHECK_STRCMP(host_name, db[de[dir_pos].fme[j].pos[k]].host_alias) == 0))
+#endif
                {
 #ifdef WITH_ERROR_QUEUE
                   if (((fsa[db[de[dir_pos].fme[j].pos[k]].position].host_status & PAUSE_QUEUE_STAT) == 0) &&
@@ -1799,7 +1816,7 @@ handle_dir(int    dir_pos,
                       ((((fsa[db[de[dir_pos].fme[j].pos[k]].position].host_status & ERROR_QUEUE_SET) == 0) &&
                         ((fsa[db[de[dir_pos].fme[j].pos[k]].position].host_status & AUTO_PAUSE_QUEUE_STAT) == 0)) ||
                        ((fsa[db[de[dir_pos].fme[j].pos[k]].position].host_status & ERROR_QUEUE_SET) &&
-                        (check_error_queue(db[de[dir_pos].fme[j].pos[k]].job_id, (MAX_NO_PARALLEL_JOBS + 2)) == 0))) &&
+                        (check_error_queue(db[de[dir_pos].fme[j].pos[k]].job_id, (MAX_NO_PARALLEL_JOBS + 2), 0, 0) == NO))) &&
                       ((fsa[db[de[dir_pos].fme[j].pos[k]].position].host_status & DANGER_PAUSE_QUEUE_STAT) == 0))
 #else
                   if (((fsa[db[de[dir_pos].fme[j].pos[k]].position].host_status & PAUSE_QUEUE_STAT) == 0) &&
@@ -1818,16 +1835,20 @@ handle_dir(int    dir_pos,
                      {
                         split_job_counter = 0;
                         if ((files_linked = link_files(orig_file_path,
+#ifdef MULTI_FS_SUPPORT
+                                                       de[dir_pos].outgoing_file_dir,
+#else
                                                        outgoing_file_dir,
+#endif
                                                        current_time,
 #ifdef _WITH_PTHREAD
                                                        file_size_pool,
                                                        file_mtime_pool,
                                                        file_name_pool,
+                                                       file_length_pool,
 #endif
                                                        &de[dir_pos],
                                                        &db[de[dir_pos].fme[j].pos[k]],
-                                                       &creation_time,
                                                        &split_job_counter,
                                                        unique_number,
                                                        j,
@@ -1837,11 +1858,13 @@ handle_dir(int    dir_pos,
                         {
 #ifndef _WITH_PTHREAD
                            if ((db[de[dir_pos].fme[j].pos[k]].lfs & GO_PARALLEL) &&
-                               (no_of_process < max_process))
+                               (*no_of_process < max_process))
                            {
-                              switch (dcpl[no_of_process].pid = fork())
+                              pid_t pid;
+
+                              switch (pid = fork())
                               {
-                                 case -1 : /* ERROR, process creation not possible */
+                                 case -1 : /* ERROR, process creation not possible. */
 
                                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                                "Could not fork() : %s",
@@ -1857,16 +1880,19 @@ handle_dir(int    dir_pos,
                                                  unique_name,
                                                  split_job_counter,
                                                  unique_number,
-                                                 creation_time,
+                                                 current_time,
                                                  de[dir_pos].fme[j].pos[k],
 # ifdef _WITH_PTHREAD
 #  ifdef _DELETE_LOG
                                                  file_size_pool,
                                                  file_name_pool,
+                                                 file_length_pool,
 #  endif
 # endif
+                                                 files_moved,
                                                  files_linked,
-                                                 file_size_linked);
+                                                 file_size_linked,
+                                                 YES);
                                     break;
 
                                  case  0 : /* Child process. */
@@ -1885,7 +1911,6 @@ handle_dir(int    dir_pos,
                                                        loops = files_linked / MAX_FILES_TO_PROCESS;
                                           unsigned int tmp_split_job_counter;
                                           off_t        split_file_size_renamed;
-                                          time_t       tmp_creation_time;
                                           char         *tmp_file_name_buffer = NULL,
                                                        tmp_unique_name[MAX_FILENAME_LENGTH],
                                                        src_file_path[MAX_PATH_LENGTH];
@@ -1947,7 +1972,7 @@ handle_dir(int    dir_pos,
                                                                                      outgoing_file_dir,
                                                                                      files_moved,
                                                                                      &db[de[dir_pos].fme[j].pos[k]],
-                                                                                     &tmp_creation_time,
+                                                                                     current_time,
                                                                                      unique_number,
                                                                                      &tmp_split_job_counter,
                                                                                      &tmp_unique_name[1],
@@ -1957,16 +1982,19 @@ handle_dir(int    dir_pos,
                                                              tmp_unique_name,
                                                              tmp_split_job_counter,
                                                              unique_number,
-                                                             tmp_creation_time,
+                                                             current_time,
                                                              de[dir_pos].fme[j].pos[k],
 # ifdef _WITH_PTHREAD
 #  ifdef _DELETE_LOG
                                                              file_size_pool,
                                                              file_name_pool,
+                                                             file_length_pool,
 #  endif
 # endif
+                                                             files_moved,
                                                              split_files_renamed,
-                                                             split_file_size_renamed);
+                                                             split_file_size_renamed,
+                                                             YES);
                                              } /* if (split_files_renamed > 0) */
 
                                              file_size_linked -= split_file_size_renamed;
@@ -2003,16 +2031,19 @@ handle_dir(int    dir_pos,
                                                           unique_name,
                                                           split_job_counter,
                                                           unique_number,
-                                                          creation_time,
+                                                          current_time,
                                                           de[dir_pos].fme[j].pos[k],
 # ifdef _WITH_PTHREAD
 #  ifdef _DELETE_LOG
                                                           file_size_pool,
                                                           file_name_pool,
+                                                          file_length_pool,
 #  endif
 # endif
+                                                          files_moved,
                                                           files_linked,
-                                                          file_size_linked);
+                                                          file_size_linked,
+                                                          YES);
                                           }
                                           else
                                           {
@@ -2044,16 +2075,19 @@ handle_dir(int    dir_pos,
                                                        unique_name,
                                                        split_job_counter,
                                                        unique_number,
-                                                       creation_time,
+                                                       current_time,
                                                        de[dir_pos].fme[j].pos[k],
 # ifdef _WITH_PTHREAD
 #  ifdef _DELETE_LOG
                                                        file_size_pool,
                                                        file_name_pool,
+                                                       file_length_pool,
 #  endif
 # endif
+                                                       files_moved,
                                                        files_linked,
-                                                       file_size_linked);
+                                                       file_size_linked,
+                                                       YES);
                                        }
 
                                        /*
@@ -2075,10 +2109,11 @@ handle_dir(int    dir_pos,
                                     exit(SUCCESS);
 
                                  default : /* Parent process. */
-                                    dcpl[no_of_process].fra_pos = de[dir_pos].fra_pos;
-                                    dcpl[no_of_process].job_id = db[de[dir_pos].fme[j].pos[k]].job_id;
+                                    dcpl[*no_of_process].pid = pid;
+                                    dcpl[*no_of_process].fra_pos = de[dir_pos].fra_pos;
+                                    dcpl[*no_of_process].job_id = db[de[dir_pos].fme[j].pos[k]].job_id;
                                     fra[de[dir_pos].fra_pos].no_of_process++;
-                                    no_of_process++;
+                                    (*no_of_process)++;
                                     p_afd_status->amg_fork_counter++;
                                     break;
                               } /* switch () */
@@ -2086,7 +2121,7 @@ handle_dir(int    dir_pos,
                            else
                            {
                               if ((db[de[dir_pos].fme[j].pos[k]].lfs & GO_PARALLEL) &&
-                                  (no_of_process >= max_process))
+                                  (*no_of_process >= max_process))
                               {
                                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                             "Unable to fork() since maximum number (%d) for process dir_check reached. [Job ID = %x]",
@@ -2102,16 +2137,19 @@ handle_dir(int    dir_pos,
                                            unique_name,
                                            split_job_counter,
                                            unique_number,
-                                           creation_time,
+                                           current_time,
                                            de[dir_pos].fme[j].pos[k],
 #ifdef _WITH_PTHREAD
 # ifdef _DELETE_LOG
                                            file_size_pool,
                                            file_name_pool,
+                                           file_length_pool,
 # endif
 #endif
+                                           files_moved,
                                            files_linked,
-                                           file_size_linked);
+                                           file_size_linked,
+                                           YES);
 #ifndef _WITH_PTHREAD
                            }
 #endif
@@ -2141,11 +2179,16 @@ handle_dir(int    dir_pos,
                                           file_size_pool,
                                           file_mtime_pool,
                                           file_name_pool,
+                                          file_length_pool,
 #endif
                                           &de[dir_pos],
+                                          &db[de[dir_pos].fme[j].pos[k]],
                                           j,
                                           files_moved,
                                           IN_SAME_FILESYSTEM,
+#ifdef _DISTRIBUTION_LOG
+                                          TIME_JOB_DIS_TYPE,
+#endif
                                           YES) < 0)
                            {
                               system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -2170,11 +2213,16 @@ handle_dir(int    dir_pos,
                                        file_size_pool,
                                        file_mtime_pool,
                                        file_name_pool,
+                                       file_length_pool,
 #endif
                                        &de[dir_pos],
+                                       &db[de[dir_pos].fme[j].pos[k]],
                                        j,
                                        files_moved,
                                        db[de[dir_pos].fme[j].pos[k]].lfs,
+#ifdef _DISTRIBUTION_LOG
+                                       QUEUE_STOPPED_DIS_TYPE,
+#endif
                                        NO) < 0)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -2191,10 +2239,48 @@ handle_dir(int    dir_pos,
                         }
 #endif
                      }
+#ifdef _DISTRIBUTION_LOG
+                     else
+                     {
+                        for (split_job_counter = 0; split_job_counter < files_moved; split_job_counter++)
+                        {
+                           file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
+                           file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
+                           file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                        }
+                     }
+#endif
                   }
                }
             }
          }
+
+#ifdef _DISTRIBUTION_LOG
+         for (j = 0; j < files_moved; j++)
+         {
+            no_of_distribution_types = 0;
+            for (k = 0; k < NO_OF_DISTRIBUTION_TYPES; k++)
+            {
+               if (file_dist_pool[j][k].no_of_dist > 0)
+               {
+                  no_of_distribution_types++;
+               }
+            }
+            for (k = 0; k < NO_OF_DISTRIBUTION_TYPES; k++)
+            {
+               if (file_dist_pool[j][k].no_of_dist > 0)
+               {
+                  dis_log((unsigned char)k, current_time, de[dir_pos].dir_id,
+                          unique_number, file_name_pool[j], file_length_pool[j],
+                          file_size_pool[j], file_dist_pool[j][k].no_of_dist,
+                          &file_dist_pool[j][k].jid_list,
+                          file_dist_pool[j][k].proc_cycles,
+                          no_of_distribution_types);
+                  file_dist_pool[j][k].no_of_dist = 0;
+               }
+            }
+         }
+#endif
 
          if (remove_orig_file_path == YES)
          {
@@ -2247,6 +2333,9 @@ handle_dir(int    dir_pos,
           (fra[de[dir_pos].fra_pos].dir_status == DIRECTORY_ACTIVE))
       {
          SET_DIR_STATUS(fra[de[dir_pos].fra_pos].dir_flag,
+                        *now,
+                        fra[de[dir_pos].fra_pos].start_event_handle,
+                        fra[de[dir_pos].fra_pos].end_event_handle,
                         fra[de[dir_pos].fra_pos].dir_status);
       }
 
@@ -2272,7 +2361,8 @@ handle_dir(int    dir_pos,
          }
       }
 
-      if (((files_moved >= fra[de[dir_pos].fra_pos].max_copied_files) ||
+      if ((dir_pos != -1) &&
+          ((files_moved >= fra[de[dir_pos].fra_pos].max_copied_files) ||
            (total_file_size >= fra[de[dir_pos].fra_pos].max_copied_file_size)) &&
           (files_moved != INCORRECT))
       {
@@ -2285,7 +2375,7 @@ handle_dir(int    dir_pos,
    }
    else
    {
-      if (no_of_process >= max_process)
+      if (*no_of_process >= max_process)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Unable to handle directory %s since maximum number of process (%d) for process dir_check reached.",
@@ -2304,7 +2394,7 @@ handle_dir(int    dir_pos,
 
 /*+++++++++++++++++++++++++++ get_one_zombie() ++++++++++++++++++++++++++*/
 static pid_t
-get_one_zombie(pid_t cpid)
+get_one_zombie(pid_t cpid, time_t now)
 {
    int   status;
    pid_t pid;
@@ -2318,8 +2408,8 @@ get_one_zombie(pid_t cpid)
       {
          switch (WEXITSTATUS(status))
          {
-            case 0 : /* Ordinary end of process */
-            case 1 : /* No files found */
+            case 0 : /* Ordinary end of process. */
+            case 1 : /* No files found. */
                      break;
 
             default: /* Unknown error. */
@@ -2331,7 +2421,7 @@ get_one_zombie(pid_t cpid)
       }
       else if (WIFSIGNALED(status))
            {
-              /* abnormal termination */;
+              /* Abnormal termination. */
               system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
                          "Abnormal termination of forked process dir_check (%d), caused by signal %d.",
@@ -2342,7 +2432,7 @@ get_one_zombie(pid_t cpid)
            }
       else if (WIFSTOPPED(status))
            {
-              /* Child stopped */;
+              /* Child stopped. */;
               system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
                          "Process dir_check (%d) has been put to sleep.",
@@ -2353,7 +2443,7 @@ get_one_zombie(pid_t cpid)
               return(INCORRECT);
            }
 
-      /* update table */
+      /* Update table. */
       if ((pos = get_process_pos(pid)) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -2366,7 +2456,7 @@ get_one_zombie(pid_t cpid)
       }
       else
       {
-         no_of_process--;
+         (*no_of_process)--;
          add_to_proc_stat(dcpl[pos].job_id);
          if (fra[dcpl[pos].fra_pos].no_of_process > 0)
          {
@@ -2376,19 +2466,96 @@ get_one_zombie(pid_t cpid)
              (fra[dcpl[pos].fra_pos].dir_status == DIRECTORY_ACTIVE))
          {
             SET_DIR_STATUS(fra[dcpl[pos].fra_pos].dir_flag,
+                           now,
+                           fra[dcpl[pos].fra_pos].start_event_handle,
+                           fra[dcpl[pos].fra_pos].end_event_handle,
                            fra[dcpl[pos].fra_pos].dir_status);
          }
-         if (pos < no_of_process)
+         if (pos < *no_of_process)
          {
             (void)memmove(&dcpl[pos], &dcpl[pos + 1],
-                          ((no_of_process - pos) * sizeof(struct dc_proc_list)));
+                          ((*no_of_process - pos) * sizeof(struct dc_proc_list)));
          }
-         dcpl[no_of_process].pid = -1;
-         dcpl[no_of_process].fra_pos = -1;
+         dcpl[*no_of_process].pid = -1;
+         dcpl[*no_of_process].fra_pos = -1;
       }
    }
    return(pid);
 }
+
+
+/*+++++++++++++++++++++++ check_orphaned_procs() ++++++++++++++++++++++++*/
+static void
+check_orphaned_procs(time_t now)
+{
+   int i, j;
+
+   for (i = 0; i < no_of_orphaned_procs; i++)
+   {
+      if (opl[i] > 0)
+      {
+         if (kill(opl[i], 0) == -1)
+         {
+            /* We can now remove this process. */
+            for (j = 0; j < *no_of_process; j++)
+            {
+               if (dcpl[j].pid == opl[i])
+               {
+                  (*no_of_process)--;
+                  if (fra[dcpl[j].fra_pos].no_of_process > 0)
+                  {
+                     fra[dcpl[j].fra_pos].no_of_process--;
+                  }
+                  if ((fra[dcpl[j].fra_pos].no_of_process == 0) &&
+                      (fra[dcpl[j].fra_pos].dir_status == DIRECTORY_ACTIVE))
+                  {
+                     SET_DIR_STATUS(fra[dcpl[j].fra_pos].dir_flag,
+                                    now,
+                                    fra[dcpl[j].fra_pos].start_event_handle,
+                                    fra[dcpl[j].fra_pos].end_event_handle,
+                                    fra[dcpl[j].fra_pos].dir_status);
+                  }
+                  if (j < *no_of_process)
+                  {
+                     (void)memmove(&dcpl[j], &dcpl[j + 1],
+                                   ((*no_of_process - j) * sizeof(struct dc_proc_list)));
+                  }
+                  dcpl[*no_of_process].pid = -1;
+                  dcpl[*no_of_process].fra_pos = -1;
+                  break;
+               }
+            }
+            no_of_orphaned_procs--;
+            if (i < no_of_orphaned_procs)
+            {
+               (void)memmove(&opl[i], &opl[i + 1],
+                             ((no_of_orphaned_procs - i) * sizeof(pid_t)));
+            }
+            opl[no_of_orphaned_procs] = -1;
+            i--;
+         }
+      }
+      else
+      {
+         no_of_orphaned_procs--;
+         if (i < no_of_orphaned_procs)
+         {
+            (void)memmove(&opl[i], &opl[i + 1],
+                          ((no_of_orphaned_procs - i) * sizeof(pid_t)));
+         }
+         opl[no_of_orphaned_procs] = -1;
+         i--;
+      }
+   }
+   if (no_of_orphaned_procs == 0)
+   {
+      free(opl);
+      opl = NULL;
+   }
+
+   return;
+}
+
 
 
 /*------------------------- get_process_pos() ---------------------------*/
@@ -2397,7 +2564,7 @@ get_process_pos(pid_t pid)
 {
    register int i;
 
-   for (i = 0; i < no_of_process; i++)
+   for (i = 0; i < *no_of_process; i++)
    {
       if (dcpl[i].pid == pid)
       {
@@ -2439,11 +2606,16 @@ check_fifo(int read_fd, int write_fd)
    int  n;
    char buffer[20];
 
-   /* Read the message */
+   /* Read the message. */
    if ((n = read(read_fd, buffer, 20)) > 0)
    {
-      int  count = 0,
-           i;
+      int count = 0,
+          i, j;
+#ifdef _WITH_PTHREAD
+# ifdef _DISTRIBUTION_LOG
+      int k;
+# endif
+#endif
 
 #ifdef _FIFO_DEBUG
       show_fifo_data('R', "ip_cmd", buffer, n, __FILE__, __LINE__);
@@ -2458,8 +2630,6 @@ check_fifo(int read_fd, int write_fd)
                {
                   if (fjd[i].forks > 0)
                   {
-                     int j;
-
                      system_log(DEBUG_SIGN, NULL, 0,
                                 "CPU clock times for exec option:");
                      system_log(DEBUG_SIGN, NULL, 0,
@@ -2494,12 +2664,36 @@ check_fifo(int read_fd, int write_fd)
                   p_mmap = NULL;
                }
 
-               /* free memory for pid, time and file name array */
-               free(dcpl);
+               /* Free memory for pid, time and file name array. */
+               if (dcpl_fd > 0)
+               {
+                  (void)close(dcpl_fd);
+               }
+               if (dcpl != NULL)
+               {
+#ifdef HAVE_MMAP
+                  size_t dcpl_size;
+
+                  dcpl_size = (max_process * sizeof(struct dc_proc_list)) + AFD_WORD_OFFSET;
+                  if (munmap(((char *)dcpl - AFD_WORD_OFFSET), dcpl_size) == -1)
+#else
+                  if (munmap_emu((void *)((char *)dcpl - AFD_WORD_OFFSET)) == -1)
+#endif
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "Failed to munmap() from %s : %s",
+                                DCPL_FILE_NAME, strerror(errno));
+                  }
+                  dcpl = NULL;
+               }
+               if (opl != NULL)
+               {
+                  free(opl);
+                  opl = NULL;
+                  no_of_orphaned_procs = 0;
+               }
                for (i = 0; i < no_of_local_dirs; i++)
                {
-                  int j;
-
                   for (j = 0; j < de[i].nfg; j++)
                   {
                      free(de[i].fme[j].pos);
@@ -2540,7 +2734,6 @@ check_fifo(int read_fd, int write_fd)
                   }
                }
                free(de);
-               FREE_RT_ARRAY(file_name_pool);
                for (i = 0; i < no_of_jobs; i++)
                {
                   if (db[i].te != NULL)
@@ -2561,7 +2754,47 @@ check_fifo(int read_fd, int write_fd)
                for (i = 0; i < no_of_local_dirs; i++)
                {
                   FREE_RT_ARRAY(p_data[i].file_name_pool);
+                  free(p_data[i].file_length_pool);
+                  free(p_data[i].file_mtime_pool);
+                  free(p_data[i].file_size_pool);
+# ifdef _DISTRIBUTION_LOG
+                  for (k = 0; k < max_file_buffer; k++)
+                  {
+                     for (j = 0; j < NO_OF_DISTRIBUTION_TYPES; j++)
+                     {
+                        free(p_data[i].file_dist_pool[k][j].jid_list);
+                        free(p_data[i].file_dist_pool[k][j].proc_cycles);
+                     }
+                  }
+#  ifdef RT_ARRAY_STRUCT_WORKING
+                  FREE_RT_ARRAY(p_data[i].file_dist_pool);
+#  else
+                  free(p_data[i].file_dist_pool[0]);
+                  free(p_data[i].file_dist_pool);
+#  endif
+# endif
                }
+#else
+               FREE_RT_ARRAY(file_name_pool);
+               free(file_length_pool);
+               free(file_mtime_pool);
+               free(file_size_pool);
+# ifdef _DISTRIBUTION_LOG
+               for (i = 0; i < max_file_buffer; i++)
+               {
+                  for (j = 0; j < NO_OF_DISTRIBUTION_TYPES; j++)
+                  {
+                     free(file_dist_pool[i][j].jid_list);
+                     free(file_dist_pool[i][j].proc_cycles);
+                  }
+               }
+#  ifdef RT_ARRAY_STRUCT_WORKING
+               FREE_RT_ARRAY(file_dist_pool);
+#  else
+               free(file_dist_pool[0]);
+               free(file_dist_pool);
+#  endif
+# endif
 #endif
 #ifdef WITH_ERROR_QUEUE
                if (detach_error_queue() == INCORRECT)
@@ -2570,18 +2803,16 @@ check_fifo(int read_fd, int write_fd)
                              "Failed to detach from error queue.");
                }
 #endif
+#ifdef _DISTRIBUTION_LOG
+               release_dis_log();
+#endif
+
                if (fjd != NULL)
                {
                   free(fjd);
                   fjd = NULL;
                }
                system_log(INFO_SIGN, NULL, 0, "Stopped dir_check.");
-
-               /* Set flag to indicate that the the dir_check is NOT active. */
-               if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
-               {
-                  p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-               }
 
                /* Unmap from AFD status area. */
                {
@@ -2618,7 +2849,7 @@ check_fifo(int read_fd, int write_fd)
                              DC_CMD_FIFO, strerror(errno));
                   exit(INCORRECT);
                }
-               (void)close(amg_counter_fd);
+               close_counter_file(amg_counter_fd, &amg_counter);
                exit(SUCCESS);
 
             case SR_EXEC_STAT: /* Show exec statistics in SYSTEM_LOG + reset. */
@@ -2661,7 +2892,11 @@ check_fifo(int read_fd, int write_fd)
                }
                break;
 
-            default    : /* Most properly we are reading garbage */
+            case CHECK_FILE_DIR :
+               force_check = YES;
+               break;
+
+            default    : /* Most properly we are reading garbage. */
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           "Reading garbage (%d) on fifo %s.",
                           buffer[count], DC_CMD_FIFO);
@@ -2698,10 +2933,6 @@ sig_segv(int signo)
    else
    {
       /* Set flag to indicate that the the dir_check is NOT active. */
-      if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
-      {
-         p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-      }
       if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
       {
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
@@ -2736,10 +2967,6 @@ sig_bus(int signo)
    else
    {
       /* Set flag to indicate that the the dir_check is NOT active. */
-      if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
-      {
-         p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
-      }
       if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
       {
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;

@@ -1,6 +1,6 @@
 /*
  *  get_checksum.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,11 +50,14 @@ DESCR__S_M3
  **   22.08.2003 H.Kiehl Created
  **   11.06.2005 H.Kiehl Added get_file_checksum().
  **   08.03.2006 H.Kiehl Added get_str_checksum().
+ **   25.03.2009 T.Xiaoh Fix get_file_checksum() so it calculates checksum
+ **                      of complete file, not just one block.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>              /* NULL                                  */
+#include <string.h>             /* strerror()                            */
 #include <unistd.h>
 #include <errno.h>
 
@@ -150,7 +153,7 @@ static unsigned int table[256] = { 0x00000000, 0x77073096, 0xee0e612c,
 unsigned int
 get_checksum(char *mem, int size)
 {
-   unsigned int crc = ~0;
+   unsigned int crc = ~0u;
 
    while (size--)
    {
@@ -165,7 +168,7 @@ get_checksum(char *mem, int size)
 unsigned int
 get_str_checksum(char *str)
 {
-   unsigned int crc = ~0;
+   unsigned int crc = ~0u;
 
    while (*str != '\0')
    {
@@ -186,14 +189,16 @@ get_file_checksum(int          fd,
                   unsigned int *crc)
 {
    char *ptr;
-   int  bytes_read;
+   int  bytes_read,
+        tmp_bytes_read;
 
-   *crc = ~0;
+   *crc = ~0u;
    ptr = buffer;
    if ((bytes_read = read(fd, (ptr + offset), (buf_size - offset))) >= 0)
    {
       bytes_read += offset;
-      while (bytes_read--)
+      tmp_bytes_read = bytes_read;
+      while (tmp_bytes_read--)
       {
          *crc = table[((*crc) ^ *(ptr++)) & 0xff] ^ ((*crc) >> 8);
       }
@@ -201,7 +206,7 @@ get_file_checksum(int          fd,
    else if (bytes_read == -1)
         {
            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "read() error : %s", strerror(errno));
+                      _("read() error : %s"), strerror(errno));
            return(INCORRECT);
         }
 
@@ -212,7 +217,8 @@ get_file_checksum(int          fd,
          ptr = buffer;
          if ((bytes_read = read(fd, ptr, buf_size)) > 0)
          {
-            while (bytes_read--)
+            tmp_bytes_read = bytes_read;
+            while (tmp_bytes_read--)
             {
                *crc = table[((*crc) ^ *(ptr++)) & 0xff] ^ ((*crc) >> 8);
             }
@@ -220,7 +226,7 @@ get_file_checksum(int          fd,
          else if (bytes_read == -1)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "read() error : %s", strerror(errno));
+                            _("read() error : %s"), strerror(errno));
                  return(INCORRECT);
               }
       } while (bytes_read == buf_size);

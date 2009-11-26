@@ -1,6 +1,6 @@
 /*
  *  delete_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,30 +31,39 @@ DESCR__S_M1
  **   This function reads from the fifo DELETE_LOG_FIFO any file name
  **   that was deleted by any process of the AFD. The data in the fifo
  **   has the following structure:
- **       <FS><JN><HN>\0<FNL><FN>\0<UPN>\0
- **         |   |   |     |    |     |
- **         |   |   |     |    |     +-----> A \0 terminated string of
- **         |   |   |     |    |             the user or process that
- **         |   |   |     |    |             deleted the file.
- **         |   |   |     |    +-----------> \0 terminated string of
- **         |   |   |     |                  the File Name.
- **         |   |   |     +----------------> Unsigned char holding the
- **         |   |   |                        File Name Length.
- **         |   |   +----------------------> \0 terminated string of
- **         |   |                            the Host Name and reason.
- **         |   +--------------------------> Integer holding the
- **         |                                job number.
- **         +------------------------------> File size of type off_t.
+ **       <FS><JID><DID><CT><SJC><UN><HN>\0<FNL><FN>\0<UPN>\0
+ **         |   |    |    |   |    |   |     |    |     |
+ **         |   |    |    |   |    |   |     |    |     +-> A \0 terminated string of
+ **         |   |    |    |   |    |   |     |    |         the user or process that
+ **         |   |    |    |   |    |   |     |    |         deleted the file.
+ **         |   |    |    |   |    |   |     |    +-------> \0 terminated string of
+ **         |   |    |    |   |    |   |     |              the File Name.
+ **         |   |    |    |   |    |   |     +------------> Unsigned char holding the
+ **         |   |    |    |   |    |   |                    File Name Length.
+ **         |   |    |    |   |    |   +------------------> \0 terminated string of
+ **         |   |    |    |   |    |                        the Host Name and reason.
+ **         |   |    |    |   |    +----------------------> Unsigned int
+ **         |   |    |    |   |                             for Unique Number.
+ **         |   |    |    |   +---------------------------> Unsigned integer for
+ **         |   |    |    |                                 Split Job Counter.
+ **         |   |    |    +-------------------------------> Input time of
+ **         |   |    |                                      type time_t.
+ **         |   |    +------------------------------------> Unsigned integer holding
+ **         |   |                                           the directory ID.
+ **         |   +-----------------------------------------> Unsigned integer holding
+ **         |                                               the job ID.
+ **         +---------------------------------------------> File size of type off_t.
  **
  **   This data is then written to the delete log file in the following
  **   format:
  **
- **   426f52c4   btx      1|dat.txt|5eb7|697d0f61|sf_ftp
- **      |        |       |    |     |     |        |
- **      |        |       |    |     |     |        |
- **      |        |       |    |     |     |        |
- **   Deletion  Host Deletion File  File  Job   User/process
- **    time     name   type   name  size number that deleted
+ **   426f52c4   btx      001|dat.txt|5eb7|697d0f61|3ab56ea2|426f44b4_23ed0_0|sf_ftp[|>10]
+ **      |        |        |     |     |     |         |          |             |      |
+ **      |        |     +--+  +--+  +--+  +--+    +----+    +-----+    +--------+ +----+
+ **      |        |     |     |     |     |       |         |          |          |
+ **   Deletion  Host Delete  File  File  Job Directory   Unique  User/process  Optional
+ **    time     name reason  name  size   ID    ID         ID    that deleted additional
+ **                                                                  file      reason
  **
  ** RETURN VALUES
  **   SUCCESS on normal exit and INCORRECT when an error has occurred.
@@ -67,6 +76,11 @@ DESCR__S_M1
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
  **   14.06.2001 H.Kiehl Removed the above unnecessary checks.
  **   13.04.2002 H.Kiehl Added SEPARATOR_CHAR.
+ **   26.02.2008 H.Kiehl Have both job ID and directory ID and expand
+ **                      delete reason to 3 characters.
+ **   26.03.2008 H.Kiehl Added unique ID to simplify searching.
+ **   29.01.2009 H.Kiehl Changed unique_number from unsigned short to
+ **                      unsigned int.
  **
  */
 DESCR__E_M1
@@ -78,7 +92,7 @@ DESCR__E_M1
 #include <sys/types.h>       /* fdset                                    */
 #include <sys/stat.h>
 #include <sys/time.h>        /* struct timeval                           */
-#include <unistd.h>          /* fpathconf()                              */
+#include <unistd.h>          /* fpathconf(), unlink()                    */
 #include <fcntl.h>           /* O_RDWR, open()                           */
 #include <signal.h>          /* signal()                                 */
 #include <errno.h>
@@ -86,7 +100,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* External global variables */
+/* External global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *iobuf = NULL,
            *p_work_dir = NULL;
@@ -105,7 +119,6 @@ main(int argc, char *argv[])
                   length,
                   max_delete_log_files = MAX_DELETE_LOG_FILES,
                   no_of_buffered_writes = 0,
-                  offset,
                   check_size,
                   status,
                   log_fd;
@@ -113,15 +126,19 @@ main(int argc, char *argv[])
    int            writefd;
 #endif
    off_t          *file_size;
-   time_t         next_file_time,
+   time_t         *input_time,
+                  next_file_time,
                   now;
-   unsigned int   *job_number;
+   unsigned int   *dir_id,
+                  *job_id,
+                  *split_job_counter,
+                  *unique_number;
    long           fifo_size;
    char           *p_end,
                   *fifo_buffer,
                   *p_host_name,
                   *p_file_name,
-                  work_dir[MAX_PATH_LENGTH],
+                  *work_dir,
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH];
    unsigned char  *file_name_length;
@@ -131,56 +148,58 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
-   else
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
    {
-      char delete_log_fifo[MAX_PATH_LENGTH];
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s",
+                 strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
+   p_work_dir = work_dir;
 
-      p_work_dir = work_dir;
-
-      /* Create and open fifos that we need */
-      (void)strcpy(delete_log_fifo, work_dir);
-      (void)strcat(delete_log_fifo, FIFO_DIR);
-      (void)strcat(delete_log_fifo, DELETE_LOG_FIFO);
+   /* Create and open fifos that we need. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, DELETE_LOG_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(delete_log_fifo, &log_fd, &writefd) == -1)
+   if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-      if ((log_fd = open(delete_log_fifo, O_RDWR)) == -1)
+   if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
+   {
+      if (errno == ENOENT)
       {
-         if (errno == ENOENT)
+         if (make_fifo(log_file) == SUCCESS)
          {
-            if (make_fifo(delete_log_fifo) == SUCCESS)
-            {
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-               if (open_fifo_rw(delete_log_fifo, &log_fd, &writefd) == -1)
+            if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-               if ((log_fd = open(delete_log_fifo, O_RDWR)) == -1)
+            if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() fifo %s : %s",
-                             delete_log_fifo, strerror(errno));
-                  exit(INCORRECT);
-               }
-            }
-            else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to create fifo %s.", delete_log_fifo);
+                          "Failed to open() fifo %s : %s",
+                          log_file, strerror(errno));
                exit(INCORRECT);
             }
          }
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() fifo %s : %s",
-                       delete_log_fifo, strerror(errno));
+                       "Failed to create fifo %s.", log_file);
             exit(INCORRECT);
          }
+      }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() fifo %s : %s",
+                    log_file, strerror(errno));
+         exit(INCORRECT);
       }
    }
 
@@ -188,14 +207,18 @@ main(int argc, char *argv[])
     * Lets determine the largest offset so the 'structure'
     * is aligned correctly.
     */
-   offset = sizeof(clock_t);
-   if (sizeof(off_t) > offset)
+   n = sizeof(clock_t);
+   if (sizeof(off_t) > n)
    {
-      offset = sizeof(off_t);
+      n = sizeof(off_t);
    }
-   if (sizeof(unsigned int) > offset)
+   if (sizeof(time_t) > n)
    {
-      offset = sizeof(unsigned int);
+      n = sizeof(time_t);
+   }
+   if (sizeof(unsigned int) > n)
+   {
+      n = sizeof(unsigned int);
    }
    
    /*
@@ -204,19 +227,21 @@ main(int argc, char *argv[])
     */
    if ((fifo_size = fpathconf(log_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
-   if (fifo_size < (offset + offset + MAX_HOSTNAME_LENGTH + 2 + 1 +
-                    MAX_FILENAME_LENGTH + MAX_FILENAME_LENGTH))
+   if (fifo_size < (n + n + n + n + n + sizeof(unsigned int) +
+                    MAX_HOSTNAME_LENGTH + 4 + 1 + MAX_FILENAME_LENGTH +
+                    MAX_FILENAME_LENGTH))
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Fifo is NOT large enough to ensure atomic writes!");
-      fifo_size = offset + offset + MAX_HOSTNAME_LENGTH + 2 + 1 +
-                  MAX_FILENAME_LENGTH + MAX_FILENAME_LENGTH;
+      fifo_size = n + n + n + n + n + sizeof(unsigned int) +
+                  MAX_HOSTNAME_LENGTH + 4 + 1 + MAX_FILENAME_LENGTH +
+                  MAX_FILENAME_LENGTH;
    }
 
-   /* Now lets allocate memory for the fifo buffer */
+   /* Now lets allocate memory for the fifo buffer. */
    if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -255,7 +280,7 @@ main(int argc, char *argv[])
    p_end += sprintf(log_file, "%s%s/%s",
                     work_dir, LOG_DIR, DELETE_BUFFER_FILE);
 
-   /* Calculate time when we have to start a new file */
+   /* Calculate time when we have to start a new file. */
    next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                     SWITCH_FILE_TIME;
 
@@ -268,25 +293,48 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         if (max_delete_log_files > 1)
+         {
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         }
+         else
+         {
+            if (unlink(current_log_file) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() current log file `%s' : %s",
+                          current_log_file, strerror(errno));
+            }
+         }
       }
    }
 
+#ifdef WITH_LOG_CACHE
+   delete_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
    delete_file = open_log_file(current_log_file);
+#endif
 
    /* Position pointers in fifo so that we only need to read */
    /* the data as they are in the fifo.                      */
    file_size = (off_t *)fifo_buffer;
-   job_number = (unsigned int *)(fifo_buffer + offset);
-   p_host_name = (char *)(fifo_buffer + offset + offset);
-   file_name_length = (unsigned char *)(fifo_buffer + offset + offset +
-                                        MAX_HOSTNAME_LENGTH + 2 + 1);
-   p_file_name = (char *)(fifo_buffer + offset + offset + 1 +
-                          MAX_HOSTNAME_LENGTH + 2 + 1);
-   check_size = offset + offset + MAX_HOSTNAME_LENGTH + 2 +
-                sizeof(unsigned char) + 1 + 1 + 1;
+   job_id = (unsigned int *)(fifo_buffer + n);
+   dir_id = (unsigned int *)(fifo_buffer + n + n);
+   input_time = (time_t *)(fifo_buffer + n + n + n);
+   split_job_counter = (unsigned int *)(fifo_buffer + n + n + n + n);
+   unique_number = (unsigned int *)(fifo_buffer + n + n + n + n + n);
+   p_host_name = (char *)(fifo_buffer + n + n + n + n + n +
+                          sizeof(unsigned int));
+   file_name_length = (unsigned char *)(fifo_buffer + n + n + n + n + n +
+                                        sizeof(unsigned int) +
+                                        MAX_HOSTNAME_LENGTH + 4 + 1);
+   p_file_name = (char *)(fifo_buffer + n + n + n + n + n +
+                          sizeof(unsigned int) + 1 +
+                          MAX_HOSTNAME_LENGTH + 4 + 1);
+   check_size = n + n + n + n + n + sizeof(unsigned int) +
+                MAX_HOSTNAME_LENGTH + 4 + sizeof(unsigned char) + 1 + 1 + 1;
 
-   /* Ignore any SIGHUP signal */
+   /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -299,7 +347,7 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      /* Initialise descriptor set and timeout. */
       FD_SET(log_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 3L;
@@ -327,8 +375,24 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_delete_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_file, strerror(errno));
+               }
+            }
+#ifdef WITH_LOG_CACHE
+            delete_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
             delete_file = open_log_file(current_log_file);
+#endif
             next_file_time = (now / SWITCH_FILE_TIME) *
                              SWITCH_FILE_TIME + SWITCH_FILE_TIME;
          }
@@ -347,8 +411,9 @@ main(int argc, char *argv[])
                * data to the delete log. The data in the 
                * fifo always has the following format:
                *
-               *   <file size><job number><host name><file name>
-               *   <user/process>
+               *   <file size><job ID><dir ID><input time><split job counter>
+               *   <unique name><host name + reason><file name length>
+               *   <file name><user/process[+ add. reason]>
                */
               if ((n = read(log_fd, &fifo_buffer[bytes_buffered],
                             fifo_size - bytes_buffered)) > 0)
@@ -374,30 +439,69 @@ main(int argc, char *argv[])
                        }
                        else
                        {
-                          (void)fprintf(delete_file,
+                          if (*input_time == 0L)
+                          {
+                             (void)fprintf(delete_file,
 #if SIZEOF_OFF_T == 4
 # if SIZEOF_TIME_T == 4
-                                        "%-*lx %s%c%s%c%lx%c%x%c%s\n",
+                                           "%-*lx %s%c%s%c%lx%c%x%c%x%c%c%s\n",
 # else
-                                        "%-*llx %s%c%s%c%lx%c%x%c%s\n",
+                                           "%-*llx %s%c%s%c%lx%c%x%c%x%c%c%s\n",
 # endif
 #else
 # if SIZEOF_TIME_T == 4
-                                        "%-*lx %s%c%s%c%llx%c%x%c%s\n",
+                                           "%-*lx %s%c%s%c%llx%c%x%c%x%c%c%s\n",
 # else
-                                        "%-*llx %s%c%s%c%llx%c%x%c%s\n",
+                                           "%-*llx %s%c%s%c%llx%c%x%c%x%c%c%s\n",
 # endif
 #endif
-                                        LOG_DATE_LENGTH, (pri_time_t)now,
-                                        p_host_name,
-                                        SEPARATOR_CHAR,
-                                        p_file_name,
-                                        SEPARATOR_CHAR,
-                                        (pri_off_t)*file_size,
-                                        SEPARATOR_CHAR,
-                                        *job_number,
-                                        SEPARATOR_CHAR,
-                                        &p_file_name[*file_name_length + 1]);
+                                           LOG_DATE_LENGTH, (pri_time_t)now,
+                                           p_host_name,
+                                           SEPARATOR_CHAR,
+                                           p_file_name,
+                                           SEPARATOR_CHAR,
+                                           (pri_off_t)*file_size,
+                                           SEPARATOR_CHAR,
+                                           *job_id,
+                                           SEPARATOR_CHAR,
+                                           *dir_id,
+                                           SEPARATOR_CHAR,
+                                           SEPARATOR_CHAR,
+                                           &p_file_name[*file_name_length + 1]);
+                          }
+                          else
+                          {
+                             (void)fprintf(delete_file,
+#if SIZEOF_OFF_T == 4
+# if SIZEOF_TIME_T == 4
+                                           "%-*lx %s%c%s%c%lx%c%x%c%x%c%lx_%x_%x%c%s\n",
+# else
+                                           "%-*llx %s%c%s%c%lx%c%x%c%x%c%llx_%x_%x%c%s\n",
+# endif
+#else
+# if SIZEOF_TIME_T == 4
+                                           "%-*lx %s%c%s%c%llx%c%x%c%x%c%lx_%x_%x%c%s\n",
+# else
+                                           "%-*llx %s%c%s%c%llx%c%x%c%x%c%llx_%x_%x%c%s\n",
+# endif
+#endif
+                                           LOG_DATE_LENGTH, (pri_time_t)now,
+                                           p_host_name,
+                                           SEPARATOR_CHAR,
+                                           p_file_name,
+                                           SEPARATOR_CHAR,
+                                           (pri_off_t)*file_size,
+                                           SEPARATOR_CHAR,
+                                           *job_id,
+                                           SEPARATOR_CHAR,
+                                           *dir_id,
+                                           SEPARATOR_CHAR,
+                                           (pri_time_t)*input_time,
+                                           *unique_number,
+                                           *split_job_counter,
+                                           SEPARATOR_CHAR,
+                                           &p_file_name[*file_name_length + 1]);
+                          }
                        }
                     }
                     n -= length;
@@ -438,8 +542,24 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 if (max_delete_log_files > 1)
+                 {
+                    reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 }
+                 else
+                 {
+                    if (unlink(current_log_file) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to unlink() current log file `%s' : %s",
+                                  current_log_file, strerror(errno));
+                    }
+                 }
+#ifdef WITH_LOG_CACHE
+                 delete_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
                  delete_file = open_log_file(current_log_file);
+#endif
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                                   SWITCH_FILE_TIME;
               }

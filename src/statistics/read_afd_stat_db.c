@@ -1,6 +1,6 @@
 /*
  *  read_afd_stat_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,8 +67,7 @@ DESCR__E_M3
 #endif
 
 /* Global external variables. */
-extern int                        sys_log_fd,
-                                  lock_fd;
+extern int                        lock_fd;
 extern size_t                     stat_db_size;
 extern char                       statistic_file[MAX_PATH_LENGTH],
                                   new_statistic_file[MAX_PATH_LENGTH];
@@ -111,17 +110,16 @@ read_afd_stat_db(int no_of_hosts)
       {
          if (stat_buf.st_size == 0)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hmm..., old output statistic file is empty. (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmm..., old output statistic file is empty.");
          }
          else
          {
             if (errno != ENOENT)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to stat() %s : %s (%s %d)\n",
-                         statistic_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to stat() %s : %s",
+                          statistic_file, strerror(errno));
                exit(INCORRECT);
             }
          }
@@ -133,16 +131,16 @@ read_afd_stat_db(int no_of_hosts)
 
          if ((lock_fd = lock_file(statistic_file, OFF)) == LOCK_IS_SET)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Another process is currently using file %s (%s %d)\n",
-                      statistic_file, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Another process is currently using file %s",
+                       statistic_file);
             exit(INCORRECT);
          }
          if ((old_status_fd = open(statistic_file, O_RDWR)) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      statistic_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() %s : %s",
+                       statistic_file, strerror(errno));
             exit(INCORRECT);
          }
 
@@ -151,24 +149,24 @@ read_afd_stat_db(int no_of_hosts)
                              (MAP_FILE | MAP_SHARED),
                              old_status_fd, 0)) == (caddr_t) -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not mmap() file %s : %s (%s %d)\n",
-                      statistic_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not mmap() file %s : %s",
+                       statistic_file, strerror(errno));
             (void)close(old_status_fd);
             exit(INCORRECT);
          }
 #else
          if ((old_ptr = malloc(stat_buf.st_size)) == NULL)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "malloc() error : %s", strerror(errno));
             exit(INCORRECT);
          }
          if (read(old_status_fd, old_ptr, stat_buf.st_size) != stat_buf.st_size)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to read() %s : %s (%s %d)\n",
-                      statistic_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to read() %s : %s",
+                       statistic_file, strerror(errno));
             free(old_ptr);
             (void)close(old_status_fd);
             exit(INCORRECT);
@@ -198,40 +196,40 @@ read_afd_stat_db(int no_of_hosts)
    if ((new_status_fd = open(new_statistic_file, (O_RDWR | O_CREAT | O_TRUNC),
                              FILE_MODE)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open() %s : %s (%s %d)\n",
-                new_statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open() %s : %s",
+                 new_statistic_file, strerror(errno));
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
    if (lseek(new_status_fd, stat_db_size - 1, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not seek() on %s : %s (%s %d)\n",
-                new_statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() on %s : %s",
+                 new_statistic_file, strerror(errno));
       exit(INCORRECT);
    }
    if (write(new_status_fd, "", 1) != 1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write() to %s : %s (%s %d)\n",
-                new_statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write() to %s : %s",
+                 new_statistic_file, strerror(errno));
       exit(INCORRECT);
    }
    if ((ptr = mmap(NULL, stat_db_size, (PROT_READ | PROT_WRITE),
                    (MAP_FILE | MAP_SHARED),
                    new_status_fd, 0)) == (caddr_t) -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not mmap() file %s : %s (%s %d)\n",
-                new_statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not mmap() file %s : %s",
+                 new_statistic_file, strerror(errno));
       exit(INCORRECT);
    }
 #else
    if ((ptr = malloc(stat_db_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(sys_log_fd, ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #endif
@@ -242,9 +240,9 @@ read_afd_stat_db(int no_of_hosts)
 
    if ((no_of_old_hosts < 1) && (old_stat_db != NULL))
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "Failed to find any old hosts! [%d %d Bytes] (%s %d)\n",
-                no_of_old_hosts, old_stat_db_size, __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Failed to find any old hosts! [%d %d Bytes]",
+                 no_of_old_hosts, old_stat_db_size);
    }
 
    /*
@@ -327,9 +325,9 @@ read_afd_stat_db(int no_of_hosts)
 #ifdef HAVE_MMAP
       if (munmap(old_ptr, old_stat_db_size) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap() %s : %s (%s %d)\n",
-                   statistic_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() %s : %s",
+                    statistic_file, strerror(errno));
       }
 #else
       free(old_ptr);
@@ -338,8 +336,8 @@ read_afd_stat_db(int no_of_hosts)
       {
          if (close(lock_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
    }
@@ -347,32 +345,30 @@ read_afd_stat_db(int no_of_hosts)
 #ifndef HAVE_MMAP
    if (write(new_status_fd, stat_db, stat_db_size) != stat_db_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write() to %s : %s (%s %d)\n",
-                new_statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write() to %s : %s",
+                 new_statistic_file, strerror(errno));
       exit(INCORRECT);
    }
 #endif
    if (close(new_status_fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    if (rename(new_statistic_file, statistic_file) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to rename() %s to %s : %s (%s %d)\n",
-                new_statistic_file, statistic_file,
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to rename() %s to %s : %s",
+                 new_statistic_file, statistic_file, strerror(errno));
       exit(INCORRECT);
    }
 
    if ((lock_fd = lock_file(statistic_file, OFF)) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to lock file `%s' [%d] (%s %d)\n",
-                statistic_file, lock_fd, __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to lock file `%s' [%d]", statistic_file, lock_fd);
       exit(INCORRECT);
    }
 
@@ -383,8 +379,8 @@ read_afd_stat_db(int no_of_hosts)
    {
       if (close(old_status_fd) == -1)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
       }
    }
 

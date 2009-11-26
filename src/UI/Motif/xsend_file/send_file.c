@@ -28,7 +28,7 @@ DESCR__S_M3
  **   void send_file(void)
  **
  ** DESCRIPTION
- **   xexec_cmd() executes a command specified in 'cmd' by calling
+ **   send_file() executes a command specified in 'cmd' by calling
  **   /bin/sh -c 'cmd', and returns after the command has been
  **   completed. All output is written to the text widget cmd_output.
  **
@@ -64,7 +64,7 @@ DESCR__E_M3
 #define  READ  0
 #define  WRITE 1
 
-/* External global variables */
+/* External global variables. */
 extern int              button_flag,
                         cmd_fd;
 extern char             file_name_file[],
@@ -78,7 +78,7 @@ extern Widget           appshell,
 extern XmTextPosition   wpr_position;
 extern XtInputId        cmd_input_id;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void             read_data(XtPointer, int *, XtInputId *);
 
 
@@ -173,19 +173,19 @@ send_file(void)
 
    switch (cmd_pid = fork())
    {
-      case -1: /* Failed to fork */
+      case -1: /* Failed to fork. */
          (void)fprintf(stderr, "fork() error : %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
 
-      case 0 : /* Child process */
+      case 0 : /* Child process. */
          (void)close(channels[READ]);
          dup2(channels[WRITE], STDOUT_FILENO);
          dup2(channels[WRITE], STDERR_FILENO);
          (void)execl("/bin/sh", "sh", "-c", cmd, (char *)0);
          _exit(INCORRECT);
 
-      default: /* Parent process */
+      default: /* Parent process. */
          (void)close(channels[WRITE]);
 
          cmd_fd = channels[READ];

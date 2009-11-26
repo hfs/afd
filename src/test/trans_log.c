@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,12 @@ DESCR__S_M3
  **   trans_log - writes formated log output to transfer log
  **
  ** SYNOPSIS
- **   void trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
+ **   void trans_log(char *sign,
+ **                  char *file,
+ **                  int  line,
+ **                  char *function,
+ **                  char *msg_str,
+ **                  char *fmt, ...)
  **
  ** DESCRIPTION
  **
@@ -59,9 +64,15 @@ extern struct job                 db;
 
 /*############################ trans_log() ###############################*/
 void
-trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
+trans_log(char *sign,
+          char *file,
+          int  line,
+          char *function,
+          char *msg_str,
+          char *fmt,
+          ...)
 {
-   size_t    length = 16;
+   size_t    length;
    time_t    tvalue;
    char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
    va_list   ap;
@@ -85,6 +96,11 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    buf[13] = sign[1];
    buf[14] = sign[2];
    buf[15] = ' ';
+   if ((function != NULL) && (function[0] != '\0'))
+   {
+      length += sprintf(&buf[length], "%s(): ", function);
+   }
+   length = 16;
 
    va_start(ap, fmt);
    length += vsprintf(&buf[length], fmt, ap);

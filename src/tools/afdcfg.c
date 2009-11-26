@@ -1,6 +1,6 @@
 /*
  *  afdcfg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -32,7 +32,10 @@ DESCR__S_M1
  **                  -c      enable create target dir
  **                  -C      disable create target dir
  **                  -d      enable directory warn time
+ **                  -du     enable + update directory warn time
  **                  -D      disable directory warn time
+ **                  -h      enable host warn time
+ **                  -H      disable host warn time
  **                  -r      enable retrieving of files
  **                  -R      disable retrieving of files
  **                  -s      status of the above flags
@@ -51,6 +54,8 @@ DESCR__S_M1
  **                      target directories.
  **   07.02.2007 H.Kiehl Added option to enable/disable directory warn
  **                      time.
+ **   03.01.2008 H.Kiehl Added host warn time.
+ **   08.05.2008 H.Kiehl Added enable + update directory warn time (-du).
  **
  */
 DESCR__E_M1
@@ -58,6 +63,7 @@ DESCR__E_M1
 #include <stdio.h>                       /* fprintf(), stderr            */
 #include <string.h>                      /* strcpy(), strerror()         */
 #include <stdlib.h>                      /* atoi()                       */
+#include <time.h>                        /* time()                       */
 #include <ctype.h>                       /* isdigit()                    */
 #include <sys/types.h>
 #include <fcntl.h>                       /* open()                       */
@@ -87,15 +93,18 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 /* Local function prototypes. */
 static void                usage(char *);
 
-#define ENABLE_ARCHIVE_SEL            1
-#define DISABLE_ARCHIVE_SEL           2
-#define ENABLE_RETRIEVE_SEL           3
-#define DISABLE_RETRIEVE_SEL          4
-#define ENABLE_DIR_WARN_TIME_SEL      5
-#define DISABLE_DIR_WARN_TIME_SEL     6
-#define ENABLE_CREATE_TARGET_DIR_SEL  7
-#define DISABLE_CREATE_TARGET_DIR_SEL 8
-#define STATUS_SEL                    9
+#define ENABLE_ARCHIVE_SEL              1
+#define DISABLE_ARCHIVE_SEL             2
+#define ENABLE_RETRIEVE_SEL             3
+#define DISABLE_RETRIEVE_SEL            4
+#define ENABLE_DIR_WARN_TIME_SEL        5
+#define ENABLE_UPDATE_DIR_WARN_TIME_SEL 6
+#define DISABLE_DIR_WARN_TIME_SEL       7
+#define ENABLE_HOST_WARN_TIME_SEL       8
+#define DISABLE_HOST_WARN_TIME_SEL      9
+#define ENABLE_CREATE_TARGET_DIR_SEL    10
+#define DISABLE_CREATE_TARGET_DIR_SEL   11
+#define STATUS_SEL                      12
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ afdcfg() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -103,6 +112,7 @@ int
 main(int argc, char *argv[])
 {
    int  action,
+        ret,
         user_offset;
    char *perm_buffer,
         *ptr_fra,
@@ -142,35 +152,56 @@ main(int argc, char *argv[])
             {
                if (get_arg(&argc, argv, "-d", NULL, 0) != SUCCESS)
                {
-                  if (get_arg(&argc, argv, "-D", NULL, 0) != SUCCESS)
+                  if (get_arg(&argc, argv, "-du", NULL, 0) != SUCCESS)
                   {
-                     if (get_arg(&argc, argv, "-r", NULL, 0) != SUCCESS)
+                     if (get_arg(&argc, argv, "-D", NULL, 0) != SUCCESS)
                      {
-                        if (get_arg(&argc, argv, "-R", NULL, 0) != SUCCESS)
+                        if (get_arg(&argc, argv, "-h", NULL, 0) != SUCCESS)
                         {
-                           if (get_arg(&argc, argv, "-s", NULL, 0) != SUCCESS)
+                           if (get_arg(&argc, argv, "-H", NULL, 0) != SUCCESS)
                            {
-                              usage(argv[0]);
-                              exit(INCORRECT);
+                              if (get_arg(&argc, argv, "-r", NULL, 0) != SUCCESS)
+                              {
+                                 if (get_arg(&argc, argv, "-R", NULL, 0) != SUCCESS)
+                                 {
+                                    if (get_arg(&argc, argv, "-s", NULL, 0) != SUCCESS)
+                                    {
+                                       usage(argv[0]);
+                                       exit(INCORRECT);
+                                    }
+                                    else
+                                    {
+                                       action = STATUS_SEL;
+                                    }
+                                 }
+                                 else
+                                 {
+                                    action = DISABLE_RETRIEVE_SEL;
+                                 }
+                              }
+                              else
+                              {
+                                 action = ENABLE_RETRIEVE_SEL;
+                              }
                            }
                            else
                            {
-                              action = STATUS_SEL;
+                              action = DISABLE_HOST_WARN_TIME_SEL;
                            }
                         }
                         else
                         {
-                           action = DISABLE_RETRIEVE_SEL;
+                           action = ENABLE_HOST_WARN_TIME_SEL;
                         }
                      }
                      else
                      {
-                        action = ENABLE_RETRIEVE_SEL;
+                        action = DISABLE_DIR_WARN_TIME_SEL;
                      }
                   }
                   else
                   {
-                     action = DISABLE_DIR_WARN_TIME_SEL;
+                     action = ENABLE_UPDATE_DIR_WARN_TIME_SEL;
                   }
                }
                else
@@ -193,7 +224,7 @@ main(int argc, char *argv[])
          action = DISABLE_ARCHIVE_SEL;
       }
    }
-   else /* Enable archive */
+   else /* Enable archive. */
    {
       action = ENABLE_ARCHIVE_SEL;
    }
@@ -214,7 +245,7 @@ main(int argc, char *argv[])
             (void)strcat(afd_user_file, AFD_USER_FILE);
 
             (void)fprintf(stderr,
-                          "Failed to access `%s', unable to determine users permissions.\n",
+                          _("Failed to access `%s', unable to determine users permissions.\n"),
                           afd_user_file);
          }
          exit(INCORRECT);
@@ -237,7 +268,8 @@ main(int argc, char *argv[])
             }
             else
             {
-               if (posi(perm_buffer, AFD_CFG_PERM) != NULL)
+               if (lposi(perm_buffer, AFD_CFG_PERM,
+                         AFD_CFG_PERM_LENGTH) != NULL)
                {
                   permission = YES;
                }
@@ -261,33 +293,93 @@ main(int argc, char *argv[])
          break;
 
       default       :
-         (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
+         (void)fprintf(stderr, _("Impossible!! Remove the programmer!\n"));
          exit(INCORRECT);
    }
 
    if ((action == ENABLE_ARCHIVE_SEL) || (action == DISABLE_ARCHIVE_SEL) ||
        (action == ENABLE_CREATE_TARGET_DIR_SEL) ||
        (action == DISABLE_CREATE_TARGET_DIR_SEL) ||
-       (action == ENABLE_RETRIEVE_SEL) || (action == DISABLE_RETRIEVE_SEL) ||
-       (action == STATUS_SEL))
+       (action == ENABLE_HOST_WARN_TIME_SEL) ||
+       (action == DISABLE_HOST_WARN_TIME_SEL) ||
+       (action == ENABLE_RETRIEVE_SEL) || (action == DISABLE_RETRIEVE_SEL))
    {
-      if (fsa_attach() < 0)
+      if ((ret = fsa_attach()) < 0)
       {
-         (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
-                       __FILE__, __LINE__);
+         if (ret == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
          exit(INCORRECT);
       }
       ptr_fsa = (char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
    }
 
    if ((action == ENABLE_DIR_WARN_TIME_SEL) ||
-       (action == DISABLE_DIR_WARN_TIME_SEL) ||
-       (action == STATUS_SEL))
+       (action == ENABLE_UPDATE_DIR_WARN_TIME_SEL) ||
+       (action == DISABLE_DIR_WARN_TIME_SEL))
    {
-      if (fra_attach() < 0)
+      if ((ret = fra_attach()) < 0)
       {
-         (void)fprintf(stderr, "ERROR   : Failed to attach to FRA. (%s %d)\n",
-                       __FILE__, __LINE__);
+         if (ret == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : Failed to attach to FRA. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
+         exit(INCORRECT);
+      }
+      ptr_fra = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
+   }
+
+   if (action == STATUS_SEL)
+   {
+      if ((ret = fsa_attach_passive()) < 0)
+      {
+         if (ret == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
+         exit(INCORRECT);
+      }
+      ptr_fsa = (char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
+
+      if ((ret = fra_attach_passive()) < 0)
+      {
+         if (ret == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)fprintf(stderr,
+                          _("ERROR   : Failed to attach to FRA. (%s %d)\n"),
+                          __FILE__, __LINE__);
+         }
          exit(INCORRECT);
       }
       ptr_fra = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
@@ -300,26 +392,26 @@ main(int argc, char *argv[])
          {
             *ptr_fsa ^= DISABLE_ARCHIVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Archiving enabled by %s", user);
+                       _("Archiving enabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_ARCHIVE, "%s",
                       user);
          }
          else
          {
-            (void)fprintf(stdout, "Archiving is already enabled.\n");
+            (void)fprintf(stdout, _("Archiving is already enabled.\n"));
          }
          break;
          
       case DISABLE_ARCHIVE_SEL :
          if (*ptr_fsa & DISABLE_ARCHIVE)
          {
-            (void)fprintf(stdout, "Archiving is already disabled.\n");
+            (void)fprintf(stdout, _("Archiving is already disabled.\n"));
          }
          else
          {
             *ptr_fsa |= DISABLE_ARCHIVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Archiving disabled by %s", user);
+                       _("Archiving disabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_ARCHIVE, "%s",
                       user);
          }
@@ -328,13 +420,13 @@ main(int argc, char *argv[])
       case ENABLE_CREATE_TARGET_DIR_SEL :
          if (*ptr_fsa & ENABLE_CREATE_TARGET_DIR)
          {
-            (void)fprintf(stdout, "Create target dir already enabled.\n");
+            (void)fprintf(stdout, _("Create target dir already enabled.\n"));
          }
          else
          {
             *ptr_fsa |= ENABLE_CREATE_TARGET_DIR;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Create target dir by default enabled by %s", user);
+                       _("Create target dir by default enabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_CREATE_TARGET_DIR,
                       "%s", user);
          }
@@ -345,13 +437,13 @@ main(int argc, char *argv[])
          {
             *ptr_fsa ^= ENABLE_CREATE_TARGET_DIR;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Create target dir by default disabled by %s", user);
+                       _("Create target dir by default disabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_CREATE_TARGET_DIR,
                       "%s", user);
          }
          else
          {
-            (void)fprintf(stdout, "Create target dir already disabled.\n");
+            (void)fprintf(stdout, _("Create target dir already disabled.\n"));
          }
          break;
 
@@ -360,37 +452,120 @@ main(int argc, char *argv[])
          {
             *ptr_fra ^= DISABLE_DIR_WARN_TIME;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Directory warn time enabled by %s", user);
+                       _("Directory warn time enabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_DIR_WARN_TIME,
                       "%s", user);
          }
          else
          {
-            (void)fprintf(stdout, "Directory warn time already enabled.\n");
+            (void)fprintf(stdout, _("Directory warn time already enabled.\n"));
+         }
+         break;
+
+      case ENABLE_UPDATE_DIR_WARN_TIME_SEL :
+         if (*ptr_fra & DISABLE_DIR_WARN_TIME)
+         {
+            int    i;
+            time_t now;
+
+            now = time(NULL);
+            for (i = 0; i < no_of_dirs; i++)
+            {
+               if (fra[i].warn_time > 0)
+               {
+                  fra[i].last_retrieval = now;
+               }
+            }
+            *ptr_fra ^= DISABLE_DIR_WARN_TIME;
+            system_log(CONFIG_SIGN, __FILE__, __LINE__,
+                       _("Directory warn time enabled and directory times updated by %s"),
+                       user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_DIR_WARN_TIME,
+                      "%s", user);
+         }
+         else
+         {
+            (void)fprintf(stdout, _("Directory warn time already enabled.\n"));
          }
          break;
 
       case DISABLE_DIR_WARN_TIME_SEL :
          if (*ptr_fra & DISABLE_DIR_WARN_TIME)
          {
-            (void)fprintf(stdout, "Directory warn time is already disabled.\n");
+            (void)fprintf(stdout,
+                          _("Directory warn time is already disabled.\n"));
          }
          else
          {
-            int i;
+            int    i;
+            time_t now;
 
+            now = time(NULL);
             *ptr_fra |= DISABLE_DIR_WARN_TIME;
             for (i = 0; i < no_of_dirs; i++)
             {
                if (fra[i].dir_flag & WARN_TIME_REACHED)
                {
                   fra[i].dir_flag &= ~WARN_TIME_REACHED;
-                  SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
+                  SET_DIR_STATUS(fra[i].dir_flag,
+                                 now,
+                                 fra[i].start_event_handle,
+                                 fra[i].end_event_handle,
+                                 fra[i].dir_status);
                }
             }
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Directory warn time is disabled by %s", user);
+                       _("Directory warn time is disabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_DIR_WARN_TIME,
+                      "%s", user);
+         }
+         break;
+
+      case ENABLE_HOST_WARN_TIME_SEL :
+         if (*ptr_fsa & DISABLE_HOST_WARN_TIME)
+         {
+            *ptr_fsa ^= DISABLE_HOST_WARN_TIME;
+            system_log(CONFIG_SIGN, __FILE__, __LINE__,
+                       _("Host warn time enabled by %s"), user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_HOST_WARN_TIME,
+                      "%s", user);
+         }
+         else
+         {
+            (void)fprintf(stdout, _("Host warn time already enabled.\n"));
+         }
+         break;
+
+      case DISABLE_HOST_WARN_TIME_SEL :
+         if (*ptr_fsa & DISABLE_HOST_WARN_TIME)
+         {
+            (void)fprintf(stdout, _("Host warn time is already disabled.\n"));
+         }
+         else
+         {
+            int i;
+
+            *ptr_fsa |= DISABLE_HOST_WARN_TIME;
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               if (fsa[i].host_status & HOST_WARN_TIME_REACHED)
+               {
+#ifdef LOCK_DEBUG
+                  lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                  lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                  fsa[i].host_status &= ~HOST_WARN_TIME_REACHED;
+#ifdef LOCK_DEBUG
+                  unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                  unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+               }
+            }
+            system_log(CONFIG_SIGN, __FILE__, __LINE__,
+                       _("Host warn time is disabled by %s"), user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_HOST_WARN_TIME,
                       "%s", user);
          }
          break;
@@ -406,20 +581,20 @@ main(int argc, char *argv[])
          }
          else
          {
-            (void)fprintf(stdout, "Retrieving is already enabled.\n");
+            (void)fprintf(stdout, _("Retrieving is already enabled.\n"));
          }
          break;
          
       case DISABLE_RETRIEVE_SEL :
          if (*ptr_fsa & DISABLE_RETRIEVE)
          {
-            (void)fprintf(stdout, "Retrieving is already disabled.\n");
+            (void)fprintf(stdout, _("Retrieving is already disabled.\n"));
          }
          else
          {
             *ptr_fsa |= DISABLE_RETRIEVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
-                       "Retrieving disabled by %s", user);
+                       _("Retrieving disabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_RETRIEVE,
                       "%s", user);
          }
@@ -428,40 +603,48 @@ main(int argc, char *argv[])
       case STATUS_SEL :
          if (*ptr_fsa & DISABLE_ARCHIVE)
          {
-            (void)fprintf(stdout, "Archiving        : Disabled\n");
+            (void)fprintf(stdout, _("Archiving        : Disabled\n"));
          }
          else
          {
-            (void)fprintf(stdout, "Archiving        : Enabled\n");
+            (void)fprintf(stdout, _("Archiving        : Enabled\n"));
          }
          if (*ptr_fsa & DISABLE_RETRIEVE)
          {
-            (void)fprintf(stdout, "Retrieving       : Disabled\n");
+            (void)fprintf(stdout, _("Retrieving       : Disabled\n"));
          }
          else
          {
-            (void)fprintf(stdout, "Retrieving       : Enabled\n");
+            (void)fprintf(stdout, _("Retrieving       : Enabled\n"));
+         }
+         if (*ptr_fsa & DISABLE_HOST_WARN_TIME)
+         {
+            (void)fprintf(stdout, _("Host warn time   : Disabled\n"));
+         }
+         else
+         {
+            (void)fprintf(stdout, _("Host warn time   : Enabled\n"));
          }
          if (*ptr_fra & DISABLE_DIR_WARN_TIME)
          {
-            (void)fprintf(stdout, "Dir warn time    : Disabled\n");
+            (void)fprintf(stdout, _("Dir warn time    : Disabled\n"));
          }
          else
          {
-            (void)fprintf(stdout, "Dir warn time    : Enabled\n");
+            (void)fprintf(stdout, _("Dir warn time    : Enabled\n"));
          }
          if (*ptr_fsa & ENABLE_CREATE_TARGET_DIR)
          {
-            (void)fprintf(stdout, "Create target dir: Enabled\n");
+            (void)fprintf(stdout, _("Create target dir: Enabled\n"));
          }
          else
          {
-            (void)fprintf(stdout, "Create target dir: Disabled\n");
+            (void)fprintf(stdout, _("Create target dir: Disabled\n"));
          }
          break;
          
       default :
-         (void)fprintf(stderr, "Impossible! (%s %d)\n", __FILE__, __LINE__);
+         (void)fprintf(stderr, _("Impossible! (%s %d)\n"), __FILE__, __LINE__);
          exit(INCORRECT);
    }
 
@@ -489,16 +672,19 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] [-u [<user>]] options\n",
+                 _("SYNTAX  : %s [-w working directory] [-u [<user>]] options\n"),
                  progname);
-   (void)fprintf(stderr, "          -a      enable archive\n");
-   (void)fprintf(stderr, "          -A      disable archive\n");
-   (void)fprintf(stderr, "          -c      enable create target dir\n");
-   (void)fprintf(stderr, "          -C      disable create target dir\n");
-   (void)fprintf(stderr, "          -d      enable dir warn time\n");
-   (void)fprintf(stderr, "          -D      disable dir warn time\n");
-   (void)fprintf(stderr, "          -r      enable retrieving of files\n");
-   (void)fprintf(stderr, "          -R      disable retrieving of files\n");
-   (void)fprintf(stderr, "          -s      status of the above flags\n");
+   (void)fprintf(stderr, _("          -a      enable archive\n"));
+   (void)fprintf(stderr, _("          -A      disable archive\n"));
+   (void)fprintf(stderr, _("          -c      enable create target dir\n"));
+   (void)fprintf(stderr, _("          -C      disable create target dir\n"));
+   (void)fprintf(stderr, _("          -d      enable directory warn time\n"));
+   (void)fprintf(stderr, _("          -du     enable + update directory warn time\n"));
+   (void)fprintf(stderr, _("          -D      disable directory warn time\n"));
+   (void)fprintf(stderr, _("          -h      enable host warn time\n"));
+   (void)fprintf(stderr, _("          -H      disable host warn time\n"));
+   (void)fprintf(stderr, _("          -r      enable retrieving of files\n"));
+   (void)fprintf(stderr, _("          -R      disable retrieving of files\n"));
+   (void)fprintf(stderr, _("          -s      status of the above flags\n"));
    return;
 }

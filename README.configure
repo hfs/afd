@@ -4,6 +4,15 @@
                                   penalty, especially if the log files are
                                   very large.
                                   [Default: enabled]
+--disable-distribution_log      - If you want to log all files distributed
+                                  you have to enable these features. Note
+                                  without this alda (AFD Log Data Analyzer)
+                                  will not function properly.
+                                  [Default: enabled]
+--disable-production_log        - When enabled, this will make AFD log all
+                                  files it renamed or where it changed its
+                                  content.
+                                  [Default: enabled]
 --disable-output_log            - If you want to log all files names on output
                                   you have to enable these features. But note
                                   that enabling this will pose a performance
@@ -17,9 +26,7 @@
                                   penalty, especially if lots of files get
                                   deleted.
                                   [Default: enabled]
---disable-production_log        - When enabled, this will make AFD log all
-                                  files it renamed or where it changed its
-                                  content.
+--disable-ncurses_ui            - Disables ncurses interface to AFD.
                                   [Default: enabled]
 --disable-error_queue           - If enabled, AFD will queue error jobs so
                                   that this will not block jobs that work
@@ -45,6 +52,10 @@
                                   if it does happen can be corrected with
                                   fsa_edit.
                                   [Default: enabled]
+--disable-ignore_duplicate_jobs - Duplicate jobs are ignored by AFD when this
+                                  job is set. I cannot think of a good reason
+                                  why one wants to disable this.
+                                  [Default: enabled]
 --disable-auto_create_config    - When during start AFD does not find a
                                   configuration it creates some default,
                                   so AFD does start.
@@ -60,9 +71,21 @@
                                   FIFO for reading and writting. With this
                                   option set AFD will use two file descriptors
                                   one for reading and one for writting.
---disable-report_empty_dir_scan - Disables reporting of empty directory scans.
-                                  [Default: enabled]
---enable-afdbench-settings      - Enables settings for running afdbench.
+--enable-map_support            - Enable support for DWD's MAP weather
+                                  visualisation tool. With the option
+                                  --with-map-libraries=DIR one can specify
+                                  the path and libraries.
+--enable-report_empty_dir_scan  - Enables reporting of empty directory scans.
+                                  [Default: disabled]
+--enable-with_afdbench_settings - Enables settings for running afdbench.
+                                  [Default: disabled]
+--enable-expand_path_in_message - Enables expanding local relative path
+                                  in message. Advantage of this option is
+                                  that it will make AFD faster when it
+                                  distributes files locally. Disadvantage
+                                  is if a users home directory is changed
+                                  it is not noticed by AFD, you then need
+                                  to restart it.
                                   [Default: disabled]
 --enable-setuid_progs           - Enables setting setuid flag for the
                                   programms afdcmd, afd, init_afd, mafd,
@@ -84,9 +107,6 @@
                                   the modification time of directories
                                   scanned by AFD is not updated correctly.
                                   Normally it is not needed to set this.
-                                  [Default: disabled]
---enable-multi_dir_definition   - Enable support for specifying the same
-                                  directory in multiple DIR_CONFIG files.
                                   [Default: disabled]
 --enable-ftp_reuse_data_port    - Reuse the FTP data port when sending multiple
                                   files. This reduces the number of sockets in
@@ -171,8 +191,14 @@
 --with-gui=motif|none           - Compile AFD with a certain graphical user
                                   interface.
                                   [Default: motif]
+--enable-ditro-rpm              - Enables distribution style RPMS.
+                                  [Default: disabled]
 --with-initdir=INITDIR          - Directory where to put init/rc script to
-                                  start/stop AFD.
+                                  start/stop AFD. It is strongly recommended
+                                  to NOT change this when using RPMS, since
+                                  here we use chkonfig.
+--with-sysconfigdir=SYSCONFIGDIR- Directory where to put sysconfig files for
+                                  AFD and AFDMON.
 --with-rpm-binary-owner=OWNER   - Owner name of binaries in RPM.
                                   [Default: root]
 --with-rpm-binary-group=GROUP   - Group name of binaries in RPM.

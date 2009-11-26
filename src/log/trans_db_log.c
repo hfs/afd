@@ -1,6 +1,6 @@
 /*
  *  trans_db_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ main(int argc, char *argv[])
    int         writefd;
 #endif
    char        *p_end = NULL,
-               work_dir[MAX_PATH_LENGTH],
+               *work_dir,
                log_file[MAX_PATH_LENGTH],
                current_log_file[MAX_PATH_LENGTH];
    FILE        *p_log_file;
@@ -91,46 +91,47 @@ main(int argc, char *argv[])
    CHECK_FOR_VERSION(argc, argv);
 
    /* First get working directory for the AFD. */
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
-   else
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
    {
-      char trans_db_log_fifo[MAX_PATH_LENGTH];
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s",
+                 strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
+   p_work_dir = work_dir;
 
-      p_work_dir = work_dir;
-
-      /* Initialise variables for fifo stuff. */
-      (void)strcpy(trans_db_log_fifo, work_dir);
-      (void)strcat(trans_db_log_fifo, FIFO_DIR);
-      (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+   /* Initialise variables for fifo stuff. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, TRANS_DEBUG_LOG_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(trans_db_log_fifo, &trans_db_log_fd, &writefd) < 0)
+   if (open_fifo_rw(log_file, &trans_db_log_fd, &writefd) < 0)
 #else
-      if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) < 0)
+   if ((trans_db_log_fd = open(log_file, O_RDWR)) < 0)
 #endif
-      {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to open() fifo %s : %s",
-                    trans_db_log_fifo, strerror(errno));
-         exit(INCORRECT);
-      }
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to open() fifo %s : %s", log_file, strerror(errno));
+      exit(INCORRECT);
+   }
 
-      if ((fifo_size = fpathconf(trans_db_log_fd, _PC_PIPE_BUF)) < 0)
-      {
-         /* If we cannot determine the size of the fifo set default value. */
-         fifo_size = DEFAULT_FIFO_SIZE;
-      }
-      if (((fifo_buffer = malloc((size_t)fifo_size)) == NULL) ||
-          ((msg_str = malloc((size_t)fifo_size)) == NULL) ||
-          ((prev_msg_str = malloc((size_t)fifo_size)) == NULL))
-      {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "Could not allocate memory for the fifo buffer : %s",
-                     strerror(errno));
-         exit(INCORRECT);
-      }
+   if ((fifo_size = fpathconf(trans_db_log_fd, _PC_PIPE_BUF)) < 0)
+   {
+      /* If we cannot determine the size of the fifo set default value. */
+      fifo_size = DEFAULT_FIFO_SIZE;
+   }
+   if (((fifo_buffer = malloc((size_t)fifo_size)) == NULL) ||
+       ((msg_str = malloc((size_t)fifo_size)) == NULL) ||
+       ((prev_msg_str = malloc((size_t)fifo_size)) == NULL))
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Could not allocate memory for the fifo buffer : %s",
+                  strerror(errno));
+      exit(INCORRECT);
    }
 
    /* Get the maximum number of logfiles we keep for history. */
@@ -178,7 +179,19 @@ main(int argc, char *argv[])
             {
                log_number++;
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_trans_db_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_file, strerror(errno));
+               }
+            }
             total_length = 0;
          }
          else

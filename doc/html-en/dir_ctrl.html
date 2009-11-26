@@ -33,7 +33,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
           setting. You must select one or more directories to get the
           handle_event popup. In the reason text field one can enter
           a reason which will then show up in the event log via the
-          <a href="show_elog.html">show_elog</a> dialog. Acknowleding
+          <a href="show_elog.html">show_elog</a> dialog. Acknowledging
           pink (<img src="../images/acknowledge_source.gif">). If the
           host is put offline it will turn Steelblue
           (<img src="../images/offline_source.gif">) and errors and
@@ -41,16 +41,27 @@ see <a href="afd_users.html">afd.users</a> for more details.
       <td align=center><img src="../images/handle_event_popup.gif" alt="[Dialog to handle event]"></td>
    </tr>
    <tr>
+      <td>Start/Stop</td>
+      <td>Allows you to start or stop the selected source. AFD will no
+          longer scan this source for files to be distributed. It
+          will however delete any files when the directory option
+	  <a href="dir_config#delete_unknown_files">delete unknown files</a>
+	  or <a href="dir_config#delete_queued_files">delete queued
+	  files</a> is set for this source.</td>
+      <td>&nbsp;</td>
+   </tr>
+   <tr>
       <td>Enable/disable</td>
-      <td>Allows you to enable or disable the selected directory. When
-          the directory is disabled the field containing the directory
-          alias will turn white.</td>
+      <td>Allows you to enable or disable the selected source. This source
+          will no longer be monitored/scanned by AFD. When the directory
+          is disabled the field containing the directory alias will turn
+          white.</td>
       <td>&nbsp;</td>
    </tr>
    <tr>
       <td><a name="Rescan">Rescan</a></td>
       <td>When pressed this will force a rescan of the selected directories.
-          This can be usefull when the <a href="dir_config.html#dir_options_time">
+          This can be useful when the <a href="dir_config.html#dir_options_time">
           time option</a> is set and you do not want to wait for the next scan
           time.</td>
       <td>&nbsp;</td>
@@ -66,7 +77,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
       <td>Load shows the current load of either: Files send per second,
           KBytes send per second, Connections done per second and the number
           of Active-Transfers.</td>
-      <td align=center><img src="../images/load.png" alt="[Choise of different loads]"></td>
+      <td align=center><img src="../images/load.png" alt="[Choice of different loads]"></td>
    </tr>
    <tr>
       <td>Exit</td>
@@ -226,7 +237,7 @@ connection area mean:
 </tr>
 <tr>
    <th>ec</th>
-   <td>The number of errors that have occured for this directory.</td>
+   <td>The number of errors that have occurred for this directory.</td>
 </tr>
 </table>
 <h3 align=center><a name="source"><u>Source</u></a></h3>
@@ -276,6 +287,15 @@ directories of the AFD. The meaning of each field is shown below:
           <td><center><img src="../images/disabled_source.gif"></center></td>
 	  <td>This source is disabled. AFD will no longer monitor this
 	      directory.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/stopped_source.gif"></center></td>
+	  <td>This source is stopped. AFD will no longer scan this directory
+	      for files to be distributed. It will however delete any
+	      files when the directory option
+	      <a href="dir_config#delete_unknown_files">delete unknown files</a>
+	      or <a href="dir_config#delete_queued_files">delete queued
+	      files</a> is set for this source.</td>
        </tr>
        </table>
    </td>
@@ -360,23 +380,23 @@ directories of the AFD. The meaning of each field is shown below:
 <tr>
    <td><b>9</b></td>
    <td>Transfer Rate</td>
-   <td>The number of bytes transfered per second. Unit is the same as in 5
+   <td>The number of bytes transferred per second. Unit is the same as in 5
        above.</td>
 </tr>
 <tr>
    <td><b>10</b></td>
    <td>File Rate</td>
-   <td>The number of files transfered per second.</td>
+   <td>The number of files transferred per second.</td>
 </tr>
 <tr>
    <td><b>11</b></td>
    <td>Errors</td>
-   <td>The number of errors that have occured.</td>
+   <td>The number of errors that have occurred.</td>
 </tr>
 <tr>
    <td><b>12</b></td>
    <td>File Rate Bar</td>
-   <td>Displays a freen bar to display the file rate from this source.</td>
+   <td>Displays a green bar to display the file rate from this source.</td>
 </tr>
 <tr>
    <td><b>13</b></td>
@@ -400,9 +420,9 @@ change to black or grey respectively.
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 2006, 2007 by H.Kiehl<br>
+   Copyright &copy; 2006 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 22.07.2007
+   Last updated: 05.11.2009
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

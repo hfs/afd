@@ -102,7 +102,7 @@ sfilter2(char const *p, char const *s, char separator_char)
       {
          if (*p == '\0')
          {
-            return(0); /* optimize common case */
+            return(0); /* Optimize common case. */
          }
          do
          {

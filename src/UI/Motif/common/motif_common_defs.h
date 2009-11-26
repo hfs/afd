@@ -1,6 +1,6 @@
 /*
  *  motif_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,10 +27,11 @@
 #define CHECK_TIME_INTERVAL             10
 
 /* Function Prototypes. */
-extern int    check_info_file(char *),
+extern int    check_info_file(char *, char *, int),
               prepare_printer(int *),
               prepare_file(int *, int);
 extern void   check_nummeric(Widget, XtPointer, XtPointer),
+              disable_drag_drop(Widget),
               make_xprocess(char *, char *, char **, int),
               prepare_tmp_name(void),
               print_data(Widget, XtPointer, XtPointer),
@@ -38,6 +39,9 @@ extern void   check_nummeric(Widget, XtPointer, XtPointer),
               reset_message(Widget),                /* show_?log */
               send_mail_cmd(char *),
               send_print_cmd(char *),
+#ifdef HAVE_XPM
+              setup_icon(Display *, Widget),
+#endif
               show_info(char *),                    /* show_?log */
               show_message(Widget, char *),         /* show_?log */
               update_time(XtPointer, XtIntervalId), /* show_?log */

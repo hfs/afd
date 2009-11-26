@@ -1,6 +1,6 @@
 /*
  *  count_pool_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__S_M3
  **   12.04.2001 H.Kiehl Created
  **   28.08.2003 H.Kiehl Modified to take account for CRC-32 directory
  **                      ID's.
+ **   08.08.2009 H.Kiehl Handle case when file_*_pool are not large enough.
  **
  */
 DESCR__E_M3
@@ -56,19 +57,28 @@ DESCR__E_M3
 #include <dirent.h>               /* opendir(), closedir(), readdir(),    */
                                   /* DIR, struct dirent                   */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
-extern int                    no_of_local_dirs;
+/* External global variables. */
+extern int                        no_of_local_dirs;
 #ifndef _WITH_PTHREAD
-extern off_t                  *file_size_pool;
-extern time_t                 *file_mtime_pool;
-extern char                   **file_name_pool;
+extern unsigned int               max_file_buffer;
+extern off_t                      *file_size_pool;
+extern time_t                     *file_mtime_pool;
+extern char                       **file_name_pool;
+extern unsigned char              *file_length_pool;
+extern struct fileretrieve_status *fra;
 #endif
-extern struct directory_entry *de;
+extern struct directory_entry     *de;
+#ifdef _DISTRIBUTION_LOG
+extern unsigned int               max_jobs_per_file;
+# ifndef _WITH_PTHREAD
+extern struct file_dist_list      **file_dist_pool;
+# endif
+#endif
 
 
 /*######################### count_pool_files() #########################*/
@@ -76,11 +86,12 @@ int
 #ifndef _WITH_PTHREAD
 count_pool_files(int *dir_pos, char *pool_dir)
 #else
-count_pool_files(int    *dir_pos,
-                 char   *pool_dir,
-                 off_t  *file_size_pool,
-                 time_t *file_mtime_pool,
-                 char   **file_name_pool)
+count_pool_files(int           *dir_pos,
+                 char          *pool_dir,
+                 off_t         *file_size_pool,
+                 time_t        *file_mtime_pool,
+                 char          **file_name_pool,
+                 unsigned char *file_length_pool)
 #endif
 {
    int    file_counter = 0;
@@ -156,8 +167,108 @@ count_pool_files(int    *dir_pos,
                         }
                         else
                         {
-                           (void)strcpy(file_name_pool[file_counter],
-                                        p_dir->d_name);
+#ifndef _WITH_PTHREAD
+                           if ((file_counter + 1) > max_file_buffer)
+                           {
+# ifdef _DISTRIBUTION_LOG
+                              int          k, m;
+                              size_t       tmp_val;
+                              unsigned int prev_max_file_buffer = max_file_buffer;
+# endif
+
+                              if ((file_counter + 1) > fra[de[*dir_pos].fra_pos].max_copied_files)
+                              {
+                                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                            _("Hmmm, file_counter %d is larger then max_copied_files %u."),
+                                            file_counter + 1,
+                                            fra[de[*dir_pos].fra_pos].max_copied_files);
+                                 max_file_buffer = file_counter + 1;
+                              }
+                              else
+                              {
+                                 if ((max_file_buffer + FILE_BUFFER_STEP_SIZE) >= fra[de[*dir_pos].fra_pos].max_copied_files)
+                                 {
+                                    max_file_buffer = fra[de[*dir_pos].fra_pos].max_copied_files;
+                                 }
+                                 else
+                                 {
+                                    max_file_buffer += FILE_BUFFER_STEP_SIZE;
+                                 }
+                              }
+                              REALLOC_RT_ARRAY(file_name_pool, max_file_buffer,
+                                               MAX_FILENAME_LENGTH, char);
+                              if ((file_length_pool = realloc(file_length_pool,
+                                                              max_file_buffer * sizeof(unsigned char))) == NULL)
+                              {
+                                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                            _("realloc() error : %s"),
+                                            strerror(errno));
+                                 exit(INCORRECT);
+                              }
+                              if ((file_mtime_pool = realloc(file_mtime_pool,
+                                                             max_file_buffer * sizeof(off_t))) == NULL)
+                              {
+                                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                            _("realloc() error : %s"),
+                                            strerror(errno));
+                                 exit(INCORRECT);
+                              }
+                              if ((file_size_pool = realloc(file_size_pool,
+                                                            max_file_buffer * sizeof(off_t))) == NULL)
+                              {
+                                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                            _("realloc() error : %s"),
+                                            strerror(errno));
+                                 exit(INCORRECT);
+                              }
+# ifdef _DISTRIBUTION_LOG
+#  ifdef RT_ARRAY_STRUCT_WORKING
+                              REALLOC_RT_ARRAY(file_dist_pool, max_file_buffer,
+                                               NO_OF_DISTRIBUTION_TYPES,
+                                               struct file_dist_list);
+#  else
+                              if ((file_dist_pool = (struct file_dist_list **)realloc(file_dist_pool, max_file_buffer * NO_OF_DISTRIBUTION_TYPES * sizeof(struct file_dist_list *))) == NULL)
+                              {
+                                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                            _("realloc() error : %s"),
+                                            strerror(errno));
+                                 exit(INCORRECT);
+                              }
+                              if ((file_dist_pool[0] = (struct file_dist_list *)realloc(file_dist_pool[0], max_file_buffer * NO_OF_DISTRIBUTION_TYPES * sizeof(struct file_dist_list))) == NULL)
+                              {
+                                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                            _("realloc() error : %s"),
+                                            strerror(errno));
+                                 exit(INCORRECT);
+                              }
+                              for (k = 0; k < max_file_buffer; k++)
+                              {
+                                 file_dist_pool[k] = file_dist_pool[0] + (k * NO_OF_DISTRIBUTION_TYPES);
+                              }
+#  endif
+                              tmp_val = max_jobs_per_file * sizeof(unsigned int);
+                              for (k = prev_max_file_buffer; k < max_file_buffer; k++)
+                              {
+                                 for (m = 0; m < NO_OF_DISTRIBUTION_TYPES; m++)
+                                 {
+                                    if (((file_dist_pool[k][m].jid_list = malloc(tmp_val)) == NULL) ||
+                                        ((file_dist_pool[k][m].proc_cycles = malloc(max_jobs_per_file)) == NULL))
+                                    {
+                                       system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                                  _("malloc() error : %s"),
+                                                  strerror(errno));
+                                       exit(INCORRECT);
+                                    }
+                                    file_dist_pool[k][m].no_of_dist = 0;
+                                 }
+                              }
+# endif
+                           }
+#endif
+                           file_length_pool[file_counter] = strlen(p_dir->d_name);
+                           (void)memcpy(file_name_pool[file_counter],
+                                        p_dir->d_name,
+                                        (size_t)(file_length_pool[file_counter] + 1));
                            file_size_pool[file_counter] = stat_buf.st_size;
                            file_mtime_pool[file_counter] = stat_buf.st_mtime;
                            file_counter++;

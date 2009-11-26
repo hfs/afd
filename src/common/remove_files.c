@@ -1,6 +1,6 @@
 /*
  *  remove_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,7 +68,7 @@ remove_files(char *dirname, char *filter)
    if ((dp = opendir(dirname)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() <%s> : %s", dirname, strerror(errno));
+                 _("Failed to opendir() `%s' : %s"), dirname, strerror(errno));
       return(INCORRECT);
    }
    if (*(ptr - 1) != '/')
@@ -93,7 +93,7 @@ remove_files(char *dirname, char *filter)
             if (errno != ENOENT)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to delete <%s> : %s",
+                          _("Failed to delete `%s' : %s"),
                           dirname, strerror(errno));
                ret = INCORRECT;
             }
@@ -116,13 +116,13 @@ remove_files(char *dirname, char *filter)
    if (errno != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to readdir() `%s' : %s", dirname, strerror(errno));
+                 _("Failed to readdir() `%s' : %s"), dirname, strerror(errno));
       ret = INCORRECT;
    }
    if (closedir(dp) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to closedir() <%s> : %s", dirname, strerror(errno));
+                 _("Failed to closedir() `%s' : %s"), dirname, strerror(errno));
       ret = INCORRECT;
    }
    if (ret != INCORRECT)

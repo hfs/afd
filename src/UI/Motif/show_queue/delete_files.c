@@ -1,6 +1,6 @@
 /*
  *  delete_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,6 +67,9 @@ extern Display                    *display;
 extern Widget                     listbox_w,
                                   statusbox_w;
 extern int                        fra_fd,
+#ifdef WITH_ERROR_QUEUE
+                                  fsa_fd,
+#endif
                                   no_of_dirs,
                                   queue_tmp_buf_entries;
 extern XT_PTR_TYPE                toggles_set;
@@ -214,9 +217,16 @@ delete_files(int no_selected, int *select_list)
       }
 
       /* Map to the FSA. */
-      if (fsa_attach() == INCORRECT)
+      if ((i = fsa_attach()) == INCORRECT)
       {
-         (void)fprintf(stderr, "Failed to attach to FSA.\n");
+         if (i == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr, "This program is not able to attach to the FSA due to incorrect version.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Failed to attach to FSA.\n");
+         }
          exit(INCORRECT);
       }
 
@@ -232,9 +242,16 @@ delete_files(int no_selected, int *select_list)
    if (toggles_set & SHOW_INPUT)
    {
       /* Map to the FRA. */
-      if (fra_attach() == INCORRECT)
+      if ((i = fra_attach()) < 0)
       {
-         (void)fprintf(stderr, "Failed to attach to FRA.\n");
+         if (i == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr, "This program is not able to attach to the FRA due to incorrect version.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Failed to attach to FRA.\n");
+         }
          exit(INCORRECT);
       }
    }
@@ -293,7 +310,7 @@ delete_files(int no_selected, int *select_list)
                  wbuf[0] = DELETE_RETRIEVE;
                  length = 1 + sprintf(&wbuf[1], "%.0f %d",
                                       qfl[select_list[i] - 1].msg_number,
-                                      qfl[select_list[i] - 1].retrieve_pos) + 1;
+                                      qfl[select_list[i] - 1].pos) + 1;
                  if (write(fd_delete_fd, wbuf, length) != length)
                  {
                     (void)xrec(FATAL_DIALOG,
@@ -318,7 +335,7 @@ delete_files(int no_selected, int *select_list)
                     for (qb_pos = (*no_msg_queued - 1); qb_pos > -1; qb_pos--)
                     {
                        if ((qb[qb_pos].msg_number == qfl[select_list[i] - 1].msg_number) &&
-                           (qb[qb_pos].pos == qfl[select_list[i] - 1].retrieve_pos) &&
+                           (qb[qb_pos].pos == qfl[select_list[i] - 1].pos) &&
                            (qb[qb_pos].msg_name[0] == '\0'))
                        {
                           if (qb[qb_pos].pid == PENDING)
@@ -400,7 +417,7 @@ delete_files(int no_selected, int *select_list)
 
                     for (k = 0; k < no_of_dirs; k++)
                     {
-                       if (qfl[select_list[i] - 1].dir_id== fra[k].dir_id)
+                       if (qfl[select_list[i] - 1].dir_id == fra[k].dir_id)
                        {
                           ABS_REDUCE_QUEUE(k, 1, qfl[select_list[i] - 1].size);
                           break;
@@ -420,20 +437,24 @@ delete_files(int no_selected, int *select_list)
          (void)strcpy(dl.file_name, qfl[select_list[i] - 1].file_name);
          if (qfl[select_list[i] - 1].hostname[0] == '\0')
          {
-            (void)sprintf(dl.host_name, "%-*s %x",
+            (void)sprintf(dl.host_name, "%-*s %03x",
                           MAX_HOSTNAME_LENGTH, "-", USER_DEL);
          }
          else
          {
-            (void)sprintf(dl.host_name, "%-*s %x",
+            (void)sprintf(dl.host_name, "%-*s %03x",
                           MAX_HOSTNAME_LENGTH, qfl[select_list[i] - 1].hostname,
                           USER_DEL);
          }
          *dl.file_size = qfl[select_list[i] - 1].size;
-         *dl.job_number = dnb[qfl[select_list[i] - 1].dir_id_pos].dir_id;
+         *dl.dir_id = dnb[qfl[select_list[i] - 1].dir_id_pos].dir_id;
+         *dl.job_id = qfl[select_list[i] - 1].job_id;
+         *dl.input_time = 0L;
+         *dl.split_job_counter = 0;
+         *dl.unique_number = 0;
          *dl.file_name_length = strlen(qfl[select_list[i] - 1].file_name);
          prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
-                                    "%s show_queue", user);
+                                    "%s %s", SHOW_QUEUE, user);
          dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
          if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
          {
@@ -441,7 +462,7 @@ delete_files(int no_selected, int *select_list)
                           strerror(errno), __FILE__, __LINE__);
             exit(INCORRECT);
          }
-#endif /* _DELETE_LOG */
+#endif
          files_deleted++;
       }
       else if (deleted == NO)
@@ -548,7 +569,8 @@ delete_files(int no_selected, int *select_list)
                                (fsa[pos].host_status & ERROR_QUEUE_SET))
                            {
                               (void)remove_from_error_queue(qfl[qtb[i].qfl_pos[j]].job_id,
-                                                            &fsa[pos]);
+                                                            &fsa[pos], pos,
+                                                            fsa_fd);
                            }
 #endif
                            if (qb[k].files_to_send == 0)
@@ -583,20 +605,23 @@ delete_files(int no_selected, int *select_list)
                         (void)strcpy(dl.file_name, qfl[qtb[i].qfl_pos[j]].file_name);
                         if (qfl[qtb[i].qfl_pos[j]].hostname[0] == '\0')
                         {
-                           (void)sprintf(dl.host_name, "%-*s %x",
+                           (void)sprintf(dl.host_name, "%-*s %03x",
                                          MAX_HOSTNAME_LENGTH, "-", USER_DEL);
                         }
                         else
                         {
-                           (void)sprintf(dl.host_name, "%-*s %x",
+                           (void)sprintf(dl.host_name, "%-*s %03x",
                                          MAX_HOSTNAME_LENGTH, qfl[qtb[i].qfl_pos[j]].hostname,
                                          USER_DEL);
                         }
                         *dl.file_size = qfl[qtb[i].qfl_pos[j]].size;
-                        *dl.job_number = dnb[qfl[qtb[i].qfl_pos[j]].dir_id_pos].dir_id;
+                        *dl.dir_id = dnb[qfl[qtb[i].qfl_pos[j]].dir_id_pos].dir_id;
+                        *dl.job_id = qfl[qtb[i].qfl_pos[j]].job_id;
+                        extract_cus(qtb[i].msg_name, dl.input_time,
+                                    dl.split_job_counter, dl.unique_number);
                         *dl.file_name_length = strlen(qfl[qtb[i].qfl_pos[j]].file_name);
                         prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
-                                                   "%s show_queue", user);
+                                                   "%s %s", SHOW_QUEUE, user);
                         dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
                         if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                         {
@@ -604,7 +629,7 @@ delete_files(int no_selected, int *select_list)
                                          strerror(errno), __FILE__, __LINE__);
                            exit(INCORRECT);
                         }
-#endif /* _DELETE_LOG */
+#endif
                      }
                      files_deleted++;
                   }
@@ -694,6 +719,10 @@ delete_files(int no_selected, int *select_list)
         {
            (void)sprintf(message, "Deleted %d files (%d gone).",
                          files_deleted, files_not_deleted);
+        }
+   else if ((files_deleted == 0) && (files_not_deleted == 0))
+        {
+           (void)sprintf(message, "Request to delete data send.");
         }
         else
         {

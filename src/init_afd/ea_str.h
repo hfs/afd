@@ -1,6 +1,6 @@
 /*
  *  ea_str.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #ifndef __ea_str_h
 #define __ea_str_h
 
-static const char *eastr[] = /* Event action string */
+static const char *eastr[] = /* Event action string. */
                   {
                      "",                                /*  0 */
                      "Reread DIR_CONFIG",               /*  1 */
@@ -67,7 +67,19 @@ static const char *eastr[] = /* Event action string */
                      "Disable debug",                   /* 42 */
                      "Disable trace",                   /* 43 */
                      "Disable full trace",              /* 44 */
-                     "Unset Acknowledge/Offline"        /* 45 */
+                     "Unset Acknowledge/Offline",       /* 45 */
+                     "Warn time set",                   /* 46 */
+                     "Warn time unset",                 /* 47 */
+                     "Enable host warn time",           /* 48 */
+                     "Disable host warn time",          /* 49 */
+                     "Enable delete data",              /* 50 */
+                     "Disable delete data",             /* 51 */
+                     "Exec warn action start",          /* 52 */
+                     "Exec warn action stop",           /* 53 */
+                     "Exec success action start",       /* 54 */
+                     "Exec success action stop",        /* 55 */
+                     "Start directory",                 /* 56 */
+                     "Stop directory"                   /* 57 */
                   };
 
 /* NOTE: If the maximum length changes, don't forget to change */

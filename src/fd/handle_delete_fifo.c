@@ -1,6 +1,6 @@
 /*
  *  handle_delete_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,6 +54,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
+#include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -68,8 +69,7 @@ extern int                        fsa_fd,
                                   *no_msg_queued,
                                   no_of_dirs,
                                   no_of_hosts,
-                                  no_of_trl_groups,
-                                  *retrieve_list;
+                                  no_of_trl_groups;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 extern struct connection          *connection;
@@ -90,7 +90,7 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
    static int  del_bytes_buffered,
                del_bytes_read = 0;
    static char *del_fifo_buffer = NULL,
-               *del_read_ptr;
+               *del_read_ptr = NULL;
 
    if (del_fifo_buffer == NULL)
    {
@@ -103,13 +103,16 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
       }
    }
 
-   if (del_bytes_read == 0)
+   if (del_bytes_read <= 0)
    {
       del_bytes_buffered = 0;
    }
    else
    {
-      (void)memmove(del_fifo_buffer, del_read_ptr, del_bytes_read);
+      if ((del_read_ptr != del_fifo_buffer) && (del_fifo_buffer != NULL))
+      {
+         (void)memmove(del_fifo_buffer, del_read_ptr, del_bytes_read);
+      }
       del_bytes_buffered = del_bytes_read;
    }
    del_read_ptr = del_fifo_buffer;
@@ -212,17 +215,22 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                             (fsa[mdb[qb[i].pos].fsa_pos].host_status & ERROR_QUEUE_SET))
                         {
                            (void)remove_from_error_queue(mdb[qb[i].pos].job_id,
-                                                         &fsa[mdb[qb[i].pos].fsa_pos]);
+                                                         &fsa[mdb[qb[i].pos].fsa_pos],
+                                                         mdb[qb[i].pos].fsa_pos,
+                                                         fsa_fd);
                         }
 #endif
 
                         ptr = file_dir + strlen(file_dir);
                         (void)strcpy(ptr, qb[i].msg_name);
 #ifdef _DELETE_LOG
+                        extract_cus(qb[i].msg_name, dl.input_time,
+                                    dl.split_job_counter, dl.unique_number);
                         remove_job_files(file_dir, mdb[qb[i].pos].fsa_pos,
-                                         mdb[qb[i].pos].job_id, USER_DEL);
+                                         mdb[qb[i].pos].job_id, FD, USER_DEL,
+                                         -1);
 #else
-                        remove_job_files(file_dir, -1);
+                        remove_job_files(file_dir, -1, -1);
 #endif
                         *ptr = '\0';
                         fsa_pos = mdb[qb[i].pos].fsa_pos;
@@ -269,6 +277,7 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                      fsa[fsa_pos].job_status[j].proc_id = -1;
                      fsa[fsa_pos].job_status[j].connect_status = DISCONNECT;
                      fsa[fsa_pos].job_status[j].file_name_in_use[0] = '\0';
+                     fsa[fsa_pos].job_status[j].file_name_in_use[1] = 0;
                   }
                   for (j = 0; j < ERROR_HISTORY_LENGTH; j++)
                   {
@@ -314,16 +323,21 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                               (fsa[mdb[qb[i].pos].fsa_pos].host_status & ERROR_QUEUE_SET))
                           {
                              (void)remove_from_error_queue(mdb[qb[i].pos].job_id,
-                                                           &fsa[mdb[qb[i].pos].fsa_pos]);
+                                                           &fsa[mdb[qb[i].pos].fsa_pos],
+                                                           mdb[qb[i].pos].fsa_pos,
+                                                           fsa_fd);
                           }
 #endif
                           ptr = file_dir + strlen(file_dir);
                           (void)strcpy(ptr, qb[i].msg_name);
 #ifdef _DELETE_LOG
+                          extract_cus(qb[i].msg_name, dl.input_time,
+                                      dl.split_job_counter, dl.unique_number);
                           remove_job_files(file_dir, mdb[qb[i].pos].fsa_pos,
-                                           mdb[qb[i].pos].job_id, USER_DEL);
+                                           mdb[qb[i].pos].job_id, FD, USER_DEL,
+                                           -1);
 #else
-                          remove_job_files(file_dir, -1);
+                          remove_job_files(file_dir, -1, -1);
 #endif
                           *ptr = '\0';
 
@@ -338,7 +352,15 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                  }
             else if (*del_read_ptr == DELETE_SINGLE_FILE)
                  {
-                    char *p_end;
+#ifdef _DELETE_LOG
+                    unsigned int   split_job_counter,
+                                   unique_number;
+                    time_t         input_time;
+                    char           *p_end,
+                                   *p_start;
+#else
+                    char           *p_end;
+#endif
 
                     del_read_ptr++;
                     del_bytes_read--;
@@ -357,30 +379,50 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                        if (*p_end == '/')
                        {
                           p_end++;
+#ifdef _DELETE_LOG
+                          p_start = p_end;
+#endif
                           while ((*p_end != '_') && (*p_end != '\0'))
                           {
-                             p_end++; /* Away with date */
+                             p_end++; /* Away with date. */
                           }
                           if (*p_end == '_')
                           {
+                             char tmp_char;
+
+#ifdef _DELETE_LOG
+                             tmp_char = *p_end;
+                             *p_end = '\0';
+                             input_time = (time_t)str2timet(p_start, NULL, 16);
+                             *p_end = tmp_char;
+                             p_start = p_end + 1;
+#endif
                              p_end++;
                              while ((*p_end != '_') && (*p_end != '\0'))
                              {
-                                p_end++; /* Away with unique number */
+                                p_end++; /* Away with unique number. */
                              }
                              if (*p_end == '_')
                              {
+#ifdef _DELETE_LOG
+                                tmp_char = *p_end;
+                                *p_end = '\0';
+                                unique_number = (unsigned int)strtoul(p_start, NULL, 16);
+                                *p_end = tmp_char;
+                                p_start = p_end + 1;
+#endif
                                 p_end++;
                                 while ((*p_end != '/') && (*p_end != '\0'))
                                 {
-                                   p_end++; /* Away with split job counter */
+                                   p_end++; /* Away with split job counter. */
                                 }
                                 if (*p_end == '/')
                                 {
-                                   char tmp_char;
-
                                    tmp_char = *p_end;
                                    *p_end = '\0';
+#ifdef _DELETE_LOG
+                                   split_job_counter = (unsigned int)strtoul(p_start, NULL, 16);
+#endif
                                    for (i = 0; i < *no_msg_queued; i++)
                                    {
                                       if (CHECK_STRCMP(qb[i].msg_name, del_read_ptr) == 0)
@@ -413,8 +455,8 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                                                {
 #ifdef _DELETE_LOG
                                                   size_t dl_real_size;
+                                                  off_t  lock_offset;
 #endif
-                                                  off_t        lock_offset;
 
                                                   qb[i].files_to_send--;
                                                   qb[i].file_size_to_send -= stat_buf.st_size;
@@ -463,23 +505,47 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                                                      unlock_region(fsa_fd, lock_offset + LOCK_TFC);
 # endif
 
-                                                     (void)sprintf(dl.host_name, "%-*s %x",
+                                                     if ((fsa[mdb[qb[i].pos].fsa_pos].error_counter > 0) &&
+                                                         (fsa[mdb[qb[i].pos].fsa_pos].total_file_counter == 0))
+                                                     {
+# ifdef LOCK_DEBUG
+                                                        lock_region_w(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
+# else
+                                                        lock_region_w(fsa_fd, lock_offset + LOCK_EC);
+# endif
+                                                        fsa[mdb[qb[i].pos].fsa_pos].error_counter = 0;
+# ifdef LOCK_DEBUG
+                                                        unlock_region(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
+# else
+                                                        unlock_region(fsa_fd, lock_offset + LOCK_EC);
+# endif
+                                                     }
+
+                                                     (void)sprintf(dl.host_name, "%-*s %03x",
                                                                    MAX_HOSTNAME_LENGTH,
                                                                    fsa[mdb[qb[i].pos].fsa_pos].host_alias,
                                                                    USER_DEL);
                                                   }
                                                   else
                                                   {
-                                                     (void)sprintf(dl.host_name, "%-*s %x",
+                                                     (void)sprintf(dl.host_name, "%-*s %03x",
                                                                    MAX_HOSTNAME_LENGTH,
                                                                    "-",
                                                                    USER_DEL);
                                                   }
                                                   *dl.file_size = stat_buf.st_size;
-                                                  *dl.job_number = mdb[qb[i].pos].job_id;
+                                                  *dl.job_id = mdb[qb[i].pos].job_id;
+                                                  *dl.dir_id = 0;
+                                                  *dl.input_time = input_time;
+                                                  *dl.split_job_counter = split_job_counter;
+                                                  *dl.unique_number = unique_number;
                                                   *dl.file_name_length = strlen(p_end + 1);
-                                                  (void)strcpy((dl.file_name + *dl.file_name_length + 1), "FD");
-                                                  dl_real_size = *dl.file_name_length + dl.size + 2 /* FD */;
+                                                  dl_real_size = *dl.file_name_length +
+                                                                 dl.size +
+                                                                 sprintf((dl.file_name + *dl.file_name_length + 1),
+                                                                         "%s%c(%s %d)",
+                                                                         FD, SEPARATOR_CHAR,
+                                                                         __FILE__, __LINE__);
                                                   if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                                                   {
                                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -493,7 +559,9 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                                                          (fsa[mdb[qb[i].pos].fsa_pos].host_status & ERROR_QUEUE_SET))
                                                      {
                                                         (void)remove_from_error_queue(mdb[qb[i].pos].job_id,
-                                                                                      &fsa[mdb[qb[i].pos].fsa_pos]);
+                                                                                      &fsa[mdb[qb[i].pos].fsa_pos],
+                                                                                      mdb[qb[i].pos].fsa_pos,
+                                                                                      fsa_fd);
                                                      }
 #endif
                                                      fsa[mdb[qb[i].pos].fsa_pos].jobs_queued--;
@@ -580,18 +648,16 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                        msg_number = strtod(del_read_ptr, NULL);
                        if (*p_end != '\0')
                        {
-                          int retrieve_pos;
+                          int fra_pos;
 
-                          retrieve_pos = atoi(p_end);
+                          fra_pos = atoi(p_end);
                           for (i = 0; i < *no_msg_queued; i++)
                           {
                              if ((qb[i].msg_number == msg_number) &&
-                                 (qb[i].pos == retrieve_pos) &&
+                                 (qb[i].pos == fra_pos) &&
                                  (qb[i].msg_name[0] == '\0'))
                              {
-                                remove_retrieve_job(i,
-                                                    retrieve_list[retrieve_pos],
-                                                    now);
+                                remove_retrieve_job(i, fra_pos, now);
                                 break;
                              }
                           }
@@ -746,6 +812,7 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
          fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_size_in_use = 0;
          fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_size_in_use_done = 0;
          fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_name_in_use[0] = '\0';
+         fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_name_in_use[1] = 0;
          remove_connection(&connection[qb[pos].connect_pos], NO, now);
       }
    }
@@ -809,7 +876,11 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
    if (fra[fra_pos].dir_flag & DIR_ERROR_SET)
    {
       fra[fra_pos].dir_flag &= ~DIR_ERROR_SET;
-      SET_DIR_STATUS(fra[fra_pos].dir_flag, fra[fra_pos].dir_status);
+      SET_DIR_STATUS(fra[fra_pos].dir_flag,
+                     now,
+                     fra[fra_pos].start_event_handle,
+                     fra[fra_pos].end_event_handle,
+                     fra[fra_pos].dir_status);
       error_action(fra[fra_pos].dir_alias, "stop", DIR_ERROR_ACTION);
       event_log(now, EC_DIR, ET_EXT, EA_ERROR_END, "%s", fra[fra_pos].dir_alias);
    }
@@ -825,13 +896,19 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
     *       time, otherwise the job will popup
     *       again, although it was deleted.
     */
-   if ((fra[fra_pos].time_option == YES) &&
+   if ((fra[fra_pos].no_of_time_entries > 0) &&
        (fra[fra_pos].next_check_time <= now))
    {
-      fra[fra_pos].next_check_time = calc_next_time(&fra[fra_pos].te, now);
+      fra[fra_pos].next_check_time = calc_next_time_array(fra[fra_pos].no_of_time_entries,
+                                                          &fra[fra_pos].te[0],
+                                                          now);
    }
 
-   fra[fra_pos].queued = NO;
+   fra[fra_pos].queued -= 1;
+   if (fra[fra_pos].queued < 0)
+   {
+      fra[fra_pos].queued = 0;
+   }
    if (pos != (*no_msg_queued - 1))
    {
       size_t move_size;

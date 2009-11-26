@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2006 Holger Kiehl
+## Copyright (C) 2001 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,6 +16,15 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
+if WITH_WMO_SUPPORT
+   WMOCMD = wmocmd.c
+   EXTRA_WMOCMD =
+else
+   WMOCMD = 
+   EXTRA_WMOCMD = wmocmd.c
+endif
+EXTRA_DIST                  = $(EXTRA_WMOCMD)
+
 MAINTAINERCLEANFILES        = Makefile.in
 noinst_HEADERS              = commondefs.h ftpdefs.h httpdefs.h pop3defs.h\
                               scpdefs.h sftpdefs.h smtpdefs.h ssh_commondefs.h\
@@ -31,6 +40,6 @@ libprotocols_a_SOURCES      = common.c\
                               sftpcmd.c\
                               smtpcmd.c\
                               ssh_common.c\
-                              wmocmd.c
+                              $(WMOCMD)
 libtraceprotocols_a_SOURCES = $(libprotocols_a_SOURCES)
 libtraceprotocols_a_CFLAGS  = -DWITH_TRACE

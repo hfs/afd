@@ -76,7 +76,7 @@ get_file_mask_list(unsigned int file_mask_id,
    (void)strcpy(fmd_file_name, p_work_dir);
    (void)strcat(fmd_file_name, FIFO_DIR);
    (void)strcat(fmd_file_name, FILE_MASK_FILE);
-   if ((fmd_fd = open(fmd_file_name, O_RDWR)) == -1)
+   if ((fmd_fd = open(fmd_file_name, O_RDONLY)) == -1)
    {
       (void)xrec(ERROR_DIALOG, "Failed to open() `%s' : %s (%s %d)",
                  fmd_file_name, strerror(errno), __FILE__, __LINE__);

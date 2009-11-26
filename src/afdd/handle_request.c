@@ -1,6 +1,6 @@
 /*
  *  handle_request.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M3
  ** HISTORY
  **   17.01.1999 H.Kiehl Created
  **   06.04.2005 H.Kiehl Open FSA here and not in afdd.c.
+ **   23.11.2008 H.Kiehl Added danger_no_of_jobs.
  */
 DESCR__E_M3
 
@@ -54,7 +55,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <unistd.h>           /* close()                                 */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <netdb.h>
 #include <errno.h>
@@ -91,6 +92,7 @@ struct fileretrieve_status *fra;
 /* External global variables. */
 extern int                 *ip_log_defs,
                            log_defs;
+extern long                danger_no_of_jobs;
 extern char                afd_name[],
                            hostname[],
                            *p_work_dir,
@@ -130,13 +132,13 @@ handle_request(int  sock_sd,
    if ((p_data = fdopen(cmd_sd, "r+")) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "fdopen() control error : %s", strerror(errno));
+                 _("fdopen() control error : %s"), strerror(errno));
       exit(INCORRECT);
    }
 
    if (fsa_attach_passive() < 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
+      system_log(FATAL_SIGN, __FILE__, __LINE__, _("Failed to attach to FSA."));
       exit(INCORRECT);
    }
    host_config_counter = (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET +
@@ -150,7 +152,7 @@ handle_request(int  sock_sd,
    }
    if (fra_attach_passive() < 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FRA.");
+      system_log(FATAL_SIGN, __FILE__, __LINE__, _("Failed to attach to FRA."));
       exit(INCORRECT);
    }
 
@@ -162,14 +164,14 @@ handle_request(int  sock_sd,
       if ((status > 1) && ((status % 100) == 0))
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Timeout arrived for waiting for AMG to finish writting to JID structure.");
+                    _("Timeout arrived for waiting for AMG to finish writting to JID structure."));
       }
    }
 
    if (atexit(report_shutdown) != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not register exit handler : %s", strerror(errno));
+                 _("Could not register exit handler : %s"), strerror(errno));
    }
 
    /* Give some information to the user where he is and what service */
@@ -236,7 +238,7 @@ handle_request(int  sock_sd,
             if (nbytes == 0)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Remote hangup by %s", hostname);
+                          _("Remote hangup by %s"), hostname);
             }
             else
             {
@@ -244,16 +246,16 @@ handle_request(int  sock_sd,
                if (errno == ECONNRESET)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "read() error : %s", strerror(errno));
+                             _("read() error : %s"), strerror(errno));
                }
                else
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "read() error : %s", strerror(errno));
+                             _("read() error : %s"), strerror(errno));
                }
 #else
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "read() error : %s", strerror(errno));
+                          _("read() error : %s"), strerror(errno));
 #endif
             }
             break;
@@ -272,7 +274,10 @@ handle_request(int  sock_sd,
               }
               else if (in_log_child == YES)
                    {
-                      log_interval = check_logs(now + log_interval);
+                      if (log_defs)
+                      {
+                         log_interval = check_logs(now + log_interval);
+                      }
                    }
                    else
                    {
@@ -430,16 +435,16 @@ handle_request(int  sock_sd,
                       switch (cmd[0])
                       {
 #ifdef _INPUT_LOG
-                         case 'I' : /* Input log */
+                         case 'I' : /* Input log. */
                             (void)strcat(search_file, INPUT_BUFFER_FILE);
                             break;
 #endif
 #ifdef _OUTPUT_LOG
-                         case 'O' : /* Output log */
+                         case 'O' : /* Output log. */
                             (void)strcat(search_file, OUTPUT_BUFFER_FILE);
                             break;
 #endif
-                         case 'S' : /* System log */
+                         case 'S' : /* System log. */
                             (void)strcat(search_file, SYSTEM_LOG_NAME);
                             break;
                          case 'T' : /* Transfer or transfer debug log */
@@ -454,7 +459,7 @@ handle_request(int  sock_sd,
                             break;
                          default  : /* Impossible!!! */
                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                       "Unknown error!");
+                                       _("Unknown error!"));
                             (void)fprintf(p_data,
                                           "500 Unknown error. (%s %d)\r\n",
                                           __FILE__, __LINE__);
@@ -512,10 +517,10 @@ handle_request(int  sock_sd,
                                      numeric_str[k] = '\0';
                                      switch (cmd[i + 1])
                                      {
-                                        case '#' : /* File number */
+                                        case '#' : /* File number. */
                                            file_no = atoi(numeric_str);
                                            break;
-                                        case '-' : /* number of lines */
+                                        case '-' : /* Number of lines. */
                                            lines = atoi(numeric_str);
                                            break;
                                         case '+' : /* Duration of displaying data. */
@@ -524,7 +529,7 @@ handle_request(int  sock_sd,
                                         default  : /* Impossible!!! */
                                            faulty = YES;
                                            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                      "Unknown error!");
+                                                      _("Unknown error!"));
                                            (void)fprintf(p_data,
                                                          "500 Unknown error. (%s %d)\r\n",
                                                          __FILE__, __LINE__);
@@ -610,10 +615,10 @@ handle_request(int  sock_sd,
                                                 numeric_str[m] = '\0';
                                                 switch (cmd[i + k + 1])
                                                 {
-                                                   case '#' : /* File number */
+                                                   case '#' : /* File number. */
                                                       file_no = atoi(numeric_str);
                                                       break;
-                                                   case '-' : /* number of lines */
+                                                   case '-' : /* Number of lines. */
                                                       lines = atoi(numeric_str);
                                                       break;
                                                    case '+' : /* Duration of displaying data. */
@@ -622,7 +627,7 @@ handle_request(int  sock_sd,
                                                    default  : /* Impossible!!! */
                                                       faulty = YES;
                                                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                                 "Unknown error!");
+                                                                 _("Unknown error!"));
                                                       (void)fprintf(p_data,
                                                                     "500 Unknown error. (%s %d)\r\n",
                                                                     __FILE__, __LINE__);
@@ -690,9 +695,10 @@ handle_request(int  sock_sd,
                       show_host_list(p_data);
                       show_dir_list(p_data);
                       show_job_list(p_data);
-                      (void)fprintf(p_data, "LC %d\r\nWD %s\r\nAV %s\r\n",
+                      (void)fprintf(p_data,
+                                    "LC %d\r\nWD %s\r\nAV %s\r\nDJ %ld\r\n",
                                     ip_log_defs[trusted_ip_pos], p_work_dir,
-                                    PACKAGE_VERSION);
+                                    PACKAGE_VERSION, danger_no_of_jobs);
                       report_changes = YES;
                    }
               else if (strncmp(cmd, NOP_CMD, NOP_CMD_LENGTH) == 0)
@@ -752,15 +758,7 @@ handle_request(int  sock_sd,
                                {
                                   *ptr = '\0';
                                   ptr++;
-#ifdef HAVE_STRTOULL
-# if SIZEOF_INO_T == 4
-                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)strtoul(p_start, NULL, 10);
-# else
-                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)strtoull(p_start, NULL, 10);
-# endif
-#else
-                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)strtoul(p_start, NULL, 10);
-#endif
+                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)str2inot(p_start, NULL, 10);
 
                                   p_start = ptr;
                                   while (isdigit((int)(*ptr)))
@@ -781,15 +779,7 @@ handle_request(int  sock_sd,
                                         end_reached = YES;
                                      }
                                      *ptr = '\0';
-#ifdef HAVE_STRTOULL
-# if SIZEOF_OFF_T == 4
-                                     ld[DUM_LOG_POS].offset = (off_t)strtoul(p_start, NULL, 10);
-# else
-                                     ld[DUM_LOG_POS].offset = (off_t)strtoull(p_start, NULL, 10);
-# endif
-#else
-                                     ld[DUM_LOG_POS].offset = (off_t)strtoul(p_start, NULL, 10);
-#endif
+                                     ld[DUM_LOG_POS].offset = (off_t)str2offt(p_start, NULL, 10);
                                      ld[DUM_LOG_POS].flag = 0;
                                      if (end_reached == NO)
                                      {
@@ -846,7 +836,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip, SYSTEM_LOG_NAME);
                                   }
                                   break;
@@ -877,7 +867,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip, EVENT_LOG_NAME);
                                   }
                                   break;
@@ -908,7 +898,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip, RECEIVE_LOG_NAME);
                                   }
                                   break;
@@ -939,7 +929,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip, TRANSFER_LOG_NAME);
                                   }
                                   break;
@@ -970,7 +960,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip, TRANS_DB_LOG_NAME);
                                   }
                                   break;
@@ -1002,9 +992,43 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip,
                                                 INPUT_BUFFER_FILE);
+                                  }
+                                  break;
+#endif
+#ifdef _DISTRIBUTION_LOG
+                               case 'U' : /* DISTRIBUTION Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_DISTRIBUTION_LOG)
+                                  {
+                                     ld[DIS_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[DIS_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[DIS_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[DIS_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[DIS_LOG_POS].log_name, DISTRIBUTION_BUFFER_FILE);
+                                     ld[DIS_LOG_POS].log_name_length = DISTRIBUTION_BUFFER_FILE_LENGTH;
+                                     ld[DIS_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[DIS_LOG_POS].log_data_cmd[1] = 'U';
+                                     ld[DIS_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[DIS_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[DIS_LOG_POS].log_inode_cmd[1] = 'U';
+                                     ld[DIS_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[DIS_LOG_POS].log_flag = AFDD_DISTRIBUTION_LOG;
+                                     ld[DIS_LOG_POS].fp = NULL;
+                                     ld[DIS_LOG_POS].current_log_no = 0;
+                                     ld[DIS_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_DISTRIBUTION_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_DISTRIBUTION_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                _("Host %s was denied access for %s"),
+                                                p_remote_ip,
+                                                DISTRIBUTION_BUFFER_FILE);
                                   }
                                   break;
 #endif
@@ -1036,7 +1060,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip,
                                                 PRODUCTION_BUFFER_FILE);
                                   }
@@ -1070,7 +1094,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip,
                                                 OUTPUT_BUFFER_FILE);
                                   }
@@ -1104,7 +1128,7 @@ handle_request(int  sock_sd,
                                   else
                                   {
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                "Host %s was denied access for %s",
+                                                _("Host %s was denied access for %s"),
                                                 p_remote_ip,
                                                 DELETE_BUFFER_FILE);
                                   }
@@ -1141,7 +1165,7 @@ handle_request(int  sock_sd,
                             if ((line_buffer = malloc(MAX_LOG_DATA_BUFFER)) == NULL)
                             {
                                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                          "Failed to malloc() %d bytes : %s",
+                                          _("Failed to malloc() %d bytes : %s"),
                                           MAX_LOG_DATA_BUFFER, strerror(errno));
                                exit(INCORRECT);
                             }
@@ -1151,7 +1175,7 @@ handle_request(int  sock_sd,
                             if ((log_buffer = malloc(MAX_LOG_DATA_BUFFER)) == NULL)
                             {
                                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                          "Failed to malloc() %d bytes : %s",
+                                          _("Failed to malloc() %d bytes : %s"),
                                           MAX_LOG_DATA_BUFFER, strerror(errno));
                                exit(INCORRECT);
                             }
@@ -1229,7 +1253,7 @@ handle_request(int  sock_sd,
    if (fclose(p_data) == EOF)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "fclose() error : %s", strerror(errno));
+                 _("fclose() error : %s"), strerror(errno));
    }
    p_data = NULL;
    exit(SUCCESS);
@@ -1255,7 +1279,7 @@ report_shutdown(void)
          if (fclose(p_data) == EOF)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "fclose() error : %s", strerror(errno));
+                       _("fclose() error : %s"), strerror(errno));
          }
          p_data = NULL;
       }

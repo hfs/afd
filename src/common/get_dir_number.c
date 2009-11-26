@@ -1,6 +1,6 @@
 /*
  *  get_dir_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <sys/stat.h>                 /* stat()                          */
 #include <errno.h>
 
-/* Local variables */
+/* Local variables. */
 static long link_max = 0L;
 
 
@@ -76,7 +76,8 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
          link_max = _POSIX_LINK_MAX;
 #endif
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "pathconf() error for _PC_LINK_MAX : %s", strerror(errno));
+                    _("pathconf() error for _PC_LINK_MAX : %s"),
+                    strerror(errno));
       }
    }
    length = strlen(directory);
@@ -97,7 +98,7 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
             if (stat(directory, &stat_buf) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to stat() `%s' : %s",
+                          _("Failed to stat() `%s' : %s"),
                           directory, strerror(errno));
                return(INCORRECT);
             }
@@ -107,7 +108,7 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
             if ((stat(fulldir, &stat_buf) == -1) && (errno != ENOENT))
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to stat() `%s' : %s",
+                          _("Failed to stat() `%s' : %s"),
                           fulldir, strerror(errno));
                return(INCORRECT);
             }
@@ -116,21 +117,21 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
                if (mkdir(fulldir, DIR_MODE) < 0)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to mkdir() `%s' : %s",
+                             _("Failed to mkdir() `%s' : %s"),
                              fulldir, strerror(errno));
                   return(INCORRECT);
                }
                else
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Hmm, created directory `%s'", fulldir);
+                             _("Hmm, created directory `%s'"), fulldir);
                }
             }
             (void)sprintf(&fulldir[length], "%x/%x", id, i);
             if (mkdir(fulldir, DIR_MODE) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to mkdir() `%s' : %s",
+                          _("Failed to mkdir() `%s' : %s"),
                           fulldir, strerror(errno));
                return(INCORRECT);
             }
@@ -150,7 +151,8 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() `%s' : %s", fulldir, strerror(errno));
+                       _("Failed to stat() `%s' : %s"),
+                       fulldir, strerror(errno));
             return(INCORRECT);
          }
       }
@@ -169,7 +171,7 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
    }
 
    system_log(ERROR_SIGN, __FILE__, __LINE__,
-              "Directory `%s/%x' is full (%ld). Unable to create new jobs for it.",
+              _("Directory `%s/%x' is full (%ld). Unable to create new jobs for it."),
               directory, id, link_max);
    return(INCORRECT);
 }

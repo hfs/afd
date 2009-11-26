@@ -1,6 +1,6 @@
 /*
  *  archive_watch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,7 +51,7 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <sys/time.h>              /* struct timeval                     */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                 /* O_RDWR, O_RDONLY, O_NONBLOCK, etc  */
+# include <fcntl.h>                /* O_RDWR, O_RDONLY, O_NONBLOCK, etc  */
 #endif
 #include <unistd.h>                /* read()                             */
 #include <signal.h>                /* signal()                           */
@@ -60,7 +60,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* Global variables */
+/* Global variables. */
 int          sys_log_fd = STDERR_FILENO;
 unsigned int removed_archives = 0,
              removed_files = 0;
@@ -99,7 +99,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -115,27 +115,26 @@ main(int argc, char *argv[])
        */
       if ((ptr = lock_proc(AW_LOCK_ID, NO)) != NULL)
       {
-         (void)fprintf(stderr,
-                       "Process archive_watch already started by %s : (%s %d)\n",
-                       ptr, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Process archive_watch already started by %s."), ptr);
          exit(INCORRECT);
       }
    }
 
-   /* Initialise fifo to communicate with AFD */
+   /* Initialize fifo to communicate with AFD. */
    (void)strcpy(aw_cmd_fifo, work_dir);
    (void)strcat(aw_cmd_fifo, FIFO_DIR);
    (void)strcat(aw_cmd_fifo, AW_CMD_FIFO);
    (void)strcpy(archive_dir, work_dir);
    (void)strcat(archive_dir, AFD_ARCHIVE_DIR);
 
-   /* Now lets open the fifo to receive commands from the AFD */
+   /* Now lets open the fifo to receive commands from the AFD. */
    if ((stat(aw_cmd_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
    {
       if (make_fifo(aw_cmd_fifo) < 0)
       {
-         (void)fprintf(stderr, "ERROR   : Could not create fifo `%s'. (%s %d)\n",
-                       aw_cmd_fifo, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Could not create fifo `%s'."), aw_cmd_fifo);
          exit(INCORRECT);
       }
    }
@@ -146,16 +145,17 @@ main(int argc, char *argv[])
    if ((aw_cmd_fd = coe_open(aw_cmd_fifo, O_RDWR)) == -1)
 #endif
    {
-      (void)fprintf(stderr, "ERROR   : Could not open fifo `%s' : %s (%s %d)\n",
-                    aw_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 _(": Could not open fifo `%s' : %s"),
+                 aw_cmd_fifo, strerror(errno));
       exit(INCORRECT);
    }
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(aw_exit) != 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not register exit handler : %s", strerror(errno));
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 _("Could not register exit handler : %s"), strerror(errno));
       exit(INCORRECT);
    }
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
@@ -165,8 +165,8 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "Could not set signal handlers : %s", strerror(errno));
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 _("Could not set signal handlers : %s"), strerror(errno));
    }
 
    system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)",
@@ -183,7 +183,7 @@ main(int argc, char *argv[])
                             ARCHIVE_STEP_TIME + ARCHIVE_STEP_TIME;
       }
 
-      /* Initialise descriptor set and timeout */
+      /* Initialize descriptor set and timeout. */
       FD_SET(aw_cmd_fd, &rset);
       timeout.tv_usec = 0;
       if ((diff_time = (next_rescan_time - now)) < 0)
@@ -203,12 +203,12 @@ main(int argc, char *argv[])
          if ((removed_archives > 0) || (removed_files > 0))
          {
             system_log(INFO_SIGN, NULL, 0,
-                      "Removed %u archives with %u files.",
+                      _("Removed %u archives with %u files."),
                       removed_archives, removed_files);
          }
 #else
          system_log(INFO_SIGN, NULL, 0,
-                   "Removed %u archives with %u files.",
+                   _("Removed %u archives with %u files."),
                    removed_archives, removed_files);
 #endif
          removed_archives = removed_files = 0;
@@ -223,7 +223,7 @@ main(int argc, char *argv[])
       }
       else if (FD_ISSET(aw_cmd_fd, &rset))
            {
-              /* Read the message */
+              /* Read the message. */
               if ((n = read(aw_cmd_fd, buffer, DEFAULT_BUFFER_SIZE)) > 0)
               {
                  while (n > 0)
@@ -234,13 +234,13 @@ main(int argc, char *argv[])
                     if (buffer[0] == STOP)
                     {
                        system_log(INFO_SIGN, NULL, 0,
-                                  "Stopped %s", ARCHIVE_WATCH);
+                                  _("Stopped %s"), ARCHIVE_WATCH);
                        exit(SUCCESS);
                     }
                     else if (buffer[0] == RETRY)
                          {
                             system_log(INFO_SIGN, NULL, 0,
-                                       "Rescaning archive directories.",
+                                       _("Rescaning archive directories."),
                                        ARCHIVE_WATCH);
 
                             /* Remember to set current_time, since the   */
@@ -251,7 +251,7 @@ main(int argc, char *argv[])
                          else
                          {
                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                      "Hmmm..., reading garbage [%d] on fifo `%s'.",
+                                      _("Hmmm..., reading garbage [%d] on fifo `%s'."),
                                       buffer[0], AW_CMD_FIFO);
                          }
                     n--;
@@ -261,13 +261,13 @@ main(int argc, char *argv[])
       else if (status < 0)
            {
               system_log(FATAL_SIGN, __FILE__, __LINE__,
-                         "Select error : %s", strerror(errno));
+                         _("select() error : %s"), strerror(errno));
               exit(INCORRECT);
            }
            else
            {
               system_log(FATAL_SIGN, __FILE__, __LINE__,
-                         "Huh? Maybe YOU have a clue whats going on here!");
+                         _("Huh? Maybe YOU have a clue whats going on here!"));
               exit(INCORRECT);
            }
    } /* for (;;) */
@@ -282,7 +282,7 @@ aw_exit(void)
 {
    if ((removed_archives > 0) || (removed_files > 0))
    {
-      system_log(INFO_SIGN, NULL, 0, "Removed %u archives with %u files.",
+      system_log(INFO_SIGN, NULL, 0, _("Removed %u archives with %u files."),
                  removed_archives, removed_files);
    }
    system_log(INFO_SIGN, NULL, 0, "Stopped %s.", ARCHIVE_WATCH);
@@ -296,7 +296,8 @@ aw_exit(void)
 static void
 sig_segv(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__,
+              _("Aaarrrggh! Received SIGSEGV."));
    aw_exit();
 
    /* Dump core so we know what happened. */
@@ -308,7 +309,8 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__,
+              _("Uuurrrggh! Received SIGBUS."));
    aw_exit();
 
    /* Dump core so we know what happened. */

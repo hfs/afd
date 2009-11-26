@@ -1,6 +1,6 @@
 /*
  *  sftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -182,6 +182,18 @@
 #define SSH_FX_GROUP_INVALID                30         /* 6+      */
 #define SSH_FX_NO_MATCHING_BYTE_RANGE_LOCK  31         /* 6+      */
 
+/* Definitions for different extensions. */
+#define SFTP_EXT_POSIX_RENAME   0x00000001
+#define SFTP_EXT_STATVFS        0x00000002
+#define SFTP_EXT_FSTATVFS       0x00000004
+
+#define OPENSSH_POSIX_RENAME_EXT        "posix-rename@openssh.com"
+#define OPENSSH_POSIX_RENAME_EXT_LENGTH (sizeof(OPENSSH_POSIX_RENAME_EXT) - 1)
+#define OPENSSH_STATFS_EXT              "statvfs@openssh.com"
+#define OPENSSH_STATFS_EXT_LENGTH       (sizeof(OPENSSH_STATFS_EXT) - 1)
+#define OPENSSH_FSSTATFS_EXT            "statvfs@openssh.com"
+#define OPENSSH_FSSTATFS_EXT_LENGTH     (sizeof(OPENSSH_FSSTATFS_EXT) - 1)
+
 /* Storage for whats returned in SSH_FXP_NAME reply. */
 struct name_list
        {
@@ -208,6 +220,7 @@ struct sftp_connect_data
           unsigned int           pending_write_id[MAX_PENDING_WRITES];
           unsigned int           nl_pos;     /* Name list position. */
           unsigned int           nl_length;  /* Name list length. */
+          unsigned int           extensions;
           int                    pending_write_counter;
           int                    max_pending_writes;
           off_t                  file_offset;
@@ -221,13 +234,14 @@ struct sftp_connect_data
        };
 
 
-/* Function prototypes */
+/* Function prototypes. */
 extern unsigned int sftp_version(void);
 extern int          sftp_cd(char *, int),
+                    sftp_connect(char *, int, unsigned char, int, char *,
 #ifdef WITH_SSH_FINGERPRINT
-                    sftp_connect(char *, int, unsigned char, char *, char *, char *, char),
+                                 char *, char *, char),
 #else
-                    sftp_connect(char *, int, unsigned char, char *, char *, char),
+                                 char *, char),
 #endif
                     sftp_close_dir(void),
                     sftp_close_file(void),
@@ -237,10 +251,12 @@ extern int          sftp_cd(char *, int),
                     sftp_move(char *, char *, int),
                     sftp_noop(void),
                     sftp_open_dir(char *, char),
-                    sftp_open_file(int, char *, off_t, mode_t *, int, int *, char),
+                    sftp_open_file(int, char *, off_t, mode_t *, int, int *,
+                                   char),
                     sftp_pwd(void),
                     sftp_read(char *, int),
                     sftp_readdir(char *, struct stat *),
+                    sftp_set_file_time(char *, time_t, time_t),
                     sftp_stat(char *, struct stat *),
                     sftp_write(char *, int);
 extern void         sftp_quit(void);

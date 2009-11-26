@@ -1,6 +1,6 @@
 /*
  *  get_error_str.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -92,6 +92,7 @@ get_error_str(int error_code)
       case ALLOC_ERROR : return(ALLOC_ERROR_STR);
       case SELECT_ERROR : return(SELECT_ERROR_STR);
       case WRITE_LOCAL_ERROR : return(WRITE_LOCAL_ERROR_STR);
+      case STAT_TARGET_ERROR : return(STAT_TARGET_ERROR_STR);
       case OPEN_FILE_DIR_ERROR : return(OPEN_FILE_DIR_ERROR_STR);
       case NO_MESSAGE_FILE : return(NO_MESSAGE_FILE_STR);
       case REMOTE_USER_ERROR : return(REMOTE_USER_ERROR_STR);
@@ -106,5 +107,5 @@ get_error_str(int error_code)
       case NO_FILES_TO_SEND : return(NO_FILES_TO_SEND_STR);
       case STILL_FILES_TO_SEND : return(STILL_FILES_TO_SEND_STR);
    }
-   return("Unknown error");
-} 
+   return(_("Unknown error"));
+}

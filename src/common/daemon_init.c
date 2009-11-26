@@ -1,6 +1,6 @@
 /*
  *  daemon_init.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,12 +49,12 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>                   /* STDIN_FILENO, dup2()            */
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 /*
@@ -71,26 +71,26 @@ daemon_init(char *process)
 
    if ((pid = fork()) < 0)
    {
-      (void)fprintf(stderr, "fork() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("fork() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    else if (pid != 0)
         {
-           _exit(0); /* Parent process exits */
+           _exit(0); /* Parent process exits. */
         }
 
    setsid();
 
    if ((pid = fork()) < 0)
    {
-      (void)fprintf(stderr, "fork() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("fork() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    else if (pid != 0)
         {
-           _exit(0); /* Parent process exits */
+           _exit(0); /* Parent process exits. */
         }
 
    /*
@@ -112,7 +112,7 @@ daemon_init(char *process)
       (void)sprintf(daemon_log, "%s%s", p_work_dir, LOG_DIR);
       if (check_dir(daemon_log, R_OK | W_OK | X_OK) < 0)
       {
-         (void)fprintf(stderr, "Failed to create directory %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to create directory `%s' (%s %d)\n"),
                        daemon_log, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -136,16 +136,15 @@ daemon_init(char *process)
  /*     if ((fd = coe_open(daemon_log, mode, FILE_MODE)) == -1) */
       if ((fd = coe_open(daemon_log, mode, (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH))) == -1)
       {
-         (void)fprintf(stderr, "Failed to coe_open() %s : %s (%s %d)\n",
-                       daemon_log, strerror(errno),
-                       __FILE__, __LINE__);
+         (void)fprintf(stderr, _("Failed to coe_open() `%s' : %s (%s %d)\n"),
+                       daemon_log, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
       dup2(fd, STDERR_FILENO);
       dup2(fd, STDOUT_FILENO);
       if (close(fd) == -1)
       {
-         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
 #ifdef _CLOSE_STDIN
@@ -153,14 +152,15 @@ daemon_init(char *process)
 #else
       if ((fd = coe_open("/dev/null", O_RDONLY)) == -1)
       {
-         (void)fprintf(stderr, "Failed to coe_open() /dev/null : %s (%s %d)\n",
+         (void)fprintf(stderr,
+                       _("Failed to coe_open() /dev/null : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
       dup2(fd, STDIN_FILENO);
       if (close(fd) == -1)
       {
-         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
 #endif
@@ -170,7 +170,7 @@ daemon_init(char *process)
          (void)memset(buffer, '=', length);
          buffer[length] = '\0';
          current_time = time(NULL);
-         (void)fprintf(stderr, "%s\n%.24s : Started %s\n",
+         (void)fprintf(stderr, _("%s\n%.24s : Started %s\n"),
                        buffer, ctime(&current_time), process);
          (void)memset(buffer, '-', length);
          (void)fprintf(stderr, "%s\n", buffer);

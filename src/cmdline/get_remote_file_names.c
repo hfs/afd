@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,15 +101,15 @@ get_remote_file_names(off_t *file_size_to_retrieve)
    {
       if (status == 550)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send NLST command (%d).", status);
+         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Failed to send NLST command (%d)."), status);
          (void)ftp_quit();
          exit(TRANSFER_SUCCESS);
       }
       else
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send NLST command (%d).", status);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Failed to send NLST command (%d)."), status);
          (void)ftp_quit();
          exit(LIST_ERROR);
       }
@@ -118,8 +118,8 @@ get_remote_file_names(off_t *file_size_to_retrieve)
    {
       if (db.verbose == YES)
       {
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                   "Send NLST command.");
+         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   _("Send NLST command."));
       }
    }
 
@@ -130,8 +130,8 @@ get_remote_file_names(off_t *file_size_to_retrieve)
     */
    if (nlist == NULL)
    {
-      trans_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                "No files found (%d).", status);
+      trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                _("No files found (%d)."), status);
       (void)ftp_quit();
       exit(TRANSFER_SUCCESS);
    }
@@ -192,7 +192,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                 AFD_WORD_OFFSET;
       if ((ptr = malloc(rl_size)) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
+         (void)rec(sys_log_fd, ERROR_SIGN, _("malloc() error : %s (%s %d)\n"),
                    strerror(errno), __FILE__, __LINE__);
          (void)ftp_quit();
          exit(ALLOC_ERROR);
@@ -213,7 +213,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
            ptr = (char *)rl - AFD_WORD_OFFSET;
            if ((ptr = realloc(ptr, rl_size)) == NULL)
            {
-              (void)rec(sys_log_fd, ERROR_SIGN, "realloc() error : %s (%s %d)\n",
+              (void)rec(sys_log_fd, ERROR_SIGN,
+                        _("realloc() error : %s (%s %d)\n"),
                         strerror(errno), __FILE__, __LINE__);
               (void)ftp_quit();
               exit(ALLOC_ERROR);
@@ -236,8 +237,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
       else if (timeout_flag == ON)
            {
               /* We have lost connection. */
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "Failed to get date of file %s.", file);
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                        _("Failed to get date of file `%s'."), file);
               (void)ftp_quit();
               exit(TIMEOUT_ERROR);
            }

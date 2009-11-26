@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ DESCR__E_M1
 #include <Xm/Separator.h>
 #include <Xm/RowColumn.h>
 #include <Xm/Form.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_olog.h"
 #include "logdefs.h"
 #include "permission.h"
@@ -249,6 +249,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
    if (euid != ruid)
    {
       if (seteuid(euid) == -1)
@@ -261,6 +262,11 @@ main(int argc, char *argv[])
 
 #ifdef _X_DEBUG
    XSynchronize(display, 1);
+#endif
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
 #endif
 
    /* Create managing widget. */
@@ -692,7 +698,6 @@ main(int argc, char *argv[])
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_FTPS);
 #endif
-#ifdef WHEN_WE_HAVE_HTTP_SEND
    toggle_w = XtVaCreateManagedWidget("HTTP",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
@@ -708,7 +713,6 @@ main(int argc, char *argv[])
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_HTTPS);
-#endif
 #endif
    toggle_w = XtVaCreateManagedWidget("SMTP",
                                 xmToggleButtonGadgetClass, togglebox_w,
@@ -748,7 +752,7 @@ main(int argc, char *argv[])
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_SCP);
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
    toggle_w = XtVaCreateManagedWidget("WMO",
                                 xmToggleButtonGadgetClass, togglebox_w,
@@ -757,7 +761,7 @@ main(int argc, char *argv[])
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_WMO);
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
    toggle_w = XtVaCreateManagedWidget("MAP",
                                 xmToggleButtonGadgetClass, togglebox_w,
@@ -766,13 +770,11 @@ main(int argc, char *argv[])
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_MAP);
-#endif /* _WITH_MAP_SUPPORT */
+#endif
    XtManageChild(togglebox_w);
 
    toggles_set = SHOW_FTP |
-#ifdef WHEN_WE_HAVE_HTTP_SEND
                  SHOW_HTTP |
-#endif
                  SHOW_SMTP |
                  SHOW_SFTP |
 #ifdef _WITH_SCP_SUPPORT
@@ -786,9 +788,7 @@ main(int argc, char *argv[])
 #endif
 #ifdef WITH_SSL
                  SHOW_FTPS |
-#ifdef WHEN_WE_HAVE_HTTP_SEND
                  SHOW_HTTPS |
-#endif
                  SHOW_SMTPS |
 #endif
                  SHOW_FILE;
@@ -1681,7 +1681,7 @@ init_show_olog(int *argc, char *argv[])
       no_of_search_dirs = 0;
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -1724,7 +1724,7 @@ init_show_olog(int *argc, char *argv[])
          exit(INCORRECT);
    }
 
-   /* Collect all hostnames */
+   /* Collect all hostnames. */
    no_of_search_hosts = *argc - 1;
    if (no_of_search_hosts > 0)         
    {

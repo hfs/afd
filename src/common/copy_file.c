@@ -1,6 +1,6 @@
 /*
  *  copy_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,10 +56,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <stdlib.h>     /* malloc(), free()                              */
 #ifdef HAVE_FCNTL_H
-# ifdef WITH_SPLICE_SUPPORT
-#  define _GNU_SOURCE
-# endif
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
@@ -88,7 +85,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open `%s' for copying : %s",
+                 _("Could not open `%s' for copying : %s"),
                  from, strerror(errno));
       ret = INCORRECT;
    }
@@ -100,7 +97,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
       if ((p_stat_buf == NULL) && (fstat(from_fd, &stat_buf) == -1))
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not fstat() on `%s' : %s", from, strerror(errno));
+                    _("Could not fstat() `%s' : %s"), from, strerror(errno));
          (void)close(from_fd);
          ret = INCORRECT;
       }
@@ -122,7 +119,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                            p_stat_buf->st_mode)) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not open `%s' for copying : %s",
+                       _("Could not open `%s' for copying : %s"),
                        to, strerror(errno));
             ret = INCORRECT;
          }
@@ -136,7 +133,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                if (pipe(fd_pipe) == -1)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to create pipe for copying : %s",
+                             _("Failed to create pipe for copying : %s"),
                              strerror(errno));
                   ret = INCORRECT;
                }
@@ -154,7 +151,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                                               SPLICE_F_MOVE | SPLICE_F_MORE)) == -1)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                   "splice() error : %s", strerror(errno));
+                                   _("splice() error : %s"), strerror(errno));
                         ret = INCORRECT;
                         break;
                      }
@@ -167,7 +164,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                                                     SPLICE_F_MOVE | SPLICE_F_MORE)) == -1)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "splice() error : %s", strerror(errno));
+                                      _("splice() error : %s"), strerror(errno));
                            ret = INCORRECT;
                            bytes_left = 0;
                            break;
@@ -178,7 +175,8 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                   if ((close(fd_pipe[0]) == -1) || (close(fd_pipe[1]) == -1))
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Failed to close() pipe : %s", strerror(errno));
+                                _("Failed to close() pipe : %s"),
+                                strerror(errno));
                   }
                }
 #else
@@ -187,7 +185,8 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                if ((buffer = malloc(p_stat_buf->st_blksize)) == NULL)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to allocate memory : %s", strerror(errno));
+                             _("Failed to allocate memory : %s"),
+                             strerror(errno));
                   ret = INCORRECT;
                }
                else
@@ -200,7 +199,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                                                 p_stat_buf->st_blksize)) == -1)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                   "Failed to read() `%s' : %s",
+                                   _("Failed to read() from `%s' : %s"),
                                    from, strerror(errno));
                         ret = INCORRECT;
                         break;
@@ -210,7 +209,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
                         if (write(to_fd, buffer, bytes_buffered) != bytes_buffered)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to write() `%s' : %s",
+                                      _("Failed to write() to `%s' : %s"),
                                       to, strerror(errno));
                            ret = INCORRECT;
                            break;
@@ -224,14 +223,15 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
             if (close(to_fd) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to close() `%s' : %s", to, strerror(errno));
+                          _("Failed to close() `%s' : %s"),
+                          to, strerror(errno));
             }
          }
       }
       if (close(from_fd) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to close() `%s' : %s", from, strerror(errno));
+                    _("Failed to close() `%s' : %s"), from, strerror(errno));
       }
    }
 

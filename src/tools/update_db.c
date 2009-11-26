@@ -1,6 +1,6 @@
 /*
  *  update_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -175,7 +175,7 @@ main(int argc, char *argv[])
             {
                if (udc == YES)
                {
-                  if (posi(perm_buffer, RR_DC_PERM) != NULL)
+                  if (lposi(perm_buffer, RR_DC_PERM, RR_DC_PERM_LENGTH) != NULL)
                   {
                      permission = YES;
                   }
@@ -186,7 +186,7 @@ main(int argc, char *argv[])
                }
                else
                {
-                  if (posi(perm_buffer, RR_HC_PERM) != NULL)
+                  if (lposi(perm_buffer, RR_HC_PERM, RR_HC_PERM_LENGTH) != NULL)
                   {
                      permission = YES;
                   }

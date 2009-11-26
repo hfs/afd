@@ -48,7 +48,7 @@ DESCR__E_M1
 #include <unistd.h>           /* STDERR_FILENO                           */
 #include "amgdefs.h"          /* prototype of gts2tiff()                 */
 
-/* Global variables */
+/* Global variables. */
 int        receive_log_fd = STDERR_FILENO,
            sys_log_fd = STDERR_FILENO;
 #ifndef HAVE_MMAP
@@ -89,13 +89,13 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stderr, "Usage: %s <T4 coded file>\n", argv[0]);
+      (void)fprintf(stderr, _("Usage: %s <T4 coded file>\n"), argv[0]);
       exit(INCORRECT);
    }
 
    if (gts2tiff(path, filename) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Conversion failed.\n");
+      (void)fprintf(stderr, _("ERROR   : Conversion failed.\n"));
       exit(INCORRECT);
    }
 

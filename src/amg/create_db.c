@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,36 +76,48 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>              /* msync(), munmap()                  */
+# include <sys/mman.h>             /* msync(), munmap()                  */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>                /* fork(), rmdir(), fstat()           */
 #include <errno.h>
 #include "amgdefs.h"
 
 /* External global variables. */
-extern int                        no_fork_jobs,
+extern int                        fsa_fd,
+                                  no_fork_jobs,
                                   no_of_hosts,
                                   no_of_local_dirs,
                                   no_of_time_jobs,
                                   *time_job_list;
 extern unsigned int               default_age_limit;
+#ifdef _DISTRIBUTION_LOG
+extern unsigned int               max_jobs_per_file;
+#endif
 extern off_t                      amg_data_size;
 extern char                       *afd_file_dir,
                                   *p_mmap,
                                   *p_work_dir;
+#ifdef _WITH_PTHREAD
+extern struct data_t              *p_data;
+#else
+extern unsigned int               max_file_buffer;
+#endif
 extern struct fork_job_data       *fjd;
 extern struct directory_entry     *de;
 extern struct instant_db          *db;
 extern struct afd_status          *p_afd_status;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
+#ifdef _DISTRIBUTION_LOG
+extern struct file_dist_list      **file_dist_pool;
+#endif
 
 /* Global variables. */
 int                               dnb_fd,
-                                  fmd_fd = -1, /* File Mask Database fd  */
+                                  fmd_fd = -1, /* File Mask Database fd. */
                                   jd_fd,
                                   *no_of_passwd,
                                   pwb_fd,
@@ -139,31 +151,30 @@ create_db(void)
                    exec_flag_dir,
                    i,
                    j,
-#ifdef _TEST_FILE_TABLE
+#if defined (_TEST_FILE_TABLE) || defined (_DISTRIBUTION_LOG)
                    k,
 #endif
                    not_in_same_file_system = 0,
                    one_job_only_dir = 0,
-#ifdef WITH_MULTI_DIR_DEFINITION
-                   original_i = -1,
-#endif
                    show_one_job_no_link,
                    size,
                    dir_counter = 0,
                    no_of_jobs;
-   unsigned int    jid_number;
+   unsigned int    jid_number,
+                   scheme;
 #ifdef WITH_ERROR_QUEUE
    unsigned int    *cml;
 #endif
-   dev_t           ldv;               /* local device number (filesystem) */
+#ifdef _DISTRIBUTION_LOG
+   unsigned int    max_jobs_per_dir;
+#endif
+   dev_t           ldv;               /* Local device number (filesystem). */
    char            amg_data_file[MAX_PATH_LENGTH],
                    *ptr,
-                   *p_sheme,
                    *tmp_ptr,
                    *p_offset,
                    *p_loptions,
-                   *p_file,
-                   real_hostname[MAX_REAL_HOSTNAME_LENGTH];
+                   *p_file;
    struct p_array  *p_ptr;
    struct stat     stat_buf;
 
@@ -327,7 +338,7 @@ create_db(void)
    }
    ptr = p_mmap;
 
-   /* First get the no of jobs */
+   /* First get the no of jobs. */
    no_of_jobs = *(int *)ptr;
    ptr += sizeof(int);
 
@@ -390,6 +401,10 @@ create_db(void)
       free(time_job_list);
       time_job_list = NULL;
    }
+#ifdef _DISTRIBUTION_LOG
+   max_jobs_per_file = 0;
+   max_jobs_per_dir = 0;
+#endif
 
    /* Create and copy pointer array. */
    size = no_of_jobs * sizeof(struct p_array);
@@ -448,6 +463,9 @@ create_db(void)
                  "Failed to stat() `%s' : %s", de[0].dir, strerror(errno));
       stat_buf.st_dev = ldv + 1;
    }
+#ifdef MULTI_FS_SUPPORT
+   de[0].dev = stat_buf.st_dev;
+#endif
    if (stat_buf.st_dev != ldv)
    {
       not_in_same_file_system++;
@@ -466,16 +484,8 @@ create_db(void)
    exec_flag_dir = 0;
    for (i = 0; i < no_of_jobs; i++)
    {
-#ifdef WITH_MULTI_DIR_DEFINITION
-      if (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == 1)
-      {
-         continue;
-      }
-      else if ((original_i != -1) &&
-               (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == '\0'))
-           {
-              *(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) = 1;
-           }
+#ifdef _DISTRIBUTION_LOG
+      max_jobs_per_dir += 1;
 #endif
       exec_flag = 0;
 
@@ -499,13 +509,7 @@ create_db(void)
        * is necessary so we can specify overlapping wild cards in
        * different file sections for one directory section.
        */
-#ifdef WITH_MULTI_DIR_DEFINITION
-      if ((i > 0) &&
-          (((original_i == -1) && (db[i].dir != db[i - 1].dir)) ||
-           ((original_i != -1) && (strcmp(db[i].dir, db[original_i].dir) != 0))))
-#else
       if ((i > 0) && (db[i].dir != db[i - 1].dir))
-#endif
       {
          if ((de[dir_counter].flag & DELETE_ALL_FILES) ||
              ((de[dir_counter].flag & IN_SAME_FILESYSTEM) &&
@@ -523,6 +527,13 @@ create_db(void)
                fra[de[dir_counter].fra_pos].dir_flag ^= LINK_NO_EXEC;
             }
          }
+#ifdef _DISTRIBUTION_LOG
+         if (max_jobs_per_dir > max_jobs_per_file)
+         {
+            max_jobs_per_file = max_jobs_per_dir;
+         }
+         max_jobs_per_dir = 0;
+#endif
          exec_flag_dir = 0;
          dir_counter++;
          if (dir_counter >= no_of_local_dirs)
@@ -570,10 +581,13 @@ create_db(void)
          if (stat(db[i].dir, &stat_buf) < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() `%s' : %s",
-                       db[i].dir, strerror(errno));
+                       "Failed to stat() `%s' (i=%d) : %s",
+                       db[i].dir, i, strerror(errno));
             stat_buf.st_dev = ldv + 1;
          }
+#ifdef MULTI_FS_SUPPORT
+         de[dir_counter].dev = stat_buf.st_dev;
+#endif
          if (stat_buf.st_dev != ldv)
          {
             not_in_same_file_system++;
@@ -610,7 +624,7 @@ create_db(void)
             char   *ptr_start;
             size_t new_size;
 
-            /* Calculate new size of file group buffer */
+            /* Calculate new size of file group buffer. */
              new_size = ((de[dir_counter].nfg / FG_BUFFER_STEP_SIZE) + 1) *
                         FG_BUFFER_STEP_SIZE * sizeof(struct file_mask_entry);
 
@@ -628,7 +642,7 @@ create_db(void)
                exit(INCORRECT);
             }
 
-            /* Initialise new memory area */
+            /* Initialise new memory area. */
             if (de[dir_counter].nfg > (FG_BUFFER_STEP_SIZE - 1))
             {
                ptr_start = (char *)(de[dir_counter].fme) +
@@ -768,7 +782,7 @@ create_db(void)
                break;
             }
             if ((db[i].loptions_flag & EXEC_ID_FLAG) &&
-                (strncmp(p_loptions, EXEC_ID, EXEC_ID_LENGTH) == 0))
+                (CHECK_STRNCMP(p_loptions, EXEC_ID, EXEC_ID_LENGTH) == 0))
             {
                db[i].lfs |= GO_PARALLEL;
                db[i].lfs |= DO_NOT_LINK_FILES;
@@ -776,8 +790,8 @@ create_db(void)
                exec_flag_dir = 1;
             }
             else if ((db[i].loptions_flag & TIME_NO_COLLECT_ID_FLAG) &&
-                     (strncmp(p_loptions, TIME_NO_COLLECT_ID,
-                              TIME_NO_COLLECT_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(p_loptions, TIME_NO_COLLECT_ID,
+                                    TIME_NO_COLLECT_ID_LENGTH) == 0))
                  {
                     char                 *ptr = p_loptions + TIME_NO_COLLECT_ID_LENGTH;
                     struct bd_time_entry te;
@@ -812,7 +826,7 @@ create_db(void)
                     }
                  }
             else if ((db[i].loptions_flag & TIME_ID_FLAG) &&
-                     (strncmp(p_loptions, TIME_ID, TIME_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(p_loptions, TIME_ID, TIME_ID_LENGTH) == 0))
                  {
                     char                 *ptr = p_loptions + TIME_ID_LENGTH;
                     struct bd_time_entry te;
@@ -850,24 +864,28 @@ create_db(void)
                     }
                  }
             else if ((db[i].loptions_flag & GTS2TIFF_ID_FLAG) &&
-                     (strncmp(p_loptions, GTS2TIFF_ID, GTS2TIFF_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(p_loptions, GTS2TIFF_ID,
+                                    GTS2TIFF_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= GO_PARALLEL;
                  }
             else if ((db[i].loptions_flag & GRIB2WMO_ID_FLAG) &&
-                     (strncmp(p_loptions, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(p_loptions, GRIB2WMO_ID,
+                                    GRIB2WMO_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= GO_PARALLEL;
                  }
 #ifdef _WITH_AFW2WMO
             else if ((db[i].loptions_flag & AFW2WMO_ID_FLAG) &&
-                     (strncmp(p_loptions, AFW2WMO_ID, AFW2WMO_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(p_loptions, AFW2WMO_ID,
+                                    AFW2WMO_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= DO_NOT_LINK_FILES;
                  }
 #endif
             else if ((db[i].loptions_flag & EXTRACT_ID_FLAG) &&
-                     (strncmp(p_loptions, EXTRACT_ID, EXTRACT_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(p_loptions, EXTRACT_ID,
+                                    EXTRACT_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= GO_PARALLEL;
                     db[i].lfs |= SPLIT_FILE_LIST;
@@ -905,7 +923,8 @@ create_db(void)
          char *sptr;
 
          db[i].soptions = p_ptr[i].ptr[STD_OPTIONS_PTR_POS] + p_offset;
-         if ((sptr = posi(db[i].soptions, AGE_LIMIT_ID)) != NULL)
+         if ((sptr = lposi(db[i].soptions, AGE_LIMIT_ID,
+                           AGE_LIMIT_ID_LENGTH)) != NULL)
          {
             int  count = 0;
             char str_number[MAX_INT_LENGTH];
@@ -942,28 +961,12 @@ create_db(void)
          db[i].soptions = NULL;
       }
 
-      /* Store pointer to recipient. */
+      /* Store recipient part. */
       db[i].recipient = p_ptr[i].ptr[RECIPIENT_PTR_POS] + p_offset;
-
-      /* Extract hostname and position in FSA for each recipient. */
-      if (get_hostname(db[i].recipient, real_hostname) == INCORRECT)
-      {
-         /*
-          * If this should happen then something is really wrong.
-          */
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not extract hostname.");
-         p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-         if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-         {
-            p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-         }
-         free(db); free(de);
-         free(tmp_ptr);
-         unmap_data(jd_fd, (void *)&jd);
-         exit(INCORRECT);
-      }
-      t_hostname(real_hostname, db[i].host_alias);
+      db[i].recipient_id = get_str_checksum(db[i].recipient);
+      scheme = (unsigned int)strtoul((p_ptr[i].ptr[SCHEME_PTR_POS] + p_offset),
+                                     NULL, 10);
+      db[i].host_alias = p_ptr[i].ptr[HOST_ALIAS_PTR_POS] + p_offset;
 
       if ((db[i].position = get_host_position(fsa, db[i].host_alias,
                                               no_of_hosts)) < 0)
@@ -971,6 +974,11 @@ create_db(void)
          /* This should be impossible !(?) */
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Could not locate host `%s' in FSA.", db[i].host_alias);
+         db[i].host_id = get_str_checksum(db[i].host_alias);
+      }
+      else
+      {
+         db[i].host_id = fsa[db[i].position].host_id;
       }
 
       /*
@@ -981,8 +989,7 @@ create_db(void)
       db[i].dup_paused_dir = NO;
       for (j = 0; j < i; j++)
       {
-         if ((db[j].dir == db[i].dir) &&
-             (CHECK_STRCMP(db[j].host_alias, db[i].host_alias) == 0))
+         if ((db[j].dir == db[i].dir) && (db[j].host_id == db[i].host_id))
          {
             db[i].dup_paused_dir = YES;
             break;
@@ -993,142 +1000,60 @@ create_db(void)
       (void)strcat(db[i].paused_dir, db[i].host_alias);
 
       /* Now lets determine what kind of protocol we have here. */
-      p_sheme = db[i].recipient;
-      while ((*p_sheme != ':') && (*p_sheme != '\0'))
-      {
-         p_sheme++;
-      }
-      if (*p_sheme != ':')
-      {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Impossible, could not determine the sheme!");
-         p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-         if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-         {
-            p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-         }
-         free(db); free(de);
-         free(tmp_ptr);
-         unmap_data(jd_fd, (void *)&jd);
-         exit(INCORRECT);
-      }
-      *p_sheme = '\0';
-      if ((db[i].recipient[0] == 'f') && (db[i].recipient[1] == 't') &&
-#ifdef WITH_SSL
-          (db[i].recipient[2] == 'p') && ((db[i].recipient[3] == '\0') ||
-          (((db[i].recipient[3] == 's') || (db[i].recipient[3] == 'S')) &&
-          (db[i].recipient[4] == '\0'))))
-#else
-          (db[i].recipient[2] == 'p') && (db[i].recipient[3] == '\0'))
-#endif
+      if (scheme & FTP_FLAG)
       {
          db[i].protocol = FTP;
       }
-      else
-      {
-         if (CHECK_STRCMP(db[i].recipient, LOC_SHEME) != 0)
-         {
+      else if (scheme & LOC_FLAG)
+           {
+              db[i].protocol = LOC;
+           }
+      else if (scheme & SMTP_FLAG)
+           {
+              db[i].protocol = SMTP;
+           }
+      else if (scheme & SFTP_FLAG)
+           {
+              db[i].protocol = SFTP;
+           }
+      else if (scheme & HTTP_FLAG)
+           {
+              db[i].protocol = HTTP;
+           }
 #ifdef _WITH_SCP_SUPPORT
-            if (CHECK_STRCMP(db[i].recipient, SCP_SHEME) != 0)
-            {
-#endif /* _WITH_SCP_SUPPORT */
-#ifdef _WITH_WMO_SUPPORT
-               if (CHECK_STRCMP(db[i].recipient, WMO_SHEME) != 0)
-               {
-#endif
-#ifdef _WITH_MAP_SUPPORT
-                  if (CHECK_STRCMP(db[i].recipient, MAP_SHEME) != 0)
-                  {
-#endif
-                     if ((db[i].recipient[0] == 's') &&
-                         (db[i].recipient[1] == 'f') &&
-                         (db[i].recipient[2] == 't') &&
-                         (db[i].recipient[3] == 'p') &&
-                         (db[i].recipient[4] == '\0'))
-                     {
-                        db[i].protocol = SFTP;
-                     }
-                     else
-                     {
-                        if ((db[i].recipient[0] == 'h') &&
-                            (db[i].recipient[1] == 't') &&
-                            (db[i].recipient[2] == 't') &&
-                            (db[i].recipient[3] == 'p') &&
-#ifdef WITH_SSL
-                            ((db[i].recipient[4] == '\0') ||
-                             ((db[i].recipient[4] == 's') &&
-                              (db[i].recipient[5] == '\0'))))
-#else
-                            (db[i].recipient[4] == '\0'))
-#endif
-                        {
-                           db[i].protocol = HTTP;
-                        }
-                        else
-                        {
-                           if ((db[i].recipient[0] == 'm') &&
-                               (db[i].recipient[1] == 'a') &&
-                               (db[i].recipient[2] == 'i') &&
-                               (db[i].recipient[3] == 'l') &&
-                               (db[i].recipient[4] == 't') &&
-                               (db[i].recipient[5] == 'o') &&
-#ifdef WITH_SSL
-                               ((db[i].recipient[6] == '\0') ||
-                                ((db[i].recipient[6] == 's') &&
-                                 (db[i].recipient[7] == '\0'))))
-#else
-                               (db[i].recipient[6] == '\0'))
-#endif
-                           {
-                              db[i].protocol = SMTP;
-                           }
-                           else
-                           {
-                              system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                         "Unknown sheme <%s>.",
-                                         db[i].recipient);
-                              p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-                              if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-                              {
-                                 p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-                              }
-                              free(db); free(de);
-                              free(tmp_ptr);
-                              unmap_data(jd_fd, (void *)&jd);
-                              exit(INCORRECT);
-                           }
-                        }
-                     }
-#ifdef _WITH_MAP_SUPPORT
-                  }
-                  else
-                  {
-                     db[i].protocol = MAP;
-                  }
+      else if (scheme & SCP_FLAG)
+           {
+              db[i].protocol = SCP;
+           }
 #endif
 #ifdef _WITH_WMO_SUPPORT
-               }
-               else
-               {
-                  db[i].protocol = WMO;
-               }
+      else if (scheme & WMO_FLAG)
+           {
+              db[i].protocol = WMO;
+           }
 #endif
-#ifdef _WITH_SCP_SUPPORT
-            }
-            else
-            {
-               db[i].protocol = SCP;
-            }
-#endif /* _WITH_SCP_SUPPORT */
-         }
-         else
-         {
-            db[i].protocol = LOC;
-         }
-      }
-      *p_sheme = ':';
+#ifdef _WITH_MAP_SUPPORT
+      else if (scheme & MAP_FLAG)
+           {
+              db[i].protocol = MAP;
+           }
+#endif
+           else
+           {
+              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                         "Unknown sheme in url: `%s'.",
+                         db[i].recipient);
+              p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+              if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+              {
+                 p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+              }
+              free(db); free(de);
+              free(tmp_ptr);
+              unmap_data(jd_fd, (void *)&jd);
+              exit(INCORRECT);
+           }
 
-      store_passwd(db[i].recipient, YES);
       lookup_job_id(&db[i], &jid_number);
       if (db[i].time_option_type == SEND_COLLECT_TIME)
       {
@@ -1156,46 +1081,7 @@ create_db(void)
          fjd[no_fork_jobs].system_time = 0;
          no_fork_jobs++;
       }
-#ifdef WITH_MULTI_DIR_DEFINITION
-      if ((*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) != '\0') &&
-          (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) != 1))
-      {
-         int tmp_original_i = original_i;
-
-         original_i = i;
-         i = atoi(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) - 1;
-         if (tmp_original_i != -1)
-         {
-            *(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) = 1;
-         }
-      }
-      else
-      {
-         if ((original_i != -1) &&
-             (((i + 1) >= no_of_jobs) ||
-              (db[original_i].dir != db[i + 1].dir)))
-         {
-            i = original_i;
-            original_i = -1;
-         }
-      }
-#endif
    } /* for (i = 0; i < no_of_jobs; i++)  */
-
-#ifdef WITH_MULTI_DIR_DEFINITION
-   /*
-    * NOTE: We need to reset our jump back marks (1), otherwise when
-    *       this function is called again (changing alias order with edit_hc)
-    *       will fall over those jump marks!
-    */
-   for (i = 0; i < no_of_jobs; i++)
-   {
-      if (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == 1)
-      {
-         *(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) = '\0';
-      }
-   }
-#endif
 
    if ((de[dir_counter].flag & DELETE_ALL_FILES) ||
        ((de[dir_counter].flag & IN_SAME_FILESYSTEM) && (exec_flag_dir == 0)))
@@ -1230,6 +1116,24 @@ create_db(void)
    /* Check for duplicate job entries. */
    for (i = 0; i < no_of_jobs; i++)
    {
+#ifdef IGNORE_DUPLICATE_JOB_IDS
+      for (j = (i + 1); j < no_of_jobs; j++)
+      {
+         if ((db[i].job_id != 0) && (db[i].job_id == db[j].job_id))
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Duplicate job entries for job %x with directory %s and recipient %s! Will ignore the duplicate entry.",
+                       db[i].job_id, db[i].dir, db[i].recipient);
+            db[j].job_id = 0;
+         }
+      }
+# ifdef WITH_ERROR_QUEUE
+      if (db[i].job_id != 0)
+      {
+         cml[i] = db[i].job_id;
+      }
+# endif
+#else
       for (j = (i + 1); j < no_of_jobs; j++)
       {
          if (db[i].job_id == db[j].job_id)
@@ -1237,13 +1141,57 @@ create_db(void)
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Duplicate job entries for job %x with directory %s and recipient %s!",
                        db[i].job_id, db[i].dir, db[i].recipient);
-            break;
          }
       }
-#ifdef WITH_ERROR_QUEUE
+# ifdef WITH_ERROR_QUEUE
       cml[i] = db[i].job_id;
+# endif
 #endif
    }
+
+#ifdef _DISTRIBUTION_LOG
+   if (max_jobs_per_file == 0)
+   {
+      max_jobs_per_file = 1;
+   }
+   j = max_jobs_per_file * sizeof(unsigned int);
+# ifdef _WITH_PTHREAD
+   for (m = 0; m < no_of_local_dirs; m++)
+   {
+      for (i = 0; i < fra[m].max_copied_files; i++)
+      {
+         for (k = 0; k < NO_OF_DISTRIBUTION_TYPES; k++)
+         {
+            if (((p_data[m].file_dist_pool[i][k].jid_list = malloc(j)) == NULL) ||
+                ((p_data[m].file_dist_pool[i][k].proc_cycles = malloc(max_jobs_per_file)) == NULL))
+            {
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "malloc() error : %s",
+                          strerror(errno));
+               exit(INCORRECT);
+            }
+            p_data[m].file_dist_pool[i][k].no_of_dist = 0;
+         }
+      }
+   }
+# else
+   for (i = 0; i < max_file_buffer; i++)
+   {
+      for (k = 0; k < NO_OF_DISTRIBUTION_TYPES; k++)
+      {
+         if (((file_dist_pool[i][k].jid_list = malloc(j)) == NULL) ||
+             ((file_dist_pool[i][k].proc_cycles = malloc(max_jobs_per_file)) == NULL))
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "malloc() error : %s",
+                       strerror(errno));
+            exit(INCORRECT);
+         }
+         file_dist_pool[i][k].no_of_dist = 0;
+      }
+   }
+# endif
+#endif
 
    /* Write job list file. */
    write_current_job_list(no_of_jobs);
@@ -1253,7 +1201,7 @@ create_db(void)
 
 #ifdef WITH_ERROR_QUEUE
    /* Validate error queue. */
-   validate_error_queue(no_of_jobs, cml, no_of_hosts, fsa);
+   validate_error_queue(no_of_jobs, cml, no_of_hosts, fsa, fsa_fd);
 
    free(cml);
 #endif

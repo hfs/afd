@@ -1,6 +1,6 @@
 /*
  *  msa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,10 +26,11 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int msa_attach(void)
+ **   int msa_attach_passive(void)
  **
  ** DESCRIPTION
  **   Attaches to the memory mapped area of the MSA (Monitor Status
- **   Area). The first 8 Bytes of this area contains the number of
+ **   Area). The first 8 bytes of this area contains the number of
  **   AFD's that are being monitored. The rest consist of the
  **   structure mon_status_area for each AFD. When the function
  **   returns successful it returns the pointer 'msa' to the begining
@@ -47,6 +48,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   30.08.1998 H.Kiehl Created
+ **   12.03.2009 H.Kiehl Added function msa_attach_passive().
  **
  */
 DESCR__E_M3
@@ -57,10 +59,10 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* mmap(), munmap()             */
+# include <sys/mman.h>                   /* mmap(), munmap()             */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                       /* fcntl()                      */
+# include <fcntl.h>                      /* fcntl()                      */
 #endif
 #include <errno.h>
 #include "mondefs.h"
@@ -82,7 +84,8 @@ msa_attach(void)
 {
    int          fd,
                 loop_counter,
-                retries = 0;
+                retries = 0,
+                timeout_loops = 0;
    char         *ptr = NULL,
                 *p_msa_stat_file,
                 msa_id_file[MAX_PATH_LENGTH],
@@ -103,44 +106,34 @@ msa_attach(void)
    {
       /* Make sure this is not the case when the */
       /* no_of_afds is stale.                    */
-      if (no_of_afds < 0)
+      if ((no_of_afds < 0) && (msa != NULL))
       {
-         /* Unmap from MSA */
+         /* Unmap from MSA. */
+         ptr = (char *)msa - AFD_WORD_OFFSET;
 #ifdef HAVE_MMAP
-         (void)sprintf(p_msa_stat_file, ".%d", msa_id);
-         if (stat(msa_stat_file, &stat_buf) == -1)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() <%s> : %s",
-                       msa_stat_file, strerror(errno));
-         }
-         else
-         {
-            if (munmap((void *)msa, stat_buf.st_size) == -1)
-            {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to munmap() <%s> : %s",
-                          msa_stat_file, strerror(errno));
-            }
-            else
-            {
-               msa = NULL;
-            }
-         }
+         if (munmap((void *)ptr, msa_size) == -1)
 #else
-         if (munmap_emu((void *)msa) == -1)
+         if (munmap_emu((void *)ptr) == -1)
+#endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() <%s> : %s",
+                       _("Failed to munmap() `%s' : %s"),
                        msa_stat_file, strerror(errno));
          }
          else
          {
             msa = NULL;
          }
-#endif
 
-         /* No need to speed things up here */
+         timeout_loops++;
+         if (timeout_loops > 100)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Unable to attach to a new MSA."));
+            return(INCORRECT);
+         }
+
+         /* No need to speed things up here. */
          my_usleep(800000L);
       }
 
@@ -157,7 +150,7 @@ msa_attach(void)
             if (loop_counter++ > 12)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() <%s> : %s",
+                          _("Failed to coe_open() `%s' : %s"),
                           msa_id_file, strerror(errno));
                return(INCORRECT);
             }
@@ -165,7 +158,7 @@ msa_attach(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() <%s> : %s",
+                       _("Failed to coe_open() `%s' : %s"),
                        msa_id_file, strerror(errno));
             return(INCORRECT);
          }
@@ -175,7 +168,7 @@ msa_attach(void)
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not set write lock for <%s> : %s",
+                    _("Could not set write lock for `%s' : %s"),
                     msa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
@@ -185,7 +178,7 @@ msa_attach(void)
       if (read(fd, &msa_id, sizeof(int)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not read the value of the msa_id : %s",
+                    _("Could not read the value of the msa_id : %s"),
                     strerror(errno));
          (void)close(fd);
          return(INCORRECT);
@@ -195,14 +188,15 @@ msa_attach(void)
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not unlock %s : %s", msa_id_file, strerror(errno));
+                    _("Could not unlock `%s' : %s"),
+                    msa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
       if (close(fd) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Could not close() <%s> : %s",
+                    _("Could not close() `%s' : %s"),
                     msa_id_file, strerror(errno));
       }
 
@@ -213,7 +207,7 @@ msa_attach(void)
          if (close(msa_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
       }
 
@@ -224,14 +218,14 @@ msa_attach(void)
             if (retries++ > 8)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() <%s> : %s",
+                          _("Failed to open() `%s' : %s"),
                           msa_stat_file, strerror(errno));
                return(INCORRECT);
             }
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to open() <%s> : %s",
+                          _("Failed to open() `%s' : %s"),
                           msa_stat_file, strerror(errno));
                (void)sleep(1);
                continue;
@@ -240,7 +234,7 @@ msa_attach(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() <%s> : %s",
+                       _("Failed to open() `%s' : %s"),
                        msa_stat_file, strerror(errno));
             return(INCORRECT);
          }
@@ -249,8 +243,10 @@ msa_attach(void)
       if (fstat(msa_fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to stat() %s : %s",
+                    _("Failed to stat() `%s' : %s"),
                     msa_stat_file, strerror(errno));
+         (void)close(msa_fd);
+         msa_fd = -1;
          return(INCORRECT);
       }
 
@@ -263,19 +259,238 @@ msa_attach(void)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "mmap() error : %s", strerror(errno));
+                    _("mmap() error : %s"), strerror(errno));
+         (void)close(msa_fd);
+         msa_fd = -1;
          return(INCORRECT);
       }
 
       /* Read number of AFD's. */
       no_of_afds = *(int *)ptr;
+
+      /* Check MSA version number. */
+      if ((no_of_afds > 0) &&
+          (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_MSA_VERSION))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    _("This code is compiled for of MSA version %d, but the MSA we try to attach is %d."),
+                    CURRENT_MSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
+#ifdef HAVE_MMAP
+         if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+         if (munmap_emu(ptr) == -1)
+#endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Failed to munmap() MSA : %s"), strerror(errno));
+         }
+         (void)close(msa_fd);
+         msa_fd = -1;
+         return(INCORRECT_VERSION);
+      }
+
+      ptr += AFD_WORD_OFFSET;
+      msa = (struct mon_status_area *)ptr;
+#ifdef HAVE_MMAP
+      msa_size = stat_buf.st_size;
+#endif
    } while (no_of_afds <= 0);
 
-   ptr += AFD_WORD_OFFSET;
-   msa = (struct mon_status_area *)ptr;
+   return(SUCCESS);
+}
+
+
+/*######################## msa_attach_passive() #########################*/
+int
+msa_attach_passive(void)
+{
+   int          fd,
+                retries = 0,
+                timeout_loops = 0;
+   char         *ptr = NULL,
+                *p_msa_stat_file,
+                msa_id_file[MAX_PATH_LENGTH],
+                msa_stat_file[MAX_PATH_LENGTH];
+   struct flock rlock = {F_RDLCK, SEEK_SET, 0, 1};
+   struct stat  stat_buf;
+
+   /* Get absolute path of MSA_ID_FILE. */
+   (void)strcpy(msa_id_file, p_work_dir);
+   (void)strcat(msa_id_file, FIFO_DIR);
+   (void)strcpy(msa_stat_file, msa_id_file);
+   (void)strcat(msa_stat_file, MON_STATUS_FILE);
+   p_msa_stat_file = msa_stat_file + strlen(msa_stat_file);
+   (void)strcat(msa_id_file, MSA_ID_FILE);
+
+   do
+   {
+      /* Make sure this is not the case when the */
+      /* no_of_afds is stale.                   */
+      if ((no_of_afds < 0) && (msa != NULL))
+      {
+         /* Unmap from MSA. */
+         ptr = (char *)msa - AFD_WORD_OFFSET;
 #ifdef HAVE_MMAP
-   msa_size = stat_buf.st_size;
+         if (munmap(ptr, msa_size) == -1)
+#else
+         if (munmap_emu((void *)ptr) == -1)
 #endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Failed to munmap() `%s' : %s"),
+                       msa_stat_file, strerror(errno));
+         }
+         else
+         {
+            msa = NULL;
+         }
+
+         timeout_loops++;
+         if (timeout_loops > 100)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Unable to attach to a new MSA."));
+            return(INCORRECT);
+         }
+
+         /* No need to speed things up here. */
+         my_usleep(800000L);
+      }
+
+      /* Read the MSA ID. */
+      if ((fd = coe_open(msa_id_file, O_RDONLY)) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to open() `%s' : %s"),
+                    msa_id_file, strerror(errno));
+         return(INCORRECT);
+      }
+
+      if (fcntl(fd, F_SETLKW, &rlock) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Could not get read lock for `%s' : %s"),
+                    msa_id_file, strerror(errno));
+         (void)close(fd);
+         return(INCORRECT);
+      }
+      if (read(fd, &msa_id, sizeof(int)) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Could not read the value of the msa_id : %s"),
+                    strerror(errno));
+         (void)close(fd);
+         return(INCORRECT);
+      }
+      if (close(fd) == -1)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    _("Could not close() `%s' : %s"),
+                    msa_id_file, strerror(errno));
+      }
+      (void)sprintf(p_msa_stat_file, ".%d", msa_id);
+
+      if (msa_fd > 0)
+      {
+         if (close(msa_fd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       _("close() error : %s"), strerror(errno));
+         }
+      }
+
+      if ((msa_fd = coe_open(msa_stat_file, O_RDONLY)) == -1)
+      {
+         if (errno == ENOENT)
+         {
+            if (retries++ > 8)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          _("Failed to open() `%s' : %s"),
+                          msa_stat_file, strerror(errno));
+               return(INCORRECT);
+            }
+            else
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("Failed to open() `%s' : %s"),
+                          msa_stat_file, strerror(errno));
+               (void)sleep(1);
+               continue;
+            }
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Failed to open() `%s' : %s"),
+                       msa_stat_file, strerror(errno));
+            return(INCORRECT);
+         }
+      }
+
+      if (fstat(msa_fd, &stat_buf) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to stat() `%s' : %s"),
+                    msa_stat_file, strerror(errno));
+         (void)close(msa_fd);
+         msa_fd = -1;
+         return(INCORRECT);
+      }
+      if (stat_buf.st_size < AFD_WORD_OFFSET)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("MSA not large enough to contain any meaningful data."));
+         (void)close(msa_fd);
+         msa_fd = -1;
+         return(INCORRECT);
+      }
+
+#ifdef HAVE_MMAP
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                      MAP_SHARED, msa_fd, 0)) == (caddr_t) -1)
+#else
+      if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
+                          MAP_SHARED, msa_stat_file, 0)) == (caddr_t) -1)
+#endif
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("mmap() error : %s"), strerror(errno));
+         (void)close(msa_fd);
+         msa_fd = -1;
+         return(INCORRECT);
+      }
+
+      /* Read number of current MSA. */
+      no_of_afds = *(int *)ptr;
+
+      /* Check MSA version number. */
+      if ((no_of_afds > 0) &&
+          (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_MSA_VERSION))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "This code is compiled for of MSA version %d, but the MSA we try to attach is %d.",
+                 CURRENT_MSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
+#ifdef HAVE_MMAP
+         if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+         if (munmap_emu(ptr) == -1)
+#endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Failed to munmap() MSA : %s"), strerror(errno));
+         }
+         (void)close(msa_fd);
+         msa_fd = -1;
+         return(INCORRECT_VERSION);
+      }
+
+      ptr += AFD_WORD_OFFSET;
+      msa = (struct mon_status_area *)ptr;
+#ifdef HAVE_MMAP
+      msa_size = stat_buf.st_size;
+#endif
+   } while (no_of_afds <= 0);
 
    return(SUCCESS);
 }

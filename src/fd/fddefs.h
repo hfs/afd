@@ -1,6 +1,6 @@
 /*
  *  fddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,24 +37,13 @@
 
 #define MAIL_HEADER_IDENTIFIER   "MAIL-"
 
-#ifdef WITH_SSH_FINGERPRINT
-# define SSH_RSA_KEY             1
-# define SSH_DSS_KEY             2
-# define SSH_PGP_DSS_KEY         3
-# define SSH_PGP_RSA_KEY         4
-#endif
-
 /* Miscellaneous definitions. */
 #define FAILED_TO_CREATE_ARCHIVE_DIR 1 /* If archive_file() fails to     */
                                        /* create the archive directory   */
                                        /* this is set.                   */
 #ifndef MAX_RET_MSG_LENGTH
-# define MAX_RET_MSG_LENGTH      1024
+# define MAX_RET_MSG_LENGTH      4096
 #endif
-#define MAX_FD_DIR_CHECK         152   /* FD should only check the file  */
-                                       /* directory if it is less then   */
-                                       /* this value. Don't forget to    */
-                                       /* add 2 for "." and "..".        */
 #define ABORT_TIMEOUT            10    /* This is the time in seconds,   */
                                        /* that the transferring jobs     */
                                        /* have before they get killed.   */
@@ -65,16 +54,9 @@
                                        /* FD.                            */
 #define CD_TIMEOUT               600   /* Timeout remote change          */
                                        /* directory (10min).             */
-#define DIR_CHECK_TIME           1500  /* Time (every 25min) when to     */
-                                       /* check in file directory for    */
-                                       /* jobs without the corresponding */
-                                       /* message.                       */
 #define RETRY_THRESHOLD          4     /* Threshold when to increase     */
                                        /* aging factor for error jobs in */
                                        /* queue.                         */
-#ifdef WITH_SSH_FINGERPRINT
-# define MAX_FINGERPRINT_LENGTH  47
-#endif
 
 /* Definitions of different exit status. */
 #define NO_MESSAGE               -2    /* When there are no more jobs to */
@@ -163,6 +145,8 @@
 #define SELECT_ERROR_STR         "select error"
 #define WRITE_LOCAL_ERROR        36
 #define WRITE_LOCAL_ERROR_STR    "Failed to write to local file"
+#define STAT_TARGET_ERROR        37     /* Used by sf_loc().             */
+#define STAT_TARGET_ERROR_STR    "Failed to access target dir"
 #define OPEN_FILE_DIR_ERROR      40     /* File directory does not exist */
 #define OPEN_FILE_DIR_ERROR_STR  "Local file directory does not exist"
 #define NO_MESSAGE_FILE          41     /* The message file does not     */
@@ -186,7 +170,7 @@
 #define NO_FILES_TO_SEND_STR     "No files to send"
 #define STILL_FILES_TO_SEND      62
 #define STILL_FILES_TO_SEND_STR  "More files to send"
-/* NOTE: MAX_ERROR_STR_LENGTH    34 is defined in afddefs.h! */
+/* NOTE: MAX_ERROR_STR_LENGTH    35 is defined in afddefs.h! */
 
 #ifdef _WITH_WMO_SUPPORT
 # define NEGATIV_ACKNOWLEDGE     -10
@@ -232,7 +216,6 @@
 /* Default definitions. */
 #define DEFAULT_ERROR_REPEAT     1
 #define DEFAULT_LOCK             DOT
-#define DEFAULT_TRANSFER_MODE    'I'
 #define DEFAULT_NOOP_INTERVAL    30
 
 /* Definition for special_flag in structure job. */
@@ -260,7 +243,7 @@
 #define FILE_NAME_IS_TARGET            512
 #ifdef _WITH_TRANS_EXEC
 # define TRANS_EXEC                    1024
-#endif /* _WITH_TRANS_EXEC */
+#endif
 #define CREATE_TARGET_DIR              2048
 #define OLD_ERROR_JOB                  4096
 #define SMTP_SERVER_NAME_IN_AFD_CONFIG 8192
@@ -268,10 +251,9 @@
 #define LOGIN_EXEC_FTP                 32768
 #define TRANS_RENAME_PRIMARY_ONLY      65536
 #define TRANS_RENAME_SECONDARY_ONLY    131072
-#ifdef WITH_ERROR_QUEUE
-# define IN_ERROR_QUEUE                262144
-#endif
-#define SMTP_SERVER_NAME_IN_MESSAGE    524288
+#define SMTP_SERVER_NAME_IN_MESSAGE    262144
+#define UNIQUE_LOCKING                 524288
+#define DISTRIBUTED_HELPER_JOB         1048576
 
 #ifdef _WITH_BURST_2
 # define MORE_DATA_FIFO                "/more_data_"
@@ -280,53 +262,24 @@
 # define USER_CHANGED                  1
 # define TYPE_CHANGED                  2
 # define TARGET_DIR_CHANGED            4
-# ifdef WITH_SSL
-#  define AUTH_CHANGED                 8
-# endif
+# define AUTH_CHANGED                  8
 #endif /* _WITH_BURST_2 */
 
 #ifdef _NEW_STUFF
 /* Structure for holding all append data. */
 struct append_data
        {
-          char         file_name[MAX_FILENAME_LENGTH];
+          char         file_name[MAX_FILENAME_LENGTH + 1];
           time_t       file_time;
           unsigned int job_id;
        };
 #endif /* _NEW_STUFF */
 
-/* Structure that holds the data for one internal messages of the FD. */
-#define MSG_QUE_BUF_SIZE 10000
-
-#define BURST_REQUEUE    1
-#define RESEND_JOB       2
-struct queue_buf
-       {
-          double        msg_number;
-          pid_t         pid;
-          time_t        creation_time;
-          off_t         file_size_to_send;
-          unsigned int  files_to_send;
-          unsigned int  retries;            /* The number of times it    */
-                                            /* was tried to send this    */
-                                            /* job.                      */
-          int           pos;                /* Position in msg_cache_buf */
-                                            /* for sf_xxx or position in */
-                                            /* FRA for gf_xxx.           */
-          int           connect_pos;
-          unsigned char special_flag;       /*+------+------------------+*/
-                                            /*|Bit(s)|     Meaning      |*/
-                                            /*+------+------------------+*/
-                                            /*  2    | RESEND_JOB       |*/
-                                            /*  1    | BURST_REQUEUE    |*/
-                                            /*+------+------------------+*/
-          char          msg_name[MAX_MSG_NAME_LENGTH];
-       };
-
+/* Structure that holds the message cache of the FD. */
 struct msg_cache_buf
        {
           char         host_name[MAX_HOSTNAME_LENGTH + 1];
-          time_t       msg_time;       /* time of last modification */
+          time_t       msg_time;       /* Time of last modification. */
           time_t       last_transfer_time;
           int          fsa_pos;
           int          port;           /* NOTE: only when the recipient   */
@@ -342,81 +295,80 @@ struct msg_cache_buf
 /* Structure that holds all data for one sf_xxx/gf_xxx job. */
 struct job
        {
-          int            fsa_pos;        /* Position of host in FSA      */
+          int           fsa_pos;         /* Position of host in FSA      */
                                          /* structure.                   */
-          off_t          lock_offset;    /* Position in FSA where to do  */
+          off_t         lock_offset;     /* Position in FSA where to do  */
                                          /* the locking for this job.    */
-          int            fra_pos;        /* Position of host in FRA      */
+          int           fra_pos;         /* Position of host in FRA      */
                                          /* structure.                   */
-          int            archive_time;   /* The time how long the files  */
+          int           archive_time;    /* The time how long the files  */
                                          /* should be held in the        */
                                          /* archive before they are      */
                                          /* deleted.                     */
-          int            port;           /* TCP port.                    */
-          int            sndbuf_size;    /* Socket send buffer size.     */
-          int            rcvbuf_size;    /* Socket receive buffer size.  */
-          unsigned int   unl;            /* Unique name length.          */
-          unsigned int   job_id;         /* Since each host can have     */
+          int           port;            /* TCP port.                    */
+          int           sndbuf_size;     /* Socket send buffer size.     */
+          int           rcvbuf_size;     /* Socket receive buffer size.  */
+          unsigned int  unl;             /* Unique name length.          */
+          unsigned int  job_id;          /* Since each host can have     */
                                          /* different type of jobs (other*/
                                          /* user, different directory,   */
                                          /* other options, etc), each of */
                                          /* these is identified by this  */
                                          /* number.                      */
 #ifdef WITH_DUP_CHECK
-          unsigned int   crc_id;         /* Which CRC ID file to use     */
+          unsigned int  crc_id;          /* Which CRC ID file to use     */
                                          /* when dupcheck is enabled.    */
 #endif
-          pid_t          my_pid;         /* The process id of this       */
+          pid_t         my_pid;          /* The process id of this       */
                                          /* process.                     */
-          unsigned int   age_limit;      /* If date of file is older     */
+          unsigned int  age_limit;       /* If date of file is older     */
                                          /* then age limit, file gets    */
                                          /* removed.                     */
-          unsigned int   retries;        /* The number times we tried to */
+          unsigned int  retries;         /* The number times we tried to */
                                          /* send this job.               */
-#ifdef _OUTPUT_LOG
-          int            archive_offset; /* When writting the archive    */
+          int           archive_offset;  /* When writting the archive    */
                                          /* directory to the output log, */
                                          /* only part of the path is     */
                                          /* used. This is the offset to  */
                                          /* the path we need.            */
-#endif
-          mode_t         chmod;          /* The permissions that the     */
+          mode_t        chmod;           /* The permissions that the     */
                                          /* file should have.            */
-          char           chmod_str[5];   /* String mode value for FTP.   */
-          uid_t          user_id;        /* The user ID that the file    */
+          char          chmod_str[5];    /* String mode value for FTP.   */
+          uid_t         user_id;         /* The user ID that the file    */
                                          /* should have.                 */
-          gid_t          group_id;       /* The group ID that the file   */
+          gid_t         group_id;        /* The group ID that the file   */
                                          /* should have.                 */
-          time_t         creation_time;
-          unsigned int   keep_connected; /* How long the connection      */
+          time_t        creation_time;
+          unsigned int  keep_connected;  /* How long the connection      */
                                          /* should be left open and wait */
                                          /* for new data.                */
-          unsigned int   split_job_counter;
-          unsigned short unique_number;
-          char           dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
-          char           hostname[MAX_REAL_HOSTNAME_LENGTH];
-          char           host_alias[MAX_HOSTNAME_LENGTH + 1];
+          unsigned int  split_job_counter;
+          unsigned int  unique_number;
+          char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char          hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char          host_alias[MAX_HOSTNAME_LENGTH + 1];
+          char          smtp_user[MAX_USER_NAME_LENGTH + 1];
 #if MAX_USER_NAME_LENGTH > MAX_REAL_HOSTNAME_LENGTH
-          char           user[MAX_USER_NAME_LENGTH + 1];
+          char          user[MAX_USER_NAME_LENGTH + 1];
 #else
-          char           user[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char          user[MAX_REAL_HOSTNAME_LENGTH + 1];
 #endif
 #ifdef WITH_SSH_FINGERPRINT
-          char           ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1];
-          char           key_type;
+          char          ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1];
+          char          key_type;
 #endif
-          char           password[MAX_USER_NAME_LENGTH + 1];
-          char           target_dir[MAX_RECIPIENT_LENGTH];
+          char          password[MAX_USER_NAME_LENGTH + 1];
+          char          target_dir[MAX_RECIPIENT_LENGTH + 1];
                                          /* Target directory on the      */
                                          /* remote side.                 */
-          char           msg_name[MAX_MSG_NAME_LENGTH];
-          char           smtp_server[MAX_REAL_HOSTNAME_LENGTH];
+          char          msg_name[MAX_MSG_NAME_LENGTH];
+          char          smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
                                          /* SMTP server name.            */
-          int            no_of_restart_files;
-          int            subject_rule_pos;
-          int            trans_rule_pos;
-          int            user_rule_pos;
-          char           **restart_file;
+          int           no_of_restart_files;
+          int           subject_rule_pos;
+          int           trans_rule_pos;
+          int           user_rule_pos;
+          char          **restart_file;
                                          /* When a transmission fails    */
                                          /* while it was transmitting a  */
                                          /* file, it writes the name of  */
@@ -425,7 +377,7 @@ struct job
                                          /* it we just append the file.  */
                                          /* This is useful for large     */
                                          /* files.                       */
-          char           trans_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
+          char          trans_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
                                          /* FTP : Renaming files on      */
                                          /*       remote site. This is   */
                                          /*       useful when building   */
@@ -433,48 +385,49 @@ struct job
                                          /* SMTP: When attaching files   */
                                          /*       the rename rule will   */
                                          /*       be stored here.        */
-          char           user_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
+          char          user_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
                                          /* Used in conjunction with     */
                                          /* option 'file name is user'.  */
                                          /* The rename rule option       */
                                          /* allows the user to select    */
                                          /* only parts of the file name  */
                                          /* as the user name.            */
-          char           subject_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
+          char          subject_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
                                          /* In option subject it is      */
                                          /* possible to add the filename */
                                          /* or part of it.               */
-          char           lock_notation[LOCK_NOTATION_LENGTH];
+          char          lock_notation[LOCK_NOTATION_LENGTH];
                                          /* Here the user can specify    */
                                          /* the notation of the locking  */
                                          /* on the remote side.          */
-          char           *lock_file_name;/* The file name to use to lock */
+          char          *lock_file_name; /* The file name to use to lock */
                                          /* on the remote host.          */
-          char           archive_dir[MAX_PATH_LENGTH];
-          char           mode_str[24];   /* Can be either: active,       */
+          char          archive_dir[MAX_PATH_LENGTH];
+          char          mode_str[24];    /* Can be either: active,       */
                                          /* passive, extended active,    */
                                          /* extended passive or passive  */
                                          /* (with redirect).             */
-          unsigned int   protocol;       /* Transmission protocol, eg:   */
-                                         /* FTP, SMTP, LOC, WMO, etc.    */
+          unsigned int  protocol;        /* Transmission protocol, eg:   */
+                                         /* FTP_FLAG, SMTP_FLAG,         */
+                                         /* LOC_FLAG, WMO_FLAG, etc.     */
 #ifdef WITH_SSL
-          char           auth;           /* TLS/SSL authentification.    */
+          char          auth;            /* TLS/SSL authentification.    */
                                          /*  NO   - NO authentification. */
                                          /*  YES  - Only control         */
                                          /*         connection.          */
                                          /*  BOTH - Control and data     */
                                          /*         connection.          */
 #endif
-          unsigned char  ssh_protocol;   /* SSH protocol version to use. */
-          char           toggle_host;    /* Take the host that is        */
+          unsigned char ssh_protocol;    /* SSH protocol version to use. */
+          char          toggle_host;     /* Take the host that is        */
                                          /* currently not the active     */
                                          /* host.                        */
-          char           resend;         /* Is this job resend, ie. does */
+          char          resend;          /* Is this job resend, ie. does */
                                          /* it come from show_olog?      */
-          char           transfer_mode;  /* Transfer mode, A (ASCII) or  */
+          char          transfer_mode;   /* Transfer mode, A (ASCII) or  */
                                          /* I (Image, binary).           */
                                          /* (Default I)                  */
-          char           lock;           /* The type of lock on the      */
+          char          lock;            /* The type of lock on the      */
                                          /* remote site. Their are so    */
                                          /* far two possibilities:       */
                                          /*  DOT      - send file name   */
@@ -492,35 +445,38 @@ struct job
                                          /*             file and after   */
                                          /*             transfer delete  */
                                          /*             lock file.       */
-          char           rename_file_busy;/* Character to append to file */
+          char          rename_file_busy;/* Character to append to file  */
                                          /* name when we get file busy   */
                                          /* error when trying to open    */
                                          /* remote file.                 */
-          int            no_listed;      /* No. of elements in a group.  */
-          char           **group_list;   /* List of elements found in    */
+          unsigned char no_of_time_entries;
+          int           remote_file_check_interval;
+          int           no_listed;       /* No. of elements in a group.  */
+          char          **group_list;    /* List of elements found in    */
                                          /* the group file.              */
-          char           *charset;       /* MIME charset.                */
-          char           *subject;       /* Subject for mail.            */
-          char           *reply_to;      /* The address where the        */
+          char          *charset;        /* MIME charset.                */
+          char          *subject;        /* Subject for mail.            */
+          char          *reply_to;       /* The address where the        */
                                          /* recipient sends the reply.   */
-          char           *from;          /* The address who send this    */
+          char          *from;           /* The address who send this    */
                                          /* mail.                        */
 #ifdef _WITH_TRANS_EXEC
-          char           *trans_exec_cmd;/* String holding the exec cmd. */
-          time_t         trans_exec_timeout;/* When exec command should  */
+          char          *trans_exec_cmd; /* String holding the exec cmd. */
+          time_t        trans_exec_timeout;/* When exec command should   */
                                          /* be timed out.                */
-          char           set_trans_exec_lock;/* When exec command should */
+          char          set_trans_exec_lock;/* When exec command should  */
                                          /* be locked, so only one can   */
                                          /* be active for this host.     */
 #endif
-          char           *p_unique_name; /* Pointer to the unique name   */
+          char          *p_unique_name;  /* Pointer to the unique name   */
                                          /* of this job.                 */
-          char           *special_ptr;   /* Used to point to allocated   */
+          char          *special_ptr;    /* Used to point to allocated   */
                                          /* memory, eg for option        */
                                          /* ADD_MAIL_HEADER_ID,          */
                                          /* EUMETSAT_HEADER_ID,          */
                                          /* FTP_EXEC_CMD.                */
-          unsigned int   special_flag;   /* Special flag with the        */
+          struct bd_time_entry *te;
+          unsigned int  special_flag;    /* Special flag with the        */
                                          /* following meaning:           */
                                          /*+---+------------------------+*/
                                          /*|Bit|      Meaning           |*/
@@ -563,17 +519,23 @@ struct job
                                          /*|13 | The SMTP server name   |*/
                                          /*|   | comes from AFD_CONFIG. |*/
                                          /*|14 | FTP: Sequence locking. |*/
-                                         /*|15 | Apply trans_rename for |*/
-                                         /*|   | primary only.          |*/
+                                         /*|15 | FTP: Login exec.       |*/
                                          /*|16 | Apply trans_rename for |*/
+                                         /*|   | primary only.          |*/
+                                         /*|17 | Apply trans_rename for |*/
                                          /*|   | secondary only.        |*/
-                                         /*|17 | Is set when the job is |*/
+                                         /*|18 | Is set when the job is |*/
                                          /*|   | in the error queue.    |*/
-                                         /*|18 | The SMTP server name is|*/
+                                         /*|19 | The SMTP server name is|*/
                                          /*|   | in message.            |*/
+                                         /*|20 | Unique locking is to be|*/
+                                         /*|   | used.                  |*/
+                                         /*|21 | This is a distributed  |*/
+                                         /*|   | helper job for         |*/
+                                         /*|   | retrieving files.      |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
-          unsigned int   dup_check_flag; /* Flag storing the type of     */
+          unsigned int  dup_check_flag;  /* Flag storing the type of     */
                                          /* check that is to be done and */
                                          /* what type of CRC to use:     */
                                          /*+------+---------------------+*/
@@ -590,22 +552,22 @@ struct job
                                          /*|    2 | DC_FILE_CONTENT     |*/
                                          /*|    1 | DC_FILENAME_ONLY    |*/
                                          /*+------+---------------------+*/
-          time_t         dup_check_timeout;/* When the stored CRC for    */
+          time_t        dup_check_timeout;/* When the stored CRC for     */
                                          /* duplicate checks are no      */
                                          /* longer valid. Value is in    */
                                          /* seconds.                     */
 #endif
-          int            filename_pos_subject;
+          int           filename_pos_subject;
                                          /* Where in subject the file-   */
                                          /* name is to be positioned.    */
-          char           job_no;         /* The job number of current    */
+          char          job_no;          /* The job number of current    */
                                          /* transfer process.            */
 #ifdef _OUTPUT_LOG
-          char           output_log;     /* When the file name is to be  */
+          char          output_log;      /* When the file name is to be  */
                                          /* logged, this variable is set */
                                          /* YES.                         */
 #endif
-          char           mode_flag;      /* Currently only used for FTP  */
+          char          mode_flag;       /* Currently only used for FTP  */
                                          /* to indicate either active,   */
                                          /* passive and extended mode.   */
                                          /*+------+---------------------+*/
@@ -617,36 +579,43 @@ struct job
                                          /*|    2 | ACTIVE_MODE         |*/
                                          /*|    1 | PASSIVE_MODE        |*/
                                          /*+------+---------------------+*/
+          unsigned char smtp_auth;       /* SMTP authentication modes.   */
+                                         /* Current possible modes:      */
+                                         /*  0 - SMTP_AUTH_NONE, no SMTP */
+                                         /*      authentication set.     */
+                                         /*  1 - SMTP_AUTH_LOGIN         */
+                                         /*  2 - SMTP_AUTH_PLAIN         */
        };
 
 /* Structure that holds all the informations of current connections. */
 struct connection
        {
-          int   job_no;                  /* Job number of this host.       */
-          int   fsa_pos;                 /* Position of host in FSA        */
+          int          job_no;           /* Job number of this host.       */
+          int          fsa_pos;          /* Position of host in FSA        */
                                          /* structure.                     */
-          int   fra_pos;                 /* Position of directory in FRA   */
+          int          fra_pos;          /* Position of directory in FRA   */
                                          /* structure.                     */
-          pid_t pid;                     /* Process ID of job transferring */
+          pid_t        pid;              /* Process ID of job transferring */
                                          /* the files.                     */
-          int   protocol;                /* Transmission protocol, either  */
+          int          protocol;         /* Transmission protocol, either  */
                                          /* FTP, SMTP or LOC.              */
-          char  hostname[MAX_HOSTNAME_LENGTH + 1];
-          char  msg_name[MAX_MSG_NAME_LENGTH];
-          char  dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
-          char  temp_toggle;             /* When host has been toggled     */
+          unsigned int host_id;          /* CRC-32 checksum of hostname.   */
+          char         hostname[MAX_HOSTNAME_LENGTH + 1];
+          char         msg_name[MAX_MSG_NAME_LENGTH];
+          char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char         temp_toggle;      /* When host has been toggled     */
                                          /* automatically we occasionally  */
                                          /* have to see if the original    */
                                          /* host is working again.         */
-          char  resend;                  /* Is this a resend job from      */
+          char         resend;           /* Is this a resend job from      */
                                          /* show_olog?                     */
        };
 
 /* Definition for holding the file mask list. */
 struct file_mask
        {
-          int  fc;             /* number of file mask stored */
-          int  fbl;            /* file buffer length */
+          int  fc;             /* Number of file mask stored. */
+          int  fbl;            /* File buffer length. */
           char *file_list;
        };
 
@@ -670,28 +639,31 @@ struct trl_cache
            unsigned int tmp_value;                            \
                                                               \
            tmp_value = fsa[(value)].jobs_queued;              \
-           fsa[(value)].jobs_queued = fsa[(value)].jobs_queued - 1; \
+           fsa[(value)].jobs_queued = fsa[(value)].jobs_queued - 1;\
            if (fsa[(value)].jobs_queued > tmp_value)          \
            {                                                  \
               system_log(DEBUG_SIGN, __FILE__, __LINE__,      \
-                         "Overflow from <%u> for %s. Trying to correct.", \
+                         "Overflow from <%u> for %s. Trying to correct.",\
                          tmp_value, fsa[(value)].host_dsp_name);\
-              fsa[(value)].jobs_queued = recount_jobs_queued((value)); \
+              fsa[(value)].jobs_queued = recount_jobs_queued((value));\
            }                                                  \
         }
 
 /* Function prototypes. */
 extern int   append_compare(char *, char *),
              archive_file(char *, char *, struct job *),
+             attach_ls_data(void),
              check_burst_2(char *, int *,
 #ifdef _WITH_INTERRUPT_JOB
                            int,
+#endif
+#ifdef _OUTPUT_LOG
+                           int *,
 #endif
 #ifndef AFDBENCH_CONFIG
                            unsigned int *,
 #endif
                            unsigned int *),
-             check_file_dir(int),
              check_fra_fd(void),
              eval_input_gf(int, char **, struct job *),
              eval_input_sf(int, char **, struct job *),
@@ -701,14 +673,17 @@ extern int   append_compare(char *, char *),
              fsa_attach_pos(int),
              get_file_names(char *, off_t *),
              get_job_data(unsigned int, int, time_t, off_t),
-             get_remote_file_names_ftp(off_t *),
-             get_remote_file_names_http(off_t *),
-             get_remote_file_names_sftp(off_t *),
+             get_remote_file_names_ftp(off_t *, int *),
+             get_remote_file_names_http(off_t *, int *),
+             get_remote_file_names_sftp(off_t *, int *),
+             gsf_check_fra(void),
              gsf_check_fsa(void),
              init_fifos_fd(void),
              init_sf(int, char **, char *, int),
-             init_sf_burst2(struct job *, char *, unsigned int *),
+             init_sf_burst2(struct job *, char *, unsigned int *,
+                            unsigned int),
              lookup_job_id(unsigned int),
+             next_wmo_counter(int, int *),
              noop_wrapper(void),
              read_current_msg_list(unsigned int **, int *),
              read_file_mask(char *, int *, struct file_mask **),
@@ -721,7 +696,7 @@ extern void  calc_trl_per_process(int),
              check_queue_space(void),
              check_trl_file(void),
              fsa_detach_pos(int),
-             get_group_list(void),
+             get_group_list(char *),
              get_new_positions(void),
              handle_delete_fifo(int, size_t, char *),
              handle_proxy(void),
@@ -731,32 +706,33 @@ extern void  calc_trl_per_process(int),
              init_msg_buffer(void),
              init_msg_ptrs(time_t **, unsigned int **, unsigned int **,
                            unsigned int **, off_t **, unsigned short **,
-                           unsigned short **, char **, char **, char **),
+                           unsigned int **, char **, char **, char **),
              init_trl_data(void),
              limit_transfer_rate(int, off_t, clock_t),
              log_append(struct job *, char *, char *),
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-             output_log_ptrs(int *, int *, unsigned int **, char **, char **,
-#else
-             output_log_ptrs(int *, unsigned int **, char **, char **,
+#ifdef _OUTPUT_LOG
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+             output_log_fd(int *, int *),
+# else
+             output_log_fd(int *),
+# endif
+             output_log_ptrs(unsigned int **, unsigned int **, char **,
+                             char **, unsigned short **, unsigned short **,
+                             off_t **, unsigned short **, size_t *, clock_t **,
+                             char **, char *, int, int),
 #endif
-                             unsigned short **, unsigned short **, off_t **,
-                             unsigned short **, size_t *, clock_t **, char *,
-                             int),
              remove_all_appends(unsigned int),
              remove_append(unsigned int, char *),
              remove_connection(struct connection *, int, time_t),
-#ifdef _DELETE_LOG
-             remove_job_files(char *, int, unsigned int, char),
-#else
-             remove_job_files(char *, int),
-#endif
+             remove_ls_data(int),
              remove_msg(int),
              reset_fsa(struct job *, int),
              reset_values(int, off_t, int, off_t),
+             send_proc_fin(int),
              system_log(char *, char *, int, char *, ...),
              trace_log(char *, int, int, char *, int, char *, ...),
              trans_db_log(char *, char *, int, char *, char *, ...),
              trans_exec(char *, char *, char *),
-             trans_log(char *, char *, int, char *, char *, ...);
+             trans_log(char *, char *, int, char *, char *, char *, ...),
+             update_tfc(int, off_t, off_t *, int, int);
 #endif /* __fddefs_h */

@@ -1,6 +1,6 @@
 /*
  *  init_msg_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ DESCR__S_M3
  **                      unsigned int   **files_to_send,
  **                      off_t          **file_size_to_send,
  **                      unsigned short **dir_no,
- **                      unsigned short **unique_number,
+ **                      unsigned int   **unique_number,
  **                      char           **msg_priority,
  **                      char           **originator,
  **                      char           **msg_buffer)
@@ -67,7 +67,7 @@ init_msg_ptrs(time_t         **creation_time,
               unsigned int   **files_to_send,
               off_t          **file_size_to_send,
               unsigned short **dir_no,
-              unsigned short **unique_number,
+              unsigned int   **unique_number,
               char           **msg_priority,
               char           **originator,
               char           **msg_buffer)
@@ -100,26 +100,26 @@ init_msg_ptrs(time_t         **creation_time,
                                          sizeof(off_t) + sizeof(unsigned int) +
                                          sizeof(unsigned int));
 #endif
+   *unique_number     = (unsigned int *)(*msg_buffer + sizeof(time_t) +
+                                         sizeof(unsigned int) +
+                                         sizeof(unsigned int) +
+                                         sizeof(unsigned int) +
+                                         sizeof(off_t));
    *dir_no            = (unsigned short *)(*msg_buffer + sizeof(time_t) +
                                            sizeof(unsigned int) +
                                            sizeof(unsigned int) +
                                            sizeof(unsigned int) +
-                                           sizeof(off_t));
-   *unique_number     = (unsigned short *)(*msg_buffer + sizeof(time_t) +
-                                           sizeof(unsigned int) +
-                                           sizeof(unsigned int) +
-                                           sizeof(unsigned int) +
                                            sizeof(off_t) +
-                                           sizeof(unsigned short));
+                                           sizeof(unsigned int));
    *msg_priority      = (char *)(*msg_buffer + sizeof(time_t) +
                                  sizeof(unsigned int) + sizeof(unsigned int) +
                                  sizeof(unsigned int) + sizeof(off_t) +
-                                 sizeof(unsigned short) +
+                                 sizeof(unsigned int) +
                                  sizeof(unsigned short));
    *originator        = (char *)(*msg_buffer + sizeof(time_t) +
                                  sizeof(unsigned int) + sizeof(unsigned int) +
                                  sizeof(unsigned int) + sizeof(off_t) +
-                                 sizeof(unsigned short) +
+                                 sizeof(unsigned int) +
                                  sizeof(unsigned short) + sizeof(char));
 
    return;

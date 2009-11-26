@@ -1,6 +1,6 @@
 /*
  *  afdddefs - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -34,7 +34,6 @@
 #define DEFAULT_AFD_PORT_NO      "4444"
 #define DEFAULT_AFDD_LOG_DEFS    0
 #define DEFAULT_FILE_NO          0
-#define STAT_INTERVAL            120   /* in seconds */
 #define EVERYTHING               -1
 #define AFDD_CMD_TIMEOUT         900
 #define AFDD_LOG_CHECK_INTERVAL  2
@@ -123,7 +122,7 @@
 #define AFDSTAT_SYNTAX        "214 Syntax: AFDSTAT [<sp> <host name>]"
 #define NOP_SYNTAX            "214 Syntax: NOP (checks if connection is still up)"
 #define LOG_SYNTAX            "214 Syntax: LOG <sp> <log type> <sp> <options> <sp> <date> <offset>"
-#define LOG_TYPES_SYNTAX      "214         log types: LS,LE,LR,LT,LB,LI,LP,LO,LD,JD"
+#define LOG_TYPES_SYNTAX      "214         log types: LS,LE,LR,LT,LB,LI,LU,LP,LO,LD,LN,JD"
 
 /* Definitions for the different logs in the logdata array. */
 #define SYS_LOG_POS           0
@@ -133,92 +132,188 @@
 #define TDB_LOG_POS           4
 #ifdef _INPUT_LOG
 # define INP_LOG_POS          5
-# ifdef _PRODUCTION_LOG
-#  define PRO_LOG_POS         6
-#  ifdef _OUTPUT_LOG
-#   define OUT_LOG_POS        7
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       8
-#    define DUM_LOG_POS       9
-#    define NO_OF_LOGS        10
+# ifdef _DISTRIBUTION_LOG
+#  define DIS_LOG_POS         6
+#  ifdef _PRODUCTION_LOG
+#   define PRO_LOG_POS        7
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       8
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      9
+#     define DUM_LOG_POS      10
+#     define NO_OF_LOGS       11
+#    else
+#     define DUM_LOG_POS      9
+#     define NO_OF_LOGS       10
+#    endif
 #   else
-#    define DUM_LOG_POS       8
-#    define NO_OF_LOGS        9
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      8
+#     define DUM_LOG_POS      9
+#     define NO_OF_LOGS       10
+#    else
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    endif
 #   endif
 #  else
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       7
-#    define DUM_LOG_POS       8
-#    define NO_OF_LOGS        9
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      8
+#     define DUM_LOG_POS      9
+#     define NO_OF_LOGS       10
+#    else
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    endif
 #   else
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      7
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    else
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    endif
 #   endif
 #  endif
 # else
-#  ifdef _OUTPUT_LOG
-#   define OUT_LOG_POS        6
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       7
-#    define DUM_LOG_POS       8
-#    define NO_OF_LOGS        9
+#  ifdef _PRODUCTION_LOG
+#   define PRO_LOG_POS        6
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      8
+#     define DUM_LOG_POS      9
+#     define NO_OF_LOGS       10
+#    else
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    endif
 #   else
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      7
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   endif
 #  else
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       6
-#    define DUM_LOG_POS       7
-#    define NO_OF_LOGS        8
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       6
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      7
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   else
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      6
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   endif
 #  endif
 # endif
 #else
-# ifdef _PRODUCTION_LOG
-#  define PRO_LOG_POS         5
-#  ifdef _OUTPUT_LOG
-#   define OUT_LOG_POS        6
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       7
-#    define DUM_LOG_POS       8
-#    define NO_OF_LOGS        9
+# ifdef _DISTRIBUTION_LOG
+#  define DIS_LOG_POS         5
+#  ifdef _PRODUCTION_LOG
+#   define PRO_LOG_POS        6
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      8
+#     define DUM_LOG_POS      9
+#     define NO_OF_LOGS       10
+#    else
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    endif
 #   else
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      7
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    else
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    endif
 #   endif
 #  else
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       6
-#    define DUM_LOG_POS       7
-#    define NO_OF_LOGS        8
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       6
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      7
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    else
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    endif
 #   else
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      6
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   endif
 #  endif
 # else
-#  ifdef _OUTPUT_LOG
-#   define OUT_LOG_POS        5
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       6
-#    define DUM_LOG_POS       7
-#    define NO_OF_LOGS        8
+#  ifdef _PRODUCTION_LOG
+#   define PRO_LOG_POS        5
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       6
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      7
+#     define DUM_LOG_POS      8
+#     define NO_OF_LOGS       9
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   else
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      6
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   endif
 #  else
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       5
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
+#   ifdef _OUTPUT_LOG
+#    define OUT_LOG_POS       5
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      6
+#     define DUM_LOG_POS      7
+#     define NO_OF_LOGS       8
+#    else
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    endif
 #   else
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
+#    ifdef _DELETE_LOG
+#     define DEL_LOG_POS      5
+#     define DUM_LOG_POS      6
+#     define NO_OF_LOGS       7
+#    else
+#     define DUM_LOG_POS      5
+#     define NO_OF_LOGS       6
+#    endif
 #   endif
 #  endif
 # endif

@@ -1,6 +1,6 @@
 /*
  *  mon_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -90,8 +90,6 @@ int                    sys_log_fd = STDERR_FILENO,
                        afd_position = -1;
 off_t                  msa_size;
 char                   afd_name[MAX_AFD_NAME_LENGTH + 1],
-                       *alias_info_file,
-                       *central_info_file,
                        font_name[40],
                        *info_data = NULL,
                        *p_work_dir,
@@ -117,7 +115,7 @@ struct mon_status_area *msa;
 struct prev_values     prev;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void            init_mon_info(int *, char **),
                        mon_info_exit(void),
                        usage(char *);
@@ -192,6 +190,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -204,7 +203,12 @@ main(int argc, char *argv[])
 
    display = XtDisplay(appshell);
 
-   /* Create managing widget */
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
+
+   /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
 
    entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
@@ -492,7 +496,9 @@ main(int argc, char *argv[])
    wait_visible(appshell);
 
    /* Read and display the information file. */
-   check_info_file(afd_name);
+   (void)check_info_file(afd_name, AFD_INFO_FILE, YES);
+   XmTextSetString(info_w, NULL);  /* Clears old entry. */
+   XmTextSetString(info_w, info_data);
 
    /* Call update_info() after UPDATE_INTERVAL ms. */
    interval_id_host = XtAppAddTimeOut(app, UPDATE_INTERVAL,
@@ -516,8 +522,7 @@ main(int argc, char *argv[])
 static void
 init_mon_info(int *argc, char *argv[])
 {
-   size_t length;
-   int    i;
+   int i;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -544,10 +549,18 @@ init_mon_info(int *argc, char *argv[])
    }
 
    /* Attach to the MSA. */
-   if (msa_attach() < 0)
+   if ((i = msa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "Failed to attach to MSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "Failed to attach to MSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
    for (i = 0; i < no_of_afds; i++)
@@ -581,27 +594,6 @@ init_mon_info(int *argc, char *argv[])
    prev.top_not = msa[afd_position].top_no_of_transfers[0];
    prev.top_tr = msa[afd_position].top_tr[0];
    prev.top_fr = msa[afd_position].top_fr[0];
-
-   /* Create name of alias and central info file. */
-   length = strlen(p_work_dir) + 1 + strlen(ETC_DIR) + 1;
-   i = strlen(INFO_IDENTIFIER) + strlen(afd_name) + 1;
-   if ((alias_info_file = malloc((length + i))) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   (void)sprintf(alias_info_file, "%s%s/%s%s", p_work_dir,
-                 ETC_DIR, INFO_IDENTIFIER, afd_name);
-   i = strlen(AFD_INFO_FILE) + 1;
-   if ((central_info_file = malloc((length + i))) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   (void)sprintf(central_info_file, "%s%s/%s", p_work_dir,
-                 ETC_DIR, AFD_INFO_FILE);
 
    if (atexit(mon_info_exit) != 0)
    {

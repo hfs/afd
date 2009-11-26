@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,12 +26,14 @@ DESCR__S_M3
  **              into a single file
  **
  ** SYNOPSIS
- **   int assemble(char  *source_dir,
- **                char  *dest_file,
- **                int   file_counter,
- **                int   type,
- **                int   *files_to_send,
- **                off_t *file_size)
+ **   int assemble(char         *source_dir,
+ **                char         *p_file_name,
+ **                int          file_counter,
+ **                char         *dest_file,
+ **                int          type,
+ **                unsigned int unique_number,
+ **                int          *files_to_send,
+ **                off_t        *file_size)
  **
  ** DESCRIPTION
  **   The function assembles all WMO bulletin files found in the source_dir
@@ -69,6 +71,8 @@ DESCR__S_M3
  **   14.06.2002 H.Kiehl Fixed assembling MSS files.
  **   08.08.2002 H.Kiehl Added new type DWD.
  **   18.05.2005 H.Kiehl Forgot to write type indicator for WMO standard.
+ **   16.11.2009 H.Kiehl Fix error if dest_file has same name as one of
+ **                      the source files.
  **
  */
 DESCR__E_M3
@@ -92,13 +96,14 @@ static int  write_length_indicator(int, int, int, int);
 
 /*############################## assemble() #############################*/
 int
-assemble(char  *source_dir,
-         char  *p_file_name,
-         int   file_counter,
-         char  *dest_file,
-         int   type,
-         int   *files_to_send,
-         off_t *file_size)
+assemble(char         *source_dir,
+         char         *p_file_name,
+         int          file_counter,
+         char         *dest_file,
+         int          type,
+         unsigned int unique_number,
+         int          *files_to_send,
+         off_t        *file_size)
 {
    int         buffer_size = 0,
                fd,
@@ -109,12 +114,14 @@ assemble(char  *source_dir,
    int         have_sohetx;
 #endif
    char        *buffer = NULL,
-               *p_src;
+               *p_src,
+               temp_dest_file[1 + MAX_INT_HEX_LENGTH + 1];
    struct stat stat_buf;
 
    p_src = source_dir + strlen(source_dir);
    *p_src++ = '/';
    *file_size = 0;
+   temp_dest_file[0] = '\0';
 
    for (i = 0; i < file_counter; i++)
    {
@@ -122,14 +129,16 @@ assemble(char  *source_dir,
       if ((fd = open(source_dir, O_RDONLY)) == -1)
       {
          receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to open() %s : %s", source_dir, strerror(errno));
+                     _("Failed to open() `%s' : %s"),
+                     source_dir, strerror(errno));
       }
       else
       {
          if (fstat(fd, &stat_buf) == -1)
          {
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to stat() : %s", source_dir, strerror(errno));
+                        _("Failed to fstat() `%s' : %s"),
+                        source_dir, strerror(errno));
             (void)close(fd);
          }
          else
@@ -141,7 +150,7 @@ assemble(char  *source_dir,
                   if ((buffer = realloc(buffer, stat_buf.st_size)) == NULL)
                   {
                      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                 "realloc() error : %s", strerror(errno));
+                                 _("realloc() error : %s"), strerror(errno));
                      (void)close(fd);
                      exit(INCORRECT);
                   }
@@ -154,7 +163,7 @@ assemble(char  *source_dir,
                if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to read() %s : %s",
+                              _("Failed to read() `%s' : %s"),
                               source_dir, strerror(errno));
                   (void)close(fd);
                }
@@ -167,16 +176,20 @@ assemble(char  *source_dir,
                   if (close(fd) == -1)
                   {
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                 "close() error : %s", strerror(errno));
+                                 _("close() error : %s"), strerror(errno));
                   }
                   if (to_fd == -1)
                   {
-                     if ((to_fd = open(dest_file, O_CREAT | O_RDWR,
+                     if (temp_dest_file[0] == '\0')
+                     {
+                        (void)sprintf(temp_dest_file, ".%x", unique_number);
+                     }
+                     if ((to_fd = open(temp_dest_file, O_CREAT | O_RDWR,
                                        FILE_MODE)) == -1)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to open() %s : %s",
-                                    dest_file, strerror(errno));
+                                    _("Failed to open() `%s' : %s"),
+                                    temp_dest_file, strerror(errno));
                         free(buffer);
                         return(INCORRECT);
                      }
@@ -185,7 +198,7 @@ assemble(char  *source_dir,
                         if (write(to_fd, "\000\000\000\000", 4) != 4)
                         {
                            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to write() first four zeros : %s",
+                                       _("Failed to write() first four zeros : %s"),
                                        strerror(errno));
                         }
                         else
@@ -228,7 +241,7 @@ assemble(char  *source_dir,
                         if (length == -1)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "write() error : %s", strerror(errno));
+                                       _("write() error : %s"), strerror(errno));
                         }
                         continue;
                      }
@@ -242,7 +255,7 @@ assemble(char  *source_dir,
                      if (write(to_fd, "\001\015\015\012", 4) != 4)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to write() SOH<CR><CR><LF> : %s",
+                                    _("Failed to write() SOH<CR><CR><LF> : %s"),
                                     strerror(errno));
                      }
                      else
@@ -253,10 +266,11 @@ assemble(char  *source_dir,
 #endif
 
                   /* Write data */
-                  if (write(to_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+                  if (writen(to_fd, buffer, stat_buf.st_size,
+                             stat_buf.st_blksize) != stat_buf.st_size)
                   {
                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                  "Failed to write() data part : %s",
+                                  _("Failed to writen() data part : %s"),
                                   strerror(errno));
                   }
                   else
@@ -272,7 +286,8 @@ assemble(char  *source_dir,
                         if (length == -1)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "write() error : %s", strerror(errno));
+                                       _("write() error : %s"),
+                                       strerror(errno));
                         }
                      }
                      else
@@ -288,7 +303,7 @@ assemble(char  *source_dir,
                      if (write(to_fd, "\015\015\012\003", 4) != 4)
                      {
                         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to write() <CR><CR><LF>ETX : %s",
+                                    _("Failed to write() <CR><CR><LF>ETX : %s"),
                                     strerror(errno));
                      }
                      else
@@ -304,14 +319,14 @@ assemble(char  *source_dir,
                if (close(fd) == -1)
                {
                   receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "close() error : %s", strerror(errno));
+                              _("close() error : %s"), strerror(errno));
                }
             }
          }
          if (unlink(source_dir) == -1)
          {
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to unlink() %s : %s",
+                        _("Failed to unlink() `%s' : %s"),
                         source_dir, strerror(errno));
          }
       }
@@ -325,7 +340,7 @@ assemble(char  *source_dir,
          if (write(to_fd, "\000\000\000\000", 4) != 4)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to write() last four zeros : %s",
+                        _("Failed to write() last four zeros : %s"),
                         strerror(errno));
          }
          else
@@ -336,7 +351,13 @@ assemble(char  *source_dir,
       if (close(to_fd) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "close() error : %s", strerror(errno));
+                     _("close() error : %s"), strerror(errno));
+      }
+      if (rename(temp_dest_file, dest_file) == -1)
+      {
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                     _("Failed to rename() `%s' to `%s' : %s"),
+                     temp_dest_file, dest_file, strerror(errno));
       }
    }
 
@@ -458,7 +479,7 @@ write_length_indicator(int fd, int type, int have_sohetx, int length)
 
       default            : /* Impossible! */
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown length type (%d) for assembling bulletins.",
+                     _("Unknown length type (%d) for assembling bulletins."),
                      type);
          return(-2);
 

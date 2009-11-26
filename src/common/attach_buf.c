@@ -1,6 +1,6 @@
 /*
  *  attach_buf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ DESCR__S_M3
  ** SYNOPSIS
  **   void *attach_buf(char   *file,
  **                    int    *fd,
- **                    size_t new_size,
+ **                    size_t *new_size,
  **                    char   *prog_name,
  **                    mode_t mode,
  **                    int    wait_lock)
@@ -59,10 +59,12 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                  /* open()                            */
+# include <fcntl.h>                 /* open()                            */
 #endif
 #include <unistd.h>                 /* fstat(), lseek(), write()         */
-#include <sys/mman.h>               /* mmap()                            */
+#ifdef HAVE_MMAP
+# include <sys/mman.h>              /* mmap()                            */
+#endif
 #include <errno.h>
 
 
@@ -70,7 +72,7 @@ DESCR__E_M3
 void *
 attach_buf(char   *file,
            int    *fd,
-           size_t new_size,
+           size_t *new_size,
            char   *prog_name,
            mode_t mode,
            int    wait_lock)
@@ -78,7 +80,7 @@ attach_buf(char   *file,
    struct stat stat_buf;
 
    /*
-    * This buffer has no open file descriptor, so it we do not
+    * This buffer has no open file descriptor, so we do not
     * need to unmap from the area. However this can be the
     * first time that the this process is started and no buffer
     * exists, then we need to create it.
@@ -86,7 +88,7 @@ attach_buf(char   *file,
    if ((*fd = coe_open(file, O_RDWR | O_CREAT, mode)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to open() and create `%s' : %s",
+                 _("Failed to open() and create `%s' : %s"),
                  file, strerror(errno));
       return((caddr_t) -1);
    }
@@ -113,7 +115,7 @@ attach_buf(char   *file,
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Another `%s' is already running. Terminating.",
+                       _("Another `%s' is already running. Terminating."),
                        prog_name);
             return((caddr_t) -1);
          }
@@ -123,32 +125,37 @@ attach_buf(char   *file,
    if (fstat(*fd, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to fstat() `%s' : %s", file, strerror(errno));
+                 _("Failed to fstat() `%s' : %s"), file, strerror(errno));
       return((caddr_t) -1);
    }
 
-   if (stat_buf.st_size < new_size)
+   if (stat_buf.st_size < *new_size)
    {
-      int  buf_size = 0,
-           i,
+      int  i,
            loops,
            rest,
            write_size;
       char buffer[4096];
 
-      if (write(*fd, &buf_size, sizeof(int)) != sizeof(int))
+      if (stat_buf.st_size < sizeof(int))
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to write() to `%s' : %s", file, strerror(errno));
-         return((caddr_t) -1);
+         int buf_size = 0;
+
+         if (write(*fd, &buf_size, sizeof(int)) != sizeof(int))
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Failed to write() to `%s' : %s"),
+                       file, strerror(errno));
+            return((caddr_t) -1);
+         }
       }
       if (lseek(*fd, stat_buf.st_size, SEEK_SET) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to lseek() `%s' : %s", file, strerror(errno));
+                    _("Failed to lseek() in `%s' : %s"), file, strerror(errno));
          return((caddr_t) -1);
       }
-      write_size = new_size - stat_buf.st_size;
+      write_size = *new_size - stat_buf.st_size;
       (void)memset(buffer, 0, 4096);
       loops = write_size / 4096;
       rest = write_size % 4096;
@@ -157,7 +164,8 @@ attach_buf(char   *file,
          if (write(*fd, buffer, 4096) != 4096)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to write() to `%s' : %s", file, strerror(errno));
+                       _("Failed to write() to `%s' : %s"),
+                       file, strerror(errno));
             return((caddr_t) -1);
          }
       }
@@ -166,15 +174,16 @@ attach_buf(char   *file,
          if (write(*fd, buffer, rest) != rest)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to write() to `%s' : %s", file, strerror(errno));
+                       _("Failed to write() to `%s' : %s"),
+                       file, strerror(errno));
             return((caddr_t) -1);
          }
       }
    }
    else
    {
-      new_size = stat_buf.st_size;
+      *new_size = stat_buf.st_size;
    }
 
-   return(mmap(NULL, new_size, (PROT_READ | PROT_WRITE), MAP_SHARED, *fd, 0));
+   return(mmap(NULL, *new_size, (PROT_READ | PROT_WRITE), MAP_SHARED, *fd, 0));
 }

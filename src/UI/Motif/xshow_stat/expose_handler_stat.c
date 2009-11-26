@@ -73,7 +73,7 @@ expose_handler_stat(Widget                      w,
               top_row,
               bottom_row,
               right_column = 0;
-   static int ft_exposure_line = 0; /* first time exposure line */
+   static int ft_exposure_line = 0; /* First time exposure line. */
 
 #ifdef _DEBUG
    (void)printf("xexpose.x   = %d    xexpose.width= %d\n",

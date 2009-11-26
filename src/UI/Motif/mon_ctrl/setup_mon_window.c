@@ -1,7 +1,7 @@
 /*
  *  setup_mon_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -126,6 +126,16 @@ setup_mon_window(char *font_name)
    XmFontListEntry entry;
 
    /* Get width and height of font and fid for the GC. */
+   if (font_struct != NULL)
+   {
+      XFreeFont(display, font_struct);
+      font_struct = NULL;
+   }
+   if (fontlist != NULL)
+   {
+      XmFontListFree(fontlist);
+      fontlist = NULL;
+   }
    if ((font_struct = XLoadQueryFont(display, font_name)) == NULL)
    {
       (void)fprintf(stderr, "Could not load %s font.\n", font_name);
@@ -199,6 +209,7 @@ setup_mon_window(char *font_name)
             }
          }
       }
+      XtVaSetValues(ow[MON_SELECT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(ow[MON_EXIT_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the RAFD pulldown. */
@@ -305,7 +316,7 @@ setup_mon_window(char *font_name)
          }
       }
 
-      /* Set the font for the Setup pulldown */
+      /* Set the font for the Setup pulldown. */
       XtVaSetValues(mw[CONFIG_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[FONT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[ROWS_W], XmNfontList, fontlist, NULL);
@@ -313,7 +324,7 @@ setup_mon_window(char *font_name)
       XtVaSetValues(sw[HISTORY_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[SAVE_W], XmNfontList, fontlist, NULL);
 
-      /* Set the font for the Help pulldown */
+      /* Set the font for the Help pulldown. */
 #ifdef _WITH_HELP_PULLDOWN
       XtVaSetValues(mw[HELP_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(hw[ABOUT_W], XmNfontList, fontlist, NULL);
@@ -321,7 +332,7 @@ setup_mon_window(char *font_name)
       XtVaSetValues(hw[VERSION_W], XmNfontList, fontlist, NULL);
 #endif
 
-      /* Set the font for the Row pulldown */
+      /* Set the font for the Row pulldown. */
       XtVaSetValues(rw[ROW_0_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_1_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_2_W], XmNfontList, fontlist, NULL);
@@ -337,12 +348,10 @@ setup_mon_window(char *font_name)
       XtVaSetValues(rw[ROW_12_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_13_W], XmNfontList, fontlist, NULL);
 
-      /* Set the font for the Line Style pulldown */
+      /* Set the font for the Line Style pulldown. */
       XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
-
-      XmFontListFree(fontlist);
    }
 
    glyph_height       = font_struct->ascent + font_struct->descent;
@@ -367,7 +376,7 @@ setup_mon_window(char *font_name)
       /*       calculate the bar length and queue scale!         */
       for (i = 0; i < no_of_afds; i++)
       {
-         /* Calculate new scale for active transfers bar */
+         /* Calculate new scale for active transfers bar. */
          if (connect_data[i].max_connections < 1)
          {
             connect_data[i].scale[ACTIVE_TRANSFERS_BAR_NO - 1] = (double)max_bar_length;
@@ -401,7 +410,7 @@ setup_mon_window(char *font_name)
             connect_data[i].green_color_offset = MAX_INTENSITY - connect_data[i].blue_color_offset;
          }
 
-         /* Calculate new scale for error bar */
+         /* Calculate new scale for error bar. */
          if (connect_data[i].no_of_hosts < 1)
          {
             connect_data[i].scale[HOST_ERROR_BAR_NO - 1] = (double)max_bar_length;
@@ -424,10 +433,10 @@ setup_mon_window(char *font_name)
                                                                  connect_data[i].scale[HOST_ERROR_BAR_NO - 1];
               }
 
-         /* Calculate new bar length for the transfer rate */
+         /* Calculate new bar length for the transfer rate. */
          if (connect_data[i].average_tr > 1.0)
          {
-            /* First ensure we do not divide by zero */
+            /* First ensure we do not divide by zero. */
             if (connect_data[i].max_average_tr < 2.0)
             {
                connect_data[i].bar_length[MON_TR_BAR_NO] =
@@ -639,7 +648,7 @@ init_gcs(void)
                       &gc_values);
    XSetFunction(display, led_gc, GXcopy);
 
-   /* Flush buffers so all GC's are known */
+   /* Flush buffers so all GC's are known. */
    XFlush(display);
 
    return;

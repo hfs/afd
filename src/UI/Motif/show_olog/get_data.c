@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,6 +47,7 @@ DESCR__S_M3
  **   12.04.2002 H.Kiehl Separator definable via SEPARATOR_CHAR.
  **   10.04.2004 H.Kiehl Added TLS/SSL support.
  **   31.01.2006 H.Kiehl Added SFTP support.
+ **   14.02.2009 H.Kiehl Added output type.
  **
  */
 DESCR__E_M3
@@ -75,10 +76,10 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
 #include "logdefs.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_olog.h"
 
-/* #define _MACRO_DEBUG */
+#define _MACRO_DEBUG
 
 /* External global variables. */
 extern Display          *display;
@@ -189,7 +190,7 @@ static void   check_log_updates(Widget),
         }
 #define SET_FILE_NAME_POINTER()                         \
         {                                               \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
            if (file_name_toggle_set == REMOTE_FILENAME) \
            {                                            \
               tmp_ptr = ptr;                            \
@@ -266,6 +267,17 @@ static void   check_log_updates(Widget),
            }                   \
            tmp_ptr++;          \
            ptr++;              \
+           if (type_offset > 1)\
+           {                   \
+              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
+              {                \
+                 ptr++;        \
+              }                \
+              if (*ptr == SEPARATOR_CHAR)\
+              {                \
+                 ptr++;        \
+              }                \
+           }                   \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);\
            if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||\
                ((current_search_host != -1) &&\
@@ -442,7 +454,7 @@ static void   check_log_updates(Widget),
            }                                               \
            if (current_search_host != -1)                  \
            {                                               \
-              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -450,7 +462,7 @@ static void   check_log_updates(Widget),
               ptr++;                                       \
               if (*ptr != SEPARATOR_CHAR)                  \
               {                                            \
-                 /* Ignore  the remote file name */        \
+                 /* Ignore the remote file name. */        \
                  while (*ptr != SEPARATOR_CHAR)            \
                  {                                         \
                     ptr++;                                 \
@@ -528,7 +540,7 @@ static void   check_log_updates(Widget),
            }                                               \
            if (current_search_host != -1)                  \
            {                                               \
-              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -536,7 +548,7 @@ static void   check_log_updates(Widget),
               ptr++;                                       \
               if (*ptr != SEPARATOR_CHAR)                  \
               {                                            \
-                 /* Ignore  the remote file name */        \
+                 /* Ignore the remote file name. */        \
                  while (*ptr != SEPARATOR_CHAR)            \
                  {                                         \
                     ptr++;                                 \
@@ -549,10 +561,11 @@ static void   check_log_updates(Widget),
               }                                            \
                                                            \
               j = 0;                                       \
-              while (*ptr != SEPARATOR_CHAR)               \
+              while (*(ptr + j) != SEPARATOR_CHAR)         \
               {                                            \
-                 ptr++; j++;                               \
+                 j++;                                      \
               }                                            \
+              ptr += j;                                    \
               if (j < 9)                                   \
               {                                            \
                  tmp_file_size = (double)strtoul(ptr - j, NULL, 16);\
@@ -625,7 +638,7 @@ static void   check_log_updates(Widget),
            }                                               \
            if (current_search_host != -1)                  \
            {                                               \
-              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -633,7 +646,7 @@ static void   check_log_updates(Widget),
               ptr++;                                       \
               if (*ptr != SEPARATOR_CHAR)                  \
               {                                            \
-                 /* Ignore  the remote file name */        \
+                 /* Ignore the remote file name. */        \
                  while (*ptr != SEPARATOR_CHAR)            \
                  {                                         \
                     ptr++;                                 \
@@ -646,10 +659,11 @@ static void   check_log_updates(Widget),
               }                                            \
                                                            \
               j = 0;                                       \
-              while (*ptr != SEPARATOR_CHAR)               \
+              while (*(ptr + j) != SEPARATOR_CHAR)         \
               {                                            \
-                 ptr++; j++;                               \
+                 j++;                                      \
               }                                            \
+              ptr += j;                                    \
               if (j < 9)                                   \
               {                                            \
                  tmp_file_size = (double)strtoul(ptr - j, NULL, 16);\
@@ -720,11 +734,12 @@ static void   check_log_updates(Widget),
                      il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);\
                      INSERT_TIME_TYPE((id_string));        \
                      j = 0;                                \
-                     while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))\
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))\
                      {                                     \
-                        *(p_file_name + j) = *ptr;         \
-                        ptr++; j++;                        \
+                        *(p_file_name + j) = *(ptr + j);   \
+                        j++;                               \
                      }                                     \
+                     ptr += j;                             \
                   }                                        \
                   else                                     \
                   {                                        \
@@ -745,7 +760,7 @@ static void   check_log_updates(Widget),
 #ifdef HAVE_STRTOULL
 #define FILE_SIZE_ONLY(id_string)                          \
         {                                                  \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
            while (*ptr != SEPARATOR_CHAR)                  \
            {                                               \
               ptr++;                                       \
@@ -753,7 +768,7 @@ static void   check_log_updates(Widget),
            ptr++;                                          \
            if (*ptr != SEPARATOR_CHAR)                     \
            {                                               \
-              /* Ignore  the remote file name */           \
+              /* Ignore the remote file name. */           \
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -766,10 +781,11 @@ static void   check_log_updates(Widget),
            }                                               \
                                                            \
            j = 0;                                          \
-           while (*ptr != SEPARATOR_CHAR)                  \
+           while (*(ptr + j) != SEPARATOR_CHAR)            \
            {                                               \
-              ptr++; j++;                                  \
+              j++;                                         \
            }                                               \
+           ptr += j;                                       \
            if (j > 15)                                     \
            {                                               \
               tmp_file_size = strtod("INF", NULL);         \
@@ -814,7 +830,7 @@ static void   check_log_updates(Widget),
 # ifdef LINUX
 #define FILE_SIZE_ONLY(id_string)                          \
         {                                                  \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
            while (*ptr != SEPARATOR_CHAR)                  \
            {                                               \
               ptr++;                                       \
@@ -822,7 +838,7 @@ static void   check_log_updates(Widget),
            ptr++;                                          \
            if (*ptr != SEPARATOR_CHAR)                     \
            {                                               \
-              /* Ignore  the remote file name */           \
+              /* Ignore the remote file name. */           \
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -835,10 +851,11 @@ static void   check_log_updates(Widget),
            }                                               \
                                                            \
            j = 0;                                          \
-           while (*ptr != SEPARATOR_CHAR)                  \
+           while (*(ptr + j) != SEPARATOR_CHAR)            \
            {                                               \
-              ptr++; j++;                                  \
+              j++;                                         \
            }                                               \
+           ptr += j;                                       \
            if (j < 9)                                      \
            {                                               \
               tmp_file_size = (double)strtoul(ptr - j, NULL, 16);\
@@ -894,7 +911,7 @@ static void   check_log_updates(Widget),
 # else
 #define FILE_SIZE_ONLY(id_string)                          \
         {                                                  \
-           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;\
            while (*ptr != SEPARATOR_CHAR)                  \
            {                                               \
               ptr++;                                       \
@@ -902,7 +919,7 @@ static void   check_log_updates(Widget),
            ptr++;                                          \
            if (*ptr != SEPARATOR_CHAR)                     \
            {                                               \
-              /* Ignore  the remote file name */           \
+              /* Ignore the remote file name. */           \
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -915,10 +932,11 @@ static void   check_log_updates(Widget),
            }                                               \
                                                            \
            j = 0;                                          \
-           while (*ptr != SEPARATOR_CHAR)                  \
+           while (*(ptr + j) != SEPARATOR_CHAR)            \
            {                                               \
-              ptr++; j++;                                  \
+              j++;                                         \
            }                                               \
+           ptr += j;                                       \
            if (j < 9)                                      \
            {                                               \
               tmp_file_size = (double)strtoul(ptr - j, NULL, 16);\
@@ -967,7 +985,6 @@ static void   check_log_updates(Widget),
 void
 get_data(void)
 {
-#ifdef _OUTPUT_LOG
    int         i,
                j,
                start_file_no = -1,
@@ -1177,7 +1194,6 @@ get_data(void)
                                         listbox_w);
    }
 
-#endif /* _OUTPUT_LOG */
    return;
 }
 
@@ -1715,7 +1731,10 @@ no_criteria(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       time_when_transmitted = 0L,
                 prev_time_val = 0L,
                 now;
@@ -1725,6 +1744,7 @@ no_criteria(register char *ptr,
    struct tm    *p_ts;
 
    /* The easiest case! */
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -1734,6 +1754,7 @@ no_criteria(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -1755,7 +1776,40 @@ no_criteria(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -1823,7 +1877,7 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1836,7 +1890,7 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -1849,7 +1903,7 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -1884,7 +1938,7 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  /* This some unknown type! */
@@ -1894,11 +1948,12 @@ no_criteria(register char *ptr,
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
          SET_FILE_NAME_POINTER();
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -1910,7 +1965,7 @@ no_criteria(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -1920,10 +1975,11 @@ no_criteria(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
+         ptr += j;
 #ifdef HAVE_STRTOULL
          if (j > 15)
          {
@@ -2005,8 +2061,21 @@ no_criteria(register char *ptr,
             }
          }
          tmp_ptr++;
-
          ptr++;
+
+         /* Ignore retries. */
+         if (type_offset > 1)
+         {
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            {
+               ptr++;
+            }
+            if (*ptr == SEPARATOR_CHAR)
+            {
+               ptr++;
+            }
+         }
+
          il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);
 
          if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||
@@ -2179,10 +2248,12 @@ no_criteria(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -2211,7 +2282,10 @@ file_name_only(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -2220,6 +2294,7 @@ file_name_only(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -2229,6 +2304,7 @@ file_name_only(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -2250,7 +2326,40 @@ file_name_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -2261,11 +2370,12 @@ file_name_only(register char *ptr,
                   il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                   INSERT_TIME_TYPE(FTP_ID_STR);
                   j = 0;
-                  while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                  while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                   {
-                     *(p_file_name + j) = *ptr;
-                     ptr++; j++;
+                     *(p_file_name + j) = *(ptr + j);
+                     j++;
                   }
+                  ptr += j;
                }
                else
                {
@@ -2287,11 +2397,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(FILE_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2313,11 +2424,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(HTTP_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2339,11 +2451,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(SMTP_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2365,11 +2478,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(SFTP_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2392,11 +2506,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(SCP_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2408,7 +2523,7 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2420,11 +2535,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(WMO_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2436,7 +2552,7 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -2448,11 +2564,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(MAP_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2464,7 +2581,7 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -2476,11 +2593,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(FTPS_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2502,11 +2620,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(HTTPS_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2528,11 +2647,12 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(SMTPS_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -2544,7 +2664,7 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  SET_FILE_NAME_POINTER();
@@ -2553,11 +2673,12 @@ file_name_only(register char *ptr,
                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                     INSERT_TIME_TYPE(UNKNOWN_ID_STR);
                     j = 0;
-                    while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                    while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                     {
-                       *(p_file_name + j) = *ptr;
-                       ptr++; j++;
+                       *(p_file_name + j) = *(ptr + j);
+                       j++;
                     }
+                    ptr += j;
                  }
                  else
                  {
@@ -2575,7 +2696,7 @@ file_name_only(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -2585,10 +2706,11 @@ file_name_only(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
+         ptr += j;
 #ifdef HAVE_STRTOULL
          if (j > 15)
          {
@@ -2647,10 +2769,12 @@ file_name_only(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -2679,7 +2803,10 @@ file_size_only(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -2688,6 +2815,7 @@ file_size_only(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -2697,6 +2825,7 @@ file_size_only(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -2718,7 +2847,40 @@ file_size_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -2786,7 +2948,7 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2799,7 +2961,7 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -2812,7 +2974,7 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -2847,13 +3009,13 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  FILE_SIZE_ONLY(UNKNOWN_ID_STR);
               }
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
          if (first_date_found == -1)
@@ -2884,11 +3046,12 @@ file_size_only(register char *ptr,
             ptr_is_remote = NO;
          }
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
@@ -2899,7 +3062,7 @@ file_size_only(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -2934,10 +3097,12 @@ file_size_only(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -2967,7 +3132,10 @@ file_name_and_size(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -2976,6 +3144,7 @@ file_name_and_size(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -2985,6 +3154,7 @@ file_name_and_size(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -3006,7 +3176,40 @@ file_name_and_size(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -3098,7 +3301,7 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -3115,7 +3318,7 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -3132,7 +3335,7 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -3179,7 +3382,7 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  SET_FILE_NAME_POINTER();
@@ -3199,7 +3402,7 @@ file_name_and_size(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -3264,7 +3467,7 @@ file_name_and_size(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
@@ -3299,7 +3502,7 @@ file_name_and_size(register char *ptr,
               {
                  (void)memcpy(p_type, SCP_ID_STR, 5);
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -3350,7 +3553,7 @@ file_name_and_size(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -3386,10 +3589,12 @@ file_name_and_size(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -3418,7 +3623,10 @@ recipient_only(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -3427,6 +3635,7 @@ recipient_only(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -3436,6 +3645,7 @@ recipient_only(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -3458,7 +3668,40 @@ recipient_only(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -3628,7 +3871,7 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -3658,7 +3901,7 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -3688,7 +3931,7 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -3774,7 +4017,7 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  int ii;
@@ -3800,11 +4043,12 @@ recipient_only(register char *ptr,
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
          SET_FILE_NAME_POINTER();
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -3816,7 +4060,7 @@ recipient_only(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -3826,10 +4070,11 @@ recipient_only(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
+         ptr += j;
 #ifdef HAVE_STRTOULL
          if (j > 15)
          {
@@ -3911,8 +4156,21 @@ recipient_only(register char *ptr,
             }
          }
          tmp_ptr++;
-
          ptr++;
+
+         /* Ignore retries. */
+         if (type_offset > 1)
+         {
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            {
+               ptr++;
+            }
+            if (*ptr == SEPARATOR_CHAR)
+            {
+               ptr++;
+            }
+         }
+
          il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);
 
          if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||
@@ -4085,10 +4343,12 @@ recipient_only(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -4112,7 +4372,10 @@ file_name_and_recipient(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -4121,6 +4384,7 @@ file_name_and_recipient(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -4130,6 +4394,7 @@ file_name_and_recipient(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -4152,7 +4417,40 @@ file_name_and_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             FILE_NAME_AND_RECIPIENT(SHOW_FTP, FTP_ID_STR);
@@ -4178,19 +4476,19 @@ file_name_and_recipient(register char *ptr,
               {
                  FILE_NAME_AND_RECIPIENT(SHOW_SCP, SCP_ID_STR);
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
                  FILE_NAME_AND_RECIPIENT(SHOW_WMO, WMO_ID_STR);
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
                  FILE_NAME_AND_RECIPIENT(SHOW_MAP, MAP_ID_STR);
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -4225,11 +4523,12 @@ file_name_and_recipient(register char *ptr,
                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
                        INSERT_TIME_TYPE(UNKNOWN_ID_STR);
                        j = 0;
-                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                        {
-                          *(p_file_name + j) = *ptr;
-                          ptr++; j++;
+                          *(p_file_name + j) = *(ptr + j);
+                          j++;
                        }
+                       ptr += j;
                     }
                     else
                     {
@@ -4252,7 +4551,7 @@ file_name_and_recipient(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -4262,10 +4561,11 @@ file_name_and_recipient(register char *ptr,
 
          /* Write file size. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
+         ptr += j;
 #ifdef HAVE_STRTOULL
          if (j > 15)
          {
@@ -4324,10 +4624,12 @@ file_name_and_recipient(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -4351,7 +4653,10 @@ file_size_and_recipient(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -4360,6 +4665,7 @@ file_size_and_recipient(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -4369,6 +4675,7 @@ file_size_and_recipient(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -4391,7 +4698,40 @@ file_size_and_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -4459,7 +4799,7 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -4472,7 +4812,7 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -4485,7 +4825,7 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -4520,13 +4860,13 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  FILE_SIZE_AND_RECIPIENT(UNKNOWN_ID_STR);
               }
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
          if (first_date_found == -1)
@@ -4557,11 +4897,12 @@ file_size_and_recipient(register char *ptr,
             ptr_is_remote = NO;
          }
          j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            ptr++; j++;
+            *(p_file_name + j) = *(ptr + j);
+            j++;
          }
+         ptr += j;
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
@@ -4572,7 +4913,7 @@ file_size_and_recipient(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -4607,10 +4948,12 @@ file_size_and_recipient(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -4634,7 +4977,10 @@ file_name_size_recipient(register char *ptr,
                 prev_item_counter = il[file_no].no_of_items,
                 ptr_is_remote,
                 loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                type_offset;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -4643,6 +4989,7 @@ file_name_size_recipient(register char *ptr,
                 *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -4652,6 +4999,7 @@ file_name_size_recipient(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -4674,7 +5022,40 @@ file_name_size_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
+         if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2) == ' ')
+         {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+            {
+               type_offset = 5;
+            }
+            else
+            {
+               IGNORE_ENTRY();
+            }
+#else
+            if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4) == ' ')
+            {
+               if (*(ptr + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) == '0')
+               {
+                  type_offset = 5;
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+            else
+            {
+               type_offset = 3;
+            }
+#endif
+         }
+         else
+         {
+            type_offset = 1;
+         }
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -4868,7 +5249,7 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -4902,7 +5283,7 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
          else if (type == MAP)
               {
@@ -4936,7 +5317,7 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_MAP_SUPPORT */
+#endif
 #ifdef WITH_SSL
          else if (type == FTPS)
               {
@@ -5034,7 +5415,7 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* WITH_SSL */
+#endif
               else
               {
                  int ii;
@@ -5071,7 +5452,7 @@ file_name_size_recipient(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -5081,10 +5462,11 @@ file_name_size_recipient(register char *ptr,
 
          /* Get file size and check if it fits. */
          j = 0;
-         while (*ptr != SEPARATOR_CHAR)
+         while (*(ptr + j) != SEPARATOR_CHAR)
          {
-            ptr++; j++;
+            j++;
          }
+         ptr += j;
 #ifdef HAVE_STRTOULL
          if (j > 15)
          {
@@ -5136,7 +5518,7 @@ file_name_size_recipient(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
          time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
@@ -5236,7 +5618,7 @@ file_name_size_recipient(register char *ptr,
          ptr++;
          if (ptr_is_remote == NO)
          {
-            /* Ignore  the remote file name */
+            /* Ignore the remote file name. */
             while (*ptr != SEPARATOR_CHAR)
             {
                ptr++;
@@ -5272,10 +5654,12 @@ file_name_size_recipient(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 

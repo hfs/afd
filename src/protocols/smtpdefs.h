@@ -1,6 +1,6 @@
 /*
  *  smtpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,14 +24,24 @@
 #define DEFAULT_SMTP_PORT       25
 
 #ifndef MAX_RET_MSG_LENGTH
-#define MAX_RET_MSG_LENGTH      1024
+# define MAX_RET_MSG_LENGTH     4096
 #endif
 #define MAX_CONTENT_TYPE_LENGTH 25
 
-/* Function prototypes */
+/* Most newer SMTP servers report there capabilities when issung EHLO. */
+struct smtp_server_capabilities
+       {
+          char auth_login;
+          char auth_plain;
+       };
+
+/* Function prototypes. */
 extern int  encode_base64(unsigned char *, int, unsigned char *),
+            smtp_auth(unsigned char, char *, char *),
             smtp_connect(char *, int),
             smtp_helo(char *),
+            smtp_ehlo(char *),
+            smtp_noop(void),
             smtp_user(char *),
             smtp_rcpt(char *),
             smtp_open(void),

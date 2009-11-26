@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include "fddefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                        *p_no_of_hosts,
                                   no_of_hosts;
 extern struct filetransfer_status *fsa;

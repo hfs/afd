@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,6 +66,8 @@ DESCR__S_M3
  **   23.11.2003 H.Kiehl Disallow user to change window width even if
  **                      window manager allows this, but allow to change
  **                      height.
+ **   09.08.2009 H.Kiehl Add support for showing where file was
+ **                      distributed.
  **
  */
 DESCR__E_M3
@@ -76,7 +78,7 @@ DESCR__E_M3
 #include <ctype.h>          /* isdigit()                                 */
 #include <time.h>           /* time(), localtime(), mktime(), strftime() */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <unistd.h>         /* close()                                   */
 #include <Xm/Xm.h>
@@ -84,10 +86,12 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_ilog.h"
 
-/* External global variables */
+/* #define SHOW_ALDA_CMD */
+
+/* External global variables. */
 extern Display          *display;
 extern Widget           cont_togglebox_w,
                         directory_w,
@@ -118,7 +122,9 @@ extern int              continues_toggle_set,
 extern time_t           start_time_val,
                         end_time_val;
 extern size_t           search_file_size;
-extern char             header_line[],
+extern char             font_name[],
+                        header_line[],
+                        *p_work_dir,
                         search_file_name[],
                         **search_dir,
                         **search_dirid,
@@ -135,10 +141,10 @@ char                    search_file_size_str[20],
                         total_summary_str[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 5];
 struct info_data        id;
 
-/* Local global variables */
+/* Local global variables. */
 static int              scrollbar_moved_flag;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int              eval_time(char *, Widget, time_t *);
 
 
@@ -265,7 +271,7 @@ item_selection(Widget w, XtPointer client_data, XtPointer call_data)
       }
       last_date_found = date;
 
-      /* Show summary */
+      /* Show summary. */
       if (cbs->selected_item_count > 0)
       {
          calculate_summary(summary_str, first_date_found, last_date_found,
@@ -292,30 +298,93 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
       int  pos = XmListYToPos(w, event->xbutton.y),
            max_pos;
 
-      /* Check if pos is valid */
+      /* Check if pos is valid. */
       XtVaGetValues(w, XmNitemCount, &max_pos, NULL);
       if ((max_pos > 0) && (pos <= max_pos))
       {
          int  i;
-         char *text;
+         char *text = NULL;
 
          /* Initialize text an data area. */
          id.count  = 0;
          id.dir[0] = '\0';
          id.dbe    = NULL;
 
-         /* Get the information */
+         /* Get the information. */
          get_info(pos);
 
-         /* Format information in a human readable text. */
-         format_info(&text);
+         if (event->xbutton.button == Button2)
+         {
+            char      alda_cmd[MAX_PATH_LENGTH + MAX_FILENAME_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_LENGTH + 1],
+                      alda_time_str_end[9],
+                      alda_time_str_start[9];
+            time_t    time_val;
+            struct tm *p_ts;
 
-         /* Show the information */
+            time_val = id.arrival_time;
+            p_ts = localtime(&time_val);
+            if (p_ts == NULL)
+            {
+               (void)fprintf(stderr, "localtime() error : %s\n",
+                             strerror(errno));
+               exit(INCORRECT);
+            }
+            if (strftime(alda_time_str_start, sizeof(alda_time_str_start),
+                         "%m%d%H%M", p_ts) == 0)
+            {
+               (void)fprintf(stderr, "strftime() error : %s\n",
+                             strerror(errno));
+               exit(INCORRECT);
+            }
+            time_val += 60;
+            p_ts = localtime(&time_val);
+            if (p_ts == NULL)
+            {
+               (void)fprintf(stderr, "localtime() error : %s\n",
+                             strerror(errno));
+               exit(INCORRECT);
+            }
+            if (strftime(alda_time_str_end, sizeof(alda_time_str_end),
+                         "%m%d%H%M", p_ts) == 0)
+            {
+               (void)fprintf(stderr, "strftime() error : %s\n",
+                             strerror(errno));
+               exit(INCORRECT);
+            }
+            /* -o Host alias|Realhostname|Finalname|Size|HRsize|Delivery time|Duration|JID|Retries|Split Job Number|Archive Dir|Delete time|Job ID|Disttype|UJID entries|UJID list|Reason ID|User/program|Additional reason */
+            (void)sprintf(alda_cmd,
+                          "%s -f -t %s-%s -d \\#%x -SI %s -o '%%OH|%%Oh|%%OE|%%xOSB|%%.3OSA|%%xOTu|%%ODX|%%xOJ|%%xOe|%%xOL|%%OA|%%xDTu|%%xDJ|%%xUY|%%xUn|%%xUj,|%%xDr|%%DW|%%DA' %s",
+                          ALDA_CMD, alda_time_str_start, alda_time_str_end,
+                          id.dir_id, id.file_size, id.file_name);
+#ifdef SHOW_ALDA_CMD
+            (void)fprintf(stdout, "%s\n", alda_cmd);
+#endif
+            if (exec_cmd(alda_cmd, &text, -1, NULL, 0, "", 0L, NO, NO) != 0)
+            {
+               (void)fprintf(stderr, "Failed to execute command: %s\n",
+                             alda_cmd);
+               (void)fprintf(stderr, "See SYSTEM_LOG for more information.\n");
+               exit(INCORRECT);
+            }
+            eval_alda_data(text);
+            free(text);
+            text = NULL;
+
+            /* Format information in a human readable text. */
+            format_info(&text, YES);
+         }
+         else
+         {
+            /* Format information in a human readable text. */
+            format_info(&text, NO);
+         }
+
+         /* Show the information. */
          show_info(text);
 
+         /* Free all memory that was allocated in get_info(). */
          free(text);
 
-         /* Free all memory that was allocated in get_info(). */
          for (i = 0; i < id.count; i++)
          {
             free(id.dbe[i].files);
@@ -689,8 +758,8 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
 
-      case RECIPIENT_NAME_NO_ENTER : /* Read the recipient */
-      case RECIPIENT_NAME : /* Read the recipient */
+      case RECIPIENT_NAME_NO_ENTER : /* Read the recipient. */
+      case RECIPIENT_NAME : /* Read the recipient. */
          {
             int  i = 0,
                  ii = 0;
@@ -817,7 +886,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    switch (length)
    {
-      case 0 : /* Assume user means current time */
+      case 0 : /* Assume user means current time. */
                {
                   char time_str[9];
 
@@ -841,7 +910,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
          return(INCORRECT);
       }
 
-      if (length == 3)
+      if (length == 3) /* -mm */
       {
          str[0] = numeric_str[1];
          str[1] = numeric_str[2];
@@ -854,7 +923,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
          *value = time_val - (min * 60);
       }
-      else if (length == 5) 
+      else if (length == 5) /* -hhmm */
            {
               if ((!isdigit((int)numeric_str[3])) ||
                   (!isdigit((int)numeric_str[4])))
@@ -880,7 +949,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
               *value = time_val - (min * 60) - (hour * 3600);
            }
-      else if (length == 7)
+      else if (length == 7) /* -DDhhmm */
            {
               int days;
 
@@ -934,7 +1003,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    if (length == 4) /* hhmm */
    {
-      struct tm *bd_time;     /* Broken-down time */
+      struct tm *bd_time;     /* Broken-down time. */
 
       hour = atoi(str);
       if ((hour < 0) || (hour > 23))
@@ -957,9 +1026,15 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    }
    else if (length == 6) /* DDhhmm */
         {
-           int       day = atoi(str);
-           struct tm *bd_time;     /* Broken-down time */
+           int       day;
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])))
+           {
+              return(INCORRECT);
+           }
+           day = atoi(str);
            if ((day < 0) || (day > 31))
            {
               return(INCORRECT);
@@ -988,10 +1063,18 @@ eval_time(char *numeric_str, Widget w, time_t *value)
         }
         else /* MMDDhhmm */
         {
-           int       month = atoi(str),
+           int       month,
                      day;
-           struct tm *bd_time;     /* Broken-down time */
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])) ||
+               (!isdigit((int)numeric_str[6])) ||
+               (!isdigit((int)numeric_str[7])))
+           {
+              return(INCORRECT);
+           }
+           month = atoi(str);
            if ((month < 0) || (month > 12))
            {
               return(INCORRECT);

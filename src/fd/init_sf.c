@@ -1,6 +1,6 @@
 /*
  *  init_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +53,10 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
+#include "httpdefs.h"
 #include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
-#include "wmodefs.h"
+# include "wmodefs.h"
 #endif
 
 /* External global variables. */
@@ -99,13 +100,14 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    else if (protocol & SMTP_FLAG)
         {
            db.port = DEFAULT_SMTP_PORT;
-           db.reply_to = NULL;
-           db.from = NULL;
-           db.charset = NULL;
         }
    else if (protocol & SFTP_FLAG)
         {
            db.port = DEFAULT_SSH_PORT;
+        }
+   else if (protocol & HTTP_FLAG)
+        {
+           db.port = DEFAULT_HTTP_PORT;
         }
 #ifdef _WITH_SCP_SUPPORT
    else if (protocol & SCP_FLAG)
@@ -124,6 +126,9 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
         {
            db.port = -1;
         }
+   db.reply_to = NULL;
+   db.from = NULL;
+   db.charset = NULL;
    db.fsa_pos = INCORRECT;
    db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
@@ -140,6 +145,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.mode_flag = 0;
    db.archive_time = DEFAULT_ARCHIVE_TIME;
    db.age_limit = DEFAULT_AGE_LIMIT;
+   db.archive_offset = 0;
 #ifdef _OUTPUT_LOG
    db.output_log = YES;
 #endif
@@ -150,6 +156,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.user_rename_rule[0] = '\0';
    db.lock_file_name = NULL;
    db.rename_file_busy = '\0';
+   db.group_list = NULL;
    db.no_of_restart_files = 0;
    db.restart_file = NULL;
    db.user_id = -1;
@@ -170,12 +177,16 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #ifdef _DELETE_LOG
    dl.fd = -1;
 #endif
+#ifdef WITH_DUP_CHECK
+   db.crc_id = 0;
+#endif
+   db.my_pid = getpid();
 
    if ((status = eval_input_sf(argc, argv, p_db)) < 0)
    {
+      send_proc_fin(NO);
       exit(-status);
    }
-   db.my_pid = getpid();
    if ((protocol & FTP_FLAG) && (db.mode_flag == 0))
    {
       if (fsa->protocol_options & FTP_PASSIVE_MODE)
@@ -223,6 +234,10 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       db.transfer_mode = 'N';
    }
+   if (fsa->protocol_options & USE_SEQUENCE_LOCKING)
+   {
+      db.special_flag |= SEQUENCE_LOCKING;
+   }
    if ((fsa->keep_connected > 0) &&
        ((fsa->special_flag & KEEP_CON_NO_SEND) == 0))
    {
@@ -233,9 +248,11 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       db.keep_connected = 0;
    }
 #ifdef WITH_DUP_CHECK
-   db.dup_check_flag = fsa->dup_check_flag;
-   db.dup_check_timeout = fsa->dup_check_timeout;
-   db.crc_id = fsa->host_id;
+   if (db.crc_id != db.job_id)
+   {
+      db.dup_check_flag = fsa->dup_check_flag;
+      db.dup_check_timeout = fsa->dup_check_timeout;
+   }
 #endif
    if (db.sndbuf_size <= 0)
    {
@@ -338,13 +355,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       }
    }
 
-#ifdef WITH_ERROR_QUEUE
-   if ((fsa->host_status & ERROR_QUEUE_SET) &&
-       (check_error_queue(db.job_id, -1) == 1))
-   {
-      db.special_flag |= IN_ERROR_QUEUE;
-   }
-#endif
    db.lock_offset = AFD_WORD_OFFSET +
                     (db.fsa_pos * sizeof(struct filetransfer_status));
    if ((files_to_send = get_file_names(file_path, &file_size_to_send)) < 1)
@@ -385,8 +395,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    }
 
    /* Do we want to display the status? */
-   (void)gsf_check_fsa();
-   if (db.fsa_pos != INCORRECT)
+   if (gsf_check_fsa() != NEITHER)
    {
 #ifdef LOCK_DEBUG
       rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);

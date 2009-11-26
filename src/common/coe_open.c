@@ -41,6 +41,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   19.03.1999 H.Kiehl Created
+ **   10.10.2008 H.Kiehl Added support for O_CLOEXEC.
  **
  */
 DESCR__E_M3
@@ -50,7 +51,7 @@ DESCR__E_M3
 #include <unistd.h>
 #include <stdarg.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 
 
@@ -58,6 +59,23 @@ DESCR__E_M3
 int
 coe_open(char *pathname, int flags, ...)
 {
+#ifdef O_CLOEXEC
+   if (flags & O_CREAT)
+   {
+      int     mode;
+      va_list arg;
+
+      va_start(arg, flags);
+      mode = va_arg(arg, int);
+      va_end(arg);
+
+      return(open(pathname, (flags | O_CLOEXEC), mode));
+   }
+   else
+   {
+      return(open(pathname, (flags | O_CLOEXEC)));
+   }
+#else
    int fd,
        val;
 
@@ -94,4 +112,5 @@ coe_open(char *pathname, int flags, ...)
    }
 
    return(fd);
+#endif
 }

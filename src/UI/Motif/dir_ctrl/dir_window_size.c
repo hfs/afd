@@ -1,6 +1,6 @@
 /*
  *  dir_window_size.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,13 +44,13 @@ DESCR__E_M3
 
 #include "dir_ctrl.h"
 
-extern Display       *display;
-extern int           line_length,
-                     line_height,
-                     no_of_columns,
-                     no_of_rows,
-                     no_of_rows_set,
-                     no_of_dirs;
+extern Display *display;
+extern int     line_length,
+               line_height,
+               no_of_columns,
+               no_of_rows,
+               no_of_rows_set,
+               no_of_dirs;
 
 
 /*######################### dir_window_size() ##########################*/
@@ -61,28 +61,22 @@ dir_window_size(int *window_width, int *window_height)
                new_window_height,
                previous_no_of_rows,
                max_no_of_dirs;
-   static int  prev_no_of_columns = 0;
    signed char window_size_changed;
 
-   /* How many columns do we need ? */
+   /* How many columns do we need? */
    no_of_columns = no_of_dirs / no_of_rows_set;
    if ((no_of_dirs % no_of_rows_set) != 0)
    {
       no_of_columns += 1;
    }
 
-   /* Ensure that there is no division by zero */
+   /* Ensure that there is no division by zero. */
    if (no_of_columns == 0)
    {
       no_of_columns = 1;
    }
 
-   if (prev_no_of_columns != no_of_columns)
-   {
-      prev_no_of_columns = no_of_columns;
-   }
-
-   /* How many lines per window ? */
+   /* How many lines per window? */
    previous_no_of_rows = no_of_rows;
    no_of_rows = no_of_dirs / no_of_columns;
    if (no_of_dirs != (no_of_columns * no_of_rows))
@@ -93,7 +87,7 @@ dir_window_size(int *window_width, int *window_height)
       }
    }
 
-   /* Check if in last column rows moved up */
+   /* Check if in last column rows moved up. */
    if (((max_no_of_dirs = (no_of_columns * no_of_rows)) > no_of_dirs) &&
        (previous_no_of_rows != no_of_rows) && (previous_no_of_rows != 0))
    {
@@ -105,11 +99,11 @@ dir_window_size(int *window_width, int *window_height)
       }
    }
 
-   /* Calculate window width and height */
+   /* Calculate window width and height. */
    new_window_width  = line_length * no_of_columns;
    new_window_height = line_height  * no_of_rows;
 
-   /* Window resize necessary ? */
+   /* Window resize necessary? */
    if ((new_window_width  != *window_width) ||
        (new_window_height != *window_height))
    {

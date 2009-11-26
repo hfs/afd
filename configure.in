@@ -1,12 +1,13 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.59])
-AC_INIT([afd], [1.3.6], [Holger.Kiehl@dwd.de])
+AC_INIT([afd], [1.4.0-1], [Holger.Kiehl@dwd.de])
 AC_CONFIG_SRCDIR(src/init_afd/afd.c)
 AC_CONFIG_AUX_DIR(ac-tools)
 dnl# AC_PREFIX_DEFAULT("/usr/local/afd")
 dnl# [no-dependencies dist-bzip2]
 AM_INIT_AUTOMAKE([dist-bzip2])
 AM_CONFIG_HEADER(config.h:ac-tools/config.h.in)
+AC_GNU_SOURCE
 
 REQUIRES=""
 BUILD_REQUIRES=""
@@ -24,6 +25,14 @@ AC_ARG_ENABLE(input_log,
    [AC_DEFINE([_INPUT_LOG], [], [With input log support])
     ac_cv_input_log="INPUT "
     AM_CONDITIONAL(WITH_INPUT_LOG, true)])
+
+AC_ARG_ENABLE(distribution_log,
+   [  --disable-distribution_log      disable distribution_log support],
+   [AM_CONDITIONAL(WITH_DISTRIBUTION_LOG, false)
+    ac_cv_distribution_log=""],
+   [AC_DEFINE([_DISTRIBUTION_LOG], [], [With distribution log support])
+    ac_cv_distribution_log="DISTRIBUTION "
+    AM_CONDITIONAL(WITH_DISTRIBUTION_LOG, true)])
 
 AC_ARG_ENABLE(output_log,
    [  --disable-output_log            disable output_log support],
@@ -48,6 +57,19 @@ AC_ARG_ENABLE(production_log,
    [AC_DEFINE([_PRODUCTION_LOG], [], [With production log support])
     ac_cv_production_log="PRODUCTION "
     AM_CONDITIONAL(WITH_PRODUCTION_LOG, true)])
+
+AC_ARG_ENABLE(alda_cache_positioning,
+   [  --disable-alda_cache_positioning disable ALDA cache positioning support],
+   [AM_CONDITIONAL(WITH_ALDA_CACHE_POSITIONING, false)
+    ac_cv_alda_cache=""],
+   [AC_DEFINE([WITH_LOG_CACHE], [], [With ALDA cache positioning support])
+    ac_cv_alda_cache="ALDA-Cache "
+    AM_CONDITIONAL(WITH_ALDA_CACHE_POSITIONING, true)])
+
+AC_ARG_ENABLE(ncurses_ui,
+   [  --disable-ncurses_ui            disable nCurses support],
+   [ac_cv_ncurses_ui="no"],
+   [ac_cv_ncurses_ui="yes "])
 
 AC_ARG_ENABLE(error_queue,
    [  --disable-error_queue           disable error_queue support],
@@ -93,6 +115,13 @@ AC_ARG_ENABLE(verify_fsa,
     fi],
    [AC_DEFINE([_VERIFY_FSA], [], [With verify FSA support])])
 
+AC_ARG_ENABLE(ignore_duplicate_jobs,
+   [  --disable-ignore_duplicate_jobs disable ignoring duplicate job entries],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([IGNORE_DUPLICATE_JOB_IDS], [], [With ignoring duplicate jobs])
+    fi],
+   [AC_DEFINE([IGNORE_DUPLICATE_JOB_IDS], [], [With ignoring duplicate jobs])])
+
 AC_ARG_ENABLE(with_ctrl_accelerator,
    [  --enable-with_ctrl_accelerator  use ctrl key as accelerator],
    [if test x$enableval = xyes; then
@@ -100,10 +129,10 @@ AC_ARG_ENABLE(with_ctrl_accelerator,
    fi])
 
 AC_ARG_ENABLE(with_afdbench_settings,
-   [  --enable-afdbench-settings      enables settings for running afdbench],
+   [  --enable-with_afdbench_settings enables settings for running afdbench],
    [AC_DEFINE([AFDBENCH_CONFIG], [], [Enables settings for running afdbench])
-    ac_cv_afdbench_settings="yes"],
-   [ac_cv_afdbench_settings="no"])
+    ac_cv_with_afdbench_settings="yes"],
+   [ac_cv_with_afdbench_settings="no"])
 
 AC_ARG_ENABLE(auto_create_config,
    [  --disable-auto_create_config    disable automatic creation of configuration],
@@ -118,10 +147,16 @@ AC_ARG_ENABLE(afd_ctrl_proc_check,
     ac_cv_afd_ctrl_proc_check="yes"])
 
 AC_ARG_ENABLE(report_empty_dir_scan,
-   [  --disable-report_empty_dir_scan disable reporting empty dir scans],
-   [ac_cv_report_empty_dir_scan="no"],
+   [  --enable-report_empty_dir_scan  enable reporting empty dir scans],
    [AC_DEFINE([REPORT_EMPTY_DIR_SCANS], [], [Report empty directory scans])
-    ac_cv_report_empty_dir_scan="yes"])
+    ac_cv_report_empty_dir_scan="yes"],
+   [ac_cv_report_empty_dir_scan="no"])
+
+AC_ARG_ENABLE(expand_path_in_message,
+   [  --enable-expand_path_in_message enable expanding path in message],
+   [AC_DEFINE([EXPAND_PATH_IN_MESSAGE], [], [Expand path in message])
+    ac_cv_expand_path_in_message="yes"],
+   [ac_cv_expand_path_in_message="no"])
 
 AC_ARG_ENABLE(setuid_progs,
    [  --enable-setuid_progs           enable setuid flag when installing],
@@ -149,12 +184,6 @@ AC_ARG_ENABLE(multi_dir_scans,
    [  --enable-multi_dir_scans        enable multiple directory scans],
    [if test x$enableval = xyes; then
       AC_DEFINE([WITH_MULTI_DIR_SCANS], [], [Enable multiple directory scans])
-   fi])
-
-AC_ARG_ENABLE(multi_dir_definition,
-   [  --enable-multi_dir_definition   enable support for multiple directory definition],
-   [if test x$enableval = xyes; then
-      AC_DEFINE([WITH_MULTI_DIR_DEFINITION], [], [With multiple directory definitions])
    fi])
 
 AC_ARG_ENABLE(ftp_reuse_data_port,
@@ -288,9 +317,10 @@ compile_afd_mon_only=false
 AC_ARG_ENABLE(compile_afd_mon_only,
    [  --enable-compile_afd_mon_only   enable compiling of afd_mon only],
    [case "${enableval}" in
-      yes) compile_afd_mon_only=true ;;
+      yes) compile_afd_mon_only=true
+           AC_DEFINE([WITH_AFD_MON], [], [With afd_mon support]) ;;
       no)  compile_afd_mon_only=false;;
-      *) AC_MSG_ERROR(bad value ${enableval} for --enable-afd_mon) ;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-compile_afd_mon_only) ;;
    esac],[compile_afd_mon_only=false])
 AM_CONDITIONAL(WITH_AFD_MON_ONLY, $compile_afd_mon_only)
 
@@ -299,7 +329,8 @@ afd_mon=false
 AC_ARG_ENABLE(afd_mon,
    [  --enable-afd_mon                enable afd_mon support],
    [case "${enableval}" in
-      yes) afd_mon=true ;;
+      yes) afd_mon=true
+           AC_DEFINE([WITH_AFD_MON], [], [With afd_mon support]) ;;
       no)  afd_mon=false;;
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-afd_mon) ;;
    esac
@@ -360,6 +391,16 @@ AC_ARG_ENABLE(compile_64_bit,
      *) AC_MSG_ERROR(bad value ${enableval} for --enable-compile-64-bit) ;;
    esac],[compile_64_bit=false])
 
+dnl **** Enable/disable distro-style RPMs (taken from heartbeat)
+AC_ARG_ENABLE([distro-rpm],                                                    
+   [  --enable-distro-rpm             Enable distro-style RPMs [default=no]],
+   [], [enable_distro_rpm=no])
+case $enable_distro_rpm in
+   yes) DISTRO_STYLE_RPMS=1;;
+   *)   DISTRO_STYLE_RPMS=0;;
+esac                         
+AC_SUBST(DISTRO_STYLE_RPMS)
+
 dnl **** check where init/rc directory is, taken from heartbeat
 AC_MSG_CHECKING(which init (rc) directory to use)
 INITDIR=""
@@ -394,6 +435,42 @@ AC_ARG_WITH(sysconfigdir,
    [ if test x"$withval" = xprefix; then SYSCONFIGDIR=${prefix}; else
          SYSCONFIGDIR="$withval"; fi ])
 AC_SUBST(SYSCONFIGDIR)
+cleaned_configure_args=""  
+for j in ${ac_configure_args}
+do
+   case $j in
+      *--libdir=*) ;;
+      *)           cleaned_configure_args="$cleaned_configure_args $j" ;;
+   esac
+done
+AC_SUBST(cleaned_configure_args)
+
+dnl **** check if datadir, docdir and mandir are set, needed for spec file
+dnl **** This was taken from the heartbeat package.
+prefix_orig="$prefix"
+prefix=`eval echo "$prefix"`
+case $prefix in
+  NONE) prefix=/usr/local;;
+esac                       
+var() {
+  case $1 in
+    *'${'*)     res=`eval echo "$1"`;;
+    *)          res="$1";;
+  esac
+  case "$res" in
+    ""|NONE)    echo "$2";;
+    *)          echo "$res";;
+  esac
+}
+exec_prefix=`var "$exec_prefix" "$prefix"`
+bindir=`var "$bindir" "$exec_prefix/bin"`
+sbindir=`var "$sbindir" "$exec_prefix/sbin"`
+datarootdir=`var "$datarootdir" "$prefix/share"`
+datadir=`var "$datadir" "$prefix/share"`
+sysconfdir=`var "$sysconfdir" "$prefix/etc"`
+mandir=`var "$mandir" "$exec_prefix/man"`
+docdir=${datadir}/doc/afd
+
 
 dnl **** check under which user to install
 BINARY_OWNER="root"
@@ -725,6 +802,7 @@ then
       exit 1
    fi
    AC_CHECK_MOTIF_VERSION
+   AC_CHECK_LESSTIF_VERSION
    AC_MSG_CHECKING(whether Motif requires XPM)
    case ${motif_library_ver}
    in
@@ -734,9 +812,15 @@ then
          if test x$no_xpm = xyes
          then
             echo "Unable to locate XPM, trying to continue."
+            AM_CONDITIONAL(WITH_XPM, false)
+            XPM_LIB=""
+         else
+            AC_DEFINE([HAVE_XPM], [], [With XPM support])
+            AM_CONDITIONAL(WITH_XPM, true)
+            XPM_LIB="-lXpm"
          fi
          AFD_MOTIF_INCLUDES="$include_motif $X_CFLAGS $XPM_CFLAGS"
-         AFD_MOTIF_LIBS="$link_motif $X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS $XPM_LIBS"
+         AFD_MOTIF_LIBS="$link_motif $X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS $XPM_LIB"
          ;;
       *)
          AC_MSG_RESULT(no)
@@ -838,6 +922,22 @@ then
    GUIS_STRING="none"
 fi
 
+dnl Check if we have ncurses.
+if test "$ac_cv_ncurses_ui" = "xyes"
+then
+MP_WITH_NCURSES
+   if test "x$NCURSES_LIB" != "x"
+   then
+      AFD_NCURSES_LIB=$NCURSES_LIB
+      AC_SUBST(AFD_NCURSES_LIB)
+      AM_CONDITIONAL(WITH_NCURSES, true)
+   else
+      AM_CONDITIONAL(WITH_NCURSES, false)
+   fi
+else
+   AM_CONDITIONAL(WITH_NCURSES, false)
+fi
+
 dnl Check if we want to build with Electric Fence
 if test "$ac_cv_efence" = yes
 then
@@ -864,7 +964,14 @@ AC_PATH_PROGS(PING_CMD, ping)
 AC_PATH_PROGS(TRACEROUTE_CMD, traceroute)
 AC_PATH_PROGS(GZIP_CMD, gzip)
 
+dnl We don't want it to complain about --datarootdir in afd.spec.in
+AC_DEFUN([AC_DATAROOTDIR_CHECKED])
+
 dnl The following are needed for generating the spec file.
+AFD_VERSION=`echo $VERSION | cut -d '-' -f 1`
+AC_SUBST(AFD_VERSION)
+AFD_RELEASE=`echo $VERSION | cut -d '-' -f 2`
+AC_SUBST(AFD_RELEASE)
 AC_SUBST(ac_configure_args)
 AC_SUBST(REQUIRES)
 AC_SUBST(BUILD_REQUIRES)
@@ -919,6 +1026,7 @@ AC_CHECK_SIZEOF(nlink_t)
 AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(ssize_t)
 AC_CHECK_SIZEOF(ino_t)
+AC_CHECK_SIZEOF(uid_t)
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 
@@ -973,11 +1081,14 @@ AC_CHECK_FUNC([mmap],
               [AM_CONDITIONAL(WITHOUT_MMAP, false)
                AC_DEFINE([HAVE_MMAP], [], [With mmap support])],
               [AM_CONDITIONAL(WITHOUT_MMAP, true)])
-AC_CHECK_FUNCS(gethostname memcpy mkdir mkfifo mktime rmdir select\
-               seteuid setreuid snprintf socket strerror strtod strtol\
+AC_CHECK_FUNCS(fdatasync getline gethostname memcpy mkdir mkfifo mktime rmdir\
+               select seteuid setreuid snprintf socket strerror strtod strtol\
                strtoll strtoul strtoull unsetenv)
 
+AM_GNU_GETTEXT([external])
+
 AC_CONFIG_FILES([Makefile
+po/Makefile.in
 src/Makefile
 src/common/Makefile
 src/misc/Makefile
@@ -986,6 +1097,7 @@ src/init_afd/Makefile
 src/amg/Makefile
 src/fd/Makefile
 src/log/Makefile
+src/log/alda/Makefile
 src/archive_watch/Makefile
 src/statistics/Makefile
 src/tools/Makefile
@@ -997,12 +1109,15 @@ src/test/Makefile
 src/test/filter/Makefile
 src/UI/Makefile
 src/UI/common/Makefile
+src/UI/nCurses/Makefile
+src/UI/nCurses/nafd_ctrl/Makefile
 src/UI/Gtk+/Makefile
 src/UI/Gtk+/common/Makefile
-src/UI/Gtk+/afd_ctrl/Makefile
+src/UI/Gtk+/gafd_ctrl/Makefile
+src/UI/Gtk+/gshow_log/Makefile
 src/UI/Motif/Makefile
 src/UI/Motif/common/Makefile
-src/UI/Motif/afd_ctrl/Makefile
+src/UI/Motif/mafd_ctrl/Makefile
 src/UI/Motif/dir_ctrl/Makefile
 src/UI/Motif/afd_info/Makefile
 src/UI/Motif/dir_info/Makefile
@@ -1010,7 +1125,7 @@ src/UI/Motif/afd_load/Makefile
 src/UI/Motif/edit_hc/Makefile
 src/UI/Motif/handle_event/Makefile
 src/UI/Motif/show_cmd/Makefile
-src/UI/Motif/show_log/Makefile
+src/UI/Motif/mshow_log/Makefile
 src/UI/Motif/show_olog/Makefile
 src/UI/Motif/show_ilog/Makefile
 src/UI/Motif/show_dlog/Makefile
@@ -1021,12 +1136,18 @@ src/UI/Motif/mon_info/Makefile
 src/UI/Motif/view_dc/Makefile
 src/UI/Motif/xsend_file/Makefile
 src/UI/Motif/xshow_stat/Makefile
+doc/Makefile
+doc/html-en/Makefile
+doc/images/Makefile
+doc/man/Makefile
+doc/txt/Makefile
 scripts/Makefile
 scripts/afd
 scripts/afdmon
 scripts/afd_auto_config
 scripts/afdalarm
 scripts/afd_unused_infos
+scripts/mirror_fra_cfg
 scripts/rafdd_cmd
 scripts/rafdd_cmd_ssh
 scripts/rmon_ctrl
@@ -1042,12 +1163,14 @@ echo ""
 echo "                          Configuration"
 echo ""
 echo "      Source code location           : ${srcdir}"
-echo "      Install path                   : ${prefix}/bin ${prefix}/sbin"
+echo "      Install path bin + sbin        : ${prefix}/bin ${prefix}/sbin"
+echo "      Install path doc               : ${docdir}"
+echo "      Install path man               : ${mandir}"
 echo "      AFD Version                    : ${VERSION}"
 echo "      Compiler                       : ${CC}"
 echo "      Compiler flags                 : ${CFLAGS}"
 echo "      GUI                            : ${GUIS_STRING}"
-if test "x${ac_cv_afdbench_settings}" = "xyes"
+if test "x${ac_cv_with_afdbench_settings}" = "xyes"
 then
    echo "      Settings for afdbench enabled  : yes"
 fi
@@ -1057,7 +1180,7 @@ then
 else
    echo "      With TLS/SSL support           : no"
 fi
-echo "      Logs                           : ${ac_cv_input_log}${ac_cv_output_log}${ac_cv_delete_log}${ac_cv_production_log}"
+echo "      Logs                           : ${ac_cv_input_log}${ac_cv_distribution_log}${ac_cv_output_log}${ac_cv_delete_log}${ac_cv_production_log}${ac_cv_alda_cache}"
 echo "      Error queue support            : ${ac_cv_error_queue}"
 echo "      With AFD monitor               : ${ac_cv_afd_mon}"
 echo "      With duplicate check support   : ${ac_cv_dupcheck_support}"
@@ -1066,5 +1189,6 @@ echo "      With server support            : ${ac_cv_server_support}"
 echo "      With largefile support         : ${ac_cv_largefile}"
 echo "      Some binaries with setuid flag : ${ac_cv_setuid_progs}"
 echo "      Automatically create configs   : ${ac_cv_auto_create_config}"
+echo "      Enable Distro-style RPMs       : ${enable_distro_rpm}"
 echo ""
 echo "------------- type make to compile -------------"

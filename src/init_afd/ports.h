@@ -1,6 +1,6 @@
 /*
  *  ports.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,9 +37,15 @@
 # else
 #  define str2offt strtoll
 # endif
+# if SIZEOF_INO_T == 4
+#  define str2inot strtol
+# else
+#  define str2inot strtoll
+# endif
 #else
 # define str2timet strtol
 # define str2offt strtol
+# define str2inot strtol
 #endif
 
 

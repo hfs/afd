@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,7 +75,7 @@
 #define MON_DISABLE_SEL                45
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
-/*         afd_ctrl.h        0 - 39                    */
+/*         mafd_ctrl.h       0 - 39                    */
 /*         mon_ctrl.h       40 - 69                    */
 /*         dir_ctrl.h       70 - 99                    */
 /*         x_common_defs.h 100 onwards.                */
@@ -119,7 +119,7 @@
 #define ACTIVE_TRANSFERS_BAR_NO        1
 #define HOST_ERROR_BAR_NO              2
 
-/* Log indicators (bit mapped) */
+/* Log indicators (bit mapped). */
 #define MON_SYS_LOG_INDICATOR          0
 #define MON_LOG_INDICATOR              1
 
@@ -143,6 +143,8 @@ struct mon_line
           signed char    blink;
           char           archive_watch;
           int            jobs_in_queue;
+          long           danger_no_of_jobs;
+          long           link_max;
           int            no_of_transfers;
           int            host_error_counter;
           int            no_of_hosts;
@@ -158,12 +160,11 @@ struct mon_line
           char           connect_status;
           float          scale[2];
           double         average_tr;         /* Average transfer rate.   */
-          double         max_average_tr;     /* Max transfer rate        */
+          double         max_average_tr;     /* Max transfer rate.       */
           unsigned int   bar_length[3];
           unsigned short green_color_offset;
           unsigned short blue_color_offset;
           unsigned char  inverse;
-          unsigned char  expose_flag;
           char           afd_toggle;
        };
       
@@ -216,6 +217,10 @@ struct mon_control_perm
 signed char mon_window_size(int *, int *),
             resize_mon_window(void);
 void        calc_mon_but_coord(int),
+            change_mon_history_cb(Widget, XtPointer, XtPointer),
+            change_mon_font_cb(Widget, XtPointer, XtPointer),
+            change_mon_rows_cb(Widget, XtPointer, XtPointer),
+            change_mon_style_cb(Widget, XtPointer, XtPointer),
             check_afd_status(Widget),
             check_mon_status(Widget),
             destroy_error_history(void),
@@ -243,14 +248,11 @@ void        calc_mon_but_coord(int),
                                     XmDrawingAreaCallbackStruct *),
             mon_focus(Widget, XtPointer, XEvent *),
             mon_input(Widget, XtPointer, XEvent *),
+            mon_popup_cb(Widget, XtPointer, XtPointer),
             popup_error_history(int, int, int),
             popup_mon_menu_cb(Widget, XtPointer, XEvent *),
+            redraw_all(void),
             save_mon_setup_cb(Widget, XtPointer, XtPointer),
-            mon_popup_cb(Widget, XtPointer, XtPointer),
-            change_mon_font_cb(Widget, XtPointer, XtPointer),
-            change_mon_rows_cb(Widget, XtPointer, XtPointer),
-            change_mon_style_cb(Widget, XtPointer, XtPointer),
-            change_mon_history_cb(Widget, XtPointer, XtPointer),
             select_afd_dialog(Widget, XtPointer, XtPointer),
             setup_mon_window(char *),
             start_remote_prog(Widget, XtPointer, XtPointer);

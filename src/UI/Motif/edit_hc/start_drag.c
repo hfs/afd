@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <Xm/AtomMgr.h>
 #include "edit_hc.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display *display;
 extern Widget  host_list_w,
                source_icon_w,
@@ -57,7 +57,7 @@ extern Widget  host_list_w,
 extern Atom    compound_text;
 extern int     in_drop_site;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static Boolean text_convert(Widget, Atom *, Atom *, Atom *, XtPointer *,
                             unsigned long *, int *);
 

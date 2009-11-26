@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -22,11 +22,12 @@ noinst_HEADERS       = edit_hc.h no_source.h no_source_mask.h source.h\
                        source_mask.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
                        -I../common -I../../../init_afd -I../../../amg\
-                       -I../../../log -I../afd_ctrl
+                       -I../../../log -I../mafd_ctrl
 bin_PROGRAMS         = edit_hc
 edit_hc_SOURCES      = accept_drop.c\
                        edit_hc.c\
                        edit_hc_callbacks.c\
+                       init_host_list.c\
                        remove_host.c\
                        start_drag.c
 edit_hc_LDADD        = ../common/libmotifafd.a\

@@ -1,6 +1,6 @@
 /*
  *  view_ls_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2005 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -105,29 +105,39 @@ main(int argc, char *argv[])
 
                no_of_listed_files = *(int *)ptr;
                version = (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1));
-               ptr += AFD_WORD_OFFSET;
-               rl = (struct retrieve_list *)ptr;
-
-               (void)fprintf(stdout, "\n        %s (%d entries  Struct Version: %d)\n\n",
-                             argv[i], no_of_listed_files, version);
-               (void)fprintf(stdout, "                        |            |Got |    | In |\n");
-               (void)fprintf(stdout, "          Date          |    Size    |date|Retr|list|   File name\n");
-               (void)fprintf(stdout, "------------------------+------------+----+----+----+------------------------------------\n");
-               for (j = 0; j < no_of_listed_files; j++)
+               if (version != CURRENT_RL_VERSION)
                {
-                  (void)strftime(time_str, 25, "%c", localtime(&rl[j].file_mtime));
-#if SIZEOF_OFF_T == 4
-                  (void)fprintf(stdout, "%s|%12ld| %s| %s| %s|%s\n",
-#else
-                  (void)fprintf(stdout, "%s|%12lld| %s| %s| %s|%s\n",
-#endif
-                                time_str, (pri_off_t)rl[j].size,
-                                (rl[j].got_date == YES) ? "YES" : "NO ",
-                                (rl[j].retrieved == YES) ? "YES" : "NO ",
-                                (rl[j].in_list == YES) ? "YES" : "NO ",
-                                rl[j].file_name);
+                  (void)fprintf(stderr,
+                                "Incorrect structure version, can only display version %d. This version is %d.\n",
+                                CURRENT_RL_VERSION, version);
                }
-               ptr -= AFD_WORD_OFFSET;
+               else
+               {
+                  ptr += AFD_WORD_OFFSET;
+                  rl = (struct retrieve_list *)ptr;
+
+                  (void)fprintf(stdout, "\n        %s (%d entries  Struct Version: %d)\n\n",
+                                argv[i], no_of_listed_files, version);
+                  (void)fprintf(stdout, "                        |            |Got |    | In |Assi|\n");
+                  (void)fprintf(stdout, "          Date          |    Size    |date|Retr|list|nged|Flag|   File name\n");
+                  (void)fprintf(stdout, "------------------------+------------+----+----+----+----+----+-------------------------------\n");
+                  for (j = 0; j < no_of_listed_files; j++)
+                  {
+                     (void)strftime(time_str, 25, "%c", localtime(&rl[j].file_mtime));
+#if SIZEOF_OFF_T == 4
+                     (void)fprintf(stdout, "%s|%12ld| %s| %s| %s| %3d| %3d|%s\n",
+#else
+                     (void)fprintf(stdout, "%s|%12lld| %s| %s| %s| %3d| %3d|%s\n",
+#endif
+                                   time_str, (pri_off_t)rl[j].size,
+                                   (rl[j].got_date == YES) ? "YES" : "NO ",
+                                   (rl[j].retrieved == YES) ? "YES" : "NO ",
+                                   (rl[j].in_list == YES) ? "YES" : "NO ",
+                                   rl[j].assigned,
+                                   rl[j].special_flag, rl[j].file_name);
+                  }
+                  ptr -= AFD_WORD_OFFSET;
+               }
                if (munmap(ptr, stat_buf.st_size) == -1)
                {
                   (void)fprintf(stderr, "Failed to munmap() from %s : %s\n",

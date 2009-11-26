@@ -1,6 +1,6 @@
 /*
  *  init_fifos_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,12 +60,14 @@ extern int  transfer_log_fd,
             read_fin_writefd,
             retry_writefd,
             transfer_log_readfd,
+            trl_calc_writefd,
 #endif
             fd_wake_up_fd,
             msg_fifo_fd,
             read_fin_fd,
             retry_fd,
-            delete_jobs_fd;
+            delete_jobs_fd,
+            trl_calc_fd;
 extern char *p_work_dir;
 
 
@@ -79,10 +81,11 @@ init_fifos_fd(void)
                msg_fifo[MAX_PATH_LENGTH],
                retry_fifo[MAX_PATH_LENGTH],
                sf_fin_fifo[MAX_PATH_LENGTH],
-               transfer_log_fifo[MAX_PATH_LENGTH];
+               transfer_log_fifo[MAX_PATH_LENGTH],
+               trl_calc_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   /* Initialise fifo names */
+   /* Initialise fifo names. */
    (void)strcpy(transfer_log_fifo, p_work_dir);
    (void)strcat(transfer_log_fifo, FIFO_DIR);
    (void)strcpy(sf_fin_fifo, transfer_log_fifo);
@@ -93,6 +96,8 @@ init_fifos_fd(void)
    (void)strcat(msg_fifo, MSG_FIFO);
    (void)strcpy(fd_wake_up_fifo, transfer_log_fifo);
    (void)strcat(fd_wake_up_fifo, FD_WAKE_UP_FIFO);
+   (void)strcpy(trl_calc_fifo, transfer_log_fifo);
+   (void)strcat(trl_calc_fifo, TRL_CALC_FIFO);
    (void)strcpy(retry_fifo, transfer_log_fifo);
    (void)strcat(retry_fifo, RETRY_FD_FIFO);
    (void)strcpy(delete_jobs_fifo, transfer_log_fifo);
@@ -148,6 +153,16 @@ init_fifos_fd(void)
          return(INCORRECT);
       }
    }
+   if ((stat(trl_calc_fifo, &stat_buf) == -1) ||
+       (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(trl_calc_fifo) < 0)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not create fifo %s.", trl_calc_fifo);
+         return(INCORRECT);
+      }
+   }
    if ((stat(retry_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
    {
       if (make_fifo(retry_fifo) < 0)
@@ -167,32 +182,7 @@ init_fifos_fd(void)
       }
    }
 
-   /* Open fifo to FSA to acknowledge the command */
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   if (open_fifo_rw(transfer_log_fifo, &transfer_log_readfd, &transfer_log_fd) == -1)
-#else
-   if ((transfer_log_fd = coe_open(transfer_log_fifo, O_RDWR)) == -1)
-#endif
-   {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s",
-                 transfer_log_fifo, strerror(errno));
-      return(INCORRECT);
-   }
-
-   /* Open fifo to AFD to receive commands */
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_fd, &fd_cmd_writefd) == -1)
-#else
-   if ((fd_cmd_fd = coe_open(fd_cmd_fifo, O_RDWR)) == -1)
-#endif
-   {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s", fd_cmd_fifo, strerror(errno));
-      return(INCORRECT);
-   }
-
-   /* Open fifo to receive message when a sf_xxx process is complete */
+   /* Open fifo to receive message when a sf_xxx process is complete. */
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (open_fifo_rw(sf_fin_fifo, &read_fin_fd, &read_fin_writefd) == -1)
 #else
@@ -201,6 +191,18 @@ init_fifos_fd(void)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
+      return(INCORRECT);
+   }
+
+   /* Open fifo to AFD to receive commands. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_fd, &fd_cmd_writefd) == -1)
+#else
+   if ((fd_cmd_fd = coe_open(fd_cmd_fifo, O_RDWR)) == -1)
+#endif
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", fd_cmd_fifo, strerror(errno));
       return(INCORRECT);
    }
 
@@ -228,6 +230,17 @@ init_fifos_fd(void)
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (open_fifo_rw(retry_fifo, &retry_fd, &retry_writefd) == -1)
 #else
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(trl_calc_fifo, &trl_calc_fd, &trl_calc_writefd) == -1)
+#else
+   if ((trl_calc_fd = coe_open(trl_calc_fifo, O_RDWR)) == -1)
+#endif
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s",
+                 trl_calc_fifo, strerror(errno));
+      return(INCORRECT);
+   }
    if ((retry_fd = coe_open(retry_fifo, O_RDWR)) == -1)
 #endif
    {
@@ -246,6 +259,29 @@ init_fifos_fd(void)
                  delete_jobs_fifo, strerror(errno));
       return(INCORRECT);
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(trl_calc_fifo, &trl_calc_fd, &trl_calc_writefd) == -1)
+#else
+   if ((trl_calc_fd = coe_open(trl_calc_fifo, O_RDWR)) == -1)
+#endif
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s",
+                 trl_calc_fifo, strerror(errno));
+      return(INCORRECT);
+   }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(transfer_log_fifo, &transfer_log_readfd, &transfer_log_fd) == -1)
+#else
+   if ((transfer_log_fd = coe_open(transfer_log_fifo, O_RDWR)) == -1)
+#endif
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s",
+                 transfer_log_fifo, strerror(errno));
+      return(INCORRECT);
+   }
+
 
    return(SUCCESS);
 }

@@ -1,6 +1,6 @@
 /*
  *  convert_ls_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2008 Deutscher Wetterdienst (DWD),
  *                     Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,8 +23,7 @@
 DESCR__S_M1
 /*
  ** NAME
- **   convert_ls_data - Convert 32 bit contents of the AFD ls data file to
- **                     64 bit ls data
+ **   convert_ls_data - Converts the ls data file from 32bit to 64bit
  **
  ** SYNOPSIS
  **   convert_ls_data [--version] <ls data filename 1>[...<ls data filename n>]
@@ -37,7 +36,7 @@ DESCR__S_M1
  **   H.Kiehl
  **
  ** HISTORY
- **   08.04.2005 H.Kiehl Created
+ **   02.12.2008 H.Kiehl Created
  **
  */
 DESCR__E_M1
@@ -45,24 +44,16 @@ DESCR__E_M1
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>                 /* exit()                            */
+#include <time.h>                   /* strftime()                        */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>                  /* open()                            */
 #include <unistd.h>                 /* fstat()                           */
 #include <sys/mman.h>               /* mmap()                            */
 #include <errno.h>
-#include "fddefs.h"
 #include "version.h"
 
-/* Global variables */
-int         sys_log_fd = STDERR_FILENO;
-char        *p_work_dir;
-const char  *sys_log_name = SYSTEM_LOG_FIFO;
-
-/* Local function prototypes. */
-static void usage(char *);
-
-struct retrieve_list_int
+struct retrieve_list32
        {
           char   file_name[MAX_FILENAME_LENGTH];
           char   got_date;
@@ -76,113 +67,134 @@ struct retrieve_list_int
           int    file_mtime;             /* Modification time of file.     */
        };
 
+/* Local function prototypes. */
+static void usage(char *);
+
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-   int                      fd,
-                            i,
-                            j,
-                            no_of_listed_files;
-   char                     *ptr,
-                            time_str[25],
-                            tmp_name[13],
-                            work_dir[MAX_PATH_LENGTH];
-   struct stat              stat_buf;
-   struct retrieve_list_int *rli;
+   int                    from_fd,
+                          i,
+                          j,
+                          no_of_listed_files,
+                          to_fd;
+   char                   *ptr,
+                          time_str[25],
+                          tmp_name[MAX_FILENAME_LENGTH];
+   struct stat            stat_buf;
+   struct retrieve_list   *rl;
+   struct retrieve_list32 *rl32;
 
    CHECK_FOR_VERSION(argc, argv);
-
-   if (get_afd_path(&argc, argv, work_dir) < 0)
-   {
-      exit(INCORRECT);
-   }
 
    if (argc < 2)
    {
       usage(argv[0]);
       exit(INCORRECT);
    }
-   (void)strcpy(tmp_name, ".ls_data.tmp");
    for (i = 1; i < argc; i++)
    {
-      if ((fd = open(argv[i], O_RDONLY)) == -1)
+      if ((from_fd = open(argv[i], O_RDONLY)) == -1)
       {
          (void)fprintf(stderr, "Failed to open() %s : %s\n",
                        argv[i], strerror(errno));
       }
       else
       {
-         if (fstat(fd, &stat_buf) == -1)
+         if (fstat(from_fd, &stat_buf) == -1)
          {
             (void)fprintf(stderr, "Failed to fstat() %s : %s\n",
                           argv[i], strerror(errno));
          }
          else
          {
-            if ((ptr = mmap(0, stat_buf.st_size, PROT_READ, MAP_SHARED,
-                            fd, 0)) == (caddr_t) -1)
+            if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_SHARED,
+                            from_fd, 0)) == (caddr_t) -1)
             {
                (void)fprintf(stderr, "Failed to mmap() %s : %s\n",
                              argv[i], strerror(errno));
             }
             else
             {
-               int                  new_fd;
-               size_t               new_size;
-               char                 *new_ptr;
-               struct retrieve_list *rl;
-
-               no_of_listed_files = *(int *)ptr;
-               ptr += AFD_WORD_OFFSET;
-               rli = (struct retrieve_list_int *)ptr;
-               new_size = (no_of_listed_files * sizeof(struct retrieve_list)) +
-                          AFD_WORD_OFFSET;
-               new_ptr = attach_buf(tmp_name, &new_fd, new_size, NULL,
-                                    (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
-                                    NO);
-               if (new_ptr == (caddr_t) -1)
+               (void)strcpy(tmp_name, argv[i]);
+               (void)strcat(tmp_name, ".converted");
+               if ((to_fd = open(tmp_name, (O_WRONLY | O_CREAT | O_TRUNC),
+                                 stat_buf.st_mode)) == -1)
                {
-                  (void)fprintf(stderr, "Failed to attach_buf() : %s\n",
-                                strerror(errno));
-                  exit(INCORRECT);
+                  (void)fprintf(stderr, "Failed to open() %s : %s\n",
+                                tmp_name, strerror(errno));
                }
-
-               *(int *)new_ptr = no_of_listed_files;
-               new_ptr += AFD_WORD_OFFSET;
-               rl = (struct retrieve_list *)new_ptr;
-               for (j = 0; j < no_of_listed_files; j++)
+               else
                {
-                  (void)strcpy(rl[j].file_name, rli[j].file_name);
-                  rl[j].got_date = rli[j].got_date;
-                  rl[j].retrieved = rli[j].retrieved;
-                  rl[j].in_list = rli[j].in_list;
-                  rl[j].size = (off_t)rli[j].size;
-                  rl[j].file_mtime = (time_t)rli[j].file_mtime;
+                  int   rest;
+                  off_t new_size;
+                  char  *buffer,
+                        *ptr2;
+
+                  no_of_listed_files = *(int *)ptr;
+                  rest = RETRIEVE_LIST_STEP_SIZE - (no_of_listed_files % RETRIEVE_LIST_STEP_SIZE);
+                  new_size = AFD_WORD_OFFSET +
+                             ((no_of_listed_files + rest) * sizeof(struct retrieve_list));
+                  if ((buffer = malloc(new_size)) == NULL)
+                  {
+                     (void)fprintf(stderr, "malloc() error : %s\n",
+                                   strerror(errno));
+                  }
+                  else
+                  {
+                     int version;
+
+                     ptr2 = buffer;
+                     (void)memset(buffer, 0, new_size);
+                     *(int *)ptr2 = no_of_listed_files;
+                     version = (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1));
+                     *(ptr2 + SIZEOF_INT + 1 + 1 + 1) = version;
+                     ptr += AFD_WORD_OFFSET;
+                     ptr2 += AFD_WORD_OFFSET;
+                     rl32 = (struct retrieve_list32 *)ptr;
+                     rl = (struct retrieve_list *)ptr2;
+
+                     for (j = 0; j < no_of_listed_files; j++)
+                     {
+                        (void)memcpy(rl[j].file_name, rl32[j].file_name,
+                                     MAX_FILENAME_LENGTH);
+                        rl[j].got_date = rl32[j].got_date;
+                        rl[j].retrieved = rl32[j].retrieved;
+                        rl[j].in_list = rl32[j].in_list;
+                        rl[j].size = (off_t)rl32[j].size;
+                        rl[j].file_mtime = (time_t)rl32[j].file_mtime;
+                     }
+
+                     if (write(to_fd, buffer, new_size) != new_size)
+                     {
+                        (void)fprintf(stderr, "write() error : %s\n",
+                                      strerror(errno));
+                        exit(INCORRECT);
+                     }
+                     if (close(to_fd) == -1)
+                     {
+                        (void)fprintf(stderr, "close() error : %s\n",
+                                      strerror(errno));
+                     }
+                     if (rename(tmp_name, argv[i]) == -1)
+                     {
+                        (void)fprintf(stderr, "rename() error : %s\n",
+                                      strerror(errno));
+                     }
+                     ptr -= AFD_WORD_OFFSET;
+                     free(buffer);
+                  }
                }
-               ptr -= AFD_WORD_OFFSET;
                if (munmap(ptr, stat_buf.st_size) == -1)
                {
                   (void)fprintf(stderr, "Failed to munmap() from %s : %s\n",
                                 argv[i], strerror(errno));
                }
-               unmap_data(new_fd, (void *)&rl);
-               if (unlink(argv[i]) == -1)
-               {
-                  (void)fprintf(stderr, "Failed to unlink() %s : %s\n",
-                                argv[i], strerror(errno));
-                  exit(INCORRECT);
-               }
-               if (rename(tmp_name, argv[i]) == -1)
-               {
-                  (void)fprintf(stderr, "Failed to rename() %s to %s : %s\n",
-                                tmp_name, argv[i], strerror(errno));
-                  exit(INCORRECT);
-               }
             }
          }
-         (void)close(fd);
+         (void)close(from_fd);
       }
    }
    exit(SUCCESS);

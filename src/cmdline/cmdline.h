@@ -1,6 +1,6 @@
 /*
  *  cmdline.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -134,30 +134,27 @@
 /* Function prototypes */
 extern void my_usleep(unsigned long),
             t_hostname(char *, char *),
-            trans_log(char *, char *, int, char *, char *, ...);
+            trans_log(char *, char *, int, char *, char *, char *, ...);
 extern int  rec(int, char *, char *, ...);
 #endif /* _STANDALONE_ */
 
 #if SIZEOF_OFF_T == 4
 # define WHAT_DONE(file_size_done, no_of_files_done)           \
         {                                                      \
-           trans_log(INFO_SIGN, NULL, 0, NULL,                 \
-                     "%ld Bytes send in %d file(s).",          \
+           trans_log(INFO_SIGN, NULL, 0, NULL, NULL,           \
+                     _("%ld bytes send in %d file(s)."),       \
                      (file_size_done), (no_of_files_done));    \
         }
 #else
 # define WHAT_DONE(file_size_done, no_of_files_done)           \
         {                                                      \
-           trans_log(INFO_SIGN, NULL, 0, NULL,                 \
-                     "%lld Bytes send in %d file(s).",         \
+           trans_log(INFO_SIGN, NULL, 0, NULL, NULL,           \
+                     _("%lld bytes send in %d file(s)."),      \
                      (file_size_done), (no_of_files_done));    \
         }
 #endif
 
 #define FILE_NAME_FILE_ERROR       40
-
-/* Error output in german */
-/* #define _GERMAN */
 
 /* Structure holding all filenames that are to be retrieved. */
 struct filename_list
@@ -193,6 +190,7 @@ struct data
           char         password[MAX_USER_NAME_LENGTH];
           char         proxy_name[MAX_PROXY_NAME_LENGTH + 1];
           char         remote_dir[MAX_PATH_LENGTH];
+          char         chmod_str[5];     /* String mode value for FTP.     */
           char         smtp_server[MAX_USER_NAME_LENGTH];
                                          /* Target directory on the remote */
                                          /* side.                          */

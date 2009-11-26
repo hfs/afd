@@ -65,7 +65,7 @@ count_files(char *dirname, unsigned int *files, off_t *bytes)
    if ((dp = opendir(dirname)) == NULL)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Can't access directory %s : %s", dirname, strerror(errno));
+                 _("Can't access directory %s : %s"), dirname, strerror(errno));
    }
    else
    {
@@ -108,13 +108,14 @@ count_files(char *dirname, unsigned int *files, off_t *bytes)
       if (errno)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not readdir() %s : %s", dirname, strerror(errno));
+                    _("Could not readdir() %s : %s"), dirname, strerror(errno));
       }
 
       if (closedir(dp) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not closedir() %s : %s", dirname, strerror(errno));
+                    _("Could not closedir() %s : %s"),
+                    dirname, strerror(errno));
       }
    }
 

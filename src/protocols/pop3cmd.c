@@ -1,6 +1,6 @@
 /*
  *  pop3cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,7 +103,7 @@ extern char               msg_str[],
                           tr_hostname[];
 extern struct job         db;
 
-/* Local global variables */
+/* Local global variables. */
 static int                pop3_fd,
                           rb_offset;
 static char               read_buffer[4];
@@ -137,27 +137,27 @@ pop3_connect(char *hostname, int port)
 #ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to gethostbyname() %s : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                         _("Failed to gethostbyname() %s : %s"),
                          hostname, h_errlist[h_errno]);
             }
             else
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to gethostbyname() %s (h_errno = %d) : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                         _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
 #else
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to gethostbyname() %s (h_errno = %d) : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                      _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
 #endif
          }
          else
          {
 #endif /* !_HPUX && !_SCO */
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to gethostbyname() %s : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                      _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
 #if !defined (_HPUX) && !defined (_SCO)
          }
@@ -171,12 +171,36 @@ pop3_connect(char *hostname, int port)
 
    if ((pop3_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "socket() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                _("socket() error : %s"), strerror(errno));
       return(INCORRECT);
    }
    sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
+
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   if (timeout_flag != OFF)
+   {
+      int reply = 1;
+
+      if (setsockopt(pop3_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                   _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
+      }
+# ifdef TCP_KEEPALIVE
+      reply = timeout_flag;
+      if (setsockopt(pop3_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                   _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
+      }
+# endif
+      timeout_flag = OFF;
+   }
+#endif
 
    while (connect(pop3_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
@@ -193,8 +217,8 @@ pop3_connect(char *hostname, int port)
       }
       else
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to connect() to %s, have tried %d times : %s",
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                   _("Failed to connect() to %s, have tried %d times : %s"),
                    hostname, loop_counter, strerror(errno));
          (void)close(pop3_fd);
          pop3_fd = -1;
@@ -202,13 +226,13 @@ pop3_connect(char *hostname, int port)
       }
       if (close(pop3_fd) == -1)
       {
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                   "close() error : %s", strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                   _("close() error : %s"), strerror(errno));
       }
       if ((pop3_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "socket() error : %s", strerror(errno));
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                   _("socket() error : %s"), strerror(errno));
          (void)close(pop3_fd);
          return(INCORRECT);
       }
@@ -219,8 +243,8 @@ pop3_connect(char *hostname, int port)
    if (setsockopt(pop3_fd, SOL_SOCKET, SO_LINGER, (char *)&l,
                   sizeof(struct linger)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "setsockopt() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_connect", NULL,
+                _("setsockopt() error : %s"), strerror(errno));
       return(INCORRECT);
    }
 #endif
@@ -300,8 +324,8 @@ pop3_stat(int *no_of_messages, off_t *msg_size)
          }
          else
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                      "Number of messages in reply to large to store.");
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_stat", msg_str,
+                      _("Number of messages in reply to large to store."));
             while ((*(ptr + i) != ' ') && (*(ptr + i) != '\r') &&
                    (*(ptr + i) != '\n') && (*(ptr + i) != '\0'))
             {
@@ -321,7 +345,7 @@ pop3_stat(int *no_of_messages, off_t *msg_size)
             if (i > 0)
             {
                str_number[i] = '\0';
-               *msg_size = strtoul(str_number, NULL, 8);
+               *msg_size = (off_t)str2offt(str_number, NULL, 8);
             }
             else
             {
@@ -330,8 +354,8 @@ pop3_stat(int *no_of_messages, off_t *msg_size)
          }
          else
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                      "Size in reply to large to store.");
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_stat", msg_str,
+                      _("Size in reply to large to store."));
             *msg_size = 0;
          }
          read_buffer[0] = '\0';
@@ -373,26 +397,26 @@ pop3_retrieve(unsigned int msg_number, off_t *msg_size)
                if (i > 0)
                {
                   str_number[i] = '\0';
-                  *msg_size = strtoul(str_number, NULL, 8);
+                  *msg_size = (off_t)str2offt(str_number, NULL, 8);
                }
                else
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                            "Failed to get size from reply.");
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_retrieve", msg_str,
+                            _("Failed to get size from reply."));
                   *msg_size = 0;
                }
             }
             else
             {
-               trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                         "Size in reply to large to store.");
+               trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_retrieve", msg_str,
+                         _("Size in reply to large to store."));
                *msg_size = 0;
             }
          }
          else
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                      "Failed to get size from reply.");
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "pop3_retrieve", msg_str,
+                      _("Failed to get size from reply."));
             *msg_size = 0;
          }
       }
@@ -436,8 +460,8 @@ pop3_read(char *block, int blocksize)
                  {
                     timeout_flag = CON_RESET;
                  }
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "pop3_read(): read() error : %s", strerror(errno));
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_read", NULL,
+                           _("read() error : %s"), strerror(errno));
                  return(INCORRECT);
               }
 #ifdef WITH_SSL
@@ -454,14 +478,13 @@ pop3_read(char *block, int blocksize)
                     {
                        timeout_flag = CON_RESET;
                     }
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "pop3_read(): SSL_read() error : %s",
-                              strerror(errno));
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_read", NULL,
+                              _("SSL_read() error : %s"), strerror(errno));
                  }
                  else
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "pop3_read(): SSL_read() error %d", status);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_read", NULL,
+                              _("SSL_read() error %d"), status);
                  }
                  return(INCORRECT);
               }
@@ -537,8 +560,8 @@ pop3_read(char *block, int blocksize)
         }
         else
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "ftp_read(): select() error : %s", strerror(errno));
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_read", NULL,
+                     _("select() error : %s"), strerror(errno));
            return(INCORRECT);
         }
 
@@ -581,8 +604,8 @@ pop3_quit(void)
 #ifdef _WITH_SHUTDOWN
          if (shutdown(pop3_fd, 1) < 0)
          {
-            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                      "shutdown() error : %s", strerror(errno));
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__, "pop3_quit", NULL,
+                      _("shutdown() error : %s"), strerror(errno));
          }
          else
          {
@@ -605,8 +628,8 @@ pop3_quit(void)
                {
                   if ((status = read(pop3_fd, buffer, 32)) < 0)
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                               "read() error (%d) : %s",
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_quit", NULL,
+                               _("read() error (%d) : %s"),
                                status, strerror(errno));
                      reply = INCORRECT;
                   }
@@ -614,14 +637,14 @@ pop3_quit(void)
             }
             else if (status == 0)
                  {
-                    /* timeout has arrived */
+                    /* Timeout has arrived. */
                     timeout_flag = ON;
                     reply = INCORRECT;
                  }
                  else
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "select() error : %s", strerror(errno));
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "pop3_quit", NULL,
+                              _("select() error : %s"), strerror(errno));
                     reply = INCORRECT;
                  }
          }
@@ -641,8 +664,8 @@ pop3_quit(void)
 #endif
       if (close(pop3_fd) == -1)
       {
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                   "close() error : %s", strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "pop3_quit", NULL,
+                   _("close() error : %s"), strerror(errno));
       }
       pop3_fd = -1;
    }
@@ -715,7 +738,7 @@ read_msg(void)
    {
       if (bytes_read <= 0)
       {
-         /* Initialise descriptor set */
+         /* Initialise descriptor set. */
          FD_SET(pop3_fd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = transfer_timeout;
@@ -725,7 +748,7 @@ read_msg(void)
 
          if (status == 0)
          {
-            /* timeout has arrived */
+            /* Timeout has arrived. */
             timeout_flag = ON;
             bytes_read = 0;
             return(INCORRECT);
@@ -741,8 +764,8 @@ read_msg(void)
                     {
                        if (bytes_read == 0)
                        {
-                          trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                    "read_msg(): Remote hang up.");
+                          trans_log(ERROR_SIGN,  __FILE__, __LINE__, "read_msg", NULL,
+                                    _("Remote hang up."));
                           timeout_flag = NEITHER;
                        }
                        else
@@ -751,8 +774,8 @@ read_msg(void)
                           {
                              timeout_flag = CON_RESET;
                           }
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "read_msg(): read() error (after reading %d Bytes) : %s",
+                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                    _("read() error (after reading %d bytes) : %s"),
                                     bytes_buffered, strerror(errno));
                           bytes_read = 0;
                        }
@@ -768,8 +791,8 @@ read_msg(void)
                     {
                        if (bytes_read == 0)
                        {
-                          trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                    "read_msg(): Remote hang up.");
+                          trans_log(ERROR_SIGN,  __FILE__, __LINE__, "read_msg", NULL,
+                                    _("Remote hang up."));
                           timeout_flag = NEITHER;
                        }
                        else
@@ -781,14 +804,14 @@ read_msg(void)
                              {
                                 timeout_flag = CON_RESET;
                              }
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "read_msg(): SSL_read() error (after reading %d Bytes) : %s",
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                       _("SSL_read() error (after reading %d bytes) : %s"),
                                        bytes_buffered, strerror(errno));
                           }
                           else
                           {
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "read_msg(): SSL_read() error (after reading %d Bytes) (%d)",
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                       _("SSL_read() error (after reading %d bytes) (%d)"),
                                        bytes_buffered, status);
                           }
                           bytes_read = 0;
@@ -806,14 +829,14 @@ read_msg(void)
               }
          else if (status < 0)
               {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "read_msg(): select() error : %s", strerror(errno));
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                           _("select() error : %s"), strerror(errno));
                  return(INCORRECT);
               }
               else
               {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "read_msg(): Unknown condition.");
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                           _("Unknown condition."));
                  return(INCORRECT);
               }
       }

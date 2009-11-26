@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@ DESCR__S_M3
  **   callbacks - all callback functions for module show_dlog
  **
  ** SYNOPSIS
- **   void toggled(Widget w, XtPointer client_data, XtPointer call_data)
  **   void file_name_toggle(Widget w, XtPointer client_data, XtPointer call_data)
  **   void radio_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void item_selection(Widget w, XtPointer client_data, XtPointer call_data)
@@ -36,10 +35,6 @@ DESCR__S_M3
  **   void scrollbar_moved(Widget w, XtPointer client_data, XtPointer call_data)
  **
  ** DESCRIPTION
- **   The function toggled() is used to set the bits in the global
- **   variable toggles_set. The following bits can be set: SHOW_FTP,
- **   SHOW_SMTP and SHOW_FILE.
- **
  **   file_name_toggle() sets the variable file_name_toggle_set either
  **   to local or remote and sets the label of the toggle.
  **
@@ -85,7 +80,7 @@ DESCR__E_M3
 #include <ctype.h>          /* isdigit()                                 */
 #include <time.h>           /* time(), localtime(), mktime(), strftime() */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <unistd.h>         /* close()                                   */
 #include <Xm/Xm.h>
@@ -93,10 +88,10 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_dlog.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
 extern Widget           appshell,
                         headingbox_w,
@@ -113,7 +108,6 @@ extern int              file_name_toggle_set,
                         sum_line_length,
                         no_of_log_files,
                         char_width;
-extern XT_PTR_TYPE      toggles_set;
 extern time_t           start_time_val,
                         end_time_val;
 extern size_t           search_file_size;
@@ -133,21 +127,11 @@ char                    search_file_size_str[20],
                         total_summary_str[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 5];
 struct info_data        id;
 
-/* Local global variables */
+/* Local global variables. */
 static int              scrollbar_moved_flag;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int              eval_time(char *, Widget, time_t *);
-
-
-/*############################## toggled() ##############################*/
-void
-toggled(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   toggles_set ^= (XT_PTR_TYPE)client_data;
-
-   return;
-}
 
 
 /*########################## item_selection() ###########################*/
@@ -184,7 +168,7 @@ item_selection(Widget w, XtPointer client_data, XtPointer call_data)
       }
       last_date_found = date;
 
-      /* Show summary */
+      /* Show summary. */
       if (cbs->selected_item_count > 0)
       {
          calculate_summary(summary_str, first_date_found, last_date_found,
@@ -242,11 +226,12 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       file_name_length = new_file_name_length;
 
       XGetGeometry(display, main_window, &root_return, &x, &y, &width, &window_height, &border, &depth);
-      sum_line_length = sprintf(header_line, "%s%-*s %s%-*s %s",
+      sum_line_length = sprintf(header_line, "%s%-*s %s%-*s %-*s %-*s",
                                 DATE_TIME_HEADER, file_name_length,
                                 FILE_NAME_HEADER, FILE_SIZE_HEADER,
                                 HOST_NAME_LENGTH, HOST_NAME_HEADER,
-                                REST_HEADER);
+                                (int)MAX_REASON_LENGTH, REASON_HEADER,
+                                MAX_PROC_USER_LENGTH, PROCESS_USER_HEADER);
       XmTextSetString(headingbox_w, header_line);
 
       window_width = char_width *
@@ -282,11 +267,6 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
                free(il[i].offset);
                il[i].offset = NULL;
             }
-            if (il[i].input_id != NULL)
-            {
-               free(il[i].input_id);
-               il[i].input_id = NULL;
-            }
          }
          if (no_of_log_files > 0)
          {
@@ -319,38 +299,38 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
       int  pos = XmListYToPos(w, event->xbutton.y),
            max_pos;
 
-      /* Check if pos is valid */
+      /* Check if pos is valid. */
       XtVaGetValues(w, XmNitemCount, &max_pos, NULL);
       if ((max_pos > 0) && (pos <= max_pos))
       {
          int  i;
-         char text[4096];
+         char *text = NULL;
 
          /* Initialize text an data area. */
-         text[0]            = '\0';
          id.count           = 0;
          id.file_name[0]    = '\0';
          id.proc_user[0]    = '\0';
          id.extra_reason[0] = '\0';
          id.dbe             = NULL;
 
-         /* Get the information */
-         get_info(pos, NO);
+         /* Get the information. */
+         get_info(pos);
 
          /* Format information in a human readable text. */
-         if (id.input_id == YES)
+         if (id.job_id == 0)
          {
-            format_input_info(text);
+            format_input_info(&text);
          }
          else
          {
-            format_output_info(text);
+            format_output_info(&text);
          }
 
-         /* Show the information */
+         /* Show the information. */
          show_info(text);
 
          /* Free all memory that was allocated in get_info(). */
+         free(text);
          for (i = 0; i < id.count; i++)
          {
             free(id.dbe[i].files);
@@ -409,11 +389,6 @@ search_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             free(il[i].offset);
             il[i].offset = NULL;
-         }
-         if (il[i].input_id != NULL)
-         {
-            free(il[i].input_id);
-            il[i].input_id = NULL;
          }
       }
       if (no_of_log_files > 0)
@@ -844,7 +819,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    switch (length)
    {
-      case 0 : /* Assume user means current time */
+      case 0 : /* Assume user means current time. */
                {
                   char time_str[9];
 
@@ -868,7 +843,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
          return(INCORRECT);
       }
 
-      if (length == 3)
+      if (length == 3) /* -mm */
       {
          str[0] = numeric_str[1];
          str[1] = numeric_str[2];
@@ -881,7 +856,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
          *value = time_val - (min * 60);
       }
-      else if (length == 5) 
+      else if (length == 5) /* -hhmm */
            {
               if ((!isdigit((int)numeric_str[3])) ||
                   (!isdigit((int)numeric_str[4])))
@@ -907,7 +882,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
               *value = time_val - (min * 60) - (hour * 3600);
            }
-      else if (length == 7)
+      else if (length == 7) /* -DDhhmm */
            {
               int days;
 
@@ -961,7 +936,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    if (length == 4) /* hhmm */
    {
-      struct tm *bd_time;     /* Broken-down time */
+      struct tm *bd_time;     /* Broken-down time. */
 
       hour = atoi(str);
       if ((hour < 0) || (hour > 23))
@@ -984,9 +959,15 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    }
    else if (length == 6) /* DDhhmm */
         {
-           int       day = atoi(str);
-           struct tm *bd_time;     /* Broken-down time */
+           int       day;
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])))
+           {
+              return(INCORRECT);
+           }
+           day = atoi(str);
            if ((day < 0) || (day > 31))
            {
               return(INCORRECT);
@@ -1015,10 +996,18 @@ eval_time(char *numeric_str, Widget w, time_t *value)
         }
         else /* MMDDhhmm */
         {
-           int       month = atoi(str),
+           int       month,
                      day;
-           struct tm *bd_time;     /* Broken-down time */
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])) ||
+               (!isdigit((int)numeric_str[6])) ||
+               (!isdigit((int)numeric_str[7])))
+           {
+              return(INCORRECT);
+           }
+           month = atoi(str);
            if ((month < 0) || (month > 12))
            {
               return(INCORRECT);

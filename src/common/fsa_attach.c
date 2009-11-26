@@ -1,6 +1,6 @@
 /*
  *  fsa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ DESCR__S_M3
  **
  ** DESCRIPTION
  **   Attaches to the memory mapped area of the FSA (File Transfer
- **   Status Area). The first 8 Bytes of this area is build up as
+ **   Status Area). The first 8 bytes of this area is build up as
  **   follows (assuming SIZEOF_INT is 4):
  **     Byte  | Type          | Description
  **    -------+---------------+---------------------------------------
@@ -70,6 +70,9 @@ DESCR__S_M3
  **   in 'fsa_id', 'fsa_size' and 'no_of_hosts' respectively. Otherwise
  **   INCORRECT is returned.
  **
+ ** SEE ALSO
+ **   check_fsa()
+ **
  ** AUTHOR
  **   H.Kiehl
  **
@@ -88,14 +91,14 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* mmap(), munmap()             */
+# include <sys/mman.h>                   /* mmap(), munmap()             */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                       /* fcntl()                      */
+# include <fcntl.h>                      /* fcntl()                      */
 #endif
 #include <errno.h>
 
-/* Global variables */
+/* Global variables. */
 extern int                        fsa_fd,
                                   fsa_id,
                                   no_of_hosts;
@@ -122,7 +125,7 @@ fsa_attach(void)
                 ulock = {F_UNLCK, SEEK_SET, 0, 1};
    struct stat  stat_buf;
 
-   /* Get absolute path of FSA_ID_FILE */
+   /* Get absolute path of FSA_ID_FILE. */
    (void)strcpy(fsa_id_file, p_work_dir);
    (void)strcat(fsa_id_file, FIFO_DIR);
    (void)strcpy(fsa_stat_file, fsa_id_file);
@@ -136,7 +139,7 @@ fsa_attach(void)
       /* no_of_hosts is stale.                   */
       if ((no_of_hosts < 0) && (fsa != NULL))
       {
-         /* Unmap from FSA */
+         /* Unmap from FSA. */
          ptr = (char *)fsa - AFD_WORD_OFFSET;
 #ifdef HAVE_MMAP
          if (munmap(ptr, fsa_size) == -1)
@@ -145,7 +148,7 @@ fsa_attach(void)
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() `%s' : %s",
+                       _("Failed to munmap() `%s' : %s"),
                        fsa_stat_file, strerror(errno));
          }
          else
@@ -157,11 +160,11 @@ fsa_attach(void)
          if (timeout_loops > 100)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Unable to attach to a new FSA.");
+                       _("Unable to attach to a new FSA."));
             return(INCORRECT);
          }
 
-         /* No need to speed things up here */
+         /* No need to speed things up here. */
          my_usleep(800000L);
       }
 
@@ -178,7 +181,7 @@ fsa_attach(void)
             if (loop_counter++ > 12)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fsa_id_file, strerror(errno));
                return(INCORRECT);
             }
@@ -186,44 +189,45 @@ fsa_attach(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() `%s' : %s",
+                       _("Failed to open() `%s' : %s"),
                        fsa_id_file, strerror(errno));
             return(INCORRECT);
          }
       }
 
-      /* Check if its locked */
+      /* Check if its locked. */
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not set write lock for `%s' : %s",
+                    _("Could not set write lock for `%s' : %s"),
                     fsa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
 
-      /* Read the fsa_id */
+      /* Read the fsa_id. */
       if (read(fd, &fsa_id, sizeof(int)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not read the value of the fsa_id : %s",
+                    _("Could not read the value of the fsa_id : %s"),
                     strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
 
-      /* Unlock file and close it */
+      /* Unlock file and close it. */
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not unlock `%s' : %s", fsa_id_file, strerror(errno));
+                    _("Could not unlock `%s' : %s"),
+                    fsa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
       if (close(fd) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Could not close() `%s' : %s",
+                    _("Could not close() `%s' : %s"),
                     fsa_id_file, strerror(errno));
       }
 
@@ -234,7 +238,7 @@ fsa_attach(void)
          if (close(fsa_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
       }
 
@@ -245,14 +249,14 @@ fsa_attach(void)
             if (retries++ > 8)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fsa_stat_file, strerror(errno));
                return(INCORRECT);
             }
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fsa_stat_file, strerror(errno));
                (void)sleep(1);
                continue;
@@ -261,7 +265,7 @@ fsa_attach(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() `%s' : %s",
+                       _("Failed to open() `%s' : %s"),
                        fsa_stat_file, strerror(errno));
             return(INCORRECT);
          }
@@ -270,7 +274,7 @@ fsa_attach(void)
       if (fstat(fsa_fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to stat() `%s' : %s",
+                    _("Failed to stat() `%s' : %s"),
                     fsa_stat_file, strerror(errno));
          (void)close(fsa_fd);
          fsa_fd = -1;
@@ -286,7 +290,7 @@ fsa_attach(void)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "mmap() error : %s", strerror(errno));
+                    _("mmap() error : %s"), strerror(errno));
          (void)close(fsa_fd);
          fsa_fd = -1;
          return(INCORRECT);
@@ -309,7 +313,7 @@ fsa_attach(void)
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() FSA : %s", strerror(errno));
+                       _("Failed to munmap() FSA : %s"), strerror(errno));
          }
          (void)close(fsa_fd);
          fsa_fd = -1;
@@ -341,7 +345,7 @@ fsa_attach_passive(void)
    struct flock rlock = {F_RDLCK, SEEK_SET, 0, 1};
    struct stat  stat_buf;
 
-   /* Get absolute path of FSA_ID_FILE */
+   /* Get absolute path of FSA_ID_FILE. */
    (void)strcpy(fsa_id_file, p_work_dir);
    (void)strcat(fsa_id_file, FIFO_DIR);
    (void)strcpy(fsa_stat_file, fsa_id_file);
@@ -355,7 +359,7 @@ fsa_attach_passive(void)
       /* no_of_hosts is stale.                   */
       if ((no_of_hosts < 0) && (fsa != NULL))
       {
-         /* Unmap from FSA */
+         /* Unmap from FSA. */
          ptr = (char *)fsa - AFD_WORD_OFFSET;
 #ifdef HAVE_MMAP
          if (munmap(ptr, fsa_size) == -1)
@@ -364,7 +368,7 @@ fsa_attach_passive(void)
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() `%s' : %s",
+                       _("Failed to munmap() `%s' : %s"),
                        fsa_stat_file, strerror(errno));
          }
          else
@@ -376,7 +380,7 @@ fsa_attach_passive(void)
          if (timeout_loops > 100)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Unable to attach to a new FSA.");
+                       _("Unable to attach to a new FSA."));
             return(INCORRECT);
          }
 
@@ -388,14 +392,15 @@ fsa_attach_passive(void)
       if ((fd = coe_open(fsa_id_file, O_RDONLY)) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to open() `%s' : %s", fsa_id_file, strerror(errno));
+                    _("Failed to open() `%s' : %s"),
+                    fsa_id_file, strerror(errno));
          return(INCORRECT);
       }
 
       if (fcntl(fd, F_SETLKW, &rlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not get read lock for `%s' : %s",
+                    _("Could not get read lock for `%s' : %s"),
                     fsa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
@@ -403,7 +408,7 @@ fsa_attach_passive(void)
       if (read(fd, &fsa_id, sizeof(int)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not read the value of the fsa_id : %s",
+                    _("Could not read the value of the fsa_id : %s"),
                     strerror(errno));
          (void)close(fd);
          return(INCORRECT);
@@ -411,7 +416,8 @@ fsa_attach_passive(void)
       if (close(fd) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Could not close() `%s' : %s", fsa_id_file, strerror(errno));
+                    _("Could not close() `%s' : %s"),
+                    fsa_id_file, strerror(errno));
       }
       (void)sprintf(p_fsa_stat_file, ".%d", fsa_id);
 
@@ -420,7 +426,7 @@ fsa_attach_passive(void)
          if (close(fsa_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
       }
 
@@ -431,14 +437,14 @@ fsa_attach_passive(void)
             if (retries++ > 8)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fsa_stat_file, strerror(errno));
                return(INCORRECT);
             }
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fsa_stat_file, strerror(errno));
                (void)sleep(1);
                continue;
@@ -447,7 +453,7 @@ fsa_attach_passive(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() `%s' : %s",
+                       _("Failed to open() `%s' : %s"),
                        fsa_stat_file, strerror(errno));
             return(INCORRECT);
          }
@@ -456,7 +462,7 @@ fsa_attach_passive(void)
       if (fstat(fsa_fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to stat() `%s' : %s", fsa_stat_file, strerror(errno));
+                    _("Failed to stat() `%s' : %s"), fsa_stat_file, strerror(errno));
          (void)close(fsa_fd);
          fsa_fd = -1;
          return(INCORRECT);
@@ -464,7 +470,7 @@ fsa_attach_passive(void)
       if (stat_buf.st_size < AFD_WORD_OFFSET)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "FSA not large enough to contain any meaningful data.");
+                    _("FSA not large enough to contain any meaningful data."));
          (void)close(fsa_fd);
          fsa_fd = -1;
          return(INCORRECT);
@@ -479,7 +485,7 @@ fsa_attach_passive(void)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "mmap() error : %s", strerror(errno));
+                    _("mmap() error : %s"), strerror(errno));
          (void)close(fsa_fd);
          fsa_fd = -1;
          return(INCORRECT);
@@ -493,7 +499,7 @@ fsa_attach_passive(void)
           (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FSA_VERSION))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.",
+                 _("This code is compiled for of FSA version %d, but the FSA we try to attach is %d."),
                  CURRENT_FSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
 #ifdef HAVE_MMAP
          if (munmap(ptr, stat_buf.st_size) == -1)
@@ -502,7 +508,7 @@ fsa_attach_passive(void)
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() FSA : %s", strerror(errno));
+                       _("Failed to munmap() FSA : %s"), strerror(errno));
          }
          (void)close(fsa_fd);
          fsa_fd = -1;

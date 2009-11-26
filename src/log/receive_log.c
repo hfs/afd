@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -94,7 +94,7 @@ main(int argc, char *argv[])
                   *fifo_buffer,
                   *p_log_fifo,
                   *p_log_his,
-                  work_dir[MAX_PATH_LENGTH],
+                  *work_dir,
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH],
                   msg_str[MAX_LINE_LENGTH],
@@ -105,56 +105,58 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
-   else
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
    {
-      char receive_log_fifo[MAX_PATH_LENGTH];
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s",
+                 strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
+   p_work_dir = work_dir;
 
-      p_work_dir = work_dir;
-
-      /* Create and open fifos that we need */
-      (void)strcpy(receive_log_fifo, work_dir);
-      (void)strcat(receive_log_fifo, FIFO_DIR);
-      (void)strcat(receive_log_fifo, RECEIVE_LOG_FIFO);
+   /* Create and open fifos that we need. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, RECEIVE_LOG_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(receive_log_fifo, &receive_fd, &writefd) == -1)
+   if (open_fifo_rw(log_file, &receive_fd, &writefd) == -1)
 #else
-      if ((receive_fd = open(receive_log_fifo, O_RDWR)) == -1)
+   if ((receive_fd = open(log_file, O_RDWR)) == -1)
 #endif
+   {
+      if (errno == ENOENT)
       {
-         if (errno == ENOENT)
+         if (make_fifo(log_file) == SUCCESS)
          {
-            if (make_fifo(receive_log_fifo) == SUCCESS)
-            {
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-               if (open_fifo_rw(receive_log_fifo, &receive_fd, &writefd) == -1)
+            if (open_fifo_rw(log_file, &receive_fd, &writefd) == -1)
 #else
-               if ((receive_fd = open(receive_log_fifo, O_RDWR)) == -1)
+            if ((receive_fd = open(log_file, O_RDWR)) == -1)
 #endif
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() fifo %s : %s",
-                             receive_log_fifo, strerror(errno));
-                  exit(INCORRECT);
-               }
-            }
-            else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to create fifo %s.", receive_log_fifo);
+                          "Failed to open() fifo %s : %s",
+                          log_file, strerror(errno));
                exit(INCORRECT);
             }
          }
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() fifo %s : %s",
-                       receive_log_fifo, strerror(errno));
+                       "Failed to create fifo %s.", log_file);
             exit(INCORRECT);
          }
+      }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() fifo %s : %s",
+                    log_file, strerror(errno));
+         exit(INCORRECT);
       }
    }
    
@@ -164,7 +166,7 @@ main(int argc, char *argv[])
     */
    if ((fifo_size = fpathconf(receive_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
 
@@ -236,11 +238,27 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         if (max_receive_log_files > 1)
+         {
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         }
+         else
+         {
+            if (unlink(current_log_file) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() current log file `%s' : %s",
+                          current_log_file, strerror(errno));
+            }
+         }
       }
    }
 
+#ifdef WITH_LOG_CACHE
+   receive_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
    receive_file = open_log_file(current_log_file);
+#endif
 
    /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
@@ -255,7 +273,7 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      /* Initialise descriptor set and timeout. */
       FD_SET(receive_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 1L;
@@ -283,8 +301,24 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_receive_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_file, strerror(errno));
+               }
+            }
+#ifdef WITH_LOG_CACHE
+            receive_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
             receive_file = open_log_file(current_log_file);
+#endif
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
          }
@@ -319,16 +353,20 @@ main(int argc, char *argv[])
                  }
 
                  /* Now evaluate all data read from fifo, byte after byte. */
-                 count = 1;
+                 count = 0;
                  while (count < n)
                  {
                     length = 0;
-                    while ((*ptr != '\n') && (*ptr != '\0') && (count < n))
+                    while (((count + length) < n) &&
+                           (*(ptr + length) != '\n') &&
+                           (*(ptr + length) != '\0'))
                     {
-                       msg_str[length] = *ptr;
-                       ptr++; length++; count++;
+                       msg_str[length] = *(ptr + length);
+                       length++;
                     }
-                    if (*ptr == '\n')
+                    ptr += length;
+                    count += length;
+                    if ((count < n) && (*ptr == '\n'))
                     {
                        ptr++; count++;
                        msg_str[length++] = '\n';
@@ -469,8 +507,24 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 if (max_receive_log_files > 1)
+                 {
+                    reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 }
+                 else
+                 {
+                    if (unlink(current_log_file) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to unlink() current log file `%s' : %s",
+                                  current_log_file, strerror(errno));
+                    }
+                 }
+#ifdef WITH_LOG_CACHE
+                 receive_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
                  receive_file = open_log_file(current_log_file);
+#endif
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }
            }

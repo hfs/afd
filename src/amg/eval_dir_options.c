@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -132,32 +132,31 @@ extern struct dir_data *dd;
 #define DONT_REP_UNKNOWN_FILES_FLAG      4
 #define DIRECTORY_PRIORITY_FLAG          8
 #define END_CHARACTER_FLAG               16
-#define TIME_FLAG                        32
-#define MAX_PROCESS_FLAG                 64
-#define DO_NOT_REMOVE_FLAG               128
-#define STORE_RETRIEVE_LIST_FLAG         256
-#define DEL_QUEUED_FILES_FLAG            512
-#define DONT_DEL_UNKNOWN_FILES_FLAG      1024
-#define REP_UNKNOWN_FILES_FLAG           2048
-#define FORCE_REREAD_FLAG                4096
-#define IMPORTANT_DIR_FLAG               8192
-#define IGNORE_SIZE_FLAG                 16384
-#define MAX_FILES_FLAG                   32768
-#define MAX_SIZE_FLAG                    65536
-#define WAIT_FOR_FILENAME_FLAG           131072
-#define ACCUMULATE_FLAG                  262144
-#define ACCUMULATE_SIZE_FLAG             524288
-#define IGNORE_FILE_TIME_FLAG            1048576
-#define DEL_OLD_LOCKED_FILES_FLAG        2097152
+#define MAX_PROCESS_FLAG                 32
+#define DO_NOT_REMOVE_FLAG               64
+#define STORE_RETRIEVE_LIST_FLAG         128
+#define DEL_QUEUED_FILES_FLAG            256
+#define DONT_DEL_UNKNOWN_FILES_FLAG      512
+#define REP_UNKNOWN_FILES_FLAG           1024
+#define FORCE_REREAD_FLAG                2048
+#define IMPORTANT_DIR_FLAG               4096
+#define IGNORE_SIZE_FLAG                 8192
+#define MAX_FILES_FLAG                   16384
+#define MAX_SIZE_FLAG                    32768
+#define WAIT_FOR_FILENAME_FLAG           65536
+#define ACCUMULATE_FLAG                  131072
+#define ACCUMULATE_SIZE_FLAG             262144
+#define IGNORE_FILE_TIME_FLAG            524288
+#define DEL_OLD_LOCKED_FILES_FLAG        1048576
 #ifdef WITH_DUP_CHECK
-# define DUPCHECK_FLAG                   4194304
+# define DUPCHECK_FLAG                   2097152
 #endif
-#define ACCEPT_DOT_FILES_FLAG            8388608
-#define DO_NOT_GET_DIR_LIST_FLAG         16777216
-#define DIR_WARN_TIME_FLAG               33554432
-#define KEEP_CONNECTED_FLAG              67108864
+#define ACCEPT_DOT_FILES_FLAG            4194304
+#define DO_NOT_GET_DIR_LIST_FLAG         8388608
+#define DIR_WARN_TIME_FLAG               16777216
+#define KEEP_CONNECTED_FLAG              33554432
 #ifdef WITH_INOTIFY
-# define INOTIFY_FLAG                    134217728
+# define INOTIFY_FLAG                    67108864
 #endif
 
 
@@ -168,6 +167,7 @@ eval_dir_options(int  dir_pos,
                  char *old_dir_options)
 {
    int  old_file_time,
+        to_many_time_option_warn = YES,
         used = 0;          /* Used to see whether option has */
                            /* already been set.              */
    char *ptr,
@@ -192,7 +192,7 @@ eval_dir_options(int  dir_pos,
 #ifndef _WITH_PTHREAD
    dd[dir_pos].important_dir = NO;
 #endif
-   dd[dir_pos].time_option = NO;
+   dd[dir_pos].no_of_time_entries = 0;
    dd[dir_pos].max_process = max_process_per_dir;
    dd[dir_pos].remove = YES;
    dd[dir_pos].stupid_mode = YES;
@@ -310,8 +310,8 @@ eval_dir_options(int  dir_pos,
            default : /* Give a warning about an unknown */
                      /* character option.               */
              system_log(WARN_SIGN, __FILE__, __LINE__,
-                        "Unknown option character %c <%d> for directory option.",
-                        *end_ptr, (int)*end_ptr);
+                        "Unknown option character %c <%d> for directory option for directory %s.",
+                        *end_ptr, (int)*end_ptr, dd[dir_pos].dir_name);
              break;
         }
         end_ptr++;
@@ -388,9 +388,9 @@ eval_dir_options(int  dir_pos,
                  if (dd[dir_pos].inotify_flag > (INOTIFY_RENAME_FLAG | INOTIFY_CLOSE_FLAG))
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                              "Incorrect parameter %u for directory option `%s' for the %d directory entry. Resetting to %u.",
+                              "Incorrect parameter %u for directory option `%s' for directory %s. Resetting to %u.",
                               dd[dir_pos].inotify_flag, INOTIFY_FLAG_ID,
-                              dir_pos, default_inotify_flag);
+                              dd[dir_pos].dir_name, default_inotify_flag);
                     dd[dir_pos].inotify_flag = default_inotify_flag;
                  }
                  else
@@ -531,38 +531,58 @@ eval_dir_options(int  dir_pos,
                  ptr++;
               }
            }
-      else if (((used & TIME_FLAG) == 0) &&
-               (strncmp(ptr, TIME_ID, TIME_ID_LENGTH) == 0))
+      else if (strncmp(ptr, TIME_ID, TIME_ID_LENGTH) == 0)
            {
-              char tmp_char;
+              if (dd[dir_pos].no_of_time_entries < MAX_FRA_TIME_ENTRIES)
+              {
+                 char tmp_char;
 
-              used |= TIME_FLAG;
-              ptr += TIME_ID_LENGTH;
-              while ((*ptr == ' ') || (*ptr == '\t'))
-              {
-                 ptr++;
-              }
-              end_ptr = ptr;
-              while ((*end_ptr != '\n') && (*end_ptr != '\0'))
-              {
-                 end_ptr++;
-              }
-              tmp_char = *end_ptr;
-              *end_ptr = '\0';
-              if (eval_time_str(ptr, &dd[dir_pos].te) == SUCCESS)
-              {
-                 dd[dir_pos].time_option = YES;
+                 ptr += TIME_ID_LENGTH;
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 end_ptr = ptr;
+                 while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                 {
+                    end_ptr++;
+                 }
+                 tmp_char = *end_ptr;
+                 *end_ptr = '\0';
+                 if (eval_time_str(ptr, &dd[dir_pos].te[dd[dir_pos].no_of_time_entries]) == SUCCESS)
+                 {
+                    dd[dir_pos].no_of_time_entries++;
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid %s string <%s>, for directory %s.",
+                               TIME_ID, ptr, dd[dir_pos].dir_name);
+                 }
+                 *end_ptr = tmp_char;
+                 ptr = end_ptr;
+                 while ((*ptr != '\n') && (*ptr != '\0'))
+                 {
+                    ptr++;
+                 }
               }
               else
               {
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Invalid %s string <%s>", TIME_ID, ptr);
-              }
-              *end_ptr = tmp_char;
-              ptr = end_ptr;
-              while ((*ptr != '\n') && (*ptr != '\0'))
-              {
-                 ptr++;
+                 /* Ignore this option. */
+                 end_ptr = ptr + TIME_ID_LENGTH;
+                 while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                 {
+                    end_ptr++;
+                 }
+                 if (to_many_time_option_warn == YES)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Only %d %s options may be set in DIR_CONFIG file for directory %s. Ignoring option.",
+                               MAX_FRA_TIME_ENTRIES, TIME_ID,
+                               dd[dir_pos].dir_name);
+                    to_many_time_option_warn = NO;
+                 }
+                 ptr = end_ptr;
               }
            }
       else if (((used & DO_NOT_REMOVE_FLAG) == 0) &&
@@ -696,8 +716,8 @@ eval_dir_options(int  dir_pos,
               else
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                           "No time given for option `%s' for the %d directory entry.",
-                           DEL_OLD_LOCKED_FILES_ID, dir_pos);
+                           "No time given for directory option `%s' for directory %s.",
+                           DEL_OLD_LOCKED_FILES_ID, dd[dir_pos].dir_name);
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
@@ -709,6 +729,7 @@ eval_dir_options(int  dir_pos,
            {
               used |= DONT_DEL_UNKNOWN_FILES_FLAG;
               ptr += DONT_DEL_UNKNOWN_FILES_ID_LENGTH;
+              dd[dir_pos].in_dc_flag |= DONT_DELUKW_FILES_IDC;
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
@@ -738,7 +759,7 @@ eval_dir_options(int  dir_pos,
                                           &dd[dir_pos].dup_check_flag, NULL);
 
            }
-#endif /* WITH_DUP_CHECK */
+#endif
       else if (((used & ACCEPT_DOT_FILES_FLAG) == 0) &&
                (strncmp(ptr, ACCEPT_DOT_FILES_ID, ACCEPT_DOT_FILES_ID_LENGTH) == 0))
            {
@@ -786,11 +807,12 @@ eval_dir_options(int  dir_pos,
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_TIME_T == 4
-                               "A value less then 0 for directory option `%s' is no possible, setting default %ld.",
+                               "A value less then 0 for directory option `%s' for directory %s is no possible, setting default %ld.",
 #else
-                               "A value less then 0 for directory option `%s' is no possible, setting default %lld.",
+                               "A value less then 0 for directory option `%s' for directory %s is no possible, setting default %lld.",
 #endif
-                               DIR_WARN_TIME_ID, (pri_time_t)default_warn_time);
+                               DIR_WARN_TIME_ID, dd[dir_pos].dir_name,
+                               (pri_time_t)default_warn_time);
                     dd[dir_pos].warn_time = default_warn_time;
                  }
                  else
@@ -850,19 +872,19 @@ eval_dir_options(int  dir_pos,
               {
                  ptr++;
               }
-              while (((isalpha((int)(*ptr))) || (*ptr == '?') ||
-                      (*ptr == '*')) && (length < MAX_WAIT_FOR_LENGTH))
+              while ((*ptr != '\n') && (*ptr != '\0') && (*ptr != ' ') &&
+                     (length < MAX_WAIT_FOR_LENGTH))
               {
+                 if (*ptr == '\\')
+                 {
+                    ptr++;
+                 }
                  dd[dir_pos].wait_for_filename[length] = *ptr;
                  ptr++; length++;
               }
               if ((length > 0) && (length != MAX_WAIT_FOR_LENGTH))
               {
                  dd[dir_pos].wait_for_filename[length] = '\0';
-                 while ((*ptr == ' ') || (*ptr == '\t'))
-                 {
-                    ptr++;
-                 }
               }
               else
               {
@@ -870,8 +892,8 @@ eval_dir_options(int  dir_pos,
                  if (length > 0)
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                              "File name|pattern to long for directory option `%s' for the %d directory entry.",
-                              WAIT_FOR_FILENAME_ID, dir_pos);
+                              "File name or pattern to long for directory option `%s' for directory %s.",
+                              WAIT_FOR_FILENAME_ID, dd[dir_pos].dir_name);
                     system_log(WARN_SIGN, NULL, 0,
                               "May only be %d bytes long.",
                               MAX_WAIT_FOR_LENGTH);
@@ -879,8 +901,8 @@ eval_dir_options(int  dir_pos,
                  else
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                              "No file name|pattern for directory option `%s' for the %d directory entry.",
-                              WAIT_FOR_FILENAME_ID, dir_pos);
+                              "No file name or pattern for directory option `%s' for directory %s.",
+                              WAIT_FOR_FILENAME_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -939,15 +961,7 @@ eval_dir_options(int  dir_pos,
               if ((length > 0) && (length != MAX_OFF_T_LENGTH))
               {
                  number[length] = '\0';
-#ifdef HAVE_STRTOULL
-# if SIZEOF_OFF_T == 4
-                 dd[dir_pos].accumulate_size = (off_t)strtoul(number, NULL, 10);
-# else
-                 dd[dir_pos].accumulate_size = (off_t)strtoull(number, NULL, 10);
-# endif
-#else
-                 dd[dir_pos].accumulate_size = (off_t)strtoul(number, NULL, 10);
-#endif
+                 dd[dir_pos].accumulate_size = (off_t)str2offt(number, NULL, 10);
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
@@ -1024,8 +1038,8 @@ eval_dir_options(int  dir_pos,
                  {
                     dd[dir_pos].ignore_size = 0;
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Value %s for option <%s> in DIR_CONFIG, to large causing overflow. Ignoring.",
-                               number, IGNORE_SIZE_ID);
+                               "Value %s for option <%s> in DIR_CONFIG for directory %s, to large causing overflow. Ignoring.",
+                               number, dd[dir_pos].dir_name, IGNORE_SIZE_ID);
                  }
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
@@ -1139,15 +1153,7 @@ eval_dir_options(int  dir_pos,
               if ((length > 0) && (length != MAX_OFF_T_LENGTH))
               {
                  number[length] = '\0';
-#ifdef HAVE_STRTOULL
-# if SIZEOF_OFF_T == 4
-                 dd[dir_pos].max_copied_file_size = (off_t)strtoul(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
-# else
-                 dd[dir_pos].max_copied_file_size = (off_t)strtoull(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
-# endif
-#else
-                 dd[dir_pos].max_copied_file_size = (off_t)strtoul(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
-#endif
+                 dd[dir_pos].max_copied_file_size = (off_t)str2offt(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
                  dd[dir_pos].in_dc_flag |= MAX_CP_FILE_SIZE_IDC;
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
@@ -1171,10 +1177,10 @@ eval_dir_options(int  dir_pos,
               }
               dd[dir_pos].important_dir = YES;
            }
-#endif /* _WITH_PTHREAD */
+#endif
            else
            {
-              /* Ignore this option */
+              /* Ignore this option. */
               end_ptr = ptr;
               while ((*end_ptr != '\n') && (*end_ptr != '\0'))
               {
@@ -1183,8 +1189,8 @@ eval_dir_options(int  dir_pos,
               byte_buf = *end_ptr;
               *end_ptr = '\0';
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Unknown or duplicate option <%s> in DIR_CONFIG file for %d directory entry.",
-                         ptr, dir_pos);
+                         "Unknown or duplicate option <%s> in DIR_CONFIG file for directory %s.",
+                         ptr, dd[dir_pos].dir_name);
               *end_ptr = byte_buf;
               ptr = end_ptr;
            }

@@ -1,6 +1,6 @@
 /*
  *  reset_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ DESCR__E_M3
 
 #include "fddefs.h"
 
-/* Global variables */
+/* External global variables. */
 extern struct filetransfer_status *fsa;
 
 
@@ -53,8 +53,7 @@ reset_fsa(struct job *p_db, int mode)
 {
    if ((fsa != NULL) && (p_db->fsa_pos != INCORRECT))
    {
-      (void)gsf_check_fsa();
-      if (p_db->fsa_pos != INCORRECT)
+      if (gsf_check_fsa() != NEITHER)
       {
          if (mode & IS_FAULTY_VAR)
          {
@@ -69,6 +68,7 @@ reset_fsa(struct job *p_db, int mode)
          fsa->job_status[(int)p_db->job_no].file_size_in_use = 0;
          fsa->job_status[(int)p_db->job_no].file_size_in_use_done = 0;
          fsa->job_status[(int)p_db->job_no].file_name_in_use[0] = '\0';
+         fsa->job_status[(int)p_db->job_no].file_name_in_use[1] = 0;
          fsa->job_status[(int)p_db->job_no].no_of_files = 0;
          fsa->job_status[(int)p_db->job_no].file_size = 0;
       }

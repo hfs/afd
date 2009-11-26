@@ -48,12 +48,12 @@ DESCR__E_M3
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "mmap_emu.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -117,7 +117,7 @@ mmap_emu(caddr_t addr,
    }
 
    while (read(read_fd, buf, BUFSIZE) <= 0)
-      /* Do nothing */;
+      /* Do nothing. */;
 
    ptr = buf;
    i = 0;

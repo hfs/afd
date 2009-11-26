@@ -51,7 +51,7 @@ DESCR__E_M3
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), strftime(), localtime() */
 #if defined (TM_IN_SYS_TIME) && defined (_OLD_REC)
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */

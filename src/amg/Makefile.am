@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,10 +16,26 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
+if WITH_DELETE_LOG
+   REMOVE_POOL_DIR    = remove_pool_directory.c
+   EXTRA_RM_POOL_DIR  =
+else
+   REMOVE_POOL_DIR    =
+   EXTRA_RM_POOL_DIR  = remove_pool_directory.c
+endif
+if WITH_DISTRIBUTION_LOG
+   DIS_LOG            = dis_log.c
+   EXTRA_DIS_LOG      =
+else
+   DIS_LOG            =
+   EXTRA_DIS_LOG      = dis_log.c
+endif
+
 noinst_HEADERS        = amgdefs.h
 INCLUDES              = -I.. -I../init_afd -I../fd
 bin_PROGRAMS          = amg dir_check
 EXTRA_PROGRAMS        = test_in_time test_time show_amg_data
+EXTRA_DIST            = $(EXTRA_RM_POOL_DIR) $(EXTRA_DIS_LOG)
 MAINTAINERCLEANFILES  = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES            = gmon.out core core.*
 amg_SOURCES           = amg.c\
@@ -34,25 +50,26 @@ amg_SOURCES           = amg.c\
                         create_sa.c\
                         eval_dir_config.c\
                         eval_dir_options.c\
-                        eval_time_str.c\
                         lookup_dc_id.c\
                         lookup_dir_id.c\
                         make_process_amg.c\
-                        remove_pool_directory.c\
+                        $(REMOVE_POOL_DIR)\
                         reread_dir_config.c\
                         reread_host_config.c\
                         store_file_mask.c\
                         store_passwd.c
 amg_LDADD             = ../common/libafd.a
-dir_check_SOURCES     = check_files.c\
+dir_check_SOURCES     = check_file_dir.c\
+                        check_files.c\
                         check_paused_dir.c\
                         check_old_time_jobs.c\
                         clear_msg_buffer.c\
+                        convert_jid.c\
                         count_pool_files.c\
                         create_db.c\
                         dir_check.c\
+                        $(DIS_LOG)\
                         enter_time_job.c\
-                        eval_time_str.c\
                         handle_options.c\
                         handle_retrieve_list.c\
                         handle_time_jobs.c\
@@ -74,12 +91,10 @@ dir_check_SOURCES     = check_files.c\
                         send_message.c\
                         sort_time_job.c\
                         store_passwd.c
-dir_check_LDADD       = ../common/libafd.a ../misc/libmisc.a @EXTRA_SOCKET_LIBS@
-test_time_SOURCES     = eval_time_str.c\
-                        test_time.c
+dir_check_LDADD       = ../misc/libmisc.a ../common/libafd.a @EXTRA_SOCKET_LIBS@
+test_time_SOURCES     = test_time.c
 test_time_LDADD       = ../common/libafd.a
-test_in_time_SOURCES  = eval_time_str.c\
-                        in_time.c\
+test_in_time_SOURCES  = in_time.c\
                         test_in_time.c
 test_in_time_LDADD    = ../common/libafd.a
 show_amg_data_SOURCES = show_amg_data.c

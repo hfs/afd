@@ -56,10 +56,10 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* mmap(), munmap()             */
+# include <sys/mman.h>                   /* mmap(), munmap()             */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                       /* fcntl()                      */
+# include <fcntl.h>                      /* fcntl()                      */
 #endif
 #include <errno.h>
 #include "fddefs.h"

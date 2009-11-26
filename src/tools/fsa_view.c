@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -67,7 +67,7 @@ DESCR__E_M1
 #define SHORT_VIEW    1
 #define LONG_VIEW     2
 
-/* Local functions */
+/* Local functions. */
 static void usage(void);
 
 int                        sys_log_fd = STDERR_FILENO,   /* Not used!    */
@@ -132,10 +132,20 @@ main(int argc, char *argv[])
            exit(INCORRECT);
         }
 
-   if (fsa_attach_passive() < 0)
+   if ((j = fsa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (j == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
@@ -143,7 +153,8 @@ main(int argc, char *argv[])
    {
       if ((position = get_host_position(fsa, hostname, no_of_hosts)) < 0)
       {
-         (void)fprintf(stderr, "WARNING : Could not find host `%s' in FSA. (%s %d)\n",
+         (void)fprintf(stderr,
+                       _("WARNING : Could not find host `%s' in FSA. (%s %d)\n"),
                        hostname, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -157,14 +168,14 @@ main(int argc, char *argv[])
    else if (position >= no_of_hosts)
         {
            (void)fprintf(stderr,
-                         "WARNING : There are only %d hosts in the FSA. (%s %d)\n",
+                         _("WARNING : There are only %d hosts in the FSA. (%s %d)\n"),
                          no_of_hosts, __FILE__, __LINE__);
            exit(INCORRECT);
         }
 
    ptr =(char *)fsa;
    ptr -= AFD_WORD_OFFSET;
-   (void)fprintf(stdout, "    Number of hosts: %d   FSA ID: %d  Struct Version: %d  Pagesize: %d\n\n",
+   (void)fprintf(stdout, _("    Number of hosts: %d   FSA ID: %d  Struct Version: %d  Pagesize: %d\n\n"),
                  no_of_hosts, fsa_id, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)),
                  *(int *)(ptr + SIZEOF_INT + 4));
    for (j = position; j < last; j++)
@@ -223,11 +234,22 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "FTP ");
          if (fsa[j].protocol_options & FTP_PASSIVE_MODE)
          {
-            (void)fprintf(stdout, "passive ");
+            if (fsa[j].protocol_options & FTP_EXTENDED_MODE)
+            {
+               (void)fprintf(stdout, "extended passive ");
+            }
+            else
+            {
+               (void)fprintf(stdout, "passive ");
+            }
          }
          else
          {
             (void)fprintf(stdout, "active ");
+         }
+         if (fsa[j].protocol_options & FTP_ALLOW_DATA_REDIRECT)
+         {
+            (void)fprintf(stdout, "allow_redirect ");
          }
          if (fsa[j].protocol_options & SET_IDLE_TIME)
          {
@@ -236,7 +258,7 @@ main(int argc, char *argv[])
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
          if (fsa[j].protocol_options & STAT_KEEPALIVE)
          {
-            (void)fprintf(stdout, "keepalive ");
+            (void)fprintf(stdout, "stat_keepalive ");
          }
 #endif
          if (fsa[j].protocol_options & FTP_FAST_MOVE)
@@ -259,6 +281,10 @@ main(int argc, char *argv[])
              (fsa[j].protocol_options & FTP_FAST_CD))
          {
             (void)fprintf(stdout, "fast_cd ");
+         }
+         if (fsa[j].protocol_options & ENABLE_COMPRESSION)
+         {
+            (void)fprintf(stdout, "compression ");
          }
       }
       if (fsa[j].protocol & LOC_FLAG)
@@ -283,8 +309,13 @@ main(int argc, char *argv[])
       if (fsa[j].protocol & SCP_FLAG)
       {
          (void)fprintf(stdout, "SCP ");
+         if (((fsa[j].protocol & SFTP_FLAG) == 0) &&
+             (fsa[j].protocol_options & ENABLE_COMPRESSION))
+         {
+            (void)fprintf(stdout, "compression ");
+         }
       }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
       if (fsa[j].protocol & WMO_FLAG)
       {
@@ -297,13 +328,31 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "SSL ");
       }
 #endif
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      if (fsa[j].protocol_options & AFD_TCP_KEEPALIVE)
+      {
+         (void)fprintf(stdout, "tcp_keepalive ");
+      }
+#endif
       if (fsa[j].protocol_options & FILE_WHEN_LOCAL_FLAG)
       {
-         (void)fprintf(stdout, "FILE_WHEN_LOCAL ");
+         (void)fprintf(stdout, "file_when_local ");
+      }
+      if (fsa[j].protocol_options & USE_SEQUENCE_LOCKING)
+      {
+         (void)fprintf(stdout, "sequence_locking ");
       }
       if (fsa[j].protocol_options & DISABLE_BURSTING)
       {
          (void)fprintf(stdout, "disable_burst ");
+      }
+      if (fsa[j].protocol_options & KEEP_TIME_STAMP)
+      {
+         (void)fprintf(stdout, "keep_time_stamp ");
+      }
+      if (fsa[j].protocol_options & SORT_FILE_NAMES)
+      {
+         (void)fprintf(stdout, "sort_file_names ");
       }
       (void)fprintf(stdout, "\n");
       (void)fprintf(stdout, "Direction            : ");
@@ -407,16 +456,20 @@ main(int argc, char *argv[])
          }
          if (fsa[j].dup_check_flag & DC_CRC32)
          {
-            (void)fprintf(stdout, "CRC32");
+            (void)fprintf(stdout, "CRC32 ");
          }
          else
          {
-            (void)fprintf(stdout, "UNKNOWN_CRC");
+            (void)fprintf(stdout, "UNKNOWN_CRC ");
+         }
+         if (fsa[j].dup_check_flag & USE_RECIPIENT_ID)
+         {
+            (void)fprintf(stdout, "USE_RECIPIENT_ID");
          }
          (void)fprintf(stdout, "\n");
       }
 #endif
-      (void)fprintf(stdout, "Host status (%4d)   : ", fsa[j].host_status);
+      (void)fprintf(stdout, "Host status (%7d): ", fsa[j].host_status);
       if (fsa[j].host_status & PAUSE_QUEUE_STAT)
       {
          (void)fprintf(stdout, "PAUSE_QUEUE ");
@@ -466,6 +519,14 @@ main(int argc, char *argv[])
       if (fsa[j].host_status & HOST_ERROR_OFFLINE_STATIC)
       {
          (void)fprintf(stdout, "HOST_ERROR_OFFLINE_STATIC ");
+      }
+      if (fsa[j].host_status & DO_NOT_DELETE_DATA)
+      {
+         (void)fprintf(stdout, "DO_NOT_DELETE_DATA ");
+      }
+      if (fsa[j].host_status & HOST_ACTION_SUCCESS)
+      {
+         (void)fprintf(stdout, "HOST_ACTION_SUCCESS ");
       }
       if ((fsa[j].error_counter >= fsa[j].max_errors) &&
           ((fsa[j].host_status & HOST_ERROR_ACKNOWLEDGED) == 0) &&
@@ -524,7 +585,7 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "                       %03d -> %s\n",
                        fsa[j].error_history[i],
-                       get_error_str(fsa[j].error_history[0]));
+                       get_error_str(fsa[j].error_history[i]));
       }
       (void)fprintf(stdout, "Retry interval       : %d\n",
                     fsa[j].retry_interval);
@@ -544,6 +605,37 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "First error time     : %s",
                        ctime(&fsa[j].first_error_time));
+      }
+      if (fsa[j].start_event_handle == 0L)
+      {
+         (void)fprintf(stdout, "Start event handle   : Not set.\n");
+      }
+      else
+      {
+         (void)fprintf(stdout, "Start event handle   : %s",
+                       ctime(&fsa[j].start_event_handle));
+      }
+      if (fsa[j].end_event_handle == 0L)
+      {
+         (void)fprintf(stdout, "End event handle     : Not set.\n");
+      }
+      else
+      {
+         (void)fprintf(stdout, "End event handle     : %s",
+                       ctime(&fsa[j].end_event_handle));
+      }
+      if (fsa[j].warn_time == 0L)
+      {
+         (void)fprintf(stdout, "Warn time            : Not set.\n");
+      }
+      else
+      {
+#if SIZEOF_TIME_T == 4
+         (void)fprintf(stdout, "Warn time            : %ld\n",
+#else
+         (void)fprintf(stdout, "Warn time            : %lld\n",
+#endif
+                       (pri_time_t)fsa[j].warn_time);
       }
       (void)fprintf(stdout, "Total file counter   : %d\n",
                     fsa[j].total_file_counter);
@@ -700,8 +792,12 @@ main(int argc, char *argv[])
                   (void)fprintf(stdout, "| HTTP RETR ");
                   break;
 
-               case EMAIL_ACTIVE :
-                  (void)fprintf(stdout, "|  MAILING  ");
+               case SMTP_BURST_TRANSFER_ACTIVE :
+                  (void)fprintf(stdout, "| SMTP BURST");
+                  break;
+
+               case SMTP_ACTIVE :
+                  (void)fprintf(stdout, "|    SMTP   ");
                   break;
 
 #ifdef _WITH_SCP_SUPPORT
@@ -908,8 +1004,12 @@ main(int argc, char *argv[])
                   (void)fprintf(stdout, "Connect status       : HTTP retrieve active\n");
                   break;
 
-               case EMAIL_ACTIVE :
-                  (void)fprintf(stdout, "Connect status       : EMAIL active\n");
+               case SMTP_BURST_TRANSFER_ACTIVE :
+                  (void)fprintf(stdout, "Connect status       : SMTP burst active\n");
+                  break;
+
+               case SMTP_ACTIVE :
+                  (void)fprintf(stdout, "Connect status       : SMTP active\n");
                   break;
 
 #ifdef _WITH_SCP_SUPPORT
@@ -920,7 +1020,7 @@ main(int argc, char *argv[])
                case SCP_ACTIVE :
                   (void)fprintf(stdout, "Connect status       : SCP active\n");
                   break;
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
                case WMO_BURST_TRANSFER_ACTIVE :
                   (void)fprintf(stdout, "Connect status       : WMO burst active\n");
@@ -994,12 +1094,12 @@ static void
 usage(void)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : fsa_view [--version] [-w working directory] [-l|-s] hostname|position\n");
+                 _("SYNTAX  : fsa_view [--version] [-w working directory] [-l|-s] hostname|position\n"));
    (void)fprintf(stderr,
-                 "          Options:\n");
+                 _("          Options:\n"));
    (void)fprintf(stderr,
-                 "             -l         Long view.\n");
+                 _("             -l         Long view.\n"));
    (void)fprintf(stderr,
-                 "             -s         Short view.\n");
+                 _("             -s         Short view.\n"));
    return;
 }

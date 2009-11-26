@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2009 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,15 +16,23 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
+if WITH_XPM
+   AFD_SETUP_ICON     = setup_icon.c
+else
+   AFD_SETUP_ICON     = 
+endif
+
 MAINTAINERCLEANFILES  = Makefile.in
 noinst_HEADERS        = motif_common_defs.h
 INCLUDES              = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
-                        -I../../common -I../afd_ctrl -I../show_olog
+                        -I../../common -I../mafd_ctrl -I../show_olog
 lib_LIBRARIES         = libmotifafd.a
 libmotifafd_a_SOURCES = check_info_file.c\
                         check_nummeric.c\
+                        disable_drag_drop.c\
                         generic_print.c\
                         make_xprocess.c\
+                        $(AFD_SETUP_ICON)\
                         show_info.c\
                         show_message.c\
                         update_time.c\

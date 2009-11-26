@@ -1,7 +1,7 @@
 /*
  *  todos.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ main(int argc, char *argv[])
 {
    if (argc != 2)
    {
-      (void)fprintf(stderr, "usage: %s <file name>\n", argv[0]);
+      (void)fprintf(stderr, _("Usage: %s <file name>\n"), argv[0]);
       exit(1);
    }
    convert(argv[1]);
@@ -74,14 +74,14 @@ convert(char *source_file)
 
    if ((rfp = fopen(source_file, "r")) == NULL)
    {
-      (void)fprintf(stderr, "Failed to fopen() %s : %s\n",
+      (void)fprintf(stderr, _("Failed to fopen() `%s' : %s\n"),
                     source_file, strerror(errno));
       exit(1);
    }
    (void)sprintf(dest_file, "%s.tmp", source_file);
    if ((wfp = fopen(dest_file, "w+")) == NULL)
    {
-      (void)fprintf(stderr, "Failed to fopen() %s : %s\n",
+      (void)fprintf(stderr, _("Failed to fopen() `%s' : %s\n"),
                     dest_file, strerror(errno));
       exit(1);
    }
@@ -93,13 +93,13 @@ convert(char *source_file)
          tmp_char = 13;
          if (fputc(tmp_char, wfp) == EOF)
          {
-            (void)fprintf(stderr, "fputc() error : %s\n", strerror(errno));
+            (void)fprintf(stderr, _("fputc() error : %s\n"), strerror(errno));
             exit(1);
          }
          tmp_char = 10;
          if (fputc(tmp_char, wfp) == EOF)
          {
-            (void)fprintf(stderr, "fputc() error : %s\n", strerror(errno));
+            (void)fprintf(stderr, _("fputc() error : %s\n"), strerror(errno));
             exit(1);
          }
       }
@@ -107,7 +107,7 @@ convert(char *source_file)
       {
          if (fputc(tmp_char, wfp) == EOF)
          {
-            (void)fprintf(stderr, "fputc() error : %s\n", strerror(errno));
+            (void)fprintf(stderr, _("fputc() error : %s\n"), strerror(errno));
             exit(1);
          }
       }
@@ -115,7 +115,7 @@ convert(char *source_file)
 
    if ((fclose(rfp) == EOF) || (fclose(wfp) == EOF))
    {
-      (void)fprintf(stderr, "fclose() error : %s\n", strerror(errno));
+      (void)fprintf(stderr, _("fclose() error : %s\n"), strerror(errno));
       exit(1);
    }
 

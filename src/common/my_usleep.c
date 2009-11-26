@@ -1,7 +1,7 @@
 /*
  *  my_usleep.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,7 @@ my_usleep(unsigned long msec)
    if (select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &timeout) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Select error : %s", strerror(errno));
+                 _("select() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
 

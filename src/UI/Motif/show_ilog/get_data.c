@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
 #include "logdefs.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_ilog.h"
 
 #define QUICK_SEARCH 50000
@@ -268,7 +268,6 @@ static void   check_log_updates(Widget),
 void
 get_data(void)
 {
-#ifdef _INPUT_LOG
    int         i,
                j,
                start_file_no = -1,
@@ -461,7 +460,6 @@ get_data(void)
                                         listbox_w);
    }
 
-#endif /* _INPUT_LOG */
    return;
 }
 
@@ -1004,8 +1002,10 @@ no_criteria(register char *ptr,
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -1014,6 +1014,7 @@ no_criteria(register char *ptr,
    struct tm    *p_ts;
 
    /* The easiest case! */
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -1023,6 +1024,7 @@ no_criteria(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -1182,10 +1184,12 @@ no_criteria(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -1211,8 +1215,10 @@ file_name_only(register char *ptr,
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -1220,6 +1226,7 @@ file_name_only(register char *ptr,
    char         *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -1229,6 +1236,7 @@ file_name_only(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -1337,10 +1345,12 @@ file_name_only(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -1366,8 +1376,10 @@ file_size_only(register char *ptr,
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -1375,6 +1387,7 @@ file_size_only(register char *ptr,
    char         *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -1384,6 +1397,7 @@ file_size_only(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -1532,10 +1546,12 @@ file_size_only(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -1562,8 +1578,10 @@ file_name_and_size(register char *ptr,
    int          item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -1571,6 +1589,7 @@ file_name_and_size(register char *ptr,
    char         *ptr_start_line;
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -1580,6 +1599,7 @@ file_name_and_size(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -1714,10 +1734,12 @@ file_name_and_size(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -1746,8 +1768,10 @@ recipient_only(register char *ptr,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -1756,6 +1780,7 @@ recipient_only(register char *ptr,
                 dir_id_str[15];
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -1765,6 +1790,7 @@ recipient_only(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -1980,10 +2006,12 @@ recipient_only(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -2007,8 +2035,10 @@ file_name_and_recipient(register char *ptr,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -2017,6 +2047,7 @@ file_name_and_recipient(register char *ptr,
                 dir_id_str[15];
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -2026,6 +2057,7 @@ file_name_and_recipient(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -2248,10 +2280,12 @@ file_name_and_recipient(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -2275,8 +2309,10 @@ file_size_and_recipient(register char *ptr,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -2285,6 +2321,7 @@ file_size_and_recipient(register char *ptr,
                 dir_id_str[15];
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -2294,6 +2331,7 @@ file_size_and_recipient(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -2565,10 +2603,12 @@ file_size_and_recipient(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 
@@ -2592,8 +2632,10 @@ file_name_size_recipient(register char *ptr,
                 item_counter = il[file_no].no_of_items,
                 prev_item_counter = il[file_no].no_of_items,
                 line_counter = 0,
-                loops = 0,
-                unmanaged;
+#ifndef LESSTIF_WORKAROUND
+                unmanaged,
+#endif
+                loops = 0;
    time_t       now,
                 prev_time_val = 0L,
                 time_when_transmitted = 0L;
@@ -2602,6 +2644,7 @@ file_name_size_recipient(register char *ptr,
                 dir_id_str[15];
    struct tm    *p_ts;
 
+#ifndef LESSTIF_WORKAROUND
    if (item_counter == 0)
    {
       XtUnmanageChild(listbox_w);
@@ -2611,6 +2654,7 @@ file_name_size_recipient(register char *ptr,
    {
       unmanaged = NO;
    }
+#endif
    do
    {
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
@@ -2866,10 +2910,12 @@ file_name_size_recipient(register char *ptr,
       CHECK_LIST_LIMIT();
    } while ((ptr < ptr_end) && (special_button_flag == STOP_BUTTON));
 
+#ifndef LESSTIF_WORKAROUND
    if (unmanaged == YES)
    {
       XtManageChild(listbox_w);
    }
+#endif
 
    il[file_no].no_of_items = item_counter;
 

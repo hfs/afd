@@ -20,7 +20,7 @@ SUBDIRS              = filter
 INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd -I../log\
                        -I../afd_mon
 EXTRA_PROGRAMS       = als arg ahttp ascp bt change_name copy_file create_files\
-                       encode64 testlock
+                       encode64 testlock url_check
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES           = gmon.out core core.*
 als_SOURCES          = als.c
@@ -43,3 +43,5 @@ ahttp_LDADD          = ../protocols/libprotocols.a ../common/libafd.a
 ascp_SOURCES         = ascp.c\
                        trans_log.c
 ascp_LDADD           = ../protocols/libprotocols.a ../common/libafd.a
+url_check_SOURCES    = url_check.c
+url_check_LDADD      = ../common/libafd.a

@@ -1,6 +1,6 @@
 /*
  *  handle_event.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ DESCR__E_M1
 #include <Xm/ToggleBG.h>
 #include <Xm/PushB.h>
 #include <Xm/PushBG.h>
+#include <Xm/Label.h>
 #include <Xm/LabelG.h>
 #include <Xm/Frame.h>
 #include <Xm/RowColumn.h>
@@ -82,13 +83,17 @@ DESCR__E_M1
 Display                    *display;
 XtAppContext               app;
 Widget                     appshell,
+                           end_time_w,
+                           entertime_w,
+                           start_time_w,
+                           statusbox_w,
                            text_w;
 int                        acknowledge_type,
                            event_log_fd = STDERR_FILENO,
                            fra_id,         /* ID of FRA.                 */
-                           fra_fd = -1,    /* Needed by fra_attach()     */
+                           fra_fd = -1,    /* Needed by fra_attach().    */
                            fsa_id,         /* ID of FSA.                 */
-                           fsa_fd = -1,    /* Needed by fsa_attach()     */
+                           fsa_fd = -1,    /* Needed by fsa_attach().    */
                            no_of_alias,
                            no_of_dirs,
                            no_of_hosts,
@@ -97,6 +102,8 @@ int                        acknowledge_type,
 off_t                      fra_size,
                            fsa_size;
 #endif
+time_t                     end_time_val,
+                           start_time_val;
 char                       **dir_alias = NULL,
                            **host_alias = NULL,
                            font_name[40],
@@ -123,6 +130,7 @@ main(int argc, char *argv[])
                       "*mwmDecorations : 42",
                       "*mwmFunctions : 12",
                       ".handle_event*background : NavajoWhite2",
+                      ".handle_event.form*XmText.background : NavajoWhite1",
                       ".handle_event.form.he_textSW.he_text.background : NavajoWhite1",
                       ".handle_event.form.buttonbox*background : PaleVioletRed2",
                       ".handle_event.form.buttonbox*foreground : Black",
@@ -135,8 +143,13 @@ main(int argc, char *argv[])
                    form_w,
                    frame_w,
                    h_separator_w,
+                   block_w,
+                   enable_time_w,
+                   label_w,
+                   rowcol_w,
                    radio_w,
-                   radiobox_w;
+                   radiobox_w,
+                   time_box_w;
    XmFontListEntry entry;
    XFontStruct     *font_struct;
    XmFontList      fontlist;
@@ -173,6 +186,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
 
    if (euid != ruid)
    {
@@ -191,6 +205,11 @@ main(int argc, char *argv[])
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
@@ -257,6 +276,36 @@ main(int argc, char *argv[])
                  (XtCallbackProc)close_button, (XtPointer)0);
    XtManageChild(buttonbox_w);
 
+   /*-------------------------------------------------------------------*/
+   /*                            Status Box                             */
+   /*                            ----------                             */
+   /* The status of the handle event window is shown here. If operation */
+   /* was succesful or not.                                             */
+   /*-------------------------------------------------------------------*/
+   statusbox_w = XtVaCreateManagedWidget(" ",
+                        xmLabelWidgetClass,  form_w,
+                        XmNfontList,         fontlist,
+                        XmNleftAttachment,   XmATTACH_FORM,
+                        XmNrightAttachment,  XmATTACH_FORM,
+                        XmNbottomAttachment, XmATTACH_WIDGET,
+                        XmNbottomWidget,     h_separator_w,
+                        NULL);
+
+   /* Create a horizontal separator. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment,      XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,          statusbox_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,        XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,       XmATTACH_FORM);
+   argcount++;
+   h_separator_w = XmCreateSeparator(form_w, "h_separator", args, argcount);
+   XtManageChild(h_separator_w);
+
    /*--------------------------------------------------------------------*/
    /*                     Acknowledge type box                           */
    /*                     --------------------                           */
@@ -319,6 +368,125 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNbottomAttachment,      XmATTACH_WIDGET);
    argcount++;
    XtSetArg(args[argcount], XmNbottomWidget,          ack_box_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,        XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,       XmATTACH_FORM);
+   argcount++;
+   h_separator_w = XmCreateSeparator(form_w, "h_separator", args, argcount);
+   XtManageChild(h_separator_w);
+
+   /*--------------------------------------------------------------------*/
+   /*                          Timeframe box                             */
+   /*                          -------------                             */
+   /* Optionally enter a time frame when this acknowledge/offline is     */
+   /* valid.                                                             */
+   /*--------------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,     h_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   time_box_w = XmCreateForm(form_w, "timeframe_box", args, argcount);
+
+   enable_time_w = XtVaCreateManagedWidget("Time frame",
+                            xmToggleButtonGadgetClass, time_box_w,
+                            XmNfontList,         fontlist,
+                            XmNset,              False,
+                            XmNtopAttachment,    XmATTACH_FORM,
+                            XmNleftAttachment,   XmATTACH_FORM,
+                            XmNleftOffset,       1,
+                            XmNbottomAttachment, XmATTACH_FORM,
+                            NULL);
+   XtAddCallback(enable_time_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button, NULL);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;                                                  
+   XtSetArg(args[argcount], XmNleftWidget,       enable_time_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   entertime_w = XmCreateForm(time_box_w, "entertime", args, argcount);
+   rowcol_w = XtVaCreateWidget("rowcol", xmRowColumnWidgetClass, entertime_w,
+                               XmNorientation, XmHORIZONTAL,
+                               NULL);
+   block_w = XmCreateForm(rowcol_w, "rowcol", NULL, 0);
+   label_w = XtVaCreateManagedWidget(" Start time:",
+                           xmLabelGadgetClass,  block_w,
+                           XmNfontList,         fontlist,
+                           XmNtopAttachment,    XmATTACH_FORM,
+                           XmNbottomAttachment, XmATTACH_FORM,
+                           XmNleftAttachment,   XmATTACH_FORM,
+                           XmNalignment,        XmALIGNMENT_END,
+                           NULL);
+   start_time_w = XtVaCreateManagedWidget("starttime",
+                           xmTextWidgetClass,   block_w,
+                           XmNfontList,         fontlist,
+                           XmNmarginHeight,     1,
+                           XmNmarginWidth,      1,
+                           XmNshadowThickness,  1,
+                           XmNtopAttachment,    XmATTACH_FORM,
+                           XmNbottomAttachment, XmATTACH_FORM,
+                           XmNrightAttachment,  XmATTACH_FORM,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       label_w,
+                           XmNcolumns,          8,
+                           XmNmaxLength,        8,
+                           NULL);                 
+   XtAddCallback(start_time_w, XmNlosingFocusCallback, save_input,
+                 (XtPointer)START_TIME_NO_ENTER);                 
+   XtAddCallback(start_time_w, XmNactivateCallback, save_input,
+                 (XtPointer)START_TIME);
+   XtManageChild(block_w);
+
+   block_w = XmCreateForm(rowcol_w, "rowcol", NULL, 0);
+   label_w = XtVaCreateManagedWidget("End time:",
+                           xmLabelGadgetClass,  block_w,
+                           XmNfontList,         fontlist,
+                           XmNtopAttachment,    XmATTACH_FORM,
+                           XmNbottomAttachment, XmATTACH_FORM,
+                           XmNleftAttachment,   XmATTACH_FORM,
+                           XmNalignment,        XmALIGNMENT_END,
+                           NULL);                               
+   end_time_w = XtVaCreateManagedWidget("endtime",
+                           xmTextWidgetClass,   block_w,
+                           XmNfontList,         fontlist,
+                           XmNmarginHeight,     1,       
+                           XmNmarginWidth,      1,
+                           XmNshadowThickness,  1,
+                           XmNtopAttachment,    XmATTACH_FORM,
+                           XmNbottomAttachment, XmATTACH_FORM,
+                           XmNrightAttachment,  XmATTACH_FORM,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       label_w,        
+                           XmNcolumns,          8,      
+                           XmNmaxLength,        8,
+                           NULL);
+   XtAddCallback(end_time_w, XmNlosingFocusCallback, save_input,
+                 (XtPointer)END_TIME_NO_ENTER);
+   XtAddCallback(end_time_w, XmNactivateCallback, save_input,
+                 (XtPointer)END_TIME);
+   XtManageChild(block_w);
+   XtManageChild(rowcol_w);
+   XtManageChild(entertime_w);
+   XtManageChild(time_box_w);
+   XtSetSensitive(entertime_w, False);
+
+   /* Create a horizontal separator. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment,      XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,          time_box_w);
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,        XmATTACH_FORM);
    argcount++;
@@ -456,18 +624,36 @@ init_handle_event(int *argc, char *argv[])
       }
       else
       {
-         if (fsa_attach() < 0)
+         int ret;
+
+         if ((ret = fsa_attach()) < 0)
          {
-            (void)fprintf(stderr, "Failed to attch to FSA.");
+            if (ret == INCORRECT_VERSION)
+            {
+               (void)fprintf(stderr, "This program is not able to attach to the FSA due to incorrect version.");
+            }
+            else
+            {
+               (void)fprintf(stderr, "Failed to attach to FSA.");
+            }
             exit(INCORRECT);
          }
       }
    }
    else
    {
-      if (fra_attach() < 0)
+      int ret;
+
+      if ((ret = fra_attach()) < 0)
       {
-         (void)fprintf(stderr, "Failed to attch to FRA.");
+         if (ret == INCORRECT_VERSION)
+         {
+            (void)fprintf(stderr, "This program is not able to attach to the FRA due to incorrect version.");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Failed to attach to FRA.");
+         }
          exit(INCORRECT);
       }
    }
@@ -525,6 +711,8 @@ init_handle_event(int *argc, char *argv[])
    }
 
    get_user(user, fake_user, user_offset);
+   start_time_val = -1;
+   end_time_val = -1;
 
    if (atexit(handle_event_exit) != 0)
    {

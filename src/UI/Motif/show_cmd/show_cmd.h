@@ -24,7 +24,7 @@
 
 #define MAX_TITLE_CMD_LENGTH 20
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void close_button(Widget, XtPointer, XtPointer),
             print_button(Widget, XtPointer, XtPointer),
             repeat_button(Widget, XtPointer, XtPointer),

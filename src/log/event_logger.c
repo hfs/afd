@@ -101,7 +101,7 @@ event_logger(FILE  *fp,
       check_data(rescan_time);
       if (total_length > max_logfile_size)
       {
-         /* Time to start a new log file */
+         /* Time to start a new log file. */
          return(START);
       }
    } /* for (;;) */
@@ -184,7 +184,7 @@ check_data(long rescan_time)
          } /* while (count < n) */
       } /* if (n > 0) */
    }
-        /* An error has occurred */
+        /* An error has occurred. */
    else if (status < 0)
         {
            (void)fprintf(stderr,

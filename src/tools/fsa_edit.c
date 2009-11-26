@@ -1,6 +1,6 @@
 /*
  *  fsa_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -86,7 +86,8 @@ int
 main(int argc, char *argv[])
 {
    int          position = -1,
-                leave_flag = NO;
+                leave_flag = NO,
+                ret;
    unsigned int value;
    char         file_name[MAX_FILENAME_LENGTH + 1],
                 hostname[MAX_HOSTNAME_LENGTH + 1],
@@ -117,16 +118,26 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (fsa_attach() < 0)
+   if ((ret = fsa_attach()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (ret == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
    if (tcgetattr(STDIN_FILENO, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcgetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcgetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(0);
    }
@@ -136,7 +147,7 @@ main(int argc, char *argv[])
       if ((position = get_host_position(fsa, hostname, no_of_hosts)) < 0)
       {
          (void)fprintf(stderr,
-                       "ERROR   : Could not find host %s in FSA. (%s %d)\n",
+                       _("ERROR   : Could not find host %s in FSA. (%s %d)\n"),
                        hostname, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -149,19 +160,20 @@ main(int argc, char *argv[])
       switch (get_key())
       {
          case 0   : break;
-         case '1' : (void)fprintf(stderr, "\n\n     Enter value [1] : ");
+         case '1' : (void)fprintf(stderr, _("\n\n     Enter value [1] : "));
                     (void)scanf("%u", &value);
                     fsa[position].total_file_counter = (int)value;
                     break;
-         case '2' : (void)fprintf(stderr, "\n\n     Enter value [2] : ");
+         case '2' : (void)fprintf(stderr, _("\n\n     Enter value [2] : "));
                     (void)scanf("%u", &value);
                     fsa[position].total_file_size = value;
                     break;
-         case '3' : (void)fprintf(stderr, "\n\n     Enter value [3] : ");
+         case '3' : (void)fprintf(stderr, _("\n\n     Enter value [3] : "));
                     (void)scanf("%u", &value);
                     fsa[position].error_counter = value;
                     break;
-         case '4' : (void)fprintf(stderr, "\n\n     Enter value [4] (0 - %d): ", fsa[position].allowed_transfers);
+         case '4' : (void)fprintf(stderr, _("\n\n     Enter value [4] (0 - %d): "),
+                                  fsa[position].allowed_transfers);
                     (void)scanf("%u", &value);
                     if (value <= fsa[position].allowed_transfers)
                     {
@@ -169,7 +181,7 @@ main(int argc, char *argv[])
                     }
                     else
                     {
-                       (void)printf("Wrong choice!\n");
+                       (void)printf(_("Wrong choice!\n"));
                        break;
                     }
                     break;
@@ -200,6 +212,11 @@ main(int argc, char *argv[])
                     (void)fprintf(stdout, "     Host errors offline time [%d]..(b)\n",
                                   (fsa[position].host_status & HOST_ERROR_OFFLINE_T) ? 1 : 0);
                     (void)fprintf(stderr, "     None..........................(c) ");
+#ifdef LOCK_DEBUG
+                    lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                    lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
                     switch (get_key())
                     {
                        case '1' : fsa[position].host_status ^= PAUSE_QUEUE_STAT;
@@ -227,20 +244,25 @@ main(int argc, char *argv[])
                        case 'b' : fsa[position].host_status ^= HOST_ERROR_OFFLINE_T;
                                   break;
                        case 'c' : break;
-                       default  : (void)printf("Wrong choice!\n");
+                       default  : (void)printf(_("Wrong choice!\n"));
                                   (void)sleep(1);
                                   break;
                     }
+#ifdef LOCK_DEBUG
+                    unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                    unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
                     break;
-         case '6' : (void)fprintf(stderr, "\n\n     Enter value [6] : ");
+         case '6' : (void)fprintf(stderr, _("\n\n     Enter value [6] : "));
                     (void)scanf("%u", &value);
                     fsa[position].max_errors = value;
                     break;
-         case '7' : (void)fprintf(stderr, "\n\n     Enter value [7] : ");
+         case '7' : (void)fprintf(stderr, _("\n\n     Enter value [7] : "));
                     (void)scanf("%u", &value);
                     fsa[position].block_size = value;
                     break;
-         case '8' : (void)fprintf(stderr, "\n\n     Enter value [8] (1 - %d): ", MAX_NO_PARALLEL_JOBS);
+         case '8' : (void)fprintf(stderr, _("\n\n     Enter value [8] (1 - %d): "), MAX_NO_PARALLEL_JOBS);
                     (void)scanf("%u", &value);
                     if ((value > 0) && (value <= MAX_NO_PARALLEL_JOBS))
                     {
@@ -248,27 +270,38 @@ main(int argc, char *argv[])
                     }
                     else
                     {
-                       (void)printf("Wrong choice!\n");
+                       (void)printf(_("Wrong choice!\n"));
                        (void)sleep(1);
                     }
                     break;
-         case '9' : (void)fprintf(stderr, "\n\n     Enter value [9] : ");
+         case '9' : (void)fprintf(stderr, _("\n\n     Enter value [9] : "));
                     (void)scanf("%u", &value);
                     fsa[position].transfer_timeout = value;
                     break;
-         case 'a' : (void)fprintf(stderr, "\n\n     Enter hostname  : ");
+         case 'a' : (void)fprintf(stderr, _("\n\n     Enter hostname  : "));
                     (void)scanf("%s", fsa[position].real_hostname[0]);
                     break;
-         case 'b' : (void)fprintf(stderr, "\n\nEnter hostdisplayname: ");
+         case 'b' : (void)fprintf(stderr, _("\n\nEnter hostdisplayname: "));
                     (void)scanf("%s", fsa[position].host_dsp_name);
                     break;
-         case 'c' : fsa[position].host_status ^= HOST_ERROR_OFFLINE_STATIC;
+         case 'c' : 
+#ifdef LOCK_DEBUG
+                    lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                    lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                    fsa[position].host_status ^= HOST_ERROR_OFFLINE_STATIC;
+#ifdef LOCK_DEBUG
+                    unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                    unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
                     break;
-         case 'd' : (void)fprintf(stderr, "\n\n     Enter value [d] : ");
+         case 'd' : (void)fprintf(stderr, _("\n\n     Enter value [d] : "));
                     (void)scanf("%u", &value);
                     if (value > MAX_NO_PARALLEL_JOBS)
                     {
-                       (void)printf("The value must be between 0 and %d!\n", MAX_NO_PARALLEL_JOBS);
+                       (void)printf(_("The value must be between 0 and %d!\n"), MAX_NO_PARALLEL_JOBS);
                        (void)sleep(1);
                     }
                     else
@@ -276,16 +309,16 @@ main(int argc, char *argv[])
                        fsa[position].active_transfers = value;
                     }
                     break;
-         case 'e' : (void)fprintf(stderr, "\n\n     Enter value [e] : ");
+         case 'e' : (void)fprintf(stderr, _("\n\n     Enter value [e] : "));
                     file_name[0] = '\0';
                     (void)scanf("%s", file_name);
                     (void)strcpy(fsa[position].job_status[0].file_name_in_use, file_name);
                     break;
-         case 'f' : (void)fprintf(stderr, "\n\n     Enter value [f] : ");
+         case 'f' : (void)fprintf(stderr, _("\n\n     Enter value [f] : "));
                     (void)scanf("%u", &value);
                     fsa[position].jobs_queued = value;
                     break;
-         case 'g' : (void)fprintf(stderr, "\n\n     Enter value [g] : ");
+         case 'g' : (void)fprintf(stderr, _("\n\n     Enter value [g] : "));
                     (void)scanf("%u", &value);
                     fsa[position].transfer_rate_limit = value;
                     break;
@@ -306,7 +339,7 @@ main(int argc, char *argv[])
          case 'Q' :
          case 'q' : leave_flag = YES;
                     break;
-         default  : (void)printf("Wrong choice!\n");
+         default  : (void)printf(_("Wrong choice!\n"));
                     (void)sleep(1);
                     break;
       }
@@ -330,7 +363,7 @@ main(int argc, char *argv[])
 static void
 menu(int position)
 {
-   (void)fprintf(stdout, "\033[2J\033[3;1H"); /* clear the screen (CLRSCR) */
+   (void)fprintf(stdout, "\033[2J\033[3;1H"); /* Clear the screen (CLRSCR). */
    (void)fprintf(stdout, "\n\n                     FSA Editor (%s)\n\n", fsa[position].host_dsp_name);
    (void)fprintf(stdout, "        +-----+------------------+----------------+\n");
    (void)fprintf(stdout, "        | Key | Description      | current value  |\n");
@@ -381,14 +414,14 @@ get_key(void)
        (signal(SIGTSTP, sig_handler) == SIG_ERR) ||
        (signal(SIGALRM, sig_alarm) == SIG_ERR))
    {
-      (void)fprintf(stderr, "ERROR   : signal() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : signal() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (tcgetattr(STDIN_FILENO, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcgetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcgetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -402,7 +435,7 @@ get_key(void)
 
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &set) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -411,7 +444,7 @@ get_key(void)
    {
       if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
       {
-         (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -420,7 +453,7 @@ get_key(void)
    alarm(5);
    if (read(STDIN_FILENO, &byte, 1) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : read() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : read() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -428,7 +461,7 @@ get_key(void)
 
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -451,7 +484,7 @@ sig_handler(int signo)
 {
    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : tcsetattr() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
    }
    exit(0);
@@ -463,7 +496,7 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] hostname|position\n",
+                 _("SYNTAX  : %s [-w working directory] hostname|position\n"),
                  progname);
    return;
 }

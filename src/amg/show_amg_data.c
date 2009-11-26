@@ -1,6 +1,6 @@
 /*
  *  show_amg_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -54,11 +54,11 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>           /* mmap(), munmap()                      */
+# include <sys/mman.h>          /* mmap(), munmap()                      */
 #endif
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>              /* open()                                */
+# include <fcntl.h>             /* open()                                */
 #endif
 #include <errno.h>
 #include "amgdefs.h"
@@ -113,10 +113,10 @@ main(int argc, char *argv[])
       exit(1);
    }
 #ifdef HAVE_MMAP
-   if ((p_mmap = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((p_mmap = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                       MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #else
-   if ((p_mmap = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((p_mmap = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                           MAP_SHARED, amg_data_file, 0)) == (caddr_t) -1)
 #endif
    {
@@ -168,11 +168,11 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
    {
       ptr = p_mmap;
 
-      /* First get the no of jobs */
+      /* First get the no of jobs. */
       no_of_jobs = *(int *)ptr;
       ptr += sizeof(int);
 
-      /* Create and copy pointer array */
+      /* Create and copy pointer array. */
       size = no_of_jobs * sizeof(struct p_array);
       if ((tmp_ptr = calloc(no_of_jobs, sizeof(struct p_array))) == NULL)
       {
@@ -184,30 +184,16 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
       memcpy(p_ptr, ptr, size);
       p_offset = ptr + size;
 
-      /* Now show each job */
+      /* Now show each job. */
       for (j = 0; j < no_of_jobs; j++)
       {
-         /* Show directory, priority and job type */
+         /* Show directory, priority and job type. */
          (void)fprintf(output, "DIR_CONFIG ID      : %s\n", p_ptr[j].ptr[DIR_CONFIG_ID_PTR_POS] + p_offset);
          (void)fprintf(output, "Directory          : %s\n", p_ptr[j].ptr[DIRECTORY_PTR_POS] + p_offset);
          (void)fprintf(output, "Alias name         : %s\n", p_ptr[j].ptr[ALIAS_NAME_PTR_POS] + p_offset);
-#ifdef WITH_MULTI_DIR_DEFINITION
-         if (*(p_ptr[j].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == '\0')
-         {
-            (void)fprintf(output, "Offset to same dir : Not set (0)\n");
-         }
-         else if (*(p_ptr[j].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == 1)
-              {
-                 (void)fprintf(output, "Offset to same dir : Jump back (1)\n");
-              }
-              else
-              {
-                 (void)fprintf(output, "Offset to same dir : %s\n", p_ptr[j].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset);
-              }
-#endif
          (void)fprintf(output, "Priority           : %c\n", *(p_ptr[j].ptr[PRIORITY_PTR_POS] + p_offset));
 
-         /* Show files to be send */
+         /* Show files to be send. */
          value = atoi(p_ptr[j].ptr[NO_OF_FILES_PTR_POS] + p_offset);
          ptr = p_ptr[j].ptr[FILE_PTR_POS] + p_offset;
          for (k = 0; k < value; k++)
@@ -217,10 +203,10 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
                ;
          }
 
-         /* Show recipient */
+         /* Show recipient. */
          (void)fprintf(output, "Recipient          : %s\n", p_ptr[j].ptr[RECIPIENT_PTR_POS] + p_offset);
 
-         /* Show local options */
+         /* Show local options. */
          value = atoi(p_ptr[j].ptr[NO_LOCAL_OPTIONS_PTR_POS] + p_offset);
          ptr = p_ptr[j].ptr[LOCAL_OPTIONS_PTR_POS] + p_offset;
          for (k = 0; k < value; k++)
@@ -241,7 +227,7 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
                           p_ptr[j].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] + p_offset);
          }
 
-         /* Show standard options */
+         /* Show standard options. */
          value = atoi(p_ptr[j].ptr[NO_STD_OPTIONS_PTR_POS] + p_offset);
          ptr = p_ptr[j].ptr[STD_OPTIONS_PTR_POS] + p_offset;
          for (k = 0; k < value; k++)
@@ -260,7 +246,7 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
          (void)fprintf(output, ">------------------------------------------------------------------------<\n\n");
       }
 
-      /* Free memory for pointer array */
+      /* Free memory for pointer array. */
       free(tmp_ptr);
    }
    else

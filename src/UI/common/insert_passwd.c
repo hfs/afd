@@ -1,6 +1,6 @@
 /*
  *  insert_passwd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ insert_passwd(char *url)
       /* This is not in URL format, just return. */
       return;
    }
-   ptr += 3; /* Away with '://' */
+   ptr += 3; /* Away with '://'. */
    i = 0;
    while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
    {
@@ -99,7 +99,7 @@ insert_passwd(char *url)
                  i++; ptr++;
               }
               uh_name[uh_name_length + i] = '\0';
-              if (get_pw(uh_name, password) == SUCCESS)
+              if (get_pw(uh_name, password, YES) == SUCCESS)
               {
                  size_t pwd_length;
 

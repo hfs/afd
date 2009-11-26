@@ -1,6 +1,6 @@
 /*
  *  get_rule.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,7 +47,7 @@ DESCR__E_M3
 
 #include <string.h>                     /* strcmp()                      */
 
-/* External global variables */
+/* External global variables. */
 extern struct rule *rule;
 
 
@@ -56,19 +56,20 @@ int
 get_rule(char *wanted_rule, int no_of_rule_headers)
 {
    int  i;
-   char rule_buffer[128];
+   char rule_buffer[MAX_RULE_HEADER_LENGTH + 1];
 
    i = 0;
-   while ((i < 128) && (wanted_rule[i] != '\0') && (wanted_rule[i] != ' ') &&
-          (wanted_rule[i] != '\t'))
+   while ((i < MAX_RULE_HEADER_LENGTH) && (wanted_rule[i] != '\0') &&
+          (wanted_rule[i] != ' ') && (wanted_rule[i] != '\t'))
    {
       rule_buffer[i] = wanted_rule[i];
       i++;
    }
-   if (i == 128)
+   if (i == MAX_RULE_HEADER_LENGTH)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Rule identifier is to long, limit is 128.");
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 _("Rule identifier is to long, limit is %d."),
+                 MAX_RULE_HEADER_LENGTH);
    }
    else
    {

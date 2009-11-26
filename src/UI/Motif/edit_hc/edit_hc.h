@@ -1,6 +1,6 @@
 /*
  *  edit_hc.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -24,55 +24,62 @@
 #include <Xm/DragDrop.h>
 #include "motif_common_defs.h"
 
-#define MAXARGS                20
-#define SIDE_OFFSET            4
+#define MAXARGS                 20
+#define SIDE_OFFSET             4
 
-/* Definitions for the save_input() callback routine */
-#define REAL_HOST_NAME_1       1
-#define REAL_HOST_NAME_2       2
-#define PROXY_NAME             3
-#define TRANSFER_TIMEOUT       4
-#define MAXIMUM_ERRORS         5
-#define RETRY_INTERVAL         6
-#define SUCCESSFUL_RETRIES     7
-#define TRANSFER_RATE_LIMIT    8
-#define HOST_1_ID              9
-#define HOST_2_ID              10
-#define SOCKET_SEND_BUFFER     11
-#define SOCKET_RECEIVE_BUFFER  12
-#define KEEP_CONNECTED         13
+/* Definitions for the save_input() callback routine. */
+#define REAL_HOST_NAME_1        1
+#define REAL_HOST_NAME_2        2
+#define PROXY_NAME              3
+#define TRANSFER_TIMEOUT        4
+#define MAXIMUM_ERRORS          5
+#define RETRY_INTERVAL          6
+#define SUCCESSFUL_RETRIES      7
+#define TRANSFER_RATE_LIMIT     8
+#define HOST_1_ID               9
+#define HOST_2_ID               10
+#define SOCKET_SEND_BUFFER      11
+#define SOCKET_RECEIVE_BUFFER   12
+#define KEEP_CONNECTED          13
+#define WARN_TIME_DAYS          14
+#define WARN_TIME_HOURS         15
+#define WARN_TIME_MINS          16
+#define WARN_TIME_SECS          17
 #ifdef WITH_DUP_CHECK
-# define DC_TIMEOUT            14
+# define DC_TIMEOUT             18
 #endif
 
-#define KC_BOTH_SEL            1
-#define KC_FETCH_ONLY_SEL      2
-#define KC_SEND_ONLY_SEL       3
+#define KC_BOTH_SEL             1
+#define KC_FETCH_ONLY_SEL       2
+#define KC_SEND_ONLY_SEL        3
 
-#define FTP_ACTIVE_MODE_SEL    1
-#define FTP_PASSIVE_MODE_SEL   2
+#define FTP_ACTIVE_MODE_SEL     1
+#define FTP_PASSIVE_MODE_SEL    2
 #ifdef WITH_DUP_CHECK
-# define ENABLE_DUPCHECK_SEL   3
-# define DISABLE_DUPCHECK_SEL  4
-# define FILE_NAME_SEL         5
-# define FILE_NOSUFFIX_SEL     6
-# define FILE_CONTENT_SEL      7
-# define FILE_NAME_CONTENT_SEL 8
-# define DC_DELETE_SEL         9
-# define DC_STORE_SEL          10
+# define ENABLE_DUPCHECK_SEL    3
+# define DISABLE_DUPCHECK_SEL   4
+# define FILE_NAME_SEL          5
+# define FILE_NAMESIZE_SEL      6
+# define FILE_NOSUFFIX_SEL      7
+# define FILE_CONTENT_SEL       8
+# define FILE_NAME_CONTENT_SEL  9
+# define DC_DELETE_SEL          10
+# define DC_STORE_SEL           11
+# define ALIAS_DUPCHECK_SEL     12
+# define RECIPIENT_DUPCHECK_SEL 13
 #endif
 
-#define MAX_TB_BUTTONS         10
-#define MAX_FSO_BUTTONS        14
-#define MAX_FSO_SFTP_BUTTONS   2
+#define MAX_TB_BUTTONS          15
+#define MAX_FSO_BUTTONS         14
+#define MAX_FSO_SFTP_BUTTONS    2
 
-#define HOST_SWITCHING         1
-#define AUTO_SWITCHING         2
+#define HOST_SWITCHING          1
+#define AUTO_SWITCHING          2
 
-#define MAX_CHARS_IN_LINE      56
+#define MAX_CHARS_IN_LINE       56
 
 /* Messages returned to the user. */
-#define REAL_HOST_NAME_WRONG   "You must enter a real hostname."
+#define REAL_HOST_NAME_WRONG    "You must enter a real hostname."
 
 /* Label name for host alias list. */
 #define HOST_ALIAS_LABEL        "Alias Hostname"
@@ -122,37 +129,53 @@
 #define ERROR_OFFLINE_STATIC_CHANGED  4
 #define KC_DIRECTION_CHANGED          8
 #define FILE_WHEN_LOCAL_CHANGED       16
+#define TCP_KEEPALIVE_CHANGED         32
+#define DO_NOT_DELETE_DATA_CHANGED    64
+#ifdef WITH_DUP_CHECK
+# define DC_REF_CHANGED               128
+#endif
+#define USE_SEQUENCE_LOCKING_CHANGED  256
+#define WARN_TIME_DAYS_CHANGED        512
+#define WARN_TIME_HOURS_CHANGED       1024
+#define WARN_TIME_MINS_CHANGED        2048
+#define WARN_TIME_SECS_CHANGED        4096
+#define COMPRESION_CHANGED            8192
+#define KEEP_TIME_STAMP_CHANGED       16384
+#define SORT_FILE_NAMES_CHANGED       32768
 
 /* Structure holding all changed entries of one host. */
 struct changed_entry
        {
-          unsigned int  value_changed;
-          unsigned int  value_changed2;
-          char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
-          char          host_toggle[2][1];
-          char          proxy_name[MAX_PROXY_NAME_LENGTH + 1];
-          unsigned char special_flag;
-          off_t         transfer_rate_limit;
-          long          transfer_timeout;
-          int           retry_interval;
-          int           max_errors;
-          int           max_successful_retries;
-          int           allowed_transfers;
-          int           block_size;
-          int           ttl;
-          unsigned int  sndbuf_size;
-          unsigned int  rcvbuf_size;
-          unsigned int  keep_connected;
+          unsigned int   value_changed;
+          unsigned int   value_changed2;
+          char           real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
+          char           host_toggle[2][1];
+          char           proxy_name[MAX_PROXY_NAME_LENGTH + 1];
+          unsigned char  special_flag;
+          off_t          transfer_rate_limit;
+          long           transfer_timeout;
+          int            retry_interval;
+          int            max_errors;
+          int            max_successful_retries;
+          int            allowed_transfers;
+          int            block_size;
+          int            ttl;
+          unsigned int   sndbuf_size;
+          unsigned int   rcvbuf_size;
+          unsigned int   keep_connected;
 #ifdef WITH_DUP_CHECK
-          unsigned int  dup_check_flag;
-          time_t        dup_check_timeout;
+          unsigned int   dup_check_flag;
+          time_t         dup_check_timeout;
 #endif
-          signed char   file_size_offset;
-          unsigned char no_of_no_bursts;
-          signed char   host_switch_toggle;
-          signed char   auto_toggle;
-          signed char   ftp_mode;
-          signed char   set_ftp_idle_time;
+          unsigned int   warn_time_days;
+          unsigned short warn_time_hours;
+          unsigned short warn_time_mins;
+          unsigned short warn_time_secs;
+          signed char    file_size_offset;
+          signed char    host_switch_toggle;
+          signed char    auto_toggle;
+          signed char    ftp_mode;
+          signed char    set_ftp_idle_time;
        };
 
 /* Structures holding widget id's for option menu. */
@@ -160,12 +183,6 @@ struct parallel_transfers
        {
           XT_PTR_TYPE value[MAX_NO_PARALLEL_JOBS];
           Widget      button_w[MAX_NO_PARALLEL_JOBS];
-          Widget      option_menu_w;
-       };
-struct no_of_no_bursts
-       {
-          XT_PTR_TYPE value[MAX_NO_PARALLEL_JOBS + 1];
-          Widget      button_w[MAX_NO_PARALLEL_JOBS + 1];
           Widget      option_menu_w;
        };
 struct transfer_blocksize
@@ -186,6 +203,7 @@ extern int  remove_host(char *);
 extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             close_button(Widget, XtPointer, XtPointer),
 #ifdef WITH_DUP_CHECK
+            dc_ref_radio_button(Widget, XtPointer, XtPointer),
             dc_type_radio_button(Widget, XtPointer, XtPointer),
             edc_radio_button(Widget, XtPointer, XtPointer),
 #endif
@@ -193,9 +211,9 @@ extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             fso_option_changed(Widget, XtPointer, XtPointer),
             ftp_mode_radio_button(Widget, XtPointer, XtPointer),
             host_switch_toggle(Widget, XtPointer, XtPointer),
+            init_host_list(int),
             kc_radio_button(Widget, XtPointer, XtPointer),
             leave_notify(Widget, XtPointer, XtPointer),
-            nob_option_changed(Widget, XtPointer, XtPointer),
             pt_option_changed(Widget, XtPointer, XtPointer),
             remove_button(Widget, XtPointer, XtPointer),
             save_input(Widget, XtPointer, XtPointer),

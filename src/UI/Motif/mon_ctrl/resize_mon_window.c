@@ -1,7 +1,7 @@
 /*
  *  resize_mon_window.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,8 @@ DESCR__E_M3
 extern Display      *display;
 extern Widget       appshell,
                     line_window_w,
-                    label_window_w;
+                    label_window_w,
+                    button_window_w;
 extern int          line_height,
                     magic_value,
                     window_width,
@@ -69,43 +70,37 @@ extern unsigned int glyph_height;
 signed char
 resize_mon_window(void)
 {
-#ifdef _AUTO_REPOSITION
-   XWindowAttributes    window_attrib;
-   int                  display_width,
-                        display_height,
-                        new_x,
-                        new_y;
-   Position             root_x,
-                        root_y;
-#endif
-   static int           old_line_height = 0;
-   Arg                  args[5];
-   Cardinal             argcount;
-
    if (mon_window_size(&window_width, &window_height) == YES)
    {
-      argcount = 0;
-      XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
-      argcount++;
-      XtSetArg(args[argcount], XmNwidth, (Dimension) window_width);
-      argcount++;
-      XtSetValues(line_window_w, args, argcount);
 #ifdef _AUTO_REPOSITION
-      /* Get new window position */
+      XWindowAttributes    window_attrib;
+      int                  display_width,
+                           display_height,
+                           new_x,
+                           new_y;
+      Position             root_x,
+                           root_y;
+#endif
+      static int           old_line_height = 0;
+      Arg                  args[5];
+      Cardinal             argcount;
+
+#ifdef _AUTO_REPOSITION
+      /* Get new window position. */
       display_width = DisplayWidth(display, DefaultScreen(display));
       display_height = DisplayHeight(display, DefaultScreen(display));
       XGetWindowAttributes(display, XtWindow(appshell), &window_attrib);
 
-      /* Translate coordinates relative to root window */
+      /* Translate coordinates relative to root window. */
       XtTranslateCoords(appshell, window_attrib.x, window_attrib.y,
                         &root_x, &root_y);
 
-      /* Change x coordinate */
+      /* Change x coordinate. */
       if ((root_x + window_width) > display_width)
       {
          new_x = display_width - window_width;
 
-         /* Is window wider then display ? */
+         /* Is window wider then display? */
          if (new_x < 0)
          {
             new_x = 0;
@@ -116,12 +111,12 @@ resize_mon_window(void)
          new_x = root_x;
       }
 
-      /* Change y coordinate */
+      /* Change y coordinate. */
       if ((root_y + window_height + 23) > display_height)
       {
          new_y = display_height - window_height;
 
-         /* Is window wider then display ? */
+         /* Is window wider then display? */
          if (new_y < 23)
          {
             new_y = 23;
@@ -132,40 +127,47 @@ resize_mon_window(void)
          new_y = root_y;
       }
 
-      /* Resize window */
+      /* Resize window. */
       XtVaSetValues(appshell,
                     XmNminWidth, window_width,
                     XmNmaxWidth, window_width,
-                    XmNminHeight, window_height + line_height + glyph_height + magic_value,
-                    XmNmaxHeight, window_height + line_height + glyph_height + magic_value,
+                    XmNminHeight, window_height + line_height + line_height + glyph_height + magic_value,
+                    XmNmaxHeight, window_height + line_height + line_height + glyph_height + magic_value,
                     NULL);
       XMoveResizeWindow(display, XtWindow(appshell),
-                        new_x,
-                        new_y,
+                        new_x, new_y,
                         window_width,
-                        window_height + line_height + glyph_height + magic_value);
+                        window_height + line_height + line_height + glyph_height + magic_value);
 #else
       XtVaSetValues(appshell,
                     XmNminWidth, window_width,
                     XmNmaxWidth, window_width,
-                    XmNminHeight, window_height + line_height + glyph_height + magic_value,
-                    XmNmaxHeight, window_height + line_height + glyph_height + magic_value,
+                    XmNminHeight, window_height + line_height + line_height + glyph_height + magic_value,
+                    XmNmaxHeight, window_height + line_height + line_height + glyph_height + magic_value,
                     NULL);
       XResizeWindow(display, XtWindow(appshell), window_width,
-                    window_height + line_height + glyph_height + magic_value);
+                    window_height + line_height + line_height + glyph_height + magic_value);
 #endif
+
+      argcount = 0;
+      XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
+      argcount++;
+      XtSetArg(args[argcount], XmNheight, (Dimension)window_height);
+      argcount++;
+      XtSetValues(line_window_w, args, argcount);
 
       /* If the line_height changed, don't forget to change the */
       /* height of the label and button window!                 */
+      argcount = 1;
       if (line_height != old_line_height)
       {
          argcount = 0;
-         XtSetArg(args[argcount], XmNheight, (Dimension) line_height);
+         XtSetArg(args[argcount], XmNheight, (Dimension)line_height);
          argcount++;
-         XtSetValues(label_window_w, args, argcount);
-
          old_line_height = line_height;
       }
+      XtSetValues(label_window_w, args, argcount);
+      XtSetValues(button_window_w, args, argcount);
 
       return(YES);
    }

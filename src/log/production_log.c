@@ -1,6 +1,6 @@
 /*
  *  production_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,24 +32,31 @@ DESCR__S_M1
  **   This function reads from the fifo PRODUCTION_LOG_FIFO any file name
  **   that has been renamed or where the content was changed by AFD. The
  **   data in the fifo has the following structure:
- **       <ML><UDN>|<OFN>|<NFL>[|<CMD>]\n
- **         |   |     |     |      |
- **         |   |     |     |      +-------> Command executed.
- **         |   |     |     +--------------> New filename.
- **         |   |     +--------------------> Original File Name.
- **         |   +--------------------------> Unique ID.
- **         +------------------------------> The length of this message of
- **                                          type unsigned short.
+ **
+ **       <ML><RR><UDN>|<DID>|<JID>|<OFN>|<NFL>[|<CMD>]\n
+ **         |   |   |     |     |     |     |      |
+ **         |   |   |     |     |     |     |      +-------> Command executed.
+ **         |   |   |     |     |     |     +--------------> New filename.
+ **         |   |   |     |     |     +--------------------> Original File Name.
+ **         |   |   |     |     +--------------------------> Job ID.
+ **         |   |   |     +--------------------------------> Directory ID.
+ **         |   |   +--------------------------------------> Unique ID.
+ **         |   +------------------------------------------> Ratio
+ **         |                                                relationship.
+ **         +----------------------------------------------> The length of this
+ **                                                          message of type
+ **                                                          unsigned short.
  **
  **   This data is then written to the production log file in the following
  **   format:
  **
- **        414d2c4b  414d2c49_2a|dat|dat1.bz2|bzip2 %s
- **           |          |        |     |        |
- **           |          |        |     +----+   +----+
- **           |          |        |          |        |
- **        Date of     Unique  Original     New    Command
- **       this entry     ID    filename  filename  executed
+ **     414d2c4b  1:1|414d2c49_2a_0|682d6409|d1fe5d48|dat|dat1.bz2|24fa43|0|bzip2 %s
+ **        |       |         |          |       |      |     |        |   |   |
+ **        |       +-+       |       +--+     +-+      |     +--+     |   +-+ +-----+
+ **        |         |       |       |        |        |        |     |     |       |
+ **     Date of    Ratio   Unique Directory  Job   Original    New   New  Return Command
+ **    this entry relation   ID      ID      ID    filename filename size  code  executed
+ **                ship
  **
  ** RETURN VALUES
  **   SUCCESS on normal exit and INCORRECT when an error has occurred.
@@ -59,6 +66,9 @@ DESCR__S_M1
  **
  ** HISTORY
  **   10.03.2001 H.Kiehl Created
+ **   15.01.2008 H.Kiehl Added job ID, size and return code field.
+ **   28.03.2008 H.Kiehl Added directory ID.
+ **   28.10.2008 H.Kiehl Added ratio relationship.
  **
  */
 DESCR__E_M1
@@ -78,7 +88,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* External global variables */
+/* External global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *iobuf = NULL,
            *p_work_dir = NULL;
@@ -89,7 +99,6 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-#ifdef _PRODUCTION_LOG
    FILE           *production_file;
    int            bytes_buffered = 0,
                   check_size,
@@ -108,7 +117,7 @@ main(int argc, char *argv[])
    long           fifo_size;
    char           *p_end,
                   *fifo_buffer,
-                  work_dir[MAX_PATH_LENGTH],
+                  *work_dir,
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH];
    unsigned short *msg_length;
@@ -118,56 +127,58 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
-   else
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
    {
-      char production_log_fifo[MAX_PATH_LENGTH];
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s",
+                 strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
+   p_work_dir = work_dir;
 
-      p_work_dir = work_dir;
-
-      /* Create and open fifos that we need */
-      (void)strcpy(production_log_fifo, work_dir);
-      (void)strcat(production_log_fifo, FIFO_DIR);
-      (void)strcat(production_log_fifo, PRODUCTION_LOG_FIFO);
+   /* Create and open fifos that we need. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, PRODUCTION_LOG_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(production_log_fifo, &log_fd, &writefd) == -1)
+   if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-      if ((log_fd = open(production_log_fifo, O_RDWR)) == -1)
+   if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
+   {
+      if (errno == ENOENT)
       {
-         if (errno == ENOENT)
+         if (make_fifo(log_file) == SUCCESS)
          {
-            if (make_fifo(production_log_fifo) == SUCCESS)
-            {
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-               if (open_fifo_rw(production_log_fifo, &log_fd, &writefd) == -1)
+            if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-               if ((log_fd = open(production_log_fifo, O_RDWR)) == -1)
+            if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() fifo %s : %s",
-                             production_log_fifo, strerror(errno));
-                  exit(INCORRECT);
-               }
-            }
-            else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to create fifo %s.", production_log_fifo);
+                          "Failed to open() fifo %s : %s",
+                          log_file, strerror(errno));
                exit(INCORRECT);
             }
          }
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() fifo %s : %s",
-                       production_log_fifo, strerror(errno));
+                       "Failed to create fifo %s.", log_file);
             exit(INCORRECT);
          }
+      }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() fifo %s : %s",
+                    log_file, strerror(errno));
+         exit(INCORRECT);
       }
    }
    
@@ -177,21 +188,21 @@ main(int argc, char *argv[])
     */
    if ((fifo_size = fpathconf(log_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
    if (fifo_size < (sizeof(short) +
                     2 + MAX_INT_LENGTH + 6 + MAX_INT_LENGTH + 1 + 1 +
-                    (2 * MAX_FILENAME_LENGTH)))
+                    MAX_INT_LENGTH + 1 + (2 * MAX_FILENAME_LENGTH)))
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Fifo is NOT large enough to ensure atomic writes!");
       fifo_size = sizeof(short)+
                   2 + MAX_INT_LENGTH + 6 + MAX_INT_LENGTH + 1 + 1 +
-                  (2 * MAX_FILENAME_LENGTH);
+                  MAX_INT_LENGTH + 1 + (2 * MAX_FILENAME_LENGTH);
    }
 
-   /* Now lets allocate memory for the fifo buffer */
+   /* Now lets allocate memory for the fifo buffer. */
    if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -227,7 +238,7 @@ main(int argc, char *argv[])
    p_end += sprintf(log_file, "%s%s/%s",
                     work_dir, LOG_DIR, PRODUCTION_BUFFER_FILE);
 
-   /* Calculate time when we have to start a new file */
+   /* Calculate time when we have to start a new file. */
    next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                     SWITCH_FILE_TIME;
 
@@ -240,16 +251,33 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         if (max_production_log_files > 1)
+         {
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         }
+         else
+         {
+            if (unlink(current_log_file) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() current log file `%s' : %s",
+                          current_log_file, strerror(errno));
+            }
+         }
       }
    }
 
+#ifdef WITH_LOG_CACHE
+   production_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
    production_file = open_log_file(current_log_file);
+#endif
 
    msg_length = (unsigned short *)fifo_buffer;
-   check_size = 2 + MAX_INT_LENGTH + 6 + MAX_INT_LENGTH + 1 + 1;
+   check_size = 2 + MAX_INT_LENGTH + 6 + MAX_INT_LENGTH + 1 + 1 +
+                MAX_INT_LENGTH + 1;
 
-   /* Ignore any SIGHUP signal */
+   /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -262,7 +290,7 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      /* Initialise descriptor set and timeout. */
       FD_SET(log_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 3L;
@@ -290,8 +318,24 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_production_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_file, strerror(errno));
+               }
+            }
+#ifdef WITH_LOG_CACHE
+            production_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
             production_file = open_log_file(current_log_file);
+#endif
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
          }
@@ -376,8 +420,24 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 if (max_production_log_files > 1)
+                 {
+                    reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+                 }
+                 else
+                 {
+                    if (unlink(current_log_file) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to unlink() current log file `%s' : %s",
+                                  current_log_file, strerror(errno));
+                    }
+                 }
+#ifdef WITH_LOG_CACHE
+                 production_file = open_log_file(current_log_file, NULL, NULL, NULL);
+#else
                  production_file = open_log_file(current_log_file);
+#endif
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }
            }
@@ -389,7 +449,6 @@ main(int argc, char *argv[])
            }
    } /* for (;;) */
 
-#endif /* _PRODUCTION_LOG */
    /* Should never come to this point. */
    exit(SUCCESS);
 }

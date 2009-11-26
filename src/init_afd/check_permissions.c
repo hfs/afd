@@ -1,6 +1,6 @@
 /*
  *  check_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -94,9 +94,13 @@ check_permissions(void)
                         { RETRY_FD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { FD_DELETE_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { FD_WAKE_UP_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
+                        { TRL_CALC_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { PROBE_ONLY_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
 # ifdef _INPUT_LOG
                         { INPUT_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
+# endif
+# ifdef _DISTRIBUTION_LOG
+                        { DISTRIBUTION_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
 # endif
 # ifdef _OUTPUT_LOG
                         { OUTPUT_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
@@ -119,7 +123,7 @@ check_permissions(void)
                         { LOCK_PROC_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { PWB_DATA_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { AMG_COUNTER_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
-                        { FILE_MASK_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
+                        { FILE_MASK_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
                         { DC_LIST_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
 #else
                         { SYSTEM_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
@@ -139,9 +143,13 @@ check_permissions(void)
                         { RETRY_FD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { FD_DELETE_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { FD_WAKE_UP_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+                        { TRL_CALC_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { PROBE_ONLY_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
 # ifdef _INPUT_LOG
                         { INPUT_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+# endif
+# ifdef _DISTRIBUTION_LOG
+                        { DISTRIBUTION_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
 # endif
 # ifdef _OUTPUT_LOG
                         { OUTPUT_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
@@ -164,16 +172,19 @@ check_permissions(void)
                         { LOCK_PROC_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { PWB_DATA_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { AMG_COUNTER_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
-                        { FILE_MASK_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+                        { FILE_MASK_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP| S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP| S_IROTH) },
                         { DC_LIST_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP| S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
 #endif /* !GROUP_CAN_WRITE */
                         { DIR_NAME_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
                         { JOB_ID_DATA_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
+                        { DCPL_FILE_NAME, (S_IFREG | FILE_MODE), FILE_MODE },
                         { CURRENT_MSG_LIST_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
                         { FSA_ID_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
                         { FRA_ID_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
                         { MSG_CACHE_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
                         { MSG_QUEUE_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
+                        { QUEUE_LIST_READY_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+                        { QUEUE_LIST_DONE_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
 #ifdef WITH_ERROR_QUEUE
                         { ERROR_QUEUE_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
 #endif
@@ -190,6 +201,11 @@ check_permissions(void)
 # endif
 # ifdef _INPUT_LOG
                         { INPUT_BUFFER_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
+# else
+                        { "", 0, 0 },
+# endif
+# ifdef _DISTRIBUTION_LOG
+                        { DISTRIBUTION_BUFFER_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
 # else
                         { "", 0, 0 },
 # endif
@@ -217,6 +233,11 @@ check_permissions(void)
 # endif
 # ifdef _INPUT_LOG
                         { INPUT_BUFFER_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
+# else
+                        { "", 0, 0 },
+# endif
+# ifdef _DISTRIBUTION_LOG
+                        { DISTRIBUTION_BUFFER_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
 # else
                         { "", 0, 0 },
 # endif
@@ -248,7 +269,7 @@ check_permissions(void)
       {
          if (errno != ENOENT)
          {
-            (void)fprintf(stdout, "Can't access file %s : %s (%s %d)\n",
+            (void)fprintf(stdout, _("Can't access file %s : %s (%s %d)\n"),
                           fullname, strerror(errno), __FILE__, __LINE__);
          }
       }
@@ -257,13 +278,13 @@ check_permissions(void)
          if (stat_buf.st_mode != fifodir[i].full_mode)
          {
             (void)fprintf(stdout,
-                          "File %s has mode %o, changing to %o. (%s %d)\n",
+                          _("File %s has mode %o, changing to %o. (%s %d)\n"),
                           fullname, stat_buf.st_mode, fifodir[i].full_mode,
                           __FILE__, __LINE__);
             if (chmod(fullname, fifodir[i].mode) == -1)
             {
                (void)fprintf(stdout,
-                             "Can't change mode to %o for file %s : %s (%s %d)\n",
+                             _("Can't change mode to %o for file %s : %s (%s %d)\n"),
                              fifodir[i].mode, fullname, strerror(errno),
                              __FILE__, __LINE__);
             }
@@ -287,7 +308,7 @@ check_permissions(void)
          {
             if (errno != ENOENT)
             {
-               (void)fprintf(stdout, "Can't access file %s : %s (%s %d)\n",
+               (void)fprintf(stdout, _("Can't access file %s : %s (%s %d)\n"),
                              fullname, strerror(errno), __FILE__, __LINE__);
             }
          }
@@ -296,13 +317,13 @@ check_permissions(void)
             if (stat_buf.st_mode != logdir[i].full_mode)
             {
                (void)fprintf(stdout,
-                             "File %s has mode %o, changing to %o. (%s %d)\n",
+                             _("File %s has mode %o, changing to %o. (%s %d)\n"),
                              fullname, stat_buf.st_mode, logdir[i].full_mode,
                              __FILE__, __LINE__);
                if (chmod(fullname, logdir[i].mode) == -1)
                {
                   (void)fprintf(stdout,
-                                "Can't change mode to %o for file %s : %s (%s %d)\n",
+                                _("Can't change mode to %o for file %s : %s (%s %d)\n"),
                                 logdir[i].mode, fullname, strerror(errno),
                                 __FILE__, __LINE__);
                }

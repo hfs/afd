@@ -1,6 +1,6 @@
 /*
  *  isdup.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   isdup - checks for duplicates
  **
  ** SYNOPSIS
- **   int isdup(char *fullname, unsigned int id, time_t timeout,
+ **   int isdup(char *fullname, off_t size, unsigned int id, time_t timeout,
  **             int flag, int rm_flag)
  **
  ** DESCRIPTION
@@ -42,6 +42,7 @@ DESCR__S_M3
  **   11.06.2005 H.Kiehl Created
  **   09.03.2006 H.Kiehl Added parameter to remove a CRC.
  **   20.12.2006 H.Kiehl Added option to ignore last suffix of filename.
+ **   05.03.2008 H.Kiehl Added option to test for filename and size.
  **
  */
 DESCR__E_M3
@@ -61,7 +62,12 @@ extern char *p_work_dir;
 
 /*############################### isdup() ###############################*/
 int
-isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
+isdup(char         *fullname,
+      off_t        size,
+      unsigned int id,
+      time_t       timeout,
+      int          flag,
+      int          rm_flag)
 {
    int            dup,
                   fd,
@@ -91,10 +97,39 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
       else
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Unable to find filename in `%s'.", fullname);
+                    _("Unable to find filename in `%s'."), fullname);
          return(NO);
       }
    }
+   else if (flag & DC_FILENAME_AND_SIZE)
+        {
+           char filename_size[MAX_FILENAME_LENGTH + 1 + MAX_OFF_T_LENGTH + 1];
+
+           ptr = fullname + strlen(fullname);
+           while ((*ptr != '/') && (ptr != fullname))
+           {
+              ptr--;
+           }
+           if (*ptr == '/')
+           {
+              ptr++;
+              i = 0;
+              while ((*ptr != '\0') && (i < MAX_FILENAME_LENGTH))
+              {
+                 filename_size[i] = *ptr;
+                 i++; ptr++;
+              }
+              filename_size[i++] = ' ';
+              (void)memcpy(&filename_size[i], &size, sizeof(off_t));
+              crc = get_checksum(filename_size, i + sizeof(off_t));
+           }
+           else
+           {
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         _("Unable to find filename in `%s'."), fullname);
+              return(NO);
+           }
+        }
    else if (flag & DC_NAME_NO_SUFFIX)
         {
            char *p_end;
@@ -120,7 +155,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
            else
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Unable to find filename in `%s'.", fullname);
+                         _("Unable to find filename in `%s'."), fullname);
               return(NO);
            }
         }
@@ -131,7 +166,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
            if ((fd = open(fullname, O_RDONLY)) == -1)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to open() `%s' : %s",
+                         _("Failed to open() `%s' : %s"),
                          fullname, strerror(errno));
               return(NO);
            }
@@ -139,7 +174,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
            if (get_file_checksum(fd, buffer, 4096, 0, &crc) != SUCCESS)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to determine checksum for `%s'.", fullname);
+                         _("Failed to determine checksum for `%s'."), fullname);
               (void)close(fd);
               return(NO);
            }
@@ -147,7 +182,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
            if (close(fd) == -1)
            {
               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                         "Failed to close() `%s' : %s",
+                         _("Failed to close() `%s' : %s"),
                          fullname, strerror(errno));
            }
         }
@@ -170,7 +205,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
               if ((fd = open(fullname, O_RDONLY)) == -1)
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to open() `%s' : %s",
+                            _("Failed to open() `%s' : %s"),
                             fullname, strerror(errno));
                  return(NO);
               }
@@ -179,7 +214,8 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
                                     (p_end - ptr), &crc) != SUCCESS)
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to determine checksum for `%s'.", fullname);
+                            _("Failed to determine checksum for `%s'."),
+                            fullname);
                  (void)close(fd);
                  return(NO);
               }
@@ -187,14 +223,14 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
               if (close(fd) == -1)
               {
                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            "Failed to close() `%s' : %s",
+                            _("Failed to close() `%s' : %s"),
                             fullname, strerror(errno));
               }
            }
            else
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Unable to find filename in `%s'.", fullname);
+                         _("Unable to find filename in `%s'."), fullname);
               return(NO);
            }
         }
@@ -204,11 +240,11 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
     */
    (void)sprintf(crcfile, "%s%s%s/%x", p_work_dir, AFD_FILE_DIR, CRC_DIR, id);
    new_size = (CRC_STEP_SIZE * sizeof(struct crc_buf)) + AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(crcfile, &fd, new_size, "isdup()",
+   if ((ptr = attach_buf(crcfile, &fd, &new_size, "isdup()",
                          FILE_MODE, YES)) == (caddr_t) -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to mmap() `%s' : %s", crcfile, strerror(errno));
+                 _("Failed to mmap() `%s' : %s"), crcfile, strerror(errno));
       return(NO);
    }
    current_time = time(NULL);
@@ -259,16 +295,23 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
                                              DUPCHECK_CHECK_TIME;
       }
 
-      for (i = 0; i < *no_of_crcs; i++)
+      if (timeout > 0L)
       {
-         if ((crc == cdb[i].crc) && (flag == cdb[i].flag) && (timeout > 0L))
+         for (i = 0; i < *no_of_crcs; i++)
          {
-            if ((timeout + current_time) != cdb[i].timeout)
+            if ((crc == cdb[i].crc) && (flag == cdb[i].flag))
             {
+               if (current_time <= cdb[i].timeout)
+               {
+                  dup = YES;
+               }
+               else
+               {
+                  dup = NEITHER;
+               }
                cdb[i].timeout = current_time + timeout;
+               break;
             }
-            dup = YES;
-            break;
          }
       }
 
@@ -284,7 +327,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
             if ((ptr = mmap_resize(fd, ptr, new_size)) == (caddr_t) -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "mmap_resize() error : %s", strerror(errno));
+                          _("mmap_resize() error : %s"), strerror(errno));
                (void)close(fd);
                return(NO);
             }
@@ -297,22 +340,29 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
          cdb[*no_of_crcs].timeout = current_time + timeout;
          (*no_of_crcs)++;
       }
+      else if (dup == NEITHER)
+           {
+              dup = NO;
+           }
    }
    else
    {
-      for (i = 0; i < *no_of_crcs; i++)
+      if (timeout > 0L)
       {
-         if ((crc == cdb[i].crc) && (flag == cdb[i].flag) && (timeout > 0L))
+         for (i = 0; i < *no_of_crcs; i++)
          {
-            if (i <= *no_of_crcs)
+            if ((crc == cdb[i].crc) && (flag == cdb[i].flag))
             {
-               size_t move_size = (*no_of_crcs - (i - 1)) *
-                                  sizeof(struct crc_buf);
+               if (i <= *no_of_crcs)
+               {
+                  size_t move_size = (*no_of_crcs - (i - 1)) *
+                                     sizeof(struct crc_buf);
 
-               (void)memmove(&cdb[i], &cdb[i - 1], move_size);
+                  (void)memmove(&cdb[i], &cdb[i - 1], move_size);
+               }
+               (*no_of_crcs) -= 1;
+               break;
             }
-            (*no_of_crcs) -= 1;
-            break;
          }
       }
    }

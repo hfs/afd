@@ -1,6 +1,6 @@
 /*
  *  del_cache.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -76,7 +76,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
@@ -85,7 +85,7 @@ main(int argc, char *argv[])
    if (argc != 2)
    {
       (void)fprintf(stderr,
-                    "Usage: %s [-w <AFD work dir>] [--version] <cache pos>\n",
+                    _("Usage: %s [-w <AFD work dir>] [--version] <cache pos>\n"),
                     argv[0]);
       exit(INCORRECT);
    }
@@ -94,7 +94,7 @@ main(int argc, char *argv[])
    if ((fd = open(file, O_RDWR)) == -1)
    {
       (void)fprintf(stderr,
-                    "Failed to open() %s : %s (%s %d)\n",
+                    _("Failed to open() `%s# : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -102,7 +102,7 @@ main(int argc, char *argv[])
    if (fstat(fd, &stat_buf) == -1)
    {
       (void)fprintf(stderr,
-                    "Failed to fstat() %s : %s (%s %d)\n",
+                    _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -111,7 +111,7 @@ main(int argc, char *argv[])
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,
-                    "Failed to mmap() %s : %s (%s %d)\n",
+                    _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -134,20 +134,20 @@ main(int argc, char *argv[])
       else
       {
          (void)fprintf(stderr,
-                       "Delete position (%d) to high, there are only %d elements.\n",
+                       _("Delete position (%d) to high, there are only %d elements.\n"),
                        del_pos, *no_msg_cached);
       }
    }
    else
    {
-      (void)fprintf(stdout, "No messages cached.\n");
+      (void)fprintf(stdout, _("No messages cached.\n"));
    }
 
    ptr -= AFD_WORD_OFFSET;
    if (munmap(ptr, stat_buf.st_size) == -1)
    {
       (void)fprintf(stderr,
-                    "Failed to munmap() %s : %s (%s %d)\n",
+                    _("Failed to munmap() %s : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    (void)close(fd);

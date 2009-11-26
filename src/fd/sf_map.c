@@ -1,6 +1,6 @@
 /*
  *  sf_map.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,7 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <sys/time.h>                  /* struct timeval                 */
 #ifdef _OUTPUT_LOG
-#include <sys/times.h>                 /* times(), struct tms            */
+# include <sys/times.h>                /* times(), struct tms            */
 #endif
 #include <fcntl.h>
 #include <unistd.h>                    /* unlink(), alarm()              */
@@ -89,10 +89,29 @@ int                        counter_fd = -1,    /* NOT USED */
                            trans_rename_blocked = NO,
                            amg_flag = NO;
 long                       transfer_timeout; /* Not used [init_sf()]    */
+#ifdef _OUTPUT_LOG
+int                        ol_fd = -2;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+int                        ol_readfd = -2;
+# endif
+unsigned int               *ol_job_number,
+                           *ol_retries;
+char                       *ol_data = NULL,
+                           *ol_file_name,
+                           *ol_output_type;
+unsigned short             *ol_archive_name_length,
+                           *ol_file_name_length,
+                           *ol_unl;
+off_t                      *ol_file_size;
+size_t                     ol_size,
+                           ol_real_size;
+clock_t                    *ol_transfer_time;
+#endif
 #ifdef HAVE_MMAP
 off_t                      fsa_size;
 #endif
-off_t                      *file_size_buffer;
+off_t                      *file_size_buffer = NULL;
+time_t                     *file_mtime_buffer = NULL;
 char                       msg_str[MAX_RET_MSG_LENGTH],
                            *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
@@ -107,21 +126,26 @@ struct delete_log          dl;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 #ifdef _WITH_MAP_SUPPORT
-/* Local variables. */
+/* Local global variables. */
+static int                 files_send,
+                           files_to_send,
+                           local_file_counter;
+static off_t               local_file_size,
+                           *p_file_size_buffer;
 static jmp_buf             env_alrm;
 
-/* Local functions. */
-static void sf_map_exit(void),
-            sig_bus(int),
-            sig_segv(int),
-            sig_kill(int),
-            sig_exit(int),
-            sig_handler(int);
+/* Local function prototypes. */
+static void                sf_map_exit(void),
+                           sig_bus(int),
+                           sig_segv(int),
+                           sig_kill(int),
+                           sig_exit(int),
+                           sig_handler(int);
 
 /* Remote function prototypes. */
-extern int  store_blob(unsigned long, char *, char *, char *, char *,
-                       long, signed long *);
-extern char *map_db_errafd(void);
+extern int                 store_blob(unsigned long, char *, char *, char *,
+                                      char *, long, signed long *);
+extern char                *map_db_errafd(void);
 
 #define DB_OKAY 100000L
 #endif
@@ -133,36 +157,21 @@ int
 main(int argc, char *argv[])
 {
 #ifdef _WITH_MAP_SUPPORT
-   int              i,
-                    files_to_send = 0;
+   int              current_toggle;
    signed long      map_errno;
-   off_t            *p_file_size_buffer;
+   time_t           last_update_time,
+                    now;
    char             *p_source_file,
                     *p_file_name_buffer,
                     file_path[MAX_PATH_LENGTH],
-                    source_file[MAX_PATH_LENGTH],
-                    work_dir[MAX_PATH_LENGTH];
+                    source_file[MAX_PATH_LENGTH];
    struct job       *p_db;
 #ifdef SA_FULLDUMP
    struct sigaction sact;
 #endif
 #ifdef _OUTPUT_LOG
-   int              ol_fd = -1;
-# ifdef WITHOUT_FIFO_RW_SUPPORT
-   int              ol_readfd = -1;
-# endif
-   unsigned int     *ol_job_number;
-   char             *ol_data = NULL,
-                    *ol_file_name;
-   unsigned short   *ol_archive_name_length,
-                    *ol_file_name_length,
-                    *ol_unl;
-   off_t            *ol_file_size;
-   size_t           ol_size,
-                    ol_real_size;
-   clock_t          end_time,
-                    start_time = 0,
-                    *ol_transfer_time;
+   clock_t          end_time = 0,
+                    start_time = 0;
    struct tms       tmsdummy;
 #endif
 
@@ -183,7 +192,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(sf_map_exit) != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -191,8 +200,8 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
-   p_work_dir = work_dir;
+   /* Initialise variables. */
+   local_file_counter = 0;
    msg_str[0] = '\0';
    files_to_send = init_sf(argc, argv, file_path, MAP_FLAG);
    p_db = &db;
@@ -212,35 +221,13 @@ main(int argc, char *argv[])
    }
 
    /* Inform FSA that we have are ready to copy the files. */
-   (void)gsf_check_fsa();
-   if (db.fsa_pos != INCORRECT)
+   if (gsf_check_fsa() != NEITHER)
    {
       fsa->job_status[(int)db.job_no].connect_status = MAP_ACTIVE;
       fsa->job_status[(int)db.job_no].no_of_files = files_to_send;
    }
 
-#ifdef _OUTPUT_LOG
-   if (db.output_log == YES)
-   {
-      output_log_ptrs(&ol_fd,
-# ifdef WITHOUT_FIFO_RW_SUPPORT
-                      &ol_readfd,
-# endif
-                      &ol_job_number,
-                      &ol_data,
-                      &ol_file_name,
-                      &ol_file_name_length,
-                      &ol_archive_name_length,
-                      &ol_file_size,
-                      &ol_unl,
-                      &ol_size,
-                      &ol_transfer_time,
-                      db.host_alias,
-                      MAP);
-   }
-#endif
-
-   /* Prepare pointers and directory name */
+   /* Prepare pointers and directory name. */
    (void)strcpy(source_file, file_path);
    p_source_file = source_file + strlen(source_file);
    *p_source_file++ = '/';
@@ -252,30 +239,59 @@ main(int argc, char *argv[])
       {
          (void)strcpy(db.hostname,
                       fsa->real_hostname[HOST_TWO - 1]);
+         current_toggle = HOST_TWO;
       }
       else
       {
          (void)strcpy(db.hostname,
                       fsa->real_hostname[HOST_ONE - 1]);
+         current_toggle = HOST_ONE;
       }
    }
    else
    {
       (void)strcpy(db.hostname,
                    fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+      current_toggle = (int)(fsa->host_toggle);
    }
 
-   /* Send all files */
+#ifdef _OUTPUT_LOG
+   if (db.output_log == YES)
+   {
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+      output_log_fd(&ol_fd, &ol_readfd);
+# else
+      output_log_fd(&ol_fd);
+# endif
+      output_log_ptrs(&ol_retries,
+                      &ol_job_number,
+                      &ol_data,
+                      &ol_file_name,
+                      &ol_file_name_length,
+                      &ol_archive_name_length,
+                      &ol_file_size,
+                      &ol_unl,
+                      &ol_size,
+                      &ol_transfer_time,
+                      &ol_output_type,
+                      db.host_alias,
+                      current_toggle,
+                      MAP);
+   }
+#endif
+
+   /* Send all files. */
    p_file_name_buffer = file_name_buffer;
    p_file_size_buffer = file_size_buffer;
-   for (i = 0; i < files_to_send; i++)
+   last_update_time = time(NULL);
+   local_file_size = 0;
+   for (files_send = 0; files_send < files_to_send; files_send++)
    {
-      /* Get the the name of the file we want to send next */
+      /* Get the the name of the file we want to send next. */
       (void)strcpy(p_source_file, p_file_name_buffer);
 
       /* Write status to FSA? */
-      (void)gsf_check_fsa();
-      if (db.fsa_pos != INCORRECT)
+      if (gsf_check_fsa() != NEITHER)
       {
          fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
          (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -297,7 +313,7 @@ main(int argc, char *argv[])
           */
          if (setjmp(env_alrm) != 0)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                       "Map function timed out!");
             exit(MAP_FUNCTION_ERROR);
          }
@@ -329,15 +345,16 @@ main(int argc, char *argv[])
                   trans_db_log(ERROR_SIGN, NULL, 0, NULL, "%s",
                                fax_print_error_str);
                }
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          "Failed to print file `%s' to %s [FAX PRINT ERROR %d].",
                          p_file_name_buffer, db.hostname, fax_error);
-               trans_log(ERROR_SIGN, NULL, 0, NULL, "%s", fax_print_error_str);
-               trans_log(INFO_SIGN, NULL, 0, NULL,
+               trans_log(ERROR_SIGN, NULL, 0, NULL, NULL,
+                         "%s", fax_print_error_str);
+               trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
 #if SIZEOF_OFF_T == 4
-                         "%lu Bytes printed in %d file(s).",
+                         "%lu bytes printed in %d file(s).",
 #else
-                         "%llu Bytes printed in %d file(s).",
+                         "%llu bytes printed in %d file(s).",
 #endif
                          fsa->job_status[(int)db.job_no].file_size_done,
                          fsa->job_status[(int)db.job_no].no_of_files_done);
@@ -354,7 +371,7 @@ main(int argc, char *argv[])
                }
             }
          }
-         else /* Send to MAP database */
+         else /* Send to MAP database. */
          {
             store_blob(strtoul(db.user, NULL, 10),  /* Datentyp des MFS-Objekts */
                        file_path,                   /* source directory         */
@@ -375,15 +392,16 @@ main(int argc, char *argv[])
                   trans_db_log(ERROR_SIGN, NULL, 0, NULL, "%s",
                                map_db_errafd());
                }
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          "Failed to send file `%s' to %s:%d [MAP ERROR %ld].",
                          p_file_name_buffer, db.hostname, db.port, map_errno);
-               trans_log(ERROR_SIGN, NULL, 0, NULL, "%s", map_db_errafd());
-               trans_log(INFO_SIGN, NULL, 0, NULL,
+               trans_log(ERROR_SIGN, NULL, 0, NULL, NULL,
+                         "%s", map_db_errafd());
+               trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
 #if SIZEOF_OFF_T == 4
-                         "%lu Bytes send in %d file(s).",
+                         "%lu bytes send in %d file(s).",
 #else
-                         "%llu Bytes send in %d file(s).",
+                         "%llu bytes send in %d file(s).",
 #endif
                          fsa->job_status[(int)db.job_no].file_size_done,
                          fsa->job_status[(int)db.job_no].no_of_files_done);
@@ -403,8 +421,8 @@ main(int argc, char *argv[])
       }
       else
       {
-         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                   "Ignoring file `%s', since MAP can't handle files with %d Bytes length.",
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "Ignoring file `%s', since MAP can't handle files with %d bytes length.",
                    p_file_name_buffer, *p_file_size_buffer);
       }
 
@@ -416,82 +434,29 @@ main(int argc, char *argv[])
 #endif
 
       /* Tell FSA we have send a file !!!! */
-      (void)gsf_check_fsa();
-      if (db.fsa_pos != INCORRECT)
+      if (gsf_check_fsa() != NEITHER)
       {
-#ifdef LOCK_DEBUG
-         lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-         lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
          fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
-         fsa->job_status[(int)db.job_no].no_of_files_done = i + 1;
-         fsa->job_status[(int)db.job_no].file_size_done += *p_file_size_buffer;
+         fsa->job_status[(int)db.job_no].no_of_files_done = files_send + 1;
          fsa->job_status[(int)db.job_no].file_size_in_use = 0;
          fsa->job_status[(int)db.job_no].file_size_in_use_done = 0;
+         fsa->job_status[(int)db.job_no].file_size_done += *p_file_size_buffer;
+         fsa->job_status[(int)db.job_no].bytes_send += *p_file_size_buffer;
+         local_file_size += *p_file_size_buffer;
+         local_file_counter += 1;
 
-         /* Total file counter */
-         fsa->total_file_counter -= 1;
-#ifdef _VERIFY_FSA
-         if (fsa->total_file_counter < 0)
+         now = time(NULL);
+         if (now >= (last_update_time + LOCK_INTERVAL_TIME))
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Total file counter for host %s less then zero. Correcting to %d.",
-                       fsa->host_dsp_name,
-                       files_to_send - (i + 1));
-            fsa->total_file_counter = files_to_send - (i + 1);
+            last_update_time = now;
+            update_tfc(local_file_counter, local_file_size,
+                       p_file_size_buffer, files_to_send, files_send);
+            local_file_size = 0;
+            local_file_counter = 0;
          }
-#endif
-
-         if (*p_file_size_buffer > 0)
-         {
-            /* Total file size */
-            fsa->total_file_size -= *p_file_size_buffer;
-#ifdef _VERIFY_FSA
-            if (fsa->total_file_size < 0)
-            {
-               int   k;
-               off_t *tmp_ptr = p_file_size_buffer;
-
-               tmp_ptr++;
-               fsa->total_file_size = 0;
-               for (k = (i + 1); k < files_to_send; k++)
-               {     
-                  fsa->total_file_size += *tmp_ptr;
-               }
-
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-# if SIZEOF_OFF_T == 4
-                          "Total file size for host %s overflowed. Correcting to %ld.",
-# else
-                          "Total file size for host %s overflowed. Correcting to %lld.",
-# endif
-                          fsa->host_dsp_name, (pri_off_t)fsa->total_file_size);
-            }
-            else if ((fsa->total_file_counter == 0) &&
-                     (fsa->total_file_size > 0))
-                 {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            "fc for host %s is zero but fs is not zero. Correcting.",
-                               fsa->host_dsp_name);
-                    fsa->total_file_size = 0;
-                 }
-#endif
-            /* Number of bytes send */
-            fsa->bytes_send += *p_file_size_buffer;
-            fsa->job_status[(int)db.job_no].bytes_send += *p_file_size_buffer;
-         }
-
-         /* File counter done */
-         fsa->file_counter_done += 1;
-#ifdef LOCK_DEBUG
-         unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-         unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
       }
 
-      /* Now archive file if necessary */
+      /* Now archive file if necessary. */
       if ((db.archive_time > 0) &&
           (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
       {
@@ -533,9 +498,11 @@ main(int argc, char *argv[])
                (*ol_file_name_length)++;
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
+               *ol_retries = db.retries;
                *ol_unl = db.unl;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = 0;
+               *ol_output_type = '0';
                ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
@@ -565,9 +532,11 @@ main(int argc, char *argv[])
                (void)strcpy(&ol_file_name[*ol_file_name_length + 1], &db.archive_dir[db.archive_offset]);
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
+               *ol_retries = db.retries;
                *ol_unl = db.unl;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
+               *ol_output_type = '0';
                ol_real_size = *ol_file_name_length +
                               *ol_archive_name_length + 1 + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -613,9 +582,11 @@ try_again_unlink:
             (*ol_file_name_length)++;
             *ol_file_size = *p_file_size_buffer;
             *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
+            *ol_retries = db.retries;
             *ol_unl = db.unl;
             *ol_transfer_time = end_time - start_time;
             *ol_archive_name_length = 0;
+            *ol_output_type = '0';
             ol_real_size = *ol_file_name_length + ol_size;
             if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
             {
@@ -714,7 +685,12 @@ try_again_unlink:
          {
             char *sign;
 
-            fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+#ifdef LOCK_DEBUG
+            lock_region_w(fsa_fd, db.lock_offset + LOCK_HS, __FILE__, __LINE__);
+#else
+            lock_region_w(fsa_fd, db.lock_offset + LOCK_HS);
+#endif
+            fsa->host_status &= ~AUTO_PAUSE_QUEUE_STAT;
             if (fsa->host_status & HOST_ERROR_EA_STATIC)
             {
                fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
@@ -723,6 +699,12 @@ try_again_unlink:
             {
                fsa->host_status &= ~EVENT_STATUS_FLAGS;
             }
+            fsa->host_status &= ~PENDING_ERRORS;
+#ifdef LOCK_DEBUG
+            unlock_region(fsa_fd, db.lock_offset + LOCK_HS, __FILE__, __LINE__);
+#else
+            unlock_region(fsa_fd, db.lock_offset + LOCK_HS);
+#endif
             error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
             event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                       fsa->host_alias);
@@ -744,23 +726,37 @@ try_again_unlink:
          }
       } /* if (fsa->error_counter > 0) */
 #ifdef WITH_ERROR_QUEUE
-      if ((db.special_flag & IN_ERROR_QUEUE) &&
-          (fsa->host_status & ERROR_QUEUE_SET))
+      if (fsa->host_status & ERROR_QUEUE_SET)
       {
-         remove_from_error_queue(db.job_id, fsa);
+         remove_from_error_queue(db.job_id, fsa, db.fsa_pos, fsa_fd);
       }
 #endif
+      if (fsa->host_status & HOST_ACTION_SUCCESS)
+      {
+         error_action(fsa->host_alias, "start", HOST_SUCCESS_ACTION);
+      }
 
       p_file_name_buffer += MAX_FILENAME_LENGTH;
       p_file_size_buffer++;
-   } /* for (i = 0; i < files_to_send; i++) */
+   } /* for (files_send = 0; files_send < files_to_send; files_send++) */
+
+   if (local_file_counter)
+   {
+      if (gsf_check_fsa() != NEITHER)
+      {
+         update_tfc(local_file_counter, local_file_size,
+                    p_file_size_buffer, files_to_send, files_send);
+         local_file_size = 0;
+         local_file_counter = 0;
+      }
+   }
 
 #if SIZEOF_OFF_T == 4
-   trans_log(INFO_SIGN, NULL, 0, NULL, "%lu Bytes send in %d file(s).",
+   trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%lu bytes send in %d file(s).",
 #else
-   trans_log(INFO_SIGN, NULL, 0, NULL, "%llu Bytes send in %d file(s).",
+   trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%llu bytes send in %d file(s).",
 #endif
-             fsa->job_status[(int)db.job_no].file_size_done, i);
+             fsa->job_status[(int)db.job_no].file_size_done, files_send);
 
    /*
     * Remove file directory.
@@ -783,12 +779,6 @@ try_again_unlink:
 static void
 sf_map_exit(void)
 {
-   int  fd;
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   int  readfd;
-#endif
-   char sf_fin_fifo[MAX_PATH_LENGTH];
-
    reset_fsa((struct job *)&db, exitflag);
 
    if (file_name_buffer != NULL)
@@ -800,37 +790,7 @@ sf_map_exit(void)
       free(file_size_buffer);
    }
 
-   (void)strcpy(sf_fin_fifo, p_work_dir);
-   (void)strcat(sf_fin_fifo, FIFO_DIR);
-   (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
-#else
-   if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
-#endif
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo `%s' : %s", sf_fin_fifo, strerror(errno));
-   }
-   else
-   {
-#ifdef _FIFO_DEBUG
-      char  cmd[2];
-
-      cmd[0] = ACKN; cmd[1] = '\0';
-      show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
-#endif
-      /* Tell FD we are finished */
-      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
-      {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "write() error : %s", strerror(errno));
-      }
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      (void)close(readfd);
-#endif
-      (void)close(fd);
-   }
+   send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
    {
       (void)close(sys_log_fd);

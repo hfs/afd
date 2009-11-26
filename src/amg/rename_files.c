@@ -1,6 +1,6 @@
 /*
  *  rename_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@ DESCR__S_M3
  **                    char                   *dest_file_path,
  **                    int                    files_moved,
  **                    struct instant_db      *p_db,
- **                    time_t                 *creation_time,
+ **                    time_t                 current_time,
  **                    int                    unique_number,
  **                    unsigned int           *split_job_counter,
  **                    char                   *unique_name,
@@ -64,13 +64,12 @@ DESCR__E_M3
 #include <stdio.h>                 /* sprintf()                          */
 #include <string.h>                /* strcpy(), strlen(), strerror()     */
 #include <stdlib.h>                /* exit()                             */
-#include <time.h>                  /* time()                             */
 #include <sys/types.h>
 #include <unistd.h>                /* link()                             */
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 #ifndef _WITH_PTHREAD
 extern off_t           *file_size_pool;
 extern char            *file_name_buffer,
@@ -84,7 +83,7 @@ rename_files(char                   *src_file_path,
              char                   *dest_file_path,
              int                    files_moved,
              struct instant_db      *p_db,
-             time_t                 *creation_time,
+             time_t                 current_time,
              int                    unique_number,
              unsigned int           *split_job_counter,
              char                   *unique_name, /* Storage to return unique name. */
@@ -110,8 +109,7 @@ rename_files(char                   *src_file_path,
       if (p_src == NULL)
       {
          /* Create a new message name and directory. */
-         *creation_time = time(NULL);
-         if (create_name(dest_file_path, p_db->priority, *creation_time,
+         if (create_name(dest_file_path, p_db->priority, current_time,
                          p_db->job_id, split_job_counter, &unique_number,
                          unique_name, -1) < 0)
          {
@@ -124,10 +122,9 @@ rename_files(char                   *src_file_path,
                while (errno == ENOSPC)
                {
                   (void)sleep(DISK_FULL_RESCAN_TIME);
-                  *creation_time = time(NULL);
                   errno = 0;
                   if (create_name(dest_file_path, p_db->priority,
-                                  *creation_time, p_db->job_id,
+                                  current_time, p_db->job_id,
                                   split_job_counter, &unique_number,
                                   unique_name, -1) < 0)
                   {

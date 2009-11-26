@@ -56,7 +56,7 @@ DESCR__E_M3
 #include <Xm/List.h>
 #include <Xm/LabelP.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_olog.h"
 
 /* External global variables. */
@@ -406,7 +406,7 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", SCP");
       }
    }
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
    if (toggles_set & SHOW_WMO)
    {
@@ -467,7 +467,7 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", SMTPS");
       }
    }
-#endif /* WITH_SSL */
+#endif
 
    /* Don't forget the heading for the data. */
    length += sprintf(&buffer[length], "\n\n%s\n%s\n",

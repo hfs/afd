@@ -156,5 +156,5 @@ posi(char *search_text, char *search_string)
       }
    }
 
-   return(NULL); /* Found nothing */
+   return(NULL); /* Found nothing. */
 }

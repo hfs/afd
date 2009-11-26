@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,6 +63,10 @@ DESCR__S_M1
  **   05.06.2007 H.Kiehl Systems like HPUX have problems when writting
  **                      the pid's to AFD_ACTIVE file with write(). Using
  **                      mmap() instead, seems to solve the problem.
+ **   03.02.2009 H.Kiehl In case the AFD_ACTIVE file gets deleted while
+ **                      AFD is still active and we do a a shutdown, take
+ **                      the existing open file descriptor to AFD_ACTIVE
+ **                      file instead of trying to open it again.
  **
  */
 DESCR__E_M1
@@ -73,7 +77,7 @@ DESCR__E_M1
 #include <time.h>                /* time(), ctime()                      */
 #include <sys/types.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>            /* mmap(), munmap()                     */
+# include <sys/mman.h>           /* mmap(), munmap()                     */
 #endif
 #include <sys/stat.h>
 #include <sys/time.h>            /* struct timeval                       */
@@ -87,8 +91,9 @@ DESCR__E_M1
 #include "version.h"
 
 #define BLOCK_SIGNALS
-#define NO_OF_SAVED_CORE_FILES  10
-#define FULL_DIR_CHECK_INTERVAL 300 /* Every 5 minutes. */
+#define NO_OF_SAVED_CORE_FILES    10
+#define FULL_DIR_CHECK_INTERVAL   300 /* Every 5 minutes. */
+#define ACTION_DIR_CHECK_INTERVAL 60
 
 /* Global definitions. */
 int                        sys_log_fd = STDERR_FILENO,
@@ -97,7 +102,7 @@ int                        sys_log_fd = STDERR_FILENO,
                            afd_resp_fd,
                            amg_cmd_fd,
                            fd_cmd_fd,
-                           afd_active_fd,
+                           afd_active_fd = -1,
                            probe_only_fd,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                            afd_cmd_writefd,
@@ -125,14 +130,15 @@ char                       *pid_list,
 struct afd_status          *p_afd_status;
 struct filetransfer_status *fsa;
 struct fileretrieve_status *fra;
-struct proc_table          proc_table[NO_OF_PROCESS];
+struct proc_table          proc_table[NO_OF_PROCESS + 1];
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
 static pid_t               make_process(char *, char *, sigset_t *);
 static void                afd_exit(void),
                            check_dirs(char *),
-                           get_afd_config_value(int *, int *, unsigned int *, int *),
+                           get_afd_config_value(int *, int *, unsigned int *,
+                                                int *, int *),
                            init_afd_check_fsa(void),
                            sig_exit(int),
                            sig_bus(int),
@@ -145,32 +151,40 @@ int
 main(int argc, char *argv[])
 {
    int            afdd_port,
+                  afd_status_fd,
                   amg_rescan_time,
                   danger_no_of_files,
                   current_month,
+#ifdef AFDBENCH_CONFIG
+                  pause_dir_scan,
+#endif
                   status,
                   i,
-                  fd,
+                  in_global_filesystem,
                   auto_amg_stop = NO,
                   old_afd_stat;
    unsigned int   default_age_limit,
                   *heartbeat;
    long           link_max;
-   off_t          offset;
-   time_t         full_dir_check_time,
+   off_t          afd_active_size;
+   time_t         action_dir_check_time,
+                  full_dir_check_time,
+                  last_action_success_dir_time,
                   month_check_time,
                   now;
    fd_set         rset;
    signed char    stop_typ = STARTUP_ID,
                   char_value;
-   char           hostname[64],
+   char           afd_action_dir[MAX_PATH_LENGTH],
+                  afd_file_dir[MAX_PATH_LENGTH],
+                  hostname[64],
+                  *p_afd_action_dir,
                   *ptr = NULL,
                   *shared_shutdown,
 #ifdef _FIFO_DEBUG
                   cmd[2],
 #endif
-                  work_dir[MAX_PATH_LENGTH],
-                  afd_file_dir[MAX_PATH_LENGTH];
+                  work_dir[MAX_PATH_LENGTH];
    struct timeval timeout;
    struct tm      *bd_time;
    struct stat    stat_buf;
@@ -182,6 +196,16 @@ main(int argc, char *argv[])
    {
       exit(INCORRECT);
    }
+#ifdef AFDBENCH_CONFIG
+   if (get_arg(&argc, argv, "-A", NULL, 0) == SUCCESS)
+   {
+      pause_dir_scan = YES;
+   }
+   else
+   {
+      pause_dir_scan = NO;
+   }
+#endif
 #ifdef WITH_SETUID_PROGS
    set_afd_euid(work_dir);
 #endif
@@ -205,10 +229,13 @@ main(int argc, char *argv[])
    (void)strcpy(afd_file_dir, work_dir);
    (void)strcat(afd_file_dir, AFD_FILE_DIR);
 
+   p_afd_action_dir = afd_action_dir + sprintf(afd_action_dir, "%s%s%s/",
+                                               p_work_dir, ETC_DIR, ACTION_DIR);
+
    /* Make sure that no other AFD is running in this directory. */
    if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, YES) == 1)
    {
-      (void)fprintf(stderr, "ERROR   : Another AFD is already active.\n");
+      (void)fprintf(stderr, _("ERROR   : Another AFD is already active.\n"));
       exit(INCORRECT);
    }
    probe_only = 0;
@@ -219,40 +246,39 @@ main(int argc, char *argv[])
                                  (S_IRUSR | S_IWUSR))) == -1)
 #endif
    {
-      (void)fprintf(stderr, "ERROR   : Failed to create %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : Failed to create `%s' : %s (%s %d)\n"),
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   offset = ((NO_OF_PROCESS + 1) * sizeof(pid_t)) + sizeof(unsigned int) + 1 + 1;
-   if (lseek(afd_active_fd, offset, SEEK_SET) == -1)
+   afd_active_size = ((NO_OF_PROCESS + 1) * sizeof(pid_t)) + sizeof(unsigned int) + 1 + 1;
+   if (lseek(afd_active_fd, afd_active_size, SEEK_SET) == -1)
    {
-      (void)fprintf(stderr, "ERROR   : lseek() error in %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : lseek() error in `%s' : %s (%s %d)\n"),
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    char_value = EOF;
    if (write(afd_active_fd, &char_value, 1) != 1)
    {
-      (void)fprintf(stderr, "ERROR   : write() error in %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : write() error in `%s' : %s (%s %d)\n"),
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, offset, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(0, afd_active_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, afd_active_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(0, offset, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap_emu(0, afd_active_size, (PROT_READ | PROT_WRITE),
                        MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1)
 #endif
    {
-      (void)fprintf(stderr, "ERROR   : mmap() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : mmap() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   offset -= (sizeof(unsigned int) + 1 + 1);
-   heartbeat = (unsigned int *)(ptr + offset);
+   heartbeat = (unsigned int *)(ptr + afd_active_size - (sizeof(unsigned int) + 1 + 1));
    pid_list = ptr;
-   shared_shutdown = ptr + offset + sizeof(unsigned int);
+   shared_shutdown = ptr + afd_active_size - (sizeof(unsigned int) + 1 + 1) + sizeof(unsigned int);
    *shared_shutdown = 0;
    *heartbeat = 0;
 
@@ -272,35 +298,35 @@ main(int argc, char *argv[])
    /* Now check if all directories needed are created. */
    check_dirs(work_dir);
 
-   if ((stat(afd_status_file, &stat_buf) == -1) ||
+   if (((i = stat(afd_status_file, &stat_buf)) == -1) ||
        (stat_buf.st_size != sizeof(struct afd_status)))
    {
-      if (errno != ENOENT)
+      if ((i == -1) && (errno != ENOENT))
       {
-         (void)fprintf(stderr, "Failed to stat() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to stat() `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-      if ((fd = coe_open(afd_status_file, O_RDWR | O_CREAT | O_TRUNC,
+      if ((afd_status_fd = coe_open(afd_status_file, O_RDWR | O_CREAT | O_TRUNC,
 #ifdef GROUP_CAN_WRITE
-                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) == -1)
+                                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) == -1)
 #else
-                         S_IRUSR | S_IWUSR)) == -1)
+                                    S_IRUSR | S_IWUSR)) == -1)
 #endif
       {
-         (void)fprintf(stderr, "Failed to create %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to create `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-      if (lseek(fd, sizeof(struct afd_status) - 1, SEEK_SET) == -1)
+      if (lseek(afd_status_fd, sizeof(struct afd_status) - 1, SEEK_SET) == -1)
       {
-         (void)fprintf(stderr, "Could not seek() on %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Could not seek() on `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-      if (write(fd, "", 1) != 1)
+      if (write(afd_status_fd, "", 1) != 1)
       {
-         (void)fprintf(stderr, "write() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("write() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -308,9 +334,9 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fd = coe_open(afd_status_file, O_RDWR)) == -1)
+      if ((afd_status_fd = coe_open(afd_status_file, O_RDWR)) == -1)
       {
-         (void)fprintf(stderr, "Failed to create %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to create `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -318,7 +344,7 @@ main(int argc, char *argv[])
    }
 #ifdef HAVE_MMAP
    if ((ptr = mmap(0, sizeof(struct afd_status), (PROT_READ | PROT_WRITE),
-                   MAP_SHARED, fd, 0)) == (caddr_t) -1)
+                   MAP_SHARED, afd_status_fd, 0)) == (caddr_t) -1)
 #else
    /* Start mapper process that emulates mmap(). */
    proc_table[MAPPER_NO].pid = make_process(MAPPER, work_dir, NULL);
@@ -328,24 +354,10 @@ main(int argc, char *argv[])
                        MAP_SHARED, afd_status_file, 0)) == (caddr_t) -1)
 #endif
    {
-      (void)fprintf(stderr, "mmap() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("mmap() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-#ifndef MMAP_KILLER
-   /*
-    * In Irix 5.x there is a process fsr that always tries to
-    * optimise the file system. This process however does not care
-    * about memory mapped files! So, lets hope that when we leave
-    * the memory mapped file open, it will leave this file
-    * untouched.
-    */
-   if (close(fd) == -1)
-   {
-      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-   }
-#endif
    p_afd_status = (struct afd_status *)ptr;
    if (old_afd_stat == NO)
    {
@@ -385,8 +397,17 @@ main(int argc, char *argv[])
 #ifdef _PRODUCTION_LOG
       p_afd_status->production_log  = 0;
 #endif
+#ifdef _DISTRIBUTION_LOG
+      p_afd_status->distribution_log  = 0;
+#endif
       p_afd_status->no_of_transfers = 0;
       p_afd_status->start_time      = 0L;
+   }
+   (void)strcpy(p_afd_status->work_dir, work_dir);
+   p_afd_status->user_id = geteuid();
+   if (gethostname(p_afd_status->hostname, MAX_REAL_HOSTNAME_LENGTH) == -1)
+   {
+      p_afd_status->hostname[0] = '\0';
    }
    for (i = 0; i < NO_OF_PROCESS; i++)
    {
@@ -447,6 +468,12 @@ main(int argc, char *argv[])
             (void)strcpy(proc_table[i].proc_name, AFDD);
             break;
 
+#ifdef _WITH_SERVER_SUPPORT
+         case AFDS_NO :
+            proc_table[i].status = &p_afd_status->afds;
+            (void)strcpy(proc_table[i].proc_name, AFDS);
+            break;
+#endif
 #ifndef HAVE_MMAP
          case MAPPER_NO :
             proc_table[i].status = &p_afd_status->mapper;
@@ -455,43 +482,56 @@ main(int argc, char *argv[])
             break;
 #endif
 #ifdef _INPUT_LOG
-         case IL_NO :
+         case INPUT_LOG_NO :
             proc_table[i].status = &p_afd_status->input_log;
             (void)strcpy(proc_table[i].proc_name, INPUT_LOG_PROCESS);
             break;
 #endif
 #ifdef _OUTPUT_LOG
-         case OL_NO :
+         case OUTPUT_LOG_NO :
             proc_table[i].status = &p_afd_status->output_log;
             (void)strcpy(proc_table[i].proc_name, OUTPUT_LOG_PROCESS);
             break;
 #endif
 #ifdef _DELETE_LOG
-         case DL_NO :
+         case DELETE_LOG_NO :
             proc_table[i].status = &p_afd_status->delete_log;
             (void)strcpy(proc_table[i].proc_name, DELETE_LOG_PROCESS);
             break;
 #endif
 #ifdef _PRODUCTION_LOG
-         case PL_NO :
+         case PRODUCTION_LOG_NO :
             proc_table[i].status = &p_afd_status->production_log;
             (void)strcpy(proc_table[i].proc_name, PRODUCTION_LOG_PROCESS);
             break;
 #endif
+#ifdef _DISTRIBUTION_LOG
+         case DISTRIBUTION_LOG_NO :
+            proc_table[i].status = &p_afd_status->distribution_log;
+            (void)strcpy(proc_table[i].proc_name, DISTRIBUTION_LOG_PROCESS);
+            break;
+#endif
+#ifdef ALDAD_OFFSET
+         case ALDAD_NO :
+            proc_table[i].status = &p_afd_status->aldad;
+            (void)strcpy(proc_table[i].proc_name, ALDAD);
+            break;
+#endif
          default : /* Impossible */
             (void)fprintf(stderr,
-                          "Don't know what's going on here. Giving up! (%s %d)\n",
+                          _("Don't know what's going on here. Giving up! (%s %d)\n"),
                           __FILE__, __LINE__);
             exit(INCORRECT);
       }
    }
    get_afd_config_value(&afdd_port, &danger_no_of_files, &default_age_limit,
-                        &amg_rescan_time);
+                        &amg_rescan_time, &in_global_filesystem);
 
    /* Do some cleanups when we exit */
    if (atexit(afd_exit) != 0)
    {
-      (void)fprintf(stderr, "Could not register exit function : %s (%s %d)\n",
+      (void)fprintf(stderr,
+                    _("Could not register exit function : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -503,7 +543,7 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
-      (void)fprintf(stderr, "signal() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("signal() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -523,9 +563,24 @@ main(int argc, char *argv[])
    month_check_time = ((now / 86400) * 86400) + 86400;
    full_dir_check_time = ((now / FULL_DIR_CHECK_INTERVAL) *
                           FULL_DIR_CHECK_INTERVAL) + FULL_DIR_CHECK_INTERVAL;
+   action_dir_check_time = ((now / ACTION_DIR_CHECK_INTERVAL) *
+                            ACTION_DIR_CHECK_INTERVAL) +
+                           ACTION_DIR_CHECK_INTERVAL;
+   last_action_success_dir_time = 0L;
 
    /* Initialise communication flag FD <-> AMG. */
+#ifdef AFDBENCH_CONFIG
+   if (pause_dir_scan == YES)
+   {
+      p_afd_status->amg_jobs = PAUSE_DISTRIBUTION;
+   }
+   else
+   {
+      p_afd_status->amg_jobs = 0;
+   }
+#else
    p_afd_status->amg_jobs = 0;
+#endif
 
    /* Start all log process. */
    proc_table[SLOG_NO].pid = make_process(SLOG, work_dir, NULL);
@@ -551,24 +606,29 @@ main(int argc, char *argv[])
 
    /* Start process doing the I/O logging. */
 #ifdef _INPUT_LOG
-   proc_table[IL_NO].pid = make_process(INPUT_LOG_PROCESS, work_dir, NULL);
-   *(pid_t *)(pid_list + ((IL_NO + 1) * sizeof(pid_t))) = proc_table[IL_NO].pid;
-   *proc_table[IL_NO].status = ON;
+   proc_table[INPUT_LOG_NO].pid = make_process(INPUT_LOG_PROCESS, work_dir, NULL);
+   *(pid_t *)(pid_list + ((INPUT_LOG_NO + 1) * sizeof(pid_t))) = proc_table[INPUT_LOG_NO].pid;
+   *proc_table[INPUT_LOG_NO].status = ON;
 #endif
 #ifdef _OUTPUT_LOG
-   proc_table[OL_NO].pid = make_process(OUTPUT_LOG_PROCESS, work_dir, NULL);
-   *(pid_t *)(pid_list + ((OL_NO + 1) * sizeof(pid_t))) = proc_table[OL_NO].pid;
-   *proc_table[OL_NO].status = ON;
+   proc_table[OUTPUT_LOG_NO].pid = make_process(OUTPUT_LOG_PROCESS, work_dir, NULL);
+   *(pid_t *)(pid_list + ((OUTPUT_LOG_NO + 1) * sizeof(pid_t))) = proc_table[OUTPUT_LOG_NO].pid;
+   *proc_table[OUTPUT_LOG_NO].status = ON;
 #endif
 #ifdef _DELETE_LOG
-   proc_table[DL_NO].pid = make_process(DELETE_LOG_PROCESS, work_dir, NULL);
-   *(pid_t *)(pid_list + ((DL_NO + 1) * sizeof(pid_t))) = proc_table[DL_NO].pid;
-   *proc_table[DL_NO].status = ON;
+   proc_table[DELETE_LOG_NO].pid = make_process(DELETE_LOG_PROCESS, work_dir, NULL);
+   *(pid_t *)(pid_list + ((DELETE_LOG_NO + 1) * sizeof(pid_t))) = proc_table[DELETE_LOG_NO].pid;
+   *proc_table[DELETE_LOG_NO].status = ON;
 #endif
 #ifdef _PRODUCTION_LOG
-   proc_table[PL_NO].pid = make_process(PRODUCTION_LOG_PROCESS, work_dir, NULL);
-   *(pid_t *)(pid_list + ((PL_NO + 1) * sizeof(pid_t))) = proc_table[PL_NO].pid;
-   *proc_table[PL_NO].status = ON;
+   proc_table[PRODUCTION_LOG_NO].pid = make_process(PRODUCTION_LOG_PROCESS, work_dir, NULL);
+   *(pid_t *)(pid_list + ((PRODUCTION_LOG_NO + 1) * sizeof(pid_t))) = proc_table[PRODUCTION_LOG_NO].pid;
+   *proc_table[PRODUCTION_LOG_NO].status = ON;
+#endif
+#ifdef _DISTRIBUTION_LOG
+   proc_table[DISTRIBUTION_LOG_NO].pid = make_process(DISTRIBUTION_LOG_PROCESS, work_dir, NULL);
+   *(pid_t *)(pid_list + ((DISTRIBUTION_LOG_NO + 1) * sizeof(pid_t))) = proc_table[DISTRIBUTION_LOG_NO].pid;
+   *proc_table[DISTRIBUTION_LOG_NO].status = ON;
 #endif
 
    /* Tell user at what time the AFD was started. */
@@ -582,11 +642,12 @@ main(int argc, char *argv[])
 
       p_ts = localtime(&now);
       strftime(dstr, 26, "%a %h %d %H:%M:%S %Y", p_ts);
-      system_log(CONFIG_SIGN, NULL, 0, "Starting on <%s> %s", hostname, dstr);
+      system_log(CONFIG_SIGN, NULL, 0, _("Starting on <%s> %s"),
+                 hostname, dstr);
    }
-   system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)", AFD, PACKAGE_VERSION);
+   system_log(INFO_SIGN, NULL, 0, _("Starting %s (%s)"), AFD, PACKAGE_VERSION);
    system_log(DEBUG_SIGN, NULL, 0,
-              "AFD configuration: Default age limit         %d (sec)",
+              _("AFD configuration: Default age limit         %d (sec)"),
               default_age_limit);
 
    /* Start the process AMG. */
@@ -607,6 +668,20 @@ main(int argc, char *argv[])
       *proc_table[AFDD_NO].status = NEITHER;
    }
 
+#ifdef _WITH_SERVER_SUPPORT
+   /* Start TCP server daemon of AFD. */
+   proc_table[AFDS_NO].pid = make_process(AFDS, work_dir, NULL);
+   *(pid_t *)(pid_list + ((AFDS_NO + 1) * sizeof(pid_t))) = proc_table[AFDS_NO].pid;
+   *proc_table[AFDS_NO].status = ON;
+#endif
+
+#ifdef ALDAD_OFFSET
+   /* Start ALDA daemon of AFD. */
+   proc_table[ALDAD_NO].pid = make_process(ALDAD, work_dir, NULL);
+   *(pid_t *)(pid_list + ((ALDAD_NO + 1) * sizeof(pid_t))) = proc_table[ALDAD_NO].pid;
+   *proc_table[ALDAD_NO].status = ON;
+#endif
+
    /*
     * Before starting the FD lets initialise all critical values
     * for this process.
@@ -616,12 +691,13 @@ main(int argc, char *argv[])
    {
       if (i != INCORRECT_VERSION)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to attach to FSA."));
       }
       else
       {
          system_log(INFO_SIGN, __FILE__, __LINE__,
-                    "You can ignore the last warning about incorrect version.");
+                    _("You can ignore the last warning about incorrect version."));
       }
    }
    else
@@ -652,12 +728,47 @@ main(int argc, char *argv[])
    if ((link_max = pathconf(afd_file_dir, _PC_LINK_MAX)) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "pathconf() _PC_LINK_MAX error, setting to %d : %s",
+                 _("pathconf() _PC_LINK_MAX error, setting to %d : %s"),
                  _POSIX_LINK_MAX, strerror(errno));
       link_max = _POSIX_LINK_MAX;
    }
 # endif
 #endif
+
+#ifdef HAVE_FDATASYNC
+   if (fdatasync(afd_status_fd) == -1)
+#else
+   if (fsync(afd_status_fd) == -1)
+#endif
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 _("Failed to sync `%s' file : %s"),
+                 afd_status_file, strerror(errno));
+   }
+#ifndef MMAP_KILLER
+   /*
+    * In Irix 5.x there is a process fsr that always tries to
+    * optimise the file system. This process however does not care
+    * about memory mapped files! So, lets hope that when we leave
+    * the memory mapped file open, it will leave this file
+    * untouched.
+    */
+   if (close(afd_status_fd) == -1)
+   {
+      (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
+                    afd_status_file, strerror(errno), __FILE__, __LINE__);
+   }
+#endif
+
+#ifdef HAVE_FDATASYNC
+   if (fdatasync(afd_active_fd) == -1)
+#else
+   if (fsync(afd_active_fd) == -1)
+#endif
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 _("Failed to sync AFD_ACTIVE file : %s"), strerror(errno));
+   }
 
    /*
     * Watch if any of the two process (AMG, FD) dies.
@@ -668,11 +779,20 @@ main(int argc, char *argv[])
    for (;;)
    {
       (*heartbeat)++;
+#ifdef HAVE_MMAP
+      if (msync(pid_list, afd_active_size, MS_ASYNC) == -1)
+#else
+      if (msync_emu(pid_list) == -1)
+#endif
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    _("msync() error : %s"), strerror(errno));
+      }
 
       if (*shared_shutdown == SHUTDOWN)
       {
          system_log(INFO_SIGN, NULL, 0,
-                    "Shutdown bit is set, shutting down.");
+                    _("Shutdown bit is set, shutting down."));
          exit(SUCCESS);
       }
 
@@ -683,7 +803,7 @@ main(int argc, char *argv[])
       if (time(&now) > month_check_time)
       {
          system_log(DEBUG_SIGN, NULL, 0,
-                    "fork() syscalls AMG : %10u FD : %10u => %u",
+                    _("fork() syscalls AMG : %10u FD : %10u => %u"),
                     p_afd_status->amg_fork_counter,
                     p_afd_status->fd_fork_counter,
                     p_afd_status->amg_fork_counter +
@@ -694,11 +814,11 @@ main(int argc, char *argv[])
                     "Burst2 counter      : %u",
                     p_afd_status->burst2_counter);
          p_afd_status->burst2_counter = 0;
-         system_log(DEBUG_SIGN, NULL, 0, "Max FD queue length : %10u",
+         system_log(DEBUG_SIGN, NULL, 0, _("Max FD queue length : %10u"),
                     p_afd_status->max_queue_length);
          p_afd_status->max_queue_length = 0;
          system_log(DEBUG_SIGN, NULL, 0,
-                    "Directories scanned : %u", p_afd_status->dir_scans);
+                    _("Directories scanned : %u"), p_afd_status->dir_scans);
          p_afd_status->dir_scans = 0;
          bd_time = localtime(&now);
          if (bd_time->tm_mon != current_month)
@@ -740,6 +860,63 @@ main(int argc, char *argv[])
                                FULL_DIR_CHECK_INTERVAL;
       }
 
+      if (now > action_dir_check_time)
+      {
+         *p_afd_action_dir = '\0';
+         if (stat(afd_action_dir, &stat_buf) == -1)
+         {
+            if (errno != ENOENT)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("Failed to look at directory `%s' : %s"),
+                          afd_action_dir, strerror(errno));
+            }
+         }
+         else
+         {
+            if (S_ISDIR(stat_buf.st_mode))
+            {
+               char *p_script;
+
+               p_script = p_afd_action_dir +
+                          sprintf(p_afd_action_dir, "%s%s/",
+                                  ACTION_TARGET_DIR, ACTION_SUCCESS_DIR);
+               if (stat(afd_action_dir, &stat_buf) == -1)
+               {
+                  if (errno != ENOENT)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                _("Failed to look at directory `%s' : %s"),
+                                afd_action_dir, strerror(errno));
+                  }
+               }
+               else
+               {
+                  if ((S_ISDIR(stat_buf.st_mode)) &&
+                      (last_action_success_dir_time < stat_buf.st_mtime))
+                  {
+                     last_action_success_dir_time = stat_buf.st_mtime;
+                     for (i = 0; i < no_of_hosts; i++)
+                     {
+                        (void)strcpy(p_script, fsa[i].host_alias);
+                        if (eaccess(afd_action_dir, (R_OK | X_OK)) == 0)
+                        {
+                           fsa[i].host_status |= HOST_SUCCESS_ACTION;
+                        }
+                        else
+                        {
+                           fsa[i].host_status &= ~HOST_SUCCESS_ACTION;
+                        }
+                     }
+                  }
+               }
+            }
+         }
+         action_dir_check_time = ((now / ACTION_DIR_CHECK_INTERVAL) *
+                                  ACTION_DIR_CHECK_INTERVAL) +
+                                 ACTION_DIR_CHECK_INTERVAL;
+      }
+
       /* Initialise descriptor set and timeout. */
       FD_SET(afd_cmd_fd, &rset);
       timeout.tv_usec = 0;
@@ -752,6 +929,37 @@ main(int argc, char *argv[])
       if (status == 0)
       {
          (*heartbeat)++;
+#ifdef HAVE_MMAP
+         if (msync(pid_list, afd_active_size, MS_ASYNC) == -1)
+#else
+         if (msync_emu(pid_list) == -1)
+#endif
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       _("msync() error : %s"), strerror(errno));
+         }
+#ifdef HAVE_FDATASYNC
+         if (in_global_filesystem)
+         {
+            if (fdatasync(afd_status_fd) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("Failed to fdatasync() `%s' file : %s"),
+                          afd_status_file, strerror(errno));
+            }
+            if (fdatasync(afd_active_fd) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("Failed to fdatasync() `%s' file : %s"),
+                          afd_active_file, strerror(errno));
+            }
+            if (fdatasync(fsa_fd) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("Failed to fdatasync() FSA : %s"), strerror(errno));
+            }
+         }
+#endif
 
          /* Check if all jobs are still running. */
          zombie_check();
@@ -763,7 +971,7 @@ main(int argc, char *argv[])
          if (stat(afd_file_dir, &stat_buf) < 0)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() %s : %s",
+                       _("Failed to stat() %s : %s"),
                        afd_file_dir, strerror(errno));
             exit(INCORRECT);
          }
@@ -776,15 +984,15 @@ main(int argc, char *argv[])
          {
             /* Tell user that AMG is stopped. */
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Have stopped AMG, due to to many jobs in system!");
+                       _("Have stopped AMG, due to to many jobs in system!"));
             system_log(INFO_SIGN, NULL, 0,
-                       "Will start AMG again when job counter is less then %d",
+                       _("Will start AMG again when job counter is less then %d"),
                        (link_max - START_AMG_THRESHOLD + 1));
             event_log(0L, EC_GLOB, ET_AUTO, EA_AMG_STOP,
 #if SIZEOF_NLINK_T == 4
-                      "To many jobs (%d) in system.",
+                      _("To many jobs (%d) in system."),
 #else
-                      "To many jobs (%lld) in system.",
+                      _("To many jobs (%lld) in system."),
 #endif
                       (pri_nlink_t)stat_buf.st_nlink);
             auto_amg_stop = YES;
@@ -792,7 +1000,7 @@ main(int argc, char *argv[])
             if (send_cmd(STOP, amg_cmd_fd) < 0)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Was not able to stop %s.", AMG);
+                          _("Was not able to stop %s."), AMG);
             }
          }
          else
@@ -807,7 +1015,7 @@ main(int argc, char *argv[])
                   *(pid_t *)(pid_list + ((AMG_NO + 1) * sizeof(pid_t))) = proc_table[AMG_NO].pid;
                   *proc_table[AMG_NO].status = ON;
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Have started AMG, that was stopped due to too many jobs in the system!");
+                             _("Have started AMG, that was stopped due to too many jobs in the system!"));
                   event_log(0L, EC_GLOB, ET_AUTO, EA_AMG_STOP, NULL);
                }
                auto_amg_stop = NO;
@@ -820,11 +1028,31 @@ main(int argc, char *argv[])
           */
          if (fsa != NULL)
          {
-            int jobs_in_queue = 0;
+            int jobs_in_queue = 0,
+                lock_set = NO;
 
             (*heartbeat)++;
             init_afd_check_fsa();
             (*heartbeat)++;
+#ifdef HAVE_MMAP
+            if (msync(pid_list, afd_active_size, MS_ASYNC) == -1)
+#else
+            if (msync_emu(pid_list) == -1)
+#endif
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("msync() error : %s"), strerror(errno));
+            }
+#ifdef HAVE_FDATASYNC
+            if (in_global_filesystem)
+            {
+               if (fdatasync(afd_active_fd) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             _("fdatasync() error : %s"), strerror(errno));
+               }
+            }
+#endif
 
             for (i = 0; i < no_of_hosts; i++)
             {
@@ -842,6 +1070,12 @@ main(int argc, char *argv[])
                {
                   char *sign;
 
+#ifdef LOCK_DEBUG
+                  lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                  lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                  lock_set = YES;
                   fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                   if (fsa[i].error_counter >= fsa[i].max_errors)
                   {
@@ -863,7 +1097,7 @@ main(int argc, char *argv[])
                         error_action(fsa[i].host_alias, "start", HOST_ERROR_ACTION);
                      }
                      system_log(sign, __FILE__, __LINE__,
-                                "Stopped input queue for host <%s>, since there are to many errors.",
+                                _("Stopped input queue for host <%s>, since there are to many errors."),
                                 fsa[i].host_alias);
                      event_log(0L, EC_HOST, ET_AUTO, EA_STOP_QUEUE,
                                "%s%cErrors %d >= max errors %d",
@@ -897,9 +1131,64 @@ main(int argc, char *argv[])
                         error_action(fsa[i].host_alias, "stop", HOST_ERROR_ACTION);
                      }
                      system_log(sign, __FILE__, __LINE__,
-                                "Started input queue for host <%s> that has been stopped due to too many errors.",
+                                _("Started input queue for host <%s> that has been stopped due to too many errors."),
                                 fsa[i].host_alias);
                      event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
+                               fsa[i].host_alias);
+                  }
+               }
+               if (((*(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_HOST_WARN_TIME) == 0) &&
+                   (fsa[i].warn_time > 0L) &&
+                   ((now - fsa[i].last_connection) >= fsa[i].warn_time))
+               {
+                  if ((fsa[i].host_status & HOST_WARN_TIME_REACHED) == 0)
+                  {
+                     char *sign;
+
+                     if (lock_set == NO)
+                     {
+#ifdef LOCK_DEBUG
+                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                        lock_set = YES;
+                     }
+                     fsa[i].host_status |= HOST_WARN_TIME_REACHED;
+                     if ((fsa[i].host_status & HOST_ERROR_OFFLINE_STATIC) ||
+                         (fsa[i].host_status & HOST_ERROR_OFFLINE) ||
+                         (fsa[i].host_status & HOST_ERROR_OFFLINE_T))
+                     {
+                        sign = OFFLINE_SIGN;
+                     }
+                     else
+                     {
+                        sign = WARN_SIGN;
+                     }
+                     system_log(sign, __FILE__, __LINE__,
+                                _("%-*s: Warn time reached."),
+                                MAX_HOSTNAME_LENGTH, fsa[i].host_dsp_name);
+                     error_action(fsa[i].host_alias, "start", HOST_WARN_ACTION);
+                     event_log(0L, EC_HOST, ET_AUTO, EA_WARN_TIME_SET, "%s",
+                               fsa[i].host_alias);
+                  }
+               }
+               else
+               {
+                  if (fsa[i].host_status & HOST_WARN_TIME_REACHED)
+                  {
+                     if (lock_set == NO)
+                     {
+#ifdef LOCK_DEBUG
+                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                        lock_set = YES;
+                     }
+                     fsa[i].host_status &= ~HOST_WARN_TIME_REACHED;
+                     error_action(fsa[i].host_alias, "stop", HOST_WARN_ACTION);
+                     event_log(0L, EC_HOST, ET_AUTO, EA_WARN_TIME_UNSET, "%s",
                                fsa[i].host_alias);
                   }
                }
@@ -907,12 +1196,21 @@ main(int argc, char *argv[])
                    ((fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT) == 0) &&
                    (fsa[i].total_file_counter > danger_no_of_files))
                {
-                  fsa[i].host_status ^= DANGER_PAUSE_QUEUE_STAT;
+                  if (lock_set == NO)
+                  {
+#ifdef LOCK_DEBUG
+                     lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                     lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                     lock_set = YES;
+                  }
+                  fsa[i].host_status |= DANGER_PAUSE_QUEUE_STAT;
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Stopped input queue for host <%s>, since there are to many jobs in the input queue.",
+                             _("Stopped input queue for host <%s>, since there are to many jobs in the input queue."),
                              fsa[i].host_alias);
                   event_log(0L, EC_HOST, ET_AUTO, EA_STOP_QUEUE,
-                            "%s%cNumber of files %d > file threshold %d",
+                            _("%s%cNumber of files %d > file threshold %d"),
                             fsa[i].host_alias, SEPARATOR_CHAR,
                             fsa[i].total_file_counter, danger_no_of_files);
                }
@@ -920,14 +1218,33 @@ main(int argc, char *argv[])
                         ((fsa[i].total_file_counter < (danger_no_of_files / 2)) ||
                         (p_afd_status->jobs_in_queue < ((link_max / 2) - 10))))
                     {
-                       fsa[i].host_status ^= DANGER_PAUSE_QUEUE_STAT;
+                       if (lock_set == NO)
+                       {
+#ifdef LOCK_DEBUG
+                          lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                          lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                          lock_set = YES;
+                       }
+                       fsa[i].host_status &= ~DANGER_PAUSE_QUEUE_STAT;
                        system_log(INFO_SIGN, __FILE__, __LINE__,
-                                  "Started input queue for host <%s>, that was stopped due to too many jobs in the input queue.",
+                                  _("Started input queue for host <%s>, that was stopped due to too many jobs in the input queue."),
                                   fsa[i].host_alias);
                        event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                                  fsa[i].host_alias);
                     }
-            }
+
+               if (lock_set == YES)
+               {
+#ifdef LOCK_DEBUG
+                  unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                  unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                  lock_set = NO;
+               }
+            } /* for (i = 0; i < no_of_hosts; i++) */
          } /* if (fsa != NULL) */
       }
            /* Did we get a message from the process */
@@ -954,7 +1271,7 @@ main(int argc, char *argv[])
                           if (send_cmd(ACKN, afd_resp_fd) < 0)
                           {
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                        "Failed to send ACKN : %s",
+                                        _("Failed to send ACKN : %s"),
                                         strerror(errno));
                           }
 
@@ -977,12 +1294,12 @@ main(int argc, char *argv[])
                              if (send_cmd(STOP, amg_cmd_fd) < 0)
                              {
                                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                                           "Was not able to stop %s.", AMG);
+                                           _("Was not able to stop %s."), AMG);
                              }
                              if (send_cmd(STOP, fd_cmd_fd) < 0)
                              {
                                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                                          "Was not able to stop %s.", FD);
+                                          _("Was not able to stop %s."), FD);
                              }
                              for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
                              {
@@ -1010,12 +1327,13 @@ main(int argc, char *argv[])
                                               {
                                                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                                                            "Premature end of process %s (PID=%d), while waiting for AMG.",
+                                                            _("Premature end of process %s (PID=%d), while waiting for %s."),
 #else
-                                                            "Premature end of process %s (PID=%lld), while waiting for AMG.",
+                                                            _("Premature end of process %s (PID=%lld), while waiting for %s."),
 #endif
                                                             proc_table[k].proc_name,
-                                                            (pri_pid_t)proc_table[k].pid);
+                                                            (pri_pid_t)proc_table[k].pid,
+                                                            AMG);
                                                  proc_table[k].pid = 0;
                                                  gotcha = YES;
                                                  break;
@@ -1024,8 +1342,12 @@ main(int argc, char *argv[])
                                            if (gotcha == NO)
                                            {
                                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                         "Caught some unknown zombie with PID %d while waiting for AMG.",
-                                                         pid);
+#if SIZEOF_PID_T == 4
+                                                         _("Caught some unknown zombie with PID %d while waiting for AMG."),
+#else
+                                                         _("Caught some unknown zombie with PID %lld while waiting for AMG."),
+#endif
+                                                         (pri_pid_t)pid);
                                            }
                                         }
                                 }
@@ -1052,7 +1374,8 @@ main(int argc, char *argv[])
                                   if (send_cmd(STOP, fd_cmd_fd) < 0)
                                   {
                                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                "Was not able to stop %s.", FD);
+                                                _("Was not able to stop %s."),
+                                                FD);
                                   }
                                   for (j = 0; j < MAX_SHUTDOWN_TIME; j++)
                                   {
@@ -1075,12 +1398,12 @@ main(int argc, char *argv[])
                                               {
                                                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                                                            "Premature end of process %s (PID=%d), while waiting for FD.",
+                                                            _("Premature end of process %s (PID=%d), while waiting for %s."),
 #else
-                                                            "Premature end of process %s (PID=%lld), while waiting for FD.",
+                                                            _("Premature end of process %s (PID=%lld), while waiting for %s."),
 #endif
                                                             proc_table[k].proc_name,
-                                                            (pri_pid_t)proc_table[k].pid);
+                                                            (pri_pid_t)proc_table[k].pid),
                                                  proc_table[k].pid = 0;
                                                  gotcha = YES;
                                                  break;
@@ -1089,8 +1412,12 @@ main(int argc, char *argv[])
                                            if (gotcha == NO)
                                            {
                                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                         "Caught some unknown zombie with PID %d while waiting for FD.",
-                                                         pid);
+#if SIZEOF_PID_T == 4
+                                                         _("Caught some unknown zombie with PID %d while waiting for FD."),
+#else
+                                                         _("Caught some unknown zombie with PID ll%d while waiting for FD."),
+#endif
+                                                         (pri_pid_t)pid);
                                            }
                                         }
                                      }
@@ -1125,12 +1452,12 @@ main(int argc, char *argv[])
                           if (send_cmd(STOP, amg_cmd_fd) < 0)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "Was not able to stop %s.", AMG);
+                                        _("Was not able to stop %s."), AMG);
                           }
                           if (send_cmd(STOP, fd_cmd_fd) < 0)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "Was not able to stop %s.", FD);
+                                        _("Was not able to stop %s."), FD);
                           }
 
                           break;
@@ -1145,7 +1472,7 @@ main(int argc, char *argv[])
                           if (send_cmd(STOP, amg_cmd_fd) < 0)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "Was not able to stop %s.", AMG);
+                                        _("Was not able to stop %s."), AMG);
                           }
                           break;
 
@@ -1159,7 +1486,7 @@ main(int argc, char *argv[])
                           if (send_cmd(QUICK_STOP, fd_cmd_fd) < 0)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "Was not able to stop %s.", FD);
+                                        _("Was not able to stop %s."), FD);
                           }
                           break;
 
@@ -1169,7 +1496,7 @@ main(int argc, char *argv[])
                           if (proc_table[AMG_NO].pid > 0)
                           {
                              system_log(INFO_SIGN, __FILE__, __LINE__,
-                                        "%s is already running.", AMG);
+                                        _("%s is already running."), AMG);
                           }
                           else
                           {
@@ -1188,7 +1515,7 @@ main(int argc, char *argv[])
                           if (proc_table[FD_NO].pid > 0)
                           {
                              system_log(INFO_SIGN, __FILE__, __LINE__,
-                                        "%s is already running.", FD);
+                                        _("%s is already running."), FD);
                           }
                           else
                           {
@@ -1208,7 +1535,7 @@ main(int argc, char *argv[])
                           if (send_cmd(ACKN, probe_only_fd) < 0)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "Was not able to send acknowledge via fifo.");
+                                        _("Was not able to send acknowledge via fifo."));
                              exit(INCORRECT);
                           }
 
@@ -1235,7 +1562,7 @@ main(int argc, char *argv[])
                                   if (fsa_attach() < 0)
                                   {
                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                               "Failed to attach to FSA.");
+                                               _("Failed to attach to FSA."));
                                   }
 
                                   /* Start the FD */
@@ -1251,7 +1578,8 @@ main(int argc, char *argv[])
                           else if (stop_typ != NONE_ID)
                                {
                                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                                             "Unknown stop_typ (%d)", stop_typ);
+                                             _("Unknown stop_typ (%d)"),
+                                             stop_typ);
                                }
                           break;
 
@@ -1262,7 +1590,7 @@ main(int argc, char *argv[])
                           if (send_cmd(ACKN, probe_only_fd) < 0)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "Was not able to send acknowledge via fifo.");
+                                        _("Was not able to send acknowledge via fifo."));
                              exit(INCORRECT);
                           }
                           break;
@@ -1270,7 +1598,7 @@ main(int argc, char *argv[])
                        default        : /* Reading garbage from fifo */
 
                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                     "Reading garbage on AFD command fifo [%d]. Ignoring.",
+                                     _("Reading garbage on AFD command fifo [%d]. Ignoring."),
                                      (int)buffer[count]);
                           break;
                     }
@@ -1282,13 +1610,13 @@ main(int argc, char *argv[])
            else if (status < 0)
                 {
                    system_log(FATAL_SIGN, __FILE__, __LINE__,
-                              "Select error : %s", strerror(errno));
+                              _("select() error : %s"), strerror(errno));
                    exit(INCORRECT);
                 }
                 else
                 {
                    system_log(FATAL_SIGN, __FILE__, __LINE__,
-                              "Unknown condition.");
+                              _("Unknown condition."));
                    exit(INCORRECT);
                 }
    } /* for (;;) */
@@ -1302,7 +1630,8 @@ static void
 get_afd_config_value(int          *afdd_port,
                      int          *danger_no_of_files,
                      unsigned int *default_age_limit,
-                     int          *amg_rescan_time)
+                     int          *amg_rescan_time,
+                     int          *in_global_filesystem)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -1310,7 +1639,7 @@ get_afd_config_value(int          *afdd_port,
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 
@@ -1322,7 +1651,7 @@ get_afd_config_value(int          *afdd_port,
              (*afdd_port > 8192))
          {
             (void)fprintf(stderr,
-                          "Port number for %s in %s out of range (>1024 and < 8192).\n",
+                          _("Port number for %s in %s out of range (>1024 and < 8192).\n"),
                           AFD_TCP_PORT_DEF, config_file);
             *afdd_port = -1;
          }
@@ -1363,6 +1692,26 @@ get_afd_config_value(int          *afdd_port,
       {
          *amg_rescan_time = DEFAULT_RESCAN_TIME;
       }
+      if (get_definition(buffer, IN_GLOBAL_FILESYSTEM_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if ((value[0] == '\0') ||
+             (((value[0] == 'Y') || (value[0] == 'y')) &&
+              ((value[1] == 'E') || (value[1] == 'e')) &&
+              ((value[2] == 'S') || (value[2] == 's')) &&
+              (value[3] == '\0')))
+         {
+            *in_global_filesystem = YES;
+         }
+         else
+         {
+            *in_global_filesystem = NO;
+         }
+      }
+      else
+      {
+         *in_global_filesystem = NO;
+      }
       free(buffer);
    }
    else
@@ -1371,6 +1720,7 @@ get_afd_config_value(int          *afdd_port,
       *danger_no_of_files = MAX_COPIED_FILES + MAX_COPIED_FILES;
       *default_age_limit = DEFAULT_AGE_LIMIT;
       *amg_rescan_time = DEFAULT_RESCAN_TIME;
+      *in_global_filesystem = NO;
    }
 
    return;
@@ -1389,13 +1739,13 @@ check_dirs(char *work_dir)
    /* and make sure that it is a directory.             */
    if (stat(work_dir, &stat_buf) < 0)
    {
-      (void)fprintf(stderr, "Could not stat() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Could not stat() `%s' : %s (%s %d)\n"),
                     work_dir, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (!S_ISDIR(stat_buf.st_mode))
    {
-      (void)fprintf(stderr, "%s is not a directory. (%s %d)\n",
+      (void)fprintf(stderr, _("`%s' is not a directory. (%s %d)\n"),
                     work_dir, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -1515,7 +1865,7 @@ make_process(char *progname, char *directory, sigset_t *oldmask)
       case -1: /* Could not generate process */
 
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not create a new process : %s", strerror(errno));
+                    _("Could not create a new process : %s"), strerror(errno));
          exit(INCORRECT);
 
       case  0: /* Child process */
@@ -1525,14 +1875,14 @@ make_process(char *progname, char *directory, sigset_t *oldmask)
             if (sigprocmask(SIG_SETMASK, oldmask, NULL) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "sigprocmask() error : %s",
+                          _("sigprocmask() error : %s"),
                           strerror(errno));
             }
          }
          if (execlp(progname, progname, WORK_DIR_ID, directory, (char *)0) < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to start process %s : %s",
+                       _("Failed to start process %s : %s"),
                        progname, strerror(errno));
             _exit(INCORRECT);
          }
@@ -1567,7 +1917,7 @@ zombie_check(void)
             {
                case 0 : /* Ordinary end of process. */
                   system_log(INFO_SIGN, __FILE__, __LINE__,
-                             "<INIT> Normal termination of process %s",
+                             _("<INIT> Normal termination of process %s"),
                              proc_table[i].proc_name);
                   proc_table[i].pid = 0;
                   *(pid_t *)(pid_list + ((i + 1) * sizeof(pid_t))) = 0;
@@ -1583,7 +1933,7 @@ zombie_check(void)
                   *(pid_t *)(pid_list + ((i + 1) * sizeof(pid_t))) = proc_table[i].pid;
                   *proc_table[i].status = ON;
                   system_log(INFO_SIGN, __FILE__, __LINE__,
-                             "<INIT> Have restarted %s. SIGHUP received!",
+                             _("<INIT> Have restarted %s. SIGHUP received!"),
                              proc_table[i].proc_name);
                   break;
 
@@ -1593,7 +1943,7 @@ zombie_check(void)
                   *(pid_t *)(pid_list + ((i + 1) * sizeof(pid_t))) = proc_table[i].pid;
                   *proc_table[i].status = ON;
                   system_log(INFO_SIGN, __FILE__, __LINE__,
-                             "<INIT> Have restarted %s, due to missing shared memory area.",
+                             _("<INIT> Have restarted %s, due to missing shared memory area."),
                              proc_table[i].proc_name);
                   break;
 
@@ -1618,14 +1968,14 @@ zombie_check(void)
                      if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                   "sigprocmask() error : %s",
+                                   _("sigprocmask() error : %s"),
                                    strerror(errno));
                      }
 #endif
                      proc_table[i].pid = 0;
                      *proc_table[i].status = OFF;
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "<INIT> Process %s has died!",
+                                _("<INIT> Process %s has died!"),
                                 proc_table[i].proc_name);
 
                      /* The log and archive process may never die! */
@@ -1633,6 +1983,12 @@ zombie_check(void)
                          (i == RLOG_NO) || (i == FD_NO) ||
 #ifndef HAVE_MMAP
                          (i == MAPPER_NO) ||
+#endif
+#ifdef _WITH_SERVER_SUPPORT
+                         (i == AFDS_NO) ||
+#endif
+#ifdef ALDAD_OFFSET
+                         (i == ALDAD_NO) ||
 #endif
                          (i == TDBLOG_NO) || (i == AW_NO) ||
                          (i == AFDD_NO) || (i == STAT_NO))
@@ -1646,7 +2002,7 @@ zombie_check(void)
                         *(pid_t *)(pid_list + ((i + 1) * sizeof(pid_t))) = proc_table[i].pid;
                         *proc_table[i].status = ON;
                         system_log(INFO_SIGN, __FILE__, __LINE__,
-                                   "<INIT> Have restarted %s",
+                                   _("<INIT> Have restarted %s"),
                                    proc_table[i].proc_name);
                      }
 #ifdef BLOCK_SIGNALS
@@ -1660,7 +2016,7 @@ zombie_check(void)
                      if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                   "sigprocmask() error : %s",
+                                   _("sigprocmask() error : %s"),
                                    strerror(errno));
                      }
 #endif
@@ -1678,7 +2034,7 @@ zombie_check(void)
                  proc_table[i].pid = 0;
                  *proc_table[i].status = OFF;
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "<INIT> Abnormal termination of %s, caused by signal %d!",
+                            _("<INIT> Abnormal termination of %s, caused by signal %d!"),
                             proc_table[i].proc_name, WTERMSIG(status));
 #ifdef NO_OF_SAVED_CORE_FILES
                  if (no_of_saved_cores < NO_OF_SAVED_CORE_FILES)
@@ -1701,7 +2057,7 @@ zombie_check(void)
                        if (rename(core_file, new_core_file) == -1)
                        {
                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                     "Failed to rename() %s to %s : %s",
+                                     _("Failed to rename() `%s' to `%s' : %s"),
                                      core_file, new_core_file, strerror(errno));
                        }
                        else
@@ -1718,14 +2074,14 @@ zombie_check(void)
                  *(pid_t *)(pid_list + ((i + 1) * sizeof(pid_t))) = proc_table[i].pid;
                  *proc_table[i].status = ON;
                  system_log(INFO_SIGN, __FILE__, __LINE__,
-                            "<INIT> Have restarted %s",
+                            _("<INIT> Have restarted %s"),
                             proc_table[i].proc_name);
               }
               else if (WIFSTOPPED(status))
                    {
                       /* Child stopped */
                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                 "<INIT> Process %s has been put to sleep!",
+                                 _("<INIT> Process %s has been put to sleep!"),
                                  proc_table[i].proc_name);
                    }
       }
@@ -1751,21 +2107,21 @@ init_afd_check_fsa(void)
          if (munmap(ptr, fsa_size) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] : %s",
+                       _("Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] : %s"),
                        fsa_id, fsa_size, strerror(errno));
          }
 #else
          if (munmap_emu(ptr) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap_emu() from FSA (%d)", fsa_id);
+                       _("Failed to munmap_emu() from FSA (%d)"), fsa_id);
          }
 #endif
 
          if (fsa_attach() < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to attach to FSA.");
+                       _("Failed to attach to FSA."));
          }
       }
    }
@@ -1790,34 +2146,43 @@ afd_exit(void)
       char hostname[64];
 
       system_log(INFO_SIGN, NULL, 0,
-                 "Stopped %s. (%s)", AFD, PACKAGE_VERSION);
+                 _("Stopped %s. (%s)"), AFD, PACKAGE_VERSION);
 
-      if ((read_fd = open(afd_active_file, O_RDWR)) < 0)
+      if (afd_active_fd == -1)
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to open %s : %s", afd_active_file, strerror(errno));
-         _exit(INCORRECT);
+         if ((read_fd = open(afd_active_file, O_RDONLY)) == -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       _("Failed to open `%s' : %s"),
+                       afd_active_file, strerror(errno));
+            _exit(INCORRECT);
+         }
+         if (fstat(read_fd, &stat_buf) == -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       _("Failed to fstat() `%s' : %s"),
+                       afd_active_file, strerror(errno));
+            _exit(INCORRECT);
+         }
+         if ((buffer = malloc(stat_buf.st_size)) == NULL)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       _("malloc() error : %s"), strerror(errno));
+            _exit(INCORRECT);
+         }
+         if (read(read_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       _("read() error : %s"), strerror(errno));
+            _exit(INCORRECT);
+         }
+         (void)close(read_fd);
+         ptr = buffer;
       }
-      if (fstat(read_fd, &stat_buf) < 0)
+      else
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to fstat() %s : %s",
-                    afd_active_file, strerror(errno));
-         _exit(INCORRECT);
+         ptr = pid_list;
       }
-      if ((buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL)
-      {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "calloc() error : %s", strerror(errno));
-         _exit(INCORRECT);
-      }
-      if (read(read_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
-      {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "read() error : %s", strerror(errno));
-         _exit(INCORRECT);
-      }
-      (void)close(read_fd);
 
 #ifndef HAVE_MMAP
       /*
@@ -1841,7 +2206,6 @@ afd_exit(void)
 #endif
 
       /* Try to send kill signal to all running process */
-      ptr = buffer;
       ptr += sizeof(pid_t);
       for (i = 1; i <= NO_OF_PROCESS; i++)
       {
@@ -1854,7 +2218,7 @@ afd_exit(void)
             if (*(pid_t *)ptr > 0)
             {
 #ifdef _DEBUG
-               system_log(DEBUG_SIGN, __FILE__, __LINE__, "Killing %d - %s",
+               system_log(DEBUG_SIGN, __FILE__, __LINE__, _("Killing %d - %s"),
                           *(pid_t *)ptr, proc_table[i - 1].proc_name);
 #endif
                if (kill(*(pid_t *)ptr, SIGINT) == -1)
@@ -1862,7 +2226,7 @@ afd_exit(void)
                   if (errno != ESRCH)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Failed to kill() %d %s : %s",
+                                _("Failed to kill() %d %s : %s"),
                                 *(pid_t *)ptr, proc_table[i - 1].proc_name,
                                 strerror(errno));
                   }
@@ -1889,16 +2253,19 @@ afd_exit(void)
       }
       *proc_table[SLOG_NO].status = STOPPED;
 
+      /* Unset hostname so no one thinks AFD is still up. */
+      p_afd_status->hostname[0] = '\0';
+
 #ifdef HAVE_MMAP
       if (msync((void *)p_afd_status, sizeof(struct afd_status), MS_SYNC) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "msync() error : %s", strerror(errno));
+                    _("msync() error : %s"), strerror(errno));
       }
       if (munmap((void *)p_afd_status, sizeof(struct afd_status)) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "munmap() error : %s", strerror(errno));
+                    _("munmap() error : %s"), strerror(errno));
       }
       p_afd_status = NULL;
 #endif
@@ -1913,7 +2280,7 @@ afd_exit(void)
          p_ts = localtime(&now);
          strftime(date_str, 26, "%a %h %d %H:%M:%S %Y", p_ts);
          system_log(CONFIG_SIGN, NULL, 0,
-                    "Shutdown on <%s> %s", hostname, date_str);
+                    _("Shutdown on <%s> %s"), hostname, date_str);
       }
       system_log(CONFIG_SIGN, NULL, 0,
                  "=================> SHUTDOWN <=================");
@@ -1921,7 +2288,7 @@ afd_exit(void)
       if (unlink(afd_active_file) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to unlink() `%s' : %s",
+                    _("Failed to unlink() `%s' : %s"),
                     afd_active_file, strerror(errno));
       }
 
@@ -1957,7 +2324,8 @@ afd_exit(void)
 static void
 sig_segv(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__,
+              _("Aaarrrggh! Received SIGSEGV."));
    abort();
 }
 
@@ -1966,7 +2334,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__, _("Uuurrrggh! Received SIGBUS."));
    abort();
 }
 
@@ -1977,15 +2345,15 @@ sig_exit(int signo)
 {
    if (signo == SIGTERM)
    {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__, "Received SIGTERM!");
+      system_log(DEBUG_SIGN, __FILE__, __LINE__, _("Received SIGTERM!"));
    }
    else if (signo == SIGINT)
         {
-           system_log(DEBUG_SIGN, __FILE__, __LINE__, "Received SIGINT!");
+           system_log(DEBUG_SIGN, __FILE__, __LINE__, _("Received SIGINT!"));
         }
         else
         {
-           system_log(DEBUG_SIGN, __FILE__, __LINE__, "Received %d!", signo);
+           system_log(DEBUG_SIGN, __FILE__, __LINE__, _("Received %d!"), signo);
         }
 
    exit(INCORRECT);

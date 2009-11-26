@@ -1,6 +1,6 @@
 /*
  *  xshow_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,8 +73,8 @@ DESCR__E_M1
 # include <X11/Xmu/Editres.h>
 #endif
 
-#ifndef MAP_FILE    /* Required for BSD          */
-#define MAP_FILE 0  /* All others do not need it */
+#ifndef MAP_FILE    /* Required for BSD.          */
+# define MAP_FILE 0 /* All others do not need it. */
 #endif
 
 /* Global variables. */
@@ -201,6 +201,11 @@ main(int argc, char *argv[])
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
 #ifdef _X_DEBUG
    XSynchronize(display, 1);
@@ -415,7 +420,7 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
          }
          exit(INCORRECT);
 
-      case NONE     : /* User is not allowed to use this program */
+      case NONE     : /* User is not allowed to use this program. */
          {
             char *user;
 

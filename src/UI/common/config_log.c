@@ -49,6 +49,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
+#include <string.h>                   /* strcpy(), strcat()              */
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #include <sys/types.h>

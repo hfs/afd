@@ -1,6 +1,6 @@
 /*
  *  make_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,7 +55,7 @@ DESCR__E_M3
 int
 make_fifo(char *fifoname)
 {
-   /* Create new fifo */
+   /* Create new fifo. */
 #ifdef GROUP_CAN_WRITE
    if (mkfifo(fifoname, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) == -1)
 #else
@@ -65,7 +65,7 @@ make_fifo(char *fifoname)
       if (errno != EEXIST)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not create fifo <%s> : %s",
+                    _("Could not create fifo `%s' : %s"),
                     fifoname, strerror(errno));
          return(INCORRECT);
       }

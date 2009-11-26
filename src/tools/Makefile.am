@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2009 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -34,17 +34,21 @@ sbin_PROGRAMS                = cache_spy convert_fsa convert_stat\
                                $(DUPCHECK) file_mask_list_spy\
                                gen_file queue_spy set_counter rm_job\
                                view_ls_data
-EXTRA_PROGRAMS               = bfc binfc byte_order convert_jid count_burst\
-                               del_cache $(EXTRA_DUPCHECK) get_counter\
+EXTRA_PROGRAMS               = afdconvert bfc binfc byte_order convert_jid\
+                               count_burst convert_ls_data del_cache\
+                               dc_proc_spy $(EXTRA_DUPCHECK) get_counter\
                                get_full_date get_file_size gts2tiff linger\
                                reset_fsa rdu sysconf tiff_sniffer watch_dir\
-                               fra_version convert_ls_data view_error_queue
+                               fra_version view_error_queue
 MAINTAINERCLEANFILES         = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES                   = gmon.out core core.*
-afdcmd_SOURCES               = afdcmd.c
-afdcmd_LDADD                 = ../common/libafd.a
 afdcfg_SOURCES               = afdcfg.c
 afdcfg_LDADD                 = ../common/libafd.a
+afdcmd_SOURCES               = afdcmd.c
+afdcmd_LDADD                 = ../common/libafd.a
+afdconvert_SOURCES           = afdconvert.c\
+                               receive_log.c
+afdconvert_LDADD             = ../misc/libmisc.a ../common/libafd.a
 afd_status_SOURCES           = afd_status.c
 afd_status_LDADD             = ../common/libafd.a
 bfc_SOURCES                  = bull_file_check.c
@@ -67,6 +71,8 @@ current_job_list_spy_SOURCES = current_job_list_spy.c
 current_job_list_spy_LDADD   = ../common/libafd.a
 dc_id_spy_SOURCES            = dc_id_spy.c
 dc_id_spy_LDADD              = ../common/libafd.a
+dc_proc_spy_SOURCES          = dc_proc_spy.c
+dc_proc_spy_LDADD            = ../common/libafd.a
 del_cache_SOURCES            = del_cache.c
 del_cache_LDADD              = ../common/libafd.a
 dir_spy_SOURCES              = dir_spy.c
@@ -88,7 +94,8 @@ fra_view_LDADD               = ../common/libafd.a
 gen_file_SOURCES             = gen_file.c
 get_counter_SOURCES          = get_counter.c
 get_counter_LDADD            = ../common/libafd.a
-get_dc_data_SOURCES          = get_dc_data.c
+get_dc_data_SOURCES          = get_current_jid_list.c\
+                               get_dc_data.c
 get_dc_data_LDADD            = ../common/libafd.a
 get_file_size_SOURCES        = get_file_size.c
 get_full_date_SOURCES        = get_full_date.c
@@ -113,7 +120,8 @@ rm_job_SOURCES               = rm_job.c
 rm_job_LDADD                 = ../common/libafd.a
 set_counter_SOURCES          = set_counter.c
 set_counter_LDADD            = ../common/libafd.a
-set_pw_SOURCES               = set_pw.c
+set_pw_SOURCES               = get_current_jid_list.c\
+                               set_pw.c
 set_pw_LDADD                 = ../common/libafd.a
 sysconf_SOURCES              = sysconf.c
 sysconf_LDADD                = ../common/libafd.a

@@ -1,6 +1,6 @@
 /*
  *  afd_hex_print.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,14 +78,15 @@ main(int argc, char *argv[])
 
    if ((fd = open(argv[1], O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' for reading : %s (%s %d)\n",
+      (void)fprintf(stderr,
+                    _("Failed to open() `%s' for reading : %s (%s %d)\n"),
                     argv[1], strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (((buffer = malloc(MAX_HUNK + 1)) == NULL) ||
        ((wbuf = malloc(HEADER_LENGTH + ASCII_OFFSET + CHARS_PER_LINE + 1)) == NULL))
    {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("malloc() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -96,7 +97,7 @@ main(int argc, char *argv[])
       if ((bytes_read = read(fd, buffer, MAX_HUNK)) == -1)
       {
          (void)fprintf(stderr,
-                       "Failed to read() %d bytes from `%s' : %s (%s %d)\n",
+                       _("Failed to read() %d bytes from `%s' : %s (%s %d)\n"),
                        MAX_HUNK, argv[1], strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -134,7 +135,7 @@ hex_print(char *wbuf, char *buffer, int length, int *line_counter)
             if (write(STDOUT_FILENO, wbuf, (offset + 1)) != (offset + 1))
             {
                (void)fprintf(stderr,
-                             "Failed to write() %d bytes : %s (%s %d)\n",
+                             _("Failed to write() %d bytes : %s (%s %d)\n"),
                              offset + 1, strerror(errno), __FILE__, __LINE__);
                exit(INCORRECT);
             }
@@ -193,7 +194,7 @@ hex_print(char *wbuf, char *buffer, int length, int *line_counter)
       if (write(STDOUT_FILENO, wbuf, (offset + 1)) != (offset + 1))
       {
          (void)fprintf(stderr,
-                       "Failed to write() %d bytes : %s (%s %d)\n",
+                       _("Failed to write() %d bytes : %s (%s %d)\n"),
                        offset + 1, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -207,6 +208,6 @@ hex_print(char *wbuf, char *buffer, int length, int *line_counter)
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "Usage: %s <file name>\n", progname);
+   (void)fprintf(stderr, _("Usage: %s <file name>\n"), progname);
    return;
 }

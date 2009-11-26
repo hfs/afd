@@ -1,6 +1,6 @@
 /*
  *  mafdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -178,7 +178,8 @@ main(int argc, char *argv[])
             }
             else
             {
-               if (posi(perm_buffer, MAFD_CMD_PERM) != NULL)
+               if (lposi(perm_buffer, MAFD_CMD_PERM,
+                         MAFD_CMD_PERM_LENGTH) != NULL)
                {
                   permission = YES;
 
@@ -190,7 +191,8 @@ main(int argc, char *argv[])
                   if ((options & ENABLE_AFD_OPTION) ||
                       (options & DISABLE_AFD_OPTION))
                   {
-                     if (posi(perm_buffer, DISABLE_AFD_PERM) == NULL)
+                     if (lposi(perm_buffer, DISABLE_AFD_PERM,
+                               DISABLE_AFD_PERM_LENGTH) == NULL)
                      {
                         if (options & ENABLE_AFD_OPTION)
                         {
@@ -211,7 +213,8 @@ main(int argc, char *argv[])
                   }
                   if (options & RETRY_OPTION)
                   {
-                     if (posi(perm_buffer, RETRY_PERM) == NULL)
+                     if (lposi(perm_buffer, RETRY_PERM,
+                               RETRY_PERM_LENGTH) == NULL)
                      {
                         options ^= RETRY_OPTION;
                         (void)fprintf(stderr,
@@ -221,7 +224,8 @@ main(int argc, char *argv[])
                   }
                   if (options & SWITCH_AFD_OPTION)
                   {
-                     if (posi(perm_buffer, SWITCH_HOST_PERM) == NULL)
+                     if (lposi(perm_buffer, SWITCH_HOST_PERM,
+                               SWITCH_HOST_PERM_LENGTH) == NULL)
                      {
                         options ^= SWITCH_AFD_OPTION;
                         (void)fprintf(stderr,

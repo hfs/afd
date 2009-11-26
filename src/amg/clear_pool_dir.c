@@ -1,6 +1,6 @@
 /*
  *  clear_pool_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -45,6 +45,7 @@ DESCR__S_M3
  ** HISTORY
  **   14.05.1998 H.Kiehl Created
  **   28.08.2003 H.Kiehl Adapted to CRC-32 directory ID's.
+ **   21.01.2009 H.Kiehl No need to open DIR_NAME_FILE twice.
  **
  */
 DESCR__E_M3
@@ -58,17 +59,17 @@ DESCR__E_M3
 #include <dirent.h>               /* opendir(), closedir(), readdir(),    */
                                   /* DIR, struct dirent                   */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                 *no_of_dir_names;
 extern struct dir_name_buf *dnb;
 extern char                *p_work_dir;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                 get_source_dir(char *, char *, unsigned int *);
 static void                move_files_back(char *, char *);
 
@@ -99,6 +100,7 @@ clear_pool_dir(void)
       }
       else
       {
+         int           dnb_fd;
          unsigned int  dir_id;
          char          *work_ptr;
          struct dirent *p_dir;
@@ -106,6 +108,35 @@ clear_pool_dir(void)
          work_ptr = pool_dir + strlen(pool_dir);
          *(work_ptr++) = '/';
          *work_ptr = '\0';
+
+         if (dnb == NULL)
+         {
+            size_t size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +
+                          AFD_WORD_OFFSET;
+            char   dir_name_file[MAX_PATH_LENGTH],
+                   *p_dir_buf;
+
+            /*
+             * Map to the directory name database.
+             */
+            (void)strcpy(dir_name_file, p_work_dir);
+            (void)strcat(dir_name_file, FIFO_DIR);
+            (void)strcat(dir_name_file, DIR_NAME_FILE);
+            if ((p_dir_buf = attach_buf(dir_name_file, &dnb_fd,
+                                        &size, NULL, FILE_MODE, NO)) == (caddr_t) -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to mmap() to %s : %s",
+                          dir_name_file, strerror(errno));
+               (void)close(dnb_fd);
+               (void)closedir(dp);
+
+               return;
+            }
+            no_of_dir_names = (int *)p_dir_buf;
+            p_dir_buf += AFD_WORD_OFFSET;
+            dnb = (struct dir_name_buf *)p_dir_buf;
+         }
 
          errno = 0;
          while ((p_dir = readdir(dp)) != NULL)
@@ -198,12 +229,7 @@ get_source_dir(char *dir_name, char *orig_dir, unsigned int *dir_id)
          }
          if (dir_name[i] == '_')
          {
-            int    dnb_fd,
-                   start;
-            size_t size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +
-                          AFD_WORD_OFFSET;
-            char   dir_name_file[MAX_PATH_LENGTH],
-                   *p_dir_buf;
+            int start;
 
             start = ++i;
             while (dir_name[i] != '\0')
@@ -227,24 +253,6 @@ get_source_dir(char *dir_name, char *orig_dir, unsigned int *dir_id)
                return(INCORRECT);
             }
 
-            /*
-             * Map to the directory name database.
-             */
-            (void)strcpy(dir_name_file, p_work_dir);
-            (void)strcat(dir_name_file, FIFO_DIR);
-            (void)strcat(dir_name_file, DIR_NAME_FILE);
-            if ((p_dir_buf = attach_buf(dir_name_file, &dnb_fd,
-                                        size, NULL, FILE_MODE, NO)) == (caddr_t) -1)
-            {
-               system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to mmap() to %s : %s",
-                          dir_name_file, strerror(errno));
-               return(INCORRECT);
-            }
-            no_of_dir_names = (int *)p_dir_buf;
-            p_dir_buf += AFD_WORD_OFFSET;
-            dnb = (struct dir_name_buf *)p_dir_buf;
-
             for (i = 0; i < *no_of_dir_names; i++)
             {
                if (*dir_id == dnb[i].dir_id)
@@ -265,7 +273,6 @@ get_source_dir(char *dir_name, char *orig_dir, unsigned int *dir_id)
                   return(SUCCESS);
                }
             }
-            unmap_data(dnb_fd, (void *)&dnb);
          } /* if (dir_name[i] == '_') */
       } /* if (dir_name[i] == '_') */
    } /* if (dir_name[i] == '_') */
@@ -316,7 +323,8 @@ move_files_back(char *pool_dir, char *orig_dir)
          if (move_file(pool_dir, orig_dir) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Failed to move_file() %s to %s", pool_dir, orig_dir);
+                       "Failed to move_file() %s to %s : %s",
+                       pool_dir, orig_dir, strerror(errno));
          }
          errno = 0;
       }

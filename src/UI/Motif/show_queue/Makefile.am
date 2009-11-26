@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2002 - 2007 Holger Kiehl
+## Copyright (C) 2002 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = show_queue.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
                        -I../common -I../../../init_afd -I../../../fd\
-                       -I../afd_ctrl
+                       -I../mafd_ctrl
 bin_PROGRAMS         = show_queue
 show_queue_SOURCES   = callbacks.c\
                        delete_files.c\

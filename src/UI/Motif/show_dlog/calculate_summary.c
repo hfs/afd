@@ -1,7 +1,7 @@
 /*
  *  calculate_summary.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ DESCR__S_M3
  **                          time_t       first_date_found,
  **                          time_t       last_date_found,
  **                          unsigned int total_no_files,
- **                          double       file_size)
+ **                          off_t        file_size)
  **
  ** DESCRIPTION
  **   This function calculates the summary for the delete log and
@@ -64,7 +64,7 @@ DESCR__E_M3
 #include <string.h>              /* memset()                             */
 #include "show_dlog.h"
 
-/* External global variables */
+/* External global variables. */
 extern int file_name_length;
 
 
@@ -74,7 +74,7 @@ calculate_summary(char         *summary_str,
                   time_t       first_date_found,
                   time_t       last_date_found,
                   unsigned int total_no_files,
-                  double       file_size)
+                  off_t        file_size)
 {
    int          days,
                 hours,
@@ -146,33 +146,43 @@ calculate_summary(char         *summary_str,
                      file_rate, file_rate_unit);
    *(p_summary_str + length) = ' ';
    p_summary_str += 16 + file_name_length + 1;
-   if (file_size < F_KILOBYTE)
+   if (file_size < KILOBYTE)
    {
-      (void)sprintf(p_summary_str, "%4.0f Bytes ", file_size);
+#if SIZE_OF_OFF_T == 4
+      (void)sprintf(p_summary_str, "%4ld Bytes ", (pri_off_t)file_size);
+#else
+      (void)sprintf(p_summary_str, "%4lld Bytes ", (pri_off_t)file_size);
+#endif
    }
-   else if (file_size < F_MEGABYTE)
+   else if (file_size < MEGABYTE)
         {
-           (void)sprintf(p_summary_str, "%7.2f KB ", file_size / F_KILOBYTE);
+           (void)sprintf(p_summary_str, "%7.2f KB ",
+                         (double)(file_size / F_KILOBYTE));
         }
-   else if (file_size < F_GIGABYTE)
+   else if (file_size < GIGABYTE)
         {
-           (void)sprintf(p_summary_str, "%7.2f MB ", file_size / F_MEGABYTE);
+           (void)sprintf(p_summary_str, "%7.2f MB ",
+                         (double)(file_size / F_MEGABYTE));
         }
-   else if (file_size < F_TERABYTE)
+   else if (file_size < TERABYTE)
         {
-           (void)sprintf(p_summary_str, "%7.2f GB ", file_size / F_GIGABYTE);
+           (void)sprintf(p_summary_str, "%7.2f GB ",
+                         (double)(file_size / F_GIGABYTE));
         }
-   else if (file_size < F_PETABYTE)
+   else if (file_size < PETABYTE)
         {
-           (void)sprintf(p_summary_str, "%7.2f TB ", file_size / F_TERABYTE);
+           (void)sprintf(p_summary_str, "%7.2f TB ",
+                         (double)(file_size / F_TERABYTE));
         }
-   else if (file_size < F_EXABYTE)
+   else if (file_size < EXABYTE)
         {
-           (void)sprintf(p_summary_str, "%7.2f PB ", file_size / F_PETABYTE);
+           (void)sprintf(p_summary_str, "%7.2f PB ",
+                         (double)(file_size / F_PETABYTE));
         }
         else
         {
-           (void)sprintf(p_summary_str, "%7.2f EB ", file_size / F_EXABYTE);
+           (void)sprintf(p_summary_str, "%7.2f EB ",
+                         (double)(file_size / F_EXABYTE));
         }
 
    return;

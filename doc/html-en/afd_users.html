@@ -36,6 +36,10 @@ are available.
    <td>Shutdown AFD</td>
 </tr>
 <tr>
+   <td>initialize</td>
+   <td>Initialize AFD</td>
+</tr>
+<tr>
    <td>resend</td>
    <td>Resend files.</td>
 </tr>
@@ -56,7 +60,8 @@ are available.
 </tr>
 <tr>
    <td>view_data</td>
-   <td>Allows user to view the actual data distributed by AFD.</td>
+   <td>Allows user to view the actual data distributed by AFD if it has been
+       archived.</td>
 </tr>
 <tr>
    <td>list_limit x</td>
@@ -99,7 +104,8 @@ are available.
 </tr>
 <tr>
    <td>show_queue</td>
-   <td>See what files are currently being queued on input and or output.</td>
+   <td>See what files are currently being queued on input, time and
+       or output.</td>
 </tr>
 <tr>
    <td>delete_queue</td>
@@ -125,7 +131,11 @@ are available.
 </tr>
 <tr>
    <td>disable_dir</td>
-   <td>Disable a certain directory.</td>
+   <td>Enable/disable a certain directory monitored by AFD.</td>
+</tr>
+<tr>
+   <td>stop_dir</td>
+   <td>Start/stop a certain directory monitored by AFD.</td>
 </tr>
 <tr>
    <td>rescan</td>
@@ -138,11 +148,13 @@ are available.
 </tr>
 <tr>
    <td>AMG_control</td>
-   <td>Start/Stop AMG</td>
+   <td>Start or stop process AMG, which is responsible for scanning local
+       directories.</td>
 </tr>
 <tr>
    <td>FD_control</td>
-   <td>Start/Stop FD</td>
+   <tdStart or stop process FD, which is responsible for distributing the
+      data.</td>
 </tr>
 <tr>
    <td>handle_events</td>
@@ -151,19 +163,28 @@ are available.
 </tr>
 <tr>
    <td>control_queue</td>
-   <td>Start/Stop queue</td>
+   <td><a href="afd_ctrl.html#start_stop_input_queue">Start/Stop input
+       queue.</a> Stopping the queue means that AFD internally will not
+       generate any messages, but no data is lost either. All current jobs
+       that have a message will still be transmitted.</td>
 </tr>
 <tr>
    <td>control_transfer</td>
-   <td>Start/Stop transfer</td>
+   <td><a href="afd_ctrl.html#start_stop_transfer">Start/Stop transfer</a></td>
+</tr>
+<tr>
+   <td>control_host</td>
+   <td><a href="afd_ctrl.html#start_stop_host">Start/Stop host</a>. Stopping
+       a host has the same effect as stopping transfer and queue.</td>
 </tr>
 <tr>
    <td>switch_host</td>
-   <td>Switch host if there is a secondary host.</td>
+   <td><a href="afd_ctrl.html#Switch_host">Switch host</a> if there is a
+       secondary host.</td>
 </tr>
 <tr>
    <td>disable</td>
-   <td>Disable a certain host.</td>
+   <td><a href="afd_ctrl.html#Disable_host">Enable/Disable host</a></td>
 </tr>
 <tr>
    <td>info</td>
@@ -184,6 +205,13 @@ are available.
 <tr>
    <td>full_trace</td>
    <td>Enable/Disable full trace</td>
+</tr>
+<tr>
+   <td>ctrl_delete_data</td>
+   <td>Enable/disable control of deleting data when option
+       <a href="dir_config.html#age-limit">age-limit</a> and/or
+       <a href="dir_config.html#delete_queued_files">delete queued files</a>
+       is set.</td>
 </tr>
 <tr>
    <td>file_dir_check</td>
@@ -260,9 +288,9 @@ are available.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1999 - 2007 by H.Kiehl<br>
+   Copyright &copy; 1999 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 08.11.2007
+   Last updated: 06.09.2009
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

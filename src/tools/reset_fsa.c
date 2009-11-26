@@ -1,6 +1,6 @@
 /*
  *  reset_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,10 +51,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Local functions */
-static void                usage(char *);
-
-/* Global variables */
+/* Global variables .*/
 int                        sys_log_fd = STDERR_FILENO,   /* Not used!    */
                            fsa_fd = -1,
                            fsa_id,
@@ -65,6 +62,9 @@ off_t                      fsa_size;
 char                       *p_work_dir;
 struct filetransfer_status *fsa;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
+
+/* Local function prototypes. */
+static void                usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ reset_fsa() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -101,10 +101,20 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (fsa_attach() < 0)
+   if ((i = fsa_attach()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
@@ -113,7 +123,7 @@ main(int argc, char *argv[])
       if ((position = get_host_position(fsa, hostname, no_of_hosts)) < 0)
       {
          (void)fprintf(stderr,
-                       "ERROR   : Could not find host %s in FSA. (%s %d)\n",
+                       _("ERROR   : Could not find host %s in FSA. (%s %d)\n"),
                        hostname, __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -145,7 +155,7 @@ static void
 usage(char *progname)
 {                    
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] hostname|position\n",
+                 _("SYNTAX  : %s [-w working directory] hostname|position\n"),
                  progname);
    return;                                                                 
 }

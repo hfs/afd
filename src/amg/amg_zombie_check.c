@@ -1,6 +1,6 @@
 /*
  *  amg_zombie_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,15 +61,15 @@ DESCR__E_M3
 
 #ifdef NO_OF_SAVED_CORE_FILES
 extern char *p_work_dir;
-#endif /* NO_OF_SAVED_CORE_FILES */
+#endif
 
 
 /*########################## amg_zombie_check() #########################*/
 int
 amg_zombie_check(pid_t *proc_id, int option)
 {
-   int   status,
-         table_changed = NO;
+   int status,
+       table_changed = NO;
 
    /* Is process a zombie? */
    if (waitpid(*proc_id, &status, option) > 0)
@@ -86,58 +86,58 @@ amg_zombie_check(pid_t *proc_id, int option)
          else
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Process returned %d", exit_status);
+                       _("Process returned %d"), exit_status);
             exit_status = DIED;
          }
       }
-      else  if (WIFSIGNALED(status))
-            {
-               /* abnormal termination */
+      else if (WIFSIGNALED(status))
+           {
+              /* Abnormal termination. */
 #ifdef NO_OF_SAVED_CORE_FILES
-               static int no_of_saved_cores = 0;
+              static int no_of_saved_cores = 0;
 
-               if (no_of_saved_cores < NO_OF_SAVED_CORE_FILES)
-               {
-                  char        core_file[MAX_PATH_LENGTH];
-                  struct stat stat_buf;
+              if (no_of_saved_cores < NO_OF_SAVED_CORE_FILES)
+              {
+                 char        core_file[MAX_PATH_LENGTH];
+                 struct stat stat_buf;
 
-                  (void)sprintf(core_file, "%s/core", p_work_dir);
-                  if (stat(core_file, &stat_buf) != -1)
-                  {
-                     char new_core_file[MAX_PATH_LENGTH];
+                 (void)sprintf(core_file, "%s/core", p_work_dir);
+                 if (stat(core_file, &stat_buf) != -1)
+                 {
+                    char new_core_file[MAX_PATH_LENGTH];
 
-#if SIZEOF_TIME_T == 4
-                     (void)sprintf(new_core_file, "%s.%s.%ld.%d",
-#else
-                     (void)sprintf(new_core_file, "%s.%s.%lld.%d",
-#endif
-                                   core_file, DC_PROC_NAME,
-                                   (pri_time_t)time(NULL), no_of_saved_cores);
-                     if (rename(core_file, new_core_file) == -1)
-                     {
-                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                   "Failed to rename() %s to %s : %s",
-                                   core_file, new_core_file, strerror(errno));
-                     }
-                     else
-                     {
-                        no_of_saved_cores++;
-                     }
-                  }
-               }
+# if SIZEOF_TIME_T == 4
+                    (void)sprintf(new_core_file, "%s.%s.%ld.%d",
+# else
+                    (void)sprintf(new_core_file, "%s.%s.%lld.%d",
+# endif
+                                  core_file, DC_PROC_NAME,
+                                  (pri_time_t)time(NULL), no_of_saved_cores);
+                    if (rename(core_file, new_core_file) == -1)
+                    {
+                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  _("Failed to rename() `%s' to `%s' : %s"),
+                                  core_file, new_core_file, strerror(errno));
+                    }
+                    else
+                    {
+                       no_of_saved_cores++;
+                    }
+                 }
+              }
 #endif /* NO_OF_SAVED_CORE_FILES */
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Abnormal termination caused by signal %d",
-                          WTERMSIG(status));
-               exit_status = DIED;
-            }
-       else  if (WIFSTOPPED(status))
-             {
-                /* Child stopped */
-                exit_status = STOPPED;
-             }
+              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                         _("Abnormal termination caused by signal %d"),
+                         WTERMSIG(status));
+              exit_status = DIED;
+           }
+      else if (WIFSTOPPED(status))
+           {
+              /* Child stopped. */
+              exit_status = STOPPED;
+           }
 
-      /* update table */
+      /* Update table. */
       if (exit_status < STOPPED)
       {
          table_changed = YES;

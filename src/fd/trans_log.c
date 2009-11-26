@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ DESCR__S_M3
  **   void trans_log(char *sign,
  **                  char *file,
  **                  int  line,
+ **                  char *function,
  **                  char *msg_str,
  **                  char *fmt, ...)
  **
@@ -42,6 +43,7 @@ DESCR__S_M3
  ** HISTORY
  **   19.03.1999 H.Kiehl Created
  **   08.07.2000 H.Kiehl Revised to reduce code size in sf_xxx().
+ **   21.03.2009 H.Kiehl Added function parameter.
  **
  */
 DESCR__E_M3
@@ -76,7 +78,13 @@ extern struct filetransfer_status *fsa;
 
 /*############################ trans_log() ###############################*/
 void
-trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
+trans_log(char *sign,
+          char *file,
+          int  line,
+          char *function,
+          char *msg_str,
+          char *fmt,
+          ...)
 {
    char      *ptr = tr_hostname;
    size_t    header_length,
@@ -131,6 +139,10 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    buf[length + 3] = ':';
    buf[length + 4] = ' ';
    length += 5;
+   if ((function != NULL) && (function[0] != '\0'))
+   {
+      length += sprintf(&buf[length], "%s(): ", function);
+   }
    header_length = length;
 
    va_start(ap, fmt);

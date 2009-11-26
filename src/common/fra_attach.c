@@ -1,6 +1,6 @@
 /*
  *  fra_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ DESCR__S_M3
  **
  ** DESCRIPTION
  **   Attaches to the memory mapped area of the FRA (File Retrieve
- **   Status Area). The first 4 Bytes of this area contains the number
+ **   Status Area). The first 4 bytes of this area contains the number
  **   of host in the FRA. The rest consist of the structure
  **   fileretrieve_status for each host. When the function returns
  **   successful it returns the pointer 'fra' to the begining of the
@@ -44,6 +44,9 @@ DESCR__S_M3
  **   the size of the FRA and the number of host in the FRA is returned
  **   in 'fra_id', 'fra_size' and 'no_of_dirs' respectively. Otherwise
  **   INCORRECT is returned.
+ **
+ ** SEE ALSO
+ **   check_fra()
  **
  ** AUTHOR
  **   H.Kiehl
@@ -68,7 +71,7 @@ DESCR__E_M3
 #endif
 #include <errno.h>
 
-/* Global variables */
+/* Global variables. */
 extern int                        fra_fd,
                                   fra_id,
                                   no_of_dirs;
@@ -94,7 +97,7 @@ fra_attach(void)
                 ulock = {F_UNLCK, SEEK_SET, 0, 1};
    struct stat  stat_buf;
 
-   /* Get absolute path of FRA_ID_FILE */
+   /* Get absolute path of FRA_ID_FILE. */
    (void)strcpy(fra_id_file, p_work_dir);
    (void)strcat(fra_id_file, FIFO_DIR);
    (void)strcpy(fra_stat_file, fra_id_file);
@@ -108,13 +111,13 @@ fra_attach(void)
       /* no_of_dirs is stale.                    */
       if ((no_of_dirs < 0) && (fra != NULL))
       {
-         /* Unmap from FRA */
+         /* Unmap from FRA. */
 #ifdef HAVE_MMAP
          (void)sprintf(p_fra_stat_file, ".%d", fra_id);
          if (stat(fra_stat_file, &stat_buf) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() `%s' : %s",
+                       _("Failed to stat() `%s' : %s"),
                        fra_stat_file, strerror(errno));
          }
          else
@@ -122,7 +125,7 @@ fra_attach(void)
             if (munmap((void *)fra, stat_buf.st_size) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to munmap() `%s' : %s",
+                          _("Failed to munmap() `%s' : %s"),
                           fra_stat_file, strerror(errno));
             }
             else
@@ -134,7 +137,7 @@ fra_attach(void)
          if (munmap_emu((void *)fra) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() `%s' : %s",
+                       _("Failed to munmap() `%s' : %s"),
                        fra_stat_file, strerror(errno));
          }
          else
@@ -143,7 +146,7 @@ fra_attach(void)
          }
 #endif
 
-         /* No need to speed things up here */
+         /* No need to speed things up here. */
          my_usleep(800000L);
       }
 
@@ -160,7 +163,7 @@ fra_attach(void)
             if (loop_counter++ > 12)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fra_id_file, strerror(errno));
                return(INCORRECT);
             }
@@ -168,33 +171,33 @@ fra_attach(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() `%s' : %s",
+                       _("Failed to open() `%s' : %s"),
                        fra_id_file, strerror(errno));
             return(INCORRECT);
          }
       }
 
-      /* Check if its locked */
+      /* Check if its locked. */
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not set write lock for `%s' : %s",
+                    _("Could not set write lock for `%s' : %s"),
                     fra_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
 
-      /* Read the fra_id */
+      /* Read the fra_id. */
       if (read(fd, &fra_id, sizeof(int)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not read the value of the fra_id : %s",
+                    _("Could not read the value of the fra_id : %s"),
                     strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
 
-      /* Unlock file and close it */
+      /* Unlock file and close it. */
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -217,7 +220,7 @@ fra_attach(void)
          if (close(fra_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
       }
 
@@ -228,14 +231,14 @@ fra_attach(void)
             if (retries++ > 8)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fra_stat_file, strerror(errno));
                return(INCORRECT);
             }
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to open() `%s' : %s",
+                          _("Failed to open() `%s' : %s"),
                           fra_stat_file, strerror(errno));
                (void)sleep(1);
                continue;
@@ -244,7 +247,7 @@ fra_attach(void)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() `%s' : %s",
+                       _("Failed to open() `%s' : %s"),
                        fra_stat_file, strerror(errno));
             return(INCORRECT);
          }
@@ -253,7 +256,7 @@ fra_attach(void)
       if (fstat(fra_fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to stat() `%s' : %s",
+                    _("Failed to stat() `%s' : %s"),
                     fra_stat_file, strerror(errno));
          (void)close(fra_fd);
          fra_fd = -1;
@@ -269,7 +272,7 @@ fra_attach(void)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "mmap() error : %s", strerror(errno));
+                    _("mmap() error : %s"), strerror(errno));
          (void)close(fra_fd);
          fra_fd = -1;
          return(INCORRECT);
@@ -283,7 +286,7 @@ fra_attach(void)
           (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FRA_VERSION))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "This code is compiled for of FRA version %d, but the FRA we try to attach is %d.",
+                    _("This code is compiled for of FRA version %d, but the FRA we try to attach is %d."),
                     CURRENT_FRA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
 #ifdef HAVE_MMAP
          if (munmap(ptr, stat_buf.st_size) == -1)
@@ -292,7 +295,7 @@ fra_attach(void)
 #endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() FRA : %s", strerror(errno));
+                       _("Failed to munmap() FRA : %s"), strerror(errno));
          }
          (void)close(fra_fd);
          fra_fd = -1;
@@ -321,7 +324,7 @@ fra_attach_passive(void)
                fra_stat_file[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   /* Get absolute path of FRA_ID_FILE */
+   /* Get absolute path of FRA_ID_FILE. */
    (void)strcpy(fra_id_file, p_work_dir);
    (void)strcat(fra_id_file, FIFO_DIR);
    (void)strcpy(fra_stat_file, fra_id_file);
@@ -333,13 +336,13 @@ fra_attach_passive(void)
    if ((fd = coe_open(fra_id_file, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to open() `%s' : %s", fra_id_file, strerror(errno));
+                 _("Failed to open() `%s' : %s"), fra_id_file, strerror(errno));
       return(INCORRECT);
    }
    if (read(fd, &fra_id, sizeof(int)) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not read the value of the fra_id : %s",
+                 _("Could not read the value of the fra_id : %s"),
                  strerror(errno));
       (void)close(fd);
       return(INCORRECT);
@@ -347,7 +350,8 @@ fra_attach_passive(void)
    if (close(fd) == -1)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Could not close() `%s' : %s", fra_id_file, strerror(errno));
+                 _("Could not close() `%s' : %s"),
+                 fra_id_file, strerror(errno));
    }
    (void)sprintf(p_fra_stat_file, ".%d", fra_id);
 
@@ -356,21 +360,23 @@ fra_attach_passive(void)
       if (close(fra_fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
    }
 
    if ((fra_fd = coe_open(fra_stat_file, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to open() `%s' : %s", fra_stat_file, strerror(errno));
+                 _("Failed to open() `%s' : %s"),
+                 fra_stat_file, strerror(errno));
       return(INCORRECT);
    }
 
    if (fstat(fra_fd, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to stat() `%s' : %s", fra_stat_file, strerror(errno));
+                 _("Failed to stat() `%s' : %s"),
+                 fra_stat_file, strerror(errno));
       (void)close(fra_fd);
       fra_fd = -1;
       return(INCORRECT);
@@ -378,7 +384,7 @@ fra_attach_passive(void)
    if (stat_buf.st_size < AFD_WORD_OFFSET)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "FRA not large enough to contain any meaningful data.");
+                 _("FRA not large enough to contain any meaningful data."));
       (void)close(fra_fd);
       fra_fd = -1;
       return(INCORRECT);
@@ -393,7 +399,7 @@ fra_attach_passive(void)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "mmap() error : %s", strerror(errno));
+                 _("mmap() error : %s"), strerror(errno));
       (void)close(fra_fd);
       fra_fd = -1;
       return(INCORRECT);
@@ -403,7 +409,7 @@ fra_attach_passive(void)
    if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FRA_VERSION)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "This code is compiled for of FRA version %d, but the FRA we try to attach is %d.",
+                 _("This code is compiled for of FRA version %d, but the FRA we try to attach is %d."),
                  CURRENT_FRA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
 #ifdef HAVE_MMAP
       if (munmap(ptr, stat_buf.st_size) == -1)
@@ -412,7 +418,7 @@ fra_attach_passive(void)
 #endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to munmap() FRA : %s", strerror(errno));
+                    _("Failed to munmap() FRA : %s"), strerror(errno));
       }
       (void)close(fra_fd);
       fra_fd = -1;

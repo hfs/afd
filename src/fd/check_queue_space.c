@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int              *no_msg_queued,
                         qb_fd;
 extern struct queue_buf *qb;

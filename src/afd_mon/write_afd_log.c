@@ -1,6 +1,6 @@
 /*
  *  write_afd_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -158,6 +158,12 @@ get_log_name(int  log_type, char *log_name)
          (void)strcpy(log_name, RECEIVE_LOG_NAME);
          log_name_length = RECEIVE_LOG_NAME_LENGTH;
          break;
+#ifdef _DISTRIBUTION_LOG
+      case DIS_LOG_POS :
+         (void)strcpy(log_name, DISTRIBUTION_BUFFER_FILE);
+         log_name_length = DISTRIBUTION_BUFFER_FILE_LENGTH;
+         break;
+#endif
 #ifdef _PRODUCTION_LOG
       case PRO_LOG_POS :
          (void)strcpy(log_name, PRODUCTION_BUFFER_FILE);

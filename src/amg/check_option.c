@@ -1,6 +1,6 @@
 /*
  *  check_option.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   17.05.2007 H.Kiehl Created
+ **   07.01.2008 H.Kiehl Added check if subject or mail header file
+ **                      is readable.
  **
  */
 DESCR__E_M3
@@ -48,6 +50,8 @@ DESCR__E_M3
 #include <stdio.h>      /* sprintf()                                     */
 #include <string.h>     /* strncmp()                                     */
 #include <ctype.h>      /* isascii()                                     */
+#include <unistd.h>     /* access()                                      */
+#include <errno.h>
 #include "amgdefs.h"
 
 /* External global variables. */
@@ -219,6 +223,22 @@ check_option(char *option)
               }
            }
         }
+   else if ((CHECK_STRNCMP(option, ULOCK_ID, ULOCK_ID_LENGTH) == 0) &&
+            ((*(option + ULOCK_ID_LENGTH) == ' ') ||
+             (*(option + ULOCK_ID_LENGTH) == '\t')))
+        {
+           ptr += ULOCK_ID_LENGTH + 1;
+           while ((*ptr == ' ') || (*ptr == '\t'))
+           {
+              ptr++;
+           }
+           if (*ptr == '\0')
+           {
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "No %s type specified.", ULOCK_ID);
+              return(INCORRECT);
+           }
+        }
    else if ((CHECK_STRNCMP(option, TRANS_RENAME_ID,
                           TRANS_RENAME_ID_LENGTH) == 0) &&
             ((*(option + TRANS_RENAME_ID_LENGTH) == ' ') ||
@@ -246,6 +266,7 @@ check_option(char *option)
               {
                  ptr++;
               }
+              /* primary_only/secondary_only */
               if ((*ptr == '\0') ||
                   ((*ptr == 'p') && (*(ptr + 1) == 'r') && (*(ptr + 2) == 'i') &&
                    (*(ptr + 3) == 'm') && (*(ptr + 4) == 'a') &&
@@ -326,6 +347,7 @@ check_option(char *option)
                        case 'D' :
                        case 'l' :
                        case 'L' :
+                       case 's' :
                           ptr += 2;
                           if ((*ptr != ' ') && (*ptr != '\t'))
                           {
@@ -641,6 +663,8 @@ check_option(char *option)
            {
               ptr++;
            }
+
+           /* VAX, LBF, HBF, MSS, DWD, WMO and ASCII. */
            if (((((*ptr == 'V') && (*(ptr + 1) == 'A') && (*(ptr + 2) == 'X')) ||
                  (((*ptr == 'L') || (*ptr == 'H')) && (*(ptr + 1) == 'B') && (*(ptr + 2) == 'F')) ||
                  ((*ptr == 'M') && (*(ptr + 1) == 'S') && (*(ptr + 2) == 'S')) ||
@@ -669,6 +693,11 @@ check_option(char *option)
            {
               ptr++;
            }
+
+           /*
+            * sohetx, sohetxwmo, wmo, sohetx2wmo0, sohetx2wmo1
+            * mrz2wmo, unix2dos, dos2unix, lf2crcrlf and crcrlf2lf.
+            */
            if (((*ptr == 's') && (*(ptr + 1) == 'o') && (*(ptr + 2) == 'h') &&
                 (*(ptr + 3) == 'e') && (*(ptr + 4) == 't') &&
                 (*(ptr + 5) == 'x') &&
@@ -695,7 +724,31 @@ check_option(char *option)
                 (*(ptr + 3) == '2') && (*(ptr + 4) == 'w') &&
                 (*(ptr + 5) == 'm') && (*(ptr + 6) == 'o') &&
                 ((*(ptr + 7) == '\0') || (*(ptr + 7) == ' ') ||
-                 (*(ptr + 7) == '\t'))))
+                 (*(ptr + 7) == '\t'))) ||
+               ((*ptr == 'u') && (*(ptr + 1) == 'n') && (*(ptr + 2) == 'i') &&
+                (*(ptr + 3) == 'x') && (*(ptr + 4) == '2') &&
+                (*(ptr + 5) == 'd') && (*(ptr + 6) == 'o') &&
+                (*(ptr + 7) == 's') &&
+                ((*(ptr + 8) == '\0') || (*(ptr + 8) == ' ') ||
+                 (*(ptr + 8) == '\t'))) ||
+               ((*ptr == 'd') && (*(ptr + 1) == 'o') && (*(ptr + 2) == 's') &&
+                (*(ptr + 3) == '2') && (*(ptr + 4) == 'u') &&
+                (*(ptr + 5) == 'n') && (*(ptr + 6) == 'i') &&
+                (*(ptr + 7) == 'x') &&
+                ((*(ptr + 8) == '\0') || (*(ptr + 8) == ' ') ||
+                 (*(ptr + 8) == '\t'))) ||
+               ((*ptr == 'l') && (*(ptr + 1) == 'f') && (*(ptr + 2) == '2') &&
+                (*(ptr + 3) == 'c') && (*(ptr + 4) == 'r') &&
+                (*(ptr + 5) == 'c') && (*(ptr + 6) == 'r') &&
+                (*(ptr + 7) == 'l') && (*(ptr + 8) == 'f') &&
+                ((*(ptr + 9) == '\0') || (*(ptr + 9) == ' ') ||
+                 (*(ptr + 9) == '\t'))) ||
+               ((*ptr == 'c') && (*(ptr + 1) == 'r') && (*(ptr + 2) == 'c') &&
+                (*(ptr + 3) == 'r') && (*(ptr + 4) == 'l') &&
+                (*(ptr + 5) == 'f') && (*(ptr + 6) == '2') &&
+                (*(ptr + 7) == 'l') && (*(ptr + 8) == 'f') &&
+                ((*(ptr + 9) == '\0') || (*(ptr + 9) == ' ') ||
+                 (*(ptr + 9) == '\t'))))
            {
               /* OK */;
            }
@@ -710,7 +763,7 @@ check_option(char *option)
             ((*(option + EXTRACT_ID_LENGTH) == ' ') ||
              (*(option + EXTRACT_ID_LENGTH) == '\t')))
         {
-           ptr += EXTRACT_ID_LENGTH + 1;
+           ptr += EXTRACT_ID_LENGTH;
            while ((*ptr == ' ') || (*ptr == '\t'))
            {
               ptr++;
@@ -722,6 +775,8 @@ check_option(char *option)
               {
                  switch (*(ptr + 1))
                  {
+                    case 'b' :
+                    case 'B' :
                     case 'c' :
                     case 'C' :
                     case 'n' :
@@ -732,8 +787,7 @@ check_option(char *option)
                        if ((*ptr != ' ') && (*ptr != '\t'))
                        {
                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                     "Unknown paramter `%s' in %s option.",
-                                     ptr - 2, EXTRACT_ID);
+                                     "No %s type specified.", EXTRACT_ID);
                           return(INCORRECT);
                        }
                        break;
@@ -763,6 +817,8 @@ check_option(char *option)
            {
               ptr++;
            }
+
+           /* VAX, LBF, HBF, MRZ, MSS, WMO, ASCII, ZCZC and GRIB. */
            if (((((*ptr == 'V') && (*(ptr + 1) == 'A') && (*(ptr + 2) == 'X')) ||
                  (((*ptr == 'L') || (*ptr == 'H')) && (*(ptr + 1) == 'B') && (*(ptr + 2) == 'F')) ||
                  ((*ptr == 'M') && (*(ptr + 1) == 'R') && (*(ptr + 2) == 'Z')) ||
@@ -772,8 +828,10 @@ check_option(char *option)
                ((*ptr == 'A') && (*(ptr + 1) == 'S') && (*(ptr + 2) == 'C') &&
                 (*(ptr + 3) == 'I') && (*(ptr + 4) == 'I') &&
                 ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\t') || (*(ptr + 5) == '\0'))) ||
-               ((*ptr == 'G') && (*(ptr + 1) == 'R') && (*(ptr + 2) == 'I') &&
-                (*(ptr + 3) == 'B') &&
+               ((((*ptr == 'Z') && (*(ptr + 1) == 'C') && (*(ptr + 2) == 'Z') &&
+                  (*(ptr + 3) == 'C')) ||
+                 ((*ptr == 'G') && (*(ptr + 1) == 'R') && (*(ptr + 2) == 'I') &&
+                  (*(ptr + 3) == 'B'))) &&
                 ((*(ptr + 4) == ' ') || (*(ptr + 4) == '\t') || (*(ptr + 4) == '\0'))))
            {
               /* OK */;
@@ -959,6 +1017,9 @@ check_option(char *option)
               }
               else if (*ptr == '/')
                    {
+                      char *p_start;
+
+                      p_start = ptr;
                       while ((*ptr != '\0') && (*ptr != ' ') && (*ptr != '\t'))
                       {
                          if (*ptr == '\\')
@@ -969,8 +1030,33 @@ check_option(char *option)
                       }
                       if ((*ptr == ' ') || (*ptr == '\t'))
                       {
+                         *ptr = '\0';
+                         if (access(p_start, R_OK) != 0)
+                         {
+                            system_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "Failed to access subject file `%s' : %s",
+                                       p_start, strerror(errno));
+                            *ptr = ' ';
+                            return(INCORRECT);
+                         }
+                         *ptr = ' ';
+                         ptr++;
+                         while ((*ptr == ' ') || (*ptr == '\t'))
+                         {
+                            ptr++;
+                         }
                          if (check_rule(ptr) == INCORRECT)
                          {
+                            return(INCORRECT);
+                         }
+                      }
+                      else
+                      {
+                         if (access(p_start, R_OK) != 0)
+                         {
+                            system_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "Failed to access subject file `%s' : %s",
+                                       p_start, strerror(errno));
                             return(INCORRECT);
                          }
                       }
@@ -984,8 +1070,7 @@ check_option(char *option)
            }
            else
            {
-              if ((*(option + SUBJECT_ID_LENGTH) == '\0') ||
-                  (*(option + SUBJECT_ID_LENGTH) == '\n'))
+              if (*(option + SUBJECT_ID_LENGTH) == '\0')
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             "No %s specified.", SUBJECT_ID);
@@ -1007,11 +1092,37 @@ check_option(char *option)
            {
               ptr++;
            }
-           if (*ptr == '\0')
+           if (*ptr == '"')
+           {
+              ptr++;
+           }
+           if ((*ptr == '\0') || (*ptr == '"'))
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                          "No mail header file specified.");
               return(INCORRECT);
+           }
+           else
+           {
+              char *p_start,
+                   tmp_char;
+
+              p_start = ptr;
+              while ((*ptr != '\0') && (*ptr != '"'))
+              {
+                 ptr++;
+              }
+              tmp_char = *ptr;
+              *ptr = '\0';
+              if (access(p_start, R_OK) != 0)
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to access mail header file `%s' : %s",
+                            p_start, strerror(errno));
+                 *ptr = tmp_char;
+                 return(INCORRECT);
+              }
+              *ptr = tmp_char;
            }
         }
    else if ((CHECK_STRNCMP(option, FROM_ID, FROM_ID_LENGTH) == 0) &&
@@ -1217,11 +1328,7 @@ check_option(char *option)
               }
            }
         }
-   else if (((CHECK_STRNCMP(option, BASENAME_ID, BASENAME_ID_LENGTH) == 0) &&
-             (*(option + BASENAME_ID_LENGTH) == '\0')) ||
-            ((CHECK_STRNCMP(option, EXTENSION_ID, EXTENSION_ID_LENGTH) == 0) &&
-             (*(option + EXTENSION_ID_LENGTH) == '\0')) ||
-            ((CHECK_STRNCMP(option, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0) &&
+   else if (((CHECK_STRNCMP(option, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0) &&
              (*(option + TOUPPER_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, TOLOWER_ID, TOLOWER_ID_LENGTH) == 0) &&
              (*(option + TOLOWER_ID_LENGTH) == '\0')) ||
@@ -1237,8 +1344,7 @@ check_option(char *option)
              (*(option + TIFF2GTS_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, GTS2TIFF_ID, GTS2TIFF_ID_LENGTH) == 0) &&
              (*(option + GTS2TIFF_ID_LENGTH) == '\0')) ||
-            ((CHECK_STRNCMP(option, FAX2GTS_ID, FAX2GTS_ID_LENGTH) == 0) &&
-             (*(option + FAX2GTS_ID_LENGTH) == '\0')) ||
+            (CHECK_STRNCMP(option, FAX2GTS_ID, FAX2GTS_ID_LENGTH) == 0) ||
             ((CHECK_STRNCMP(option, WMO2ASCII_ID, WMO2ASCII_ID_LENGTH) == 0) &&
              (*(option + WMO2ASCII_ID_LENGTH) == '\0')) ||
 #ifdef _WITH_AFW2WMO
@@ -1267,6 +1373,62 @@ check_option(char *option)
              (*(option + PASSIVE_FTP_MODE_LENGTH) == '\0')))
         {
            /* OK */;
+        }
+   else if ((CHECK_STRNCMP(option, BASENAME_ID, BASENAME_ID_LENGTH) == 0) &&
+            ((*(option + BASENAME_ID_LENGTH) == '\0') ||
+             (*(option + BASENAME_ID_LENGTH) == ' ') ||
+             (*(option + BASENAME_ID_LENGTH) == '\t')))
+        {
+           if (*(option + BASENAME_ID_LENGTH) != '\0')
+           {
+              ptr += BASENAME_ID_LENGTH + 1;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              /* overwrite */
+              if (!((*ptr == 'o') && (*(ptr + 1) == 'v') &&
+                    (*(ptr + 2) == 'e') && (*(ptr + 3) == 'r') &&
+                    (*(ptr + 4) == 'w') && (*(ptr + 5) == 'r') &&
+                    (*(ptr + 6) == 'i') && (*(ptr + 7) == 't') &&
+                    (*(ptr + 8) == 'e') &&
+                    ((*(ptr + 9) == '\0') || (*(ptr + 9) == ' ') ||
+                     (*(ptr + 9) == '\t'))))
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Only `overwrite' is possible for %s.",
+                            BASENAME_ID);
+                 return(INCORRECT);
+              }
+           }
+        }
+   else if ((CHECK_STRNCMP(option, EXTENSION_ID, EXTENSION_ID_LENGTH) == 0) &&
+            ((*(option + EXTENSION_ID_LENGTH) == '\0') ||
+             (*(option + EXTENSION_ID_LENGTH) == ' ') ||
+             (*(option + EXTENSION_ID_LENGTH) == '\t')))
+        {
+           if (*(option + EXTENSION_ID_LENGTH) != '\0')
+           {
+              ptr += EXTENSION_ID_LENGTH + 1;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              /* overwrite */
+              if (!((*ptr == 'o') && (*(ptr + 1) == 'v') &&
+                    (*(ptr + 2) == 'e') && (*(ptr + 3) == 'r') &&
+                    (*(ptr + 4) == 'w') && (*(ptr + 5) == 'r') &&
+                    (*(ptr + 6) == 'i') && (*(ptr + 7) == 't') &&
+                    (*(ptr + 8) == 'e') &&
+                    ((*(ptr + 9) == '\0') || (*(ptr + 9) == ' ') ||
+                     (*(ptr + 9) == '\t'))))
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Only `overwrite' is possible for %s.",
+                            EXTENSION_ID);
+                 return(INCORRECT);
+              }
+           }
         }
 #ifdef WITH_EUMETSAT_HEADERS
    else if ((CHECK_STRNCMP(option, EUMETSAT_HEADER_ID, EUMETSAT_HEADER_ID_LENGTH) == 0) &&

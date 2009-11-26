@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = show_olog.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
                        -I../common -I../../../init_afd -I../../../log\
-                       -I../../../fd -I../../../amg -I../afd_ctrl
+                       -I../../../fd -I../../../amg -I../mafd_ctrl
 bin_PROGRAMS         = show_olog
 show_olog_SOURCES    = calculate_summary.c\
                        callbacks.c\

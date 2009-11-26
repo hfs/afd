@@ -46,7 +46,7 @@ DESCR__E_M1
 #include <string.h>                   /* strcpy(), strcat(), strerror()  */
 #include <time.h>                     /* time()                          */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>                 /* struct tm                       */
+# include <sys/time.h>                /* struct tm                       */
 #endif
 #include <stdlib.h>                   /* malooc(), free()                */
 #include <sys/types.h>
@@ -58,7 +58,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* Global varaibles */
+/* Global varaibles. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir;
 const char *sys_log_name = SYSTEM_LOG_FIFO;

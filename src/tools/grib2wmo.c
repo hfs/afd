@@ -1,6 +1,6 @@
 /*
  *  grib2wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <errno.h>
 
-/* Global variables */
+/* Global variables. */
 int receive_log_fd = STDERR_FILENO,
     sys_log_fd = STDERR_FILENO;
 
@@ -67,7 +67,7 @@ main(int argc, char *argv[])
 
       if (stat(argv[1], &stat_buf) == -1)
       {
-         (void)fprintf(stderr, "Failed to stat() %s : %s\n",
+         (void)fprintf(stderr, _("Failed to stat() `%s' : %s\n"),
                        argv[1], strerror(errno));
          ret = INCORRECT;
       }
@@ -89,15 +89,15 @@ main(int argc, char *argv[])
          }
          if (convert_grib2wmo(argv[1], &size, p_cccc) == INCORRECT)
          {
-            (void)fprintf(stderr, "Failed to convert %s\n", argv[1]);
+            (void)fprintf(stderr, _("Failed to convert %s\n"), argv[1]);
             ret = INCORRECT;
          }
          else
          {
 #if SIZEOF_OFF_T == 4
-            (void)fprintf(stdout, "converted %s, new size is %ld\n",
+            (void)fprintf(stdout, _("converted %s, new size is %ld\n"),
 #else
-            (void)fprintf(stdout, "converted %s, new size is %lld\n",
+            (void)fprintf(stdout, _("converted %s, new size is %lld\n"),
 #endif
                           argv[1], (pri_off_t)size);
             ret = SUCCESS;
@@ -106,7 +106,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stderr, "Usage: %s <file name> [CCCC]\n", argv[0]);
+      (void)fprintf(stderr, _("Usage: %s <file name> [CCCC]\n"), argv[0]);
       ret = INCORRECT;
    }
 

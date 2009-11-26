@@ -1,6 +1,6 @@
 /*
  *  afd_load.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,11 +60,11 @@ DESCR__E_M1
 #include <X11/Intrinsic.h>
 #include <X11/Xaw/StripChart.h>
 #include "afd_load.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "permission.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 Widget                     current_value_w;
 int                        fsa_fd,
                            fsa_id,
@@ -80,7 +80,7 @@ struct filetransfer_status *fsa;
 struct afd_status          *p_afd_status;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local global variables */
+/* Local global variables. */
 static char                chart_type;
 
 /* Local function prototypes. */
@@ -140,7 +140,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialize global variables */
+   /* Initialize global variables. */
    p_work_dir = work_dir;
    init_afd_load(&argc, argv, font_name, window_title);
 
@@ -174,10 +174,15 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Create managing widget */
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(XtDisplay(appshell), appshell);
+#endif
+
+   /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
 
-   /* Prepare font */
+   /* Prepare font. */
    if ((entry = XmFontListEntryLoad(XtDisplay(mainform_w), font_name, XmFONT_IS_FONT, "TAG1")) == NULL)
    {
        if ((entry = XmFontListEntryLoad(XtDisplay(mainform_w), "fixed", XmFONT_IS_FONT, "TAG1")) == NULL)
@@ -422,9 +427,16 @@ init_afd_load(int  *argc,
    }
 
    /* Attach to FSA to get values for chart. */
-   if (fsa_attach_passive() < 0)
+   if ((i = fsa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "Failed to attach to FSA.\n");
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "This program is not able to attach to the FSA due to incorrect version.\n");
+      }
+      else
+      {
+         (void)fprintf(stderr, "Failed to attach to FSA.\n");
+      }
       exit(INCORRECT);
    }
 
@@ -455,7 +467,7 @@ init_afd_load(int  *argc,
         }
    else if (get_arg(argc, argv, SHOW_TRANSFER_LOAD, NULL, 0) == SUCCESS)
         {
-           /* Attach to the AFD Status Area */
+           /* Attach to the AFD Status Area. */
            if (attach_afd_status(NULL) < 0)
            {
               (void)fprintf(stderr,

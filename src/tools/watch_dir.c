@@ -55,7 +55,7 @@ int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local function prototypes. */
 static void usage(char *);
 
 
@@ -114,7 +114,7 @@ main(int argc, char *argv[])
             continue;
          }
 
-         /* Make sure it's NOT a directory */
+         /* Make sure it's NOT a directory. */
          if (S_ISDIR(stat_buf.st_mode) == 0)
          {
             if (((ret = strcmp(dirp->d_name, filename)) != 0) ||

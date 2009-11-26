@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2009 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -73,11 +73,11 @@ else
    EXTRA_OPEN_FIFO_RW =
 endif
 if ERROR_QUEUE_SUPPORT
-   HANDLE_ERROR_QUEUE = handle_error_queue.c
+   HANDLE_ERROR_QUEUE = convert_error_queue.c handle_error_queue.c
    EXTRA_HANDLE_ERROR_QUEUE =
 else
    HANDLE_ERROR_QUEUE =
-   EXTRA_HANDLE_ERROR_QUEUE = handle_error_queue.c
+   EXTRA_HANDLE_ERROR_QUEUE = convert_error_queue.c handle_error_queue.c
 endif
 EXTRA_DIST = $(EXTRA_MAPPER) $(EXTRA_AFD_MON) $(EXTRA_EACCESS)\
              $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID) $(EXTRA_PRODUCTION_LOG)\
@@ -97,6 +97,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        change_name.c\
                        check_lock.c\
                        coe_open.c\
+                       convert_ls_data.c\
                        create_message.c\
                        create_remote_dir.c\
                        check_create_path.c\
@@ -116,8 +117,11 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        error_action.c\
                        eval_host_config.c\
                        eval_timeout.c\
+                       eval_time_str.c\
                        event_log.c\
                        exec_cmd.c\
+                       expand_path.c\
+                       extract_cus.c\
                        fra_attach.c\
                        fra_detach.c\
                        fsa_attach.c\
@@ -130,7 +134,6 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        get_dir_number.c\
                        get_dir_options.c\
                        get_error_str.c\
-                       get_hostname.c\
                        get_log_number.c\
                        get_max_log_number.c\
                        get_mon_path.c\
@@ -141,6 +144,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        get_rule.c\
                        get_update_config_str.c\
                        get_user.c\
+                       handle_counter.c\
                        $(HANDLE_ERROR_QUEUE)\
                        inform_fd_about_fsa_change.c\
                        $(DUPCHECK)\
@@ -157,20 +161,21 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        move_file.c\
                        my_strncpy.c\
                        my_usleep.c\
-                       next_counter.c\
-                       open_counter_file.c\
                        $(OPEN_FIFO_RW)\
                        posi.c\
                        pmatch.c\
                        $(PRODUCTION_LOG)\
                        read_file.c\
+                       read_file_no_cr.c\
                        readn.c\
                        rec.c\
                        rec_rmdir.c\
                        remove_dir.c\
                        remove_files.c\
+                       remove_job_files.c\
                        reshuffel_log_files.c\
                        rlock_region.c\
+                       handle_alias_name.c\
                        send_cmd.c\
                        $(SET_AFD_EUID)\
                        set_fl.c\
@@ -179,7 +184,9 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        t_hostname.c\
                        unlock_region.c\
                        unmap_data.c\
+                       url.c\
                        write_host_config.c\
+                       writen.c\
                        ../init_afd/afddefs.h\
                        ../afdsetup.h\
                        ../../config.h

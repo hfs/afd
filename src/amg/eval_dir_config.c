@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -108,6 +108,7 @@ DESCR__S_M3
  **                      directories are in different DIR_CONFIGS.
  **   03.05.2007 H.Kiehl Return the number of warnings that where generated.
  **   17.05.2007 H.Kiehl Added check for options.
+ **   20.04.2008 H.Kiehl Let url_evaluate() handle the URL parts once.
  **
  */
 DESCR__E_M3
@@ -121,13 +122,13 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap(), munmap()                  */
+# include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
 #include <pwd.h>                    /* getpwuid(), getpwnam()            */
 #include <unistd.h>                 /* R_OK, W_OK, X_OK                  */
 #include <errno.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
@@ -170,21 +171,18 @@ struct passwd_buf             *pwb = NULL;
 static char                   *p_t = NULL;   /* Start of directory table.   */
 
 /* Local function prototypes. */
-static int                    check_hostname_list(char *, unsigned int),
+static int                    check_hostname_list(char *, char *, char *,
+                                                  unsigned int, unsigned int),
 #ifdef MBOX_DIR
                               create_mbox_dir(char *, char *),
 #endif
-                              count_new_lines(char *, char *);
+                              count_new_lines(char *, char *),
+                              optimise_dir(char *);
 static void                   copy_to_file(void),
-#ifdef WITH_MULTI_DIR_DEFINITION
-                              copy_job(int, int, int, struct dir_group *),
-                              insert_dir(struct dir_group *, int),
-#else
                               copy_job(int, int, struct dir_group *),
                               insert_dir(struct dir_group *),
-#endif
                               insert_hostname(struct dir_group *),
-                              store_full_path(char *, char *);
+                              sort_jobs(void);
 static char                   *posi_identifier(char *, char *, size_t);
 
 #define RECIPIENT_STEP_SIZE 10
@@ -203,20 +201,20 @@ static char                   *posi_identifier(char *, char *, size_t);
               }                                             \
               switch (*tmp_ptr)                             \
               {                                             \
-                 case '#' :  /* Found comment */            \
+                 case '#' :  /* Found comment. */           \
                     while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0')) \
                     {                                       \
                        tmp_ptr++;                           \
                     }                                       \
                     ptr = tmp_ptr;                          \
                     continue;                               \
-                 case '\0':  /* Found end for this entry */ \
+                 case '\0':  /* Found end for this entry. */\
                     ptr = tmp_ptr;                          \
                     continue;                               \
-                 case '\n':  /* End of line reached */      \
+                 case '\n':  /* End of line reached. */     \
                     ptr = tmp_ptr;                          \
                     continue;                               \
-                 default  :  /* option goes on */           \
+                 default  :  /* Option goes on. */          \
                     ptr = tmp_ptr;                          \
                     break;                                  \
               }                                             \
@@ -238,6 +236,7 @@ static char                   *posi_identifier(char *, char *, size_t);
 int
 eval_dir_config(off_t db_size, unsigned int *warn_counter)
 {
+   unsigned int     error_mask;
    int              dcd = 0,             /* DIR_CONFIG's done.            */
                     i,
                     j,
@@ -256,6 +255,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                                          /* destination name.             */
    uid_t            current_uid;
    char             *database = NULL,
+                    *dir_ptr,
                     *error_ptr,          /* Pointer showing where we fail */
                                          /* to see that the directory is  */
                                          /* available for us.             */
@@ -285,8 +285,14 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                                          /* a destination entry.          */
                     other_dest_flag,     /* If set, there is another      */
                                          /* destination entry.            */
-                    prev_user_name[MAX_USER_NAME_LENGTH],
-                    prev_user_dir[MAX_PATH_LENGTH];
+                    prev_user_name[MAX_USER_NAME_LENGTH + 1],
+                    prev_user_dir[MAX_PATH_LENGTH],
+                    user[MAX_USER_NAME_LENGTH + 1],
+                    smtp_user[MAX_USER_NAME_LENGTH + 1],
+                    password[MAX_USER_NAME_LENGTH + 1],
+                    directory[MAX_RECIPIENT_LENGTH + 1],
+                    smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
+   unsigned char    smtp_auth;
    struct dir_group *dir;
 
    /* Allocate memory for the directory structure. */
@@ -334,7 +340,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
       (void)strcat(dir_name_file, FIFO_DIR);
       (void)strcat(dir_name_file, DIR_NAME_FILE);
       if ((p_dir_buf = attach_buf(dir_name_file, &dnb_fd,
-                                  size, "AMG", FILE_MODE, NO)) == (caddr_t) -1)
+                                  &size, "AMG", FILE_MODE, NO)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Failed to mmap() to %s : %s",
@@ -370,7 +376,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
       system_log(DEBUG_SIGN, NULL, 0, "Reading %s", dcl[dcd].dir_config_file);
 
       /* Read database file and store it into memory. */
-      if ((read_file(dcl[dcd].dir_config_file, &database) == INCORRECT) ||
+      if ((read_file_no_cr(dcl[dcd].dir_config_file, &database) == INCORRECT) ||
           (database[0] == '\0'))
       {
          if (database[0] == '\0')
@@ -517,20 +523,20 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                      }
                      switch (*tmp_ptr)
                      {
-                        case '#' :  /* Found comment */
+                        case '#' :  /* Found comment. */
                            while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
                            {
                               tmp_ptr++;
                            }
                            ptr = tmp_ptr;
                            continue;
-                        case '\0':  /* Found end for this entry */
+                        case '\0':  /* Found end for this entry. */
                            ptr = tmp_ptr;
                            continue;
-                        case '\n':  /* End of line reached */
+                        case '\n':  /* End of line reached. */
                            ptr = tmp_ptr;
                            continue;
-                        default  :  /* option goes on */
+                        default  :  /* Option goes on. */
                            ptr = tmp_ptr;
                            break;
                      }
@@ -585,6 +591,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                  continue;
               }
          dir->location[i] = '\0';
+         dir->location_length = i;
 
          /* Lets resolve any tilde signs ~. */
          if (dir->location[0] == '~')
@@ -592,10 +599,12 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
             char tmp_char,
                  tmp_location[MAX_PATH_LENGTH];
 
-            (void)memcpy(dir->orig_dir_name, dir->location, i);
+            (void)memcpy(dir->orig_dir_name, dir->location,
+                         dir->location_length);
             tmp_ptr = dir->location;
             while ((*tmp_ptr != '/') && (*tmp_ptr != '\n') &&
-                   (*tmp_ptr != '\0') && (*tmp_ptr != ' ') && (*tmp_ptr != '\t'))
+                   (*tmp_ptr != '\0') && (*tmp_ptr != ' ') &&
+                   (*tmp_ptr != '\t'))
             {
                tmp_ptr++;
             }
@@ -662,222 +671,194 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                (void)strcat(tmp_location, tmp_ptr);
             }
             (void)strcpy(dir->location, tmp_location);
+            dir->location_length = optimise_dir(dir->location);
             dir->protocol = LOC;
          }
          else if (dir->location[0] == '/')
               {
-                 (void)memcpy(dir->orig_dir_name, dir->location, i);
+                 (void)memcpy(dir->orig_dir_name, dir->location,
+                              dir->location_length);
+                 dir->location_length = optimise_dir(dir->location);
                  dir->type = LOCALE_DIR;
                  dir->protocol = LOC;
               }
-         else if ((dir->location[0] == 'f') && (dir->location[1] == 't') &&
-                  (dir->location[2] == 'p') &&
-#ifdef WITH_SSL
-                  (((dir->location[3] == ':') && (dir->location[4] == '/') &&
-                    (dir->location[5] == '/')) ||
-                   (((dir->location[3] == 's') || (dir->location[3] == 'S')) &&
-                    (dir->location[4] == ':') &&
-                    (dir->location[5] == '/') && (dir->location[6] == '/'))))
-#else
-                  (dir->location[3] == ':') && (dir->location[4] == '/') &&
-                  (dir->location[5] == '/'))
+         /* Assume it is url format. */
+         else if ((error_mask = url_evaluate(dir->location, &dir->scheme, user,
+                                             &smtp_auth, smtp_user,
+#ifdef WITH_SSH_FINGERPRINT
+                                             NULL, NULL,
 #endif
-              {
-                 dir->type = REMOTE_DIR;
-                 dir->protocol = FTP;
-                 (void)strcpy(dir->url, dir->location);
 #ifdef WITH_PASSWD_IN_MSG
-                 store_passwd(dir->url, NO);
+                                             password, NO, dir->real_hostname,
 #else
-                 store_passwd(dir->url, YES);
+                                             password, YES, dir->real_hostname,
 #endif
-                 (void)strcpy(dir->orig_dir_name, dir->url);
-
-                 /*
-                  * Cut away the URL and make the directory look like a
-                  * real directory of the following format:
-                  * $AFD_WORK_DIR/files/incoming/<user>@<hostname>/[<user>/]<remote dir>
-                  */
-                 if (create_remote_dir(dir->url, dir->location) == INCORRECT)
-                 {
-                    continue;
-                 }
-              }
-         else if ((dir->location[0] == 's') && (dir->location[1] == 'f') &&
-                  (dir->location[2] == 't') && (dir->location[3] == 'p') &&
-                  ((dir->location[4] == ':') && (dir->location[5] == '/') &&
-                   (dir->location[6] == '/')))
+                                             NULL, directory, NULL, NULL, NULL,
+                                             NULL, NULL)) == 0)
               {
-                 dir->type = REMOTE_DIR;
-                 dir->protocol = SFTP;
-                 (void)strcpy(dir->url, dir->location);
-#ifdef WITH_PASSWD_IN_MSG
-                 store_passwd(dir->url, NO);
-#else
-                 store_passwd(dir->url, YES);
-#endif
-                 (void)strcpy(dir->orig_dir_name, dir->url);
-
-                 /*
-                  * Cut away the URL and make the directory look like a
-                  * real directory of the following format:
-                  * $AFD_WORK_DIR/files/incoming/<user>@<hostname>/[<user>/]<remote dir>
-                  */
-                 if (create_remote_dir(dir->url, dir->location) == INCORRECT)
+                 if (dir->scheme & FTP_FLAG)
                  {
-                    continue;
+                    dir->type = REMOTE_DIR;
+                    dir->protocol = FTP;
+                    if (password[0] != '\0')
+                    {
+                       store_passwd(user, dir->real_hostname, password);
+                    }
+                    t_hostname(dir->real_hostname, dir->host_alias);
+                    (void)strcpy(dir->url, dir->location);
+                    (void)strcpy(dir->orig_dir_name, dir->url);
+                    if (create_remote_dir(NULL, user, dir->real_hostname,
+                                          directory, dir->location,
+                                          &dir->location_length) == INCORRECT)
+                    {
+                       continue;
+                    }
                  }
-              }
-         else if ((dir->location[0] == 'h') && (dir->location[1] == 't') &&
-                  (dir->location[2] == 't') && (dir->location[3] == 'p') &&
-#ifdef WITH_SSL
-                  (((dir->location[4] == ':') && (dir->location[5] == '/') &&
-                    (dir->location[6] == '/')) ||
-                   (((dir->location[4] == 's') && (dir->location[5] == ':') &&
-                     (dir->location[6] == '/') && (dir->location[7] == '/')))))
-#else
-                  (dir->location[4] == ':') && (dir->location[5] == '/') &&
-                  (dir->location[6] == '/'))
-#endif
-              {
-                 dir->type = REMOTE_DIR;
-                 dir->protocol = HTTP;
-                 (void)strcpy(dir->url, dir->location);
-#ifdef WITH_PASSWD_IN_MSG
-                 store_passwd(dir->url, NO);
-#else
-                 store_passwd(dir->url, YES);
-#endif
-                 (void)strcpy(dir->orig_dir_name, dir->url);
+                 else if (dir->scheme & LOC_FLAG)
+                      {
+                         (void)memcpy(dir->orig_dir_name, dir->location,
+                                      dir->location_length);
+                         dir->type = LOCALE_DIR;
+                         dir->protocol = LOC;
+                         if ((dir->real_hostname[0] != '\0') &&
+                             (dir->alias[0] == '\0'))
+                         {
+                            (void)my_strncpy(dir->alias, dir->real_hostname,
+                                             MAX_DIR_ALIAS_LENGTH);
+                         }
+                         if (directory[0] != '/')
+                         {
+                            if ((prev_user_name[0] == '\0') ||
+                                (CHECK_STRCMP(user, prev_user_name) != 0))
+                            {
+                               char          *p_end;
+                               struct passwd *pwd;
 
-                 /*
-                  * Cut away the URL and make the directory look like a
-                  * real directory of the following format:
-                  * $AFD_WORK_DIR/files/incoming/<user>@<hostname>/[<user>/]<remote dir>
-                  */
-                 if (create_remote_dir(dir->url, dir->location) == INCORRECT)
-                 {
-                    continue;
-                 }
+                               if (user[0] == '\0')
+                               {
+                                  if ((pwd = getpwuid(current_uid)) == NULL)
+                                  {
+                                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                "Cannot find working directory for user with the user ID %d in /etc/passwd (ignoring directory from %s) : %s",
+                                                current_uid, dcl[dcd].dir_config_file,
+                                                strerror(errno));
+                                     if (warn_counter != NULL)
+                                     {
+                                        (*warn_counter)++;
+                                     }
+                                     continue;
+                                  }
+                               }
+                               else
+                               {
+                                  if ((pwd = getpwnam(user)) == NULL)
+                                  {
+                                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                "Cannot find users %s working directory in /etc/passwd (ignoring directory from %s) : %s",
+                                                user, dcl[dcd].dir_config_file,
+                                                strerror(errno));
+                                     if (warn_counter != NULL)
+                                     {
+                                        (*warn_counter)++;
+                                     }
+                                     continue;
+                                  }
+                               }
+                               (void)strcpy(prev_user_name, user);
+                               (void)strcpy(prev_user_dir, pwd->pw_dir);
+
+                               /*
+                                * Cut away /./ at end of user directory. This
+                                * information * is used by some FTP-servers so
+                                * they chroot to this * directory. We don't
+                                * need that here.
+                                */
+                               p_end = prev_user_dir + strlen(prev_user_dir) - 1;
+                               while ((p_end > prev_user_dir) &&
+                                      ((*p_end == '/') || (*p_end == '.')))
+                               {
+                                  *p_end = '\0';
+                                  p_end--;
+                               }
+                            }
+                         }
+                         (void)memcpy(dir->orig_dir_name, dir->location,
+                                      dir->location_length);
+                         if (directory[0] == '\0')
+                         {
+                            (void)strcpy(dir->location, prev_user_dir);
+                            dir->location_length = strlen(dir->location) + 1;
+                         }
+                         else
+                         {
+                            (void)sprintf(dir->location, "%s/%s",
+                                          prev_user_dir, directory);
+                            dir->location_length = optimise_dir(dir->location);
+                         }
+                      }
+                 else if (dir->scheme & HTTP_FLAG)
+                      {
+                         dir->type = REMOTE_DIR;
+                         dir->protocol = HTTP;
+                         if (password[0] != '\0')
+                         {
+                            store_passwd(user, dir->real_hostname, password);
+                         }
+                         t_hostname(dir->real_hostname, dir->host_alias);
+                         (void)strcpy(dir->url, dir->location);
+                         (void)strcpy(dir->orig_dir_name, dir->url);
+                         if (create_remote_dir(NULL, user, dir->real_hostname,
+                                               directory, dir->location,
+                                               &dir->location_length) == INCORRECT)
+                         {
+                            continue;
+                         }
+                      }
+                 else if (dir->scheme & SFTP_FLAG)
+                      {
+                         dir->type = REMOTE_DIR;
+                         dir->protocol = SFTP;
+                         if (password[0] != '\0')
+                         {
+                            store_passwd(user, dir->real_hostname, password);
+                         }
+                         t_hostname(dir->real_hostname, dir->host_alias);
+                         (void)strcpy(dir->url, dir->location);
+                         (void)strcpy(dir->orig_dir_name, dir->url);
+                         if (create_remote_dir(NULL, user, dir->real_hostname,
+                                               directory, dir->location,
+                                               &dir->location_length) == INCORRECT)
+                         {
+                            continue;
+                         }
+                      }
+                      else
+                      {
+                         system_log(WARN_SIGN, __FILE__, __LINE__,
+                                    "Unknown or unsupported scheme, ignoring directory %s from %s",
+                                    dir->location, dcl[dcd].dir_config_file);
+                         if (warn_counter != NULL)
+                         {
+                            (*warn_counter)++;
+                         }
+                         continue;
+                      }
               }
               else
               {
+                 char error_msg[MAX_URL_ERROR_MSG];
+
+                 url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Unknown or unsupported scheme, ignoring directory %s from %s",
-                            dir->location, dcl[dcd].dir_config_file);
+                            "Incorrect url `%s'. Error is: %s.",
+                            dir->location, error_msg);
                  if (warn_counter != NULL)
                  {
                     (*warn_counter)++;
                  }
                  continue;
               }
-
-         /* Now lets check if this directory does exist and if we */
-         /* do have enough permissions to work in this directory. */
-         if ((ret = check_create_path(dir->location, create_source_dir_mode,
-                                      &error_ptr,
-                                      create_source_dir)) == CREATED_DIR)
-         {
-            system_log(INFO_SIGN, __FILE__, __LINE__,
-                       "Created directory `%s' at line %d from %s",
-                       dir->location, count_new_lines(database, ptr - 1),
-                       dcl[dcd].dir_config_file);
-         }
-         else if (ret == NO_ACCESS)
-              {
-                 if (error_ptr != NULL)
-                 {
-                    *error_ptr = '\0';
-                 }
-                 if (warn_counter != NULL)
-                 {
-                    (*warn_counter)++;
-                 }
-                 if (dir->type == REMOTE_DIR)
-                 {
-                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Cannot access directory `%s' at line %d from %s (Ignoring this entry) : %s",
-                               dir->location, count_new_lines(database, ptr - 1),
-                               dcl[dcd].dir_config_file, strerror(errno));
-                    continue;
-                 }
-                 else
-                 {
-                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Cannot access directory `%s' or create a subdirectory in it at line %d from %s : %s",
-                               dir->location, count_new_lines(database, ptr - 1),
-                               dcl[dcd].dir_config_file, strerror(errno));
-                 }
-                 if (error_ptr != NULL)
-                 {
-                    *error_ptr = '/';
-                 }
-              }
-         else if (ret == MKDIR_ERROR)
-              {
-                 if (error_ptr != NULL)
-                 {
-                    *error_ptr = '\0';
-                 }
-                 if (warn_counter != NULL)
-                 {
-                    (*warn_counter)++;
-                 }
-                 if (dir->type == REMOTE_DIR)
-                 {
-                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Failed to create directory `%s' at line %d from %s (Ignoring this entry) : %s",
-                               dir->location, count_new_lines(database, ptr - 1),
-                               dcl[dcd].dir_config_file, strerror(errno));
-                    continue;
-                 }
-                 else
-                 {
-                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Failed to create directory `%s' at line %d from %s : %s",
-                               dir->location, count_new_lines(database, ptr - 1),
-                               dcl[dcd].dir_config_file, strerror(errno));
-                 }
-                 if (error_ptr != NULL)
-                 {
-                    *error_ptr = '/';
-                 }
-              }
-         else if (ret == STAT_ERROR)
-              {
-                 if (error_ptr != NULL)
-                 {
-                    *error_ptr = '\0';
-                 }
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to stat() `%s' at line %d from %s : %s",
-                            dir->location, count_new_lines(database, ptr - 1),
-                            dcl[dcd].dir_config_file, strerror(errno));
-                 if (warn_counter != NULL)
-                 {
-                    (*warn_counter)++;
-                 }
-                 if (error_ptr != NULL)
-                 {
-                    *error_ptr = '/';
-                 }
-              }
-         else if (ret == ALLOC_ERROR)
-              {
-                 system_log(FATAL_SIGN, __FILE__, __LINE__,
-                            "Could not realloc() memory : %s", strerror(errno));
-                 exit(INCORRECT);
-              }
-         else if (ret == SUCCESS)
-              {
-                 /* Directory does exist, so nothing to do here. */;
-              }
-              else
-              {
-                 system_log(FATAL_SIGN, __FILE__, __LINE__,
-                            "Unknown error, should not get here.");
-                 exit(INCORRECT);
-              }
+         dir_ptr = ptr - 1;
 
          /* Before we go on, we have to search for the beginning of */
          /* the next directory entry so we can mark the end for     */
@@ -1031,7 +1012,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
             }
 
             /* Store file-group name. */
-            if (*ptr != '\n') /* Is there a file group name ? */
+            if (*ptr != '\n') /* Is there a file group name? */
             {
                /* Store file group name. */
                i = 0;
@@ -1237,7 +1218,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                /* Store destination group name. */
                if (*ptr != '\n') /* Is there a destination group name? */
                {
-                  /* Store group name of destination */
+                  /* Store group name of destination. */
                   i = 0;
                   while ((*ptr != '\n') && (*ptr != '\0'))
                   {
@@ -1337,8 +1318,13 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                   /* line, until we encounter an empty line.     */
                   dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc = 0;
 
-                  RT_ARRAY(dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].recipient,
-                           RECIPIENT_STEP_SIZE, MAX_RECIPIENT_LENGTH, char);
+                  if ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec = malloc((RECIPIENT_STEP_SIZE * sizeof(struct recipient_group)))) == NULL)
+                  {
+                     system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                "Could not malloc() memory : %s",
+                                strerror(errno));
+                     exit(INCORRECT);
+                  }
 
                   while ((*ptr != '\n') && (*ptr != '\0'))
                   {
@@ -1395,274 +1381,130 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                               default  : /* Assume the recipient string */
                                          /* contains spaces.            */
                                  (void)memmove(&dir->file[dir->fgc].\
-                                                 dest[dir->file[dir->fgc].dgc].\
-                                                 recipient[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc][i],
+                                               dest[dir->file[dir->fgc].dgc].\
+                                               rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].\
+                                               recipient[i],
                                                ptr, tmp_ptr - ptr);
                                  i += (tmp_ptr - ptr);
                                  ptr = tmp_ptr;
                                  break;
                            }
                         }
-                        dir->file[dir->fgc].\
-                                dest[dir->file[dir->fgc].dgc].\
-                                recipient[dir->file[dir->fgc].\
-                                dest[dir->file[dir->fgc].dgc].rc][i] = *ptr;
+                        dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].\
+                                rec[dir->file[dir->fgc].\
+                                dest[dir->file[dir->fgc].dgc].rc].\
+                                recipient[i] = *ptr;
                         ptr++; i++;
                      }
-                     dir->file[dir->fgc].\
-                             dest[dir->file[dir->fgc].dgc].\
-                             recipient[dir->file[dir->fgc].\
-                             dest[dir->file[dir->fgc].dgc].rc][i] = '\0';
+                     dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].\
+                             rec[dir->file[dir->fgc].\
+                             dest[dir->file[dir->fgc].dgc].rc].\
+                             recipient[i] = '\0';
                      ptr++;
 
                      /* Make sure that we did read a line. */
                      if (i != 0)
                      {
-                        char real_hostname[MAX_REAL_HOSTNAME_LENGTH];
-
-                        /* Check if we can extract the hostname. */
-                        if (get_hostname(dir->file[dir->fgc].\
-                                         dest[dir->file[dir->fgc].dgc].\
-                                         recipient[dir->file[dir->fgc].\
-                                         dest[dir->file[dir->fgc].dgc].rc],
-                                         real_hostname) == INCORRECT)
+                        if ((error_mask = url_evaluate(dir->file[dir->fgc].\
+                                                       dest[dir->file[dir->fgc].dgc].\
+                                                       rec[dir->file[dir->fgc].\
+                                                       dest[dir->file[dir->fgc].dgc].rc].\
+                                                       recipient,
+                                                       &dir->file[dir->fgc].\
+                                                       dest[dir->file[dir->fgc].dgc].\
+                                                       rec[dir->file[dir->fgc].\
+                                                       dest[dir->file[dir->fgc].dgc].rc].\
+                                                       scheme, user,
+                                                       &smtp_auth, smtp_user,
+#ifdef WITH_SSH_FINGERPRINT
+                                                       NULL, NULL,
+#endif
+                                                       password, YES,
+                                                       dir->file[dir->fgc].\
+                                                       dest[dir->file[dir->fgc].dgc].\
+                                                       rec[dir->file[dir->fgc].\
+                                                       dest[dir->file[dir->fgc].dgc].rc].real_hostname,
+                                                       NULL, NULL, NULL, NULL,
+                                                       NULL, NULL, smtp_server)) == 0)
                         {
+                           if (user[0] == '\0')
+                           {
+                              if (dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[0] == MAIL_GROUP_IDENTIFIER)
+                              {
+                                 j = 0;
+                                 while (dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[j + 1] != '\0')
+                                 {
+                                    dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[j] = dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[j + 1];
+                                    j++;
+                                 }
+                                 dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[j] = '\0';
+                              }
+                           }
+                           if ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].scheme & SMTP_FLAG) &&
+                               (smtp_server[0] != '\0'))
+                           {
+                              j = 0;
+                              while (smtp_server[j] != '\0')
+                              {
+                                 dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[j] = smtp_server[j];
+                                 j++;
+                              }
+                              dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname[j] = '\0';
+                           }
+                           t_hostname(dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname,
+                                      dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].host_alias);
+
+                           if (password[0] != '\0')
+                           {
+                              if (smtp_auth == SMTP_AUTH_NONE)
+                              {
+                                 store_passwd(user,
+                                              dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname,
+                                              password);
+                              }
+                              else
+                              {
+                                 store_passwd(smtp_user,
+                                              dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc].real_hostname,
+                                              password);
+                              }
+                           }
+
+                           dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc++;
+                           t_rc++;
+                           if ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc % RECIPIENT_STEP_SIZE) == 0)
+                           {
+                              int new_size = ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc /
+                                               RECIPIENT_STEP_SIZE) + 1) * RECIPIENT_STEP_SIZE *
+                                             sizeof(struct recipient_group);
+
+                              if ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec = realloc(dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rec,
+                                                                                                   new_size)) == NULL)
+                              {
+                                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                            "Could not realloc() memory : %s",
+                                            strerror(errno));
+                                 exit(INCORRECT);
+                              }
+                           }
+                        }
+                        else
+                        {
+                           char error_msg[MAX_URL_ERROR_MSG];
+
+                           url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Failed to locate hostname or @ sign in recipient string %s. Ignoring the recipient in %s at line %d.",
+                                      "Incorrect url `%s'. Error is: %s. Ignoring the recipient in %s at line %d.",
                                       dir->file[dir->fgc].\
                                       dest[dir->file[dir->fgc].dgc].\
-                                      recipient[dir->file[dir->fgc].\
-                                      dest[dir->file[dir->fgc].dgc].rc],
+                                      rec[dir->file[dir->fgc].\
+                                      dest[dir->file[dir->fgc].dgc].rc].\
+                                      recipient, error_msg,
                                       dcl[dcd].dir_config_file,
                                       count_new_lines(database, search_ptr));
                            if (warn_counter != NULL)
                            {
                               (*warn_counter)++;
-                           }
-                        }
-                        else
-                        {
-                           /* Check if sheme/protocol is correct. */
-                           while ((*search_ptr == '\t') || (*search_ptr == ' '))
-                           {
-                              search_ptr++;
-                           }
-                           j = 0;
-                           while ((j < i) && (*search_ptr != ':'))
-                           {
-                              search_ptr++; j++;
-                           }
-                           if ((*search_ptr != ':') || ((j < i) &&
-                               ((*(search_ptr + 1) != '/') ||
-                                (*(search_ptr + 2) != '/'))))
-                           {
-                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Failed to determine sheme/protocol. Ignoring this recipient in %s at line %d.",
-                                         dcl[dcd].dir_config_file,
-                                         count_new_lines(database, search_ptr));
-                              if (warn_counter != NULL)
-                              {
-                                 (*warn_counter)++;
-                              }
-                           }
-                           else
-                           {
-                              *search_ptr = '\0';
-                              if (((*(search_ptr - j) == 'f') &&
-                                   (*(search_ptr - j + 1) == 't') &&
-#ifdef WITH_SSL
-                                   (*(search_ptr - j + 2) == 'p') &&
-                                   ((*(search_ptr - j + 3) == '\0') ||
-                                    (*(search_ptr - j + 3) == 's') ||
-                                    (*(search_ptr - j + 3) == 'S'))) ||
-#else
-                                   (*(search_ptr - j + 2) == 'p') &&
-                                   (*(search_ptr - j + 3) == '\0')) ||
-#endif
-                                  (CHECK_STRCMP(search_ptr - j, LOC_SHEME) == 0) ||
-#ifdef _WITH_SCP_SUPPORT
-                                  (CHECK_STRCMP(search_ptr - j, SCP_SHEME) == 0) ||
-#endif
-#ifdef _WITH_WMO_SUPPORT
-                                  (CHECK_STRCMP(search_ptr - j, WMO_SHEME) == 0) ||
-#endif
-#ifdef _WITH_MAP_SUPPORT
-                                  (CHECK_STRCMP(search_ptr - j, MAP_SHEME) == 0) ||
-#endif
-                                  ((*(search_ptr - j) == 's') &&
-                                   (*(search_ptr - j + 1) == 'f') &&
-                                   (*(search_ptr - j + 2) == 't') &&
-                                   (*(search_ptr - j + 3) == 'p') &&
-                                   (*(search_ptr - j + 4) == '\0')) ||
-                                  ((*(search_ptr - j) == 'h') &&
-                                   (*(search_ptr - j + 1) == 't') &&
-                                   (*(search_ptr - j + 2) == 't') &&
-#ifdef WITH_SSL
-                                   (*(search_ptr - j + 3) == 'p') &&
-                                   ((*(search_ptr - j + 4) == '\0') ||
-                                    (*(search_ptr - j + 4) == 's'))) ||
-#else
-                                   (*(search_ptr - j + 3) == 'p') &&
-                                   (*(search_ptr - j + 4) == '\0')) ||
-#endif
-                                  ((*(search_ptr - j) == 'm') &&
-                                   (*(search_ptr - j + 1) == 'a') &&
-                                   (*(search_ptr - j + 2) == 'i') &&
-                                   (*(search_ptr - j + 3) == 'l') &&
-                                   (*(search_ptr - j + 4) == 't') &&
-#ifdef WITH_SSL
-                                   (*(search_ptr - j + 5) == 'o') &&
-                                   ((*(search_ptr - j + 6) == '\0') ||
-                                    (*(search_ptr - j + 6) == 's'))))
-#else
-                                   (*(search_ptr - j + 5) == 'o') &&
-                                   (*(search_ptr - j + 6) == '\0')))
-#endif
-                              {
-                                 if ((*(search_ptr - j) == 'f') &&
-                                     (*(search_ptr - j + 1) == 'i') &&
-                                     (*(search_ptr - j + 2) == 'l') &&
-                                     (*(search_ptr - j + 3) == 'e') &&
-                                     (*(search_ptr - j + 4) == '\0'))
-                                 {
-                                    char *p_user_start,
-                                         *tmp_search_ptr;
-
-                                    /*
-                                     * Enter the complete path. So if the user
-                                     * only specifies the path relative to the
-                                     * users directory, get that users home
-                                     * directory. That can be done in two ways:
-                                     * either by using the users home directory
-                                     * from the user specified in the user
-                                     * field or by using ~username in the
-                                     * directory part. The tilde username
-                                     * version will be the one taken when
-                                     * both are specified.
-                                     */
-                                    tmp_search_ptr = dir->file[dir->fgc].\
-                                                       dest[dir->file[dir->fgc].dgc].\
-                                                       recipient[dir->file[dir->fgc].\
-                                                       dest[dir->file[dir->fgc].dgc].rc] +
-                                                       strlen(LOC_SHEME) +
-                                                       3;
-                                    p_user_start = tmp_search_ptr;
-                                    while ((*tmp_search_ptr != ':') &&
-                                           (*tmp_search_ptr != '@') &&
-                                           (*tmp_search_ptr != '#') &&
-                                           (*tmp_search_ptr != '\n') &&
-                                           (*tmp_search_ptr != '\0'))
-                                    {
-                                       tmp_search_ptr++;
-                                    }
-                                    if ((*tmp_search_ptr == ':') ||
-                                        (*tmp_search_ptr == '@'))
-                                    {
-                                        char *p_user_end = tmp_search_ptr;
-
-                                        while ((*tmp_search_ptr != '@') &&
-                                               (*tmp_search_ptr != '#') &&
-                                               (*tmp_search_ptr != '\n') &&
-                                               (*tmp_search_ptr != '\0'))
-                                        {
-                                           tmp_search_ptr++;
-                                        }
-                                        if (*tmp_search_ptr == '@')
-                                        {
-                                           while ((*tmp_search_ptr != '/') &&
-                                                  (*tmp_search_ptr != ' ') &&
-                                                  (*tmp_search_ptr != '#') &&
-                                                  (*tmp_search_ptr != ';') &&
-                                                  (*tmp_search_ptr != '\t') &&
-                                                  (*tmp_search_ptr != '\n') &&
-                                                  (*tmp_search_ptr != '\0'))
-                                           {
-                                              tmp_search_ptr++;
-                                           }
-                                           if ((*tmp_search_ptr == '/') &&
-                                               ((*(tmp_search_ptr + 1) == '~') ||
-                                                ((*(tmp_search_ptr + 2) == '~') &&
-                                                 (*(tmp_search_ptr + 1) == '/'))))
-                                           {
-                                              int  kk = 0;
-                                              char *p_start_dir = tmp_search_ptr,
-                                                   user_name[MAX_USER_NAME_LENGTH];
-
-                                              while ((*tmp_search_ptr == '/') ||
-                                                     (*tmp_search_ptr == '~'))
-                                              {
-                                                 tmp_search_ptr++;
-                                              }
-                                              while ((*tmp_search_ptr != '/') &&
-                                                     (*tmp_search_ptr != ';') &&
-                                                     (*tmp_search_ptr != '#') &&
-                                                     (*tmp_search_ptr != ' ') &&
-                                                     (*tmp_search_ptr != '\n') &&
-                                                     (*tmp_search_ptr != '\t') &&
-                                                     (*tmp_search_ptr != '\0') &&
-                                                     (kk < MAX_USER_NAME_LENGTH))
-                                              {
-                                                 user_name[kk] = *tmp_search_ptr;
-                                                 tmp_search_ptr++; kk++;
-                                              }
-                                              if (kk > 0)
-                                              {
-                                                 user_name[kk] = '\0';
-                                                 store_full_path(user_name,
-                                                                 p_start_dir);
-                                              }
-                                              else
-                                              {
-                                                 char tmp_char = *p_user_end;
-
-                                                 *p_user_end = '\0';
-                                                 store_full_path(p_user_start,
-                                                                 p_start_dir);
-                                                 *p_user_end = tmp_char;
-                                              }
-                                           }
-                                           else if (((*tmp_search_ptr == '/') &&
-                                                    (*(tmp_search_ptr + 1) != '/')) ||
-                                                    (*tmp_search_ptr == '#') ||
-                                                    (*tmp_search_ptr == ' ') ||
-                                                    (*tmp_search_ptr == ';') ||
-                                                    (*tmp_search_ptr == '\t') ||
-                                                    (*tmp_search_ptr == '\n') ||
-                                                    (*tmp_search_ptr == '\0'))
-                                                {
-                                                   char tmp_char = *p_user_end;
-
-                                                   *p_user_end = '\0';
-                                                   store_full_path(p_user_start,
-                                                                   tmp_search_ptr);
-                                                   *p_user_end = tmp_char;
-                                                }
-                                        }
-                                    }
-                                 }
-                                 dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc++;
-                                 t_rc++;
-                                 if ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc % RECIPIENT_STEP_SIZE) == 0)
-                                 {
-                                    int new_size = ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc / RECIPIENT_STEP_SIZE) + 1) * RECIPIENT_STEP_SIZE;
-
-                                    REALLOC_RT_ARRAY(dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].recipient,
-                                                     new_size, MAX_RECIPIENT_LENGTH, char);
-                                 }
-                              }
-                              else
-                              {
-                                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                                            "Unknown sheme <%s>. Ignoring recipient from %s at line %d.",
-                                            search_ptr - j,
-                                            dcl[dcd].dir_config_file,
-                                            count_new_lines(database, search_ptr));
-                                 if (warn_counter != NULL)
-                                 {
-                                    (*warn_counter)++;
-                                 }
-                              }
-                              *search_ptr = ':';
                            }
                         }
                      } /* if (i != 0) */
@@ -1935,12 +1777,10 @@ check_dummy_line:
             /* Check if this directory was not already specified. */
             for (j = 0; j < no_of_local_dirs; j++)
             {
-               if (CHECK_STRCMP(dir->location, dd[j].dir_name) == 0)
+               if (strcmp(dir->location, dd[j].dir_name) == 0)
                {
-#ifdef WITH_MULTI_DIR_DEFINITION
                   if (dcl[dcd].dc_id == dd[j].dir_config_id)
                   {
-#endif
                      system_log(WARN_SIGN, __FILE__, __LINE__,
                                 "Ignoring duplicate directory entry %s in %s.",
                                 dir->location, dcl[dcd].dir_config_file);
@@ -1949,21 +1789,17 @@ check_dummy_line:
                         (*warn_counter)++;
                      }
                      duplicate = YES;
-#ifdef WITH_MULTI_DIR_DEFINITION
                   }
                   else
                   {
                      duplicate = NEITHER;
                   }
-#endif
                   break;
                }
             }
 
-#ifdef WITH_MULTI_DIR_DEFINITION
             if (duplicate != YES)
             {
-#endif
                if (duplicate == NO)
                {
                   if ((no_of_local_dirs % 10) == 0)
@@ -2036,7 +1872,7 @@ check_dummy_line:
                      dd[no_of_local_dirs].host_alias[0] = '\0';
                      STRNCPY(dd[no_of_local_dirs].url, dir->location,
                              MAX_RECIPIENT_LENGTH);
-                     if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
+                     if (dir->location_length >= MAX_RECIPIENT_LENGTH)
                      {
                         dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
                      }
@@ -2045,6 +1881,9 @@ check_dummy_line:
                        {
                           (void)strcpy(dd[no_of_local_dirs].url, dir->url);
                           dd[no_of_local_dirs].fsa_pos = check_hostname_list(dir->url,
+                                                                             dir->real_hostname,
+                                                                             dir->host_alias,
+                                                                             dir->scheme,
                                                                              RETRIEVE_FLAG);
                           (void)strcpy(dd[no_of_local_dirs].host_alias,
                                        hl[dd[no_of_local_dirs].fsa_pos].host_alias);
@@ -2059,7 +1898,7 @@ check_dummy_line:
                           dd[no_of_local_dirs].host_alias[0] = '\0';
                           STRNCPY(dd[no_of_local_dirs].url, dir->location,
                                   MAX_RECIPIENT_LENGTH);
-                          if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
+                          if (dir->location_length >= MAX_RECIPIENT_LENGTH)
                           {
                              dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
                           }
@@ -2072,6 +1911,127 @@ check_dummy_line:
                   /* Evaluate the directory options. */
                   eval_dir_options(no_of_local_dirs, dir->dir_options,
                                    dir->option);
+
+                  /* Now lets check if this directory does exist and if we */
+                  /* do have enough permissions to work in this directory. */
+                  if ((ret = check_create_path(dir->location,
+                                               create_source_dir_mode,
+                                               &error_ptr,
+                                               create_source_dir,
+                                               dd[no_of_local_dirs].remove)) == CREATED_DIR)
+                  {
+                     system_log(INFO_SIGN, __FILE__, __LINE__,
+                                "Created directory `%s' at line %d from %s",
+                                dir->location,
+                                count_new_lines(database, ptr - 1),
+                                dcl[dcd].dir_config_file);
+                  }
+                  else if (ret == NO_ACCESS)
+                       {
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '\0';
+                          }
+                          if (warn_counter != NULL)
+                          {
+                             (*warn_counter)++;
+                          }
+                          if (dir->type == REMOTE_DIR)
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Cannot access directory `%s' at line %d from %s (Ignoring this entry) : %s",
+                                        dir->location,
+                                        count_new_lines(database, dir_ptr),
+                                        dcl[dcd].dir_config_file,
+                                        strerror(errno));
+                             continue;
+                          }
+                          else
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Cannot access directory `%s' or create a subdirectory in it at line %d from %s : %s",
+                                        dir->location,
+                                        count_new_lines(database, dir_ptr),
+                                        dcl[dcd].dir_config_file,
+                                        strerror(errno));
+                          }
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '/';
+                          }
+                       }
+                  else if (ret == MKDIR_ERROR)
+                       {
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '\0';
+                          }
+                          if (warn_counter != NULL)
+                          {
+                             (*warn_counter)++;
+                          }
+                          if (dir->type == REMOTE_DIR)
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to create directory `%s' at line %d from %s (Ignoring this entry) : %s",
+                                        dir->location,
+                                        count_new_lines(database, dir_ptr),
+                                        dcl[dcd].dir_config_file,
+                                        strerror(errno));
+                             continue;
+                          }
+                          else
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to create directory `%s' at line %d from %s : %s",
+                                        dir->location,
+                                        count_new_lines(database, dir_ptr),
+                                        dcl[dcd].dir_config_file,
+                                        strerror(errno));
+                          }
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '/';
+                          }
+                       }
+                  else if (ret == STAT_ERROR)
+                       {
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '\0';
+                          }
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Failed to stat() `%s' at line %d from %s : %s",
+                                     dir->location,
+                                     count_new_lines(database, dir_ptr),
+                                     dcl[dcd].dir_config_file,
+                                     strerror(errno));
+                          if (warn_counter != NULL)
+                          {
+                             (*warn_counter)++;
+                          }
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '/';
+                          }
+                       }
+                  else if (ret == ALLOC_ERROR)
+                       {
+                          system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                     "Could not realloc() memory : %s",
+                                     strerror(errno));
+                          exit(INCORRECT);
+                       }
+                  else if (ret == SUCCESS)
+                       {
+                          /* Directory does exist, so nothing to do here. */;
+                       }
+                       else
+                       {
+                          system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                     "Unknown error, should not get here.");
+                          exit(INCORRECT);
+                       }
 
                   /* Increase directory counter. */
                   no_of_local_dirs++;
@@ -2114,7 +2074,7 @@ check_dummy_line:
                         for (m = 0; m < dir->file[j].dest[k].rc; m++)
                         {
                            (void)fprintf(p_debug_file, "\t\t\t%3d: %s\n", m + 1,
-                                         dir->file[j].dest[k].recipient[m]);
+                                         dir->file[j].dest[k].rec[m].recipient);
                         }
 
                         /* Show all options. */
@@ -2127,42 +2087,34 @@ check_dummy_line:
                      }
                   }
 #endif
-
-                  /* Insert directory into temporary memory. */
-#ifdef WITH_MULTI_DIR_DEFINITION
-                  insert_dir(dir, NO);
-#else
-                  insert_dir(dir);
-#endif
                }
-#ifdef WITH_MULTI_DIR_DEFINITION
                else
                {
                   (void)strcpy(dir->alias, dd[j].dir_alias);
                   dir->dir_config_id = dcl[dcd].dc_id;
+#ifdef WHEN_WE_KNOW
                   if (dir->type == REMOTE_DIR)
                   {
                      /* add_file_mask(dd[j].dir_alias, dir); */
                   }
-
-                  /* Insert directory into temporary memory. */
-                  insert_dir(dir, YES);
-               }
 #endif
+               }
+
+               /* Insert directory into temporary memory. */
+               insert_dir(dir);
 
                /* Insert hostnames into temporary memory. */
                insert_hostname(dir);
-#ifdef WITH_MULTI_DIR_DEFINITION
             } /* if (duplicate == NO) */
-#endif
+
             for (j = 0; j < dir->fgc; j++)
             {
                int m;
 
                for (m = 0; m < dir->file[j].dgc; m++)
                {
-                  FREE_RT_ARRAY(dir->file[j].dest[m].recipient);
-                  dir->file[j].dest[m].recipient = NULL;
+                  free(dir->file[j].dest[m].rec);
+                  dir->file[j].dest[m].rec= NULL;
                }
                free(dir->file[j].files);
                free(dir->file[j].dest);
@@ -2170,7 +2122,7 @@ check_dummy_line:
             free(dir->file);
             dir->file = NULL;
          }
-      } /* while ((search_ptr = posi(ptr, DIR_IDENTIFIER)) != NULL) */
+      } /* while ((search_ptr = posi_identifier(ptr, DIR_IDENTIFIER, DIR_IDENTIFIER_LENGTH)) != NULL) */
       free(database);
       database = NULL;
       dcd++;
@@ -2224,6 +2176,14 @@ check_dummy_line:
    }
    else
    {
+      /* Before we copy the data to a file lets sort  */
+      /* the directories so that same directories are */
+      /* in one group and not scattered over the hole */
+      /* list. Remember we might have multiple        */
+      /* DIR_CONFIG's where the user specifies the    */
+      /* same directory in each DIR_CONFIG.           */
+      sort_jobs();
+
       /* Now copy data and pointers in their relevant */
       /* shared memory areas.                         */
       copy_to_file();
@@ -2232,7 +2192,7 @@ check_dummy_line:
       /* Status Area).                                */
       create_sa(no_of_local_dirs);
 
-      /* Tell user what we have found in DIR_CONFIG */
+      /* Tell user what we have found in DIR_CONFIG. */
       if (no_of_local_dirs > 1)
       {
          system_log(INFO_SIGN, NULL, 0,
@@ -2299,7 +2259,10 @@ insert_hostname(struct dir_group *dir)
       {
          for (k = 0; k < dir->file[i].dest[j].rc; k++)
          {
-            (void)check_hostname_list(dir->file[i].dest[j].recipient[k],
+            (void)check_hostname_list(dir->file[i].dest[j].rec[k].recipient,
+                                      dir->file[i].dest[j].rec[k].real_hostname,
+                                      dir->file[i].dest[j].rec[k].host_alias,
+                                      dir->file[i].dest[j].rec[k].scheme,
                                       SEND_FLAG);
          }
       }
@@ -2311,111 +2274,14 @@ insert_hostname(struct dir_group *dir)
 
 /*------------------------- check_hostname_list() -----------------------*/
 static int
-check_hostname_list(char *recipient, unsigned int flag)
+check_hostname_list(char         *recipient,
+                    char         *real_hostname,
+                    char         *host_alias,
+                    unsigned int scheme,
+                    unsigned int flag)
 {
-   int          i;
-   unsigned int protocol;
-   char         host_alias[MAX_HOSTNAME_LENGTH + 1],
-                real_hostname[MAX_REAL_HOSTNAME_LENGTH],
-                new;
-
-   /* Extract only hostname. */
-   if (get_hostname(recipient, real_hostname) == INCORRECT)
-   {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to extract hostname in <%s>.", recipient);
-      exit(INCORRECT);
-   }
-   if ((recipient[0] == 'f') && (recipient[1] == 't') &&
-       (recipient[2] == 'p') && (recipient[3] == ':'))
-   {
-      protocol = FTP_FLAG;
-      if (flag & RETRIEVE_FLAG)
-      {
-         protocol |= GET_FTP_FLAG;
-      }
-   }
-#ifdef WITH_SSL
-   else if ((recipient[0] == 'f') && (recipient[1] == 't') &&
-            (recipient[2] == 'p') && (recipient[4] == ':') &&
-            ((recipient[3] == 's') || (recipient[3] == 'S')))
-        {
-           protocol = FTP_FLAG | SSL_FLAG;
-           if (flag & RETRIEVE_FLAG)
-           {
-              protocol |= GET_FTP_FLAG;
-           }
-        }
-#endif
-   else if (memcmp(recipient, LOC_SHEME, LOC_SHEME_LENGTH) == 0)
-        {
-           protocol = LOC_FLAG;
-        }
-   else if (memcmp(recipient, SFTP_SHEME, SFTP_SHEME_LENGTH) == 0)
-        {
-           protocol = SFTP_FLAG;
-           if (flag & RETRIEVE_FLAG)
-           {
-              protocol |= GET_SFTP_FLAG;
-           }
-        }
-#ifdef WITH_SSL
-   else if (memcmp(recipient, HTTPS_SHEME, HTTPS_SHEME_LENGTH) == 0)
-        {
-           protocol = HTTP_FLAG | SSL_FLAG;
-        }
-#endif
-   else if (memcmp(recipient, HTTP_SHEME, HTTP_SHEME_LENGTH) == 0)
-        {
-           protocol = HTTP_FLAG;
-        }
-#ifdef WITH_SSL
-   else if (memcmp(recipient, SMTPS_SHEME, SMTPS_SHEME_LENGTH) == 0)
-        {
-           protocol = SMTP_FLAG | SSL_FLAG;
-        }
-#endif
-   else if (memcmp(recipient, SMTP_SHEME, SMTP_SHEME_LENGTH) == 0)
-        {
-           protocol = SMTP_FLAG;
-        }
-#ifdef _WITH_SCP_SUPPORT
-   else if (memcmp(recipient, SCP_SHEME, SCP_SHEME_LENGTH) == 0)
-        {
-           protocol = SCP_FLAG;
-        }
-#endif /* _WITH_SCP_SUPPORT */
-#ifdef _WITH_WMO_SUPPORT
-   else if (memcmp(recipient, WMO_SHEME, WMO_SHEME_LENGTH) == 0)
-        {
-           protocol = WMO_FLAG;
-        }
-#endif /* _WITH_WMO_SUPPORT */
-#ifdef _WITH_MAP_SUPPORT
-   else if (memcmp(recipient, MAP_SHEME, MAP_SHEME_LENGTH) == 0)
-        {
-           protocol = MAP_FLAG;
-        }
-#endif /* _WITH_MAP_SUPPORT */
-        else
-        {
-           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Hmmm, there is something really wrong here, unable to determine the scheme for %s.",
-                      real_hostname);
-           system_log(ERROR_SIGN, NULL, 0,
-                      "For now lets just assume this is FTP and lets try to continue.");
-           protocol = FTP_FLAG;
-        }
-   if (flag & SEND_FLAG)
-   {
-      protocol |= SEND_FLAG;
-   }
-   else if (flag & RETRIEVE_FLAG)
-        {
-           protocol |= RETRIEVE_FLAG;
-        }
-
-   t_hostname(real_hostname, host_alias);
+   int  i;
+   char new;
 
    /* Check if host already exists. */
    new = YES;
@@ -2430,7 +2296,7 @@ check_hostname_list(char *recipient, unsigned int flag)
             (void)strcpy(hl[i].fullname, real_hostname);
          }
          hl[i].in_dir_config = YES;
-         hl[i].protocol |= protocol;
+         hl[i].protocol |= (scheme | flag);
          break;
       }
    }
@@ -2479,7 +2345,7 @@ check_hostname_list(char *recipient, unsigned int flag)
       hl[no_of_hosts].transfer_timeout    = DEFAULT_TRANSFER_TIMEOUT;
       hl[no_of_hosts].number_of_no_bursts = (unsigned char)DEFAULT_NO_OF_NO_BURSTS;
       hl[no_of_hosts].in_dir_config       = YES;
-      hl[no_of_hosts].protocol            = protocol;
+      hl[no_of_hosts].protocol            = scheme | flag;
       hl[no_of_hosts].protocol_options    = 0;
       hl[no_of_hosts].transfer_rate_limit = 0;
       hl[no_of_hosts].host_status         = 0;
@@ -2492,64 +2358,8 @@ check_hostname_list(char *recipient, unsigned int flag)
 
 /*++++++++++++++++++++++++++++ insert_dir() ++++++++++++++++++++++++++++*/
 static void
-#ifdef WITH_MULTI_DIR_DEFINITION
-insert_dir(struct dir_group *dir, int dup_entry)
-#else
 insert_dir(struct dir_group *dir)
-#endif
 {
-#ifdef WITH_MULTI_DIR_DEFINITION
-   int i,
-       j,
-       prev_job_no = -1;
-
-   if (dup_entry == YES)
-   {
-      char           *p_offset;
-      struct p_array *p_ptr;
-
-      p_ptr = pp;
-      p_offset = p_t;
-      for (i = 0; i < job_no; i++)
-      {
-         if (strcmp(p_ptr[i].ptr[DIRECTORY_PTR_POS] + p_offset, dir->location) == 0)
-         {
-            i++;
-            while ((strcmp(p_ptr[i].ptr[DIRECTORY_PTR_POS] + p_offset, dir->location) == 0) &&
-                   (i < job_no))
-            {
-               i++;
-            }
-            i--;
-
-            /*
-             * If the value is already set, it means the directory
-             * appears more then two times.
-             */
-            if (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == '\0')
-            {
-               (void)sprintf((p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset), "%d", job_no);
-               prev_job_no = i;
-               break;
-            }
-         }
-      }
-      if (prev_job_no == -1)
-      {
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "Hmmm, failed to locate duplicate directory `%s'.",
-                    dir->location);
-      }
-   }
-
-   for (i = 0; i < dir->fgc; i++)
-   {
-      for (j = 0; j < dir->file[i].dgc; j++)
-      {
-         copy_job(i, j, prev_job_no, dir);
-      } /* next destination group */
-   } /* next file group */
-#else
    int i,
        j;
 
@@ -2558,9 +2368,8 @@ insert_dir(struct dir_group *dir)
       for (j = 0; j < dir->file[i].dgc; j++)
       {
          copy_job(i, j, dir);
-      } /* next destination group */
-   } /* next file group */
-#endif
+      } /* Next destination group. */
+   } /* Next file group. */
 
    return;
 }
@@ -2582,12 +2391,7 @@ insert_dir(struct dir_group *dir)
 /*              new pointer array for each new recipient.               */
 /*----------------------------------------------------------------------*/
 static void
-copy_job(int              file_no,
-         int              dest_no,
-#ifdef WITH_MULTI_DIR_DEFINITION
-         int              prev_job_no,
-#endif
-         struct dir_group *dir)
+copy_job(int file_no, int dest_no, struct dir_group *dir)
 {
    int            i, j, k,
                   offset,
@@ -2685,11 +2489,11 @@ copy_job(int              file_no,
    /* Check if the buffer for pointers is large enough. */
    if ((job_no % PTR_BUF_SIZE) == 0)
    {
-      /* Calculate new size of pointer buffer */
+      /* Calculate new size of pointer buffer. */
       new_size = ((job_no / PTR_BUF_SIZE) + 1) *
                  PTR_BUF_SIZE * sizeof(struct p_array);
 
-      /* Increase the space for pointers by PTR_BUF_SIZE */
+      /* Increase the space for pointers by PTR_BUF_SIZE. */
       if ((pp = realloc(pp, new_size)) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -2740,38 +2544,23 @@ copy_job(int              file_no,
    ptr++;
 
    /* Insert directory. */
-#ifdef WITH_MULTI_DIR_DEFINITION
-   if (prev_job_no == -1)
+   if ((file_no == 0) && (dest_no == 0))
    {
-#endif
-      if ((file_no == 0) && (dest_no == 0))
-      {
-         offset = sprintf(ptr, "%s", dir->location);
-         p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = ptr - p_offset;
-         ptr += offset + 1;
+      p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = ptr - p_offset;
+      ptr += sprintf(ptr, "%s", dir->location) + 1;
 
-         offset = sprintf(ptr, "%s", dir->alias);
-         p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = ptr - p_offset;
-         ptr += offset + 1;
-      }
-      else
-      {
-         p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = p_ptr[job_no - 1].ptr[DIRECTORY_PTR_POS]; /* Directory */
-         p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = p_ptr[job_no - 1].ptr[ALIAS_NAME_PTR_POS]; /* Alias */
-      }
-#ifdef WITH_MULTI_DIR_DEFINITION
+      p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = ptr - p_offset;
+      ptr += sprintf(ptr, "%s", dir->alias) + 1;
    }
    else
    {
-      p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = p_ptr[prev_job_no].ptr[DIRECTORY_PTR_POS]; /* Directory */
-      p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = p_ptr[prev_job_no].ptr[ALIAS_NAME_PTR_POS]; /* Alias */
+      p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = p_ptr[job_no - 1].ptr[DIRECTORY_PTR_POS]; /* Directory. */
+      p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = p_ptr[job_no - 1].ptr[ALIAS_NAME_PTR_POS]; /* Alias. */
    }
-#endif
 
    /* Insert file masks. */
    p_ptr[job_no].ptr[NO_OF_FILES_PTR_POS] = ptr - p_offset;
-   offset = sprintf(ptr, "%d", dir->file[file_no].fc);
-   ptr += offset + 1;
+   ptr += sprintf(ptr, "%d", dir->file[file_no].fc) + 1;
    p_ptr[job_no].ptr[FILE_PTR_POS] = ptr - p_offset;
    if (dest_no == 0)
    {
@@ -2817,9 +2606,8 @@ copy_job(int              file_no,
                               p_loption[k], loption_length[k]) == 0)
             {
                /* Save the local option in shared memory region. */
-               offset = sprintf(ptr, "%s", dir->file[file_no].
-                                dest[dest_no].options[i]) + 1;
-               ptr += offset;
+               ptr += sprintf(ptr, "%s", dir->file[file_no].
+                              dest[dest_no].options[i]) + 1;
                options++;
                options_flag |= loptions_flag[k];
 
@@ -2841,7 +2629,7 @@ copy_job(int              file_no,
          ptr++;
          offset = sprintf(buffer, "%d", options) + 1;
 
-         /* Now move local options 'offset' Bytes forward so we can */
+         /* Now move local options 'offset' bytes forward so we can */
          /* store the no. of local options before the actual data.  */
          memmove((p_start + offset), p_start, (ptr - p_start));
          ptr++;
@@ -2854,8 +2642,7 @@ copy_job(int              file_no,
 
          /* Insert local options flag. */
          p_ptr[job_no].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] = ptr - p_offset;
-         offset = sprintf(ptr, "%x", options_flag);
-         ptr += offset + 1;
+         ptr += sprintf(ptr, "%x", options_flag) + 1;
       }
       else
       {
@@ -2869,8 +2656,7 @@ copy_job(int              file_no,
 
       /* Insert standard options. */
       p_ptr[job_no].ptr[NO_STD_OPTIONS_PTR_POS] = ptr - p_offset;
-      offset = sprintf(ptr, "%d", dir->file[file_no].dest[dest_no].oc);
-      ptr += offset + 1;
+      ptr += sprintf(ptr, "%d", dir->file[file_no].dest[dest_no].oc) + 1;
       p_ptr[job_no].ptr[STD_OPTIONS_PTR_POS] = ptr - p_offset;
 
       if (dir->file[file_no].dest[dest_no].oc > 0)
@@ -2913,21 +2699,19 @@ copy_job(int              file_no,
 
    /* Insert recipient. */
    p_ptr[job_no].ptr[RECIPIENT_PTR_POS] = ptr - p_offset;
-   offset = sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].recipient[0]);
-   ptr += offset + 1;
+   ptr += sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].rec[0].recipient) + 1;
+
+   /* Insert scheme. */
+   p_ptr[job_no].ptr[SCHEME_PTR_POS] = ptr - p_offset;
+   ptr += sprintf(ptr, "%u", dir->file[file_no].dest[dest_no].rec[0].scheme) + 1;
+
+   /* Insert host alias. */
+   p_ptr[job_no].ptr[HOST_ALIAS_PTR_POS] = ptr - p_offset;
+   ptr += sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].rec[0].host_alias) + 1;
 
    /* Insert DIR_CONFIG ID. */
    p_ptr[job_no].ptr[DIR_CONFIG_ID_PTR_POS] = ptr - p_offset;
-   offset = sprintf(ptr, "%x", dir->dir_config_id);
-   ptr += offset + 1;
-
-#ifdef WITH_MULTI_DIR_DEFINITION
-   /* Offset to same directory. */
-   p_ptr[job_no].ptr[OFFSET_TO_SAME_DIR_PTR_POS] = ptr - p_offset;
-   *ptr = '\0';
-   ptr += MAX_INT_LENGTH + 1;
-#endif
-   ptr++;
+   ptr += sprintf(ptr, "%x", dir->dir_config_id) + 1;
 
    /* Increase job number. */
    job_no++;
@@ -2963,9 +2747,14 @@ copy_job(int              file_no,
 
       (void)memcpy(&p_ptr[job_no], &p_ptr[job_no - i], sizeof(struct p_array));
       p_ptr[job_no].ptr[RECIPIENT_PTR_POS] = ptr - p_offset;
-      offset = sprintf(ptr, "%s",
-                       dir->file[file_no].dest[dest_no].recipient[i]);
-      ptr += offset + 1;
+      ptr += sprintf(ptr, "%s",
+                     dir->file[file_no].dest[dest_no].rec[i].recipient) + 1;
+      p_ptr[job_no].ptr[SCHEME_PTR_POS] = ptr - p_offset;
+      ptr += sprintf(ptr, "%u",
+                     dir->file[file_no].dest[dest_no].rec[i].scheme) + 1;
+      p_ptr[job_no].ptr[HOST_ALIAS_PTR_POS] = ptr - p_offset;
+      ptr += sprintf(ptr, "%s",
+                     dir->file[file_no].dest[dest_no].rec[i].host_alias) + 1;
 
       /* Increase job number. */
       job_no++;
@@ -2973,6 +2762,145 @@ copy_job(int              file_no,
 
    /* Save data length. */
    data_length = (ptr - p_offset) * sizeof(char);
+
+   return;
+}
+
+
+/*+++++++++++++++++++++++++++++++ sort_jobs() +++++++++++++++++++++++++++*/
+static void
+sort_jobs(void)
+{
+   int            i, j, k, m;
+   size_t         move_size_1,
+                  move_size_2;
+   char           *buffer,
+                  *ptr;
+   struct p_array *p_ptr;
+
+   p_ptr = pp;
+   for (i = 0; i < (job_no - 1); i++)
+   {
+      while (p_ptr[i].ptr[DIRECTORY_PTR_POS] == p_ptr[i + 1].ptr[DIRECTORY_PTR_POS])
+      {
+         i++;
+      }
+      for (j = (i + 1); j < job_no; j++)
+      {
+         if (strcmp(p_t + p_ptr[i].ptr[DIRECTORY_PTR_POS],
+                    p_t + p_ptr[j].ptr[DIRECTORY_PTR_POS]) == 0)
+         {
+            int start_j = j;
+
+            while (p_ptr[j].ptr[DIRECTORY_PTR_POS] == p_ptr[j + 1].ptr[DIRECTORY_PTR_POS])
+            {
+               j++;
+            }
+
+            /* First copy the real data into its correct place. */
+            if (p_ptr[j].ptr[DIR_CONFIG_ID_PTR_POS] > p_ptr[j].ptr[HOST_ALIAS_PTR_POS])
+            {
+               ptr = p_t + p_ptr[j].ptr[DIR_CONFIG_ID_PTR_POS];
+            }
+            else
+            {
+               ptr = p_t + p_ptr[j].ptr[HOST_ALIAS_PTR_POS];
+            }
+            while (*ptr != '\0')
+            {
+               ptr++;
+            }
+            move_size_1 = ptr + 1 - (p_t + p_ptr[start_j].ptr[PRIORITY_PTR_POS]);
+            if ((buffer = malloc(move_size_1)) == NULL)
+            {
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "Failed to malloc() %d bytes : %s",
+                          move_size_1, strerror(errno));
+               exit(INCORRECT);
+            }
+            (void)memcpy(buffer, (p_t + p_ptr[start_j].ptr[PRIORITY_PTR_POS]),
+                         move_size_1);
+
+            if (p_ptr[i].ptr[DIR_CONFIG_ID_PTR_POS] > p_ptr[i].ptr[HOST_ALIAS_PTR_POS])
+            {
+               ptr = p_t + p_ptr[i].ptr[DIR_CONFIG_ID_PTR_POS];
+            }
+            else
+            {
+               ptr = p_t + p_ptr[i].ptr[HOST_ALIAS_PTR_POS];
+            }
+            while (*ptr != '\0')
+            {
+               ptr++;
+            }
+            move_size_2 = p_t + p_ptr[start_j].ptr[PRIORITY_PTR_POS] - (ptr + 1);
+            (void)memmove((p_t + p_ptr[i + 1].ptr[PRIORITY_PTR_POS] + move_size_1),
+                          (p_t + p_ptr[i + 1].ptr[PRIORITY_PTR_POS]),
+                          move_size_2);
+            (void)memcpy((p_t + p_ptr[i + 1].ptr[PRIORITY_PTR_POS]),
+                         buffer, move_size_1);
+
+            /* Correct all pointer positions. */
+            for (k = 0; k < (j + 1 - start_j); k++)
+            {
+               for (m = 0; m < MAX_DATA_PTRS; m++)
+               {
+                  p_ptr[start_j + k].ptr[m] -= move_size_2;
+               }
+            }
+            for (k = (i + 1); k < start_j; k++)
+            {
+               for (m = 0; m < MAX_DATA_PTRS; m++)
+               {
+                  p_ptr[k].ptr[m] += move_size_1;
+               }
+            }
+
+            /* Now copy the pointer array. */
+            m = (j + 1 - start_j) * sizeof(struct p_array);
+            if (move_size_1 < m)
+            {
+               if ((buffer = realloc(buffer, m)) == NULL)
+               {
+                  system_log(FATAL_SIGN, __FILE__, __LINE__,
+                             "Failed to realloc() %d bytes : %s",
+                             m, strerror(errno));
+                  exit(INCORRECT);
+               }
+            }
+            move_size_1 = m;
+            (void)memcpy(buffer, &p_ptr[start_j], move_size_1);
+            move_size_2 = (start_j - (i + 1)) * sizeof(struct p_array);
+            (void)memmove(&p_ptr[i + 1 + (j + 1 - start_j)], &p_ptr[i + 1],
+                          move_size_2);
+            (void)memcpy(&p_ptr[i + 1], buffer, move_size_1);
+
+            /* Let all same directories point to the directory position,  */
+            /* in case we do have more same directories. We do waste some */
+            /* memory here but it is not worth the trouble resetting all  */
+            /* pointers if we free the memory.                            */
+            for (m = 0; m < (j + 1 - start_j); m++)
+            {
+               p_ptr[i + 1 + m].ptr[DIRECTORY_PTR_POS] = p_ptr[i].ptr[DIRECTORY_PTR_POS]; /* Directory. */
+               p_ptr[i + 1 + m].ptr[ALIAS_NAME_PTR_POS] = p_ptr[i].ptr[ALIAS_NAME_PTR_POS]; /* Alias. */
+            }
+
+            /* Free memory for buffer. */
+            free(buffer);
+
+            /* No need to check those directories we just have moved. */
+            i += (j - start_j + 1);
+         }
+         else
+         {
+            while ((j < job_no) &&
+                   (p_ptr[j].ptr[DIRECTORY_PTR_POS] == p_ptr[j + 1].ptr[DIRECTORY_PTR_POS]))
+            {
+               j++;
+            }
+         }
+      }
+   }
 
    return;
 }
@@ -3137,12 +3065,11 @@ copy_to_file(void)
       ptr += sizeof(int);
 
       /* Copy pointer array into shared memory. */
-      memcpy(ptr, p_ptr, size_ptr_array);
+      (void)memcpy(ptr, p_ptr, size_ptr_array);
       ptr += size_ptr_array;
 
       /* Copy data into shared memory region. */
-      memcpy(ptr, p_data, data_length);
-      ptr += data_length;
+      (void)memcpy(ptr, p_data, data_length);
 
 #ifdef HAVE_MMAP
       if (munmap(p_mmap, size) == -1)
@@ -3193,56 +3120,105 @@ count_new_lines(char *p_start, char *p_end)
 }
 
 
-/*++++++++++++++++++++++++++ store_full_path() ++++++++++++++++++++++++++*/
-static void
-store_full_path(char *p_user, char *p_path)
+/*+++++++++++++++++++++++++ optimise_dir() ++++++++++++++++++++++++++++++*/
+static int
+optimise_dir(char *path)
 {
-   struct passwd *pwd;
+   int  modified = NO;
+   char *end_ptr,
+        *read_ptr,
+        resolved_path[MAX_PATH_LENGTH],
+        *write_ptr;
 
-   if ((p_user == NULL) || (*p_user == '\0'))
+   write_ptr = resolved_path;
+   read_ptr = path;
+   end_ptr = path + MAX_PATH_LENGTH - 2;
+
+   /* Expand each slash-separated pathname component. */
+   while (*read_ptr != '\0')
    {
-      pwd = getpwuid(getuid());
-   }
-   else
-   {
-      pwd = getpwnam(p_user);
-   }
-   if (pwd == NULL)
-   {
-      system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Cannot find users %s working directory in /etc/passwd : %s",
-                 p_user, strerror(errno));
-   }
-   else
-   {
-      if ((p_path[0] == '/') && (p_path[1] != '\0'))
+      /* Ignore stray "/". */
+      if (*read_ptr == '/')
       {
-         char *p_path_start = p_path,
-              tmp_path[MAX_PATH_LENGTH];
-
-         if ((p_path[1] == '~') || (p_path[2] == '~'))
-         {
-            p_path_start += 2;
-            while ((*p_path_start != '/') && (*p_path_start != ';') &&
-                   (*p_path_start != '#') && (*p_path_start != ' ') &&
-                   (*p_path_start != '\t') && (*p_path_start != '\n') &&
-                   (*p_path_start != '\0'))
+         if (read_ptr[1] == '/')
+         {      
+            modified = YES;
+            if (read_ptr == path)
             {
-               p_path_start++;
+               *(write_ptr++) = *read_ptr;
+            }
+         }      
+         else if ((read_ptr[1] == '\0') || (read_ptr == path))
+              { 
+                 *(write_ptr++) = *read_ptr;
+              }
+         read_ptr++;
+         continue;
+      }
+
+      if (*read_ptr == '.')
+      {
+         /* Ignore ".". */
+         if ((read_ptr[1] == '/') || (read_ptr[1] == '\0'))
+         {
+            read_ptr++;
+            modified = YES;
+            continue;
+         }
+
+         if (read_ptr[1] == '.')
+         {
+            if ((read_ptr[2] == '/') || (read_ptr[2] == '\0'))
+            {
+               read_ptr += 2;
+               modified = YES;
+
+               /* Ignore ".." at root. */
+               if (write_ptr == (resolved_path + 1))
+               {
+                  continue;
+               }
+
+               /* Handle ".." by backing up. */
+               while ((--write_ptr)[-1] != '/')
+               {
+                  ;
+               }
+               continue;
             }
          }
-         (void)strcpy(tmp_path, p_path_start);
-         (void)strcpy(p_path + 1, pwd->pw_dir);
-         (void)strcat(p_path + 1, tmp_path);
       }
-      else
+
+      /* Safely copy the next pathname component. */
+      while ((*read_ptr != '/') && (*read_ptr != '\0'))
       {
-         *p_path = '/';
-         (void)strcpy(p_path + 1, pwd->pw_dir);
+         *(write_ptr++) = *(read_ptr++);
       }
+
+      *(write_ptr++) = '/';
    }
 
-   return;
+   /* Delete trailing slash but don't whomp a lone slash. */
+   if ((write_ptr != (resolved_path + 1)) && (write_ptr[-1] == '/'))
+   {
+      write_ptr--;
+   }
+
+   if (modified == YES)
+   {
+      modified = write_ptr - resolved_path + 1;
+
+      /* Make sure it's null terminated. */
+      *write_ptr = '\0';
+
+      (void)memcpy(path, resolved_path, modified);
+   }
+   else
+   {
+      modified = write_ptr - resolved_path + 1;
+   }
+
+   return(modified);
 }
 
 
@@ -3291,5 +3267,5 @@ posi_identifier(char *search_text, char *search_string, size_t string_length)
       }
    }
 
-   return(NULL); /* Found nothing */
+   return(NULL); /* Found nothing. */
 }

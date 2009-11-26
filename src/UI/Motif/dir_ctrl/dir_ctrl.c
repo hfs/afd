@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,10 +89,9 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 
-/* Global variables */
+/* Global variables. */
 Display                    *display;
 XtAppContext               app;
-XtIntervalId               interval_id_dir;
 GC                         letter_gc,
                            normal_letter_gc,
                            locked_letter_gc,
@@ -109,9 +108,12 @@ GC                         letter_gc,
                            black_line_gc,
                            white_line_gc;
 Colormap                   default_cmap;
-XFontStruct                *font_struct;
+XFontStruct                *font_struct = NULL;
 XmFontList                 fontlist = NULL;
-Widget                     mw[4],                /* Main menu */
+Widget                     appshell,
+                           label_window_w,
+                           line_window_w,
+                           mw[4],                /* Main menu */
                            dw[NO_DIR_MENU],      /* Directory menu */
                            vw[NO_DIR_VIEW_MENU], /* View menu */
                            sw[4],                /* Setup menu */
@@ -119,15 +121,15 @@ Widget                     mw[4],                /* Main menu */
                            fw[NO_OF_FONTS],      /* Select font */
                            rw[NO_OF_ROWS],       /* Select rows */
                            lw[4],                /* AFD load */
-                           lsw[3];               /* Select line style */
-Widget                     appshell,
-                           label_window_w,
-                           line_window_w,
+                           lsw[3],               /* Select line style */
                            transviewshell = NULL;
 Window                     label_window,
                            line_window;
+Pixmap                     label_pixmap,
+                           line_pixmap;
 float                      max_bar_length;
 int                        bar_thickness_3,
+                           depth,
                            event_log_fd = STDERR_FILENO,
                            fra_fd = -1,
                            fra_id,
@@ -175,7 +177,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            blink_flag,
                            profile[MAX_PROFILE_NAME_LENGTH],
                            user[MAX_FULL_USER_ID_LENGTH],
-                           username[MAX_USER_NAME_LENGTH];
+                           username[MAX_USER_NAME_LENGTH + 1];
 clock_t                    clktck;
 struct tms                 tmsdummy;
 struct apps_list           *apps_list = NULL;
@@ -184,7 +186,7 @@ struct fileretrieve_status *fra;
 struct dir_control_perm    dcp;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                dir_ctrl_exit(void),
                            create_pullright_font(Widget),
                            create_pullright_load(Widget),
@@ -219,6 +221,7 @@ main(int argc, char *argv[])
    Widget        mainform_w,
                  mainwindow,
                  menu_w;
+   Screen        *screen;
    Arg           args[MAXARGS];
    Cardinal      argcount;
    uid_t         euid, /* Effective user ID. */
@@ -226,7 +229,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    init_dir_ctrl(&argc, argv, window_title);
 
 #ifdef _X_DEBUG
@@ -249,7 +252,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Create the top-level shell widget and initialise the toolkit */
+   /* Create the top-level shell widget and initialise the toolkit. */
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0, &argc, argv,
@@ -263,7 +266,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Get display pointer */
+   /* Get display pointer. */
    if ((display = XtDisplay(appshell)) == NULL)
    {
       (void)fprintf(stderr,
@@ -276,13 +279,18 @@ main(int argc, char *argv[])
                                         xmMainWindowWidgetClass, appshell,
                                         NULL);
 
-   /* setup and determine window parameters */
+   /* setup and determine window parameters. */
    setup_dir_window(font_name);
 
-   /* Get window size */
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
+
+   /* Get window size. */
    (void)dir_window_size(&window_width, &window_height);
 
-   /* Create managing widget for label and line widget */
+   /* Create managing widget for label and line widget. */
    mainform_w = XmCreateForm(mainwindow, "mainform_w", NULL, 0);
    XtManageChild(mainform_w);
 
@@ -291,11 +299,11 @@ main(int argc, char *argv[])
       init_menu_bar(mainform_w, &menu_w);
    }
 
-   /* Setup colors */
+   /* Setup colors. */
    default_cmap = DefaultColormap(display, DefaultScreen(display));
    init_color(XtDisplay(appshell));
 
-   /* Create the label_window_w */
+   /* Create the label_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension) line_height);
    argcount++;
@@ -323,13 +331,13 @@ main(int argc, char *argv[])
                                         argcount);
    XtManageChild(label_window_w);
 
-   /* Get background color from the widget's resources */
+   /* Get background color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNbackground, &color_pool[LABEL_BG]);
    argcount++;
    XtGetValues(label_window_w, args, argcount);
 
-   /* Create the line_window_w */
+   /* Create the line_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
    argcount++;
@@ -349,19 +357,19 @@ main(int argc, char *argv[])
                                        argcount);
    XtManageChild(line_window_w);
 
-   /* Initialise the GC's */
+   /* Initialise the GC's. */
    init_gcs();
 
-   /* Get foreground color from the widget's resources */
+   /* Get foreground color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNforeground, &color_pool[FG]); argcount++;
    XtGetValues(line_window_w, args, argcount);
 
-   /* Add call back to handle expose events for the label window */
+   /* Add call back to handle expose events for the label window. */
    XtAddCallback(label_window_w, XmNexposeCallback,
                  (XtCallbackProc)dir_expose_handler_label, (XtPointer)0);
 
-   /* Add call back to handle expose events for the line window */
+   /* Add call back to handle expose events for the line window. */
    XtAddCallback(line_window_w, XmNexposeCallback,
                  (XtCallbackProc)dir_expose_handler_line, NULL);
 
@@ -371,12 +379,12 @@ main(int argc, char *argv[])
                         ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)dir_input, NULL);
 
-      /* Set toggle button for font|row */
+      /* Set toggle button for font|row. */
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
       XtVaSetValues(rw[current_row], XmNset, True, NULL);
       XtVaSetValues(lsw[current_style], XmNset, True, NULL);
 
-      /* Setup popup menu */
+      /* Setup popup menu. */
       init_popup_menu(line_window_w);
 
       XtAddEventHandler(line_window_w,
@@ -388,7 +396,7 @@ main(int argc, char *argv[])
    XtAddEventHandler(appshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    /* Disallow user to change window width and height. */
@@ -426,6 +434,14 @@ main(int argc, char *argv[])
    /* Get window ID of three main windows. */
    label_window = XtWindow(label_window_w);
    line_window = XtWindow(line_window_w);
+
+   /* Create off-screen pixmaps. */
+   screen = DefaultScreenOfDisplay(display);
+   depth = DefaultDepthOfScreen(screen);
+   label_pixmap = XCreatePixmap(display, label_window, window_width,
+                                line_height, depth);
+   line_pixmap = XCreatePixmap(display, line_window, window_width,
+                               (line_height * no_of_rows), depth);
 
    /* Start the main event-handling loop. */
    XtAppMainLoop(app);
@@ -491,7 +507,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcpy(font_name, DEFAULT_FONT);
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -509,7 +525,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
          }
          exit(INCORRECT);
 
-      case NONE : /* User is not allowed to use this program */
+      case NONE : /* User is not allowed to use this program. */
          {
             char *user;
 
@@ -539,6 +555,8 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
          dcp.dir_ctrl_list      = NULL;
          dcp.info               = YES;
          dcp.info_list          = NULL;
+         dcp.stop               = YES;
+         dcp.stop_list          = NULL;
          dcp.disable            = YES;
          dcp.disable_list       = NULL;
          dcp.rescan             = YES;
@@ -570,7 +588,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    (void)strcat(afd_active_file, FIFO_DIR);
    (void)strcat(afd_active_file, AFD_ACTIVE_FILE);
 
-   /* Prepare title for dir_ctrl window */
+   /* Prepare title for dir_ctrl window. */
    (void)sprintf(window_title, "DIR_CTRL %s ", PACKAGE_VERSION);
    if (get_afd_name(hostname) == INCORRECT)
    {
@@ -592,16 +610,24 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   (void)strcpy(username, pwd->pw_name);
+   (void)my_strncpy(username, pwd->pw_name, MAX_USER_NAME_LENGTH + 1);
 
    /*
     * Attach to the MSA and get the number of AFD's
     * and the msa_id of the MSA.
     */
-   if (fra_attach() < 0)
+   if ((i = fra_attach()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to FRA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "ERROR   : Failed to attach to FRA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 
@@ -611,7 +637,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       exit(INCORRECT);
    }
 
-   /* Allocate memory for local 'FRA' */
+   /* Allocate memory for local 'FRA'. */
    if ((connect_data = calloc(no_of_dirs, sizeof(struct dir_line))) == NULL)
    {
       (void)fprintf(stderr, "calloc() error : %s (%s %d)\n",
@@ -624,14 +650,14 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
     */
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
-   read_setup(DIR_CTRL, profile, NULL, NULL, NULL, 0);
+   read_setup(DIR_CTRL, profile, NULL, NULL, NULL, NULL, 0);
 
-   /* Determine the default bar length */
+   /* Determine the default bar length. */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
 
    now = time(NULL);
 
-   /* Initialise all display data for each directory to monitor */
+   /* Initialise all display data for each directory to monitor. */
    for (i = 0; i < no_of_dirs; i++)
    {
       (void)strcpy(connect_data[i].dir_alias, fra[i].dir_alias);
@@ -685,6 +711,8 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       connect_data[i].average_fr = 0.0;
       connect_data[i].max_average_fr = 0.0;
       connect_data[i].bar_length[BYTE_RATE_BAR_NO] = 0;
+      connect_data[i].start_event_handle = fra[i].start_event_handle;
+      connect_data[i].end_event_handle = fra[i].end_event_handle;
       if (connect_data[i].warn_time < 1)
       {
          connect_data[i].scale = 0.0;
@@ -764,7 +792,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[DIR_W] = XtVaCreateManagedWidget("Dir",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,                'D',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                               XmNaccelerator,             "Ctrl<Key>d",
 #else
@@ -781,6 +811,15 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            NULL);
       XtAddCallback(dw[DIR_HANDLE_EVENT_W], XmNactivateCallback, dir_popup_cb,
                     (XtPointer)DIR_HANDLE_EVENT_SEL);
+   }
+   if (dcp.stop != NO_PERMISSION)
+   {
+      dw[DIR_STOP_W] = XtVaCreateManagedWidget("Start/Stop",
+                           xmPushButtonWidgetClass, dir_pull_down_w,
+                           XmNfontList,             fontlist,
+                           NULL);
+      XtAddCallback(dw[DIR_STOP_W], XmNactivateCallback, dir_popup_cb,
+                    (XtPointer)DIR_STOP_SEL);
    }
    if (dcp.disable != NO_PERMISSION)
    {
@@ -800,7 +839,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                            xmPushButtonWidgetClass, dir_pull_down_w,
                            XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,             'R',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                            XmNaccelerator,          "Ctrl<Key>R",
 #else
@@ -817,7 +858,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                          xmPushButtonWidgetClass, dir_pull_down_w,
                          XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                          XmNmnemonic,             'S',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                          XmNaccelerator,          "Ctrl<Key>S",
 #else
@@ -852,7 +895,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                          xmPushButtonWidgetClass, dir_pull_down_w,
                          XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                          XmNmnemonic,             'x',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                          XmNaccelerator,          "Ctrl<Key>x",
 #else
@@ -883,7 +928,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       mw[LOG_W] = XtVaCreateManagedWidget("View",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                               XmNmnemonic,                'V',
+#endif
                               XmNsubMenuId,               view_pull_down_w,
                               NULL);
       if ((dcp.show_slog != NO_PERMISSION) ||
@@ -1018,7 +1065,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,                'p',
+#endif
                            XmNsubMenuId,               setup_pull_down_w,
                            NULL);
    sw[FONT_W] = XtVaCreateManagedWidget("Font size",
@@ -1045,7 +1094,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    sw[SAVE_W] = XtVaCreateManagedWidget("Save Setup",
                            xmPushButtonWidgetClass, setup_pull_down_w,
                            XmNfontList,             fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,             'a',
+#endif
 #ifdef WITH_CTRL_ACCELERATOR
                            XmNaccelerator,          "Ctrl<Key>a",
 #else
@@ -1063,7 +1114,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[HELP_W] = XtVaCreateManagedWidget("Help",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
                            XmNmnemonic,                'H',
+#endif
                            XmNsubMenuId,               help_pull_down_w,
                            NULL);
    hw[ABOUT_W] = XtVaCreateManagedWidget("About AFD",
@@ -1118,6 +1171,18 @@ init_popup_menu(Widget line_window_w)
          XtManageChild(pushbutton);
          XmStringFree(x_string);
       }
+      if (dcp.stop != NO_PERMISSION)
+      {
+         argcount = 0;
+         x_string = XmStringCreateLocalized("Start/Stop");
+         XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pushbutton = XmCreatePushButton(popupmenu, "Stop", args, argcount);
+         XtAddCallback(pushbutton, XmNactivateCallback,
+                       dir_popup_cb, (XtPointer)DIR_STOP_SEL);
+         XtManageChild(pushbutton);
+         XmStringFree(x_string);
+      }
       if (dcp.disable != NO_PERMISSION)
       {
          argcount = 0;
@@ -1153,7 +1218,9 @@ init_popup_menu(Widget line_window_w)
 #else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>I"); argcount++;
 #endif
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
+#endif
          pushbutton = XmCreatePushButton(popupmenu, "Info", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,
                        dir_popup_cb, (XtPointer)DIR_INFO_SEL);
@@ -1190,7 +1257,7 @@ create_pullright_load(Widget pullright_line_load)
    Arg      args[2];
    Cardinal argcount;
 
-   /* Create pullright for "Files" */
+   /* Create pullright for "Files". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_FILE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1202,7 +1269,7 @@ create_pullright_load(Widget pullright_line_load)
    XtManageChild(lw[FILE_LOAD_W]);
    XmStringFree(x_string);
 
-   /* Create pullright for "KBytes" */
+   /* Create pullright for "KBytes". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_KBYTE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1214,7 +1281,7 @@ create_pullright_load(Widget pullright_line_load)
    XtManageChild(lw[KBYTE_LOAD_W]);
    XmStringFree(x_string);
 
-   /* Create pullright for "Connections" */
+   /* Create pullright for "Connections". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_CONNECTION_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1227,7 +1294,7 @@ create_pullright_load(Widget pullright_line_load)
    XtManageChild(lw[CONNECTION_LOAD_W]);
    XmStringFree(x_string);
 
-   /* Create pullright for "Active-Transfers" */
+   /* Create pullright for "Active-Transfers". */
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_TRANSFER_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1342,7 +1409,7 @@ create_pullright_style(Widget pullright_line_style)
    Arg      args[3];
    Cardinal argcount;
 
-   /* Create pullright for "Line style" */
+   /* Create pullright for "Line style". */
    argcount = 0;
    x_string = XmStringCreateLocalized("Bars only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
@@ -1473,10 +1540,30 @@ eval_permissions(char *perm_buffer)
          }
       }
 
+      /* May the user use the start/stop button for a particular directory? */
+      if ((ptr = posi(perm_buffer, STOP_DIR_PERM)) == NULL)
+      {
+         /* The user may NOT use the start/stop button. */
+         dcp.disable = NO_PERMISSION;
+      }
+      else
+      {
+         ptr--;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            dcp.stop = store_host_names(&dcp.stop_list, ptr + 1);
+         }
+         else
+         {
+            dcp.stop = NO_LIMIT;
+            dcp.stop_list = NULL;
+         }
+      }
+
       /* May the user use the disable button for a particular directory? */
       if ((ptr = posi(perm_buffer, DISABLE_DIR_PERM)) == NULL)
       {
-         /* The user may NOT use the disable button. */
+         /* The user may NOT use the enable/disable button. */
          dcp.disable = NO_PERMISSION;
       }
       else

@@ -1,6 +1,6 @@
 /*
  *  show_elog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,8 @@ DESCR__S_M1
  **
  ** HISTORY
  **   01.07.2007 H.Kiehl Created
+ **   03.01.2008 H.Kiehl Added warn time for host.
+ **   04.05.2009 H.Kiehl Added success actions.
  **
  */
 DESCR__E_M1
@@ -70,7 +72,7 @@ DESCR__E_M1
 #ifdef WITH_EDITRES
 # include <X11/Xmu/Editres.h>
 #endif
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_elog.h"
 #include "logdefs.h"
 #include "permission.h"
@@ -216,6 +218,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
    if (euid != ruid)
    {
       if (seteuid(euid) == -1)
@@ -225,6 +228,11 @@ main(int argc, char *argv[])
       }
    }
    display = XtDisplay(appshell);
+
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
 
    /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
@@ -608,28 +616,28 @@ main(int argc, char *argv[])
    toggle_w = XtVaCreateManagedWidget("Global",
                                 xmToggleButtonGadgetClass, class_togglebox_w,
                                 XmNfontList,               fontlist,
-                                XmNset,                    True,
+                                XmNset,                    (toggles_set & SHOW_CLASS_GLOBAL) ? True : False,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_CLASS_GLOBAL);
    toggle_w = XtVaCreateManagedWidget("Directory",
                                 xmToggleButtonGadgetClass, class_togglebox_w,
                                 XmNfontList,               fontlist,
-                                XmNset,                    True,
+                                XmNset,                    (toggles_set & SHOW_CLASS_DIRECTORY) ? True : False,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_CLASS_DIRECTORY);
    toggle_w = XtVaCreateManagedWidget("Production",
                                 xmToggleButtonGadgetClass, class_togglebox_w,
                                 XmNfontList,               fontlist,
-                                XmNset,                    True,
+                                XmNset,                    (toggles_set & SHOW_CLASS_PRODUCTION) ? True : False,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_CLASS_PRODUCTION);
    toggle_w = XtVaCreateManagedWidget("Host",
                                 xmToggleButtonGadgetClass, class_togglebox_w,
                                 XmNfontList,               fontlist,
-                                XmNset,                    True,
+                                XmNset,                    (toggles_set & SHOW_CLASS_HOST) ? True : False,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_CLASS_HOST);
@@ -746,10 +754,6 @@ main(int argc, char *argv[])
                  (XtCallbackProc)select_event_actions, (XtPointer)0);
 
    XtManageChild(criteriabox_w);
-
-   toggles_set = SHOW_CLASS_GLOBAL | SHOW_CLASS_DIRECTORY | \
-                 SHOW_CLASS_PRODUCTION | SHOW_CLASS_HOST | \
-                 SHOW_TYPE_EXTERNAL | SHOW_TYPE_MANUAL | SHOW_TYPE_AUTO;
 
 
 /*-----------------------------------------------------------------------*/
@@ -1063,15 +1067,30 @@ init_show_elog(int *argc, char *argv[])
    {
       user_offset = strlen(user);
    }
+   toggles_set = SHOW_TYPE_EXTERNAL | SHOW_TYPE_MANUAL | SHOW_TYPE_AUTO;
    if (get_arg_array(argc, argv, "-d", &search_dir_alias,
                      &no_of_search_dir_alias) == INCORRECT)
    {
       no_of_search_dir_alias = 0;
    }
+   else
+   {
+      toggles_set |= SHOW_CLASS_DIRECTORY;
+   }
    if (get_arg_array(argc, argv, "-h", &search_host_alias,
                      &no_of_search_host_alias) == INCORRECT)
    {
       no_of_search_host_alias = 0;
+   }
+   else
+   {
+      toggles_set |= SHOW_CLASS_HOST;
+   }
+
+   if ((no_of_search_dir_alias == 0) && (no_of_search_host_alias == 0))
+   {
+      toggles_set |= SHOW_CLASS_GLOBAL | SHOW_CLASS_DIRECTORY | \
+                     SHOW_CLASS_PRODUCTION | SHOW_CLASS_HOST;
    }
 
    /* Now lets see if user may use this program. */
@@ -1185,7 +1204,19 @@ init_show_elog(int *argc, char *argv[])
                       (1 << (EA_DISABLE_DEBUG_HOST - EA_DISABLE_HOST)) |
                       (1 << (EA_DISABLE_TRACE_HOST - EA_DISABLE_HOST)) |
                       (1 << (EA_DISABLE_FULL_TRACE_HOST - EA_DISABLE_HOST)) |
-                      (1 << (EA_UNSET_ACK_OFFL - EA_DISABLE_HOST));
+                      (1 << (EA_UNSET_ACK_OFFL - EA_DISABLE_HOST)) |
+                      (1 << (EA_WARN_TIME_SET - EA_DISABLE_HOST)) |
+                      (1 << (EA_WARN_TIME_UNSET - EA_DISABLE_HOST)) |
+                      (1 << (EA_ENABLE_HOST_WARN_TIME - EA_DISABLE_HOST)) |
+                      (1 << (EA_DISABLE_HOST_WARN_TIME - EA_DISABLE_HOST)) |
+                      (1 << (EA_ENABLE_DELETE_DATA - EA_DISABLE_HOST)) |
+                      (1 << (EA_DISABLE_DELETE_DATA - EA_DISABLE_HOST)) |
+                      (1 << (EA_EXEC_WARN_ACTION_START - EA_DISABLE_HOST)) |
+                      (1 << (EA_EXEC_WARN_ACTION_STOP - EA_DISABLE_HOST)) |
+                      (1 << (EA_EXEC_SUCCESS_ACTION_START - EA_DISABLE_HOST)) |
+                      (1 << (EA_EXEC_SUCCESS_ACTION_STOP - EA_DISABLE_HOST)) |
+                      (1 << (EA_START_DIRECTORY - EA_DISABLE_HOST)) |
+                      (1 << (EA_STOP_DIRECTORY - EA_DISABLE_HOST));
 
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -732,6 +732,11 @@ search_data(register char *ptr,
                   (k < MAX_INT_LENGTH));
          str_number[k] = '\0';
          event_action_no = (unsigned int)strtoul(str_number, NULL, 16);
+         if (event_action_no > EA_MAX_EVENT_ACTION)
+         {
+            /* Hmm, some event we do not know about. */
+            IGNORE_ENTRY();
+         }
          if (event_action_no < EA_START_TRANSFER)
          {
             if ((ea_toggles_set_1 & (1 << event_action_no)) == 0)
@@ -942,6 +947,8 @@ search_data(register char *ptr,
             else if ((event_action_no == EA_AMG_STOP) ||
                      (event_action_no == EA_ENABLE_DIRECTORY) ||
                      (event_action_no == EA_DISABLE_DIRECTORY) ||
+                     (event_action_no == EA_START_DIRECTORY) ||
+                     (event_action_no == EA_STOP_DIRECTORY) ||
                      ((event_action_no == EA_OFFLINE) && (*p_event_type == 'M')) ||
                      (event_action_no == EA_ACKNOWLEDGE) ||
                      (event_action_no == EA_ENABLE_HOST) ||

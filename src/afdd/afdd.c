@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@ DESCR__S_M1
  **   22.06.1997 H.Kiehl Created
  **   22.08.1998 H.Kiehl Added some more exit handlers.
  **   26.01.2006 H.Kiehl Made MAX_AFDD_CONNECTIONS configurable in AFD_CONFIG.
+ **   23.11.2008 H.Kiehl Added danger_no_of_jobs.
  */
 DESCR__E_M1
 
@@ -63,9 +64,9 @@ DESCR__E_M1
 #include <sys/wait.h>         /* waitpid()                               */
 #include <netinet/in.h>
 #include <arpa/inet.h>        /* inet_ntoa()                             */
-#include <unistd.h>           /* close(), select(), sysconf()            */
+#include <unistd.h>           /* close(), select(), sysconf(), pathconf()*/
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <netdb.h>
 #include <errno.h>
@@ -78,6 +79,7 @@ int               default_log_defs = DEFAULT_AFDD_LOG_DEFS,
                   log_defs = 0,
                   number_of_trusted_ips,
                   sys_log_fd = STDERR_FILENO;
+long              danger_no_of_jobs;
 clock_t           clktck;
 char              afd_config_file[MAX_PATH_LENGTH],
                   afd_name[MAX_AFD_NAME_LENGTH],
@@ -132,7 +134,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialize variables */
+   /* Initialize variables. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -145,7 +147,7 @@ main(int argc, char *argv[])
    if ((pid = malloc((max_afdd_connections * sizeof(pid_t)))) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to malloc() %d bytes : %s",
+                 _("Failed to malloc() %d bytes : %s"),
                  (max_afdd_connections * sizeof(pid_t)),
                  strerror(errno));
       exit(INCORRECT);
@@ -210,11 +212,11 @@ main(int argc, char *argv[])
    /* Initialize the log structure. */
    (void)memset(ld, 0, (NO_OF_LOGS * sizeof(struct logdata)));
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(afdd_exit) != 0)          
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not register exit handler : %s", strerror(errno));
+                 _("Could not register exit handler : %s"), strerror(errno));
       exit(INCORRECT);
    }
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
@@ -226,15 +228,15 @@ main(int argc, char *argv[])
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not set signal handlers : %s", strerror(errno));
+                 _("Could not set signal handlers : %s"), strerror(errno));
       exit(INCORRECT);
    }
 
    if ((ptr = lock_proc(AFDD_LOCK_ID, NO)) != NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Process AFDD already started by %s", ptr);
-      (void)fprintf(stderr, "Process AFDD already started by %s : (%s %d)\n",
+                 _("Process AFDD already started by %s"), ptr);
+      (void)fprintf(stderr, _("Process AFDD already started by %s : (%s %d)\n"),
                     ptr, __FILE__, __LINE__);
       _exit(INCORRECT);
    }
@@ -245,16 +247,38 @@ main(int argc, char *argv[])
    if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not get clock ticks per second : %s (%s %d)\n",
+                 _("Could not get clock ticks per second : %s (%s %d)\n"),
                  strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+   /*
+    * Get maximum number of links to determine danger_no_of_jobs.
+    */
+#ifdef _LINK_MAX_TEST
+   danger_no_of_jobs = LINKY_MAX;
+#else
+# ifdef REDUCED_LINK_MAX
+   danger_no_of_jobs = REDUCED_LINK_MAX;
+# else
+   (void)strcpy(p_work_dir_end, AFD_FILE_DIR);
+   if ((danger_no_of_jobs = pathconf(work_dir, _PC_LINK_MAX)) == -1)
+   {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 _("pathconf() _PC_LINK_MAX error, setting to %d : %s"),
+                 _POSIX_LINK_MAX, strerror(errno));                  
+      danger_no_of_jobs = _POSIX_LINK_MAX;
+   }
+   *p_work_dir_end = '\0';
+# endif
+#endif
+   danger_no_of_jobs = danger_no_of_jobs / 2;
 
    /* Attach to the AFD Status Area. */
    if (attach_afd_status(NULL) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to map to AFD status area.");
+                 _("Failed to map to AFD status area."));
       exit(INCORRECT);
    }
 
@@ -282,21 +306,21 @@ main(int argc, char *argv[])
       if ((p_protocol = getprotobyname("tcp")) == 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to get protocol tcp : %s", strerror(errno));
+                    _("Failed to get protocol tcp : %s"), strerror(errno));
          exit(INCORRECT);
       }
 
       if ((sockfd = socket(AF_INET, SOCK_STREAM, p_protocol->p_proto)) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not create socket : %s", strerror(errno));
+                    _("Could not create socket : %s"), strerror(errno));
          exit(INCORRECT);
       }
 
       if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "setsockopt() error : %s", strerror(errno));
+                    _("setsockopt() error : %s"), strerror(errno));
          (void)close(sockfd);
          exit(INCORRECT);
       }
@@ -309,25 +333,25 @@ main(int argc, char *argv[])
          if ((errno != EADDRINUSE) || (ports_tried > 100))
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "bind() error : %s", strerror(errno));
+                       _("bind() error : %s"), strerror(errno));
             (void)close(sockfd);
             exit(INCORRECT);
          }
          if (close(sockfd) == -1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
       }
    } while (status == -1);
 
-   system_log(INFO_SIGN, NULL, 0, "Starting %s at port %d (%s)",
+   system_log(INFO_SIGN, NULL, 0, _("Starting %s at port %d (%s)"),
               AFDD, port, PACKAGE_VERSION);
 
    if (listen(sockfd, 5) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "listen() error : %s", strerror(errno));
+                 _("listen() error : %s"), strerror(errno));
       (void)close(sockfd);
       exit(INCORRECT);
    }
@@ -346,7 +370,7 @@ main(int argc, char *argv[])
          if (errno != EBADF)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "select() error : %s", strerror(errno));
+                       _("select() error : %s"), strerror(errno));
          }
          exit(INCORRECT);
       }
@@ -359,7 +383,7 @@ main(int argc, char *argv[])
                                   &peer_addrlen)) < 0)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "accept() error : %s", strerror(errno));
+                       _("accept() error : %s"), strerror(errno));
             (void)close(sockfd);
             exit(INCORRECT);
          }
@@ -382,20 +406,20 @@ main(int argc, char *argv[])
             if (gotcha == NO)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "AFDD: Illegal access from %s", remote_ip_str);
+                          _("AFDD: Illegal access from %s"), remote_ip_str);
                (void)close(new_sockfd);
                continue;
             }
             if (no_of_connections >= max_afdd_connections)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "AFDD: Connection attempt from %s, but denied because max connection (%d) reached.",
+                          _("AFDD: Connection attempt from %s, but denied because max connection (%d) reached."),
                           remote_ip_str, max_afdd_connections);
             }
             else
             {
                system_log(DEBUG_SIGN, NULL, 0,
-                          "AFDD: Connection from %s", remote_ip_str);
+                          _("AFDD: Connection from %s"), remote_ip_str);
             }
          }
          else
@@ -404,20 +428,20 @@ main(int argc, char *argv[])
             if (no_of_connections >= max_afdd_connections)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "AFDD: Connection attempt from %s, but denied because max connection (%d) reached.",
+                          _("AFDD: Connection attempt from %s, but denied because max connection (%d) reached."),
                           remote_ip_str, max_afdd_connections);
             }
             else
             {
                system_log(DEBUG_SIGN, NULL, 0,
-                          "AFDD: Connection from %s", remote_ip_str);
+                          _("AFDD: Connection from %s"), remote_ip_str);
             }
          }
 
          if (no_of_connections >= max_afdd_connections)
          {
             length = sprintf(reply,
-                             "421 Service not available. There are currently to many users (%d) connected.\r\n",
+                             "421 Service not available. There are currently to many connections (%d).\r\n",
                              no_of_connections);
             (void)write(new_sockfd, reply, length);
             (void)close(new_sockfd);
@@ -436,7 +460,7 @@ main(int argc, char *argv[])
                {
                   case -1 : /* Could not generate process. */
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "fork() error : %s", strerror(errno));
+                                _("fork() error : %s"), strerror(errno));
                      break;
 
                   case 0  : /* Child process to serve user. */
@@ -502,13 +526,13 @@ zombie_check(void)
          }
          else if (WIFSIGNALED(status))
               {
-                 /* abnormal termination */
+                 /* Abnormal termination. */
                  pid[i] = 0;
                  no_of_connections--;
               }
          else if (WIFSTOPPED(status))
               {
-                 /* Child stopped */;
+                 /* Child stopped. */;
               }
       }
    }
@@ -526,7 +550,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
 
    (void)sprintf(config_file, "%s%s%s", p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       char *ptr = buffer,
            tmp_trusted_ip[MAX_IP_LENGTH + 1],
@@ -539,7 +563,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
          if (*max_afdd_connections < 0)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d."),
                        *max_afdd_connections, MAX_AFDD_CONNECTIONS_DEF,
                        MAX_AFDD_CONNECTIONS);
             *max_afdd_connections = MAX_AFDD_CONNECTIONS;
@@ -555,7 +579,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
          if ((port < 1024) || (port > 10240))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Invalid port number given (%d) in AFD_CONFIG, setting to default %s.",
+                       _("Invalid port number given (%d) in AFD_CONFIG, setting to default %s."),
                        port, DEFAULT_AFD_PORT_NO);
             (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
          }
@@ -623,7 +647,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
                            if ((ip_log_defs = malloc(sizeof(int))) == NULL)
                            {
                               system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                         "Failed to malloc() %d bytes : %s",
+                                         _("Failed to malloc() %d bytes : %s"),
                                          sizeof(int), strerror(errno));
                               exit(INCORRECT);
                            }
@@ -639,7 +663,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
                                                       number_of_trusted_ips * sizeof(int))) == NULL)
                            {
                               system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                         "Failed to realloc() %d bytes : %s",
+                                         _("Failed to realloc() %d bytes : %s"),
                                          number_of_trusted_ips * sizeof(int),
                                          strerror(errno));
                               exit(INCORRECT);
@@ -682,7 +706,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
          if ((ip_log_defs = malloc(sizeof(int))) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to malloc() %d bytes : %s",
+                       _("Failed to malloc() %d bytes : %s"),
                        sizeof(int), strerror(errno));
             exit(INCORRECT);
          }
@@ -702,7 +726,7 @@ afdd_exit(void)
    {
       int i;
 
-      /* Kill all child process */
+      /* Kill all child process. */
       for (i = 0; i < max_afdd_connections; i++)
       {
          if (pid[i] > 0)
@@ -713,9 +737,9 @@ afdd_exit(void)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                             "Failed to kill() %d : %s",
+                             _("Failed to kill() %d : %s"),
 #else
-                             "Failed to kill() %lld : %s",
+                             _("Failed to kill() %lld : %s"),
 #endif
                              (pri_pid_t)pid[i], strerror(errno));
                }
@@ -723,7 +747,7 @@ afdd_exit(void)
          }
       }
 
-      system_log(INFO_SIGN, NULL, 0, "Stopped %s.", AFDD);
+      system_log(INFO_SIGN, NULL, 0, _("Stopped %s."), AFDD);
    }
 
    (void)close(sockfd);
@@ -738,7 +762,8 @@ afdd_exit(void)
 static void
 sig_segv(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__,
+              _("Aaarrrggh! Received SIGSEGV."));
    afdd_exit();
 
    /* Dump core so we know what happened. */
@@ -750,7 +775,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__, _("Uuurrrggh! Received SIGBUS."));
    afdd_exit();
 
    /* Dump core so we know what happened. */

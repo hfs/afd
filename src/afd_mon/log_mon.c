@@ -1,7 +1,7 @@
 /*
  *  log_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007, 2008 Deutscher Wetterdienst (DWD),
+ *                           Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ DESCR__S_M1
  **      LT - Transfer Log data
  **      LB - Transfer Debug Log data
  **      LI - Input Log data
+ **      LU - Distribution Log data
  **      LP - Production Log data
  **      LO - Output Log data
  **      LD - Delete Log data
@@ -65,6 +66,7 @@ DESCR__S_M1
  **      OT - Transfer Log data
  **      OB - Transfer Debug Log data
  **      OI - Input Log data
+ **      OU - Distribution Log data
  **      OP - Production Log data
  **      OO - Output Log data
  **      OD - Delete Log data
@@ -86,6 +88,7 @@ DESCR__E_M1
 #include <ctype.h>           /* isdigit()                                */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>        /* struct timeval                           */
 #include <signal.h>          /* signal()                                 */
 #ifdef HAVE_MMAP
 # include <sys/mman.h>
@@ -226,6 +229,9 @@ main(int argc, char *argv[])
    log_flags[TDB_LOG_POS] = AFDD_TRANSFER_DEBUG_LOG;
 #ifdef _INPUT_LOG
    log_flags[INP_LOG_POS] = AFDD_INPUT_LOG;
+#endif
+#ifdef _DISTRIBUTION_LOG
+   log_flags[DIS_LOG_POS] = AFDD_DISTRIBUTION_LOG;
 #endif
 #ifdef _PRODUCTION_LOG
    log_flags[PRO_LOG_POS] = AFDD_PRODUCTION_LOG;
@@ -479,6 +485,11 @@ eval_log_buffer(char *log_data_buffer,
                   case 'R' : /* Receive log */
                      log_type = REC_LOG_POS;
                      break;
+#ifdef _DISTRIBUTION_LOG
+                  case 'U' : /* Distribution log */
+                     log_type = DIS_LOG_POS;
+                     break;
+#endif
 #ifdef _PRODUCTION_LOG
                   case 'P' : /* Production log */
                      log_type = PRO_LOG_POS;
@@ -549,7 +560,8 @@ eval_log_buffer(char *log_data_buffer,
                      str_number[j] = log_data_buffer[i];
                      i++; j++;
                   }
-                  if ((j > 0) && (log_data_buffer[i] == ' '))
+                  if ((j > 0) && (i < bytes_read) &&
+                      (log_data_buffer[i] == ' '))
                   {
                      unsigned int options;
 
@@ -574,7 +586,7 @@ eval_log_buffer(char *log_data_buffer,
                         if ((packet_number != (last_packet_number[log_type] + 1)) &&
                             (packet_number != 0) && (log_type != DUM_LOG_POS))
                         {
-                           char pri_log_name[12];
+                           char pri_log_name[13];
 
                            switch (log_type)
                            {
@@ -594,6 +606,11 @@ eval_log_buffer(char *log_data_buffer,
                               case REC_LOG_POS :
                                  (void)strcpy(pri_log_name, "receive");
                                  break;
+#ifdef _DISTRIBUTION_LOG
+                              case DIS_LOG_POS :
+                                 (void)strcpy(pri_log_name, "distribution");
+                                 break;
+#endif
 #ifdef _PRODUCTION_LOG
                               case PRO_LOG_POS :
                                  (void)strcpy(pri_log_name, "production");
@@ -802,6 +819,12 @@ eval_log_buffer(char *log_data_buffer,
                      (void)strcpy(log_name, RECEIVE_LOG_NAME);
                      log_pos = REC_LOG_POS;
                      break;
+#ifdef _DISTRIBUTION_LOG
+                  case 'U' : /* Distribution log */
+                     (void)strcpy(log_name, DISTRIBUTION_BUFFER_FILE);
+                     log_pos = DIS_LOG_POS;
+                     break;
+#endif
 #ifdef _PRODUCTION_LOG
                   case 'P' : /* Production log */
                      (void)strcpy(log_name, PRODUCTION_BUFFER_FILE);
@@ -926,6 +949,13 @@ eval_log_buffer(char *log_data_buffer,
                               max_log_files = default_log_files = MAX_RECEIVE_LOG_FILES;
                               log_name_length = RECEIVE_LOG_NAME_LENGTH;
                               break;
+#ifdef _DISTRIBUTION_LOG
+                           case DIS_LOG_POS : /* Distribution log */
+                              (void)strcpy(max_log_def, MAX_DISTRIBUTION_LOG_FILES_DEF);
+                              max_log_files = default_log_files = MAX_DISTRIBUTION_LOG_FILES;
+                              log_name_length = DISTRIBUTION_BUFFER_FILE_LENGTH;
+                              break;
+#endif
 #ifdef _PRODUCTION_LOG
                            case PRO_LOG_POS : /* Production log */
                               (void)strcpy(max_log_def, MAX_PRODUCTION_LOG_FILES_DEF);

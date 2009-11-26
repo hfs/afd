@@ -1,6 +1,6 @@
 /*
  *  manage_trl_process.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   28.02.2006 H.Kiehl Created
+ **   03.09.2009 H.Kiehl We must also take into account if we set
+ **                      keep connected.
  **
  */
 DESCR__E_M3
@@ -192,7 +194,7 @@ init_trl_data(void)
 
       /* Serch for headers. */
       ptr = buffer;
-      while ((ptr = posi(ptr, "\n\n[")) != NULL)
+      while ((ptr = lposi(ptr, "\n\n[", 2)) != NULL)
       {
          p_start = ptr - 1;
          while ((*ptr != ']') && (*ptr != '\0'))
@@ -396,15 +398,7 @@ init_trl_data(void)
                              char tmp_char = *ptr;
 
                              *ptr = '\0';
-#ifdef HAVE_STRTOULL
-# if SIZEOF_OFF_T == 4
-                             trlg[no_of_trl_groups].limit = (off_t)strtoul(p_start, NULL, 10) / 1024;
-# else
-                             trlg[no_of_trl_groups].limit = (off_t)strtoull(p_start, NULL, 10) / 1024;
-# endif
-#else
-                             trlg[no_of_trl_groups].limit = (off_t)strtoul(p_start, NULL, 10) / 1024;
-#endif
+                             trlg[no_of_trl_groups].limit = (off_t)str2offt(p_start, NULL, 10) / 1024;
                              *ptr = tmp_char;
                           }
                           while ((*ptr != '\n') && (*ptr != '\0'))
@@ -550,16 +544,31 @@ calc_trl_per_process(int fsa_pos)
    if ((no_of_trl_groups > 0) && (trlc[fsa_pos].pos != -1))
    {
       int   active_transfers = 0,
-            i;
+            i, j,
+            real_active_transfers;
       off_t tmp_trl_per_process;
 
       for (i = 0; i < trlg[trlc[fsa_pos].pos].no_of_hosts; i++)
       {
-         if ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].active_transfers > 0) &&
+         real_active_transfers = fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].active_transfers;
+         if (fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].keep_connected > 0)
+         {
+            for (j = 0; j < fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].allowed_transfers; j++)
+            {
+               if ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].proc_id != -1) &&
+                   ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].unique_name[0] == '\0') ||
+                    ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].unique_name[1] == '\0') &&
+                     (fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].unique_name[2] < 6))))
+               {
+                  real_active_transfers--;
+               }
+            }
+         }
+         if ((real_active_transfers > 0) &&
              (fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].transfer_rate_limit > 0))
          {
             trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].trl_per_process = fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].transfer_rate_limit/
-                                                                       fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].active_transfers;
+                                                                       real_active_transfers;
             if (trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].trl_per_process == 0)
             {
                trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].trl_per_process = 1;
@@ -570,7 +579,7 @@ calc_trl_per_process(int fsa_pos)
             trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].trl_per_process = 0;
          }
          trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].gotcha = NO;
-         active_transfers += fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].active_transfers;
+         active_transfers += real_active_transfers;
       }
       if (active_transfers > 1)
       {
@@ -591,7 +600,21 @@ calc_trl_per_process(int fsa_pos)
                {
                   if (trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].trl_per_process < tmp_trl_per_process)
                   {
-                     active_transfers -= fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].active_transfers;
+                     real_active_transfers = fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].active_transfers;
+                     if (fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].keep_connected > 0)
+                     {
+                        for (j = 0; j < fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].allowed_transfers; j++)
+                        {
+                           if ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].proc_id != -1) &&
+                               ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].unique_name[0] == '\0') ||
+                                ((fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].unique_name[1] == '\0') &&
+                                 (fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].job_status[j].unique_name[2] < 6))))
+                           {
+                              real_active_transfers--;
+                           }
+                        }
+                     }
+                     active_transfers -= real_active_transfers;
                      limit -= fsa[trlg[trlc[fsa_pos].pos].fsa_pos[i]].transfer_rate_limit;
                      trlc[trlg[trlc[fsa_pos].pos].fsa_pos[i]].gotcha = YES;
                      break;
@@ -631,17 +654,32 @@ calc_trl_per_process(int fsa_pos)
    }
    else
    {
-      if ((fsa[fsa_pos].active_transfers > 1) &&
-          (fsa[fsa_pos].transfer_rate_limit > 0))
+      int real_active_transfers;
+
+      real_active_transfers = fsa[fsa_pos].active_transfers;
+      if (fsa[fsa_pos].keep_connected > 0)
       {
-         fsa[fsa_pos].trl_per_process = fsa[fsa_pos].transfer_rate_limit /
-                                        fsa[fsa_pos].active_transfers;
+         register int i;
+
+         for (i = 0; i < fsa[fsa_pos].allowed_transfers; i++)
+         {
+            if ((fsa[fsa_pos].job_status[i].proc_id != -1) &&
+                ((fsa[fsa_pos].job_status[i].unique_name[0] == '\0') ||
+                 ((fsa[fsa_pos].job_status[i].unique_name[1] == '\0') &&
+                  (fsa[fsa_pos].job_status[i].unique_name[2] < 6))))
+            {
+               real_active_transfers--;
+            }
+         }
+      }
+      if ((real_active_transfers > 1) && (fsa[fsa_pos].transfer_rate_limit > 0))
+      {
+         fsa[fsa_pos].trl_per_process = fsa[fsa_pos].transfer_rate_limit / real_active_transfers;
          if (fsa[fsa_pos].trl_per_process == 0)
          {
             fsa[fsa_pos].trl_per_process = 1;
          }
-         fsa[fsa_pos].mc_ctrl_per_process = fsa[fsa_pos].mc_ct_rate_limit /
-                                            fsa[fsa_pos].active_transfers;
+         fsa[fsa_pos].mc_ctrl_per_process = fsa[fsa_pos].mc_ct_rate_limit / real_active_transfers;
          if (fsa[fsa_pos].mc_ctrl_per_process == 0)
          {
             fsa[fsa_pos].mc_ctrl_per_process = 1;

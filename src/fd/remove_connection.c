@@ -1,6 +1,6 @@
 /*
  *  remove_connection.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
          get_new_positions();
          init_msg_buffer();
       }
-#endif /* WITH_MULTI_FSA_CHECKS */
+#endif
 
       /* Decrease number of active transfers to this host in FSA. */
       if (faulty == YES)
@@ -106,6 +106,9 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
             {
                fra[p_con->fra_pos].dir_flag |= DIR_ERROR_SET;
                SET_DIR_STATUS(fra[p_con->fra_pos].dir_flag,
+                              now,
+                              fra[p_con->fra_pos].start_event_handle,
+                              fra[p_con->fra_pos].end_event_handle,
                               fra[p_con->fra_pos].dir_status);
             }
             unlock_region(fra_fd,
@@ -240,6 +243,7 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
     * Reset all values of connection structure.
     */
    p_con->hostname[0] = '\0';
+   p_con->host_id = 0;
    p_con->job_no = -1;
    p_con->fsa_pos = -1;
    p_con->fra_pos = -1;

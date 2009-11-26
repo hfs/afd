@@ -1,6 +1,6 @@
 /*
  *  smtpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,11 +26,15 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int smtp_connect(char *hostname, int port)
+ **   int smtp_auth(char *user, char *passwd)
+ **   int smtp_helo(char *host_name)
+ **   int smtp_ehlo(char *host_name)
  **   int smtp_user(char *user)
  **   int smtp_rcpt(char *recipient)
  **   int smtp_open(void)
  **   int smtp_write(char *block, char *buffer, int size)
  **   int smtp_write_iso8859(char *block, char *buffer, int size)
+ **   int smtp_noop(void)
  **   int smtp_close(void)
  **   int smtp_quit(void)
  **   void get_content_type(char *filename, char *content_type)
@@ -104,6 +108,8 @@ DESCR__S_M3
  **   27.09.2006 H.Kiehl Function smtp_write() now handles the case
  **                      correctly when a line starts with a leading
  **                      dot '.'.
+ **   09.11.2008 H.Kiehl Implemented EHLO command.
+ **   21.02.2009 H.Kiehl Added smtp_noop().
  **
  */
 DESCR__E_M3
@@ -128,25 +134,27 @@ DESCR__E_M3
 
 
 /* External global variables. */
-extern int                timeout_flag;
-extern char               msg_str[],
-                          tr_hostname[];
+extern int                             timeout_flag;
+extern char                            msg_str[],
+                                       tr_hostname[];
 #ifdef LINUX
-extern char               *h_errlist[];    /* for gethostbyname()        */
-extern int                h_nerr;          /* for gethostbyname()        */
+extern char                            *h_errlist[]; /* for gethostbyname() */
+extern int                             h_nerr;       /* for gethostbyname() */
 #endif
-extern long               transfer_timeout;
-extern struct job         db;
+extern long                            transfer_timeout;
+extern struct job                      db;
 
 /* Local global variables. */
-static int                smtp_fd;
-static FILE               *smtp_fp;
-static struct sockaddr_in ctrl;
-static struct timeval     timeout;
+static int                             smtp_fd;
+static FILE                            *smtp_fp;
+static struct sockaddr_in              ctrl;
+static struct timeval                  timeout;
+static struct smtp_server_capabilities ssc;
 
 /* Local function prototypes. */
-static int                get_reply(FILE *),
-                          read_msg(void);
+static int                             get_ehlo_reply(FILE *),
+                                       get_reply(FILE *),
+                                       read_msg(void);
 
 
 /*########################## smtp_connect() #############################*/
@@ -169,27 +177,27 @@ smtp_connect(char *hostname, int port)
 #ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to gethostbyname() %s : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                         _("Failed to gethostbyname() %s : %s"),
                          hostname, h_errlist[h_errno]);
             }
             else
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to gethostbyname() %s (h_errno = %d) : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                         _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
 #else
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to gethostbyname() %s (h_errno = %d) : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                      _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
 #endif
          }
          else
          {
 #endif /* !_HPUX && !_SCO */
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to gethostbyname() %s : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                      _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
 #if !defined (_HPUX) && !defined (_SCO)
          }
@@ -203,34 +211,61 @@ smtp_connect(char *hostname, int port)
 
    if ((smtp_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "socket() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                _("socket() error : %s"), strerror(errno));
       return(INCORRECT);
    }
    sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   if (timeout_flag != OFF)
+   {
+      reply = 1;
+      if (setsockopt(smtp_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
+      }
+# ifdef TCP_KEEPALIVE
+      reply = timeout_flag;
+      if (setsockopt(smtp_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
+      }
+# endif
+      timeout_flag = OFF;
+   }
+#endif
+
    if (connect(smtp_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "Failed to connect() to %s : %s", hostname, strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
       (void)close(smtp_fd);
       return(INCORRECT);
    }
+#ifdef WITH_TRACE
+   length = sprintf(msg_str, _("Connected to %s"), hostname);
+   trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+#endif
 
    length = sizeof(ctrl);
    if (getsockname(smtp_fd, (struct sockaddr *)&ctrl, &length) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "getsockname() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                _("getsockname() error : %s"), strerror(errno));
       (void)close(smtp_fd);
       return(INCORRECT);
    }
 
    if ((smtp_fp = fdopen(smtp_fd, "r+")) == NULL)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "fdopen() control error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                _("fdopen() error : %s"), strerror(errno));
       (void)close(smtp_fd);
       return(INCORRECT);
    }
@@ -267,6 +302,202 @@ smtp_helo(char *host_name)
       if (reply == 250)
       {
          reply = SUCCESS;
+      }
+   }
+
+   return(reply);
+}
+
+
+/*############################# smtp_ehlo() #############################*/
+int
+smtp_ehlo(char *host_name)
+{
+   int reply;
+
+#ifdef WITH_TRACE
+   trace_log(NULL, 0, W_TRACE, NULL, 0, "EHLO %s<0D><0A>", host_name);
+#endif
+   (void)fprintf(smtp_fp, "EHLO %s\r\n", host_name);
+   (void)fflush(smtp_fp);
+
+   if ((reply = get_ehlo_reply(smtp_fp)) != INCORRECT)
+   {
+      if (reply == 250)
+      {
+         reply = SUCCESS;
+      }
+   }
+
+   return(reply);
+}
+
+
+/*############################# smtp_auth() #############################*/
+int
+smtp_auth(unsigned char auth_type, char *user, char *passwd)
+{
+   int  reply;
+   char auth_type_str[6];
+
+   if (auth_type == SMTP_AUTH_LOGIN)
+   {
+      if (ssc.auth_login == YES)
+      {
+         auth_type_str[0] = 'L';
+         auth_type_str[1] = 'O';
+         auth_type_str[2] = 'G';
+         auth_type_str[3] = 'I';
+         auth_type_str[4] = 'N';
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_auth", NULL,
+                   _("SMTP server does NOT support AUTH LOGIN."));
+         return(INCORRECT);
+      }
+   }
+   else if (auth_type == SMTP_AUTH_PLAIN)
+        {
+           if (ssc.auth_plain == YES)
+           {
+              auth_type_str[0] = 'P';
+              auth_type_str[1] = 'L';
+              auth_type_str[2] = 'A';
+              auth_type_str[3] = 'I';
+              auth_type_str[4] = 'N';
+           }
+           else
+           {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_auth", NULL,
+                        _("SMTP server does NOT support AUTH PLAIN."));
+              return(INCORRECT);
+           }
+        }
+        else
+        {
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_auth", NULL,
+                     _("Unknown SMTP AUTH method not supported by AFD."));
+           return(INCORRECT);
+        }
+
+   auth_type_str[5] = '\0';
+#ifdef WITH_TRACE
+   trace_log(NULL, 0, W_TRACE, NULL, 0, "AUTH %s<0D><0A>", auth_type_str);
+#endif
+   (void)fprintf(smtp_fp, "AUTH %s\r\n", auth_type_str);
+   (void)fflush(smtp_fp);
+
+   if ((reply = get_reply(smtp_fp)) != INCORRECT)
+   {
+      if (reply == 334)
+      {
+         int  length;
+         char base_64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+              *dst_ptr,
+              *src_ptr,
+              userpasswd[MAX_USER_NAME_LENGTH + MAX_USER_NAME_LENGTH],
+              userpasswd_b64[MAX_USER_NAME_LENGTH + MAX_USER_NAME_LENGTH];
+
+         dst_ptr = userpasswd_b64;
+         if (ssc.auth_login == YES)
+         {
+            length = strlen(user);
+            src_ptr = user;
+         }
+         else
+         {
+            length = sprintf(userpasswd, "%s:%s", user, passwd);
+            src_ptr = userpasswd;
+         }
+         while (length > 2)
+         {
+            *dst_ptr = base_64[(int)(*src_ptr) >> 2];
+            *(dst_ptr + 1) = base_64[((((int)(*src_ptr) & 0x3)) << 4) | (((int)(*(src_ptr + 1)) & 0xF0) >> 4)];
+            *(dst_ptr + 2) = base_64[((((int)(*(src_ptr + 1))) & 0xF) << 2) | ((((int)(*(src_ptr + 2))) & 0xC0) >> 6)];
+            *(dst_ptr + 3) = base_64[((int)(*(src_ptr + 2))) & 0x3F];
+            src_ptr += 3;
+            length -= 3;
+            dst_ptr += 4;
+         }
+         if (length == 2)
+         {
+            *dst_ptr = base_64[(int)(*src_ptr) >> 2];
+            *(dst_ptr + 1) = base_64[((((int)(*src_ptr) & 0x3)) << 4) | (((int)(*(src_ptr + 1)) & 0xF0) >> 4)];
+            *(dst_ptr + 2) = base_64[((((int)(*(src_ptr + 1))) & 0xF) << 2) | ((((int)(*(src_ptr + 2))) & 0xC0) >> 6)];
+            *(dst_ptr + 3) = '=';
+            dst_ptr += 4;
+         }
+         else if (length == 1)
+              {
+                 *dst_ptr = base_64[(int)(*src_ptr) >> 2];
+                 *(dst_ptr + 1) = base_64[((((int)(*src_ptr) & 0x3)) << 4) | (((int)(*(src_ptr + 1)) & 0xF0) >> 4)];
+                 *(dst_ptr + 2) = '=';
+                 *(dst_ptr + 3) = '=';
+                 dst_ptr += 4;
+              }
+         *dst_ptr = '\0';
+#ifdef WITH_TRACE
+         trace_log(NULL, 0, W_TRACE, NULL, 0, "%s<0D><0A>", userpasswd_b64);
+#endif
+         (void)fprintf(smtp_fp, "%s\r\n", userpasswd_b64);
+         (void)fflush(smtp_fp);
+         if ((reply = get_reply(smtp_fp)) != INCORRECT)
+         {
+            if (reply == 334)
+            {
+               if (ssc.auth_login == YES)
+               {
+                  dst_ptr = userpasswd_b64;
+                  length = strlen(passwd);
+                  src_ptr = passwd;
+                  while (length > 2)
+                  {
+                     *dst_ptr = base_64[(int)(*src_ptr) >> 2];
+                     *(dst_ptr + 1) = base_64[((((int)(*src_ptr) & 0x3)) << 4) | (((int)(*(src_ptr + 1)) & 0xF0) >> 4)];
+                     *(dst_ptr + 2) = base_64[((((int)(*(src_ptr + 1))) & 0xF) << 2) | ((((int)(*(src_ptr + 2))) & 0xC0) >> 6)];
+                     *(dst_ptr + 3) = base_64[((int)(*(src_ptr + 2))) & 0x3F];
+                     src_ptr += 3;
+                     length -= 3;
+                     dst_ptr += 4;
+                  }
+                  if (length == 2)
+                  {
+                     *dst_ptr = base_64[(int)(*src_ptr) >> 2];
+                     *(dst_ptr + 1) = base_64[((((int)(*src_ptr) & 0x3)) << 4) | (((int)(*(src_ptr + 1)) & 0xF0) >> 4)];
+                     *(dst_ptr + 2) = base_64[((((int)(*(src_ptr + 1))) & 0xF) << 2) | ((((int)(*(src_ptr + 2))) & 0xC0) >> 6)];
+                     *(dst_ptr + 3) = '=';
+                     dst_ptr += 4;
+                  }
+                  else if (length == 1)
+                       {
+                          *dst_ptr = base_64[(int)(*src_ptr) >> 2];
+                          *(dst_ptr + 1) = base_64[((((int)(*src_ptr) & 0x3)) << 4) | (((int)(*(src_ptr + 1)) & 0xF0) >> 4)];
+                          *(dst_ptr + 2) = '=';
+                          *(dst_ptr + 3) = '=';
+                          dst_ptr += 4;
+                       }
+                  *dst_ptr = '\0';
+#ifdef WITH_TRACE
+                  trace_log(NULL, 0, W_TRACE, NULL, 0, "%s<0D><0A>",
+                            userpasswd_b64);
+#endif
+                  (void)fprintf(smtp_fp, "%s\r\n", userpasswd_b64);
+                  (void)fflush(smtp_fp);
+                  if ((reply = get_reply(smtp_fp)) != INCORRECT)
+                  {
+                     if (reply == 235)
+                     {
+                        reply = SUCCESS;
+                     }
+                  }
+               }
+               else
+               {
+                  reply = SUCCESS;
+               }
+            }
+         }
       }
    }
 
@@ -313,6 +544,30 @@ smtp_rcpt(char *recipient)
    if ((reply = get_reply(smtp_fp)) != INCORRECT)
    {
       if ((reply == 250) || (reply == 251))
+      {
+         reply = SUCCESS;
+      }
+   }
+
+   return(reply);
+}
+
+
+/*############################# smtp_noop() #############################*/
+int
+smtp_noop(void)
+{
+   int reply;
+
+#ifdef WITH_TRACE
+   trace_log(NULL, 0, W_TRACE, NULL, 0, "NOOP<0D><0A>");
+#endif
+   (void)fprintf(smtp_fp, "NOOP\r\n");
+   (void)fflush(smtp_fp);
+
+   if ((reply = get_reply(smtp_fp)) != INCORRECT)
+   {
+      if (reply == 250)
       {
          reply = SUCCESS;
       }
@@ -375,7 +630,7 @@ smtp_write(char *block, char *buffer, int size)
 
    if (status == 0)
    {
-      /* timeout has arrived */
+      /* Timeout has arrived. */
       timeout_flag = ON;
       return(INCORRECT);
    }
@@ -429,16 +684,16 @@ smtp_write(char *block, char *buffer, int size)
 #ifdef _WITH_SEND
            if ((status = send(smtp_fd, ptr, size, 0)) != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "send() error after writting %d bytes : %s",
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write", NULL,
+                        _("send() error after writting %d bytes : %s"),
                         status, strerror(errno));
               return(INCORRECT);
            }
 #else
            if ((status = write(smtp_fd, ptr, size)) != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "write() error after writting %d bytes : %s",
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write", NULL,
+                        _("write() error after writting %d bytes : %s"),
                         status, strerror(errno));
               return(INCORRECT);
            }
@@ -449,14 +704,14 @@ smtp_write(char *block, char *buffer, int size)
         }
    else if (status < 0)
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "select() error : %s", strerror(errno));
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write", NULL,
+                     _("select() error : %s"), strerror(errno));
            exit(INCORRECT);
         }
         else
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "Unknown condition.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write", NULL,
+                     _("Unknown condition."));
            exit(INCORRECT);
         }
    
@@ -474,7 +729,7 @@ smtp_write_iso8859(char *block, char *buffer, int size)
    unsigned char *ptr = (unsigned char *)block;
    fd_set        wset;
 
-   /* Initialise descriptor set */
+   /* Initialise descriptor set. */
    FD_ZERO(&wset);
    FD_SET(smtp_fd, &wset);
    timeout.tv_usec = 0L;
@@ -485,7 +740,7 @@ smtp_write_iso8859(char *block, char *buffer, int size)
 
    if (status == 0)
    {
-      /* timeout has arrived */
+      /* Timeout has arrived. */
       timeout_flag = ON;
       return(INCORRECT);
    }
@@ -590,16 +845,16 @@ smtp_write_iso8859(char *block, char *buffer, int size)
 #ifdef _WITH_SEND
            if ((status = send(smtp_fd, ptr, size, 0)) != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "send() error after writting %d bytes : %s",
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write_iso8859", NULL,
+                        _("send() error after writting %d bytes : %s"),
                         status, strerror(errno));
               return(INCORRECT);
            }
 #else
            if ((status = write(smtp_fd, ptr, size)) != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "write() error after writting %d bytes : %s",
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write_iso8859", NULL,
+                        _("write() error after writting %d bytes : %s"),
                         status, strerror(errno));
               return(INCORRECT);
            }
@@ -610,14 +865,14 @@ smtp_write_iso8859(char *block, char *buffer, int size)
         }
         else if (status < 0)
              {
-                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                          "select() error : %s", strerror(errno));
+                trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write_iso8859", NULL,
+                          _("select() error : %s"), strerror(errno));
                 return(INCORRECT);
              }
              else
              {
-                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                          "Unknown condition.");
+                trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write_iso8859", NULL,
+                          _("Unknown condition."));
                 exit(INCORRECT);
              }
    
@@ -637,8 +892,8 @@ smtp_close(void)
    (void)fprintf(smtp_fp, "\r\n.\r\n");
    if (fflush(smtp_fp) == EOF)
    {
-      trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                "Failed to fflush() data when closing connection : %s",
+      trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_close", NULL,
+                _("Failed to fflush() data when closing connection : %s"),
                 strerror(errno));
    }
 
@@ -670,8 +925,8 @@ smtp_quit(void)
    (void)fprintf(smtp_fp, "QUIT\r\n");
    if (fflush(smtp_fp) == EOF)
    {
-      trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                "Failed to fflush() data when closing connection : %s",
+      trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_quit", NULL,
+                _("Failed to fflush() data before closing connection : %s"),
                 strerror(errno));
    }
 
@@ -693,16 +948,16 @@ smtp_quit(void)
       {
          if (shutdown(smtp_fd, 1) < 0)
          {
-            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                      "shutdown() error : %s", strerror(errno));
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__, "smtp_quit", NULL,
+                      _("shutdown() error : %s"), strerror(errno));
          }
       }
 #endif
    }
    if (fclose(smtp_fp) == EOF)
    {
-      trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                "fclose() error : %s", strerror(errno));
+      trans_log(DEBUG_SIGN, __FILE__, __LINE__, "smtp_quit", NULL,
+                _("fclose() error : %s"), strerror(errno));
    }
 
    return(SUCCESS);
@@ -761,6 +1016,18 @@ get_content_type(char *filename, char *content_type)
               {
                  (void)strcpy(content_type, "IMAGE/gif");
               }
+         else if (((*ptr == 'j') || (*ptr == 'J')) &&
+                  ((*(ptr + 1) == 's') || (*(ptr + 1) == 'S')) &&
+                  (*(ptr + 2) == '\0'))
+              {
+                 (void)strcpy(content_type, "APPLICATION/javascript");
+              }
+         else if (((*ptr == 'm') || (*ptr == 'M')) &&
+                  ((*(ptr + 1) == 'p') || (*(ptr + 1) == 'P')) &&
+                  (*(ptr + 2) == '4') && (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "APPLICATION/mp4");
+              }
          else if (((*ptr == 'p') || (*ptr == 'P')) &&
                   ((*(ptr + 1) == 'd') || (*(ptr + 1) == 'D')) &&
                   ((*(ptr + 2) == 'f') || (*(ptr + 2) == 'F')) &&
@@ -774,6 +1041,20 @@ get_content_type(char *filename, char *content_type)
                   (*(ptr + 3) == '\0'))
               {
                  (void)strcpy(content_type, "APPLICATION/msword");
+              }
+         else if (((*ptr == 'x') || (*ptr == 'X')) &&
+                  ((*(ptr + 1) == 'l') || (*(ptr + 1) == 'L')) &&
+                  ((*(ptr + 2) == 's') || (*(ptr + 2) == 'S')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "APPLICATION/vnd.ms-excel");
+              }
+         else if (((*ptr == 'p') || (*ptr == 'P')) &&
+                  ((*(ptr + 1) == 'p') || (*(ptr + 1) == 'P')) &&
+                  ((*(ptr + 2) == 't') || (*(ptr + 2) == 'T')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "APPLICATION/vnd.ms-powerpoint");
               }
          else if (((*ptr == 'b') || (*ptr == 'B')) &&
                   ((*(ptr + 1) == 'z') || (*(ptr + 1) == 'Z')) &&
@@ -835,6 +1116,41 @@ get_content_type(char *filename, char *content_type)
               {
                  (void)strcpy(content_type, "TEXT/plain");
               }
+         else if (((*ptr == 'c') || (*ptr == 'C')) &&
+                  ((*(ptr + 1) == 's') || (*(ptr + 1) == 'S')) &&
+                  ((*(ptr + 2) == 'v') || (*(ptr + 2) == 'V')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "TEXT/csv");
+              }
+         else if (((*ptr == 'c') || (*ptr == 'C')) &&
+                  ((*(ptr + 1) == 's') || (*(ptr + 1) == 'S')) &&
+                  ((*(ptr + 2) == 's') || (*(ptr + 2) == 'S')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "TEXT/css");
+              }
+         else if (((*ptr == 'r') || (*ptr == 'R')) &&
+                  ((*(ptr + 1) == 't') || (*(ptr + 1) == 'T')) &&
+                  ((*(ptr + 2) == 'x') || (*(ptr + 2) == 'X')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "TEXT/richtext");
+              }
+         else if (((*ptr == 'r') || (*ptr == 'R')) &&
+                  ((*(ptr + 1) == 't') || (*(ptr + 1) == 'T')) &&
+                  ((*(ptr + 2) == 'f') || (*(ptr + 2) == 'F')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "TEXT/rtf");
+              }
+         else if (((*ptr == 'x') || (*ptr == 'X')) &&
+                  ((*(ptr + 1) == 'm') || (*(ptr + 1) == 'M')) &&
+                  ((*(ptr + 2) == 'l') || (*(ptr + 2) == 'L')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "TEXT/xml");
+              }
          else if (((*ptr == 'h') || (*ptr == 'H')) &&
                   ((*(ptr + 1) == 't') || (*(ptr + 1) == 'T')) &&
                   ((*(ptr + 2) == 'm') || (*(ptr + 2) == 'M')) &&
@@ -881,6 +1197,81 @@ get_reply(FILE *smtp_fp)
 }
 
 
+/*+++++++++++++++++++++++++++ get_ehlo_reply() ++++++++++++++++++++++++++*/
+static int
+get_ehlo_reply(FILE *smtp_fp)
+{
+   ssc.auth_login = NO;
+   ssc.auth_plain = NO;
+   for (;;)
+   {
+      if (read_msg() == INCORRECT)
+      {
+         return(INCORRECT);
+      }
+
+      if ((isdigit((int)msg_str[0]) != 0) && (isdigit((int)msg_str[1]) != 0) &&
+          (isdigit((int)msg_str[2]) != 0) && (msg_str[3] != '-'))
+      {
+         break;
+      }
+      else if ((msg_str[0] == '2') && (msg_str[1] == '5') &&
+               (msg_str[2] == '0') && (msg_str[3] == '-'))
+           {
+              if (((msg_str[4] == 'A') || (msg_str[4] == 'a')) &&
+                  ((msg_str[5] == 'U') || (msg_str[5] == 'u')) &&
+                  ((msg_str[6] == 'T') || (msg_str[6] == 't')) &&
+                  ((msg_str[7] == 'H') || (msg_str[7] == 'h')) &&
+                  (msg_str[8] == ' '))
+              {
+                 char *ptr = &msg_str[9];
+
+                 do
+                 {
+                    if (((*ptr == 'L') || (*ptr == 'l')) &&
+                        ((*(ptr + 1) == 'O') || (*(ptr + 1) == 'o')) &&
+                        ((*(ptr + 2) == 'G') || (*(ptr + 2) == 'g')) &&
+                        ((*(ptr + 3) == 'I') || (*(ptr + 3) == 'i')) &&
+                        ((*(ptr + 4) == 'N') || (*(ptr + 4) == 'n')) &&
+                        ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\0')))
+                    {
+                       ptr += 5;
+                       ssc.auth_login = YES;
+                    }
+                    else if (((*ptr == 'P') || (*ptr == 'p')) &&
+                             ((*(ptr + 1) == 'L') || (*(ptr + 1) == 'l')) &&
+                             ((*(ptr + 2) == 'A') || (*(ptr + 2) == 'a')) &&
+                             ((*(ptr + 3) == 'I') || (*(ptr + 3) == 'i')) &&
+                             ((*(ptr + 4) == 'N') || (*(ptr + 4) == 'n')) &&
+                             ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\0')))
+                         {
+                            ptr += 5;
+                            ssc.auth_plain = YES;
+                         }
+                         else
+                         {
+                            while ((*ptr != ' ') && (*ptr != '\0'))
+                            {
+                               ptr++;
+                            }
+                         }
+                    if (*ptr == ' ')
+                    {
+                       do
+                       {
+                          ptr++;
+                       } while (*ptr == ' ');
+                    }
+                 } while (*ptr != '\0');
+              }
+           }
+   }
+
+   return(((msg_str[0] - '0') * 100) + ((msg_str[1] - '0') * 10) +
+          (msg_str[2] - '0'));
+}
+
+
 /*----------------------------- read_msg() ------------------------------*/
 static int
 read_msg(void)
@@ -907,7 +1298,7 @@ read_msg(void)
    {
       if (bytes_read <= 0)
       {
-         /* Initialise descriptor set */
+         /* Initialise descriptor set. */
          FD_SET(smtp_fd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = transfer_timeout;
@@ -917,7 +1308,7 @@ read_msg(void)
 
          if (status == 0)
          {
-            /* timeout has arrived */
+            /* Timeout has arrived. */
             timeout_flag = ON;
             bytes_read = 0;
             return(INCORRECT);
@@ -929,8 +1320,8 @@ read_msg(void)
                  {
                     if (bytes_read == 0)
                     {
-                       trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                 "Remote hang up.");
+                       trans_log(ERROR_SIGN,  __FILE__, __LINE__, "read_msg", NULL,
+                                 _("Remote hang up."));
                        timeout_flag = NEITHER;
                     }
                     else
@@ -939,8 +1330,8 @@ read_msg(void)
                        {
                           timeout_flag = CON_RESET;
                        }
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                 "read() error (after reading %d Bytes) : %s",
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                 _("read() error (after reading %d bytes) : %s"),
                                  bytes_buffered, strerror(errno));
                        bytes_read = 0;
                     }
@@ -955,14 +1346,14 @@ read_msg(void)
               }
          else if (status < 0)
               {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "select() error : %s", strerror(errno));
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                           _("select() error : %s"), strerror(errno));
                  exit(INCORRECT);
               }
               else
               {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Unknown condition.");
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                           _("Unknown condition."));
                  exit(INCORRECT);
               }
       }

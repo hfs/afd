@@ -57,7 +57,9 @@ abc*.*     new_filename*.new.*.test
 </pre>
 <p>
 <bold>NOTE:</bold> The rules must always start on the beginning of
-a new line ie. there may not be any spaces in front.
+a new line ie. there may not be any spaces in front. The rule header
+(in the example above rule_1), may be up to 80 characters
+(MAX_RULE_HEADER_LENGTH) long.
 </p>
 <p>
 The result of these entries would be that all files for recipient_2 would
@@ -70,7 +72,7 @@ ABnew_filenameCD.txt.
 <ul>
    <li>Define as many rename groups as needed.</li>
    <li>Unlimited number of filters.</li>
-   <li>In one filter you can use up to 10 ´*´ and 50 ´?´.</li>
+   <li>In one filter you can use up to 10 '*' and 50 '?'.</li>
 </ul>
 <table border>
 <tr>
@@ -81,7 +83,7 @@ ABnew_filenameCD.txt.
 </tr>
 <tr>
    <td><b>* and ?</b></td>
-   <td>You can use the same ´*´ and ´?´ in the rename rule.</td>
+   <td>You can use the same '*' and '?' in the rename rule.</td>
    <td><pre>??*   ?-?-*                </pre></td>
    <td>a-b-cde</td>
 </tr>
@@ -130,7 +132,7 @@ ABnew_filenameCD.txt.
    <td><b>%n</b></td>
    <td>Insert a unique number four characters long.</td>
    <td><pre>*     *.%n                 </pre></td>
-   <td>abcde.2864</td>
+   <td>abcde.286f</td>
 </tr>
 <tr>
    <td><b>%ab</b></td>
@@ -182,9 +184,9 @@ ABnew_filenameCD.txt.
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 27.01.2007
+   Last updated: 05.11.2009
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

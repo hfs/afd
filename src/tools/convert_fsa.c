@@ -53,7 +53,7 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                 /* mmap()                          */
+# include <sys/mman.h>                /* mmap()                          */
 #endif
 #include <unistd.h>
 #include <fcntl.h>                    /* O_RDWR, O_CREAT, O_WRONLY, etc  */
@@ -134,7 +134,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -161,7 +161,7 @@ main(int argc, char *argv[])
          }
       }
 
-      /* Read the FSA file ID */
+      /* Read the FSA file ID. */
       if (read(fd, &old_fsa_id, sizeof(int)) < 0)
       {
          (void)fprintf(stderr,
@@ -177,7 +177,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Attach to old region */
+   /* Attach to old region. */
    ptr = old_fsa_stat + strlen(old_fsa_stat);
    (void)sprintf(ptr, ".%d", old_fsa_id);
 
@@ -234,7 +234,7 @@ main(int argc, char *argv[])
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, fsa_id);
 
-   /* Now map the new FSA region to a file */
+   /* Now map the new FSA region to a file. */
    if ((fsa_fd = open(new_fsa_stat, (O_RDWR | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
       (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
@@ -266,10 +266,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Write number of hosts to new shm region */
+   /* Write number of hosts to new shm region. */
    *(int*)ptr = old_no_of_hosts;
 
-   /* Reposition fsa pointer after old_no_of_hosts */
+   /* Reposition fsa pointer after old_no_of_hosts. */
    ptr += AFD_WORD_OFFSET;
    fsa = (struct filetransfer_status *)ptr;
 
@@ -318,7 +318,7 @@ main(int argc, char *argv[])
 #ifdef _WITH_BURST_2
          (void)strcpy(fsa[i].job_status[j].unique_name, old_fsa[i].job_status[j].unique_name);
          fsa[i].job_status[j].job_id = old_fsa[i].job_status[j].job_id;
-#endif /* _WITH_BURST_2 */
+#endif
          fsa[i].job_status[j].connect_status = old_fsa[i].job_status[j].connect_status;
          fsa[i].job_status[j].no_of_files = old_fsa[i].job_status[j].no_of_files;
          fsa[i].job_status[j].no_of_files_done = old_fsa[i].job_status[j].no_of_files_done;

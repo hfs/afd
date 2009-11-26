@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -83,14 +83,14 @@ DESCR__E_M1
 #include <sys/time.h>                 /* struct timeval                  */
 #include <sys/wait.h>                 /* waitpid()                       */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                 /* mmap(), munmap()                */
+# include <sys/mman.h>                /* mmap(), munmap()                */
 #endif
 #include <signal.h>                   /* kill(), signal()                */
 #include <unistd.h>                   /* select(), read(), write(),      */
                                       /* close(), unlink(), sleep(),     */
                                       /* fpathconf()                     */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                    /* O_RDWR, O_CREAT, O_WRONLY, etc  */
+# include <fcntl.h>                   /* O_RDWR, O_CREAT, O_WRONLY, etc  */
                                       /* open()                          */
 #endif
 #include <errno.h>
@@ -208,7 +208,7 @@ main(int argc, char *argv[])
    /* Open debug file for writing. */
    if ((p_debug_file = fopen("amg.debug", "w")) == NULL)
    {
-      (void)fprintf(stderr, "ERROR   : Could not open %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("ERROR   : Could not open() `%s' : %s (%s %d)\n"),
                     "amg.debug", strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -224,7 +224,7 @@ main(int argc, char *argv[])
    if (sigaction(SIGSEGV, &sact, NULL) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "sigaction() error : %s", strerror(errno));
+                 _("sigaction() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
 #endif
@@ -233,7 +233,7 @@ main(int argc, char *argv[])
    if (atexit(amg_exit) != 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not register exit function : %s", strerror(errno));
+                 _("Could not register exit function : %s"), strerror(errno));
       exit(INCORRECT);
    }
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
@@ -244,7 +244,7 @@ main(int argc, char *argv[])
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not set signal handler : %s", strerror(errno));
+                 _("Could not set signal handler : %s"), strerror(errno));
       exit(INCORRECT);
    }
    
@@ -261,10 +261,10 @@ main(int argc, char *argv[])
     */
    if ((ptr = lock_proc(AMG_LOCK_ID, NO)) != NULL)
    {
-      (void)fprintf(stderr, "Process AMG already started by %s : (%s %d)\n",
+      (void)fprintf(stderr, _("Process AMG already started by %s : (%s %d)\n"),
                     ptr, __FILE__, __LINE__);
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Process AMG already started by %s", ptr);
+                 _("Process AMG already started by %s"), ptr);
       _exit(INCORRECT);
    }
    else
@@ -282,7 +282,7 @@ main(int argc, char *argv[])
                                       strlen(DEFAULT_HOST_CONFIG_FILE) + 1))) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "malloc() error : %s", strerror(errno));
+                    _("malloc() error : %s"), strerror(errno));
          _exit(INCORRECT);
       }
       (void)strcpy(host_config_file, work_dir);
@@ -307,7 +307,7 @@ main(int argc, char *argv[])
       if (attach_afd_status(NULL) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to attach to AFD status shared area.");
+                    _("Failed to attach to AFD status shared area."));
          exit(INCORRECT);
       }
 
@@ -319,7 +319,7 @@ main(int argc, char *argv[])
       if ((afd_active_fd = coe_open(afd_active_file, O_RDWR)) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Could not open() %s : %s",
+                    _("Failed to open() `%s' : %s"),
                     afd_active_file, strerror(errno));
          pid_list = NULL;
       }
@@ -328,7 +328,7 @@ main(int argc, char *argv[])
          if (fstat(afd_active_fd, &stat_buf) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Could not fstat() %s : %s",
+                       _("Failed to fstat() `%s' : %s"),
                        afd_active_file, strerror(errno));
             (void)close(afd_active_fd);
             pid_list = NULL;
@@ -336,17 +336,17 @@ main(int argc, char *argv[])
          else
          {
 #ifdef HAVE_MMAP
-            if ((pid_list = mmap(0, stat_buf.st_size,
+            if ((pid_list = mmap(NULL, stat_buf.st_size,
                                  (PROT_READ | PROT_WRITE), MAP_SHARED,
                                  afd_active_fd, 0)) == (caddr_t) -1)
 #else
-            if ((pid_list = mmap_emu(0, stat_buf.st_size,
+            if ((pid_list = mmap_emu(NULL, stat_buf.st_size,
                                      (PROT_READ | PROT_WRITE), MAP_SHARED,
                                      afd_active_file, 0)) == (caddr_t) -1)
 #endif
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "mmap() error : %s", strerror(errno));
+                          _("mmap() error : %s"), strerror(errno));
                pid_list = NULL;
             }
             afd_active_size = stat_buf.st_size;
@@ -354,7 +354,7 @@ main(int argc, char *argv[])
             if (close(afd_active_fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Failed to close() %s : %s",
+                          _("Failed to close() `%s' : %s"),
                           afd_active_file, strerror(errno));
             }
 
@@ -367,7 +367,7 @@ main(int argc, char *argv[])
                if (kill(*(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))), SIGINT) == 0)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Had to kill() an old %s job!", DC_PROC_NAME);
+                             _("Had to kill() an old %s job!"), DC_PROC_NAME);
                }
             }
          }
@@ -393,7 +393,7 @@ main(int argc, char *argv[])
 #endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not open() %s : %s",
+                    _("Failed to open() `%s' : %s"),
                     counter_file, strerror(errno));
          exit(INCORRECT);
       }
@@ -402,14 +402,14 @@ main(int argc, char *argv[])
       if (write(fd, &status, sizeof(int)) != sizeof(int))
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not initialise %s : %s",
+                    _("Could not initialise `%s' : %s"),
                     counter_file, strerror(errno));
          exit(INCORRECT);
       }
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
 
       /* If process AFD and AMG_DIALOG have not yet been created */
@@ -419,7 +419,7 @@ main(int argc, char *argv[])
          if (make_fifo(amg_cmd_fifo) < 0)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to create fifo %s.", amg_cmd_fifo);
+                       _("Failed to create fifo `%s'."), amg_cmd_fifo);
             exit(INCORRECT);
          }
       }
@@ -428,7 +428,7 @@ main(int argc, char *argv[])
          if (make_fifo(db_update_fifo) < 0)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to create fifo %s.", db_update_fifo);
+                       _("Failed to create fifo `%s'."), db_update_fifo);
             exit(INCORRECT);
          }
       }
@@ -441,7 +441,7 @@ main(int argc, char *argv[])
 #endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not open fifo %s : %s",
+                    _("Failed to open() `%s' : %s"),
                     amg_cmd_fifo, strerror(errno));
          exit(INCORRECT);
       }
@@ -455,7 +455,7 @@ main(int argc, char *argv[])
 #endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not open fifo %s : %s",
+                    _("Could not open() `%s' : %s"),
                     db_update_fifo, strerror(errno));
          exit(INCORRECT);
       }
@@ -481,7 +481,7 @@ main(int argc, char *argv[])
       if ((fifo_buffer = malloc(fifo_size)) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "malloc() error [%d bytes] : %s",
+                    _("malloc() error [%d bytes] : %s"),
                     fifo_size, strerror(errno));
       }
 
@@ -512,7 +512,7 @@ main(int argc, char *argv[])
             if ((hl = realloc(hl, new_size)) == NULL)
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
-                          "Could not reallocate memory for host list : %s",
+                          _("Could not reallocate memory for host list : %s"),
                           strerror(errno));
                exit(INCORRECT);
             }
@@ -537,6 +537,7 @@ main(int argc, char *argv[])
                hl[i].socksnd_bufsize     = fsa[i].socksnd_bufsize;
                hl[i].sockrcv_bufsize     = fsa[i].sockrcv_bufsize;
                hl[i].keep_connected      = fsa[i].keep_connected;
+               hl[i].warn_time           = fsa[i].warn_time;
 #ifdef WITH_DUP_CHECK
                hl[i].dup_check_flag      = fsa[i].dup_check_flag;
                hl[i].dup_check_timeout   = fsa[i].dup_check_timeout;
@@ -567,6 +568,10 @@ main(int argc, char *argv[])
                {
                   hl[i].host_status |= HOST_TWO_FLAG;
                }
+               if (fsa[i].host_status & DO_NOT_DELETE_DATA)
+               {
+                  hl[i].host_status |= DO_NOT_DELETE_DATA;
+               }
             }
 
             (void)fsa_detach(NO);
@@ -576,11 +581,11 @@ main(int argc, char *argv[])
       db_size = 0;
       for (i = 0; i < no_of_dir_configs; i++)
       {
-         /* Get the size of the database file */
+         /* Get the size of the database file. */
          if (stat(dcl[i].dir_config_file, &stat_buf) == -1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Could not get size of database file `%s' : %s",
+                       _("Could not get size of database file `%s' : %s"),
                        dcl[i].dir_config_file, strerror(errno));
             dcl[i].dc_old_time = 0L;
          }
@@ -596,7 +601,7 @@ main(int argc, char *argv[])
       if (db_size < 12)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "There is no valid data in DIR_CONFIG %s.",
+                    _("There is no valid data in DIR_CONFIG %s."),
                     (no_of_dir_configs > 1) ? "files" : "file");
          exit(INCORRECT);
       }
@@ -612,11 +617,11 @@ main(int argc, char *argv[])
       }
       inform_fd_about_fsa_change();
 
-      /* evaluate database */
+      /* Evaluate database. */
       if (eval_dir_config(db_size, NULL) != SUCCESS)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not find any valid entries in database %s",
+                    _("Could not find any valid entries in database %s"),
                     (no_of_dir_configs > 1) ? "files" : "file");
          exit(INCORRECT);
       }
@@ -629,7 +634,7 @@ main(int argc, char *argv[])
        */
       hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
       system_log(INFO_SIGN, NULL, 0,
-                 "Found %d hosts in HOST_CONFIG.", no_of_hosts);
+                 _("Found %d hosts in HOST_CONFIG."), no_of_hosts);
 
       /*
        * Before we start any programs copy any files that are in the
@@ -660,19 +665,19 @@ main(int argc, char *argv[])
          unmap_data(dnb_fd, (void *)&dnb);
       }
 
-      /* First create the fifo to communicate with other process */
+      /* First create the fifo to communicate with other process. */
       (void)unlink(dc_cmd_fifo);
       if (make_fifo(dc_cmd_fifo) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not create fifo %s.", dc_cmd_fifo);
+                    _("Could not create fifo `%s'."), dc_cmd_fifo);
          exit(INCORRECT);
       }
       (void)unlink(dc_resp_fifo);
       if (make_fifo(dc_resp_fifo) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Could not create fifo %s.", dc_resp_fifo);
+                    _("Could not create fifo `%s'."), dc_resp_fifo);
          exit(INCORRECT);
       }
    }
@@ -694,14 +699,14 @@ main(int argc, char *argv[])
    }
 
    /* Note time when AMG is started. */
-   system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)", AMG, PACKAGE_VERSION);
+   system_log(INFO_SIGN, NULL, 0, _("Starting %s (%s)"), AMG, PACKAGE_VERSION);
    system_log(DEBUG_SIGN, NULL, 0,
-              "AMG Configuration: Directory rescan time     %d (sec)",
+              _("AMG Configuration: Directory scan interval   %d (sec)"),
               rescan_time);
    system_log(DEBUG_SIGN, NULL, 0,
-              "AMG Configuration: Max process               %d", max_no_proc);
+              _("AMG Configuration: Max process               %d"), max_no_proc);
    system_log(DEBUG_SIGN, NULL, 0,
-              "AMG Configuration: Max process per directory %d",
+              _("AMG Configuration: Max process per directory %d"),
               max_process_per_dir);
    if (default_delete_files_flag != 0)
    {
@@ -722,33 +727,33 @@ main(int argc, char *argv[])
          (void)sprintf(ptr, "LOCKED");
       }
       system_log(DEBUG_SIGN, NULL, 0,
-                 "AMG Configuration: Default delete file flag  %s", tmp_str);
+                 _("AMG Configuration: Default delete file flag  %s"), tmp_str);
       if (default_old_file_time == -1)
       {
          system_log(DEBUG_SIGN, NULL, 0,
-                    "AMG Configuration: Default old file time     %d",
+                    _("AMG Configuration: Default old file time     %d"),
                     DEFAULT_OLD_FILE_TIME);
       }
       else
       {
          system_log(DEBUG_SIGN, NULL, 0,
-                    "AMG Configuration: Default old file time     %d",
+                    _("AMG Configuration: Default old file time     %d"),
                     default_old_file_time);
       }
    }
    system_log(DEBUG_SIGN, NULL, 0,
-              "AMG Configuration: Default max copied files  %u",
+              _("AMG Configuration: Default max copied files  %u"),
               max_copied_files);
    system_log(DEBUG_SIGN, NULL, 0,
 #if SIZEOF_OFF_T == 4
-              "AMG Configuration: Def max copied file size  %ld (Bytes)",
+              _("AMG Configuration: Def max copied file size  %ld (bytes)"),
 #else
-              "AMG Configuration: Def max copied file size  %lld (Bytes)",
+              _("AMG Configuration: Def max copied file size  %lld (bytes)"),
 #endif
               (pri_off_t)max_copied_file_size);
    system_log(DEBUG_SIGN, NULL, 0,
-              "AMG Configuration: Remove unused hosts       %s",
-              (remove_unused_hosts == NO) ? "No" : "Yes");
+              _("AMG Configuration: Remove unused hosts       %s"),
+              (remove_unused_hosts == NO) ? _("No") : _("Yes"));
 
    /* Check if the database has been changed. */
    FD_ZERO(&rset);
@@ -769,21 +774,22 @@ main(int argc, char *argv[])
       {
          if ((status = read(amg_cmd_fd, fifo_buffer, 10)) > 0)
          {
-            /* Show user we got shutdown message */
-            system_log(INFO_SIGN, NULL, 0, "%s shutting down ....", AMG);
+            /* Show user we got shutdown message. */
+            system_log(INFO_SIGN, NULL, 0, _("%s shutting down ...."), AMG);
 
-            /* Do not forget to stop all running jobs */
+            /* Do not forget to stop all running jobs. */
             if (dc_pid > 0)
             {
                int j;
 
                if (com(STOP) == INCORRECT)
                {
-                  system_log(INFO_SIGN, NULL, 0, "Giving it another try ...");
+                  system_log(INFO_SIGN, NULL, 0,
+                             _("Giving it another try ..."));
                   (void)com(STOP);
                }
 
-               /* Wait for the child to terminate */
+               /* Wait for the child to terminate. */
                for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
                {
                   if (waitpid(dc_pid, NULL, WNOHANG) == dc_pid)
@@ -805,14 +811,14 @@ main(int argc, char *argv[])
          else if (status == -1)
               {
                  system_log(FATAL_SIGN, __FILE__, __LINE__,
-                            "Failed to read() from %s : %s",
+                            _("Failed to read() from `%s' : %s"),
                             AMG_CMD_FIFO, strerror(errno));
                  exit(INCORRECT);
               }
               else /* == 0 */
               {
                  system_log(FATAL_SIGN, __FILE__, __LINE__,
-                            "Hmm, reading zero from %s.", AMG_CMD_FIFO);
+                            _("Hmm, reading zero from %s."), AMG_CMD_FIFO);
                  exit(INCORRECT);
               }
       }
@@ -833,11 +839,11 @@ main(int argc, char *argv[])
                     switch (fifo_buffer[count])
                     {
                        case HOST_CONFIG_UPDATE :
-                          /* HOST_CONFIG updated by edit_hc */
+                          /* HOST_CONFIG updated by edit_hc. */
                           if (fsa_attach() == INCORRECT)
                           {
                              system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                        "Could not attach to FSA!");
+                                        _("Could not attach to FSA!"));
                              exit(INCORRECT);
                           }
 
@@ -861,6 +867,7 @@ main(int argc, char *argv[])
                              hl[i].socksnd_bufsize     = fsa[i].socksnd_bufsize;
                              hl[i].sockrcv_bufsize     = fsa[i].sockrcv_bufsize;
                              hl[i].keep_connected      = fsa[i].keep_connected;
+                             hl[i].warn_time           = fsa[i].warn_time;
 #ifdef WITH_DUP_CHECK
                              hl[i].dup_check_flag      = fsa[i].dup_check_flag;
                              hl[i].dup_check_timeout   = fsa[i].dup_check_timeout;
@@ -891,6 +898,10 @@ main(int argc, char *argv[])
                              {
                                 hl[i].host_status |= HOST_TWO_FLAG;
                              }
+                             if (fsa[i].host_status & DO_NOT_DELETE_DATA)
+                             {
+                                hl[i].host_status |= DO_NOT_DELETE_DATA;
+                             }
                           }
 
                           /* Increase HOST_CONFIG counter so others */
@@ -901,13 +912,13 @@ main(int argc, char *argv[])
                           notify_dir_check();
                           hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
                           system_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Updated HOST_CONFIG file.");
+                                     _("Updated HOST_CONFIG file."));
                           break;
 
                        case DIR_CONFIG_UPDATE :
-                          /* DIR_CONFIG updated by edit_dc */
+                          /* DIR_CONFIG updated by edit_dc. */
                           system_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "This function has not yet been implemented.");
+                                     _("This function has not yet been implemented."));
                           break;
 
                        case REREAD_HOST_CONFIG :
@@ -916,7 +927,7 @@ main(int argc, char *argv[])
                              if ((n - count) < SIZEOF_PID_T)
                              {
                                 system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                           "Unable to handle request since we only have %d bytes buffered but need %d. Discarding buffer!",
+                                           _("Unable to handle request since we only have %d bytes buffered but need %d. Discarding buffer!"),
                                            (n - count), SIZEOF_PID_T);
                                 count = n;
                              }
@@ -955,7 +966,7 @@ main(int argc, char *argv[])
                                    if (errno != ENOENT)
                                    {
                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                 "Failed to open() `%s' : %s",
+                                                 _("Failed to open() `%s' : %s"),
                                                  db_update_reply_fifo,
                                                  strerror(errno));
                                    }
@@ -989,7 +1000,7 @@ main(int argc, char *argv[])
                                       *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
                                    }
                                    system_log(INFO_SIGN, __FILE__, __LINE__,
-                                              "Restarted %s.", DC_PROC_NAME);
+                                              _("Restarted %s."), DC_PROC_NAME);
                                 }
                                 if (db_update_reply_fd != -1)
                                 {
@@ -1010,21 +1021,21 @@ main(int argc, char *argv[])
                                              MAX_UHC_RESPONCE_LENGTH) != MAX_UHC_RESPONCE_LENGTH)
                                    {
                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                 "Failed to write() reply for reread HOST_CONFIG request : %s",
+                                                 _("Failed to write() reply for reread HOST_CONFIG request : %s"),
                                                  strerror(errno));
                                    }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                                    if (close(db_update_reply_readfd) == -1)
                                    {
                                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                 "close() error : %s",
+                                                 _("close() error : %s"),
                                                  strerror(errno));
                                    }
 #endif
                                    if (close(db_update_reply_fd) == -1)
                                    {
                                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                 "close() error : %s",
+                                                 _("close() error : %s"),
                                                  strerror(errno));
                                    }
                                 }
@@ -1038,7 +1049,7 @@ main(int argc, char *argv[])
                              if ((n - count) < SIZEOF_PID_T)
                              {
                                 system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                           "Unable to handle request since we only have %d bytes buffered but need %d. Discarding buffer!",
+                                           _("Unable to handle request since we only have %d bytes buffered but need %d. Discarding buffer!"),
                                            (n - count), SIZEOF_PID_T);
                                 count = n;
                              }
@@ -1083,7 +1094,7 @@ main(int argc, char *argv[])
                                    if (errno != ENOENT)
                                    {
                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                 "Failed to open() `%s' : %s",
+                                                 _("Failed to open() `%s' : %s"),
                                                  db_update_reply_fifo,
                                                  strerror(errno));
                                    }
@@ -1104,7 +1115,7 @@ main(int argc, char *argv[])
                                    if (stat(dcl[i].dir_config_file, &stat_buf) < 0)
                                    {
                                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                 "Failed to stat() %s : %s",
+                                                 _("Failed to stat() `%s' : %s"),
                                                  dcl[i].dir_config_file,
                                                  strerror(errno));
                                       stat_error_set = YES;
@@ -1136,7 +1147,7 @@ main(int argc, char *argv[])
                                       }
                                       inform_fd_about_fsa_change();
 
-                                      /* Better check if there was a change in HOST_CONFIG */
+                                      /* Better check if there was a change in HOST_CONFIG. */
                                       hc_result = reread_host_config(&hc_old_time,
                                                                      &old_no_of_hosts,
                                                                      &rewrite_host_config,
@@ -1160,12 +1171,12 @@ main(int argc, char *argv[])
                                       if (no_of_dir_configs > 1)
                                       {
                                          system_log(INFO_SIGN, NULL, 0,
-                                                    "There is no change in all DIR_CONFIG's.");
+                                                    _("There is no change in all DIR_CONFIG's."));
                                       }
                                       else
                                       {
                                          system_log(INFO_SIGN, NULL, 0,
-                                                    "There is no change in DIR_CONFIG.");
+                                                    _("There is no change in DIR_CONFIG."));
                                       }
                                       dc_result = NO_CHANGE_IN_DIR_CONFIG;
                                    }
@@ -1177,12 +1188,12 @@ main(int argc, char *argv[])
                                       if (no_of_dir_configs > 1)
                                       {
                                          system_log(WARN_SIGN, NULL, 0,
-                                                    "All DIR_CONFIG files are empty.");
+                                                    _("All DIR_CONFIG files are empty."));
                                       }
                                       else
                                       {
                                          system_log(WARN_SIGN, NULL, 0,
-                                                    "DIR_CONFIG file is empty.");
+                                                    _("DIR_CONFIG file is empty."));
                                       }
                                       dc_result = DIR_CONFIG_EMPTY;
                                    }
@@ -1207,21 +1218,21 @@ main(int argc, char *argv[])
                                              MAX_UDC_RESPONCE_LENGTH) != MAX_UDC_RESPONCE_LENGTH)
                                    {
                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                 "Failed to write() reply for reread DIR_CONFIG request : %s",
+                                                 _("Failed to write() reply for reread DIR_CONFIG request : %s"),
                                                  strerror(errno));
                                    }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                                    if (close(db_update_reply_readfd) == -1)
                                    {
                                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                 "close() error : %s",
+                                                 _("close() error : %s"),
                                                  strerror(errno));
                                    }
 #endif
                                    if (close(db_update_reply_fd) == -1)
                                    {
                                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                 "close() error : %s",
+                                                 _("close() error : %s"),
                                                  strerror(errno));
                                    }
                                 }
@@ -1230,9 +1241,9 @@ main(int argc, char *argv[])
                           break;
 
                        default : 
-                          /* Assume we are reading garbage */
+                          /* Assume we are reading garbage. */
                           system_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Reading garbage (%d) on fifo %s",
+                                     _("Reading garbage (%d) on fifo %s"),
                                      (int)fifo_buffer[count], DB_UPDATE_FIFO);
                           break;
                     }
@@ -1252,7 +1263,7 @@ main(int argc, char *argv[])
                  if (errno == ENOENT)
                  {
                     system_log(INFO_SIGN, NULL, 0,
-                               "Recreating HOST_CONFIG file with %d hosts.",
+                               _("Recreating HOST_CONFIG file with %d hosts."),
                                no_of_hosts);
                     hc_old_time = write_host_config(no_of_hosts,
                                                     host_config_file, hl);
@@ -1260,7 +1271,7 @@ main(int argc, char *argv[])
                  else
                  {
                     system_log(FATAL_SIGN, __FILE__, __LINE__,
-                               "Could not stat() HOST_CONFIG file %s : %s",
+                               _("Failed to stat() `%s' : %s"),
                                host_config_file, strerror(errno));
                     exit(INCORRECT);
                  }
@@ -1269,11 +1280,11 @@ main(int argc, char *argv[])
            else 
            {
               system_log(FATAL_SIGN, __FILE__, __LINE__,
-                         "select() error : %s", strerror(errno));
+                         _("select() error : %s"), strerror(errno));
               exit(INCORRECT);
            }
 
-      /* Check if any process died */
+      /* Check if any process died. */
       if (dc_pid > 0) 
       {
          if ((amg_zombie_check(&dc_pid, WNOHANG) == YES) &&
@@ -1282,7 +1293,7 @@ main(int argc, char *argv[])
             /* So what do we do now? */
             /* For now lets only tell the user that the job died. */
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Job %s has died!", DC_PROC_NAME);
+                       _("Job %s has died!"), DC_PROC_NAME);
 
             dc_pid = make_process_amg(work_dir, DC_PROC_NAME,
                                       rescan_time, max_no_proc);
@@ -1291,7 +1302,7 @@ main(int argc, char *argv[])
                *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
             }
             system_log(INFO_SIGN, __FILE__, __LINE__,
-                       "Restarted %s.", DC_PROC_NAME);
+                       _("Restarted %s."), DC_PROC_NAME);
          }
       } /* if (dc_pid > 0) */
    } /* for (;;) */
@@ -1328,7 +1339,7 @@ get_afd_config_value(int          *rescan_time,
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
       size_t length,
              max_length;
@@ -1342,7 +1353,7 @@ get_afd_config_value(int          *rescan_time,
          if (*rescan_time < 1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d."),
                        *rescan_time, AMG_DIR_RESCAN_TIME_DEF,
                        DEFAULT_RESCAN_TIME);
             *rescan_time = DEFAULT_RESCAN_TIME;
@@ -1355,7 +1366,7 @@ get_afd_config_value(int          *rescan_time,
          if ((*max_no_proc < 1) || (*max_no_proc > 10240))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d."),
                        *max_no_proc, MAX_NO_OF_DIR_CHECKS_DEF,
                        MAX_NO_OF_DIR_CHECKS);
             *max_no_proc = MAX_NO_OF_DIR_CHECKS;
@@ -1368,7 +1379,7 @@ get_afd_config_value(int          *rescan_time,
          if ((*max_process_per_dir < 1) || (*max_process_per_dir > 10240))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d."),
                        *max_process_per_dir, MAX_PROCESS_PER_DIR_DEF,
                        MAX_PROCESS_PER_DIR);
             *max_process_per_dir = MAX_PROCESS_PER_DIR;
@@ -1376,7 +1387,7 @@ get_afd_config_value(int          *rescan_time,
          if (*max_process_per_dir > *max_no_proc)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "%s (%d) may not be larger than %s (%d) in AFD_CONFIG. Setting to %d.",
+                       _("%s (%d) may not be larger than %s (%d) in AFD_CONFIG. Setting to %d."),
                        MAX_PROCESS_PER_DIR_DEF, *max_process_per_dir, 
                        MAX_NO_OF_DIR_CHECKS_DEF, *max_no_proc, *max_no_proc);
             *max_process_per_dir = MAX_PROCESS_PER_DIR;
@@ -1390,7 +1401,7 @@ get_afd_config_value(int          *rescan_time,
          if (*default_inotify_flag > (INOTIFY_RENAME_FLAG|INOTIFY_CLOSE_FLAG))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%u) set in AFD_CONFIG for %s. Setting to default %u.",
+                       _("Incorrect value (%u) set in AFD_CONFIG for %s. Setting to default %u."),
                        *default_inotify_flag, DEFAULT_INOTIFY_FLAG_DEF,
                        DEFAULT_INOTIFY_FLAG);
             *default_inotify_flag = DEFAULT_INOTIFY_FLAG;
@@ -1416,7 +1427,7 @@ get_afd_config_value(int          *rescan_time,
               else
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Only YES or NO (and not `%s') are possible for %s in AFD_CONFIG. Setting to default: %s",
+                            _("Only YES or NO (and not `%s') are possible for %s in AFD_CONFIG. Setting to default: %s"),
                             value, CREATE_SOURCE_DIR_DEF,
                             (*create_source_dir == YES) ? "YES" : "NO");
               }
@@ -1429,10 +1440,27 @@ get_afd_config_value(int          *rescan_time,
              (*create_source_dir_mode > 7777))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Invalid mode %u set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Invalid mode %u set in AFD_CONFIG for %s. Setting to default %d."),
                        *create_source_dir_mode, CREATE_SOURCE_DIR_MODE_DEF,
                        DIR_MODE);
             *create_source_dir_mode = DIR_MODE;
+         }
+         else /* Convert octal to decimal. */
+         {
+            int kk,
+                ki = 1,
+                ko = 0,
+                oct_mode;
+
+            oct_mode = *create_source_dir_mode;
+            while (oct_mode > 0)
+            {
+               kk = oct_mode % 10;
+               ko = ko + (kk * ki);
+               ki = ki * 8;
+               oct_mode = oct_mode / 10;
+            }
+            *create_source_dir_mode = ko;
          }
       }
       if (get_definition(buffer, REMOVE_UNUSED_HOSTS_DEF, NULL, 0) != NULL)
@@ -1447,7 +1475,7 @@ get_afd_config_value(int          *rescan_time,
          if ((*max_copied_file_size < 1) || (*max_copied_file_size > 1048576000))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 1048576000, setting to default %d.",
+                       _("The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 1048576000, setting to default %d."),
                        MAX_COPIED_FILE_SIZE_DEF, MAX_COPIED_FILE_SIZE);
             *max_copied_file_size = MAX_COPIED_FILE_SIZE * MAX_COPIED_FILE_SIZE_UNIT;
          }
@@ -1463,7 +1491,7 @@ get_afd_config_value(int          *rescan_time,
          if ((*max_copied_files < 1) || (*max_copied_files > 10240))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 10240, setting to default %d.",
+                       _("The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 10240, setting to default %d."),
                        MAX_COPIED_FILES_DEF, MAX_COPIED_FILES);
             *max_copied_files = MAX_COPIED_FILES;
          }
@@ -1479,7 +1507,7 @@ get_afd_config_value(int          *rescan_time,
          if ((*default_old_file_time < 1) || (*default_old_file_time > 596523))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
+                       _("Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d."),
                        *default_old_file_time, DEFAULT_OLD_FILE_TIME_DEF,
                        DEFAULT_OLD_FILE_TIME);
             *default_old_file_time = DEFAULT_OLD_FILE_TIME;
@@ -1492,7 +1520,7 @@ get_afd_config_value(int          *rescan_time,
          if (*default_warn_time < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "A value less then 0 for AFD_CONFIG variable %s is not possible, setting default %ld",
+                       _("A value less then 0 for AFD_CONFIG variable %s is not possible, setting default %ld"),
                        DEFAULT_DIR_WARN_TIME_DEF, DEFAULT_DIR_WARN_TIME);
             *default_warn_time = DEFAULT_DIR_WARN_TIME;
          }
@@ -1588,7 +1616,7 @@ get_afd_config_value(int          *rescan_time,
          if ((dcl = malloc(no_of_dir_configs * sizeof(struct dir_config_buf))) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to malloc() %d bytes : %s",
+                       _("Failed to malloc() %d bytes : %s"),
                        no_of_dir_configs * sizeof(struct dir_config_buf),
                        strerror(errno));
             exit(INCORRECT);
@@ -1596,15 +1624,65 @@ get_afd_config_value(int          *rescan_time,
          ptr = buffer;
          for (i = 0; i < no_of_dir_configs; i++)
          {
-            if ((dcl[i].dir_config_file = malloc(max_length)) == NULL)
+            ptr = get_definition(ptr, DIR_CONFIG_NAME_DEF, config_file,
+                                 MAX_PATH_LENGTH);
+            if (config_file[0] != '/')
+            {
+               char *p_path,
+                    user[MAX_USER_NAME_LENGTH + 1];
+
+               if (config_file[0] == '~')
+               {
+                  if (config_file[1] == '/')
+                  {
+                     p_path = &config_file[2];
+                     user[0] = '\0';
+                  }
+                  else
+                  {
+                     int j = 0;
+
+                     p_path = &config_file[1];
+                     while ((*(p_path + j) != '/') && (*(p_path + j) != '\0') &&
+                            (j < MAX_USER_NAME_LENGTH))
+                     {
+                        user[j] = *(p_path + j);
+                        j++;
+                     }
+                     if (j >= MAX_USER_NAME_LENGTH)
+                     {
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   _("User name to long for %s definition %s. User name may be %d bytes long."),
+                                   DIR_CONFIG_NAME_DEF, config_file,
+                                   MAX_USER_NAME_LENGTH);
+                     }
+                     user[j] = '\0';
+                  }
+               }
+               else
+               {
+                  p_path = config_file;
+                  user[0] = '\0';
+               }
+               (void)expand_path(user, p_path);
+               length = strlen(p_path) + 1;
+               if (p_path != config_file)
+               {
+                  (void)memmove(config_file, p_path, length);
+               }
+            }
+            else
+            {
+               length = strlen(config_file) + 1;
+            }
+            if ((dcl[i].dir_config_file = malloc(length)) == NULL)
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
-                          "Failed to malloc() %d bytes : %s",
-                          max_length, strerror(errno));
+                          _("Failed to malloc() %d bytes : %s"),
+                          length, strerror(errno));
                exit(INCORRECT);
             }
-            ptr = get_definition(ptr, DIR_CONFIG_NAME_DEF,
-                                 dcl[i].dir_config_file, max_length);
+            (void)memcpy(dcl[i].dir_config_file, config_file, length);
          }
       }
       else
@@ -1615,14 +1693,14 @@ get_afd_config_value(int          *rescan_time,
          if ((dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to malloc() %d bytes : %s",
+                       _("Failed to malloc() %d bytes : %s"),
                        sizeof(struct dir_config_buf), strerror(errno));
             exit(INCORRECT);
          }
          if ((dcl[0].dir_config_file = malloc(length)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to malloc() %d bytes : %s",
+                       _("Failed to malloc() %d bytes : %s"),
                        length, strerror(errno));
             exit(INCORRECT);
          }
@@ -1640,14 +1718,14 @@ get_afd_config_value(int          *rescan_time,
       if ((dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to malloc() %d bytes : %s",
+                    _("Failed to malloc() %d bytes : %s"),
                     sizeof(struct dir_config_buf), strerror(errno));
          exit(INCORRECT);
       }
       if ((dcl[0].dir_config_file = malloc(length)) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to malloc() %d bytes : %s",
+                    _("Failed to malloc() %d bytes : %s"),
                     length, strerror(errno));
          exit(INCORRECT);
       }
@@ -1676,7 +1754,7 @@ notify_dir_check(void)
 #endif
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Could not open() fifo %s : %s", fifo_name, strerror(errno));
+                 _("Failed to open() `%s' : %s"), fifo_name, strerror(errno));
    }
    else
    {
@@ -1685,20 +1763,20 @@ notify_dir_check(void)
       if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Could not write() to fifo %s : %s",
+                    _("Failed to write() to `%s' : %s"),
                     fifo_name, strerror(errno));
       }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
       if (close(readfd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
 #endif
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
    }
 
@@ -1712,7 +1790,7 @@ amg_exit(void)
 {
    system_log(INFO_SIGN, NULL, 0, "Stopped %s.", AMG);
 
-   /* Kill all jobs that where started */
+   /* Kill all jobs that where started. */
    if (dc_pid > 0)
    {
       if (kill(dc_pid, SIGINT) < 0)
@@ -1720,7 +1798,7 @@ amg_exit(void)
          if (errno != ESRCH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to kill process %s with pid %d : %s",
+                       _("Failed to kill process %s with pid %d : %s"),
                        DC_PROC_NAME, dc_pid, strerror(errno));
          }
       }
@@ -1751,7 +1829,8 @@ amg_exit(void)
 static void
 sig_segv(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__,
+              _("Aaarrrggh! Received SIGSEGV."));
    amg_exit();
    abort();
 }
@@ -1761,7 +1840,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
+   system_log(FATAL_SIGN, __FILE__, __LINE__, _("Uuurrrggh! Received SIGBUS."));
    amg_exit();
    abort();
 }

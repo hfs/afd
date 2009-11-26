@@ -1,6 +1,6 @@
 /*
  *  aftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,7 +63,7 @@
 
 
 /* Function prototypes */
-extern off_t read_file(char *, char **buffer);
+extern off_t read_file_no_cr(char *, char **buffer);
 extern char  *posi(char *, char *);
 #endif /* _STANDALONE_ */
 extern int   get_remote_file_names(off_t *);

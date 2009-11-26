@@ -27,11 +27,11 @@
 #define CONNECTION_CHART        2
 #define TRANSFER_CHART          3
 
-#define DEFAULT_UPDATE_INTERVAL 2.0 /* in seconds */
+#define DEFAULT_UPDATE_INTERVAL 2.0 /* In seconds. */
 
 #define MAX_CURRENT_VALUE_DIGIT 10
 
-/* Function prototypes */
+/* Function prototypes. */
 void close_button(Widget, XtPointer, XtPointer),
      get_connection_value(Widget, XtPointer, XtPointer),
      get_file_value(Widget, XtPointer, XtPointer),

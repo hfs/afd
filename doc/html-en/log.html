@@ -174,7 +174,7 @@ Identifier, File Size and Unix Time are hexa decimal values.
 
 <h3 align=center><a name="production_log"><u>Production Log</u></a></h3>
 <p>
-If somthing is being done via one of the options it will be logged to
+If something is being done via one of the options it will be logged to
 PRODUCTION_LOG.x. This log is rotated the same way as the INPUT_LOG.x
 above.
 </p>
@@ -182,23 +182,26 @@ above.
 A log entry of this type looks as follows:
 </p>
 <pre>
-4167b8f3  4167b8f3_10f_0|fiau_9605060847-814|fiau_9605060847-814.bz2|bzip2 %s
-   |             |                 |                 |                |
-   |             |                 |                 |            Command executed. This
-   |             |                 |                 |            part may be missing (eg.
-   |             |                 |                 |            when file is only renamed).
-   |             |                 |                 +---------&gt;  New file name. If this
-   |             |                 |                              is empty, then the file
-   |             |                 |                              has been removed.
-   |             |                 +---------------------------&gt;  Original file name.
-   |             +---------------------------------------------&gt;  Unique Identifier. The
-   |                                                              first number is the date
-   |                                                              when this file was picked
-   |                                                              up by AFD, the second is
-   |                                                              a unique number and third
-   |                                                              is the split job counter.
-   +-----------------------------------------------------------&gt;  Unix time for this
-                                                                  entry.
+4167b8f3  1:1|4167b8f3_10f_0|682d6409|d1fe5d48|fiau_9605060847-814|fiau_9605060847-814.bz2|14ac1|0|bzip2 %s
+   |       |         |          |        |               |                 |                 |   |  |
+   |       |         |          |        |               |                 |                 |   |  +-&gt; Command executed.
+   |       |         |          |        |               |                 |                 |   +----&gt; Return code of command.
+   |       |         |          |        |               |                 |                 +--------&gt; Size of changed file.
+   |       |         |          |        |               |                 +--------------------------&gt; New file name. If this
+   |       |         |          |        |               |                                              is empty, then the file
+   |       |         |          |        |               |                                              has been removed.
+   |       |         |          |        |               +--------------------------------------------&gt; Original file name.
+   |       |         |          |        +------------------------------------------------------------&gt; Job Identifier.
+   |       |         |          +---------------------------------------------------------------------&gt; Directory ID.
+   |       |         +--------------------------------------------------------------------------------&gt; Unique Identifier. The
+   |       |                                                                                            first number is the date
+   |       |                                                                                            when this file was picked
+   |       |                                                                                            up by AFD, the second is
+   |       |                                                                                            a unique number and third
+   |       |                                                                                            is the split job counter.
+   |       +------------------------------------------------------------------------------------------&gt; Ratio relationship.
+   +--------------------------------------------------------------------------------------------------&gt; Unix time for this
+                                                                                                        entry.
 </pre>
 <p>
 There is currently no log file viewer for this log type.
@@ -220,32 +223,42 @@ It has a different form then the <a href="#input_log">
 input log file</a> as shown below:
 </p>
 <pre>
-4167b8f9   ducktown 1|PASW42_LSSW_J0570001|/data/PASW42|23fe|0.27|9e78fc94|4167b8f9_38_0[|archive directory]
-   |           |    |           |               |        |    |     |          |                   |
-   |           |    |           |               |        |    |     |          |           Directory where file
-   |           |    |           |               |        |    |     |          |           is being archived.
-   |           |    |           |               |        |    |     |          +---------&gt; Unique ID.
-   |           |    |           |               |        |    |     +--------------------&gt; Job Identifier
-   |           |    |           |               |        |    +--------------------------&gt; Transmission time in
-   |           |    |           |               |        |                                 seconds.
-   |           |    |           |               |        +-------------------------------&gt; File Size
-   |           |    |           |               +----------------------------------------&gt; When trans_rename was
-   |           |    |           |                                                          specified this is the
-   |           |    |           |                                                          remote name. NOTE:
-   |           |    |           |                                                          This is optional.
-   |           |    |           +--------------------------------------------------------&gt; File Name
-   |           |    +--------------------------------------------------------------------&gt; Transfer Type
-   |           |                                                                               0 - FTP
-   |           |                                                                               1 - LOC
-   |           |                                                                               2 - SMTP
-   |           |                                                                               3 - MAP
-   |           |                                                                               4 - SCP
-   |           |                                                                               5 - WMO
-   |           |                                                                               6 - HTTP
-   |           |                                                                               7 - FTPS
-   |           |                                                                               8 - HTTPS
-   |           +-------------------------------------------------------------------------&gt; Remote Host Name
-   +-------------------------------------------------------------------------------------&gt; Unix Time
+4167b8f9   ducktown 0 0 1|PASW42_LSSW_J0570001|/data/PASW42|23fe|0.27|0|9e78fc94|4167b8f9_38_0[|archive directory]
+   |           |    | | |           |               |        |    |   |   |          |                   |
+   |           |    | | |           |               |        |    |   |   |          |           Directory where file
+   |           |    | | |           |               |        |    |   |   |          |           is being archived.
+   |           |    | | |           |               |        |    |   |   |          +---------&gt; Unique ID.
+   |           |    | | |           |               |        |    |   |   +--------------------&gt; Job Identifier
+   |           |    | | |           |               |        |    |   +------------------------&gt; Number of retries.
+   |           |    | | |           |               |        |    +----------------------------&gt; Transmission time in
+   |           |    | | |           |               |        |                                   seconds.
+   |           |    | | |           |               |        +---------------------------------&gt; File Size
+   |           |    | | |           |               +------------------------------------------&gt; When trans_rename was
+   |           |    | | |           |                                                            specified this is the
+   |           |    | | |           |                                                            remote name. NOTE:
+   |           |    | | |           |                                                            This is optional.
+   |           |    | | |           +----------------------------------------------------------&gt; File Name.
+   |           |    | | +----------------------------------------------------------------------&gt; Transfer Type
+   |           |    | |                                                                               0 - FTP
+   |           |    | |                                                                               1 - LOC
+   |           |    | |                                                                               2 - SMTP
+   |           |    | |                                                                               3 - MAP
+   |           |    | |                                                                               4 - SCP
+   |           |    | |                                                                               5 - WMO
+   |           |    | |                                                                               6 - HTTP
+   |           |    | |                                                                               7 - FTPS
+   |           |    | |                                                                               8 - HTTPS
+   |           |    | |                                                                               a - SFTP
+   |           |    | +------------------------------------------------------------------------&gt; Alternate Host Number.
+   |           |    +--------------------------------------------------------------------------&gt; Output Typ
+   |           |                                                                                      0 - Normal (delivered)
+   |           |                                                                                      1 - Age limit (del)
+   |           |                                                                                      2 - Duplicate (stored)
+   |           |                                                                                      3 - Duplicate (del)
+   |           |                                                                                      4 - Other process (del)
+   |           |                                                                                      5 - Address rejected (del)
+   |           +-----------------------------------------------------------------------------&gt; Remote Host Name.
+   +-----------------------------------------------------------------------------------------&gt; Unix Time.
 </pre>
 <p>
 To view these log files, use <a href="show_olog.html">show_olog</a>.
@@ -269,25 +282,44 @@ available.
 An entry in the DELETE_LOG.x file is described below:
 </p>
 <pre>
-4167b8fa   ducktown 1|PASW42_LSSW_J0570001|5eb7|9e78fc94|sf_ftp
-   |           |    |           |            |     |      |
-   |           |    |           |            |     |      +-&gt; User/process that
-   |           |    |           |            |     |          deleted the file.
-   |           |    |           |            |     +--------&gt; Job ID.
-   |           |    |           |            +--------------&gt; File Size.
-   |           |    |           +---------------------------&gt; File Name deleted.
-   |           |    +---------------------------------------&gt; Deletion Type.
-   |           |                                                    0 - AGE_OUTPUT
-   |           |                                                    1 - AGE_INPUT
-   |           |                                                    2 - USER_DEL
-   |           |                                                    3 - EXEC_FAILED
-   |           |                                                    4 - OTHER_OUTPUT
-   |           |                                                    5 - DUP_INPUT
-   |           |                                                    6 - DUP_OUTPUT
-   |           |                                                    7 - DEL_UNKNOWN_FILE
-   |           |                                                    8 - OTHER_INPUT
-   |           +--------------------------------------------&gt; Destination Host Name.
-   +--------------------------------------------------------&gt; Unix Time when deleted.
+4167b8fa   ducktown 001|PASW42_LSSW_J0570001|5eb7|9e78fc94|3ab56ea2|4167c70a_a230_0|sf_ftp|>13445
+   |           |     |            |            |     |        |            |          |      |
+   |           |     |            |            |     |        |            |          |      +-&gt; Optional additional
+   |           |     |            |            |     |        |            |          |          reason.
+   |           |     |            |            |     |        |            |          +--------&gt; User/process that
+   |           |     |            |            |     |        |            |                     deleted the file.
+   |           |     |            |            |     |        |            +-------------------&gt; Unique ID consisting
+   |           |     |            |            |     |        |                                  of creation time,
+   |           |     |            |            |     |        |                                  a unique number and the
+   |           |     |            |            |     |        |                                  split job counter.
+   |           |     |            |            |     |        +--------------------------------&gt; Directory ID.
+   |           |     |            |            |     +-----------------------------------------&gt; Job ID.
+   |           |     |            |            +-----------------------------------------------&gt; File Size.
+   |           |     |            +------------------------------------------------------------&gt; File Name deleted.
+   |           |     +-------------------------------------------------------------------------&gt; Deletion Type.
+   |           |                                                                                       0 - AGE_OUTPUT
+   |           |                                                                                       1 - AGE_INPUT
+   |           |                                                                                       2 - USER_DEL
+   |           |                                                                                       3 - EXEC_FAILED_DEL
+   |           |                                                                                       4 - NO_MESSAGE_FILE_DEL
+   |           |                                                                                       5 - DUP_INPUT
+   |           |                                                                                       6 - DUP_OUTPUT
+   |           |                                                                                       7 - DEL_UNKNOWN_FILE
+   |           |                                                                                       8 - JID_LOOKUP_FAILURE_DEL
+   |           |                                                                                       9 - DEL_OLD_LOCKED_FILE
+   |           |                                                                                       a - DEL_QUEUED_FILE
+   |           |                                                                                       b - DELETE_OPTION
+   |           |                                                                                       c - DELETE_STALE_ERROR_JOBS
+   |           |                                                                                       d - CLEAR_STALE_MESSAGES
+   |           |                                                                                       e - FILE_CURRENTLY_TRANSMITTED
+   |           |                                                                                       f - DELETE_UNKNOWN_POOL_DIR
+   |           |                                                                                      10 - EXEC_FAILED_STORED
+   |           |                                                                                      11 - DELETE_HOST_DISABLED
+   |           |                                                                                      12 - CONVERSION_FAILED
+   |           |                                                                                      13 - RENAME_OVERWRITE
+   |           |                                                                                      14 - RECIPIENT_REJECTED
+   |           +-------------------------------------------------------------------------------&gt; Destination Host Name.
+   +-------------------------------------------------------------------------------------------&gt; Unix Time when deleted.
 </pre>
 <p>
 To view these log files, use <a href="show_dlog.html">show_dlog</a>.
@@ -296,9 +328,9 @@ To view these log files, use <a href="show_dlog.html">show_dlog</a>.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 22.07.2007
+   Last updated: 25.11.2009
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

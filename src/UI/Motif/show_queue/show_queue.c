@@ -1,6 +1,6 @@
 /*
  *  show_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,7 +76,7 @@ DESCR__E_M1
 #ifdef WITH_EDITRES
 # include <X11/Xmu/Editres.h>
 #endif
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_queue.h"
 #include "permission.h"
 #include "version.h"
@@ -241,6 +241,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   disable_drag_drop(appshell);
    if (euid != ruid)
    {
       if (seteuid(euid) == -1)
@@ -251,10 +252,15 @@ main(int argc, char *argv[])
    }
    display = XtDisplay(appshell);
 
+#ifdef HAVE_XPM
+   /* Setup AFD logo as icon. */
+   setup_icon(display, appshell);
+#endif
+
    /* Create managing widget. */
    mainform_w = XmCreateForm(appshell, "mainform", NULL, 0);
 
-   /* Prepare font */
+   /* Prepare font. */
    if ((entry = XmFontListEntryLoad(XtDisplay(mainform_w), font_name,
                                     XmFONT_IS_FONT, "TAG1")) == NULL)
    {
@@ -782,7 +788,7 @@ main(int argc, char *argv[])
 /* format. Default is medium, since this is the fastest form.            */
 /*-----------------------------------------------------------------------*/
 
-   /* Label radiobox_w */
+   /* Label radiobox_w. */
    label_w = XtVaCreateManagedWidget("File name length :",
                            xmLabelGadgetClass,  selectionbox_w,
                            XmNfontList,         fontlist,
@@ -1595,7 +1601,7 @@ init_show_queue(int *argc, char *argv[])
       }
       for (i = 0; i < no_of_search_dirids; i++)
       {
-         search_dirid[i] = (unsigned int)strtol(dirid_str[i], NULL, 16);
+         search_dirid[i] = (unsigned int)strtoul(dirid_str[i], NULL, 16);
       }
       FREE_RT_ARRAY(dirid_str);
    }

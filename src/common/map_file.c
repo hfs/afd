@@ -1,6 +1,6 @@
 /*
  *  map_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,14 +25,20 @@ DESCR__S_M3
  **   map_file - uses mmap() to map to a file
  **
  ** SYNOPSIS
- **   void *map_file(char *file, int *fd, int flags, ...)
+ **   void *map_file(char        *file,
+ **                  int         *fd,
+ **                  off_t       *size,
+ **                  struct stat *p_stat_buf,
+ **                  int         flags,
+ **                  ...)
  **
  ** DESCRIPTION
  **   The function map_file() attaches to the file 'file'. If
  **   the file does not exist, it is created.
  **
  ** RETURN VALUES
- **   On success, map_file() returns a pointer to the mapped area.
+ **   On success, map_file() returns a pointer to the mapped area
+ **   and if 'size' is not NULL, the size of the mapped area.
  **   On error, INCORRECT (-1) is returned.
  **
  ** AUTHOR
@@ -40,6 +46,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   06.06.1999 H.Kiehl Created
+ **   02.03.2008 H.Kiehl On request return size of mapped area.
  **
  */
 DESCR__E_M3
@@ -48,7 +55,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                  /* open()                            */
+# include <fcntl.h>                 /* open()                            */
 #endif
 #include <unistd.h>                 /* fstat()                           */
 #include <sys/mman.h>               /* mmap()                            */
@@ -57,7 +64,12 @@ DESCR__E_M3
 
 /*############################# map_file() ##############################*/
 void *
-map_file(char *file, int *fd, struct stat *p_stat_buf, int flags, ...)
+map_file(char        *file,
+         int         *fd,
+         off_t       *size,
+         struct stat *p_stat_buf,
+         int         flags,
+         ...)
 {
    int         prot;
    struct stat stat_buf;
@@ -115,6 +127,10 @@ map_file(char *file, int *fd, struct stat *p_stat_buf, int flags, ...)
       (void)close(*fd);
       errno = EINVAL;
       return((caddr_t)-1);
+   }
+   if (size != NULL)
+   {
+      *size = p_stat_buf->st_size;
    }
 
    return(mmap(NULL, p_stat_buf->st_size, prot, MAP_SHARED, *fd, 0));

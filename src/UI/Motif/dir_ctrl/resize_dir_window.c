@@ -91,21 +91,21 @@ resize_dir_window(void)
       argcount++;
       XtSetValues(line_window_w, args, argcount);
 #ifdef _AUTO_REPOSITION
-      /* Get new window position */
+      /* Get new window position. */
       display_width = DisplayWidth(display, DefaultScreen(display));
       display_height = DisplayHeight(display, DefaultScreen(display));
       XGetWindowAttributes(display, XtWindow(appshell), &window_attrib);
 
-      /* Translate coordinates relative to root window */
+      /* Translate coordinates relative to root window. */
       XtTranslateCoords(appshell, window_attrib.x, window_attrib.y,
                         &root_x, &root_y);
 
-      /* Change x coordinate */
+      /* Change x coordinate. */
       if ((root_x + window_width) > display_width)
       {
          new_x = display_width - window_width;
 
-         /* Is window wider then display ? */
+         /* Is window wider then display? */
          if (new_x < 0)
          {
             new_x = 0;
@@ -116,12 +116,12 @@ resize_dir_window(void)
          new_x = root_x;
       }
 
-      /* Change y coordinate */
+      /* Change y coordinate. */
       if ((root_y + window_height + 23) > display_height)
       {
          new_y = display_height - window_height;
 
-         /* Is window wider then display ? */
+         /* Is window wider then display? */
          if (new_y < 23)
          {
             new_y = 23;
@@ -132,7 +132,7 @@ resize_dir_window(void)
          new_y = root_y;
       }
 
-      /* Resize window */
+      /* Resize window. */
       XtVaSetValues(appshell,
                     XmNminWidth, window_width,
                     XmNmaxWidth, window_width,

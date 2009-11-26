@@ -88,7 +88,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>                 /* mkdir()                         */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 

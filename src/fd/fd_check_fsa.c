@@ -54,18 +54,18 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* munmap()                     */
+# include <sys/mman.h>                   /* munmap()                     */
 #endif
 #include <errno.h>
 #include "fddefs.h"
 
 /* #define DEBUG_WAIT_LOOP */
 
-/* External global variables */
+/* External global variables. */
 extern int                        fsa_id;
 #ifdef _WITH_BURST_2
 extern int                        no_of_hosts;
-#endif /* _WITH_BURST_2 */
+#endif
 #ifdef HAVE_MMAP
 extern off_t                      fsa_size;
 #endif
@@ -121,7 +121,7 @@ fd_check_fsa(void)
                }
             }
          }
-#endif /* _WITH_BURST_2 */
+#endif
          (void)my_usleep(100000L);
       } while (loops++ < WAIT_LOOPS);
       p_afd_status->amg_jobs ^= FD_WAITING;

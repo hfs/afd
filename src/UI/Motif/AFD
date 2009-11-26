@@ -18,6 +18,7 @@
 
 !! Modul afd_ctrl
 .afd_ctrl*background                                : NavajoWhite2
+.mafd_ctrl*background                               : NavajoWhite2
 
 !! Modul dir_ctrl
 .dir_ctrl*background                                : NavajoWhite2

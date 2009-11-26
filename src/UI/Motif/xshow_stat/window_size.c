@@ -372,7 +372,7 @@ window_size(int *window_width,
 fprintf(stderr, "max_y_value = %f\n", max_y_value);
    get_y_data_points(max_y_value);
 
-   /* Window resize necessary ? */
+   /* Window resize necessary? */
    if ((new_window_width  != *window_width) ||
        (new_window_height != *window_height))
    {

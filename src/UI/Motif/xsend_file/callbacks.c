@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelG.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "xsend_file.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
@@ -417,7 +417,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
             XtAddCallback(user_name_w, XmNactivateCallback, send_save_input,
                           (XtPointer)USER_ENTER);
 
-            /* Password */
+            /* Password. */
             password_label_w = XtVaCreateManagedWidget("Password :",
                               xmLabelGadgetClass,  recipientbox_w,
                               XmNfontList,         fontlist,
@@ -446,7 +446,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
             XtAddCallback(password_w, XmNactivateCallback, enter_passwd,
                           (XtPointer)PASSWORD_ENTER);
 
-            /* Hostname */
+            /* Hostname. */
             hostname_label_w = XtVaCreateManagedWidget("Hostname :",
                               xmLabelGadgetClass,  recipientbox_w,
                               XmNfontList,         fontlist,
@@ -475,7 +475,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
             XtAddCallback(hostname_w, XmNactivateCallback, send_save_input,
                           (XtPointer)HOSTNAME_ENTER);
 
-            /* Proxy */
+            /* Proxy. */
             proxy_label_w = XtVaCreateManagedWidget("Proxy :",
                               xmLabelGadgetClass,  recipientbox_w,
                               XmNfontList,         fontlist,
@@ -848,36 +848,10 @@ send_save_input(Widget w, XtPointer client_data, XtPointer call_data)
 
       case USER_NO_ENTER :
          (void)strcpy(db->user, value);
-         if (db->protocol == SMTP)
-         {
-            char *ptr = db->user;
-
-            while ((*ptr != '@') && (*ptr != '\0'))
-            {
-               ptr++;
-            }
-            if (*ptr == '@')
-            {
-               *ptr = '\0';
-            }
-         }
          break;
 
       case USER_ENTER :
          (void)strcpy(db->user, value);
-         if (db->protocol == SMTP)
-         {
-            char *ptr = db->user;
-
-            while ((*ptr != '@') && (*ptr != '\0'))
-            {
-               ptr++;
-            }
-            if (*ptr == '@')
-            {
-               *ptr = '\0';
-            }
-         }
          reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
@@ -1005,19 +979,22 @@ enter_passwd(Widget w, XtPointer client_data, XtPointer call_data)
       return;
    }
 
-   /* Backspace */
+   /* Backspace. */
    if (cbs->startPos < cbs->currInsert)
    {
+      cbs->endPos = strlen(db->password);
       db->password[cbs->startPos] = '\0';
       return;
    }
 
+#ifdef DO_NOT_ALLOW_PASTING
    /* Pasting no allowed. */
    if (cbs->text->length > 1)
    {
       cbs->doit = False;
       return;
    }
+#endif
 
    new = XtMalloc(cbs->endPos + 2);
    if (db->password)

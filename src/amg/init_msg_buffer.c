@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
@@ -83,7 +83,7 @@ init_msg_buffer(void)
    /* Attach to message buffer. */
    new_size = (MESSAGE_BUF_STEP_SIZE * sizeof(struct message_buf)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(message_buf_file, &mb_fd, new_size,
+   if ((ptr = attach_buf(message_buf_file, &mb_fd, &new_size,
 #ifdef GROUP_CAN_WRITE
                          NULL, (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP),
                          NO)) == (caddr_t) -1)

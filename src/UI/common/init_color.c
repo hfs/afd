@@ -1,6 +1,6 @@
 /*
  *  init_color.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <X11/Xlib.h>
 #include "ui_common_defs.h"
 
-/* External global variables */
+/* External global variables. */
 extern unsigned long color_pool[];
 extern Colormap      default_cmap;
 
@@ -74,7 +74,7 @@ init_color(Display *p_disp)
                  { LABEL_BG_COLOR, LABEL_BG_COLOR_1, LABEL_BG_COLOR_2, LABEL_BG_COLOR_3 },                                     /* Background for label.       */
                  { BUTTON_BACKGROUND_COLOR, BUTTON_BACKGROUND_COLOR_1, BUTTON_BACKGROUND_COLOR_2, BUTTON_BACKGROUND_COLOR_3 }, /* Background for button line  */
                                                                                                                                /* in afd_ctrl dialog.         */
-                 { EMAIL_ACTIVE_COLOR, EMAIL_ACTIVE_COLOR_1, EMAIL_ACTIVE_COLOR_2, EMAIL_ACTIVE_COLOR_3 },                     /* Color to indicate that an   */
+                 { SMTP_ACTIVE_COLOR, SMTP_ACTIVE_COLOR_1, SMTP_ACTIVE_COLOR_2, SMTP_ACTIVE_COLOR_3 },                     /* Color to indicate that an   */
                                                                                                                                /* email is being send.        */
                  { FTP_BURST_TRANSFER_ACTIVE_COLOR, FTP_BURST_TRANSFER_ACTIVE_COLOR_1, FTP_BURST_TRANSFER_ACTIVE_COLOR_2, FTP_BURST_TRANSFER_ACTIVE_COLOR_3 }, /* When transmitting files     */
                                                                                                                                /* without connecting.         */
@@ -84,18 +84,19 @@ init_color(Display *p_disp)
                  { NOT_WORKING_COLOR, NOT_WORKING_COLOR_1, NOT_WORKING_COLOR_2, NOT_WORKING_COLOR_3 },                         /* Connection not working.     */
                  { NOT_WORKING2_COLOR, NOT_WORKING2_COLOR_1, NOT_WORKING2_COLOR_2, NOT_WORKING2_COLOR_3 },                     /* Connection not working.     */
                  { BLACK_COLOR, BLACK_COLOR_1, BLACK_COLOR_2, BLACK_COLOR_3 },                                                 /* Foreground color.           */
-#ifdef _WITH_WMO_SUPPORT
                  { SFTP_BURST_TRANSFER_ACTIVE_COLOR, SFTP_BURST_TRANSFER_ACTIVE_COLOR_1, SFTP_BURST_TRANSFER_ACTIVE_COLOR_2, SFTP_BURST_TRANSFER_ACTIVE_COLOR_3 }, /* Foreground color.           */
+#ifdef _WITH_WMO_SUPPORT
+                 { SMTP_BURST_TRANSFER_ACTIVE_COLOR, SMTP_BURST_TRANSFER_ACTIVE_COLOR_1, SMTP_BURST_TRANSFER_ACTIVE_COLOR_2, SMTP_BURST_TRANSFER_ACTIVE_COLOR_3 }, /* Foreground color.           */
                  { WMO_BURST_TRANSFER_ACTIVE_COLOR, WMO_BURST_TRANSFER_ACTIVE_COLOR_1, WMO_BURST_TRANSFER_ACTIVE_COLOR_2, WMO_BURST_TRANSFER_ACTIVE_COLOR_3 }
 #else
-                 { SFTP_BURST_TRANSFER_ACTIVE, SFTP_BURST_TRANSFER_ACTIVE_1, SFTP_BURST_TRANSFER_ACTIVE_2, SFTP_BURST_TRANSFER_ACTIVE_3 }
+                 { SMTP_BURST_TRANSFER_ACTIVE_COLOR, SMTP_BURST_TRANSFER_ACTIVE_COLOR_1, SMTP_BURST_TRANSFER_ACTIVE_COLOR_2, SMTP_BURST_TRANSFER_ACTIVE_COLOR_3 }
 #endif
               };
    int        i;
    XColor     dummy,
               color;
 
-   /* Set up all colors */
+   /* Set up all colors. */
    for (i = 0; i < COLOR_POOL_SIZE; i++)
    {
       if (XAllocNamedColor(p_disp, default_cmap, p_color[i][0], &dummy,

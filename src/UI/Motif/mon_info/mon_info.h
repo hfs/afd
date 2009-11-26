@@ -1,6 +1,6 @@
 /*
  *  mon_info.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,9 +33,6 @@
 #define UPDATE_INTERVAL          1000
 #define FILE_UPDATE_INTERVAL     4
 
-#define INFO_IDENTIFIER          "INFO-"
-#define AFD_INFO_FILE            "afd.info"
-
 struct prev_values
        {
           char         real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
@@ -52,7 +49,7 @@ struct prev_values
           char         afd_toggle;
        };
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void close_button(Widget, XtPointer, XtPointer),
             update_info(Widget);
 

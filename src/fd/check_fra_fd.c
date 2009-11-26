@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,8 @@ DESCR__S_M3
  **   22.07.2002 H.Kiehl Consider the case when only dir_alias changes.
  **   21.09.2005 H.Kiehl Update qb_pos in struct rql when we remove a
  **                      message from queue.
+ **   25.10.2008 H.Kiehl Check that we do not delete a directory where
+ **                      a existing job has a subdirectory.
  **
  */
 DESCR__E_M3
@@ -63,12 +65,12 @@ DESCR__E_M3
 #include <sys/wait.h>                    /* waitpid()                    */
 #include <signal.h>                      /* kill()                       */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                    /* munmap()                     */
+# include <sys/mman.h>                   /* munmap()                     */
 #endif
 #include <errno.h>
 #include "fddefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                        fra_id,
                                   max_connections,
                                   *no_msg_queued,
@@ -86,7 +88,8 @@ extern struct queue_buf           *qb;
 extern struct afd_status          *p_afd_status;
 
 /* Local function prototypes. */
-static int                        get_url_pos(char *, char *, int *);
+static int                        get_url_pos(char *, char *, int *),
+                                  url_check(char *, char *);
 
 /* Local structure definition. */
 struct remote_queue_list
@@ -98,8 +101,11 @@ struct old_retrieve_data
        {
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char          url[MAX_RECIPIENT_LENGTH];
+          char          fullname[MAX_PATH_LENGTH];
+          int           fullname_length;
           unsigned char remove;
           unsigned char stupid_mode;
+          signed char   remove_dir;
        };
 
 
@@ -164,10 +170,12 @@ check_fra_fd(void)
                for (i = 0; i < no_of_retrieves; i++)
                {
                   (void)strcpy(ord[i].url, fra[retrieve_list[i]].url);
+                  ord[i].fullname[0] = '\0';
                   (void)strcpy(ord[i].dir_alias,
                                fra[retrieve_list[i]].dir_alias);
                   ord[i].remove = fra[retrieve_list[i]].remove;
                   ord[i].stupid_mode = fra[retrieve_list[i]].stupid_mode;
+                  ord[i].remove_dir = NO;
                }
             }
          }
@@ -197,7 +205,8 @@ check_fra_fd(void)
 
          if ((no_of_retrieves > 0) && (ord != NULL))
          {
-            int gotcha,
+            int dirs_to_remove = 0,
+                gotcha,
                 pos;
 
             for (i = 0; i < no_of_retrieves; i++)
@@ -235,15 +244,8 @@ check_fra_fd(void)
                    */
                   if (pos == INCORRECT)
                   {
-                     if (create_remote_dir(ord[i].url, fullname) != INCORRECT)
-                     {
-                        if (rec_rmdir(fullname) != INCORRECT)
-                        {
-                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                      "Remove incoming directory %s.",
-                                      fullname);
-                        }
-                     }
+                     ord[i].remove_dir = YES;
+                     dirs_to_remove++;
                   }
 
                   for (j = 0; j < no_remote_queued; j++)
@@ -293,6 +295,7 @@ check_fra_fd(void)
 #endif
                                        connection[m].pid = 0;
                                        connection[m].hostname[0] = '\0';
+                                       connection[m].host_id = 0;
                                        connection[m].job_no = -1;
                                        connection[m].fsa_pos = -1;
                                        connection[m].fra_pos = -1;
@@ -345,10 +348,84 @@ check_fra_fd(void)
                }
             } /* for (i = 0; i < no_of_retrieves; i++) */
 
+            /*
+             * Before we may delete a directory ensure this will not
+             * delete other still valid directories because these have
+             * subdirectories in the directory we currently want to
+             * delete. If that is the case lets unset the delete flag
+             * for the directory.
+             */
+            if (dirs_to_remove > 0)
+            {
+               for (i = 0; i < no_of_retrieves; i++)
+               {
+                  if (ord[i].fullname[0] == '\0')
+                  {
+                     if (create_remote_dir(ord[i].url, NULL, NULL, NULL,
+                                           ord[i].fullname,
+                                           &ord[i].fullname_length) == INCORRECT)
+                     {
+                        ord[i].fullname[0] = 1;
+                        ord[i].fullname_length = 0;
+                        ord[i].remove_dir = NO;
+                     }
+                  }
+                  if (ord[i].remove_dir == YES)
+                  {
+                     for (j = 0; j < no_of_retrieves; j++)
+                     {
+                        if ((j != i) && (ord[j].remove_dir == NO))
+                        {
+                           if (ord[j].fullname[0] == '\0')
+                           {
+                              if (create_remote_dir(ord[j].url, NULL, NULL,
+                                                    NULL, ord[j].fullname,
+                                                    &ord[j].fullname_length) == INCORRECT)
+                              {
+                                 ord[j].fullname[0] = 1;
+                                 ord[j].fullname_length = 0;
+                              }
+                           }
+                           if (ord[i].fullname_length <= ord[j].fullname_length)
+                           {
+                              if (strncmp(ord[i].fullname, ord[j].fullname,
+                                          ord[i].fullname_length - 1) == 0)
+                              {
+                                 ord[i].remove_dir = NO;
+                                 dirs_to_remove--;
+                                 break;
+                              }
+                           }
+                        }
+                     } /* for (j = 0; j < no_of_retrieves; j++) */
+                  }
+               } /* for (i = 0; i < no_of_retrieves; i++) */
+            }
+
+            /*
+             * Now we can savely remove any unused directories.
+             */
+            if (dirs_to_remove > 0)
+            {
+               for (i = 0; i < no_of_retrieves; i++)
+               {
+                  if ((ord[i].remove_dir == YES) &&
+                      (ord[i].fullname[0] != '\0') && (ord[i].fullname[0] != 1))
+                  {
+                     if (rec_rmdir(ord[i].fullname) != INCORRECT)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Remove incoming directory %s.",
+                                   ord[i].fullname);
+                     }
+                  }
+               } /* for (i = 0; i < no_of_retrieves; i++) */
+            }
+
             /* Lets check if all queued flags in FRA are accounted for. */
             for (i = 0; i < no_of_dirs; i++)
             {
-               if ((fra[i].queued == YES) && (fra[i].host_alias[0] != '\0'))
+               if ((fra[i].queued > 0) && (fra[i].host_alias[0] != '\0'))
                {
                   gotcha = NO;
                   for (j = 0; j < no_remote_queued; j++)
@@ -364,7 +441,7 @@ check_fra_fd(void)
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                 "Queued flag for `%s' is set but there is no job in the queue. Correcting.",
                                 fra[i].dir_alias);
-                     fra[i].queued = NO;
+                     fra[i].queued = 0;
                   }
                }
             }
@@ -399,7 +476,7 @@ get_url_pos(char *url, char *dir_alias, int *pos)
           (CHECK_STRCMP(fra[i].dir_alias, dir_alias) == 0))
       {
          *pos = i;
-         if (CHECK_STRCMP(fra[i].url, url) == 0)
+         if (url_check(fra[i].url, url) == 0)
          {
             return(SUCCESS);
          }
@@ -422,4 +499,82 @@ get_url_pos(char *url, char *dir_alias, int *pos)
    }
 
    return(INCORRECT);
+}
+
+
+/*---------------------------- url_check() ------------------------------*/
+static int
+url_check(char *url1, char *url2)
+{
+   register int i = 0;
+
+   while ((url1[i] == url2[i]) && (url1[i] != '\0') && (url2[i] != '\0'))
+   {
+      i++;
+   }
+   if ((url1[i] == '\0') && (url2[i] == '\0'))
+   {
+      return(0);
+   }
+   else
+   {
+      /* Lets see where we differ. */
+      if (url_compare(url1, url2) == URL_PORT_DIFS)
+      {
+         return(0);
+      }
+#ifdef WHEN_WE_KNOW
+      if (i > 5)
+      {
+         /* Compare scheme. */
+         i = 0;
+         while ((url1[i] == url2[i]) && (url1[i] != ':'))
+         {
+            i++;
+         }
+         if ((url1[i] == ':') && (url2[i] == ':') &&
+             (url1[i + 1] == '/') && (url2[i + 1] == '/') &&
+             (url1[i + 2] == '/') && (url2[i + 2] == '/'))
+         {
+            i += 3;
+
+            /* Compare user or hostname. */
+            while ((url1[i] == url2[i]) && (url1[i] != ':') && (url1[i] != '@'))
+            {
+               if (url1[i] == '\\')
+               {
+                  i++;
+               }
+               i++;
+            }
+            if (((url1[i] == ':') && (url2[i] == ':')) ||
+                ((url1[i] == '@') && (url2[i] == '@')))
+            {
+            }
+         }
+
+         int tmp_i = i;
+
+         while ((i > 0) && ((url1[i] != ':') || (url[i - 1] == '\\')))
+         {
+            i--;
+         }
+         if (url1[i] == ':')
+         {
+            port_pos_1 = i;
+            i--;
+            while ((i > 0) && ((url1[i] != '@') || (url[i - 1] == '\\')))
+            {
+               i--;
+            }
+            if (url1[i] != '@')
+            {
+               /* Hmm, we could be at the password. */
+            }
+         }
+      }
+#endif
+   }
+
+   return(1);
 }

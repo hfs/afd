@@ -1,6 +1,6 @@
 /*
  *  link_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@ DESCR__S_M3
  **                  time_t                 current_time,
  **                  struct directory_entry *p_de,
  **                  struct instant_db      *p_db,
- **                  time_t                 *creation_time,
  **                  unsigned int           *split_job_counter,
  **                  int                    unique_number,
  **                  int                    pos_in_fm,
@@ -70,25 +69,29 @@ DESCR__E_M3
 
 #include <stdio.h>                 /* sprintf()                          */
 #include <string.h>                /* strcpy(), strlen(), strerror()     */
-#include <time.h>                  /* time()                             */
 #ifndef _WITH_PTHREAD
-#include <stdlib.h>                /* realloc()                          */
+# include <stdlib.h>               /* realloc()                          */
 #endif
 #include <sys/types.h>
 #include <unistd.h>                /* link()                             */
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 #ifndef _WITH_PTHREAD
-extern off_t             *file_size_pool;
-extern time_t            *file_mtime_pool;
-extern char              *file_name_buffer,
-                         **file_name_pool;
+extern off_t                      *file_size_pool;
+extern time_t                     *file_mtime_pool;
+extern char                       *file_name_buffer,
+                                  **file_name_pool;
+extern unsigned char              *file_length_pool;
 #endif
 #ifdef _DELETE_LOG
-extern struct delete_log dl;
+extern struct delete_log          dl;
 #endif
+#ifdef _DISTRIBUTION_LOG
+extern struct file_dist_list      **file_dist_pool;
+#endif
+extern struct filetransfer_status *fsa;
 
 
 /*########################### link_files() ##############################*/
@@ -100,10 +103,10 @@ link_files(char                   *src_file_path,
            off_t                  *file_size_pool,
            time_t                 *file_mtime_pool,
            char                   **file_name_pool,
+           unsigned char          *file_length_pool,
 #endif
            struct directory_entry *p_de,
            struct instant_db      *p_db,
-           time_t                 *creation_time,
            unsigned int           *split_job_counter,
            int                    unique_number,
            int                    pos_in_fm,
@@ -112,6 +115,9 @@ link_files(char                   *src_file_path,
            off_t                  *file_size_linked)
 {
    int          files_linked = 0,
+#ifdef _DISTRIBUTION_LOG
+                dist_type,
+#endif
                 retstat;
    register int i,
                 j;
@@ -144,35 +150,44 @@ link_files(char                   *src_file_path,
             {
                diff_time = 0;
             }
-            if ((p_db->age_limit > 0) && (diff_time > p_db->age_limit))
+            if ((p_db->age_limit > 0) &&
+                ((fsa[p_db->position].host_status & DO_NOT_DELETE_DATA) == 0) &&
+                (diff_time > p_db->age_limit))
             {
 #ifdef _DELETE_LOG
                size_t dl_real_size;
 
-               (void)strcpy(dl.file_name, file_name_pool[i]);
-               (void)sprintf(dl.host_name, "%-*s %x",
+               (void)memcpy(dl.file_name, file_name_pool[i],
+                            (size_t)(file_length_pool[i] + 1));
+               (void)sprintf(dl.host_name, "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, p_db->host_alias, AGE_INPUT);
                *dl.file_size = file_size_pool[i];
-               *dl.job_number = p_de->dir_id;
-               *dl.file_name_length = strlen(file_name_pool[i]);
+               *dl.dir_id = p_de->dir_id;
+               *dl.job_id = p_db->job_id;
+               *dl.input_time = 0L;
+               *dl.split_job_counter = 0;
+               *dl.unique_number = 0;
+               *dl.file_name_length = file_length_pool[i];
                dl_real_size = *dl.file_name_length + dl.size +
                               sprintf((dl.file_name + *dl.file_name_length + 1),
-#if SIZEOF_TIME_T == 4
-                                      "%s >%ld (%s %d)", DIR_CHECK,
-#else
-                                      "%s >%lld (%s %d)", DIR_CHECK,
-#endif
-                                      (pri_time_t)diff_time, 
+# if SIZEOF_TIME_T == 4
+                                      "%s%c>%ld (%s %d)",
+# else
+                                      "%s%c>%lld (%s %d)",
+# endif
+                                      DIR_CHECK, SEPARATOR_CHAR,
+                                      (pri_time_t)diff_time,
                                       __FILE__, __LINE__);
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "write() error : %s", strerror(errno));
                }
-#endif /* _DELETE_LOG */
+#endif
                if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
-                  (void)strcpy(p_src, file_name_pool[i]);
+                  (void)memcpy(p_src, file_name_pool[i],
+                               (size_t)(file_length_pool[i] + 1));
                   if (unlink(src_file_path) == -1)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -180,6 +195,9 @@ link_files(char                   *src_file_path,
                                 src_file_path, strerror(errno));
                   }
                }
+#ifdef _DISTRIBUTION_LOG
+               dist_type = AGE_LIMIT_DELETE_DIS_TYPE;
+#endif
             }
             else
             {
@@ -188,12 +206,11 @@ link_files(char                   *src_file_path,
                /* be distributed.                                 */
                if (p_dest == NULL)
                {
-                  *creation_time = current_time;
                   if (p_db->loptions != NULL)
                   {
                      /* Create a new message name and directory. */
                      if (create_name(dest_file_path, p_db->priority,
-                                     *creation_time, p_db->job_id,
+                                     current_time, p_db->job_id,
                                      split_job_counter,
                                      &unique_number, unique_name, -1) < 0)
                      {
@@ -206,10 +223,9 @@ link_files(char                   *src_file_path,
                            while (errno == ENOSPC)
                            {
                               (void)sleep(DISK_FULL_RESCAN_TIME);
-                              *creation_time = time(NULL);
                               errno = 0;
                               if (create_name(dest_file_path, p_db->priority,
-                                              *creation_time, p_db->job_id,
+                                              current_time, p_db->job_id,
                                               split_job_counter,
                                               &unique_number, unique_name, -1) < 0)
                               {
@@ -273,7 +289,7 @@ link_files(char                   *src_file_path,
                      (void)sprintf(unique_name, "%x/%x/%llx_%x_%x",
 #endif
                                    p_db->job_id, dir_no,
-                                   (pri_time_t)*creation_time,
+                                   (pri_time_t)current_time,
                                    unique_number, *split_job_counter);
                      p_dest = p_dest_end +
                               sprintf(p_dest_end, "/%s/", unique_name);
@@ -295,10 +311,12 @@ link_files(char                   *src_file_path,
                   }
                }
 
-               (void)strcpy(p_src, file_name_pool[i]);
-               (void)strcpy(p_dest, file_name_pool[i]);
+               (void)memcpy(p_src, file_name_pool[i],
+                            (size_t)(file_length_pool[i] + 1));
+               (void)memcpy(p_dest, file_name_pool[i],
+                            (size_t)(file_length_pool[i] + 1));
 
-               /* rename/link/copy the file */
+               /* Rename/link/copy the file. */
                if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
                   if ((retstat = rename(src_file_path, dest_file_path)) == -1)
@@ -423,10 +441,10 @@ link_files(char                   *src_file_path,
                   {
                      size_t new_size;
 
-                     /* Calculate new size of file name buffer */
+                     /* Calculate new size of file name buffer. */
                      new_size = ((files_linked / FILE_NAME_STEP_SIZE) + 1) * FILE_NAME_STEP_SIZE * MAX_FILENAME_LENGTH;
 
-                     /* Increase the space for the file name buffer */
+                     /* Increase the space for the file name buffer. */
                      if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
                      {
                         system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -435,12 +453,31 @@ link_files(char                   *src_file_path,
                         exit(INCORRECT);
                      }
                   }
-                  (void)strcpy((file_name_buffer + (files_linked * MAX_FILENAME_LENGTH)), file_name_pool[i]);
-#endif /* !_WITH_PTHREAD */
+                  (void)memcpy((file_name_buffer + (files_linked * MAX_FILENAME_LENGTH)),
+                               file_name_pool[i],
+                               (size_t)(file_length_pool[i] + 1));
+#endif
                   files_linked++;
                   *file_size_linked += file_size_pool[i];
+#ifdef _DISTRIBUTION_LOG
+                  dist_type = NORMAL_DIS_TYPE;
+#endif
                }
+#ifdef _DISTRIBUTION_LOG
+               else
+               {
+                  dist_type = ERROR_DIS_TYPE;
+               }
+#endif
             }
+#ifdef _DISTRIBUTION_LOG
+            if (dist_type < NO_OF_DISTRIBUTION_TYPES)
+            {
+               file_dist_pool[i][dist_type].jid_list[file_dist_pool[i][dist_type].no_of_dist] = p_db->job_id;
+               file_dist_pool[i][dist_type].proc_cycles[file_dist_pool[i][dist_type].no_of_dist] = (unsigned char)(p_db->no_of_loptions - p_db->no_of_time_entries);
+               file_dist_pool[i][dist_type].no_of_dist++;
+            }
+#endif
 
             /*
              * Since the file is already in the file directory

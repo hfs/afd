@@ -1,6 +1,6 @@
 /*
  *  get_arg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ get_arg(int *argc, char *argv[], char *arg, char *buffer, int buf_length)
                if (buf_length < strlen(argv[i + 1]))
                {
                   (void)fprintf(stderr,
-                                "Buffer for storing value for argument %s to short! (%s %d)\n",
+                                _("Buffer for storing value for argument %s to short! (%s %d)\n"),
                                 argv[i], __FILE__, __LINE__);
                   return(INCORRECT);
                }
@@ -129,7 +129,7 @@ get_arg(int *argc, char *argv[], char *arg, char *buffer, int buf_length)
       }
    }
 
-   /* Argument NOT found */
+   /* Argument NOT found. */
    return(INCORRECT);
 }
 
@@ -213,6 +213,6 @@ get_arg_array(int  *argc,
       }
    }
 
-   /* Argument NOT found */
+   /* Argument NOT found. */
    return(INCORRECT);
 }

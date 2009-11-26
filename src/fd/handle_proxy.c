@@ -1,6 +1,6 @@
 /*
  *  handle_proxy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char                       msg_str[];
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
@@ -94,7 +94,7 @@ handle_proxy(void)
                }
                if (i == MAX_USER_NAME_LENGTH)
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "User name in proxy definition is to long (> %d).",
                             MAX_USER_NAME_LENGTH - 1);
                   (void)ftp_quit();
@@ -111,7 +111,7 @@ handle_proxy(void)
                   /* Send user name. */
                   if (((status = ftp_user(buffer)) != SUCCESS) && (status != 230))
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                "Failed to send user <%s> (%d) [Proxy].",
                                buffer, status);
                      (void)ftp_quit();
@@ -141,7 +141,7 @@ handle_proxy(void)
                   /* Send account name. */
                   if (((status = ftp_account(buffer)) != SUCCESS) && (status != 230))
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                "Failed to send account <%s> (%d) [Proxy].",
                                buffer, status);
                      (void)ftp_quit();
@@ -193,7 +193,7 @@ handle_proxy(void)
                }
                if (i == MAX_USER_NAME_LENGTH)
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Password in proxy definition is to long (> %d).",
                             MAX_USER_NAME_LENGTH - 1);
                   (void)ftp_quit();
@@ -210,7 +210,7 @@ handle_proxy(void)
                {
                   if ((status = ftp_pass(buffer)) != SUCCESS)
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                "Failed to send password (%d).", status);
                      (void)ftp_quit();
                      exit(PASSWORD_ERROR);
@@ -237,7 +237,7 @@ handle_proxy(void)
                break;
 
             default : /* Syntax error in proxy format. */
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          "Syntax error in proxy string <%s>.",
                          fsa->proxy_name);
                (void)ftp_quit();
@@ -246,7 +246,7 @@ handle_proxy(void)
       }
       else
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                    "Syntax error in proxy string <%s>.",
                    fsa->proxy_name);
          (void)ftp_quit();

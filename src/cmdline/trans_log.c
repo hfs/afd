@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ DESCR__S_M3
  **   void trans_log(char *sign,
  **                  char *file,
  **                  int  line,
+ **                  char *function,
  **                  char *msg_str,
  **                  char *fmt, ...)
  **
@@ -46,6 +47,7 @@ DESCR__S_M3
  ** HISTORY
  **   19.03.1999 H.Kiehl Created
  **   29.07.2000 H.Kiehl Revised to reduce code size in aftp.
+ **   21.03.2009 H.Kiehl Added function parameter.
  **
  */
 DESCR__E_M3
@@ -55,7 +57,7 @@ DESCR__E_M3
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>                 /* struct tm                       */
+# include <sys/time.h>                /* struct tm                       */
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
@@ -68,7 +70,13 @@ extern long transfer_timeout;
 
 /*############################ trans_log() ###############################*/
 void
-trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
+trans_log(char *sign,
+          char *file,
+          int  line,
+          char *function,
+          char *msg_str,
+          char *fmt,
+          ...)
 {
    size_t    header_length,
              length;
@@ -98,6 +106,10 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    buf[16] = ':';
    buf[17] = ' ';
    length = 18;
+   if ((function != NULL) && (function[0] != '\0'))
+   {
+      length += sprintf(&buf[length], "%s(): ", function);
+   }
    header_length = length;
 
    va_start(ap, fmt);
@@ -118,12 +130,12 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
       }
       if ((file == NULL) || (line == 0))
       {
-         length += sprintf(tmp_ptr, " due to timeout (%lds).\n",
+         length += sprintf(tmp_ptr, _(" due to timeout (%lds).\n"),
                            transfer_timeout);
       }
       else
       {
-         length += sprintf(tmp_ptr, " due to timeout (%lds). (%s %d)\n",
+         length += sprintf(tmp_ptr, _(" due to timeout (%lds). (%s %d)\n"),
                            transfer_timeout, file, line);
       }
    }

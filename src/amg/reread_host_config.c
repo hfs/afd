@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -93,7 +93,7 @@ reread_host_config(time_t           *hc_old_time,
    int         ret = NO_CHANGE_IN_HOST_CONFIG;
    struct stat stat_buf;
 
-   /* Get the size of the database file */
+   /* Get the size of the database file. */
    if (stat(host_config_file, &stat_buf) < 0)
    {
       if (errno == ENOENT)
@@ -148,7 +148,7 @@ reread_host_config(time_t           *hc_old_time,
       /* Tell user we have to reread the new HOST_CONFIG file. */
       system_log(INFO_SIGN, NULL, 0, "Rereading HOST_CONFIG...");
 
-      /* Now store the new time */
+      /* Now store the new time. */
       *hc_old_time = stat_buf.st_mtime;
 
       /* Reread HOST_CONFIG file. */
@@ -166,6 +166,11 @@ reread_host_config(time_t           *hc_old_time,
          *old_no_of_hosts = no_of_hosts;
          free(hl);
          hl = NULL;
+      }
+      else
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "Hmm, no old HOST_CONFIG data!");
       }
 
       /*
@@ -321,11 +326,22 @@ reread_host_config(time_t           *hc_old_time,
                fsa[host_pos].socksnd_bufsize = hl[i].socksnd_bufsize;
                fsa[host_pos].sockrcv_bufsize = hl[i].sockrcv_bufsize;
                fsa[host_pos].keep_connected = hl[i].keep_connected;
+               fsa[host_pos].warn_time = hl[i].warn_time;
 #ifdef WITH_DUP_CHECK
                fsa[host_pos].dup_check_flag = hl[i].dup_check_flag;
                fsa[host_pos].dup_check_timeout = hl[i].dup_check_timeout;
 #endif
                fsa[host_pos].special_flag = 0;
+               if (hl[i].in_dir_config == YES)
+               {
+                  fsa[host_pos].special_flag |= HOST_IN_DIR_CONFIG;
+                  hl[i].host_status &= ~HOST_NOT_IN_DIR_CONFIG;
+               }
+               else
+               {
+                  fsa[host_pos].special_flag &= ~HOST_IN_DIR_CONFIG;
+                  hl[i].host_status |= HOST_NOT_IN_DIR_CONFIG;
+               }
                if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                {
                   fsa[host_pos].special_flag |= HOST_DISABLED;
@@ -358,6 +374,14 @@ reread_host_config(time_t           *hc_old_time,
                else
                {
                   fsa[host_pos].host_status &= ~HOST_ERROR_OFFLINE_STATIC;
+               }
+               if (hl[i].host_status & DO_NOT_DELETE_DATA)
+               {
+                  fsa[host_pos].host_status |= DO_NOT_DELETE_DATA;
+               }
+               else
+               {
+                  fsa[host_pos].host_status &= ~DO_NOT_DELETE_DATA;
                }
             }
          }
@@ -428,7 +452,7 @@ reread_host_config(time_t           *hc_old_time,
          if ((p_host_names = malloc(new_size)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "malloc() error [%d Bytes] : %s",
+                       "malloc() error [%d bytes] : %s",
                        new_size, strerror(errno));
             exit(INCORRECT);
          }

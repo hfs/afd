@@ -54,7 +54,7 @@ locate_xy(int pos, int *x, int *y)
 {
    int column_no;
 
-   /* First check that we do not divide by zero */
+   /* First check that we do not divide by zero. */
    if (no_of_rows <= 1)
    {
       column_no = (pos + 1);

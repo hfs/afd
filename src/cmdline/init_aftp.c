@@ -1,6 +1,6 @@
 /*
  *  init_aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -53,6 +53,7 @@ DESCR__S_M3
  **   28.09.2004 H.Kiehl    Added option -C (create target dir).
  **   07.02.2005 H.Kiehl    Added DOT_VMS and DOS mode.
  **   12.08.2006 H.Kiehl    Added option -X.
+ **   05.03.2008 H.Kiehl    Added option -o.
  **
  */
 DESCR__E_M3
@@ -65,16 +66,16 @@ DESCR__E_M3
 #include "cmdline.h"
 #include "ftpdefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int  no_of_host,
             sys_log_fd,
             fsa_id;
 extern char *p_work_dir;
 
-/* Local global variables */
+/* Local global variables. */
 static char name[30];
 
-/* local functions */
+/* Local function prototypes. */
 static void usage(void);
 
 
@@ -109,8 +110,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
            p_db->aftp_mode = TRANSFER_MODE;
         }
 
-   /* First initialize all values with default values */
-   p_db->file_size_offset  = -1;       /* No appending */
+   /* First initialize all values with default values. */
+   p_db->file_size_offset  = -1;       /* No appending. */
    p_db->blocksize         = DEFAULT_TRANSFER_BLOCKSIZE;
    p_db->remote_dir[0]     = '\0';
    p_db->hostname[0]       = '\0';
@@ -121,7 +122,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    p_db->ftp_mode          = ACTIVE_MODE;
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    p_db->keepalive         = NO;
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
    p_db->port              = DEFAULT_FTP_PORT;
    (void)strcpy(p_db->user, DEFAULT_AFD_USER);
    (void)strcpy(p_db->password, DEFAULT_AFD_PASSWORD);
@@ -148,7 +149,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    p_db->rcvbuf_size       = 0;
    p_db->proxy_name[0]     = '\0';
 
-   /* Evaluate all arguments with '-' */
+   /* Evaluate all arguments with '-'. */
    while ((--argc > 0) && ((*++argv)[0] == '-'))
    {
       switch (*(argv[0] + 1))
@@ -157,26 +158,18 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             p_db->append = YES;
             break;
 
-         case 'a' : /* Remote file size offset for appending */
+         case 'a' : /* Remote file size offset for appending. */
             if ((argc == 1) ||
                 ((*(argv + 1)[0] == '-') && ((argv + 1)[0][1] != '2')))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Spaltennummer angegeben fuer Option -a.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No file size offset specified for option -a.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No file size offset specified for option -a.\n"));
                correct = NO;
             }
             else
             {
                if ((name[0] == 'r') || (name[0] == 't'))
                {
-#ifdef _GERMAN
-                  (void)fprintf(stderr, "ERROR   : Diese Option ist nur gueltig fuer %s.\n", &name[1]);
-#else
-                  (void)fprintf(stderr, "ERROR   : This option is only for %s.\n", &name[1]);
-#endif
+                  (void)fprintf(stderr, _("ERROR   : This option is only for %s.\n"), &name[1]);
                   correct = NO;
                }
                else
@@ -188,14 +181,10 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'b' : /* FTP transfer block size */
+         case 'b' : /* FTP transfer block size. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Blockgroesse angegeben fuer Option -b.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No block size specified for option -b.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No block size specified for option -b.\n"));
                correct = NO;
             }
             else
@@ -206,14 +195,10 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'c' : /* Configuration file for user, passwd, etc */
+         case 'c' : /* Configuration file for user, passwd, etc. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Konfigurationsdatei angegeben fuer Option -c.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No config file specified for option -c.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No config file specified for option -c.\n"));
                correct = NO;
             }
             else
@@ -232,14 +217,10 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             p_db->create_target_dir = YES;
             break;
 
-         case 'd' : /* Target directory on remote host */
+         case 'd' : /* Target directory on remote host. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Kein Verzeichnis angegeben fuer Option -d.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No target directory for option -d.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No target directory for option -d.\n"));
                correct = NO;
             }
             else
@@ -253,11 +234,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'f' : /* Configuration file for filenames. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Dateinamendatei angegeben fuer Option -f.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No filename file specified for option -f.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No filename file specified for option -f.\n"));
                correct = NO;
             }
             else
@@ -279,16 +256,12 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'k' : /* Keep control connection alive. */
             p_db->keepalive = YES;
             break;
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
 
-         case 'h' : /* Remote host name */
+         case 'h' : /* Remote host name. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Kein Rechnername oder IP-Nummer angegeben fuer Option -h.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No host name or IP number specified for option -h.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No host name or IP number specified for option -h.\n"));
                correct = NO;
             }
             else
@@ -299,14 +272,10 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'l' : /* Lock type */
+         case 'l' : /* Lock type. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Kein Verriegelungsmechanismus angegeben fuer Option -l.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No lock type specified for option -l.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No lock type specified for option -l.\n"));
                correct = NO;
             }
             else
@@ -316,16 +285,12 @@ init_aftp(int argc, char *argv[], struct data *p_db)
 
                if (name[0] == 'r')
                {
-#ifdef _GERMAN
-                  (void)fprintf(stderr, "ERROR   : Diese Option ist nur gueltig fuer %s.\n", &name[1]);
-#else
-                  (void)fprintf(stderr, "ERROR   : This option is only for %s.\n", &name[1]);
-#endif
+                  (void)fprintf(stderr, _("ERROR   : This option is only for %s.\n"), &name[1]);
                   correct = NO;
                }
                else
                {
-                  /* Check which lock type is specified */
+                  /* Check which lock type is specified. */
                   if (strcmp(argv[0], LOCK_DOT) == 0)
                   {
                      p_db->lock = DOT;
@@ -356,14 +321,10 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'm' : /* FTP transfer mode */
+         case 'm' : /* FTP transfer mode. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Kein Uebertragungsmodus angegeben fuer Option -m.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No transfer mode specified for option -m.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No transfer mode specified for option -m.\n"));
                correct = NO;
             }
             else
@@ -371,7 +332,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                switch (*(argv + 1)[0])
                {
                   case 'a':
-                  case 'A': /* ASCII mode */
+                  case 'A': /* ASCII mode. */
                      p_db->transfer_mode = 'A';
                      argv++;
                      argc--;
@@ -380,14 +341,14 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                   case 'i':
                   case 'I':
                   case 'b':
-                  case 'B': /* Bianary mode */
+                  case 'B': /* Bianary mode. */
                      p_db->transfer_mode = 'I';
                      argv++;
                      argc--;
                      break;
 
                   case 'd':
-                  case 'D': /* DOS mode */
+                  case 'D': /* DOS mode. */
                      p_db->transfer_mode = 'D';
                      argv++;
                      argc--;
@@ -396,11 +357,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                   default : /* Wrong/unknown mode! */
 
                      (void)fprintf(stderr,
-#ifdef _GERMAN
-                                   "ERROR   : Unbekannter FTP Uebertragungsmodus <%c> angegeben fuer Option -m.\n",
-#else
-                                   "ERROR   : Unknown FTP transfer mode <%c> specified for option -m.\n",
-#endif
+                                   _("ERROR   : Unknown FTP transfer mode <%c> specified for option -m.\n"),
                                    *(argv + 1)[0]);
                      correct = NO;
                      break;
@@ -411,11 +368,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'n' : /* Specify the number of files. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Anzahl von Dateien angegeben fuer Option -n.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No number of files specified for option -n.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No number of files specified for option -n.\n"));
                correct = NO;
             }
             else
@@ -432,11 +385,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                   {
                      p_name = name;
                   }
-#ifdef _GERMAN
-                  (void)fprintf(stderr, "ERROR   : Diese Option ist nur gueltig fuer t%s.\n", p_name);
-#else
-                  (void)fprintf(stderr, "ERROR   : This option is only for t%s.\n", p_name);
-#endif
+                  (void)fprintf(stderr, _("ERROR   : This option is only for t%s.\n"), p_name);
                   correct = NO;
                }
                else
@@ -448,14 +397,42 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'p' : /* Remote TCP port number */
+         case 'o' : /* Change mode of file. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Portnummer angegeben fuer Option -p.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No port number specified for option -p.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No mode number specified for option -o.\n"));
+               correct = NO;
+            }
+            else
+            {
+               int n;
+
+               ptr = *(argv + 1);
+               n = 0;
+               while ((*ptr != '\n') && (*ptr != '\0') && (n < 4) &&
+                      (isdigit((int)(*ptr))))
+               {
+                  p_db->chmod_str[n] = *ptr;
+                  ptr++; n++;
+               }
+               if (n > 1)
+               {
+                  p_db->chmod_str[n] = '\0';
+               }
+               else
+               {
+                  (void)fprintf(stderr, _("ERROR   : Not a correct mode number for option -o.\n"));
+                  correct = NO;
+               }
+               argc--;
+               argv++;
+            }
+            break;
+
+         case 'p' : /* Remote TCP port number. */
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {
+               (void)fprintf(stderr, _("ERROR   : No port number specified for option -p.\n"));
                correct = NO;
             }
             else
@@ -469,11 +446,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'P' : /* Use the given proxy procedure to login. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Proxy Prozedur angegeben fuer Option -P.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No proxy procedure for option -P.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No proxy procedure for option -P.\n"));
                correct = NO;
             }
             else
@@ -487,13 +460,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'u' : /* User name and password for remote login. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
                (void)fprintf(stderr,
-                             "ERROR   : Kein Nutzername und Passwort angegeben fuer Option -u.\n");
-#else
-               (void)fprintf(stderr,
-                             "ERROR   : No user and password specified for option -u.\n");
-#endif
+                             _("ERROR   : No user and password specified for option -u.\n"));
                correct = NO;
             }
             else
@@ -505,13 +473,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                /* If user is specified a password must be there as well! */
                if ((argc == 1) || (*(argv + 1)[0] == '-'))
                {
-#ifdef _GERMAN
                   (void)fprintf(stderr,
-                                "ERROR   : Kein Passwort angegeben fuer Option -u.\n");
-#else
-                  (void)fprintf(stderr,
-                                "ERROR   : No password specified for option -u.\n");
-#endif
+                                _("ERROR   : No password specified for option -u.\n"));
                   correct = NO;
                }
                else
@@ -530,11 +493,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'R' : /* Socket receive buffer. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Puffergroesse angegeben fuer Option -R.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No buffer size specified for option -R.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No buffer size specified for option -R.\n"));
                correct = NO;
             }
             else
@@ -548,11 +507,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 'S' : /* Socket send buffer. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Puffergroesse angegeben fuer Option -S.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No buffer size specified for option -S.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No buffer size specified for option -S.\n"));
                correct = NO;
             }
             else
@@ -566,11 +521,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 's' : /* Dummy file size. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Dateigroesse angegeben fuer Option -s.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No file size specified for option -s.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No file size specified for option -s.\n"));
                correct = NO;
             }
             else
@@ -587,11 +538,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                   {
                      p_name = name;
                   }
-#ifdef _GERMAN
-                  (void)fprintf(stderr, "ERROR   : Diese Option ist nur gueltig fuer t%s.\n", p_name);
-#else
-                  (void)fprintf(stderr, "ERROR   : This option is only for t%s.\n", p_name);
-#endif
+                  (void)fprintf(stderr, _("ERROR   : This option is only for t%s.\n"), p_name);
                   correct = NO;
                }
                else
@@ -606,11 +553,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
          case 't' : /* FTP timeout. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine maximale Wartezeit angegeben fuer Option -t.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No timeout specified for option -t.\n");
-#endif
+               (void)fprintf(stderr, _("ERROR   : No timeout specified for option -t.\n"));
                correct = NO;
             }
             else
@@ -643,17 +586,14 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             break;
 #endif
 
-         case '?' : /* Help */
+         case '?' : /* Help. */
             usage();
             exit(0);
 
-         default : /* Unknown parameter */
+         default : /* Unknown parameter. */
 
-#ifdef _GERMAN
-            (void)fprintf(stderr, "ERROR   : Unbekannter Parameter <%c>. (%s %d)\n",
-#else
-            (void)fprintf(stderr, "ERROR   : Unknown parameter <%c>. (%s %d)\n",
-#endif
+            (void)fprintf(stderr,
+                          _("ERROR   : Unknown parameter <%c>. (%s %d)\n"),
                           *(argv[0] + 1), __FILE__, __LINE__);
             correct = NO;
             break;
@@ -672,25 +612,15 @@ init_aftp(int argc, char *argv[], struct data *p_db)
 
    if (p_db->hostname[0] == '\0')
    {
-#ifdef _GERMAN
       (void)fprintf(stderr,
-                     "ERROR   : Keinen Rechnernamen oder IP-Nummer angegeben.\n");
-#else
-      (void)fprintf(stderr,
-                    "ERROR   : No host name or IP number specified.\n");
-#endif
+                    _("ERROR   : No host name or IP number specified.\n"));
       correct = NO;
    }
 
    if ((p_db->no_of_files == 0) && (argc == 0))
    {
-#ifdef _GERMAN
       (void)fprintf(stderr,
-                    "ERROR   : Keine Dateien zum versenden angegeben.\n");
-#else
-      (void)fprintf(stderr,
-                    "ERROR   : No files to be send specified.\n");
-#endif
+                    _("ERROR   : No files to be send specified.\n"));
       correct = NO;
    }
    else if ((correct == YES) && (argc > 0) && (p_db->no_of_files == 0))
@@ -729,7 +659,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
            }
         }
 
-   /* If input is not correct show syntax */
+   /* If input is not correct show syntax. */
    if (correct == NO)
    {
       usage();
@@ -737,7 +667,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    }
 
    return(SUCCESS);
-} /* eval_input() */
+}
 
 
 /*+++++++++++++++++++++++++++++++ usage() ++++++++++++++++++++++++++++++*/
@@ -754,226 +684,119 @@ usage(void)
    {
       p_name = name;
    }
-#ifdef _GERMAN
-   (void)fprintf(stderr, "SYNTAX: [t|r]%s [Optionen] [Datei 1 ... Datei n]\n\n", p_name);
-   (void)fprintf(stderr, "   Wenn man das Programm mit r%s aufruft, werden die Dateien\n", p_name);
-   (void)fprintf(stderr, "   abgeholt, sonst (mit %s) werden die Dateien geschickt.\n\n", p_name);
-   (void)fprintf(stderr, "  Optionen                             Beschreibung\n");
-   (void)fprintf(stderr, "  --version                          - Zeigt aktuelle Version.\n");
+   (void)fprintf(stderr, _("SYNTAX: [t|r]%s [options] [file 1 ... file n]\n\n"), p_name);
+   (void)fprintf(stderr, _("   When calling it with r%s files will be retrieved from the\n\
+   given host, otherwise (when using %s) files will be send to that host.\n\n"), p_name, p_name);
+   (void)fprintf(stderr, _("  OPTIONS                              DESCRIPTION\n"));
+   (void)fprintf(stderr, _("  --version                          - Show current version\n"));
    if (name[0] == 'r')
    {
-      (void)fprintf(stderr, "  -A                                 - Wenn eine Datei nur teilweise uebertragen\n");
-      (void)fprintf(stderr, "                                       wurde, wird nur der Rest uebertragen und ans\n");
-      (void)fprintf(stderr, "                                       Ende der lokalen Datei angehaengt.\n");
+      (void)fprintf(stderr, _("  -A                                 - If only part of a file was retrieved, you\n\
+                                       can retrieve the rest with this option.\n"));
    }
    if ((name[0] != 'r') && (name[0] != 't'))
    {
-      (void)fprintf(stderr, "  -a <Spaltennummer>                 - Nummer der Spalte in der der Dateiname\n");
-      (void)fprintf(stderr, "                                       steht bei LIST Kommando. Wenn man -2 eingibt\n");
-      (void)fprintf(stderr, "                                       wird versucht automatisch die groesse mit\n");
-      (void)fprintf(stderr, "                                       den SIZE Befehl zu ermitteln.\n");
+      (void)fprintf(stderr,
+                     _("  -a <file size offset>              - Offset of file name when doing a LIST\n\
+                                       command on the remote side. If you\n\
+                                       specify -2 it will try to determine\n\
+                                       the size with the SIZE command.\n"));
    }
-   (void)fprintf(stderr, "  -b <Blockgroesse>                  - FTP Blockgroesse in Bytes. Standard\n");
-   (void)fprintf(stderr, "                                       %d Bytes.\n", DEFAULT_TRANSFER_BLOCKSIZE);
-   (void)fprintf(stderr, "  -c <Konfigurations Datei>          - Konfigurationsdatei die den User, Passwort\n");
-   (void)fprintf(stderr, "                                       und Zieleverzeichnis im URL Format beinhaltet.\n");
-   (void)fprintf(stderr, "  -C                                 - Wenn Zielverzeichnis nicht existiert,\n");
-   (void)fprintf(stderr, "                                       dann erstelle es.\n");
-   (void)fprintf(stderr, "  -d <Zielverzeichnis>               - Verzeichnis auf dem Zielrechner.\n");
-   (void)fprintf(stderr, "  -f <Dateinamen Datei>              - Datei in der alle Dateinamen stehen die\n");
-   (void)fprintf(stderr, "                                       zu verschicken sind.\n");
-   (void)fprintf(stderr, "  -h <Rechnername | IP Nummer>       - Rechnername oder IP Nummer zu denen die\n");
-   (void)fprintf(stderr, "                                       Dateien zu verschicken sind.\n");
-# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-   (void)fprintf(stderr, "  -k                                 - FTP Kontrolverbindung mit STAT-Befehlen\n");
-   (void)fprintf(stderr, "                                       waerend eine Datei uebertragen wird,\n");
-   (void)fprintf(stderr, "                                       aufrecht erhalten.\n");
-# endif
+   (void)fprintf(stderr, _("  -b <block size>                    - FTP block size in bytes. Default %d\n\
+                                       bytes.\n"), DEFAULT_TRANSFER_BLOCKSIZE);
+   (void)fprintf(stderr, _("  -c <config file>                   - Configuration file holding user name,\n\
+                                       password and target directory in URL\n\
+                                       format.\n"));
+   (void)fprintf(stderr, _("  -C                                 - If target directory does not exist create\n\
+                                       it.\n"));
+   (void)fprintf(stderr, _("  -d <remote directory>              - Directory where file(s) are to be stored.\n"));
+   (void)fprintf(stderr, _("  -f <filename>                      - File containing a list of filenames\n\
+                                       that are to be send.\n"));
+   (void)fprintf(stderr, _("  -h <host name | IP number>         - Hostname or IP number to which to\n\
+                                       send the file(s).\n"));
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   (void)fprintf(stderr, _("  -k                                 - Keep FTP control connection with STAT\n\
+                                       calls alive/fresh.\n"));
+#endif
    if (name[0] != 'r')
    {
-# ifdef WITH_READY_FILES
-      (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | RDYA | RDYB | xyz> - Verriegelungsart waehrend der\n");
-      (void)fprintf(stderr, "                                       Uebertragung.\n");
-# else
-      (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | xyz.>    - Verriegelungsart waehrend der\n");
-      (void)fprintf(stderr, "                                       Uebertragung.\n");
-# endif
-   }
-   (void)fprintf(stderr, "  -m <A | I | D>                     - FTP Uebertragungsmodus, ASCII,\n");
-   (void)fprintf(stderr, "                                       Binaer (Standard) oder DOS.\n");
-   if (name[0] == 't')
-   {
-      (void)fprintf(stderr, "  -n <Anzahl Dateien>                - Anzahl der zu uebertragenen Dateien.\n");
-   }
-   (void)fprintf(stderr, "  -p <Portnummer>                    - IP Portnummer des FTP-Servers.\n");
-   (void)fprintf(stderr, "  -P <Proxy-prozedur>                - Die angegeben Proxy-prozdur wird\n");
-   (void)fprintf(stderr, "                                       fuers Einloggen verwendet. Siehe\n");
-   (void)fprintf(stderr, "                                       Dokumentation fuer mehr Informationen.\n");
-   (void)fprintf(stderr, "  -u <Nutzer> <Passwort>             - Nutzername und Passwort, wenn nicht\n");
-   (void)fprintf(stderr, "                                       angegeben %s.\n", DEFAULT_AFD_USER);
-   if (name[0] == 'r')
-   {
-      (void)fprintf(stderr, "  -R <Puffer groesse>                - Setzt die socket Puffer groesse fuer\n");
-      (void)fprintf(stderr, "                                       den Empfang (in Bytes).\n");
-      (void)fprintf(stderr, "  -r                                 - Loescht die Dateien die geholt wurden.\n");
-   }
-   else
-   {
-      (void)fprintf(stderr, "  -r                                 - Loescht die uebertragenen Dateien.\n");
-      (void)fprintf(stderr, "  -S <Puffer groesse>                - Setzt die socket Puffer groesse fuer\n");
-   }
-   if (name[0] == 't')
-   {
-      (void)fprintf(stderr, "  -s <Dateigroesse>                  - Dateigroesse der zu uebertragenen Dateien.\n");
-   }
-   (void)fprintf(stderr, "  -t <Wartezeit>                     - Maximale Wartezeit fuer FTP, in Sekunden.\n");
-   (void)fprintf(stderr, "                                       Standard %lds.\n", DEFAULT_TRANSFER_TIMEOUT);
-   (void)fprintf(stderr, "  -v                                 - Ausfuehrlich. Die Kommandos und die\n");
-   (void)fprintf(stderr, "                                       Antworten des Servers werden ausgegeben.\n");
-   (void)fprintf(stderr, "  -x                                 - Benutzt den FTP passive mode anstatt\n");
-   (void)fprintf(stderr, "                                       von aktive mode waehrend die Daten-\n");
-   (void)fprintf(stderr, "                                       verbindung aufgebaut wird.\n");
-   (void)fprintf(stderr, "  -X                                 - Benutzt den erweiterten FTP aktiv bzw.\n");
-   (void)fprintf(stderr, "                                       passive (-x) Modus.\n");
-# ifdef WITH_SSL
-   (void)fprintf(stderr, "  -z                                 - Benutzt SSL/TLS fuer Kontrollverbindung.\n");
-   (void)fprintf(stderr, "  -Z                                 - Benutzt SSL/TLS fuer Kontroll- und Daten-\n");
-   (void)fprintf(stderr, "                                       verbindung.\n");
-# endif
-   (void)fprintf(stderr, "  -?                                 - Diese Hilfe.\n\n");
-   (void)fprintf(stderr, "  Es werden folgende Rueckgabewerte zurueckgegeben:\n");
-   (void)fprintf(stderr, "      %2d - Datei wurde erfolgreich Uebertragen.\n", TRANSFER_SUCCESS);
-   (void)fprintf(stderr, "      %2d - Es konnte keine Verbindung hergestellt werden.\n", CONNECT_ERROR);
-# ifdef WITH_SSL
-   (void)fprintf(stderr, "      %2d - SSL/TLS Authentifizierung fehl geschalgen.\n", AUTH_ERROR);
-# endif
-   (void)fprintf(stderr, "      %2d - Nutzername falsch.\n", USER_ERROR);
-   (void)fprintf(stderr, "      %2d - Passwort falsch.\n", PASSWORD_ERROR);
-   (void)fprintf(stderr, "      %2d - Konnte ascii/binary-modus nicht setzen.\n", TYPE_ERROR);
-   (void)fprintf(stderr, "      %2d - Konnte NLST Kommando nicht schicken.\n", LIST_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote Datei konnte nicht geoeffnet werden.\n", OPEN_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Fehler beim schreiben in der remote Datei.\n", WRITE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote Datei konnte nicht geschlossen werden.\n", CLOSE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote Datei konnte nicht umbenannt werden.\n", MOVE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Zielverzeichnis konnte nicht gesetzt werden.\n", CHDIR_ERROR);
-   (void)fprintf(stderr, "      %2d - Verbindung abgebrochen (FTP-timeout).\n", TIMEOUT_ERROR);
-   (void)fprintf(stderr, "      %2d - Der remote partner hat Verbindung abgebrochen.\n", CONNECTION_RESET_ERROR);
-   (void)fprintf(stderr, "      %2d - Der remote partner hat sich geweigert die Verbindung anzunehmen.\n", CONNECTION_REFUSED_ERROR);
-   (void)fprintf(stderr, "      %2d - Ursprungsdatei konnte nicht geoeffnet werden.\n", OPEN_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - Fehler beim lesen der Ursprungsdatei.\n", READ_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - Systemfehler stat().\n", STAT_ERROR);
-   (void)fprintf(stderr, "      %2d - Systemfehler malloc().\n", ALLOC_ERROR);
-   (void)fprintf(stderr, "      %2d - Konnte Datei mit Dateinamen nicht lesen.\n", FILE_NAME_FILE_ERROR);
-   (void)fprintf(stderr, "      %2d - Falsche Eingabe.\n", SYNTAX_ERROR);
+#ifdef WITH_READY_FILES
+      (void)fprintf(stderr, _("  -l <DOT | DOT_VMS | OFF | RDYA | RDYB | xyz> - How to lock the file on the remote site.\n"));
 #else
-   (void)fprintf(stderr, "SYNTAX: [t|r]%s [options] [file 1 ... file n]\n\n", p_name);
-   (void)fprintf(stderr, "   When calling it with r%s files will be retrieved from the\n", p_name);
-   (void)fprintf(stderr, "   given host, otherwise (when using %s) files will be send to that host.\n\n", p_name);
-   (void)fprintf(stderr, "  OPTIONS                              DESCRIPTION\n");
-   (void)fprintf(stderr, "  --version                          - Show current version\n");
-   if (name[0] == 'r')
-   {
-      (void)fprintf(stderr, "  -A                                 - If only part of a file was retrieved, you\n");
-      (void)fprintf(stderr, "                                       can retrieve the rest with this option.\n");
+      (void)fprintf(stderr, _("  -l <DOT | DOT_VMS | OFF | xyz.>    - How to lock the file on the remote site.\n"));
+#endif
    }
-   if ((name[0] != 'r') && (name[0] != 't'))
-   {
-      (void)fprintf(stderr, "  -a <file size offset>              - Offset of file name when doing a LIST\n");
-      (void)fprintf(stderr, "                                       command on the remote side. If you\n");
-      (void)fprintf(stderr, "                                       specify -2 it will try to determine\n");
-      (void)fprintf(stderr, "                                       the size with the SIZE command.\n");
-   }
-   (void)fprintf(stderr, "  -b <block size>                    - FTP block size in bytes. Default %d\n", DEFAULT_TRANSFER_BLOCKSIZE);
-   (void)fprintf(stderr, "                                       Bytes.\n");
-   (void)fprintf(stderr, "  -c <config file>                   - Configuration file holding user name,\n");
-   (void)fprintf(stderr, "                                       password und target directory in URL\n");
-   (void)fprintf(stderr, "                                       format.\n");
-   (void)fprintf(stderr, "  -C                                 - If target directory does not exist create\n");
-   (void)fprintf(stderr, "                                       it.\n");
-   (void)fprintf(stderr, "  -d <remote directory>              - Directory where file(s) are to be stored.\n");
-   (void)fprintf(stderr, "  -f <filename>                      - File containing a list of filenames\n");
-   (void)fprintf(stderr, "                                       that are to be send.\n");
-   (void)fprintf(stderr, "  -h <host name | IP number>         - Hostname or IP number to which to\n");
-   (void)fprintf(stderr, "                                       send the file(s).\n");
-# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-   (void)fprintf(stderr, "  -k                                 - Keep FTP control connection with STAT\n");
-   (void)fprintf(stderr, "                                       calls alive/fresh.\n");
-# endif
-   if (name[0] != 'r')
-   {
-# ifdef WITH_READY_FILES
-      (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | RDYA | RDYB | xyz> - How to lock the file on the remote site.\n");
-# else
-      (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | xyz.>    - How to lock the file on the remote site.\n");
-# endif
-   }
-   (void)fprintf(stderr, "  -m <A | I | D>                     - FTP transfer mode, ASCII, binary or DOS.\n");
-   (void)fprintf(stderr, "                                       Default is binary.\n");
+   (void)fprintf(stderr, _("  -m <A | I | D>                     - FTP transfer mode, ASCII, binary or DOS.\n\
+                                       Default is binary.\n"));
    if (name[0] == 't')
    {
-      (void)fprintf(stderr, "  -n <number of files>               - Number of files to be transfered.\n");
+      (void)fprintf(stderr, _("  -n <number of files>               - Number of files to be transfered.\n"));
    }
-   (void)fprintf(stderr, "  -p <port number>                   - Remote port number of FTP-server.\n");
-   (void)fprintf(stderr, "  -P <proxy procedure>               - Use the given proxy procedure to\n");
-   (void)fprintf(stderr, "                                       login. See documentation for more\n");
-   (void)fprintf(stderr, "                                       details on syntax.\n");
-   (void)fprintf(stderr, "  -u <user> <password>               - Remote user name and password. If not\n");
-   (void)fprintf(stderr, "                                       supplied, it will login as %s.\n", DEFAULT_AFD_USER);
+   if (name[0] != 'r')
+   {
+      (void)fprintf(stderr, _("  -o <mode>                          - Changes the permission of each file\n\
+                                       distributed.\n"));
+   }
+   (void)fprintf(stderr, _("  -p <port number>                   - Remote port number of FTP-server.\n"));
+   (void)fprintf(stderr, _("  -P <proxy procedure>               - Use the given proxy procedure to\n\
+                                       login. See documentation for more\n\
+                                       details on syntax.\n"));
+   (void)fprintf(stderr, _("  -u <user> <password>               - Remote user name and password. If not\n\
+                                       supplied, it will login as %s.\n"), DEFAULT_AFD_USER);
    if (name[0] == 'r')
    {
-      (void)fprintf(stderr, "  -R <buffer size>                   - Socket receive buffer size\n");
-      (void)fprintf(stderr, "                                       (in bytes).\n");
-      (void)fprintf(stderr, "  -r                                 - Remove remote file after it was\n");
-      (void)fprintf(stderr, "                                       retrieved.\n");
+      (void)fprintf(stderr, _("  -R <buffer size>                   - Socket receive buffer size\n\
+                                       (in bytes).\n"));
+      (void)fprintf(stderr, _("  -r                                 - Remove remote file after it was\n\
+                                       retrieved.\n"));
    }
    else
    {
-      (void)fprintf(stderr, "  -r                                 - Remove transmitted file.\n");
-      (void)fprintf(stderr, "  -S <buffer size>                   - Socket send buffer size\n");
-      (void)fprintf(stderr, "                                       (in bytes).\n");
+      (void)fprintf(stderr, _("  -r                                 - Remove transmitted file.\n"));
+      (void)fprintf(stderr, _("  -S <buffer size>                   - Socket send buffer size\n\
+                                       (in bytes).\n"));
    }
    if (name[0] == 't')
    {
-      (void)fprintf(stderr, "  -s <file size>                     - File size of file to be transfered.\n");
+      (void)fprintf(stderr, _("  -s <file size>                     - File size of file to be transfered.\n"));
    }
-   (void)fprintf(stderr, "  -t <timout>                        - FTP timeout in seconds. Default %lds.\n", DEFAULT_TRANSFER_TIMEOUT);
-   (void)fprintf(stderr, "  -v                                 - Verbose. Shows all FTP commands and\n");
-   (void)fprintf(stderr, "                                       the reply from the remote server.\n");
-   (void)fprintf(stderr, "  -x                                 - Use passive mode instead of active\n");
-   (void)fprintf(stderr, "                                       mode when doing the data connection.\n");
-   (void)fprintf(stderr, "  -X                                 - Use extended mode active or passive\n");
-   (void)fprintf(stderr, "                                       (-x) mode.\n");
-# ifdef WITH_SSL
-   (void)fprintf(stderr, "  -z                                 - Use SSL/TLS for control connection.\n");
-   (void)fprintf(stderr, "  -Z                                 - Use SSL/TLS for control and data\n");
-   (void)fprintf(stderr, "                                       connection.\n");
-# endif
-   (void)fprintf(stderr, "  -?                                 - Display this help and exit.\n");
-   (void)fprintf(stderr, "  The following values are returned on exit:\n");
-   (void)fprintf(stderr, "      %2d - File transmitted successfully.\n", TRANSFER_SUCCESS);
-   (void)fprintf(stderr, "      %2d - Failed to connect.\n", CONNECT_ERROR);
-# ifdef WITH_SSL
-   (void)fprintf(stderr, "      %2d - SSL/TLS authentification error.\n", AUTH_ERROR);
-# endif
-   (void)fprintf(stderr, "      %2d - User name wrong.\n", USER_ERROR);
-   (void)fprintf(stderr, "      %2d - Wrong password.\n", PASSWORD_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to set ascii/binary mode.\n", TYPE_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to send NLST command.\n", LIST_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to open remote file.\n", OPEN_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Error when writting into remote file.\n", WRITE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to close remote file.\n", CLOSE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to rename remote file.\n", MOVE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote directory could not be set.\n", CHDIR_ERROR);
+   (void)fprintf(stderr, _("  -t <timout>                        - FTP timeout in seconds. Default %lds.\n"), DEFAULT_TRANSFER_TIMEOUT);
+   (void)fprintf(stderr, _("  -v                                 - Verbose. Shows all FTP commands and\n\
+                                       the reply from the remote server.\n"));
+   (void)fprintf(stderr, _("  -x                                 - Use passive mode instead of active\n\
+                                       mode when doing the data connection.\n"));
+   (void)fprintf(stderr, _("  -X                                 - Use extended mode active or passive\n\
+                                       (-x) mode.\n"));
+#ifdef WITH_SSL
+   (void)fprintf(stderr, _("  -z                                 - Use SSL/TLS for control connection.\n"));
+   (void)fprintf(stderr, _("  -Z                                 - Use SSL/TLS for control and data\n\
+                                       connection.\n"));
+#endif
+   (void)fprintf(stderr, _("  -?                                 - Display this help and exit.\n"));
+   (void)fprintf(stderr, _("  The following values are returned on exit:\n"));
+   (void)fprintf(stderr, _("      %2d - File transmitted successfully.\n"), TRANSFER_SUCCESS);
+   (void)fprintf(stderr, _("      %2d - Failed to connect.\n"), CONNECT_ERROR);
+#ifdef WITH_SSL
+   (void)fprintf(stderr, _("      %2d - SSL/TLS authentification error.\n"), AUTH_ERROR);
+#endif
+   (void)fprintf(stderr, _("      %2d - User name wrong.\n"), USER_ERROR);
+   (void)fprintf(stderr, _("      %2d - Wrong password.\n"), PASSWORD_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to set ascii/binary mode.\n"), TYPE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to send NLST command.\n"), LIST_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to open remote file.\n"), OPEN_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Error when writing into remote file.\n"), WRITE_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to close remote file.\n"), CLOSE_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to rename remote file.\n"), MOVE_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Remote directory could not be set.\n"), CHDIR_ERROR);
    (void)fprintf(stderr, "      %2d - %s.\n", TIMEOUT_ERROR, TIMEOUT_ERROR_STR);
    (void)fprintf(stderr, "      %2d - %s.\n", CONNECTION_RESET_ERROR, CONNECTION_RESET_ERROR_STR);
    (void)fprintf(stderr, "      %2d - %s.\n", CONNECTION_REFUSED_ERROR, CONNECTION_REFUSED_ERROR_STR);
-   (void)fprintf(stderr, "      %2d - Could not open source file.\n", OPEN_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to read source file.\n", READ_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - System error stat().\n", STAT_ERROR);
-   (void)fprintf(stderr, "      %2d - System error malloc().\n", ALLOC_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to read file name file.\n", FILE_NAME_FILE_ERROR);
-   (void)fprintf(stderr, "      %2d - Syntax wrong.\n", SYNTAX_ERROR);
-#endif
+   (void)fprintf(stderr, _("      %2d - Could not open source file.\n"), OPEN_LOCAL_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to read source file.\n"), READ_LOCAL_ERROR);
+   (void)fprintf(stderr, _("      %2d - System error stat().\n"), STAT_ERROR);
+   (void)fprintf(stderr, _("      %2d - System error malloc().\n"), ALLOC_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to read file name file.\n"), FILE_NAME_FILE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Syntax wrong.\n"), SYNTAX_ERROR);
 
    return;
 }

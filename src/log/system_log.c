@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -87,7 +87,7 @@ main(int argc, char *argv[])
    int         writefd;
 #endif
    char        *p_end = NULL,
-               work_dir[MAX_PATH_LENGTH],
+               *work_dir,
                log_file[MAX_PATH_LENGTH],
                current_log_file[MAX_PATH_LENGTH];
    FILE        *p_log_file;
@@ -95,14 +95,49 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   /* First get working directory for the AFD. */
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Failed to malloc() memory : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
    p_work_dir = work_dir;
 
-   /* Initialise signal handlers */
+   /* Initialise variables for fifo stuff. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, SYSTEM_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(log_file, &sys_log_fd, &writefd) == -1)
+#else
+   if ((sys_log_fd = open(log_file, O_RDWR)) == -1)
+#endif
+   {
+      (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
+                    log_file, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   if ((fifo_size = fpathconf(sys_log_fd, _PC_PIPE_BUF)) < 0)
+   {
+      /* If we cannot determine the size of the fifo set default value. */
+      fifo_size = DEFAULT_FIFO_SIZE;
+   }
+   if (((fifo_buffer = malloc((size_t)fifo_size)) == NULL) ||
+       ((msg_str = malloc((size_t)fifo_size)) == NULL) ||
+       ((prev_msg_str = malloc((size_t)fifo_size)) == NULL))
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
+   /* Initialise signal handlers. */
    if ((signal(SIGSEGV, sig_segv) == SIG_ERR) ||
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
@@ -111,44 +146,12 @@ main(int argc, char *argv[])
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   else
-   {
-      char system_log_fifo[MAX_PATH_LENGTH];
-
-      /* Initialise variables for fifo stuff. */
-      (void)strcpy(system_log_fifo, work_dir);
-      (void)strcat(system_log_fifo, FIFO_DIR);
-      (void)strcat(system_log_fifo, SYSTEM_LOG_FIFO);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(system_log_fifo, &sys_log_fd, &writefd) == -1)
-#else
-      if ((sys_log_fd = open(system_log_fifo, O_RDWR)) == -1)
-#endif
-      {
-         (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                       system_log_fifo, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      if ((fifo_size = fpathconf(sys_log_fd, _PC_PIPE_BUF)) < 0)
-      {
-         /* If we cannot determine the size of the fifo set default value */
-         fifo_size = DEFAULT_FIFO_SIZE;
-      }
-      if (((fifo_buffer = malloc((size_t)fifo_size)) == NULL) ||
-          ((msg_str = malloc((size_t)fifo_size)) == NULL) ||
-          ((prev_msg_str = malloc((size_t)fifo_size)) == NULL))
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
 
    /* Get the maximum number of logfiles we keep for history. */
    get_max_log_number(&max_system_log_files, MAX_SYSTEM_LOG_FILES_DEF,
                       MAX_SYSTEM_LOG_FILES);
 
-   /* Attach to the AFD Status Area */
+   /* Attach to the AFD Status Area. */
    if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr, "Failed to attach to AFD status area. (%s %d)\n",
@@ -194,7 +197,20 @@ main(int argc, char *argv[])
             {
                log_number++;
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_system_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  (void)fprintf(stderr,
+                                "WARNING : Failed to unlink() current log file `%s' : %s (%s %d)\n",
+                                current_log_file, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+            }
             total_length = 0;
          }
          else

@@ -1,6 +1,6 @@
 /*
  *  remove_time_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,12 @@ DESCR__S_M3
  **   remove_time_dir - removes all files in a time directory
  **
  ** SYNOPSIS
- **   void remove_time_dir(char *host_name, unsigned int job_id, int reason)
+ **   void remove_time_dir(char         *host_name,
+ **                        unsigned int job_id,
+ **                        unsigned int dir_id,
+ **                        int          reason,
+ **                        char         *cfile,
+ **                        int          cfile_pos)
  **
  ** DESCRIPTION
  **
@@ -50,7 +55,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char              time_dir[];
 #ifdef _DELETE_LOG
 extern struct delete_log dl;
@@ -62,7 +67,12 @@ extern struct delete_log dl;
 /*++++++++++++++++++++++++++ remove_time_dir() ++++++++++++++++++++++++++*/
 void
 #ifdef _DELETE_LOG
-remove_time_dir(char *host_name, unsigned int job_id, int reason)
+remove_time_dir(char         *host_name,
+                unsigned int job_id,
+                unsigned int dir_id,
+                int          reason,
+                char         *cfile,
+                int          cfile_pos)
 #else
 remove_time_dir(char *host_name, unsigned int job_id)
 #endif
@@ -126,21 +136,19 @@ remove_time_dir(char *host_name, unsigned int job_id)
                file_size_deleted += stat_buf.st_size;
 #ifdef _DELETE_LOG
                (void)strcpy(dl.file_name, p_dir->d_name);
-               (void)sprintf(dl.host_name, "%-*s %x",
+               (void)sprintf(dl.host_name, "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, host_name, reason);
                *dl.file_size = stat_buf.st_size;
-               *dl.job_number = job_id;
+               *dl.job_id = job_id;
+               *dl.dir_id = dir_id;
+               *dl.input_time = 0L;
+               *dl.split_job_counter = 0;
+               *dl.unique_number = 0;
                *dl.file_name_length = strlen(p_dir->d_name);
-               if (reason == OTHER_INPUT_DEL)
-               {
-                  prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
-                                             "AMG Failed to locate time job after DIR_CONFIG update.");
-               }
-               else
-               {
-                  prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
-                                             "Host was disabled.");
-               }
+               prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+                                          "%s%c(%s %d)",
+                                          DIR_CHECK, SEPARATOR_CHAR,
+                                          cfile, cfile_pos);
                dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                {

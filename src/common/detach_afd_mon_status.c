@@ -1,7 +1,7 @@
 /*
  *  detach_afd_mon_status.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>                  /* munmap()                       */
+# include <sys/mman.h>                 /* munmap()                       */
 #endif
 #include <errno.h>
 #include "mondefs.h"
@@ -71,7 +71,7 @@ detach_afd_mon_status(void)
    if (stat(afd_mon_status_file, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to stat() <%s> : %s",
+                 _("Failed to stat() `%s' : %s"),
                  afd_mon_status_file, strerror(errno));
       return(INCORRECT);
    }
@@ -82,7 +82,7 @@ detach_afd_mon_status(void)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "munmap() error : %s", strerror(errno));
+                 _("munmap() error : %s"), strerror(errno));
       return(INCORRECT);
    }
 

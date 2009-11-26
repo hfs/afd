@@ -1,7 +1,7 @@
 /*
  *  get_full_date.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ main(int argc, char *argv[])
 
       if ((status = stat(argv[1], &stat_buf)) == -1)
       {
-         (void)fprintf(stderr, "Failed to stat() %s : %s\n",
+         (void)fprintf(stderr, _("Failed to stat() `%s' : %s\n"),
                        argv[1], strerror(errno));
       }
       else
@@ -75,7 +75,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stderr, "Usage: %s <file/dir name>\n", argv[0]);
+      (void)fprintf(stderr, _("Usage: %s <file/dir name>\n"), argv[0]);
       status = -2;
    }
 

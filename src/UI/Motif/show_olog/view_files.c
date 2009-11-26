@@ -1,6 +1,6 @@
 /*
  *  view_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/List.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_olog.h"
 
 
@@ -82,8 +82,8 @@ view_files(int no_selected, int *select_list)
    int                i,
                       total_no_of_items,
                       length = 0,
-                      to_do = 0,    /* Number still to be done */
-                      no_done = 0,  /* Number done             */
+                      to_do = 0,    /* Number still to be done. */
+                      no_done = 0,  /* Number done.             */
                       not_found = 0,
                       not_archived = 0,
                       not_in_archive = 0,
@@ -274,7 +274,8 @@ view_files(int no_selected, int *select_list)
 static int
 get_archive_data(int pos, int file_no)
 {
-   int  i;
+   int  i,
+        type_offset;
    char buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
         *ptr,
         *p_unique_string;
@@ -292,7 +293,26 @@ get_archive_data(int pos, int file_no)
       return(INCORRECT);
    }
 
-   ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
+   if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2] == ' ')
+   {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+      type_offset = 5;
+#else
+      if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4] == ' ')
+      {
+         type_offset = 5;
+      }
+      else
+      {
+         type_offset = 3;
+      }
+#endif
+   }
+   else
+   {
+      type_offset = 1;
+   }
+   ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2];
 
    /* Mark end of file name. */
    while (*ptr != SEPARATOR_CHAR)
@@ -302,7 +322,7 @@ get_archive_data(int pos, int file_no)
    *(ptr++) = '\0';
    if (*ptr != SEPARATOR_CHAR)
    {
-      /* Ignore  the remote file name */
+      /* Ignore the remote file name. */
       while (*ptr != SEPARATOR_CHAR)
       {
          ptr++;
@@ -323,6 +343,16 @@ get_archive_data(int pos, int file_no)
       ptr++;
    }
    ptr++;
+
+   /* Away with number of retries. */
+   if (type_offset > 1)
+   {
+      while (*ptr != SEPARATOR_CHAR)
+      {
+         ptr++;
+      }
+      ptr++;
+   }
 
    /* Away with the job ID. */
    while (*ptr != SEPARATOR_CHAR)
@@ -355,7 +385,7 @@ get_archive_data(int pos, int file_no)
    *(p_archive_name + i++) = '_';
 
    /* Copy the file name to the archive directory. */
-   (void)strcpy((p_archive_name + i), &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3]);
+   (void)strcpy((p_archive_name + i), &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2]);
    p_file_name = p_archive_name + i;
 
    return(SUCCESS);

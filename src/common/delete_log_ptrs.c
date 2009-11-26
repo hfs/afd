@@ -1,6 +1,6 @@
 /*
  *  delete_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,25 +33,33 @@ DESCR__S_M3
  **   pointers have to be prepared which point to the right
  **   place in the buffer 'dl->data'. Once the buffer has been
  **   filled with the necessary data it will look as follows:
- **       <FS><JN><HN>\0<FNL><FN>\0<UPN>\0
- **         |   |   |     |    |     |
- **         |   |   |     |    |     +-----> A \0 terminated string of
- **         |   |   |     |    |             the user or process that
- **         |   |   |     |    |             deleted the file.
- **         |   |   |     |    +-----------> \0 terminated string of
- **         |   |   |     |                  the File Name.
- **         |   |   |     +----------------> Unsigned char holding the
- **         |   |   |                        File Name Length.
- **         |   |   +----------------------> \0 terminated string of
- **         |   |                            the Host Name and reason.
- **         |   +--------------------------> Unsigned integer holding the
- **         |                                job number.
- **         +------------------------------> File size of type off_t.
+ **       <FS><JID><DID><CT><SJC><UN><HN>\0<FNL><FN>\0<UPN>\0
+ **         |   |    |    |   |    |   |     |    |     |
+ **         |   |    |    |   |    |   |     |    |     +-> A \0 terminated string of
+ **         |   |    |    |   |    |   |     |    |         the user or process that
+ **         |   |    |    |   |    |   |     |    |         deleted the file.
+ **         |   |    |    |   |    |   |     |    +-------> \0 terminated string of
+ **         |   |    |    |   |    |   |     |              the File Name.
+ **         |   |    |    |   |    |   |     +------------> Unsigned char holding the
+ **         |   |    |    |   |    |   |                    File Name Length.
+ **         |   |    |    |   |    |   +------------------> \0 terminated string of
+ **         |   |    |    |   |    |                        the Host Name and reason.
+ **         |   |    |    |   |    +----------------------> Unsigned int
+ **         |   |    |    |   |                             for Unique Number.
+ **         |   |    |    |   +---------------------------> Unsigned integer for
+ **         |   |    |    |                                 Split Job Counter.
+ **         |   |    |    +-------------------------------> Input time of
+ **         |   |    |                                      type time_t.
+ **         |   |    +------------------------------------> Unsigned integer holding
+ **         |   |                                           the directory ID.
+ **         |   +-----------------------------------------> Unsigned integer holding
+ **         |                                               the job ID.
+ **         +---------------------------------------------> File size of type off_t.
  **
  ** RETURN VALUES
  **   When successful it opens the fifo to the delete log and assigns
  **   memory for the buffer 'dl->data'. The following values are being
- **   returned: dl->fd, dl->job_number, dl->data, dl->file_name,
+ **   returned: dl->fd, dl->job_id, dl->dir_id, dl->data, dl->file_name,
  **             dl->file_name_length, dl->file_size, dl->size.
  **
  ** AUTHOR
@@ -60,6 +68,7 @@ DESCR__S_M3
  ** HISTORY
  **   14.02.1998 H.Kiehl Created
  **   11.11.2002 H.Kiehl Create delete log fifo if it does not exist.
+ **   26.03.2008 H.Kiehl Added unique ID to simplify searching.
  **
  */
 DESCR__E_M3
@@ -72,7 +81,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
@@ -96,7 +105,7 @@ delete_log_ptrs(struct delete_log *dl)
       if (make_fifo(delete_log_fifo) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to create fifo %s.", delete_log_fifo);
+                    _("Failed to create fifo `%s'."), delete_log_fifo);
          return;
       }
    }
@@ -107,7 +116,7 @@ delete_log_ptrs(struct delete_log *dl)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo <%s> : %s",
+                 _("Could not open fifo `%s' : %s"),
                  delete_log_fifo, strerror(errno));
    }
    else
@@ -123,6 +132,10 @@ delete_log_ptrs(struct delete_log *dl)
       {
          offset = sizeof(off_t);
       }
+      if (sizeof(time_t) > offset)
+      {
+         offset = sizeof(time_t);
+      }
       if (sizeof(unsigned int) > offset)
       {
          offset = sizeof(unsigned int);
@@ -133,36 +146,47 @@ delete_log_ptrs(struct delete_log *dl)
        * data to the delete log process. The buffer has the
        * following structure:
        *
-       * <transfer time><file size><job number><host name>
+       * <file size><job ID><dir ID><input time><unique number><host name>
        * <file name length><file name + archive dir>
        */
-      dl->size = offset + offset +
-                 MAX_HOSTNAME_LENGTH + 2 + 1 +
-                 sizeof(unsigned char) +        /* file name length  */
-                 MAX_FILENAME_LENGTH + 1 +      /* local file name   */
-                 MAX_FILENAME_LENGTH + 1;       /* User/process name */
+      dl->size = offset + offset + offset + offset + offset +
+                 sizeof(unsigned int) +
+                 MAX_HOSTNAME_LENGTH + 4 + 1 +
+                 sizeof(unsigned char) +        /* File name length.  */
+                 MAX_FILENAME_LENGTH + 1 +      /* Local file name.   */
+                 MAX_FILENAME_LENGTH + 1;       /* User/process name. */
       if ((dl->data = calloc(dl->size, sizeof(char))) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "calloc() error : %s", strerror(errno));
+                    _("calloc() error : %s"), strerror(errno));
       }
       else
       {
-         dl->size = offset + offset +
-                    MAX_HOSTNAME_LENGTH + 2 +
+         dl->size = offset + offset + offset + offset + offset +
+                    sizeof(unsigned int) +
+                    MAX_HOSTNAME_LENGTH + 4 +
                     sizeof(unsigned char) +
                     1 + 1 + 1;                /* NOTE: + 1 + 1 + 1 is   */
                                               /* for '\0' at end        */
                                               /* of host + file name    */
                                               /* and user/process name. */
          dl->file_size = &(*(off_t *)(dl->data));
-         dl->job_number = (unsigned int *)(dl->data + offset);
-         dl->host_name = (char *)(dl->data + offset + offset);
-         dl->file_name_length = (unsigned char *)(dl->data + offset +
-                                                  offset +
-                                                  MAX_HOSTNAME_LENGTH + 2 + 1);
-         dl->file_name = (char *)(dl->data + offset + offset +
-                                  MAX_HOSTNAME_LENGTH + 2 + 1 +
+         dl->job_id = (unsigned int *)(dl->data + offset);
+         dl->dir_id = (unsigned int *)(dl->data + offset + offset);
+         dl->input_time = (time_t *)(dl->data + offset + offset + offset);
+         dl->split_job_counter = (unsigned int *)(dl->data + offset + offset +
+                                                  offset + offset);
+         dl->unique_number = (unsigned int *)(dl->data + offset + offset +
+                                              offset + offset + offset);
+         dl->host_name = (char *)(dl->data + offset + offset + offset +
+                                  offset + offset + sizeof(unsigned int));
+         dl->file_name_length = (unsigned char *)(dl->data + offset + offset +
+                                                  offset + offset + offset +
+                                                  sizeof(unsigned int) +
+                                                  MAX_HOSTNAME_LENGTH + 4 + 1);
+         dl->file_name = (char *)(dl->data + offset + offset + offset +
+                                  offset + offset + sizeof(unsigned int) +
+                                  MAX_HOSTNAME_LENGTH + 4 + 1 +
                                   sizeof(unsigned char));
       }
    }

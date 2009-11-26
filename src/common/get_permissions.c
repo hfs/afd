@@ -1,6 +1,6 @@
 /*
  *  get_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -49,6 +49,8 @@ DESCR__S_M3
  **   05.11.2003 H.Kiehl Ensure that we do check the full username.
  **   06.03.2006 H.Kiehl Do not allow all permissions if permission
  **                      file exist, but is not readable to user.
+ **   04.12.2008 H.Kiehl When reading afd.users file check if we need
+ **                      to convert from a dos style file to unix.
  **
  */
 DESCR__E_M3
@@ -61,11 +63,11 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <pwd.h>                /* getpwuid()                            */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -113,19 +115,56 @@ get_permissions(char **perm_buffer, char *fake_user)
             if (((buffer = malloc(stat_buf.st_size + 2)) != NULL) &&
                 ((*perm_buffer = calloc(stat_buf.st_size, sizeof(char))) != NULL))
             {
-               if (read(fd, &buffer[1], stat_buf.st_size) != stat_buf.st_size)
+               off_t   bytes_buffered;
+#ifdef HAVE_GETLINE
+               ssize_t n;
+               size_t  line_buffer_length;
+#else
+               size_t  n;
+#endif
+               char    *read_ptr;
+               FILE    *fp;
+
+               if ((fp = fdopen(fd, "r")) == NULL)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to read() <%s>. Permission control deactivated!!! : %s",
+                             _("Failed to read() `%s'. Permission control deactivated!!! : %s"),
                              afd_user_file, strerror(errno));
                   free(buffer); free(*perm_buffer);
                   ret = INCORRECT;
                }
+               bytes_buffered = 0;
+               read_ptr = buffer + 1;
+#ifdef HAVE_GETLINE
+               line_buffer_length = stat_buf.st_size + 1;
+               while ((n = getline(&read_ptr, &line_buffer_length, fp)) != -1)
+#else
+               while (fgets(read_ptr, MAX_LINE_LENGTH, fp) != NULL)
+#endif
+               {
+#ifndef HAVE_GETLINE
+                  n = strlen(read_ptr);
+#endif
+                  if (n > 1)
+                  {
+                     if (*(read_ptr + n - 2) == 13)
+                     {
+                        *(read_ptr + n - 2) = 10;
+                        n--;
+                     }
+                  }
+                  read_ptr += n;
+#ifdef HAVE_GETLINE
+                  line_buffer_length -= n;
+#endif
+                  bytes_buffered += n;
+               }
+               buffer[bytes_buffered] = '\0';
             }
             else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to allocate memory. Permission control deactivated!!! : %s",
+                          _("Failed to allocate memory. Permission control deactivated!!! : %s"),
                           strerror(errno));
                ret = INCORRECT;
             }
@@ -133,7 +172,7 @@ get_permissions(char **perm_buffer, char *fake_user)
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "The function get_permissions() was not made to handle large file.");
+                       _("The function get_permissions() was not made to handle large file."));
             ret = NONE;
          }
       }
@@ -150,7 +189,7 @@ get_permissions(char **perm_buffer, char *fake_user)
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Failed to fstat() permission file `%s' : %s",
+                       _("Failed to fstat() permission file `%s' : %s"),
                        afd_user_file, strerror(errno));
             if (errno == EACCES)
             {
@@ -166,7 +205,7 @@ get_permissions(char **perm_buffer, char *fake_user)
       if (close(fd) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
    }
    else
@@ -197,7 +236,6 @@ get_permissions(char **perm_buffer, char *fake_user)
       char *ptr;
 
       buffer[0] = '\n';
-      buffer[stat_buf.st_size + 1] = '\0';
       ptr = buffer;
       do
       {

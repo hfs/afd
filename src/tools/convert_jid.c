@@ -58,7 +58,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* Global varaibles */
+/* Global varaibles. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -103,7 +103,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);

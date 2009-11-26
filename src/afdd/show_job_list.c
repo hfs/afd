@@ -1,6 +1,6 @@
 /*
  *  show_job_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ show_job_list(FILE *p_data)
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to open() `%s' : %s", fullname, strerror(errno));
+                 _("Failed to open() `%s' : %s"), fullname, strerror(errno));
    }
    else
    {
@@ -79,7 +79,7 @@ show_job_list(FILE *p_data)
       if (fstat(fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to fstat() `%s' : %s", fullname, strerror(errno));
+                    _("Failed to fstat() `%s' : %s"), fullname, strerror(errno));
       }
       else
       {
@@ -98,7 +98,7 @@ show_job_list(FILE *p_data)
 #endif
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to mmap() to `%s' : %s",
+                          _("Failed to mmap() to `%s' : %s"),
                           fullname, strerror(errno));
             }
             else
@@ -116,7 +116,7 @@ show_job_list(FILE *p_data)
                if ((cml_fd = open(fullname, O_RDONLY)) == -1)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() `%s' : %s",
+                             _("Failed to open() `%s' : %s"),
                              fullname, strerror(errno));
                }
                else
@@ -124,7 +124,7 @@ show_job_list(FILE *p_data)
                   if (fstat(cml_fd, &stat_buf) == -1)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "Failed to fstat() `%s' : %s",
+                                _("Failed to fstat() `%s' : %s"),
                                 fullname, strerror(errno));
                   }
                   else
@@ -140,7 +140,7 @@ show_job_list(FILE *p_data)
 #endif
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to mmap() to `%s' : %s",
+                                      _("Failed to mmap() to `%s' : %s"),
                                       fullname, strerror(errno));
                         }
                         else
@@ -153,7 +153,7 @@ show_job_list(FILE *p_data)
                            {
                               int           gotcha,
                                             i, j;
-                              char          *cjn; /* Current Job Number */
+                              char          *cjn; /* Current Job Number. */
 #ifndef WITHOUT_BLUR_DATA
                               int           offset,
                                             m;
@@ -215,7 +215,7 @@ show_job_list(FILE *p_data)
                                        if (fwrite(buffer, 1, m + 2, p_data) != (m + 2))
                                        {
                                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                     "fwrite() error : %s",
+                                                     _("fwrite() error : %s"),
                                                      strerror(errno));
                                        }
 #endif
@@ -225,8 +225,40 @@ show_job_list(FILE *p_data)
                                  }
                                  if (gotcha == NO)
                                  {
+#ifdef WITHOUT_BLUR_DATA
                                     (void)fprintf(p_data,
                                                   "JL %d 0 0 none 0 0\r\n", i);
+#else
+                                    m = sprintf((char *)buffer,
+                                                "Jl %d 0 0 0 0 none\r\n", i);
+                                    (void)strcpy((char *)&buffer[m],
+                                                 jd[j].recipient);
+                                    offset = m;
+                                    while (buffer[m] != '\0')
+                                    {
+                                       if ((m - offset) > 28)
+                                       {
+                                          offset += 28;
+                                       }
+                                       if (((m - offset) % 3) == 0)
+                                       {
+                                          buffer[m] = buffer[m] - 9 + (m - offset);
+                                       }
+                                       else
+                                       {
+                                          buffer[m] = buffer[m] - 17 + (m - offset);
+                                       }
+                                       m++;
+                                    }
+                                    buffer[m] = '\r';
+                                    buffer[m + 1] = '\n';
+                                    if (fwrite(buffer, 1, m + 2, p_data) != (m + 2))
+                                    {
+                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                  _("fwrite() error : %s"),
+                                                  strerror(errno));
+                                    }
+#endif
                                  }
                                  (void)fflush(p_data);
                                  cjn += sizeof(int);
@@ -247,7 +279,7 @@ show_job_list(FILE *p_data)
 #endif
                            {
                               system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Failed to munmap() `%s' : %s",
+                                         _("Failed to munmap() `%s' : %s"),
                                          fullname, strerror(errno));
                            }
                         }
@@ -256,7 +288,7 @@ show_job_list(FILE *p_data)
                   if (close(cml_fd) == -1)
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                "close() error : %s", strerror(errno));
+                                _("close() error : %s"), strerror(errno));
                   }
                }
 
@@ -269,7 +301,7 @@ show_job_list(FILE *p_data)
                   (void)sprintf(fullname, "%s%s%s",
                                 p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to munmap() `%s' : %s",
+                             _("Failed to munmap() `%s' : %s"),
                              fullname, strerror(errno));
                }
             }
@@ -279,14 +311,14 @@ show_job_list(FILE *p_data)
             (void)sprintf(fullname, "%s%s%s",
                           p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm, `%s' is less then %d bytes long.",
+                       _("Hmmm, `%s' is less then %d bytes long."),
                        fullname, AFD_WORD_OFFSET);
          }
       }
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
    }
 

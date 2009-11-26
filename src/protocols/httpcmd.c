@@ -1,6 +1,6 @@
 /*
  *  httpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int  http_connect(char *hostname, int port, int sndbuf_size, int rcvbuf_size)
  **   int  http_ssl_auth(void)
+ **   int  http_options(char *host, char *path)
  **   int  http_del(char *host, char *path, char *filename)
  **   int  http_get(char *host, char *path, char *filename, off_t *content_length, off_t offset)
  **   int  http_head(char *host, char *path, char *filename, off_t *content_length, time_t date)
@@ -136,6 +137,9 @@ static int                       basic_authentication(void),
 #ifdef WITH_SSL
 static void                      sig_handler(int);
 #endif
+#ifdef WITH_TRACE
+static void                      store_http_options(int, int);
+#endif
 
 
 /*########################## http_connect() #############################*/
@@ -146,6 +150,9 @@ http_connect(char *hostname, int port, char *user, char *passwd, int ssl, int sn
 http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size, int rcvbuf_size)
 #endif
 {
+#ifdef WITH_TRACE
+   int                length;
+#endif
    struct sockaddr_in sin;
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
@@ -161,27 +168,27 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
 #ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "http_connect(): Failed to gethostbyname() %s : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                         _("Failed to gethostbyname() %s : %s"),
                          hostname, h_errlist[h_errno]);
             }
             else
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "http_connect(): Failed to gethostbyname() %s (h_errno = %d) : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                         _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
 #else
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "http_connect(): Failed to gethostbyname() %s (h_errno = %d) : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                      _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
 #endif
          }
          else
          {
 #endif /* !_HPUX && !_SCO */
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "http_connect(): Failed to gethostbyname() %s : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                      _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
 #if !defined (_HPUX) && !defined (_SCO)
          }
@@ -195,8 +202,8 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
 
    if ((http_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "http_connect(): socket() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                _("socket() error : %s"), strerror(errno));
       return(INCORRECT);
    }
    sin.sin_family = AF_INET;
@@ -207,8 +214,8 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
       if (setsockopt(http_fd, SOL_SOCKET, SO_SNDBUF,
                      (char *)&sndbuf_size, sizeof(sndbuf_size)) < 0)
       {
-         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                   "http_connect(): setsockopt() error : %s", strerror(errno));
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("setsockopt() error : %s"), strerror(errno));
       }
       hmr.sndbuf_size = sndbuf_size;
    }
@@ -221,8 +228,8 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
       if (setsockopt(http_fd, SOL_SOCKET, SO_RCVBUF,
                      (char *)&rcvbuf_size, sizeof(rcvbuf_size)) < 0)
       {
-         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                   "http_connect(): setsockopt() error : %s", strerror(errno));
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("setsockopt() error : %s"), strerror(errno));
       }
       hmr.rcvbuf_size = rcvbuf_size;
    }
@@ -230,24 +237,50 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
    {
       hmr.rcvbuf_size = 0;
    }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   if (timeout_flag != OFF)
+   {
+      int reply = 1;
+
+      if (setsockopt(http_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
+      }
+# ifdef TCP_KEEPALIVE
+      reply = timeout_flag;
+      if (setsockopt(http_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
+      }
+# endif
+      timeout_flag = OFF;
+   }
+#endif
 
    if (connect(http_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "http_connect(): Failed to connect() to %s : %s",
-                hostname, strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
       (void)close(http_fd);
       return(INCORRECT);
    }
+#ifdef WITH_TRACE
+   length = sprintf(msg_str, "Connected to %s", hostname);
+   trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+#endif
 
-   (void)strcpy(hmr.hostname, hostname);
+   (void)my_strncpy(hmr.hostname, hostname, MAX_REAL_HOSTNAME_LENGTH + 1);
    if (user != NULL)
    {
-      (void)strcpy(hmr.user, user);
+      (void)my_strncpy(hmr.user, user, MAX_USER_NAME_LENGTH + 1);
    }
    if (passwd != NULL)
    {
-      (void)strcpy(hmr.passwd, passwd);
+      (void)my_strncpy(hmr.passwd, passwd, MAX_USER_NAME_LENGTH + 1);
    }
    if ((user[0] != '\0') || (passwd[0] != '\0'))
    {
@@ -259,6 +292,11 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
    hmr.port = port;
    hmr.free = YES;
    hmr.http_version = 0;
+#ifdef WITH_TRACE
+   hmr.http_options = 0;
+#endif
+   hmr.bytes_buffered = 0;
+   hmr.bytes_read = 0;
 
 #ifdef WITH_SSL
    if ((ssl == YES) || (ssl == BOTH))
@@ -310,18 +348,16 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
        */
       if (signal(SIGALRM, sig_handler) == SIG_ERR)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "http_connect(): Failed to set signal handler : %s",
-                   strerror(errno));
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("Failed to set signal handler : %s"), strerror(errno));
          return(INCORRECT);
       }
 
 
       if (sigsetjmp(env_alrm, 1) != 0)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "http_connect(): SSL_connect() timeout (%ld)",
-                   transfer_timeout);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("SSL_connect() timeout (%ld)"), transfer_timeout);
          timeout_flag = ON;
          return(INCORRECT);
       }
@@ -338,35 +374,35 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
          if (reply == X509_V_ERR_CRL_SIGNATURE_FAILURE)
          {
             (void)strcpy(ptr,
-                         " | Verify result: The signature of the certificate is invalid!");
+                         _(" | Verify result: The signature of the certificate is invalid!"));
          }
          else if (reply == X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD)
               {
                   (void)strcpy(ptr,
-                               " | Verify result: The CRL nextUpdate field contains an invalid time.");
+                               _(" | Verify result: The CRL nextUpdate field contains an invalid time."));
               }
          else if (reply == X509_V_ERR_CRL_HAS_EXPIRED)
               {
                   (void)strcpy(ptr,
-                               " | Verify result: The CRL has expired.");
+                               _(" | Verify result: The CRL has expired."));
               }
          else if (reply == X509_V_ERR_CERT_REVOKED)
               {
                  (void)strcpy(ptr,
-                              " | Verify result: Certificate revoked.");
+                              _(" | Verify result: Certificate revoked."));
               }
          else if (reply > X509_V_OK)
               {
-                 (void)sprintf(ptr, " | Verify result: %d", reply);
+                 (void)sprintf(ptr, _(" | Verify result: %d"), reply);
               }
          reply = INCORRECT;
       }
       else
       {
-         char       *ssl_version;
-         int        length,
-                    ssl_bits;
-         SSL_CIPHER *ssl_cipher;
+         char             *ssl_version;
+         int              length,
+                          ssl_bits;
+         const SSL_CIPHER *ssl_cipher;
 
          ssl_version = SSL_get_cipher_version(ssl_con);
          ssl_cipher = SSL_get_current_cipher(ssl_con);
@@ -411,22 +447,54 @@ http_get(char  *host,
          off_t offset)
 {
    int  reply;
-   char range[13 + MAX_OFF_T_LENGTH + 3];
+   char range[13 + MAX_OFF_T_LENGTH + 1 + MAX_OFF_T_LENGTH + 3];
 
    hmr.bytes_read = 0;
    hmr.retries = 0;
    hmr.date = -1;
+   if ((*content_length == 0) && (filename[0] != '\0'))
+   {
+      off_t end;
+
+      if ((reply = http_head(host, path, filename, &end, NULL)) == SUCCESS)
+      {
+         *content_length = end;
+         hmr.retries = 0;
+      }
+      else
+      {
+         return(reply);
+      }
+   }
+   if ((offset) && (*content_length == offset))
+   {
+      return(NOTHING_TO_FETCH);
+   }
+retry_get_range:
    if ((offset == 0) || (offset < 0))
    {
       range[0] = '\0';
    }
    else
    {
+      if (*content_length == 0)
+      {
 #if SIZEOF_OFF_T == 4
-      (void)sprintf(range, "Range: bytes=%ld-\r\n", (pri_off_t)offset);
+         (void)sprintf(range, "Range: bytes=%ld-\r\n", (pri_off_t)offset);
 #else
-      (void)sprintf(range, "Range: bytes=%lld-\r\n", (pri_off_t)offset);
+         (void)sprintf(range, "Range: bytes=%lld-\r\n", (pri_off_t)offset);
 #endif
+      }
+      else
+      {
+#if SIZEOF_OFF_T == 4
+         (void)sprintf(range, "Range: bytes=%ld-%ld\r\n",
+                       (pri_off_t)offset, (pri_off_t)*content_length);
+#else
+         (void)sprintf(range, "Range: bytes=%lld-%lld\r\n",
+                       (pri_off_t)offset, (pri_off_t)*content_length);
+#endif
+      }
    }
 retry_get:
    if ((reply = command(http_fd,
@@ -446,7 +514,6 @@ retry_get:
          {
             reply = SUCCESS;
          }
-         *content_length = hmr.content_length;
       }
       else if (reply == 401)
            {
@@ -459,14 +526,19 @@ retry_get:
                        goto retry_get;
                     }
                  }
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Failed to create basic authentication.");
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_get", NULL,
+                           _("Failed to create basic authentication."));
               }
               else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
                    {
-                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                "Digest authentication not yet implemented.");
+                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_get", NULL,
+                                _("Digest authentication not yet implemented."));
                    }
+           }
+      else if (reply == 416) /* Requested Range Not Satisfiable */
+           {
+              offset = 0;
+              goto retry_get_range;
            }
       else if (reply == CONNECTION_REOPENED)
            {
@@ -480,54 +552,100 @@ retry_get:
 
 /*############################## http_put() #############################*/
 int
-http_put(char *host, char *path, char *filename, off_t length)
+http_put(char *host, char *path, char *filename, off_t length, int first_file)
+{
+   hmr.retries = 0;
+   hmr.date = -1;
+   if (first_file == NO)
+   {
+      if (check_connection() == CONNECTION_REOPENED)
+      {
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "http_put", NULL,
+                   _("Reconnected."));
+      }
+   }
+   return(command(http_fd,
+#if SIZEOF_OFF_T == 4
+                  "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %ld\r\n%sHost: %s\r\nControl: overwrite=1\r\n",
+#else
+                  "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %lld\r\n%sHost: %s\r\nControl: overwrite=1\r\n",
+#endif
+                  (*path != '/') ? "/" : "", path, filename,
+                  PACKAGE_VERSION,
+                  (pri_off_t)length,
+                  (hmr.authorization == NULL) ? "" : hmr.authorization,
+                  host));
+}
+
+
+/*######################### http_put_response() #########################*/
+int
+http_put_response(void)
 {
    int reply;
 
    hmr.retries = 0;
    hmr.date = -1;
-retry_put:
-   if ((reply = command(http_fd,
-#if SIZEOF_OFF_T == 4
-                        "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %ld\r\n%sHost: %s\r\nControl: overwrite=1\r\n",
-#else
-                        "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %lld\r\n%sHost: %s\r\nControl: overwrite=1\r\n",
-#endif
-                        (*path != '/') ? "/" : "", path, filename,
-                        PACKAGE_VERSION,
-                        (pri_off_t)length,
-                        (hmr.authorization == NULL) ? "" : hmr.authorization,
-                        host)) == SUCCESS)
+   hmr.content_length = 0;
+retry_put_response:
+   if (((reply = get_http_reply(NULL)) == 201) || (reply == 204) ||
+       (reply == 200))
    {
-      if ((reply = get_http_reply(NULL)) == 200)
+      int total_read = 0,
+          read_length;
+
+      while (hmr.content_length > total_read)
       {
-         reply = SUCCESS;
+         if ((reply = read_msg(&read_length)) <= 0)
+         {
+            if (reply == 0)
+            {
+               trans_log(ERROR_SIGN,  __FILE__, __LINE__, "http_put_response", NULL,
+                         _("Remote hang up. (%d %d)"),
+                         hmr.content_length, total_read);
+               timeout_flag = NEITHER;
+            }
+            else
+            {
+               trans_log(DEBUG_SIGN,  __FILE__, __LINE__, "http_put_response", NULL,
+                         "(%d %d)", hmr.content_length, total_read);
+            }
+            return(INCORRECT);
+         }
+         else
+         {
+            total_read += read_length + 1; /* + 1 is the newline! */
+         }
       }
-      else if (reply == 401)
-           {
-              if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
-              {
-                 if (basic_authentication() == SUCCESS)
-                 {
-                    if (check_connection() > INCORRECT)
-                    {
-                       goto retry_put;
-                    }
-                 }
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Failed to create basic authentication.");
-              }
-              else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
-                   {
-                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                "Digest authentication not yet implemented.");
-                   }
-           }
-      else if (reply == CONNECTION_REOPENED)
-           {
-              goto retry_put;
-           }
+      hmr.bytes_buffered = 0;
+      hmr.bytes_read = 0;
+      reply = SUCCESS;
    }
+   else if (reply == 401)
+        {
+           if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
+           {
+              if (basic_authentication() == SUCCESS)
+              {
+                 if (check_connection() > INCORRECT)
+                 {
+                    goto retry_put_response;
+                 }
+              }
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_put_response", NULL,
+                        _("Failed to create basic authentication."));
+           }
+           else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
+                {
+                   trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_put_response", NULL,
+                             _("Digest authentication not yet implemented."));
+                }
+        }
+   else if (reply == CONNECTION_REOPENED)
+        {
+           goto retry_put_response;
+        }
+
    return(reply);
 }
 
@@ -563,13 +681,13 @@ retry_del:
                        goto retry_del;
                     }
                  }
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Failed to create basic authentication.");
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_del", NULL,
+                           _("Failed to create basic authentication."));
               }
               else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
                    {
-                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                "Digest authentication not yet implemented.");
+                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_del", NULL,
+                                _("Digest authentication not yet implemented."));
                    }
            }
       else if (reply == CONNECTION_REOPENED)
@@ -579,6 +697,57 @@ retry_del:
    }
    return(reply);
 }
+
+
+#ifdef WITH_TRACE
+/*############################ http_options() ###########################*/
+int
+http_options(char *host, char *path)
+{
+   int reply;
+
+   hmr.retries = 0;
+   hmr.date = -1;
+retry_options:
+   if ((reply = command(http_fd,
+                        "OPTIONS %s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%sHost: %s\r\nAccept: *\r\n",
+                        (*path == '\0') ? "*" : "", path,
+                        PACKAGE_VERSION,
+                        (hmr.authorization == NULL) ? "" : hmr.authorization,
+                        host)) == SUCCESS)
+   {
+      if ((reply = get_http_reply(NULL)) == 200)
+      {
+         reply = SUCCESS;
+      }
+      else if (reply == 401)
+           {
+              if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
+              {
+                 if (basic_authentication() == SUCCESS)
+                 {
+                    if (check_connection() > INCORRECT)
+                    {
+                       goto retry_options;
+                    }
+                 }
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_options", NULL,
+                           _("Failed to create basic authentication."));
+              }
+              else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
+                   {
+                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_options", NULL,
+                                _("Digest authentication not yet implemented."));
+                   }
+           }
+      else if (reply == CONNECTION_REOPENED)
+           {
+              goto retry_options;
+           }
+   }
+   return(reply);
+}
+#endif
 
 
 /*############################# http_head() #############################*/
@@ -605,7 +774,10 @@ retry_head:
       {
          reply = SUCCESS;
          *content_length = hmr.content_length;
-         *date = hmr.date;
+         if (date != NULL)
+         {
+            *date = hmr.date;
+         }
       }
       else if (reply == 401)
            {
@@ -618,13 +790,13 @@ retry_head:
                        goto retry_head;
                     }
                  }
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Failed to create basic authentication.");
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_head", NULL,
+                           _("Failed to create basic authentication."));
               }
               else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
                    {
-                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                "Digest authentication not yet implemented.");
+                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_head", NULL,
+                                _("Digest authentication not yet implemented."));
                    }
            }
       else if (reply == CONNECTION_REOPENED)
@@ -659,9 +831,8 @@ basic_authentication(void)
    }
    if ((hmr.authorization = malloc(21 + length + (length / 3) + 2 + 1)) == NULL)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "http_basic_authentication(): malloc() error : %s",
-                strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "basic_authentication", NULL,
+                _("malloc() error : %s"), strerror(errno));
       return(INCORRECT);
    }
    dst_ptr = hmr.authorization;
@@ -716,7 +887,7 @@ http_write(char *block, char *buffer, int size)
    int    status;
    fd_set wset;
 
-   /* Initialise descriptor set */
+   /* Initialise descriptor set. */
    FD_ZERO(&wset);
    FD_SET(http_fd, &wset);
    timeout.tv_usec = 0L;
@@ -727,14 +898,14 @@ http_write(char *block, char *buffer, int size)
 
    if (status == 0)
    {
-      /* timeout has arrived */
+      /* Timeout has arrived. */
       timeout_flag = ON;
       return(INCORRECT);
    }
    else if (status < 0)
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "http_write(): select() error : %s", strerror(errno));
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_write", NULL,
+                     _("select() error : %s"), strerror(errno));
            return(INCORRECT);
         }
    else if (FD_ISSET(http_fd, &wset))
@@ -771,8 +942,8 @@ http_write(char *block, char *buffer, int size)
 #endif
               if ((status = write(http_fd, ptr, size)) != size)
               {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "http_write(): write() error (%d) : %s",
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_write", NULL,
+                           _("write() error (%d) : %s"),
                            status, strerror(errno));
                  return(errno);
               }
@@ -792,8 +963,8 @@ http_write(char *block, char *buffer, int size)
         }
         else
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "http_write(): Unknown condition.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_write", NULL,
+                     _("Unknown condition."));
            return(INCORRECT);
         }
    
@@ -806,7 +977,6 @@ int
 http_read(char *block, int blocksize)
 {
    int bytes_read,
-       offset,
        status;
 
    if (hmr.bytes_buffered > 0)
@@ -824,26 +994,22 @@ http_read(char *block, int blocksize)
             hmr.bytes_buffered = 0;
          }
          hmr.bytes_read = 0;
-         return(blocksize);
+         bytes_read = blocksize;
       }
       else
       {
          memcpy(block, msg_str, hmr.bytes_buffered);
-         offset = hmr.bytes_buffered;
+         bytes_read = hmr.bytes_buffered;
          hmr.bytes_buffered = 0;
          hmr.bytes_read = 0;
       }
-   }
-   else
-   {
-      offset = 0;
+      return(bytes_read);
    }
 
 #ifdef WITH_SSL
    if ((ssl_con != NULL) && (SSL_pending(ssl_con)))
    {
-      if ((bytes_read = SSL_read(ssl_con, &block[offset],
-                                 blocksize - offset)) == INCORRECT)
+      if ((bytes_read = SSL_read(ssl_con, block, blocksize)) == INCORRECT)
       {
          if ((status = SSL_get_error(ssl_con,
                                      bytes_read)) == SSL_ERROR_SYSCALL)
@@ -852,19 +1018,18 @@ http_read(char *block, int blocksize)
             {
                timeout_flag = CON_RESET;
             }
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "http_read(): SSL_read() error : %s",
-                      strerror(errno));
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                      _("SSL_read() error : %s"), strerror(errno));
          }
          else
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "http_read(): SSL_read() error %d", status);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                      _("SSL_read() error %d"), status);
          }
          return(INCORRECT);
       }
 # ifdef WITH_TRACE
-      trace_log(NULL, 0, BIN_R_TRACE, &block[offset], bytes_read, NULL);
+      trace_log(NULL, 0, BIN_R_TRACE, block, bytes_read, NULL);
 # endif
    }
    else
@@ -872,7 +1037,7 @@ http_read(char *block, int blocksize)
    {
       fd_set rset;
 
-      /* Initialise descriptor set */
+      /* Initialise descriptor set. */
       FD_ZERO(&rset);
       FD_SET(http_fd, &rset);
       timeout.tv_usec = 0L;
@@ -883,7 +1048,7 @@ http_read(char *block, int blocksize)
 
       if (status == 0)
       {
-         /* timeout has arrived */
+         /* Timeout has arrived. */
          timeout_flag = ON;
          return(INCORRECT);
       }
@@ -893,15 +1058,14 @@ http_read(char *block, int blocksize)
               if (ssl_con == NULL)
               {
 #endif
-                 if ((bytes_read = read(http_fd, &block[offset],
-                                        blocksize - offset)) == -1)
+                 if ((bytes_read = read(http_fd, block, blocksize)) == -1)
                  {
                     if (errno == ECONNRESET)
                     {
                        timeout_flag = CON_RESET;
                     }
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_read(): read() error : %s", strerror(errno));
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                              _("read() error : %s"), strerror(errno));
                     return(INCORRECT);
                  }
 #ifdef WITH_SSL
@@ -921,15 +1085,13 @@ http_read(char *block, int blocksize)
                   */
                  if (sigsetjmp(env_alrm, 1) != 0)
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_read(): SSL_read() timeout (%ld)",
-                              transfer_timeout);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                              _("SSL_read() timeout (%ld)"), transfer_timeout);
                     timeout_flag = ON;
                     return(INCORRECT);
                  }
                  (void)alarm(transfer_timeout);
-                 bytes_read = SSL_read(ssl_con, &block[offset],
-                                       blocksize - offset);
+                 bytes_read = SSL_read(ssl_con, block, blocksize);
                  tmp_errno = errno;
                  (void)alarm(0);
 
@@ -942,38 +1104,38 @@ http_read(char *block, int blocksize)
                        {
                           timeout_flag = CON_RESET;
                        }
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                 "http_read(): SSL_read() error : %s",
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                                 _("SSL_read() error : %s"),
                                  strerror(tmp_errno));
                     }
                     else
                     {
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                 "http_read(): SSL_read() error %d", status);
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                                 _("SSL_read() error %d"), status);
                     }
                     return(INCORRECT);
                  }
               }
 #endif
 #ifdef WITH_TRACE
-              trace_log(NULL, 0, BIN_R_TRACE, &block[offset], bytes_read, NULL);
+              trace_log(NULL, 0, BIN_R_TRACE, block, bytes_read, NULL);
 #endif
            }
       else if (status < 0)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "http_read(): select() error : %s", strerror(errno));
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                        _("select() error : %s"), strerror(errno));
               return(INCORRECT);
            }
            else
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "http_read(): Unknown condition.");
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_read", NULL,
+                        _("Unknown condition."));
               return(INCORRECT);
            }
    }
 
-   return(bytes_read + offset);
+   return(bytes_read);
 }
 
 
@@ -984,8 +1146,21 @@ http_chunk_read(char **chunk, int *chunksize)
    int bytes_buffered,
        read_length;
 
+   if ((hmr.bytes_buffered > 0) && (msg_str[4] == '\r') && (msg_str[5] == '\n'))
+   {
+      bytes_buffered = hmr.bytes_buffered;
+      msg_str[4] = '\0';
+      read_length = 5;
+      hmr.bytes_buffered = 0;
+      hmr.bytes_read = 0;
+   }
+   else
+   {
+      bytes_buffered = 0;
+   }
+
    /* First, try read the chunk size. */
-   if ((bytes_buffered = read_msg(&read_length)) > 0)
+   if ((bytes_buffered) || ((bytes_buffered = read_msg(&read_length)) > 0))
    {
       int    bytes_read,
              status,
@@ -995,8 +1170,8 @@ http_chunk_read(char **chunk, int *chunksize)
       tmp_chunksize = (int)strtol(msg_str, NULL, 16);
       if (errno == ERANGE)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "http_chunk_read(): Failed to determine the chunk size with strtol() : %s",
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", msg_str,
+                   _("Failed to determine the chunk size with strtol() : %s"),
                    strerror(errno));
          return(INCORRECT);
       }
@@ -1012,8 +1187,8 @@ http_chunk_read(char **chunk, int *chunksize)
          {
             if ((*chunk = realloc(*chunk, tmp_chunksize)) == NULL)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "http_chunk_read(): Failed to realloc() %d bytes : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                         _("Failed to realloc() %d bytes : %s"),
                          tmp_chunksize, strerror(errno));
                return(INCORRECT);
             }
@@ -1022,11 +1197,12 @@ http_chunk_read(char **chunk, int *chunksize)
          bytes_buffered -= (read_length + 1);
          if (tmp_chunksize > bytes_buffered)
          {
-            (void)memcpy(*chunk, msg_str, bytes_buffered);
+            (void)memcpy(*chunk, msg_str + read_length + 1, bytes_buffered);
+            hmr.bytes_read = 0;
          }
          else
          {
-            (void)memcpy(*chunk, msg_str, tmp_chunksize);
+            (void)memcpy(*chunk, msg_str + read_length + 1, tmp_chunksize);
             hmr.bytes_read = tmp_chunksize;
             return(tmp_chunksize);
          }
@@ -1048,23 +1224,21 @@ http_chunk_read(char **chunk, int *chunksize)
                   {
                      timeout_flag = CON_RESET;
                   }
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "http_chunk_read(): SSL_read() error : %s",
-                            strerror(errno));
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                            _("SSL_read() error : %s"), strerror(errno));
                }
                else
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "http_chunk_read(): SSL_read() error %d",
-                            status);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                            _("SSL_read() error %d"), status);
                }
                return(INCORRECT);
             }
             if (bytes_read == 0)
             {
                /* Premature end, remote side has closed connection. */
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "http_chunk_read(): Remote side closed connection (expected: %d read: %d)",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                         _("Remote side closed connection (expected: %d read: %d)"),
                          tmp_chunksize, bytes_buffered);
                return(INCORRECT);
             }
@@ -1086,7 +1260,7 @@ http_chunk_read(char **chunk, int *chunksize)
 
             if (status == 0)
             {
-               /* timeout has arrived */
+               /* Timeout has arrived. */
                timeout_flag = ON;
                return(INCORRECT);
             }
@@ -1103,9 +1277,8 @@ http_chunk_read(char **chunk, int *chunksize)
                           {
                              timeout_flag = CON_RESET;
                           }
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "http_chunk_read(): read() error : %s",
-                                    strerror(errno));
+                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                                    _("read() error : %s"), strerror(errno));
                           return(INCORRECT);
                        }
 #ifdef WITH_SSL
@@ -1125,8 +1298,8 @@ http_chunk_read(char **chunk, int *chunksize)
                         */
                        if (sigsetjmp(env_alrm, 1) != 0)
                        {
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "http_chunk_read(): SSL_read() timeout (%ld)",
+                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                                    _("SSL_read() timeout (%ld)"),
                                     transfer_timeout);
                           timeout_flag = ON;
                           return(INCORRECT);
@@ -1146,15 +1319,14 @@ http_chunk_read(char **chunk, int *chunksize)
                              {
                                 timeout_flag = CON_RESET;
                              }
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "http_chunk_read(): SSL_read() error : %s",
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                                       _("SSL_read() error : %s"),
                                        strerror(tmp_errno));
                           }
                           else
                           {
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "http_chunk_read(): SSL_read() error %d",
-                                       status);
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                                       _("SSL_read() error %d"), status);
                           }
                           return(INCORRECT);
                        }
@@ -1163,8 +1335,8 @@ http_chunk_read(char **chunk, int *chunksize)
                     if (bytes_read == 0)
                     {
                        /* Premature end, remote side has closed connection. */
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                 "http_chunk_read(): Remote side closed connection (expected: %d read: %d)",
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                                 _("Remote side closed connection (expected: %d read: %d)"),
                                  tmp_chunksize, bytes_buffered);
                        return(INCORRECT);
                     }
@@ -1176,15 +1348,14 @@ http_chunk_read(char **chunk, int *chunksize)
                  }
             else if (status < 0)
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_chunk_read(): select() error : %s",
-                              strerror(errno));
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                              _("select() error : %s"), strerror(errno));
                     return(INCORRECT);
                  }
                  else
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_chunk_read(): Unknown condition.");
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_chunk_read", NULL,
+                              _("Unknown condition."));
                     return(INCORRECT);
                  }
 #ifdef WITH_SSL
@@ -1200,7 +1371,8 @@ http_chunk_read(char **chunk, int *chunksize)
    else if (bytes_buffered == 0)
         {
            timeout_flag = NEITHER;
-           trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL, "Remote hang up.");
+           trans_log(ERROR_SIGN,  __FILE__, __LINE__, "http_chunk_read", NULL,
+                     _("Remote hang up."));
            bytes_buffered = INCORRECT;
         }
 
@@ -1223,8 +1395,8 @@ http_quit(void)
       {
          if (shutdown(http_fd, 1) < 0)
          {
-            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                      "http_close(): shutdown() error : %s", strerror(errno));
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__, "http_quit", NULL,
+                      _("shutdown() error : %s"), strerror(errno));
          }
       }
 #ifdef WITH_SSL
@@ -1236,8 +1408,8 @@ http_quit(void)
 #endif
       if (close(http_fd) == -1)
       {
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                   "http_close(): close() error : %s", strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "http_quit", NULL,
+                   _("close() error : %s"), strerror(errno));
       }
       http_fd = -1;
    }
@@ -1276,8 +1448,8 @@ check_connection(void)
                                  hmr.user, hmr.passwd, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
 #endif
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "HTTP connection to %s at port %d failed (%d).",
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "check_connection", msg_str,
+                   _("HTTP connection to %s at port %d failed (%d)."),
                    hmr.hostname, hmr.port, status);
          return(INCORRECT);
       }
@@ -1346,8 +1518,8 @@ get_http_reply(int *ret_bytes_buffered)
             {
                if (bytes_buffered == 0)
                {
-                  trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                            "Remote hang up.");
+                  trans_log(ERROR_SIGN,  __FILE__, __LINE__, "get_http_reply", NULL,
+                            _("Remote hang up."));
                   timeout_flag = NEITHER;
                }
                return(INCORRECT);
@@ -1356,10 +1528,14 @@ get_http_reply(int *ret_bytes_buffered)
             /* Check if we have reached header end. */
             if  ((read_length == 1) && (msg_str[0] == '\0'))
             {
+               if (status_code >= 300)
+               {
+                  (void)strcpy(msg_str, hmr.msg_header);
+               }
                break;
             }
 
-            /* Check for Content-Length header. */
+            /* Content-Length: */
             if ((read_length > 15) && (msg_str[14] == ':') &&
                 ((msg_str[8] == 'L') || (msg_str[8] == 'l')) &&
                 ((msg_str[9] == 'E') || (msg_str[9] == 'e')) &&
@@ -1398,11 +1574,7 @@ get_http_reply(int *ret_bytes_buffered)
                         msg_str[k] = '\0';
                      }
                      errno = 0;
-#ifdef HAVE_STRTOLL
-                     hmr.content_length = strtoull(&msg_str[i], NULL, 10);
-#else
-                     hmr.content_length = strtoul(&msg_str[i], NULL, 10);
-#endif
+                     hmr.content_length = (off_t)str2offt(&msg_str[i], NULL, 10);
                      if (errno != 0)
                      {
                         hmr.content_length = 0;
@@ -1410,6 +1582,7 @@ get_http_reply(int *ret_bytes_buffered)
                   }
                }
             }
+                 /* Connection: */
             else if ((read_length > 11) && (msg_str[10] == ':') &&
                      ((msg_str[0] == 'C') || (msg_str[0] == 'c')) &&
                      ((msg_str[1] == 'O') || (msg_str[1] == 'o')) &&
@@ -1485,6 +1658,7 @@ get_http_reply(int *ret_bytes_buffered)
                        }
                     }
                  }
+                 /* Transfer-encoding: */
             else if ((read_length > 18) && (msg_str[17] == ':') &&
                      (msg_str[8] == '-') &&
                      ((msg_str[0] == 'T') || (msg_str[0] == 't')) &&
@@ -1525,13 +1699,14 @@ get_http_reply(int *ret_bytes_buffered)
                        }
                     }
                  }
+                 /* Last-modified: */
             else if ((hmr.date != -1) &&
                      (read_length > 14) && (msg_str[13] == ':') &&
+                     (msg_str[4] == '-') &&
                      ((msg_str[0] == 'L') || (msg_str[0] == 'l')) &&
                      ((msg_str[1] == 'A') || (msg_str[1] == 'a')) &&
                      ((msg_str[2] == 'S') || (msg_str[2] == 's')) &&
                      ((msg_str[3] == 'T') || (msg_str[3] == 't')) &&
-                     (msg_str[4] == '-') &&
                      ((msg_str[5] == 'M') || (msg_str[5] == 'm')) &&
                      ((msg_str[6] == 'O') || (msg_str[6] == 'o')) &&
                      ((msg_str[7] == 'D') || (msg_str[7] == 'd')) &&
@@ -1553,12 +1728,34 @@ get_http_reply(int *ret_bytes_buffered)
                        hmr.date = datestr2unixtime(&msg_str[i]);
                     }
                  }
+#ifdef WITH_TRACE
+                 /* Allow: */
+            else if ((read_length > 6) && (msg_str[5] == ':') &&
+                     ((msg_str[0] == 'A') || (msg_str[0] == 'a')) &&
+                     ((msg_str[1] == 'L') || (msg_str[1] == 'l')) &&
+                     ((msg_str[2] == 'L') || (msg_str[2] == 'l')) &&
+                     ((msg_str[3] == 'O') || (msg_str[3] == 'o')) &&
+                     ((msg_str[4] == 'W') || (msg_str[4] == 'w')))
+                 {
+                    int i = 6;
+
+                    while (((msg_str[i] == ' ') || (msg_str[i] == '\t')) &&
+                           (i < read_length))
+                    {
+                       i++;
+                    }
+                    store_http_options(i, read_length);
+                 }
+#endif
          }
          if ((ret_bytes_buffered != NULL) && (bytes_buffered > read_length))
          {
             *ret_bytes_buffered = bytes_buffered - read_length - 1;
-            (void)memmove(msg_str, msg_str + read_length + 1,
-                          *ret_bytes_buffered);
+            if (msg_str[0] != '\0')
+            {
+               (void)memmove(msg_str, msg_str + read_length + 1,
+                             *ret_bytes_buffered);
+            }
          }
       }
    }
@@ -1569,16 +1766,16 @@ get_http_reply(int *ret_bytes_buffered)
               hmr.close = YES;
               if ((status_code = check_connection()) == CONNECTION_REOPENED)
               {
-                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                           "Reconnected.");
+                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, "get_http_reply", NULL,
+                           _("Reconnected."));
                  hmr.retries = 1;
               }
            }
            else
            {
               timeout_flag = NEITHER;
-              trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                        "Remote hang up.");
+              trans_log(ERROR_SIGN,  __FILE__, __LINE__, "get_http_reply", NULL,
+                        _("Remote hang up."));
               status_code = INCORRECT;
            }
         }
@@ -1586,8 +1783,8 @@ get_http_reply(int *ret_bytes_buffered)
 #ifdef DEBUG
    if (status_code == INCORRECT)
    {
-      trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
-                "Returning incorrect (bytes_buffered = %d)", bytes_buffered);
+      trans_log(DEBUG_SIGN, __FILE__, __LINE__, "get_http_reply", msg_str,
+                _("Returning INCORRECT (bytes_buffered = %d)"), bytes_buffered);
    }
 #endif
    return(status_code);
@@ -1646,14 +1843,14 @@ read_msg(int *read_length)
                      {
                         timeout_flag = CON_RESET;
                      }
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                               "SSL_read() error (after reading %d Bytes) : %s",
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                               _("SSL_read() error (after reading %d bytes) : %s"),
                                bytes_buffered, strerror(errno));
                   }
                   else
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                               "SSL_read() error (after reading %d Bytes) (%d)",
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                               _("SSL_read() error (after reading %d bytes) (%d)"),
                                bytes_buffered, status);
                   }
                   hmr.bytes_read = 0;
@@ -1670,7 +1867,7 @@ read_msg(int *read_length)
          else
          {
 #endif
-            /* Initialise descriptor set */
+            /* Initialise descriptor set. */
             FD_SET(http_fd, &rset);
             timeout.tv_usec = 0L;
             timeout.tv_sec = transfer_timeout;
@@ -1680,7 +1877,7 @@ read_msg(int *read_length)
 
             if (status == 0)
             {
-               /* timeout has arrived */
+               /* Timeout has arrived. */
                timeout_flag = ON;
                hmr.bytes_read = 0;
                return(INCORRECT);
@@ -1704,8 +1901,8 @@ read_msg(int *read_length)
                              {
                                 timeout_flag = CON_RESET;
                              }
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "read() error (after reading %d Bytes) : %s",
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                       _("read() error (after reading %d bytes) : %s"),
                                        bytes_buffered, strerror(errno));
                              hmr.bytes_read = 0;
                              return(INCORRECT);
@@ -1732,14 +1929,14 @@ read_msg(int *read_length)
                                 {
                                    timeout_flag = CON_RESET;
                                 }
-                                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                          "SSL_read() error (after reading %d Bytes) : %s",
+                                trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                          _("SSL_read() error (after reading %d bytes) : %s"),
                                           bytes_buffered, strerror(errno));
                              }
                              else
                              {
-                                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                          "SSL_read() error (after reading %d Bytes) (%d)",
+                                trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                                          _("SSL_read() error (after reading %d bytes) (%d)"),
                                           bytes_buffered, status);
                              }
                              hmr.bytes_read = 0;
@@ -1757,14 +1954,14 @@ read_msg(int *read_length)
                  }
             else if (status < 0)
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "select() error : %s", strerror(errno));
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                              _("select() error : %s"), strerror(errno));
                     return(INCORRECT);
                  }
                  else
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "Unknown condition.");
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
+                              _("Unknown condition."));
                     return(INCORRECT);
                  }
 #ifdef WITH_SSL
@@ -1794,6 +1991,88 @@ read_msg(int *read_length)
       } while (hmr.bytes_read > 0);
    } /* for (;;) */
 }
+
+
+#ifdef WITH_TRACE
+/*------------------------- store_http_options() ------------------------*/
+static void
+store_http_options(int i, int read_length)
+{
+   while (msg_str[i] != '\0')
+   {
+      if (((i + 4) < read_length) &&
+          ((msg_str[i] == 'H') || (msg_str[i] == 'h')) &&
+          ((msg_str[i + 1] == 'E') || (msg_str[i + 1] == 'e')) &&
+          ((msg_str[i + 2] == 'A') || (msg_str[i + 2] == 'a')) &&
+          ((msg_str[i + 3] == 'D') || (msg_str[i + 3] == 'd')) &&
+          ((msg_str[i + 4] == ',') || (msg_str[i + 4] == '\0')))
+      {
+         hmr.http_options |= HTTP_OPTION_HEAD;
+         i += 4;
+      }
+      else if (((i + 3) < read_length) &&
+               ((msg_str[i] == 'G') || (msg_str[i] == 'g')) &&
+               ((msg_str[i + 1] == 'E') || (msg_str[i + 1] == 'e')) &&
+               ((msg_str[i + 2] == 'T') || (msg_str[i + 2] == 't')) &&
+               ((msg_str[i + 3] == ',') || (msg_str[i + 3] == '\0')))
+           {
+              hmr.http_options |= HTTP_OPTION_GET;
+              i += 3;
+           }
+      else if (((i + 3) < read_length) &&
+               ((msg_str[i] == 'P') || (msg_str[i] == 'p')) &&
+               ((msg_str[i + 1] == 'U') || (msg_str[i + 1] == 'u')) &&
+               ((msg_str[i + 2] == 'T') || (msg_str[i + 2] == 't')) &&
+               ((msg_str[i + 3] == ',') || (msg_str[i + 3] == '\0')))
+           {
+              hmr.http_options |= HTTP_OPTION_PUT;
+              i += 3;
+           }
+      else if (((i + 4) < read_length) &&
+               ((msg_str[i] == 'M') || (msg_str[i] == 'm')) &&
+               ((msg_str[i + 1] == 'O') || (msg_str[i + 1] == 'o')) &&
+               ((msg_str[i + 2] == 'V') || (msg_str[i + 2] == 'v')) &&
+               ((msg_str[i + 3] == 'E') || (msg_str[i + 3] == 'e')) &&
+               ((msg_str[i + 4] == ',') || (msg_str[i + 4] == '\0')))
+           {
+              hmr.http_options |= HTTP_OPTION_MOVE;
+              i += 4;
+           }
+      else if (((i + 6) < read_length) &&
+               ((msg_str[i] == 'D') || (msg_str[i] == 'd')) &&
+               ((msg_str[i + 1] == 'E') || (msg_str[i + 1] == 'e')) &&
+               ((msg_str[i + 2] == 'L') || (msg_str[i + 2] == 'l')) &&
+               ((msg_str[i + 3] == 'E') || (msg_str[i + 3] == 'e')) &&
+               ((msg_str[i + 4] == 'T') || (msg_str[i + 4] == 't')) &&
+               ((msg_str[i + 5] == 'E') || (msg_str[i + 5] == 'e')) &&
+               ((msg_str[i + 6] == ',') || (msg_str[i + 6] == '\0')))
+           {
+              hmr.http_options |= HTTP_OPTION_DELETE;
+              i += 6;
+           }
+           else /* Ignore any other options. */
+           {
+              while ((msg_str[i] != ',') && (msg_str[i] != '\0') &&
+                     (i < read_length))
+              {
+                 i++;
+              }
+           }
+
+      if (msg_str[i] == ',')
+      {
+         i++;
+         while (((msg_str[i] == ' ') || (msg_str[i] == '\t')) &&
+                (i < read_length))
+         {
+            i++;
+         }
+      }
+   }
+
+   return;
+}
+#endif
 
 
 #ifdef WITH_SSL

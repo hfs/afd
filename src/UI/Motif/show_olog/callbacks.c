@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -98,7 +98,7 @@ DESCR__E_M3
 #include <ctype.h>          /* isdigit()                                 */
 #include <time.h>           /* time(), localtime(), mktime(), strftime() */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <unistd.h>         /* close()                                   */
 #include <Xm/Xm.h>
@@ -106,11 +106,11 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include <Xm/LabelP.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_olog.h"
 #include "permission.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
 extern Widget           appshell,
                         cont_togglebox_w,
@@ -164,10 +164,10 @@ char                    search_file_size_str[20],
                         total_summary_str[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 5];
 struct info_data        id;
 
-/* Local global variables */
+/* Local global variables. */
 static int              scrollbar_moved_flag;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int              eval_time(char *, Widget, time_t *);
 
 
@@ -374,7 +374,7 @@ item_selection(Widget w, XtPointer client_data, XtPointer call_data)
       last_date_found = date;
 #endif
 
-      /* Show summary */
+      /* Show summary. */
       if (cbs->selected_item_count > 0)
       {
          calculate_summary(summary_str, first_date_found, last_date_found,
@@ -481,10 +481,9 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
       XtVaGetValues(w, XmNitemCount, &max_pos, NULL);
       if ((max_pos > 0) && (pos <= max_pos))
       {
-         char text[8192];
+         char *text = NULL;
 
          /* Initialize text an data area. */
-         text[0] = '\0';
          id.no_of_files = 0;
          id.local_file_name[0] = '\0';
          id.files = NULL;
@@ -498,12 +497,13 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          get_info(pos);
 
          /* Format information in a human readable text. */
-         format_info(text);
+         format_info(&text);
 
          /* Show the information. */
          show_info(text);
 
          /* Free all memory that was allocated in get_info(). */
+         free(text);
          free(id.files);
 #ifdef _WITH_DYNAMIC_MEMORY
          if (id.loptions != NULL)
@@ -1080,8 +1080,8 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
 
-      case RECIPIENT_NAME_NO_ENTER : /* Read the recipient */
-      case RECIPIENT_NAME : /* Read the recipient */
+      case RECIPIENT_NAME_NO_ENTER : /* Read the recipient. */
+      case RECIPIENT_NAME : /* Read the recipient. */
          {
             int  i = 0,
                  ii = 0;
@@ -1224,7 +1224,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    time_val = time(NULL);
    switch (length)
    {
-      case 0 : /* Assume user means current time */
+      case 0 : /* Assume user means current time. */
                {
                   char time_str[9];
 
@@ -1248,7 +1248,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
          return(INCORRECT);
       }
 
-      if (length == 3)
+      if (length == 3) /* -mm */
       {
          str[0] = numeric_str[1];
          str[1] = numeric_str[2];
@@ -1261,7 +1261,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
          *value = time_val - (min * 60);
       }
-      else if (length == 5)
+      else if (length == 5) /* -hhmm */
            {
               if ((!isdigit((int)numeric_str[3])) ||
                   (!isdigit((int)numeric_str[4])))
@@ -1287,7 +1287,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
               *value = time_val - (min * 60) - (hour * 3600);
            }
-      else if (length == 7)
+      else if (length == 7) /* -DDhhmm */
            {
               int days;
 
@@ -1341,7 +1341,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    if (length == 4) /* hhmm */
    {
-      struct tm *bd_time;     /* Broken-down time */
+      struct tm *bd_time;     /* Broken-down time. */
 
       hour = atoi(str);
       if ((hour < 0) || (hour > 23))
@@ -1364,9 +1364,15 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    }
    else if (length == 6) /* DDhhmm */
         {
-           int       day = atoi(str);
-           struct tm *bd_time;     /* Broken-down time */
+           int       day;
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])))
+           {
+              return(INCORRECT);
+           }
+           day = atoi(str);
            if ((day < 0) || (day > 31))
            {
               return(INCORRECT);
@@ -1395,10 +1401,18 @@ eval_time(char *numeric_str, Widget w, time_t *value)
         }
         else /* MMDDhhmm */
         {
-           int       month = atoi(str),
+           int       month,
                      day;
-           struct tm *bd_time;     /* Broken-down time */
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])) ||
+               (!isdigit((int)numeric_str[6])) ||
+               (!isdigit((int)numeric_str[7])))
+           {
+              return(INCORRECT);
+           }
+           month = atoi(str);
            if ((month < 0) || (month > 12))
            {
               return(INCORRECT);

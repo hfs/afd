@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/RowColumn.h>
 #include <Xm/DrawingA.h>
-#include "show_log.h"
+#include "mshow_log.h"
 #include "mon_ctrl.h"
 #include "permission.h"
 
@@ -83,7 +83,12 @@ extern Widget                  fw[],
                                hlw[],
                                tw[],
                                lsw[];
-extern Window                  line_window;
+extern Window                  button_window,
+                               label_window,
+                               line_window;
+extern Pixmap                  button_pixmap,
+                               label_pixmap,
+                               line_pixmap;
 extern XFontStruct             *font_struct;
 extern GC                      letter_gc,
                                normal_letter_gc,
@@ -100,7 +105,8 @@ extern GC                      letter_gc,
                                black_line_gc,
                                white_line_gc,
                                led_gc;
-extern int                     no_of_active_process,
+extern int                     depth,
+                               no_of_active_process,
                                no_of_afds,
                                no_of_jobs_selected,
                                line_length,
@@ -404,7 +410,7 @@ save_mon_setup_cb(Widget    w,
                   XtPointer client_data,
                   XtPointer call_data)
 {
-   write_setup(-1, his_log_set, NULL, 0, 0);
+   write_setup(-1, -1, his_log_set, NULL, 0, 0);
 
    return;
 }
@@ -458,7 +464,7 @@ mon_popup_cb(Widget    w,
       case MON_DISABLE_SEL:
          break;
 
-      case PING_SEL : /* Ping test */
+      case PING_SEL : /* Ping test. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -469,7 +475,7 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_CMD);
          break;
 
-      case TRACEROUTE_SEL : /* Traceroute test */
+      case TRACEROUTE_SEL : /* Traceroute test. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -480,7 +486,7 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_CMD);
          break;
 
-      case MON_INFO_SEL : /* Information */
+      case MON_INFO_SEL : /* Information. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -491,7 +497,7 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, MON_INFO);
          break;
 
-      case MON_SYS_LOG_SEL : /* System Log */
+      case MON_SYS_LOG_SEL : /* System Log. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -505,7 +511,7 @@ mon_popup_cb(Widget    w,
 	 make_xprocess(progname, progname, args, -1);
 	 return;
 
-      case MON_LOG_SEL : /* Monitor Log */
+      case MON_LOG_SEL : /* Monitor Log. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -516,7 +522,7 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_LOG);
          break;
 
-      case VIEW_FILE_LOAD_SEL : /* File Load */
+      case VIEW_FILE_LOAD_SEL : /* File Load. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -530,7 +536,7 @@ mon_popup_cb(Widget    w,
 	 make_xprocess(progname, progname, args, -1);
 	 return;
 
-      case VIEW_KBYTE_LOAD_SEL : /* KByte Load */
+      case VIEW_KBYTE_LOAD_SEL : /* KByte Load. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -544,7 +550,7 @@ mon_popup_cb(Widget    w,
 	 make_xprocess(progname, progname, args, -1);
 	 return;
 
-      case VIEW_CONNECTION_LOAD_SEL : /* Connection Load */
+      case VIEW_CONNECTION_LOAD_SEL : /* Connection Load. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -558,7 +564,7 @@ mon_popup_cb(Widget    w,
          make_xprocess(progname, progname, args, -1);
          return;
 
-      case VIEW_TRANSFER_LOAD_SEL : /* Active Transfers Load */
+      case VIEW_TRANSFER_LOAD_SEL : /* Active Transfers Load. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -572,8 +578,9 @@ mon_popup_cb(Widget    w,
          make_xprocess(progname, progname, args, -1);
          return;
 
-      case EXIT_SEL  : /* Exit */
+      case EXIT_SEL  : /* Exit. */
          XFreeFont(display, font_struct);
+         font_struct = NULL;
          XFreeGC(display, letter_gc);
          XFreeGC(display, normal_letter_gc);
          XFreeGC(display, locked_letter_gc);
@@ -784,7 +791,7 @@ mon_popup_cb(Widget    w,
                }
                break;
 
-            case MON_DISABLE_SEL : /* Enable/Disable AFD */
+            case MON_DISABLE_SEL : /* Enable/Disable AFD. */
                if (check_host_permissions(msa[i].afd_alias,
                                           mcp.disable_list,
                                           mcp.disable) == SUCCESS)
@@ -915,7 +922,7 @@ mon_popup_cb(Widget    w,
                }
                break;
 
-            case MON_LOG_SEL : /* Monitor Log */
+            case MON_LOG_SEL : /* Monitor Log. */
                (void)strcpy(hosts[k], msa[i].afd_alias);
                args[k + 7] = hosts[k];
                k++;
@@ -1638,64 +1645,64 @@ start_remote_prog(Widget    w,
                   }
                   printf("\n");
                }
-#endif /* TEST_OUTPUT */
+#endif
                switch (item_no)
                {
-                  case AFD_CTRL_SEL : /* Remote afd_ctrl */
+                  case AFD_CTRL_SEL : /* Remote afd_ctrl. */
                      mconfig_log(MON_LOG, DEBUG_SIGN, "%-*s: %s started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias,
                                  AFD_CTRL);
                      break;
 
-                  case DIR_CTRL_SEL : /* Remote dir_ctrl */
+                  case DIR_CTRL_SEL : /* Remote dir_ctrl. */
                      mconfig_log(MON_LOG, DEBUG_SIGN, "%-*s: %s started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias,
                                  DIR_CTRL);
                      break;
 
-                  case S_LOG_SEL : /* Remote System Log */
+                  case S_LOG_SEL : /* Remote System Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: System Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case E_LOG_SEL : /* Remote Event Log */
+                  case E_LOG_SEL : /* Remote Event Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Event Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case R_LOG_SEL : /* Remote Receive Log */
+                  case R_LOG_SEL : /* Remote Receive Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Receive Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case T_LOG_SEL : /* Remote Transfer Log */
+                  case T_LOG_SEL : /* Remote Transfer Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Transfer Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case I_LOG_SEL : /* Remote Input Log */
+                  case I_LOG_SEL : /* Remote Input Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Input Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case O_LOG_SEL : /* Remote Output Log */
+                  case O_LOG_SEL : /* Remote Output Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Output Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case D_LOG_SEL : /* Remote Delete Log */
+                  case D_LOG_SEL : /* Remote Delete Log. */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Delete Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case SHOW_QUEUE_SEL : /* View AFD Queue */
+                  case SHOW_QUEUE_SEL : /* View AFD Queue. */
                      mconfig_log(MON_LOG, DEBUG_SIGN, "%-*s: %s started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias,
                                  SHOW_QUEUE);
@@ -1727,42 +1734,42 @@ start_remote_prog(Widget    w,
                                  AFD_LOAD);
                      break;
 
-                  case CONTROL_AMG_SEL : /* Start/Stop AMG */
+                  case CONTROL_AMG_SEL : /* Start/Stop AMG. */
                      mconfig_log(MON_LOG, CONFIG_SIGN,
                                  "%-*s: Start/Stop AMG initiated",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case CONTROL_FD_SEL : /* Start/Stop FD */
+                  case CONTROL_FD_SEL : /* Start/Stop FD. */
                      mconfig_log(MON_LOG, CONFIG_SIGN,
                                  "%-*s: Start/Stop FD initiated",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case REREAD_DIR_CONFIG_SEL : /* Reread DIR_CONFIG file */
+                  case REREAD_DIR_CONFIG_SEL : /* Reread DIR_CONFIG file. */
                      mconfig_log(MON_LOG, CONFIG_SIGN,
                                  "%-*s: Reread DIR_CONFIG initiated",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case REREAD_HOST_CONFIG_SEL : /* Reread HOST_CONFIG file */
+                  case REREAD_HOST_CONFIG_SEL : /* Reread HOST_CONFIG file. */
                      mconfig_log(MON_LOG, CONFIG_SIGN,
                                  "%-*s: Reread HOST_CONFIG initiated",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case EDIT_HC_SEL : /* Edit HOST_CONFIG file */
+                  case EDIT_HC_SEL : /* Edit HOST_CONFIG file. */
                      mconfig_log(MON_LOG, CONFIG_SIGN, "%-*s: %s called",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias, EDIT_HC);
                      break;
 
-                  case STARTUP_AFD_SEL : /* Startup AFD */
+                  case STARTUP_AFD_SEL : /* Startup AFD. */
                      mconfig_log(MON_LOG, CONFIG_SIGN,
                                  "%-*s: AFD startup initiated",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
+                  case SHUTDOWN_AFD_SEL : /* Shutdown AFD. */
                      mconfig_log(MON_LOG, CONFIG_SIGN,
                                  "%-*s: AFD shutdown initiated",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
@@ -1805,8 +1812,6 @@ change_mon_font_cb(Widget    w,
                    XtPointer client_data,
                    XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
    XGCValues   gc_values;
 
@@ -1883,9 +1888,6 @@ change_mon_font_cb(Widget    w,
    (void)fprintf(stderr, "You have chosen: %s\n", font_name);
 #endif
 
-   /* Remove old font. */
-   XFreeFont(display, font_struct);
-
    /* Calculate the new values for global variables. */
    setup_mon_window(font_name);
 
@@ -1903,25 +1905,7 @@ change_mon_font_cb(Widget    w,
    if (resize_mon_window() == YES)
    {
       calc_mon_but_coord(window_width);
-      XClearWindow(display, line_window);
-
-      /* Redraw label at top. */
-      draw_label_line();
-
-      /* Redraw all status lines. */
-      for (i = 0; i < no_of_afds; i++)
-      {
-         draw_line_status(i, 1);
-      }
-
-      /* Redraw buttons at bottom. */
-      draw_mon_button_line();
-
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
+      redraw_all();
       XFlush(display);
    }
 
@@ -1935,8 +1919,6 @@ change_mon_rows_cb(Widget    w,
                    XtPointer client_data,
                    XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_row != item_no)
@@ -2037,25 +2019,7 @@ change_mon_rows_cb(Widget    w,
    if (resize_mon_window() == YES)
    {
       calc_mon_but_coord(window_width);
-      XClearWindow(display, line_window);
-
-      /* Redraw label line at top. */
-      draw_label_line();
-
-      /* Redraw all status lines. */
-      for (i = 0; i < no_of_afds; i++)
-      {
-         draw_line_status(i, 1);
-      }
-
-      /* Redraw buttons at bottom. */
-      draw_mon_button_line();
-
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
+      redraw_all();
       XFlush(display);
    }
 
@@ -2069,8 +2033,6 @@ change_mon_style_cb(Widget    w,
                     XtPointer client_data,
                     XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_style != item_no)
@@ -2127,25 +2089,7 @@ change_mon_style_cb(Widget    w,
    if (resize_mon_window() == YES)
    {
       calc_mon_but_coord(window_width);
-      XClearWindow(display, line_window);
-
-      /* Redraw label line at top. */
-      draw_label_line();
-
-      /* Redraw all status lines. */
-      for (i = 0; i < no_of_afds; i++)
-      {
-         draw_line_status(i, 1);
-      }
-
-      /* Redraw button line at bottom. */
-      draw_mon_button_line();
-
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
+      redraw_all();
       XFlush(display);
    }
 
@@ -2159,8 +2103,7 @@ change_mon_history_cb(Widget    w,
                       XtPointer client_data,
                       XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
+   int         i;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_his_log != item_no)
@@ -2227,6 +2170,17 @@ change_mon_history_cb(Widget    w,
    {
       calc_mon_but_coord(window_width);
       XClearWindow(display, line_window);
+      XFreePixmap(display, label_pixmap);
+      label_pixmap = XCreatePixmap(display, label_window, window_width,
+                                   line_height, depth);
+      XFreePixmap(display, line_pixmap);
+      line_pixmap = XCreatePixmap(display, line_window, window_width,
+                                  (line_height * no_of_rows), depth);
+      XFillRectangle(display, line_pixmap, default_bg_gc, 0, 0,
+                     window_width, (line_height * no_of_rows));
+      XFreePixmap(display, button_pixmap);
+      button_pixmap = XCreatePixmap(display, button_window, window_width,
+                                    line_height, depth);
 
       /* Redraw label line at top. */
       draw_label_line();
@@ -2245,13 +2199,8 @@ change_mon_history_cb(Widget    w,
       /* Redraw buttons at bottom. */
       draw_mon_button_line();
 
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
       XFlush(display);
    }
 
-  return;
+   return;
 }

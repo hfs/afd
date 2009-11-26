@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,8 @@ DESCR__S_M3
  **                int    name_length,
  **                char   *job,
  **                time_t exec_timeout,
- **                int    dup_stderr)
+ **                int    dup_stderr,
+ **                int    limit_read_buffer)
  **
  ** DESCRIPTION
  **   exec_cmd() executes a command specified in 'cmd' by calling
@@ -95,7 +96,8 @@ exec_cmd(char   *cmd,
          int    name_length,
          char   *job,
          time_t exec_timeout,
-         int    dup_stderr)
+         int    dup_stderr,
+         int    limit_read_buffer)
 {
    int        channels[2],
               fds[2],
@@ -110,7 +112,7 @@ exec_cmd(char   *cmd,
    if ((pipe(channels) == -1) || (pipe(fds) == -1))
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "pipe() error : %s", strerror(errno));
+                 _("pipe() error : %s"), strerror(errno));
       return(INCORRECT);
    }
 
@@ -138,23 +140,30 @@ exec_cmd(char   *cmd,
          p_cmd = cmd;
       }
    }
-   if (dup_stderr == YES)
+   if (limit_read_buffer == YES)
    {
-      max_read_buffer = 131072;
+      if (dup_stderr == YES)
+      {
+         max_read_buffer = 131072;
+      }
+      else
+      {
+         max_read_buffer = 1048576;
+      }
    }
    else
    {
-      max_read_buffer = 1048576;
+      max_read_buffer = 0;
    }
 
    switch (child_pid = fork())
    {
-      case -1: /* Failed to fork */
+      case -1: /* Failed to fork. */
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "fork() error : %s", strerror(errno));
+                    _("fork() error : %s"), strerror(errno));
          return(INCORRECT);
 
-      case 0 : /* Child process */
+      case 0 : /* Child process. */
          {
             char dummy;
 
@@ -179,7 +188,7 @@ exec_cmd(char   *cmd,
             if (read(fds[0], &dummy, 1) != 1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "read() error : %s", strerror(errno));
+                          _("read() error : %s"), strerror(errno));
             }
             (void)close(fds[0]);
 
@@ -187,7 +196,7 @@ exec_cmd(char   *cmd,
          }
          _exit(INCORRECT);
 
-      default: /* Parent process */
+      default: /* Parent process. */
          (void)close(channels[WRITE]);
 
          /*
@@ -218,7 +227,7 @@ exec_cmd(char   *cmd,
             if ((*buffer = malloc(max_pipe_size + 1)) == NULL)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to malloc() %d bytes : %s",
+                          _("Failed to malloc() %d bytes : %s"),
                           max_pipe_size, strerror(errno));
                return(INCORRECT);
             }
@@ -231,7 +240,7 @@ exec_cmd(char   *cmd,
             if (write(fds[1], "", 1) != 1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "write() error : %s", strerror(errno));
+                          _("write() error : %s"), strerror(errno));
             }
             (void)close(fds[1]);
 
@@ -252,9 +261,9 @@ exec_cmd(char   *cmd,
                      if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
                      {
 #if SIZEOF_PID_T == 4
-                        (void)rec(log_fd, INFO_SIGN, "%-*s%s: [%d] Done.\n",
+                        (void)rec(log_fd, INFO_SIGN, _("%-*s%s: [%d] Done.\n"),
 #else
-                        (void)rec(log_fd, INFO_SIGN, "%-*s%s: [%lld] Done.\n",
+                        (void)rec(log_fd, INFO_SIGN, _("%-*s%s: [%lld] Done.\n"),
 #endif
                                   name_length, name, job, (pri_pid_t)child_pid);
                      }
@@ -262,9 +271,9 @@ exec_cmd(char   *cmd,
                      {
                         (void)rec(log_fd, INFO_SIGN,
 #if SIZEOF_PID_T == 4
-                                  "%-*s%s: [%d] Exec time: %.3fs\n",
+                                  _("%-*s%s: [%d] Exec time: %.3fs\n"),
 #else
-                                  "%-*s%s: [%lld] Exec time: %.3fs\n",
+                                  _("%-*s%s: [%lld] Exec time: %.3fs\n"),
 #endif
                                   name_length, name, job, (pri_pid_t)child_pid,
                                   (times(&tval) - start_time) / (double)clktck);
@@ -284,7 +293,7 @@ exec_cmd(char   *cmd,
                         if ((n = read(channels[READ], read_ptr, max_pipe_size)) < 0)
                         {
                            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "read() error : %s", strerror(errno));
+                                      _("read() error : %s"), strerror(errno));
                            return(INCORRECT);
                         }
                         if (n > 0)
@@ -294,47 +303,54 @@ exec_cmd(char   *cmd,
                      }
                      else
                      {
-                        if (bytes_read >= max_read_buffer)
+                        set_fl(channels[READ], O_NONBLOCK);
+                        do
                         {
-                           wrap_around = YES;
-                           bytes_read = 0;
-                           read_ptr = *buffer;
-                           nleft = max_read_buffer;
-                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "exec_cmd(): Max read buffer reached! Starting from beginning.");
-                        }
-                        else
-                        {
-                           if (wrap_around == NO)
+                           if ((max_read_buffer > 0) &&
+                               (bytes_read >= max_read_buffer))
                            {
-                              if (nleft < (max_pipe_size / 2))
+                              wrap_around = YES;
+                              bytes_read = 0;
+                              read_ptr = *buffer;
+                              nleft = max_read_buffer;
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         _("exec_cmd(): Max read buffer reached! Starting from beginning."));
+                           }
+                           else
+                           {
+                              if (wrap_around == NO)
                               {
-                                 size_t size;
-
-                                 size = bytes_read + max_pipe_size + 1;
-                                 if ((*buffer = realloc(*buffer, size)) == NULL)
+                                 if (nleft < (max_pipe_size / 2))
                                  {
-                                    system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                               "Failed to realloc() %d bytes : %s",
-                                               size, strerror(errno));
-                                    return(INCORRECT);
+                                    size_t size;
+
+                                    size = bytes_read + max_pipe_size + 1;
+                                    if ((*buffer = realloc(*buffer, size)) == NULL)
+                                    {
+                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                  _("Failed to realloc() %d bytes : %s"),
+                                                  size, strerror(errno));
+                                       return(INCORRECT);
+                                    }
+                                    nleft = nleft + max_pipe_size;
+                                    read_ptr = *buffer + bytes_read;
                                  }
-                                 nleft = nleft + max_pipe_size;
-                                 read_ptr = *buffer + bytes_read;
                               }
                            }
-                        }
-                        set_fl(channels[READ], O_NONBLOCK);
-                        if ((n = read(channels[READ], read_ptr, nleft)) < 0)
-                        {
-                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "read() error : %s", strerror(errno));
-                           return(INCORRECT);
-                        }
-                        if (n > 0)
-                        {
-                           *(read_ptr + n) = '\0';
-                        }
+                           if ((n = read(channels[READ], read_ptr, nleft)) < 0)
+                           {
+                              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                         _("read() error : %s"), strerror(errno));
+                              return(INCORRECT);
+                           }
+                           if (n > 0)
+                           {
+                              bytes_read += n;
+                              nleft -= n;
+                              read_ptr += n;
+                              *read_ptr = '\0';
+                           }
+                        } while (n == max_pipe_size);
                      }
                   }
                   else
@@ -344,7 +360,7 @@ exec_cmd(char   *cmd,
                   break;
                }
 
-               /* Initialise descriptor set and timeout */
+               /* Initialise descriptor set and timeout. */
                FD_SET(channels[READ], &rset);
                timeout.tv_usec = 50000L;
                timeout.tv_sec = 0L;
@@ -357,7 +373,8 @@ exec_cmd(char   *cmd,
                }
                else if (FD_ISSET(channels[READ], &rset))
                     {
-                       if (bytes_read >= max_read_buffer)
+                       if ((max_read_buffer > 0) &&
+                           (bytes_read >= max_read_buffer))
                        {
                           wrap_around = YES;
                           bytes_read = 0;
@@ -366,7 +383,7 @@ exec_cmd(char   *cmd,
                           if (have_warned != YES)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        "exec_cmd(): Max read buffer reached! Starting from beginning.");
+                                        _("exec_cmd(): Max read buffer reached! Starting from beginning."));
                              have_warned = YES;
                           }
                        }
@@ -382,7 +399,7 @@ exec_cmd(char   *cmd,
                                 if ((*buffer = realloc(*buffer, size)) == NULL)
                                 {
                                    system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                              "Failed to realloc() %d bytes : %s",
+                                              _("Failed to realloc() %d bytes : %s"),
                                               size, strerror(errno));
                                    return(INCORRECT);
                                 }
@@ -394,7 +411,7 @@ exec_cmd(char   *cmd,
                        if ((n = read(channels[READ], read_ptr, nleft)) < 0)
                        {
                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                     "read() error : %s", strerror(errno));
+                                     _("read() error : %s"), strerror(errno));
                           return(INCORRECT);
                        }
                        if (n > 0)
@@ -408,7 +425,7 @@ exec_cmd(char   *cmd,
                     else
                     {
                        system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "select() error : %s", strerror(errno));
+                                  _("select() error : %s"), strerror(errno));
                        return(INCORRECT);
                     }
 
@@ -420,9 +437,9 @@ exec_cmd(char   *cmd,
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                                   "Failed to kill() process %d, due to exec timeout.",
+                                   _("Failed to kill() process %d, due to exec timeout."),
 #else
-                                   "Failed to kill() process %lld, due to exec timeout.",
+                                   _("Failed to kill() process %lld, due to exec timeout."),
 #endif
                                    (pri_pid_t)child_pid);
                      }
@@ -434,9 +451,9 @@ exec_cmd(char   *cmd,
                         {
                            (void)rec(log_fd, WARN_SIGN,
 #if SIZEOF_PID_T == 4
-                                     "%-*s%s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                     _("%-*s%s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n"),
 #else
-                                     "%-*s%s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                     _("%-*s%s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n"),
 #endif
                                      name_length, name, job,
                                      (pri_pid_t)child_pid, p_cmd, exec_timeout);
@@ -452,9 +469,9 @@ exec_cmd(char   *cmd,
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                                      "Failed to kill() process %d, due to exec timeout.",
+                                      _("Failed to kill() process %d, due to exec timeout."),
 #else
-                                      "Failed to kill() process %lld, due to exec timeout.",
+                                      _("Failed to kill() process %lld, due to exec timeout."),
 #endif
                                       (pri_pid_t)child_pid);
                         }
@@ -468,9 +485,9 @@ exec_cmd(char   *cmd,
                               {
                                  (void)rec(log_fd, WARN_SIGN,
 #if SIZEOF_PID_T == 4
-                                           "%-*s%s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                           _("%-*s%s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n"),
 #else
-                                           "%-*s%s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                           _("%-*s%s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n"),
 #endif
                                            name_length, name, job,
                                            (pri_pid_t)child_pid,
@@ -490,7 +507,7 @@ exec_cmd(char   *cmd,
          if (close(channels[READ]) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
 
          break;

@@ -1,6 +1,6 @@
 /*
  *  rec_rmdir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -73,7 +73,7 @@ rec_rmdir(char *dirname)
       if (errno != ENOENT)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to stat() <%s> : %s", dirname, strerror(errno));
+                    _("Failed to stat() `%s' : %s"), dirname, strerror(errno));
          return(INCORRECT);
       }
       else
@@ -83,19 +83,19 @@ rec_rmdir(char *dirname)
       }
    }
 
-   /* Make sure it is NOT a directory */
+   /* Make sure it is NOT a directory. */
    if (S_ISDIR(stat_buf.st_mode) == 0)
    {
       if (unlink(dirname) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to delete <%s> : %s", dirname, strerror(errno));
+                    _("Failed to delete `%s' : %s"), dirname, strerror(errno));
          return(INCORRECT);
       }
       return(0);
    }
 
-   /* It's a directory */
+   /* It's a directory. */
    ptr = dirname + strlen(dirname);
    *ptr++ = '/';
    *ptr = '\0';
@@ -103,7 +103,7 @@ rec_rmdir(char *dirname)
    if ((dp = opendir(dirname)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() <%s> : %s", dirname, strerror(errno));
+                 _("Failed to opendir() `%s' : %s"), dirname, strerror(errno));
       return(INCORRECT);
    }
 
@@ -126,7 +126,8 @@ rec_rmdir(char *dirname)
       if (rmdir(dirname) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to rmdir() <%s> : %s", dirname, strerror(errno));
+                    _("Failed to delete directory `%s' with rmdir() : %s"),
+                    dirname, strerror(errno));
          (void)closedir(dp);
          return(INCORRECT);
       }
@@ -134,7 +135,7 @@ rec_rmdir(char *dirname)
    if (closedir(dp) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to closedir() <%s> : %s", dirname, strerror(errno));
+                 _("Failed to closedir() `%s' : %s"), dirname, strerror(errno));
       return(INCORRECT);
    }
 

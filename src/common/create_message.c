@@ -1,6 +1,6 @@
 /*
  *  create_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,11 +40,6 @@ DESCR__S_M3
  **   SUCCESS when it managed to create the message, otherwise
  **   INCORRECT will be returned.
  **
- ** SEE ALSO
- **   common/get_hostname.c, fd/eval_recipient.c, fd/get_job_data.c,
- **   amg/store_passwd.c, fd/init_msg_buffer.c, tools/get_dc_data.c,
- **   tools/set_pw.c
- **
  ** AUTHOR
  **   H.Kiehl
  **
@@ -64,11 +59,11 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>          /* write(), close()                         */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>           /* open()                                   */
+# include <fcntl.h>          /* open()                                   */
 #endif
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern char msg_dir[],
             *p_msg_dir;
 
@@ -77,123 +72,55 @@ extern char msg_dir[],
 int
 create_message(unsigned int job_id, char *recipient, char *options)
 {
-   int  fd,
-        length,
-        ret = SUCCESS;
-   char buffer[MAX_RECIPIENT_LENGTH + 3];
-#ifdef WITH_PASSWD_IN_MSG
-   char password[MAX_USER_NAME_LENGTH],
-        *p_rest,
-        *ptr;
+   int          fd,
+                length,
+                ret = SUCCESS;
+   char         buffer[1 + MAX_RECIPIENT_LENGTH + 2 + 1];
+#ifdef EXPAND_PATH_IN_MESSAGE
+   char         *p_recipient;
+#endif
+#if defined WITH_PASSWD_IN_MSG || defined EXPAND_PATH_IN_MESSAGE
+   char         new_recipient[MAX_RECIPIENT_LENGTH + 1];
+#endif
 
-   ptr = recipient;
-   if (((*ptr == 'f') && (*(ptr + 1) == 'i') && (*(ptr + 2) == 'i') &&
-        (*(ptr + 3) == 'l') && (*(ptr + 4) == 'e') && (*(ptr + 5) == ':')) ||
-       ((*ptr == 'm') && (*(ptr + 1) == 'a') && (*(ptr + 2) == 'i') &&
-        (*(ptr + 3) == 'l') && (*(ptr + 4) == 't') && (*(ptr + 5) == 'o') &&
-        (*(ptr + 6) == ':')) ||
-       ((*ptr == 'w') && (*(ptr + 1) == 'm') && (*(ptr + 2) == 'o') &&
-        (*(ptr + 3) == ':')))
+#ifdef WITH_PASSWD_IN_MSG
+   (void)strcpy(new_recipient, recipient);
+   url_insert_password(new_recipient, NULL);
+#endif
+#ifdef EXPAND_PATH_IN_MESSAGE
+   /* LOC_SHEME : file */
+   if ((recipient[0] == 'f') && (recipient[1] == 'i') &&
+       (recipient[2] == 'l') && (recipient[3] == 'e') &&
+       (recipient[4] == ':'))
    {
-      /* No need to store any password for scheme file, mailto and wmo. */
-      password[0] = '\0';
+      char *p_directory,
+           user[MAX_USER_NAME_LENGTH + 1];
+
+# ifndef WITH_PASSWD_IN_MSG
+      (void)strcpy(new_recipient, recipient);
+# endif
+      p_recipient = new_recipient;
+      if ((url_evaluate(new_recipient, NULL, user, NULL, NULL,
+# ifdef WITH_SSH_FINGERPRINT
+                        NULL, NULL,
+# endif
+                        NULL, NO, NULL, NULL, NULL, &p_directory,
+                        NULL, NULL, NULL, NULL) == 0) &&
+          (*p_directory != '/'))
+      {
+         if (expand_path(user, p_directory) == INCORRECT)
+         {
+            return(INCORRECT);
+         }
+      }
    }
    else
    {
-      length = 1;
-      buffer[0] = '\n';
-      while ((*ptr != ':') && (*ptr != '\0'))
-      {
-         buffer[length] = *ptr;
-         ptr++; length++;
-      }
-      if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
-      {
-         ptr += 3; /* Away with '://' */
-         buffer[length] = ':';
-         buffer[length + 1] = buffer[length + 2] = '/';
-         length += 3;
-         if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '@') &&
-             (*ptr != '\0'))
-         {
-            char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
-
-            fd = 0;
-#ifdef WITH_SSH_FINGERPRINT
-            while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
-#else
-            while ((*ptr != ':') && (*ptr != '@') &&
-#endif
-                   (*ptr != '\0') && (fd < MAX_USER_NAME_LENGTH))
-            {
-               if (*ptr == '\\')
-               {
-                  buffer[length] = *ptr;
-                  ptr++; length++;
-               }
-               uh_name[fd] = *ptr;
-               buffer[length] = *ptr;
-               ptr++; fd++; length++;
-            }
-            if (fd > 0)
-            {
-#ifdef WITH_SSH_FINGERPRINT
-               if ((fd == MAX_USER_NAME_LENGTH) || (*ptr == ';'))
-#else
-               if (fd == MAX_USER_NAME_LENGTH)
-#endif
-               {
-                  while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        buffer[length] = *ptr;
-                        ptr++; length++;
-                     }
-                     buffer[length] = *ptr;
-                     ptr++; length++;
-                  }
-               }
-               if (*ptr == '@')
-               {
-                  int uh_name_length = fd;
-
-                  fd = 0;
-                  p_rest = ptr;
-                  ptr++; /* Away with the '@' */
-                  while ((*ptr != '\0') && (*ptr != '/') &&
-                         (*ptr != ':') && (*ptr != ';') &&
-                         (fd < MAX_REAL_HOSTNAME_LENGTH))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     uh_name[uh_name_length + fd] = *ptr;
-                     ptr++; fd++;
-                  }
-                  uh_name[uh_name_length + fd] = '\0';
-                  (void)get_pw(uh_name, password);
-               }
-               else
-               {
-                  password[0] = '\0';
-               }
-            }
-            else
-            {
-               password[0] = '\0';
-            }
-         }
-         else
-         {
-            password[0] = '\0';
-         }
-      }
-      else
-      {
-         password[0] = '\0';
-      }
+# ifdef WITH_PASSWD_IN_MSG
+      p_recipient = new_recipient;
+# else
+      p_recipient = recipient;
+# endif
    }
 #endif
 
@@ -207,20 +134,14 @@ create_message(unsigned int job_id, char *recipient, char *options)
    {
       if (write(fd, DESTINATION_IDENTIFIER, DESTINATION_IDENTIFIER_LENGTH) == DESTINATION_IDENTIFIER_LENGTH)
       {
-#ifdef WITH_PASSWD_IN_MSG
-         if (password[0] != '\0')
-         {
-            buffer[length] = ':';
-            length++;
-            length += sprintf(&buffer[length], "%s", password);
-            length += sprintf(&buffer[length], "%s\n\n", p_rest);
-         }
-         else
-         {
-            length = sprintf(buffer, "\n%s\n\n", recipient);
-         }
+#ifdef EXPAND_PATH_IN_MESSAGE
+         length = sprintf(buffer, "\n%s\n\n", p_recipient);
 #else
+# ifdef WITH_PASSWD_IN_MSG
+         length = sprintf(buffer, "\n%s\n\n", new_recipient);
+# else
          length = sprintf(buffer, "\n%s\n\n", recipient);
+# endif
 #endif
          if (write(fd, buffer, length) == length)
          {
@@ -236,7 +157,7 @@ create_message(unsigned int job_id, char *recipient, char *options)
                      if (write(fd, "\n", 1) != 1)
                      {
                         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                   "Failed to write to `%s' : %s",
+                                   _("Failed to write to `%s' : %s"),
                                    msg_dir, strerror(errno));
                         ret = INCORRECT;
                      }
@@ -244,7 +165,7 @@ create_message(unsigned int job_id, char *recipient, char *options)
                   else
                   {
                      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                "Failed to write to `%s' : %s",
+                                _("Failed to write to `%s' : %s"),
                                 msg_dir, strerror(errno));
                      ret = INCORRECT;
                   }
@@ -252,7 +173,7 @@ create_message(unsigned int job_id, char *recipient, char *options)
                else
                {
                   system_log(FATAL_SIGN, __FILE__, __LINE__,
-                             "Failed to write to `%s' : %s",
+                             _("Failed to write to `%s' : %s"),
                              msg_dir, strerror(errno));
                   ret = INCORRECT;
                }
@@ -261,7 +182,7 @@ create_message(unsigned int job_id, char *recipient, char *options)
          else
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to write to `%s' : %s",
+                       _("Failed to write to `%s' : %s"),
                        msg_dir, strerror(errno));
             ret = INCORRECT;
          }
@@ -269,19 +190,20 @@ create_message(unsigned int job_id, char *recipient, char *options)
       else
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to write to `%s' : %s", msg_dir, strerror(errno));
+                    _("Failed to write to `%s' : %s"),
+                    msg_dir, strerror(errno));
          ret = INCORRECT;
       }
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
+                    _("close() error : %s"), strerror(errno));
       }
    }
    else
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to open() `%s' : %s", msg_dir, strerror(errno));
+                 _("Failed to open() `%s' : %s"), msg_dir, strerror(errno));
       ret = INCORRECT;
    }
 

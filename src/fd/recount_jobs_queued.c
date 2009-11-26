@@ -45,7 +45,7 @@ DESCR__E_M3
 
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        *no_msg_queued;
 extern struct fileretrieve_status *fra;
 extern struct queue_buf           *qb;

@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;

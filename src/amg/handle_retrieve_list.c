@@ -1,7 +1,7 @@
 /*
  *  handle_retrieve_list.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   21.08.2006 H.Kiehl Created
+ **   30.01.2009 H.Kiehl Catch case when retrieve list file size does
+ **                      not match the expected size.
  **
  */
 DESCR__E_M3
@@ -129,9 +131,44 @@ check_list(struct directory_entry *p_de,
       if (stat_buf.st_size == 0)
       {
          *p_de->no_of_listed_files = 0;
+         *(ptr + SIZEOF_INT + 1 + 1) = 0;               /* Not used. */
+         *(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 1 + 1 + 1) = CURRENT_RL_VERSION;
+         *(int *)(ptr + SIZEOF_INT + 4) = 0;            /* Not used. */
+         *(ptr + SIZEOF_INT + 4 + SIZEOF_INT) = 0;      /* Not used. */
+         *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 1) = 0;  /* Not used. */
+         *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 2) = 0;  /* Not used. */
+         *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 3) = 0;  /* Not used. */
       }
       else
       {
+         if (*(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 1 + 1 + 1) != CURRENT_RL_VERSION)
+         {
+            if ((ptr = convert_ls_data(p_de->rl_fd,
+                                       list_file,
+                                       &p_de->rl_size,
+                                       *p_de->no_of_listed_files,
+                                       ptr,
+                                       *(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 1 + 1 + 1),
+                                       CURRENT_RL_VERSION)) == NULL)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to convert AFD ls data file %s.",
+                          list_file);
+               exit(INCORRECT);
+            }
+            else
+            {
+               p_de->no_of_listed_files = (int *)ptr;
+               ptr += AFD_WORD_OFFSET;
+               p_de->rl = (struct retrieve_list *)ptr;
+               if (fstat(p_de->rl_fd, &stat_buf) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to fstat() `%s' : %s", list_file, strerror(errno));
+                  exit(INCORRECT);
+               }
+            }
+         }
          if (*p_de->no_of_listed_files < 0)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -141,13 +178,13 @@ check_list(struct directory_entry *p_de,
          }
          else
          {
+            off_t calc_size;
+
+            calc_size = (((*p_de->no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                         RETRIEVE_LIST_STEP_SIZE *
+                         sizeof(struct retrieve_list)) + AFD_WORD_OFFSET;
             if (((stat_buf.st_size - AFD_WORD_OFFSET) % sizeof(struct retrieve_list)) != 0)
             {
-               off_t calc_size;
-
-               calc_size = (((*p_de->no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
-                            RETRIEVE_LIST_STEP_SIZE *
-                            sizeof(struct retrieve_list)) + AFD_WORD_OFFSET;
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
                           "Hmm, LS data file %s has incorrect size (%ld != %ld), removing it.",
@@ -203,9 +240,85 @@ check_list(struct directory_entry *p_de,
                }
                p_de->no_of_listed_files = (int *)ptr;
                ptr += AFD_WORD_OFFSET;
+               *(ptr + SIZEOF_INT + 1 + 1) = 0;               /* Not used. */
+               *(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 1 + 1 + 1) = CURRENT_RL_VERSION;
+               *(int *)(ptr + SIZEOF_INT + 4) = 0;            /* Not used. */
+               *(ptr + SIZEOF_INT + 4 + SIZEOF_INT) = 0;      /* Not used. */
+               *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 1) = 0;  /* Not used. */
+               *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 2) = 0;  /* Not used. */
+               *(ptr + SIZEOF_INT + 4 + SIZEOF_INT + 3) = 0;  /* Not used. */
                p_de->rl = (struct retrieve_list *)ptr;
                *p_de->no_of_listed_files = 0;
             }
+            else if ((calc_size > stat_buf.st_size) &&
+                     (!((*p_de->no_of_listed_files != 0) &&
+                      ((*p_de->no_of_listed_files % RETRIEVE_LIST_STEP_SIZE) == 0))))
+                 {
+                    int  loops,
+                         rest,
+                         write_size;
+                    char buffer[4096];
+
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                               "Hmm, LS data file %s has incorrect size (%ld != %ld), resizing it.",
+#else
+                               "Hmm, LS data file %s has incorrect size (%lld != %lld), resizing it.",
+#endif
+                               list_file, (pri_off_t)stat_buf.st_size,
+                               (pri_off_t)calc_size);
+                    ptr -= AFD_WORD_OFFSET;
+                    if (munmap(ptr, stat_buf.st_size) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to munmap() %s : %s",
+                                  list_file, strerror(errno));
+                    }
+                    if (lseek(p_de->rl_fd, stat_buf.st_size, SEEK_SET) == -1)
+                    {
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Failed to lssek() in %s : %s",
+                                  list_file, strerror(errno));
+                       exit(INCORRECT);
+                    }
+                    write_size = calc_size - stat_buf.st_size;
+                    (void)memset(buffer, 0, 4096);
+                    loops = write_size / 4096;
+                    rest = write_size % 4096;
+                    for (i = 0; i < loops; i++)
+                    {
+                       if (write(p_de->rl_fd, buffer, 4096) != 4096)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "Failed to write() to `%s' : %s",
+                                     list_file, strerror(errno));
+                          exit(INCORRECT);
+                       }
+                    }
+                    if (rest > 0)
+                    {
+                       if (write(p_de->rl_fd, buffer, rest) != rest)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "Failed to write() to `%s' : %s",
+                                     list_file, strerror(errno));
+                          exit(INCORRECT);
+                       }
+                    }
+                    if ((ptr = mmap(NULL, calc_size, (PROT_READ | PROT_WRITE),
+                                    MAP_SHARED, p_de->rl_fd,
+                                    0)) == (caddr_t) -1)
+                    {
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Failed to mmap() to `%s' : %s",
+                                  list_file, strerror(errno));
+                       exit(INCORRECT);
+                    }
+                    p_de->no_of_listed_files = (int *)ptr;
+                    ptr += AFD_WORD_OFFSET;
+                    p_de->rl = (struct retrieve_list *)ptr;
+                    p_de->rl_size = calc_size;
+                 }
             for (i = 0; i < *p_de->no_of_listed_files; i++)
             {
                p_de->rl[i].in_list = NO;

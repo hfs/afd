@@ -16,7 +16,7 @@ only possible to have one of this dialog open at the same time.
 <center>
 <table border>
 <tr>
-   <td>&nbsp<b>1</b>&nbsp</td>
+   <td><a name="alias_hostname">&nbsp<b>1</b>&nbsp</a></td>
    <td>Alias Hostname</td>
    <td>In this list widget, all host alias names found in the DIR_CONFIG
        are listed in the order that they are found there. In order to make a
@@ -29,7 +29,7 @@ only possible to have one of this dialog open at the same time.
        pressed.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>2</b>&nbsp</td>
+   <td><a name="host_switching">&nbsp<b>2</b>&nbsp</a></td>
    <td>Host Switching</td>
    <td>When the toggle button for Host switching is turned on (inserted)
        it is possible to have two addresses for a single host. The
@@ -41,8 +41,8 @@ only possible to have one of this dialog open at the same time.
        be appended to the end of the alias host name.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>3</b>&nbsp</td>
-   <td><a name="real_hostname">Real Hostname</a></td>
+   <td><a name="real_hostname">&nbsp<b>3</b>&nbsp</a></td>
+   <td>Real Hostname</td>
    <td>Here you may specify the real host name or IP number. This has the
        advantage that you can give remote hosts names that are not in
        the local /etc/hosts file or the name server. If a secondary host
@@ -54,30 +54,30 @@ only possible to have one of this dialog open at the same time.
        'file' to deliver the data.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>4</b>&nbsp</td>
+   <td><a name="text_fields">&nbsp<b>4</b>&nbsp</a></td>
    <td>Text Fields</td>
    <td><table border>
        <tr>
-          <td>Transfer timeout</td>
+          <td><a name="transfer_timeout">Transfer timeout</a></td>
           <td>The time how long the AFD should wait for a reply from the
               remote site.</td>
        </tr>
        <tr>
-          <td>Retry interval</td>
+          <td><a name="retry_interval">Retry interval</a></td>
           <td>If an error occurs, this is the delay (in seconds) before
               another transfer is initiated.</td>
+       </tr>
+       <tr>
+          <td><a name="max_errors">Maximum errors</a></td>
+          <td>If max. errors is reached the destination identifier turns
+              'red'. If error retries reaches twice max. errors the queue
+              of this host will be paused.</td>
        </tr>
        <tr>
           <td>Ignore errors+warnings</td>
           <td>If set, errors and warnings for this host will be set to
               offline. If the value of 'Maximum errors' is reached the
               host will turn 'blue'.</td>
-       </tr>
-       <tr>
-          <td>Maximum errors</td>
-          <td>If max. errors is reached the destination identifier turns
-              'red'. If error retries reaches twice max. errors the queue
-              of this host will be paused.</td>
        </tr>
        <tr>
           <td><a name="successful_retries">Successful retries</a></td>
@@ -89,12 +89,31 @@ only possible to have one of this dialog open at the same time.
               after a failover.</td>
        </tr>
        <tr>
-          <td>Keep connected</td>
+          <td><a name="do_not_delete_data">Do not delete data</a></td>
+          <td>When set no data will be deleted even when option
+              <a href="dir_config.html#age-limit">age-limit</a> is set
+              or directory option <a href="dir_config.html#delete_queued_files">
+              delete queued files</a> is set. This can be useful when the
+              target host is taken down for maintenance and you do not
+              want to loose any data.</td>
+       </tr>
+       <tr>
+          <td><a name="keep_connected">Keep connected</a></td>
           <td>The number of seconds that the connection should be kept
               open for retrieving and sending files, when the toggle
               button 'Both' is set. If the toggle button 'Fetch' is set,
               this value is only set when retrieving files. When 'Send'
               is set the value is only valid for sending files.</td>
+       </tr>
+       <tr>
+          <td><a name="warn_time">Warn time</a></td>
+          <td>When the given time has elapsed with no data being send
+              to this host, the script/program in
+              AFD_WORK_DIR/etc/action/target/warn/ with the
+              &lt;Alias hostname&gt; as filename is executed with the
+              parameter 'start'. As soon as data has been send successful
+              the script/program is called again with the parameter
+              'stop'.</td>
        </tr>
        </table>
    </td>
@@ -108,21 +127,21 @@ only possible to have one of this dialog open at the same time.
        file, if you want to group several hosts to one limit.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>6</b>&nbsp</td>
+   <td><a name="socket_send_buffer_size">&nbsp<b>6</b>&nbsp</a></td>
    <td>Socket send buffer size</td>
    <td>Changes the socket send buffer size. This can improve throughput
-       on high bandwith connections or when the RTT (round-trip time)
+       on high bandwidth connections or when the RTT (round-trip time)
        gets large. Ensure that you understand how to determine this
        value otherwise you will be wasting memory and can increase
        latency with small files.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>7</b>&nbsp</td>
+   <td><a name="socket_receive_buffer_size">&nbsp<b>7</b>&nbsp</a></td>
    <td>Socket receive buffer size</td>
    <td>Changes the socket receive buffer size. See description above.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>8</b>&nbsp</td>
+   <td><a name="check_for_duplicagtes">&nbsp<b>8</b>&nbsp</a></td>
    <td>Check for duplicates</td>
    <td>Performs a duplicate on files that are send to this host. The
        options have the following meaning:
@@ -130,6 +149,11 @@ only possible to have one of this dialog open at the same time.
        <tr>
           <th>Option</th>
           <th>Description</th>
+       </tr>
+       <tr>
+          <td>Timeout</td>
+          <td>Time in seconds when this CRC value is to be discarded
+              from the database.</td>
        </tr>
        <tr>
           <td>Check Type</td>
@@ -141,6 +165,11 @@ only possible to have one of this dialog open at the same time.
                  <td>Perform check only on the filename.</td>
               </tr>
               <tr>
+                 <td>Name+size</td>
+                 <td>Perform check on the filename and the size of the
+                     file.</td>
+              </tr>
+              <tr>
                  <td>Name no suffix</td>
                  <td>Perform check only on the filename without last suffix.</td>
               </tr>
@@ -149,7 +178,7 @@ only possible to have one of this dialog open at the same time.
                  <td>Creates the checksum on the file content only.</td>
               </tr>
               <tr>
-                 <td>Name + content</td>
+                 <td>Name+content</td>
                  <td>Creates checksum from file name and content.</td>
               </tr>
               </table>
@@ -168,7 +197,7 @@ only possible to have one of this dialog open at the same time.
                  <td>Store</td>
                  <td>Store the duplicate file in the following directory:
                      $AFD_WORK_DIR/files/store/&lt;id&gt;. Where &lt;id&gt;
-                     is the directoy id.</td>
+                     is the directory id.</td>
               </tr>
               <tr>
                  <td>Warn</td>
@@ -178,15 +207,19 @@ only possible to have one of this dialog open at the same time.
           </td>
        </tr>
        <tr>
-          <td>Timeout</td>
-          <td>Time in seconds when this CRC value is to be discarded
-              from the database.</td>
+          <td>Reference</td>
+          <td>If Alias (default) is set, only the host alias is taken as
+              reference when checking if the data has already been transmitted.
+              If instead Recipient is used, the full recipient is taken
+              as reference (eg. ftp://donald@ducktown/data). This is useful
+              when you wish to send the same data to more then one user
+              and/or directory on the same host.</td>
        </tr>
        </table>
    </td>
 </tr>
 <tr>
-   <td>&nbsp<b>9</b>&nbsp</td>
+   <td><a name="options">&nbsp<b>9</b>&nbsp</a></td>
    <td>Options</td>
    <td><table border>
        <tr>
@@ -194,9 +227,8 @@ only possible to have one of this dialog open at the same time.
           <td>The maximum number of parallel transfers for this host.</td>
        </tr>
        <tr>
-          <td>Transfer Blocksize</td>
-          <td>The size of the blocks being used to send files to the
-              remote host (in Bytes).</td>
+          <td><a name="transfer_blocksize">Transfer Blocksize</a></td>
+          <td>The block size being used to send files to the given host.</td>
        </tr>
        <tr>
           <td>File size offset</td>
@@ -217,30 +249,20 @@ only possible to have one of this dialog open at the same time.
               </pre>
               i.e. the file size offset is 4.</td>
        </tr>
-       <tr>
-          <td>Number of no bursts</td>
-          <td>The number of connections that may not burst. This is useful
-              for connections where there is lots of files which are being
-              send with the same low priority and only a few files that do
-              have a very high priority. Without this option (ie. it is
-              set to zero), files with lower priority are constantly
-              appended to current jobs (bursting) without the higher
-              priority jobs ever getting a chance.</td>
-       </tr>
        </table>
    </td>
 </tr>
 <tr>
-   <td>&nbsp<b>10</b>&nbsp</td>
+   <td><a name="protocol_specific_options">&nbsp<b>10</b>&nbsp</a></td>
    <td>Protocol specific</td>
    <td>Protocol specific options. Currently these are only for FTP and FTPS,
        except for Fast cd which can also be used for SFTP.
        <table border>
        <tr>
-          <td>FTP Mode</td>
-          <td>The mode to use when transfering or receiving files. Can
+          <td><a name="ftp_mode">FTP Mode</a></td>
+          <td>The mode to use when transferring or receiving files. Can
               be either active, passive, extended active or extended
-              pasive. If you experience problems with the data connection
+              passive. If you experience problems with the data connection
               you might try passive, since firewalls only allow passive
               connections. When using passive (NOT extended passive) it
               is possible to enable redirecting of the data part to
@@ -248,21 +270,22 @@ only possible to have one of this dialog open at the same time.
               best be left disabled.</td>
        </tr>
        <tr>
-          <td>Set idle time</td>
+          <td><a name="set_idle_time">Set idle time</a></td>
           <td>The idle time will be set to the value that is set in the
               Transfer timeout field. Note not all FTP servers support
               this.</td>
        </tr>
        <tr>
-          <td>Keepalive</td>
+          <td><a name="stat_keepalive">STAT Keepalive</a></td>
           <td>Some firewalls timeout the control connection when there
-              is no activety on it. This can happen transfering large
+              is no activity on it. This can happen transferring large
               files over a slow connection. This option, if set, will
               send keepalive commands over the control connection
-              during transfer.</td>
+              during transfer. Most FTP servers do not support this
+              (only vsftpd does support indirectly).</td>
        </tr>
        <tr>
-          <td>Fast rename</td>
+          <td><a name="fast_rename">Fast rename</a></td>
           <td>This will send the RNFR (rename from) and RNTO (rename to)
               commands in one go, not as two separate commands. It reduces
               latency of renaming, but note that some FTP-servers do not
@@ -291,17 +314,58 @@ only possible to have one of this dialog open at the same time.
               have problems with this. So with this option it is possible
               to disable bursting.</td>
        </tr>
+       <tr>
+          <td><a name="tcp_keepalive">TCP Keepalive</a></td>
+          <td>Sets the keepalive flag for the TCP connection. When the
+              keepalive option is set and no data has been exchanged in
+              either direction for 2 hours, TCP automatically sends a
+              keepalive probe. If the system does support the socket()
+              option TCP_KEEPALIVE, then the timeout value is set to
+              that value entered in the 'Tansfer timeout' field minus
+              5 seconds and not the default 2 hours.</td>
+       </tr>
+       <tr>
+          <td><a name="seq_locking">Seq. Locking</a></td>
+          <td>When transmitting file "xxxx.yyyy" it adds the number of
+              retries to the end of the file name "xxxx.yyyy-<retries>"
+              during transmission. After the file was transmitted
+              successful it is renamed to the original name "xxxx.yyyy".
+              Note, when set appending will NOT be possible. This option
+              is useful when the remote side has problems with still having
+              this file open by some other process, since with every try
+              it will open a new file with a different name. It will try to
+              delete the previous before it opens a new one. This option
+              can be combined with the other locking options.
+       </tr>
+       <tr>
+          <td><a name="compression">Compression</a></td>
+          <td>If the protocol does support compression enable this
+              to reduce the volume send to this host. This does increase
+              the CPU time used and not all data does compress well.
+              This can currently only be enabled for protocol SCP and
+              SFTP.</td>
+       </tr>
+       <tr>
+          <td><a name="keep_time_stamp">Keep time stamp</a></td>
+          <td>This tries to preserve the original time stamp of the
+              file being transmitted. Currently this only works
+              with FTP, FILE and SFTP.</td>
+       </tr>
+       <tr>
+          <td><a name="sort_file_names">Sort file names</a></td>
+          <td>Files are being sorted by their name before being send.</td>
+       </tr>
        </table>
    </td>
 </tr>
 <tr>
-   <td>&nbsp<b>11</b>&nbsp</td>
+   <td><a name="proxy">&nbsp<b>11</b>&nbsp</a></td>
    <td>Proxy</td>
    <td>If the remote server is a proxy, enter the sequence on how to
        enter the proxy here. Currently you can only specify the order of
        the user name and the password. To enter the user name just enter
        $U&lt;user name&gt; and the password is entered with $P&lt;password&gt;.
-       You may specify as many user and password elments as you want, each one
+       You may specify as many user and password elements as you want, each one
        must however be separated by a ;. If you only put a $U followed
        directly by a ; it will take the user name from the recipient
        entry. The same goes for the password. If the remote server
@@ -317,8 +381,8 @@ only possible to have one of this dialog open at the same time.
    <td>&nbsp<b>13</b>&nbsp</td>
    <td>Button Line</td>
    <td>Pressing the update button will activate all changes made. You
-       may change several hosts befor pressing the update button, the
-       dialog will remeber all the changes. With the remove button
+       may change several hosts before pressing the update button, the
+       dialog will remember all the changes. With the remove button
        a host can be removed, but only if it is not in the DIR_CONFIG.</td>
 </tr>
 </table>
@@ -327,9 +391,9 @@ only possible to have one of this dialog open at the same time.
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2009 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 12.11.2007
+   Last updated: 15.10.2009
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

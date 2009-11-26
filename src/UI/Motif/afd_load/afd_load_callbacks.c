@@ -56,7 +56,7 @@ DESCR__E_M3
 #include <X11/Xaw/StripChart.h>
 #include "afd_load.h"
 
-/* External global variables */
+/* External global variables. */
 extern Widget                     current_value_w;
 extern int                        no_of_hosts;
 extern double                     prev_value,

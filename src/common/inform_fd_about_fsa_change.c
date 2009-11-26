@@ -1,7 +1,7 @@
 /*
  *  inform_fd_about_fsa_change.c - Part of AFD, an automatic file
  *                                 distribution program.
- *  Copyright (c) 2002 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>
 #include <stdlib.h>
@@ -83,7 +83,7 @@ inform_fd_about_fsa_change(void)
          if (make_fifo(cmd_fifo) < 0)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                      "Could not create fifo %s.", cmd_fifo);
+                      _("Could not create fifo `%s'."), cmd_fifo);
             exit(INCORRECT);
          }
       }
@@ -94,26 +94,26 @@ inform_fd_about_fsa_change(void)
 #endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
-                   "Could not open() fifo %s : %s",
+                   _("Could not open() fifo `%s' : %s"),
                    cmd_fifo, strerror(errno));
          exit(INCORRECT);
       }
       if ((status = send_cmd(FSA_ABOUT_TO_CHANGE, cmd_fd)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to send update command to FD : %s",
+                   _("Failed to send update command to FD : %s"),
                    strerror(-status));
       }
       if (close(cmd_fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "close() error : %s", strerror(errno));
+                   _("close() error : %s"), strerror(errno));
       }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
       if (close(readfd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "close() error : %s", strerror(errno));
+                   _("close() error : %s"), strerror(errno));
       }
 #endif
 
@@ -130,16 +130,16 @@ inform_fd_about_fsa_change(void)
       if (gotcha == NO)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "Hmmm, FD does not reply!");
+                   _("Hmmm, FD does not reply!"));
       }
 #ifdef DEBUG_WAIT_LOOP
       else
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "Got FD_WAITING after %d loops (%8.3fs).",
+                   _("Got FD_WAITING after %d loops (%8.3fs)."),
                    loops, (float)((float)loops / 10.0));
       }
-#endif /* DEBUG_WAIT_LOOP */
+#endif
    } /* if (p_afd_status->fd == ON) */
 
    return;

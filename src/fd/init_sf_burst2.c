@@ -1,6 +1,6 @@
 /*
  *  init_sf_burst2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int init_sf_burst2(struct job   *p_new_db,
  **                      char         *file_path,
- **                      unsigned int *values_changed)
+ **                      unsigned int *values_changed,
+ **                      unsigned int prev_job_id)
  **
  ** DESCRIPTION
  **
@@ -60,12 +61,14 @@ extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
 
+extern char *file_name_buffer;
 
 /*########################## init_sf_burst2() ###########################*/
 int
 init_sf_burst2(struct job   *p_new_db,
                char         *file_path,
-               unsigned int *values_changed)
+               unsigned int *values_changed,
+               unsigned int prev_job_id)
 {
    int   files_to_send = 0;
 #ifdef _WITH_BURST_2
@@ -111,12 +114,7 @@ init_sf_burst2(struct job   *p_new_db,
          }
 #endif
       }
-      (void)strcpy(db.user, p_new_db->user);
       (void)strcpy(db.password, p_new_db->password);
-      (void)strcpy(db.target_dir, p_new_db->target_dir);
-#ifdef WITH_SSL
-      db.auth = p_new_db->auth;
-#endif
       if (p_new_db->smtp_server[0] == '\0')
       {
          db.smtp_server[0] = '\0';
@@ -158,29 +156,40 @@ init_sf_burst2(struct job   *p_new_db,
          (void)strcpy(db.user_rename_rule, p_new_db->user_rename_rule);
       }
       (void)strcpy(db.lock_notation, p_new_db->lock_notation);
-      db.archive_dir[0]      = '\0';
-      if (((db.transfer_mode == 'A') || (db.transfer_mode == 'D')) &&
-          (p_new_db->transfer_mode == 'N'))
-      {
-         db.transfer_mode    = 'I';
-      }
-      else
-      {
-         db.transfer_mode    = p_new_db->transfer_mode;
-      }
+      db.archive_dir[db.archive_offset] = '\0';
       db.lock                = p_new_db->lock;
       if (db.subject != NULL)
       {
          free(db.subject);
       }
       db.subject = p_new_db->subject;
+      if (db.from != NULL)
+      {
+         free(db.from);
+      }
+      db.from = p_new_db->from;
+      if (db.reply_to != NULL)
+      {
+         free(db.reply_to);
+      }
+      db.reply_to = p_new_db->reply_to;
+      if (db.charset != NULL)
+      {
+         free(db.charset);
+      }
+      db.charset = p_new_db->charset;
+      if (db.lock_file_name != NULL)
+      {
+         free(db.lock_file_name);
+      }
+      db.lock_file_name = p_new_db->lock_file_name;
 #ifdef _WITH_TRANS_EXEC
       if (db.trans_exec_cmd != NULL)
       {
          free(db.trans_exec_cmd);
       }
       db.trans_exec_cmd = p_new_db->trans_exec_cmd;
-#endif /* _WITH_TRANS_EXEC */
+#endif
       if (db.special_ptr != NULL)
       {
          free(db.special_ptr);
@@ -196,26 +205,7 @@ init_sf_burst2(struct job   *p_new_db,
       db.dup_check_timeout = p_new_db->dup_check_timeout;
       db.crc_id            = p_new_db->crc_id;
 #endif
-      free(p_new_db);
-      p_new_db = NULL;
    }
-
-#ifdef WITH_ERROR_QUEUE
-   if ((fsa->host_status & ERROR_QUEUE_SET) &&
-       (check_error_queue(db.job_id, -1) == 1))
-   {
-      /* If error queue flag is not set, set it! */
-      if ((db.special_flag & IN_ERROR_QUEUE) == 0)
-      {
-         db.special_flag |= IN_ERROR_QUEUE;
-      }
-   }
-   else
-   {
-      /* Unset error queue flag. */
-      db.special_flag &= ~IN_ERROR_QUEUE;
-   }
-#endif
 
    if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & DISABLE_ARCHIVE)
    {
@@ -272,8 +262,7 @@ init_sf_burst2(struct job   *p_new_db,
    if ((files_to_send = get_file_names(file_path, &file_size_to_send)) > 0)
    {
       /* Do we want to display the status? */
-      (void)gsf_check_fsa();
-      if (db.fsa_pos != INCORRECT)
+      if (gsf_check_fsa() != NEITHER)
       {
 #ifdef LOCK_DEBUG
          rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
@@ -291,6 +280,10 @@ init_sf_burst2(struct job   *p_new_db,
          else if (db.protocol & SFTP_FLAG)
               {
                  fsa->job_status[(int)db.job_no].connect_status = SFTP_BURST_TRANSFER_ACTIVE;
+              }
+         else if (db.protocol & SMTP_FLAG)
+              {
+                 fsa->job_status[(int)db.job_no].connect_status = SMTP_BURST_TRANSFER_ACTIVE;
               }
          else if (db.protocol & SCP_FLAG)
               {
@@ -313,6 +306,37 @@ init_sf_burst2(struct job   *p_new_db,
 
          /* Set the timeout value. */
          transfer_timeout = fsa->transfer_timeout;
+      }
+      if (p_new_db != NULL)
+      {
+         if ((values_changed != NULL) && (*values_changed > 0))
+         {
+            if (*values_changed & USER_CHANGED)
+            {
+               (void)strcpy(db.user, p_new_db->user);
+            }
+            if (*values_changed & TARGET_DIR_CHANGED)
+            {
+               (void)strcpy(db.target_dir, p_new_db->target_dir);
+            }
+         }
+         else
+         {
+            (void)strcpy(db.user, p_new_db->user);
+            (void)strcpy(db.target_dir, p_new_db->target_dir);
+         }
+         if (((db.transfer_mode == 'A') || (db.transfer_mode == 'D')) &&
+             (p_new_db->transfer_mode == 'N'))
+         {
+            db.transfer_mode = 'I';
+         }
+         else
+         {
+            db.transfer_mode = p_new_db->transfer_mode;
+         }
+#ifdef WITH_SSL
+         db.auth = p_new_db->auth;
+#endif
       }
    }
    else
@@ -348,6 +372,15 @@ init_sf_burst2(struct job   *p_new_db,
                        "Failed to remove directory %s", file_path);
          }
       }
+      if (prev_job_id != 0)
+      {
+         db.job_id = prev_job_id;
+      }
+   }
+   if (p_new_db != NULL)
+   {
+      free(p_new_db);
+      p_new_db = NULL;
    }
 #endif /* _WITH_BURST_2 */
 

@@ -1,7 +1,7 @@
 /*
  *  wmodefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,9 +24,8 @@
 #define DEFAULT_WMO_PORT   25
 #define MAX_WMO_COUNTER    999
 
-/* Function prototypes */
-extern int  next_wmo_counter(int),
-            wmo_check_reply(void),
+/* Function prototypes. */
+extern int  wmo_check_reply(void),
             wmo_connect(char *, int, int),
             wmo_write(char *, int);
 extern void wmo_quit(void);

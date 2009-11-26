@@ -1,6 +1,6 @@
 /*
  *  logdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,35 +73,62 @@
 #define BUFFERED_WRITES_BEFORE_FLUSH_SLOW 20
 
 /*-----------------------------------------------------------------------*
- * MAX_INPUT_LOG_FILES      - The number of log files that should be kept
- *                            for input logging. If it is set to 10 and
- *                            SWITCH_FILE_TIME is 86400 (i.e. one day),
- *                            you will store the input log for 10 days.
- * MAX_OUTPUT_LOG_FILES     - The number of log files that should be kept
- *                            for output logging. If it is set to 10 and
- *                            SWITCH_FILE_TIME is 86400 (i.e. one day),
- *                            you will store the output log for 10 days.
- * MAX_DELETE_LOG_FILES     - Same as above only for the delete log.
- * MAX_PRODUCTION_LOG_FILES - Same as above only for the production log.
+ * MAX_INPUT_LOG_FILES        - The number of log files that should be kept
+ *                              for input logging. If it is set to 10 and
+ *                              SWITCH_FILE_TIME is 86400 (i.e. one day),
+ *                              you will store the input log for 10 days.
+ * MAX_DISTRIBUTION_LOG_FILES - The number of log files that should be kept
+ *                              for distribution logging. If it is set to
+ *                              10 and SWITCH_FILE_TIME is 86400 (i.e. one
+ *                              day), you will store the input log for 10
+ *                              days.
+ * MAX_OUTPUT_LOG_FILES       - The number of log files that should be kept
+ *                              for output logging. If it is set to 10 and
+ *                              SWITCH_FILE_TIME is 86400 (i.e. one day),
+ *                              you will store the output log for 10 days.
+ * MAX_DELETE_LOG_FILES       - Same as above only for the delete log.
+ * MAX_PRODUCTION_LOG_FILES   - Same as above only for the production log.
  *-----------------------------------------------------------------------*/
 #ifdef _INPUT_LOG
-/* Definitions for input logging */
+/* Definitions for input logging. */
 # define MAX_INPUT_LOG_FILES              7
 # define INPUT_BUFFER_FILE                "INPUT_LOG."
 # define INPUT_BUFFER_FILE_LENGTH         (sizeof(INPUT_BUFFER_FILE) - 1)
 # define INPUT_BUFFER_FILE_ALL            "INPUT_LOG.*"
 # define MAX_INPUT_LOG_FILES_DEF          "MAX_INPUT_LOG_FILES"
 #endif
+#ifdef _DISTRIBUTION_LOG
+/* Definitions for input logging. */
+# define MAX_DISTRIBUTION_LOG_FILES      7
+# define DISTRIBUTION_BUFFER_FILE        "DISTRIBUTION_LOG."
+# define DISTRIBUTION_BUFFER_FILE_LENGTH (sizeof(DISTRIBUTION_BUFFER_FILE) - 1)
+# define DISTRIBUTION_BUFFER_FILE_ALL    "DISTRIBUTION_LOG.*"
+# define MAX_DISTRIBUTION_LOG_FILES_DEF  "MAX_DISTRIBUTION_LOG_FILES"
+# define MAX_SEGMENTED_LINES_BUFFERED    100 /* The maximum number of lines  */
+                                             /* we may buffer before we data */
+                                             /* gets thrown away.            */
+# define MAX_HOLD_TIME_SEGMENTED_LINE    120 /* Maximum time in seconds we   */
+                                             /* hold a segmented line in     */
+                                             /* buffer.                      */
+# define SEGMENTED_BUFFER_CHECK_INTERVAL 30  /* Interval at which we need to */
+                                             /* check if we have unused      */
+                                             /* segmented lines to clear     */
+                                             /* them from buffer.            */
+
+#endif
 #ifdef _OUTPUT_LOG
-/* Definitions for output logging */
+/* Definitions for output logging. */
 # define MAX_OUTPUT_LOG_FILES             7
 # define OUTPUT_BUFFER_FILE               "OUTPUT_LOG."
 # define OUTPUT_BUFFER_FILE_LENGTH        (sizeof(OUTPUT_BUFFER_FILE) - 1)
 # define OUTPUT_BUFFER_FILE_ALL           "OUTPUT_LOG.*"
 # define MAX_OUTPUT_LOG_FILES_DEF         "MAX_OUTPUT_LOG_FILES"
+# ifdef WITH_LOG_CACHE
+#  define OUTPUT_BUFFER_CACHE_FILE        "OUTPUT_CACHE_LOG."
+# endif
 #endif
 #ifdef _DELETE_LOG
-/* Definitions for delete logging */
+/* Definitions for delete logging. */
 # define MAX_DELETE_LOG_FILES             7
 # define DELETE_BUFFER_FILE               "DELETE_LOG."
 # define DELETE_BUFFER_FILE_LENGTH        (sizeof(DELETE_BUFFER_FILE) - 1)
@@ -115,16 +142,17 @@
 # define PRODUCTION_BUFFER_FILE_ALL       "PRODUCTION_LOG.*"
 # define MAX_PRODUCTION_LOG_FILES_DEF     "MAX_PRODUCTION_LOG_FILES"
 #endif
-#define MAX_LOG_NAME_LENGTH               15 /* Max length of:         */
-                                             /* SYSTEM_LOG_NAME        */
-                                             /* RECEIVE_LOG_NAME       */
-                                             /* TRANSFER_LOG_NAME      */
-                                             /* TRANS_DB_LOG_NAME      */
-                                             /* INPUT_BUFFER_FILE      */
-                                             /* OUTPUT_BUFFER_FILE     */
-                                             /* DELETE_BUFFER_FILE     */
-                                             /* PRODUCTION_BUFFER_FILE */
-#define MAX_LOG_DEF_NAME_LENGTH           24 /* Max length of:               */
+#define MAX_LOG_NAME_LENGTH               17 /* Max length of:           */
+                                             /* SYSTEM_LOG_NAME          */
+                                             /* RECEIVE_LOG_NAME         */
+                                             /* TRANSFER_LOG_NAME        */
+                                             /* TRANS_DB_LOG_NAME        */
+                                             /* INPUT_BUFFER_FILE        */
+                                             /* DISTRIBUTION_BUFFER_FILE */
+                                             /* OUTPUT_BUFFER_FILE       */
+                                             /* DELETE_BUFFER_FILE       */
+                                             /* PRODUCTION_BUFFER_FILE   */
+#define MAX_LOG_DEF_NAME_LENGTH           26 /* Max length of:               */
                                              /* MAX_SYSTEM_LOG_FILES_DEF     */
                                              /* MAX_RECEIVE_LOG_FILES_DEF    */
                                              /* MAX_TRANSFER_LOG_FILES_DEF   */
@@ -134,32 +162,27 @@
                                              /* MAX_DELETE_LOG_FILES_DEF     */
                                              /* MAX_PRODUCTION_LOG_FILES_DEF */
 
-/* Definitions for evaluating log data (alda). */
-#define ALDA_LOCAL_MODE                  1
-#define ALDA_REMOTE_MODE                 2
-#define ALDA_BACKWARD_MODE               4
-#define ALDA_FORARD_MODE                 8
-
-/* Structure for evaluating log data (alda). */
-struct alda_data
+#ifdef _DISTRIBUTION_LOG
+/* Structure for distribution_log to store segmented lines. */
+struct buffered_line
        {
-          off_t         file_size;
-          time_t        data_time;
-          unsigned int  flag;       /* Output log - Protocol used        */
-                                    /* Delete log - Deletion type        */
-          unsigned int  dir_id;
-          unsigned int  job_id;
-          char          *file_name;
-          char          *action;    /* Production log - command executed */
-                                    /* Delete log     - user/process     */
-          unsigned char type;       /* Which log type this is.           */
+          char         *line;
+          int          buffer_length;
+          int          line_offset;
+          unsigned int did;
+          unsigned int unique_number;
+          time_t       entry_time;
        };
+#endif
 
 /* Function prototypes. */
 extern int  event_logger(FILE *, off_t, int, int),
             fprint_dup_msg(FILE *, int, char *, char *, int, time_t),
             logger(FILE *, off_t, int, int);
+#ifdef WITH_LOG_CACHE
+extern FILE *open_log_file(char *, char *, int *, off_t *);
+#else
 extern FILE *open_log_file(char *);
-extern void eval_input_alda(int, char **);
+#endif
 
 #endif /* __logdefs_h */

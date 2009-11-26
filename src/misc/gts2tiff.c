@@ -1,6 +1,6 @@
 /*
  *  gts2tiff.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -135,7 +135,7 @@ gts2tiff(char *path, char *filename)
    if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
    {
       (void)fprintf(stderr,
-                    "ERROR   : Could not get clock ticks per second : %s (%s %d)\n",
+                    _("ERROR   : Could not get clock ticks per second : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
@@ -157,14 +157,15 @@ gts2tiff(char *path, char *filename)
    if ((fdin = open(from, O_RDONLY)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Could not open %s for copying : %s", from, strerror(errno));
+                  _("Could not open() `%s' for copying : %s"),
+                  from, strerror(errno));
       return(INCORRECT);
    }
 
    if (fstat(fdin, &stat_buf) < 0)   /* need size of input file */
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Could not fstat() on %s : %s", from, strerror(errno));
+                  _("Could not fstat() `%s' : %s"), from, strerror(errno));
       (void)close(fdin);
       return(INCORRECT);
    }
@@ -174,7 +175,8 @@ gts2tiff(char *path, char *filename)
    if ((fdout = open(to, (O_RDWR | O_CREAT | O_TRUNC), stat_buf.st_mode)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Could not open %s for copying : %s", to, strerror(errno));
+                  _("Could not open() `%s' for copying : %s"),
+                  to, strerror(errno));
       (void)close(fdin);
       return(INCORRECT);
    }
@@ -190,13 +192,14 @@ gts2tiff(char *path, char *filename)
 #endif
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Could not mmap() file %s : %s", from, strerror(errno));
+                     _("Could not mmap() file `%s' : %s"),
+                     from, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to unlink() %s : %s", to, strerror(errno));
+                        _("Failed to unlink() `%s' : %s"), to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -213,14 +216,14 @@ gts2tiff(char *path, char *filename)
 #endif
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "munmap() error : %s", strerror(errno));
+                        _("munmap() error : %s"), strerror(errno));
          }
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to unlink() %s : %s", to, strerror(errno));
+                        _("Failed to unlink() `%s' : %s"), to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -244,13 +247,13 @@ gts2tiff(char *path, char *filename)
          case 3: word_offset = 3;
                  break;
          default: receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              "Impossible!!!!");
+                              _("Impossible!!!!"));
                   (void)close(fdin);
                   (void)close(fdout);
                   if (unlink(to) < 0)
                   {
                      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                 "Failed to unlink() %s : %s",
+                                 _("Failed to unlink() `%s' : %s"),
                                  to, strerror(errno));
                   }
                   return(INCORRECT);
@@ -267,26 +270,26 @@ gts2tiff(char *path, char *filename)
       if (lseek(fdout, tiff_file_size - 1, SEEK_SET) == -1)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Could not seek() on %s : %s", to, strerror(errno));
+                     _("Could not lseek() on `%s' : %s"), to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to unlink() %s : %s", to, strerror(errno));
+                        _("Failed to unlink() `%s' : %s"), to, strerror(errno));
          }
          return(INCORRECT);
       }
       if (write(fdout, "", 1) != 1)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Could not write() to %s : %s", to, strerror(errno));
+                     _("Could not write() to `%s' : %s"), to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to unlink() %s : %s", to, strerror(errno));
+                        _("Failed to unlink() `%s' : %s"), to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -306,16 +309,16 @@ gts2tiff(char *path, char *filename)
 #endif
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "munmap() error : %s", strerror(errno));
+                        _("munmap() error : %s"), strerror(errno));
          }
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Could not mmap() file %s : %s", to, strerror(errno));
+                     _("Could not mmap() file `%s' : %s"), to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to unlink() %s : %s", to, strerror(errno));
+                        _("Failed to unlink() `%s' : %s"), to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -372,12 +375,12 @@ gts2tiff(char *path, char *filename)
             if (no_of_eols < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "T4-code is corrupt since there were no 6 EOL's in a row.");
+                           _("T4-code is corrupt since there were no 6 EOL's in a row."));
             }
             else
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "There are no EOL's.");
+                           _("There are no EOL's."));
             }
 #ifdef HAVE_MMAP
             if (munmap(src, stat_buf.st_size) < 0)
@@ -386,14 +389,14 @@ gts2tiff(char *path, char *filename)
 #endif
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "munmap() error : %s", strerror(errno));
+                           _("munmap() error : %s"), strerror(errno));
             }
             (void)close(fdin);
             (void)close(fdout);
             if (unlink(to) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to unlink() %s : %s", to, strerror(errno));
+                           _("Failed to unlink() `%s` : %s"), to, strerror(errno));
             }
             return(INCORRECT);
          }
@@ -405,12 +408,12 @@ gts2tiff(char *path, char *filename)
             if (no_of_eols < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "T4-code is corrupt since there were no 6 EOL's in a row.");
+                           _("T4-code is corrupt since there were no 6 EOL's in a row."));
             }
             else
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "There are no EOL's");
+                           _("There are no EOL's"));
             }
 #ifdef HAVE_MMAP
             if (munmap(src, stat_buf.st_size) < 0)
@@ -419,14 +422,15 @@ gts2tiff(char *path, char *filename)
 #endif
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "munmap() error : %s", strerror(errno));
+                           _("munmap() error : %s"), strerror(errno));
             }
             (void)close(fdin);
             (void)close(fdout);
             if (unlink(to) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to unlink() %s : %s", to, strerror(errno));
+                           _("Failed to unlink() `%s' : %s"),
+                           to, strerror(errno));
             }
             return(INCORRECT);
          }
@@ -437,20 +441,20 @@ gts2tiff(char *path, char *filename)
       if (close(fdin) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "close() error : %s", strerror(errno));
+                     _("close() error : %s"), strerror(errno));
       }
       if (close(fdout) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "close() error : %s", strerror(errno));
+                     _("close() error : %s"), strerror(errno));
       }
       if (unlink(to) < 0)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to unlink() %s : %s", to, strerror(errno));
+                     _("Failed to unlink() `%s' : %s"), to, strerror(errno));
       }
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Unusable data size (%d) for file %s",
+                  _("Unusable data size (%d) for file `%s'"),
                   stat_buf.st_size, from);
       return(stat_buf.st_size);
    }
@@ -607,7 +611,7 @@ gts2tiff(char *path, char *filename)
 
 #ifdef _WITH_FILE_INFO
    receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
-               "T4 to TIFF conversion : %s %s", filename, bh);
+               _("T4 to TIFF conversion : %s %s"), filename, bh);
    receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
                "                      : hr = %d  vr = %d  eol's = %d",
                hr, vr, no_of_eols);
@@ -620,7 +624,7 @@ gts2tiff(char *path, char *filename)
 #endif
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "munmap() error : %s", strerror(errno));
+                  _("munmap() error : %s"), strerror(errno));
       return(INCORRECT);
    }
 #ifdef HAVE_MMAP
@@ -630,7 +634,7 @@ gts2tiff(char *path, char *filename)
 #endif
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "munmap() error : %s", strerror(errno));
+                  _("munmap() error : %s"), strerror(errno));
       (void)close(fdin);
       (void)close(fdout);
       return(INCORRECT);
@@ -640,7 +644,7 @@ gts2tiff(char *path, char *filename)
    if (unlink(from) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to unlink() %s : %s", from, strerror(errno));
+                  _("Failed to unlink() `%s' : %s"), from, strerror(errno));
    }
 
 #ifdef _TIFF_CONVERSION_TIME_TEST
@@ -651,12 +655,12 @@ gts2tiff(char *path, char *filename)
    if (close(fdin) == -1)
    {
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                  "close() error : %s", strerror(errno));
+                  _("close() error : %s"), strerror(errno));
    }
    if (close(fdout) == -1)
    {
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                  "close() error : %s", strerror(errno));
+                  _("close() error : %s"), strerror(errno));
    }
 
    /* Append TIFF ending to the original filename. */
@@ -681,15 +685,15 @@ evaluate_wmo_stuff(char *buf, size_t size)
    search_str[2] = 10;
    search_str[3] = '\0';
 
-   if ((ptr = posi(buf, search_str)) != NULL)
+   if ((ptr = lposi(buf, search_str, 3)) != NULL)
    {
       if ((ptr - buf) > size)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "This file does not seem to have a valid WMO header.");
+                     _("This file does not seem to have a valid WMO header."));
          return(INCORRECT);
       }
-      if ((ptr = posi(ptr, search_str)) != NULL)
+      if ((ptr = lposi(ptr, search_str, 3)) != NULL)
       {
 #ifdef _WITH_FILE_INFO
          bh_start = ptr - 1;
@@ -697,19 +701,19 @@ evaluate_wmo_stuff(char *buf, size_t size)
          if ((ptr - buf) > size)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "This file does not seem to have a valid WMO header.");
+                        _("This file does not seem to have a valid WMO header."));
             return(INCORRECT);
          }
-         if ((ptr = posi(ptr, search_str)) == NULL)
+         if ((ptr = lposi(ptr, search_str, 3)) == NULL)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to find third <CR><CR><LF>.");
+                        _("Failed to find third <CR><CR><LF>."));
             return(INCORRECT);
          }
          if ((ptr + 8 - buf) > size)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "This file does not seem to have a valid WMO header.");
+                        _("This file does not seem to have a valid WMO header."));
             return(INCORRECT);
          }
 #ifdef _WITH_FILE_INFO
@@ -720,18 +724,18 @@ evaluate_wmo_stuff(char *buf, size_t size)
       else
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to find second <CR><CR><LF>.");
+                     _("Failed to find second <CR><CR><LF>."));
          return(INCORRECT);
       }
    }
    else
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to find first <CR><CR><LF>.");
+                  _("Failed to find first <CR><CR><LF>."));
       return(INCORRECT);
    }
 
-   /* Get the vertical and horizontal resolution */
+   /* Get the vertical and horizontal resolution. */
    vr = 0;
    ptr--;
    if (ptr[0] == 'D')
@@ -758,7 +762,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
                     else
                     {
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                   "Unknown horizontal resolution of %c.",
+                                   _("Unknown horizontal resolution of %c."),
                                    ptr[6]);
                        return(INCORRECT);
                     }
@@ -769,11 +773,11 @@ evaluate_wmo_stuff(char *buf, size_t size)
    if ((vr != 2) && (vr != 4))
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to get the vertical resolution (%d).", vr);
+                  _("Failed to get the vertical resolution (%d)."), vr);
       return(INCORRECT);
    }
 
-   /* Determine the bulletin header length */
+   /* Determine the bulletin header length. */
    bhl = ptr + 8 - buf;
 
    /* Check end for <CR><CR><LF><ETX> */
@@ -781,7 +785,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
        (buf[(size - 3)] != 13) || (buf[(size - 4)] != 13))
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to locate bulletin end.");
+                  _("Failed to locate bulletin end."));
       return(INCORRECT);
    }
 
@@ -837,8 +841,8 @@ count_eols(char *buf, size_t size)
 
    if (no_of_eols > 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to read 6 EOL's in a row, after reading %d EOL's [last_was_eol = %d].",
+      receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
+                  _("Failed to read 6 EOL's in a row, after reading %d EOL's [last_was_eol = %d]."),
                   no_of_eols, last_was_eol);
       return((no_of_eols - 7));
    }
@@ -931,7 +935,7 @@ dup_count_eols(char *buf, size_t size, char *dst)
                      /*
                       * Duplicate last line
                       */
-                     /* Copy bits in first byte we have to copy */
+                     /* Copy bits in first byte we have to copy. */
                      s_shifter_copy = buf[byte_offset_start];
                      s_shifter_copy = s_shifter_copy << bit_offset_start;
                      for (j = bit_offset_start; j < 8; j++)
@@ -952,7 +956,7 @@ dup_count_eols(char *buf, size_t size, char *dst)
                         }
                      }
 
-                     /* Copy all bytes between start and end */
+                     /* Copy all bytes between start and end. */
                      for (j = (byte_offset_start + 1); j < s_count; j++)
                      {
                         s_shifter_copy = buf[j];
@@ -976,7 +980,7 @@ dup_count_eols(char *buf, size_t size, char *dst)
                         }
                      }
 
-                     /* Copy bits in last byte */
+                     /* Copy bits in last byte. */
                      s_shifter_copy = buf[s_count];
                      for (j = 0; j < (i + 1); j++)
                      {
@@ -996,7 +1000,7 @@ dup_count_eols(char *buf, size_t size, char *dst)
                         }
                      }
 
-                     /* Remember the start offset for the next line */
+                     /* Remember the start offset for the next line. */
                      if (i == 7)
                      {
                         bit_offset_start = 0;
@@ -1013,7 +1017,7 @@ dup_count_eols(char *buf, size_t size, char *dst)
 
                   if (++last_was_eol == 6)
                   {
-                     /* Don't forget to shift in destination buffer */
+                     /* Don't forget to shift in destination buffer. */
                      if (bit_count != 0)
                      {
                         d_shifter = d_shifter << (8 - bit_count);
@@ -1036,17 +1040,17 @@ dup_count_eols(char *buf, size_t size, char *dst)
                zero_hit = last_was_eol = 0;
             }
          }
-     }
+      }
       s_count++;
    }
 
    if (no_of_eols > 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to read 6 EOL's in a row, after reading %d EOL's [last_was_eol = %d].",
+      receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
+                  _("Failed to read 6 EOL's in a row, after reading %d EOL's [last_was_eol = %d]."),
                   no_of_eols, last_was_eol);
 
-      /* Don't forget to shift in destination buffer */
+      /* Don't forget to shift in destination buffer. */
       if (bit_count != 0)
       {
          d_shifter = d_shifter << (8 - bit_count);

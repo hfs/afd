@@ -1,6 +1,6 @@
 /*
  *  check_create_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,8 @@ DESCR__S_M3
  **   int check_create_path(char   *path,
  **                         mode_t permissions,
  **                         char   **error_ptr,
- **                         int    create_dir)
+ **                         int    create_dir,
+ **                         int    check_write_access)
  **
  ** DESCRIPTION
  **   The function check_create_path() checks if the given path exists
@@ -54,6 +55,9 @@ DESCR__S_M3
  **                      wrong.
  **   17.11.2006 H.Kiehl Additional parameter to control creation of
  **                      directory.
+ **   14.04.2009 H.Kiehl We do not need write access for directories where
+ **                      we do not delete files. Added parameter
+ **                      check_write_access for this case.
  **
  */
 DESCR__E_M3
@@ -71,12 +75,22 @@ int
 check_create_path(char   *path,
                   mode_t permissions,
                   char   **error_ptr,
-                  int    create_dir)
+                  int    create_dir,
+                  int    check_write_access)
 {
-   int ret = SUCCESS;
+   int mode,
+       ret = SUCCESS;
 
+   if (check_write_access == YES)
+   {
+      mode = R_OK | W_OK | X_OK;
+   }
+   else
+   {
+      mode = R_OK | X_OK;
+   }
    *error_ptr = NULL;
-   if (eaccess(path, R_OK | W_OK | X_OK) < 0)
+   if (eaccess(path, mode) < 0)
    {
       if ((errno == ENOENT) && (create_dir == YES))
       {
@@ -117,17 +131,20 @@ check_create_path(char   *path,
             {
                break;
             }
-         } while (((error_condition = eaccess(path, R_OK | W_OK | X_OK)) < 0) &&
+         } while (((error_condition = eaccess(path, mode)) < 0) &&
                   (errno == ENOENT));
 
          if ((error_condition < 0) && (errno != ENOENT))
          {
-            int i;
-
-            *error_ptr = dir_ptr[ii - 1];
-            for (i = 0; i < ii; i++)
+            if (ii > 0)
             {
-               *dir_ptr[i] = '/';
+               int i;
+
+               *error_ptr = dir_ptr[ii - 1];
+               for (i = 0; i < ii; i++)
+               {
+                  *dir_ptr[i] = '/';
+               }
             }
             if (dir_ptr != NULL)
             {
@@ -142,12 +159,15 @@ check_create_path(char   *path,
 
             if (stat(path, &stat_buf) == -1)
             {
-               int i;
-
-               *error_ptr = dir_ptr[ii - 1];
-               for (i = 0; i < ii; i++)
+               if (ii > 0)
                {
-                  *dir_ptr[i] = '/';
+                  int i;
+
+                  *error_ptr = dir_ptr[ii - 1];
+                  for (i = 0; i < ii; i++)
+                  {
+                     *dir_ptr[i] = '/';
+                  }
                }
                if (dir_ptr != NULL)
                {
@@ -190,7 +210,7 @@ check_create_path(char   *path,
             }
             else
             {
-               if (*error_ptr == NULL)
+               if ((*error_ptr == NULL) && (ii > 0))
                {
                   *error_ptr = dir_ptr[ii];
                }

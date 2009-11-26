@@ -1,6 +1,6 @@
 /*
  *  recreate_msg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -94,6 +94,13 @@ recreate_msg(unsigned int job_id)
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Failed to mmap() to `%s' : %s",
                     job_id_data_file, strerror(errno));
+         exit(INCORRECT);
+      }
+      if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Incorrect JID version (data=%d current=%d)!",
+                    *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
          exit(INCORRECT);
       }
       no_of_job_ids = (int *)ptr;

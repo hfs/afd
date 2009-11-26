@@ -73,17 +73,17 @@ show_fifo_data(char typ,           /* R - read, W - write     */
    (void)fprintf(stdout, "%c %10.10s >%12.12s %4d< : ",
                  typ, fifo, filename, position);
 
-   /* Now show contents of fifo */
+   /* Now show contents of fifo. */
    for (i = 0; i < data_length; i++)
    {
-      /* Check if we reached EOL */
+      /* Check if we reached EOL. */
       if (((printed_chars / 43) > 0) && (printed_chars != 0))
       {
          (void)fprintf(stdout, "\n%35s", " ");
          printed_chars = 0;
       }
 
-      /* Show character after character */
+      /* Show character after character. */
       if (iscntrl(data[i]) == 0)
       {
          printed_chars += fprintf(stdout, "%c", data[i]);

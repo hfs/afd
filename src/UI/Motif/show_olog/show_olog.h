@@ -1,6 +1,6 @@
 /*
  *  show_olog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,27 +21,6 @@
 #define __show_olog_h
 
 #include "motif_common_defs.h"
-
-/* What information should be displayed */
-#define SHOW_FTP                 1
-#define SHOW_FILE                2
-#define SHOW_HTTP                4
-#define SHOW_SMTP                8
-#ifdef _WITH_SCP_SUPPORT
-# define SHOW_SCP                16
-#endif
-#ifdef _WITH_WMO_SUPPORT
-# define SHOW_WMO                32
-#endif
-#ifdef _WITH_MAP_SUPPORT
-# define SHOW_MAP                64
-#endif
-#ifdef WITH_SSL
-# define SHOW_FTPS               128
-# define SHOW_HTTPS              256
-# define SHOW_SMTPS              512
-#endif
-#define SHOW_SFTP                1024
 
 #define LOCAL_FILENAME           8
 #define REMOTE_FILENAME          9
@@ -82,7 +61,7 @@
 #define NOT_FOUND                12
 #define NOT_IN_ARCHIVE           13
 #define SEND_LIMIT_REACHED       14
-/* NOTE: DONE is defined in afddefs.h as 3 */
+/* NOTE: DONE is defined in afddefs.h as 3. */
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
@@ -110,7 +89,7 @@
 #define FILE_SIZE_FORMAT         "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT              "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
 
-/* Maximum length of the file name that is displayed */
+/* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT        26
 #define SHOW_MEDIUM_FORMAT       40
 #define SHOW_LONG_FORMAT         70
@@ -183,7 +162,7 @@ struct resend_list
           char         status;   /* DONE - file has been resend. */
        };
 
-/* Permission structure for show_olog */
+/* Permission structure for show_olog. */
 struct sol_perm
        {
           int  resend_limit;
@@ -261,7 +240,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             close_button(Widget, XtPointer, XtPointer),
             continues_toggle(Widget, XtPointer, XtPointer),
             file_name_toggle(Widget, XtPointer, XtPointer),
-            format_info(char *),
+            format_info(char **),
             get_info(int),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),

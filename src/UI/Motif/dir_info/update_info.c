@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ DESCR__E_M3
 #include <time.h>             /* strftime(), localtime()                 */
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "dir_info.h"
 
 /* External global variables. */
@@ -400,9 +400,9 @@ update_info(Widget w)
       XmTextSetString(text_wr[FILES_RECEIVED_POS], str_line);
       flush = YES;
    }
-   if (prev.time_option != fra[fra_pos].time_option)
+   if (prev.no_of_time_entries != fra[fra_pos].no_of_time_entries)
    {
-      if (prev.time_option == YES)
+      if (prev.no_of_time_entries > 0)
       {
          (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH,
                         "%d.%m.%Y  %H:%M:%S",
@@ -414,9 +414,9 @@ update_info(Widget w)
          (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No time entry.");
       }
       XmTextSetString(text_wr[NEXT_CHECK_TIME_POS], str_line);
-      prev.time_option = fra[fra_pos].time_option;
+      prev.no_of_time_entries = fra[fra_pos].no_of_time_entries;
    }
-   else if ((prev.time_option == YES) &&
+   else if ((prev.no_of_time_entries > 0) &&
             (prev.next_check_time != fra[fra_pos].next_check_time))
         {
            prev.next_check_time = fra[fra_pos].next_check_time;

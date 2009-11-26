@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -18,7 +18,8 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
-noinst_HEADERS       = afddefs.h bit_array.h ea_str.h permission.h ports.h
+noinst_HEADERS       = afddefs.h bit_array.h dr_str.h ea_str.h permission.h\
+                       ports.h
 INCLUDES             = -I.. -I../amg -I../log -I../statistics
 bin_PROGRAMS         = init_afd afd
 init_afd_SOURCES     = init_afd.c\

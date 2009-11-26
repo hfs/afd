@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_ilog.h"
 
 /* Global variables. */
@@ -149,6 +149,17 @@ get_info(int item)
          {
             (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(jd_fd);
+            if (current_jid_list != NULL)
+            {
+               free(current_jid_list);
+            }
+            return;
+         }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG, "Incorrect JID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
             (void)close(jd_fd);
             if (current_jid_list != NULL)
             {
@@ -320,14 +331,14 @@ get_sum_data(int item, time_t *date, double *file_size)
          ptr++;
       }
 
-      /* Ignore file name */
+      /* Ignore file name. */
       while (*ptr != SEPARATOR_CHAR)
       {
          ptr++;
       }
       ptr++;
 
-      /* Get file size */
+      /* Get file size. */
       i = 2;
       while ((*ptr != SEPARATOR_CHAR) && (i < 23))
       {
@@ -440,11 +451,7 @@ get_all(int item)
 #else
          (void)sprintf(id.file_size, "%lld",
 #endif
-#ifdef HAVE_STRTOULL
-                       (pri_off_t)strtoull(str_hex_number, NULL, 16));
-#else
-                       (pri_off_t)strtoul(str_hex_number, NULL, 16));
-#endif
+                       (pri_off_t)str2offt(str_hex_number, NULL, 16));
          ptr++;
       }
       else if (i >= 23)
@@ -470,19 +477,22 @@ get_all(int item)
       }
       if (*ptr == SEPARATOR_CHAR)
       {
-         char *unp;
+         char str_hex_number2[23];
 
          str_hex_number[i] = '\0';
          ptr++;
-         unp = ptr;
-         while (*ptr != '\n')
+         str_hex_number2[0] = '0';
+         str_hex_number2[1] = 'x';
+         i = 2;
+         while ((*ptr != '\n') && (i < 23))
          {
-            ptr++;
+            str_hex_number2[i] = *ptr;
+            ptr++; i++;
          }
          if (*ptr == '\n')
          {
-            *ptr = '\0';
-            id.unique_number = atoi(unp);
+            str_hex_number2[i] = '\0';
+            id.unique_number = (unsigned int)strtoul(str_hex_number2, NULL, 16);
          }
          else
          {
@@ -516,11 +526,12 @@ get_dir_data(int dir_pos)
                  j;
    register char *p_file,
                  *p_tmp;
-   int           gotcha;
+   int           gotcha,
+                 ret;
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
 
-   get_dir_options(dir_pos, &id.d_o);
+   get_dir_options(id.dir_id, &id.d_o);
 
    id.count = 0;
    for (i = (*no_of_job_ids - 1); i > -1; i--)
@@ -538,11 +549,11 @@ get_dir_data(int dir_pos)
                {
                   size_t new_size;
 
-                  /* Calculate new size */
+                  /* Calculate new size. */
                   new_size = ((id.count / 10) + 1) * 10 *
                              sizeof(struct db_entry);
 
-                  /* Create or increase the space for the buffer */
+                  /* Create or increase the space for the buffer. */
                   if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
                   {
                      (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
@@ -567,11 +578,16 @@ get_dir_data(int dir_pos)
                   gotcha = NO;
                   for (k = 0; k < id.dbe[id.count].no_of_files; k++)
                   {
-                     if (pmatch(p_file, id.file_name, NULL) == 0)
+                     if ((ret = pmatch(p_file, id.file_name, NULL)) == 0)
                      {
                         gotcha = YES;
                         break;
                      }
+                     else if (ret == 1)
+                          {
+                             /* This file is NOT wanted! */
+                             break;
+                          }
                      NEXT(p_file);
                   }
                   if (gotcha == YES)
@@ -612,6 +628,7 @@ get_dir_data(int dir_pos)
                      }
 
                      (void)strcpy(id.dbe[id.count].recipient, jd[i].recipient);
+                     id.dbe[id.count].job_id = jd[i].job_id;
                      id.count++;
                   }
                }
@@ -636,8 +653,9 @@ get_recipient_only(int dir_pos)
    register int  i,
                  j;
    register char *ptr;
-   int           size,
-                 gotcha;
+   int           gotcha,
+                 ret,
+                 size;
    char          *file_mask_buf,
                  *p_file,
                  recipient[MAX_RECIPIENT_LENGTH];
@@ -667,11 +685,16 @@ get_recipient_only(int dir_pos)
             p_file = file_mask_buf;
             for (j = 0; j < no_of_file_mask; j++)
             {
-               if (pmatch(p_file, id.file_name, NULL) == 0)
+               if ((ret = pmatch(p_file, id.file_name, NULL)) == 0)
                {
                   gotcha = YES;
                   break;
                }
+               else if (ret == 1)
+                    {
+                       /* This file is NOT wanted. */
+                       break;
+                    }
                NEXT(p_file);
             }
             if (gotcha == YES)
@@ -681,10 +704,10 @@ get_recipient_only(int dir_pos)
                {
                   size_t new_size;
 
-                  /* Calculate new size */
+                  /* Calculate new size. */
                   new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
 
-                  /* Create or increase the space for the buffer */
+                  /* Create or increase the space for the buffer. */
                   if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
                   {
                      (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",

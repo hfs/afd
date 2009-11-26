@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,19 +69,19 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <sys/time.h>               /* struct timeval                    */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap(), munmap()                  */
+# include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
 #include <unistd.h>                 /* read(), write(), close(), lseek() */
 #include <errno.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
 /* #define DEBUG_WAIT_LOOP */
 
-/* External global variables */
+/* External global variables. */
 extern char                       *p_work_dir;
 extern int                        first_time,
                                   fsa_id,
@@ -122,7 +122,7 @@ create_fsa(void)
 
    fsa_size = -1;
 
-   /* Initialise all pathnames and file descriptors */
+   /* Initialise all pathnames and file descriptors. */
    (void)strcpy(fsa_id_file, p_work_dir);
    (void)strcat(fsa_id_file, FIFO_DIR);
    (void)strcpy(old_fsa_stat, fsa_id_file);
@@ -152,7 +152,7 @@ create_fsa(void)
          }
       }
 
-      /* Read the FSA file ID */
+      /* Read the FSA file ID. */
       if (read(fsa_id_fd, &old_fsa_id, sizeof(int)) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -203,7 +203,7 @@ create_fsa(void)
     */
    if (old_fsa_id > -1)
    {
-      /* Attach to old region */
+      /* Attach to old region. */
       ptr = old_fsa_stat + strlen(old_fsa_stat);
       (void)sprintf(ptr, ".%d", old_fsa_id);
 
@@ -298,7 +298,7 @@ create_fsa(void)
       {
          old_no_of_hosts = *(int *)ptr;
 
-         /* Now mark it as stale */
+         /* Now mark it as stale. */
          *(int *)ptr = STALE;
 
          /* Check if the version has changed. */
@@ -341,7 +341,7 @@ create_fsa(void)
    /*
     * Create the new mmap region.
     */
-   /* First calculate the new size */
+   /* First calculate the new size. */
    fsa_size = AFD_WORD_OFFSET +
               (no_of_hosts * sizeof(struct filetransfer_status));
 
@@ -356,7 +356,7 @@ create_fsa(void)
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, fsa_id);
 
-   /* Now map the new FSA region to a file */
+   /* Now map the new FSA region to a file. */
    if ((fsa_fd = open(new_fsa_stat, (O_RDWR | O_CREAT | O_TRUNC),
                       FILE_MODE)) == -1)
    {
@@ -374,6 +374,7 @@ create_fsa(void)
     */
    loops = fsa_size / 4096;
    rest = fsa_size % 4096;
+   (void)memset(buffer, 0, 4096);
    for (i = 0; i < loops; i++)
    {
       if (write(fsa_fd, buffer, 4096) != 4096)
@@ -405,15 +406,14 @@ create_fsa(void)
                  "mmap() error : %s", strerror(errno));
       exit(INCORRECT);
    }
-   (void)memset(ptr, 0, fsa_size);
 
-   /* Write number of hosts to new memory mapped region */
+   /* Write number of hosts to new memory mapped region. */
    *(int*)ptr = no_of_hosts;
 
    /* Initialize HOST_CONFIG counter. */
    *(unsigned char *)(ptr + SIZEOF_INT) = 0;
 
-   /* Reposition fsa pointer after no_of_hosts */
+   /* Reposition fsa pointer after no_of_hosts. */
    ptr += AFD_WORD_OFFSET;
    fsa = (struct filetransfer_status *)ptr;
 
@@ -448,6 +448,7 @@ create_fsa(void)
          fsa[i].socksnd_bufsize        = hl[i].socksnd_bufsize;
          fsa[i].sockrcv_bufsize        = hl[i].sockrcv_bufsize;
          fsa[i].keep_connected         = hl[i].keep_connected;
+         fsa[i].warn_time              = hl[i].warn_time;
 #ifdef WITH_DUP_CHECK
          fsa[i].dup_check_flag         = hl[i].dup_check_flag;
          fsa[i].dup_check_timeout      = hl[i].dup_check_timeout;
@@ -473,7 +474,7 @@ create_fsa(void)
             fsa[i].host_toggle = DEFAULT_TOGGLE_HOST;
          }
 
-         /* Determine the host name to display */
+         /* Determine the host name to display. */
          fsa[i].original_toggle_pos = NONE;
          (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
          fsa[i].toggle_pos = strlen(fsa[i].host_alias);
@@ -533,6 +534,10 @@ create_fsa(void)
          {
             fsa[i].host_status |= HOST_ERROR_OFFLINE_STATIC;
          }
+         if (hl[i].host_status & DO_NOT_DELETE_DATA)
+         {
+            fsa[i].host_status |= DO_NOT_DELETE_DATA;
+         }
          fsa[i].error_counter       = 0;
          fsa[i].total_errors        = 0;
          for (k = 0; k < ERROR_HISTORY_LENGTH; k++)
@@ -548,6 +553,8 @@ create_fsa(void)
          fsa[i].debug               = NO;
          fsa[i].last_connection = fsa[i].last_retry_time = time(NULL);
          fsa[i].first_error_time    = 0L;
+         fsa[i].start_event_handle  = 0L;
+         fsa[i].end_event_handle    = 0L;
          (void)memset(&fsa[i].job_status, 0, size);
          for (k = 0; k < fsa[i].allowed_transfers; k++)
          {
@@ -604,6 +611,7 @@ create_fsa(void)
          fsa[i].socksnd_bufsize        = hl[i].socksnd_bufsize;
          fsa[i].sockrcv_bufsize        = hl[i].sockrcv_bufsize;
          fsa[i].keep_connected         = hl[i].keep_connected;
+         fsa[i].warn_time              = hl[i].warn_time;
 #ifdef WITH_DUP_CHECK
          fsa[i].dup_check_flag         = hl[i].dup_check_flag;
          fsa[i].dup_check_timeout      = hl[i].dup_check_timeout;
@@ -729,6 +737,8 @@ create_fsa(void)
             fsa[i].last_connection        = old_fsa[host_pos].last_connection;
             fsa[i].last_retry_time        = old_fsa[host_pos].last_retry_time;
             fsa[i].first_error_time       = old_fsa[host_pos].first_error_time;
+            fsa[i].start_event_handle     = old_fsa[host_pos].start_event_handle;
+            fsa[i].end_event_handle       = old_fsa[host_pos].end_event_handle;
             fsa[i].total_file_counter     = old_fsa[host_pos].total_file_counter;
             fsa[i].total_file_size        = old_fsa[host_pos].total_file_size;
             fsa[i].debug                  = old_fsa[host_pos].debug;
@@ -831,6 +841,8 @@ create_fsa(void)
             fsa[i].host_id             = get_str_checksum(fsa[i].host_alias);
             fsa[i].last_connection = fsa[i].last_retry_time = time(NULL);
             fsa[i].first_error_time    = 0L;
+            fsa[i].start_event_handle  = 0L;
+            fsa[i].end_event_handle    = 0L;
             memset(&fsa[i].job_status, 0, size);
             for (k = 0; k < fsa[i].allowed_transfers; k++)
             {
@@ -850,6 +862,7 @@ create_fsa(void)
          if (hl[i].in_dir_config == YES)
          {
             fsa[i].special_flag |= HOST_IN_DIR_CONFIG;
+            hl[i].host_status &= ~HOST_NOT_IN_DIR_CONFIG;
          }
          else
          {
@@ -887,6 +900,14 @@ create_fsa(void)
          else
          {
             fsa[i].host_status &= ~HOST_ERROR_OFFLINE_STATIC;
+         }
+         if (hl[i].host_status & DO_NOT_DELETE_DATA)
+         {
+            fsa[i].host_status |= DO_NOT_DELETE_DATA;
+         }
+         else
+         {
+            fsa[i].host_status &= ~DO_NOT_DELETE_DATA;
          }
       } /* for (i = 0; i < no_of_hosts; i++) */
 
@@ -930,11 +951,11 @@ create_fsa(void)
                   size_t new_size,
                          offset;
 
-                  /* Calculate new size for host list */
+                  /* Calculate new size for host list. */
                   new_size = ((no_of_hosts / HOST_BUF_SIZE) + 1) *
                              HOST_BUF_SIZE * sizeof(struct host_list);
 
-                  /* Now increase the space */
+                  /* Now increase the space. */
                   if ((hl = realloc(hl, new_size)) == NULL)
                   {
                      system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -943,7 +964,7 @@ create_fsa(void)
                      exit(INCORRECT);
                   }
 
-                  /* Initialise the new memory area */
+                  /* Initialise the new memory area. */
                   new_size = HOST_BUF_SIZE * sizeof(struct host_list);
                   offset = (no_of_hosts / HOST_BUF_SIZE) * new_size;
                   memset((char *)hl + offset, 0, new_size);
@@ -1000,10 +1021,10 @@ create_fsa(void)
                   exit(INCORRECT);
                }
 
-               /* Write new number of hosts to memory mapped region */
+               /* Write new number of hosts to memory mapped region. */
                *(int *)ptr = no_of_hosts;
 
-               /* Reposition fsa pointer after no_of_hosts */
+               /* Reposition fsa pointer after no_of_hosts. */
                ptr += AFD_WORD_OFFSET;
                fsa = (struct filetransfer_status *)ptr;
 
@@ -1063,6 +1084,7 @@ create_fsa(void)
                      hl[j].socksnd_bufsize     = fsa[j].socksnd_bufsize;
                      hl[j].sockrcv_bufsize     = fsa[j].sockrcv_bufsize;
                      hl[j].keep_connected      = fsa[j].keep_connected;
+                     hl[j].warn_time           = fsa[j].warn_time;
 #ifdef WITH_DUP_CHECK
                      hl[j].dup_check_flag      = fsa[j].dup_check_flag;
                      hl[j].dup_check_timeout   = fsa[j].dup_check_timeout;
@@ -1096,6 +1118,10 @@ create_fsa(void)
                      {
                         hl[j].host_status |= HOST_TWO_FLAG;
                      }
+                     if (fsa[j].host_status & DO_NOT_DELETE_DATA)
+                     {
+                        hl[j].host_status |= DO_NOT_DELETE_DATA;
+                     }
 
                      i++;
                   } /* if (gotcha[j] == NO) */
@@ -1111,11 +1137,11 @@ create_fsa(void)
       *ptr = *((char *)old_fsa - AFD_FEATURE_FLAG_OFFSET_END);
    }
 
-   /* Reposition fsa pointer after no_of_hosts */
+   /* Reposition fsa pointer after no_of_hosts. */
    ptr = (char *)fsa;
    ptr -= AFD_WORD_OFFSET;
    *(ptr + SIZEOF_INT + 1 + 1) = 0; /* Not used. */
-   *(ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_FSA_VERSION; /* FSA version number */
+   *(ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_FSA_VERSION; /* FSA version number. */
    if ((pagesize = (int)sysconf(_SC_PAGESIZE)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1185,7 +1211,7 @@ create_fsa(void)
     * Copy the new fsa_id into the locked FSA_ID_FILE file, unlock
     * and close the file.
     */
-   /* Go to beginning in file */
+   /* Go to beginning in file. */
    if (lseek(fsa_id_fd, 0, SEEK_SET) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1193,7 +1219,7 @@ create_fsa(void)
                  fsa_id_file, strerror(errno));
    }
 
-   /* Write new value into FSA_ID_FILE file */
+   /* Write new value into FSA_ID_FILE file. */
    if (write(fsa_id_fd, &fsa_id, sizeof(int)) != sizeof(int))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -1201,14 +1227,14 @@ create_fsa(void)
       exit(INCORRECT);
    }
 
-   /* Close and unlock FSA_ID_FILE */
+   /* Close and unlock FSA_ID_FILE. */
    if (close(fsa_id_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
 
-   /* Close file with new FSA */
+   /* Close file with new FSA. */
    if (close(fsa_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1216,7 +1242,7 @@ create_fsa(void)
    }
    fsa_fd = -1;
 
-   /* Close old FSA file */
+   /* Close old FSA file. */
    if (old_fsa_fd != -1)
    {
       if (close(old_fsa_fd) == -1)

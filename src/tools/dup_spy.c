@@ -1,6 +1,6 @@
 /*
  *  dup_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ DESCR__E_M1
 #include <fcntl.h>                  /* open()                            */
 #include <unistd.h>                 /* fstat(), lseek(), write()         */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap()                            */
+# include <sys/mman.h>              /* mmap()                            */
 #endif
 #include <errno.h>
 #include "version.h"
@@ -76,7 +76,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
@@ -85,7 +85,7 @@ main(int argc, char *argv[])
    if (argc != 2)
    {
       (void)fprintf(stderr,
-                    "Usage: %s [-w <AFD work dir>] [--version] <job|dir-id>\n",
+                    _("Usage: %s [-w <AFD work dir>] [--version] <job|dir-id>\n"),
                     argv[0]);
       exit(INCORRECT);
    }
@@ -97,14 +97,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s/%x", work_dir, AFD_FILE_DIR, CRC_DIR, id);
    if ((fd = open(file, O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -117,13 +117,13 @@ main(int argc, char *argv[])
                        MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
    {
-      (void)fprintf(stderr, "Failed to mmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (close(fd) == -1)
    {
-      (void)fprintf(stderr, "Failed to close() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to close() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    no_of_crcs = (int *)ptr;
@@ -163,7 +163,7 @@ main(int argc, char *argv[])
    if (munmap(ptr) == -1)
 #endif
    {
-      (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to munmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
 

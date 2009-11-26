@@ -1,6 +1,6 @@
 /*
  *  get_rename_rules.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,6 +60,7 @@ DESCR__S_M3
  **                      newline as first line.
  **   08.11.2006 H.Kiehl Allow for spaces in the rule and rename_to part.
  **                      The space must then be preceeded by a \.
+ **   07.11.2008 H.Kiehl Accept DOS-style rename rule files.
  **
  */
 DESCR__E_M3
@@ -71,12 +72,12 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>          /* read(), close()                          */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int         no_of_rule_headers;
 extern struct rule *rule;
 
@@ -102,7 +103,7 @@ get_rename_rules(char *rule_file, int verbose)
             if (verbose == YES)
             {
                system_log(INFO_SIGN, __FILE__, __LINE__,
-                          "There is no renaming rules file %s", rule_file);
+                          _("There is no renaming rules file `%s'"), rule_file);
             }
             first_time = NO;
          }
@@ -110,7 +111,8 @@ get_rename_rules(char *rule_file, int verbose)
       else
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to stat() %s : %s", rule_file, strerror(errno));
+                    _("Failed to stat() `%s' : %s"),
+                    rule_file, strerror(errno));
       }
    }
    else
@@ -131,7 +133,8 @@ get_rename_rules(char *rule_file, int verbose)
          {
             if (verbose == YES)
             {
-               system_log(INFO_SIGN, NULL, 0, "Rereading renaming rules file.");
+               system_log(INFO_SIGN, NULL, 0,
+                          _("Rereading renaming rules file."));
             }
          }
 
@@ -158,11 +161,11 @@ get_rename_rules(char *rule_file, int verbose)
          }
          last_read = stat_buf.st_mtime;
 
-         /* Allocate memory to store file */
+         /* Allocate memory to store file. */
          if ((buffer = malloc(1 + stat_buf.st_size + 1)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "malloc() error : %s", strerror(errno));
+                       _("malloc() error : %s"), strerror(errno));
             exit(INCORRECT);
          }
 
@@ -170,7 +173,8 @@ get_rename_rules(char *rule_file, int verbose)
          if ((fd = open(rule_file, O_RDONLY)) == -1)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to open() %s : %s", rule_file, strerror(errno));
+                       _("Failed to open() `%s' : %s"),
+                       rule_file, strerror(errno));
             free(buffer);
             exit(INCORRECT);
          }
@@ -180,7 +184,8 @@ get_rename_rules(char *rule_file, int verbose)
          if (read(fd, &buffer[1], stat_buf.st_size) != stat_buf.st_size)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Failed to read() %s : %s", rule_file, strerror(errno));
+                       _("Failed to read() `%s' : %s"),
+                       rule_file, strerror(errno));
             free(buffer);
             (void)close(fd);
             exit(INCORRECT);
@@ -188,9 +193,9 @@ get_rename_rules(char *rule_file, int verbose)
          if (close(fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "close() error : %s", strerror(errno));
+                       _("close() error : %s"), strerror(errno));
          }
-         buffer[stat_buf.st_size] = '\0';
+         buffer[1 + stat_buf.st_size] = '\0';
 
          /*
           * Now that we have the contents in the buffer lets first see
@@ -203,7 +208,7 @@ get_rename_rules(char *rule_file, int verbose)
          {
             no_of_rule_headers++;
          }
-         while ((ptr = posi(ptr, "\n[")) != NULL)
+         while ((ptr = lposi(ptr, "\n[", 2)) != NULL)
          {
             no_of_rule_headers++;
          }
@@ -212,6 +217,7 @@ get_rename_rules(char *rule_file, int verbose)
          {
             register int j, k;
             int          no_of_rules,
+                         max_filter_length,
                          max_rule_length,
                          count,
                          total_no_of_rules = 0;
@@ -222,7 +228,7 @@ get_rename_rules(char *rule_file, int verbose)
                                sizeof(struct rule))) == NULL)
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
-                          "calloc() error : %s (%s %d)\n", strerror(errno));
+                          _("calloc() error : %s (%s %d)\n"), strerror(errno));
                exit(INCORRECT);
             }
             ptr = buffer;
@@ -230,7 +236,7 @@ get_rename_rules(char *rule_file, int verbose)
             for (i = 0; i < no_of_rule_headers; i++)
             {
                if (((ptr == buffer) && (buffer[0] == '[')) ||
-                   ((ptr = posi(ptr, "\n[")) != NULL))
+                   ((ptr = lposi(ptr, "\n[", 2)) != NULL))
                {
                   /*
                    * Lets first determine how many rules there are.
@@ -242,20 +248,25 @@ get_rename_rules(char *rule_file, int verbose)
                   {
                      ptr++;
                   }
-                  no_of_rules = max_rule_length = 0;
+                  no_of_rules = max_filter_length = max_rule_length = 0;
                   search_ptr = ptr;
-                  while (*search_ptr != '\n')
+                  while ((*search_ptr != '\n') && (*search_ptr != '\r'))
                   {
                      search_ptr++;
                   }
                   do
                   {
+                     if (*search_ptr == '\r')
+                     {
+                        search_ptr++;
+                     }
                      search_ptr++;
 
                      /* Ignore any comments. */
                      if (*search_ptr == '#')
                      {
-                        while ((*search_ptr != '\n') && (*search_ptr != '\0'))
+                        while ((*search_ptr != '\n') && (*search_ptr != '\0') &&
+                               (*search_ptr != '\r'))
                         {
                            search_ptr++;
                         }
@@ -277,16 +288,17 @@ get_rename_rules(char *rule_file, int verbose)
                         {
                            break;
                         }
-                        if (count > max_rule_length)
+                        if (count > max_filter_length)
                         {
-                           max_rule_length = count;
+                           max_filter_length = count;
                         }
                         while ((*search_ptr == ' ') || (*search_ptr == '\t'))
                         {
                            search_ptr++;
                         }
                         count = 0;
-                        while ((*search_ptr != '\n') && (*search_ptr != '\0'))
+                        while ((*search_ptr != '\n') && (*search_ptr != '\0') &&
+                               (*search_ptr != '\r'))
                         {
                            count++; search_ptr++;
                         }
@@ -296,16 +308,22 @@ get_rename_rules(char *rule_file, int verbose)
                         }
                         no_of_rules++;
                      }
-                  } while ((*(search_ptr + 1) != '\n') &&
-                           (*(search_ptr + 1) != '[') &&
-                           (*search_ptr != '\0') &&
-                           (*(search_ptr + 1) != '\0'));
+                  } while (((*search_ptr == '\r') &&
+                            (*(search_ptr + 2) != '\r') &&
+                            (*(search_ptr + 2) != '[') &&
+                            (*search_ptr != '\0') &&
+                            (*(search_ptr + 2) != '\0')) ||
+                           ((*search_ptr != '\r') &&
+                            (*(search_ptr + 1) != '\n') &&
+                            (*(search_ptr + 1) != '[') &&
+                            (*search_ptr != '\0') &&
+                            (*(search_ptr + 1) != '\0')));
 
                   /* Allocate memory for filter and rename_to */
                   /* part of struct rule.                     */
                   rule[i].filter = NULL;
                   RT_ARRAY(rule[i].filter, no_of_rules,
-                           max_rule_length + 1, char);
+                           max_filter_length + 1, char);
                   rule[i].rename_to = NULL;
                   RT_ARRAY(rule[i].rename_to, no_of_rules,
                            max_rule_length + 1, char);
@@ -313,7 +331,7 @@ get_rename_rules(char *rule_file, int verbose)
                   ptr--;
                   end_ptr = ptr;
                   while ((*end_ptr != ']') && (*end_ptr != '\n') &&
-                         (*end_ptr != '\0'))
+                         (*end_ptr != '\0') && (*end_ptr != '\r'))
                   {
                      end_ptr++;
                   }
@@ -325,30 +343,42 @@ get_rename_rules(char *rule_file, int verbose)
                         (void)strcpy(rule[i].header, ptr);
                         ptr = end_ptr + 1;
 
-                        while ((*ptr != '\n') && (*ptr != '\0'))
+                        while ((*ptr != '\n') && (*ptr != '\0') &&
+                               (*ptr != '\r'))
                         {
                            ptr++;
                         }
-                        if (*ptr == '\n')
+                        if ((*ptr == '\n') || (*ptr == '\r'))
                         {
                            j = 0;
 
                            do
                            {
+                              if (*ptr == '\r')
+                              {
+                                 ptr++;
+                              }
                               ptr++;
                               if (*ptr == '#') /* Ignore any comments. */
                               {
-                                 while ((*ptr != '\n') && (*ptr != '\0'))
+                                 while ((*ptr != '\n') && (*ptr != '\0') &&
+                                        (*ptr != '\r'))
                                  {
                                     ptr++;
                                  }
                               }
                               else
                               {
+                                 /*
+                                  * Store the filter part.
+                                  */
                                  k = 0;
                                  end_ptr = ptr;
-                                 while ((*end_ptr != ' ') && (*end_ptr != '\t') &&
-                                        (*end_ptr != '\n') && (*end_ptr != '\0'))
+                                 while ((*end_ptr != ' ') &&
+                                        (*end_ptr != '\t') &&
+                                        (*end_ptr != '\n') &&
+                                        (*end_ptr != '\r') &&
+                                        (*end_ptr != '\0'))
                                  {
                                     if ((*end_ptr == '\\') &&
                                         (*(end_ptr + 1) == ' '))
@@ -360,12 +390,10 @@ get_rename_rules(char *rule_file, int verbose)
                                  }
                                  if ((*end_ptr == ' ') || (*end_ptr == '\t'))
                                  {
-                                    /*
-                                     * Store the filter part.
-                                     */
                                     rule[i].filter[j][k] = '\0';
                                     end_ptr++;
-                                    while ((*end_ptr == ' ') || (*end_ptr == '\t'))
+                                    while ((*end_ptr == ' ') ||
+                                           (*end_ptr == '\t'))
                                     {
                                        end_ptr++;
                                     }
@@ -373,10 +401,12 @@ get_rename_rules(char *rule_file, int verbose)
                                     /*
                                      * Store the renaming part.
                                      */
-                                    ptr = end_ptr;
                                     k = 0;
-                                    while ((*end_ptr != ' ') && (*end_ptr != '\t') &&
-                                           (*end_ptr != '\n') && (*end_ptr != '\0'))
+                                    while ((*end_ptr != ' ') &&
+                                           (*end_ptr != '\t') &&
+                                           (*end_ptr != '\n') &&
+                                           (*end_ptr != '\r') &&
+                                           (*end_ptr != '\0'))
                                     {
                                        if ((*end_ptr == '\\') &&
                                            (*(end_ptr + 1) == ' '))
@@ -393,10 +423,12 @@ get_rename_rules(char *rule_file, int verbose)
 
                                        end_ptr++;
                                        while ((*end_ptr != '\n') &&
-                                              (*end_ptr != '\0'))
+                                              (*end_ptr != '\0') &&
+                                              (*end_ptr != '\r'))
                                        {
                                           if ((more_data == NO) &&
-                                              ((*end_ptr != ' ') || (*end_ptr != '\t')))
+                                              ((*end_ptr != ' ') ||
+                                               (*end_ptr != '\t')))
                                           {
                                              more_data = YES;
                                           }
@@ -405,7 +437,7 @@ get_rename_rules(char *rule_file, int verbose)
                                        if (more_data == YES)
                                        {
                                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                     "In rule [%s] the rule %s %s has data after the rename-to-part. Ignoring it!",
+                                                     _("In rule [%s] the rule %s %s has data after the rename-to-part. Ignoring it!"),
                                                      rule[i].header,
                                                      rule[i].filter[j],
                                                      rule[i].rename_to[j]);
@@ -419,7 +451,7 @@ get_rename_rules(char *rule_file, int verbose)
                                     if (end_ptr != ptr)
                                     {
                                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                  "A filter is specified for the rule header %s but not a rule.",
+                                                  _("A filter is specified for the rule header %s but not a rule."),
                                                   rule[i].header);
                                        ptr = end_ptr;
                                     }
@@ -427,9 +459,18 @@ get_rename_rules(char *rule_file, int verbose)
                                          {
                                             ptr++;
                                          }
+                                    else if (*ptr == '\r')
+                                         {
+                                            ptr++;
+                                            if (*ptr == '\n')
+                                            {
+                                               ptr++;
+                                            }
+                                         }
                                  }
                               }
-                           } while ((*ptr == '\n') && (j < no_of_rules));
+                           } while (((*ptr == '\n') || (*ptr == '\r')) &&
+                                    (j < no_of_rules));
 
                            rule[i].no_of_rules = j;
                            total_no_of_rules += j;
@@ -437,20 +478,20 @@ get_rename_rules(char *rule_file, int verbose)
                         else
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Rule header %s specified, but could not find any rules.",
+                                      _("Rule header %s specified, but could not find any rules."),
                                       rule[i].header);
                         }
                      }
                      else
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Failed to determine the end of the rule header.");
+                                   _("Failed to determine the end of the rule header."));
                      }
                   }
                   else
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Rule header to long. May not be longer then %d Bytes [MAX_RULE_HEADER_LENGTH].",
+                                _("Rule header to long. May not be longer then %d bytes [MAX_RULE_HEADER_LENGTH]."),
                                 MAX_RULE_HEADER_LENGTH);
                   }
                }
@@ -458,7 +499,7 @@ get_rename_rules(char *rule_file, int verbose)
                {
                   /* Impossible! We just did find it and now it's gone?!? */
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Could not get start of rule header %d [%d].",
+                             _("Could not get start of rule header %d [%d]."),
                              i, no_of_rule_headers);
                   rule[i].filter = NULL;
                   rule[i].rename_to = NULL;
@@ -469,7 +510,7 @@ get_rename_rules(char *rule_file, int verbose)
             if (verbose == YES)
             {
                system_log(INFO_SIGN, NULL, 0,
-                          "Found %d rename rule headers with %d rules.",
+                          _("Found %d rename rule headers with %d rules."),
                           no_of_rule_headers, total_no_of_rules);
             }
          } /* if (no_of_rule_headers > 0) */
@@ -478,7 +519,7 @@ get_rename_rules(char *rule_file, int verbose)
             if (verbose == YES)
             {
                system_log(INFO_SIGN, NULL, 0,
-                          "No rename rules found in %s", rule_file);
+                          _("No rename rules found in %s"), rule_file);
             }
          }
 
@@ -503,7 +544,6 @@ get_rename_rules(char *rule_file, int verbose)
 #endif
       } /* if (stat_buf.st_mtime != last_read) */
    }
-
 
    return;
 }

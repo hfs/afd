@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,10 +58,10 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <dirent.h>       /* opendir(), closedir(), readdir()            */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>     /* mmap(), munmap()                            */
-#ifndef MAP_FILE          /* Required for BSD          */
-#define MAP_FILE 0        /* All others do not need it */
-#endif
+# include <sys/mman.h>    /* mmap(), munmap()                            */
+# ifndef MAP_FILE         /* Required for BSD          */
+#  define MAP_FILE 0      /* All others do not need it */
+# endif
 #endif
 #include <errno.h>
 
@@ -197,55 +197,59 @@ get_data(void)
       (void)close(fd);
       return;
    }
-   if ((toggles_set & SHOW_OUTPUT) || (toggles_set & SHOW_UNSENT_INPUT) ||
-       (toggles_set & SHOW_UNSENT_OUTPUT))
+
+   /* Map to job ID data file. */
+   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
+                 JOB_ID_DATA_FILE);
+   if ((fd = open(fullname, O_RDONLY)) == -1)
    {
-      /* Map to job ID data file. */
-      (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
-                    JOB_ID_DATA_FILE);
-      if ((fd = open(fullname, O_RDONLY)) == -1)
-      {
-         (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
-                    fullname, strerror(errno), __FILE__, __LINE__);
-         return;
-      }
-      if (fstat(fd, &stat_buf) == -1)
-      {
-         (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
-                    fullname, strerror(errno), __FILE__, __LINE__);
-         (void)close(fd);
-         return;
-      }
-      if (stat_buf.st_size > 0)
-      {
-         char *ptr;
+      (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
+                 fullname, strerror(errno), __FILE__, __LINE__);
+      return;
+   }
+   if (fstat(fd, &stat_buf) == -1)
+   {
+      (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
+                 fullname, strerror(errno), __FILE__, __LINE__);
+      (void)close(fd);
+      return;
+   }
+   if (stat_buf.st_size > 0)
+   {
+      char *ptr;
 
 #ifdef HAVE_MMAP
-         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
-                         MAP_SHARED, fd, 0)) == (caddr_t) -1)
+      if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                      MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #else
-         if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
-                         MAP_SHARED, fullname, 0)) == (caddr_t) -1)
+      if ((ptr = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
+                      MAP_SHARED, fullname, 0)) == (caddr_t) -1)
 #endif
-         {
-            (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
-                       fullname, strerror(errno), __FILE__, __LINE__);
-            (void)close(fd);
-            return;
-         }
-         jd_size = stat_buf.st_size;
-         no_of_jobs = *(int *)ptr;
-         ptr += AFD_WORD_OFFSET;
-         jd = (struct job_id_data *)ptr;
-         (void)close(fd);
-      }
-      else
       {
-         (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
-                    __FILE__, __LINE__);
+         (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
+                    fullname, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          return;
       }
+      if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+      {
+         (void)xrec(ERROR_DIALOG, "Incorrect JID version (data=%d current=%d)!",
+                    *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
+         (void)close(fd);
+         return;
+      }
+      jd_size = stat_buf.st_size;
+      no_of_jobs = *(int *)ptr;
+      ptr += AFD_WORD_OFFSET;
+      jd = (struct job_id_data *)ptr;
+      (void)close(fd);
+   }
+   else
+   {
+      (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
+                 __FILE__, __LINE__);
+      (void)close(fd);
+      return;
    }
 
    special_button_flag = STOP_BUTTON;
@@ -258,10 +262,18 @@ get_data(void)
    XmTextSetString(summarybox_w, summary_str);
    CHECK_INTERRUPT();
 
-   if (fra_attach_passive() != SUCCESS)
+   if ((fd = fra_attach_passive()) != SUCCESS)
    {
-      (void)xrec(FATAL_DIALOG,
-                 "Failed to attach to FRA (%s %d)", __FILE__, __LINE__);
+      if (fd == INCORRECT_VERSION)
+      {
+         (void)xrec(FATAL_DIALOG,
+                    "This program is not able to attach to the FRA due to incorrect version (%s %d)", __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)xrec(FATAL_DIALOG,
+                    "Failed to attach to FRA (%s %d)", __FILE__, __LINE__);
+      }
    }
 
    start = time(NULL);
@@ -337,18 +349,14 @@ get_data(void)
       (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
    }
-   if ((toggles_set & SHOW_OUTPUT) || (toggles_set & SHOW_UNSENT_INPUT) ||
-       (toggles_set & SHOW_UNSENT_OUTPUT))
-   {
 #ifdef HAVE_MMAP
-      if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) == -1)
+   if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) == -1)
 #else
-      if (munmap_emu(((char *)jd - AFD_WORD_OFFSET)) == -1)
+   if (munmap_emu(((char *)jd - AFD_WORD_OFFSET)) == -1)
 #endif
-      {
-         (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
-                    strerror(errno), __FILE__, __LINE__);
-      }
+   {
+      (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
+                 strerror(errno), __FILE__, __LINE__);
    }
    show_summary(total_no_files, total_file_size);
 
@@ -407,7 +415,8 @@ get_output_files(void)
                   unsigned int     job_id;
                   int              gotcha,
                                    no_msg_queued,
-                                   pos;
+                                   pos,
+                                   ret;
                   char             *p_queue_msg,
                                    queue_dir[MAX_PATH_LENGTH];
                   struct queue_buf *qb;
@@ -443,12 +452,17 @@ get_output_files(void)
                            gotcha = NO;
                            for (j = 0; j < no_of_search_hosts; j++)
                            {
-                              if (pmatch(search_recipient[j],
-                                         jd[pos].host_alias, NULL) == 0)
+                              if ((ret = pmatch(search_recipient[j],
+                                                jd[pos].host_alias, NULL)) == 0)
                               {
                                  gotcha = YES;
                                  break;
                               }
+                              else if (ret == 1)
+                                   {
+                                      /* This host is NOT wanted. */
+                                      break;
+                                   }
                            }
                         }
 
@@ -473,7 +487,9 @@ get_output_files(void)
                               {
                                  for (kk = 0; kk < no_of_search_dirs; kk++)
                                  {
-                                    if (sfilter(search_dir[kk], dnb[jd[pos].dir_id_pos].dir_name, 0) == 0)
+                                    if (sfilter(search_dir[kk],
+                                                dnb[jd[pos].dir_id_pos].dir_name,
+                                                0) == 0)
                                     {
                                        gotcha = YES;
                                        break;
@@ -575,7 +591,8 @@ get_retrieve_jobs(void)
                {
                   register int     i;
                   int              gotcha,
-                                   no_msg_queued;
+                                   no_msg_queued,
+                                   ret;
                   char             queue_dir[MAX_PATH_LENGTH];
                   struct queue_buf *qb;
 
@@ -605,12 +622,18 @@ get_retrieve_jobs(void)
                            gotcha = NO;
                            for (j = 0; j < no_of_search_hosts; j++)
                            {
-                              if (pmatch(search_recipient[j],
-                                         fra[qb[i].pos].host_alias, NULL) == 0)
+                              if ((ret = pmatch(search_recipient[j],
+                                                fra[qb[i].pos].host_alias,
+                                                NULL)) == 0)
                               {
                                  gotcha = YES;
                                  break;
                               }
+                              else if (ret == 1)
+                                   {
+                                      /* This host is NOT wanted. */
+                                      break;
+                                   }
                            }
                         }
 
@@ -696,7 +719,7 @@ get_retrieve_jobs(void)
                                  return;
                               }
                               qfl[total_no_files].msg_number = qb[i].msg_number;
-                              qfl[total_no_files].retrieve_pos = qb[i].pos;
+                              qfl[total_no_files].pos = qb[i].pos;
                               qfl[total_no_files].job_id = 0;
                               qfl[total_no_files].dir_id = fra[qb[i].pos].dir_id;
                               qfl[total_no_files].size = 0;
@@ -807,7 +830,8 @@ get_input_files(void)
                   if ((stat(queue_dir, &stat_buf) != -1) &&
                       (S_ISDIR(stat_buf.st_mode)))
                   {
-                     int gotcha;
+                     int gotcha,
+                         ret;
 
                      if (no_of_search_hosts == 0)
                      {
@@ -820,12 +844,17 @@ get_input_files(void)
                         gotcha = NO;
                         for (j = 0; j < no_of_search_hosts; j++)
                         {
-                           if (pmatch(search_recipient[j],
-                                      &p_dir->d_name[1], NULL) == 0)
+                           if ((ret = pmatch(search_recipient[j],
+                                             &p_dir->d_name[1], NULL)) == 0)
                            {
                               gotcha = YES;
                               break;
                            }
+                           else if (ret == 1)
+                                {
+                                   /* This host is NOT wanted. */
+                                   break;
+                                }
                         }
                      }
 
@@ -891,7 +920,7 @@ get_all_input_files(void)
       }
       if (gotcha == YES)
       {
-         int gotcha = NO;
+         int gotcha;
 
          if (no_of_search_hosts == 0)
          {
@@ -900,6 +929,7 @@ get_all_input_files(void)
          else
          {
             register int j, k;
+            int          ret;
 
             gotcha = NO;
             for (j = 0; ((j < no_of_jobs) && (gotcha == NO)); j++)
@@ -908,12 +938,17 @@ get_all_input_files(void)
                {
                   for (k = 0; k < no_of_search_hosts; k++)
                   {
-                     if (pmatch(search_recipient[k],
-                                jd[j].host_alias, NULL) == 0)
+                     if ((ret = pmatch(search_recipient[k],
+                                       jd[j].host_alias, NULL)) == 0)
                      {
                         gotcha = YES;
                         break;
                      }
+                     else if (ret == 1)
+                          {
+                             /* This host is NOT wanted. */
+                             break;
+                          }
                   }
                }
             }
@@ -968,7 +1003,7 @@ get_time_jobs(void)
             {
                unsigned int job_id;
 
-               job_id = (unsigned int)strtol(p_dir->d_name, NULL, 16);
+               job_id = (unsigned int)strtoul(p_dir->d_name, NULL, 16);
                if ((pos = get_pos(job_id)) != -1)
                {
                   if (no_of_search_hosts == 0)
@@ -978,16 +1013,22 @@ get_time_jobs(void)
                   else
                   {
                      register int j;
+                     int          ret;
 
                      gotcha = NO;
                      for (j = 0; j < no_of_search_hosts; j++)
                      {
-                        if (pmatch(search_recipient[j],
-                                   jd[pos].host_alias, NULL) == 0)
+                        if ((ret = pmatch(search_recipient[j],
+                                          jd[pos].host_alias, NULL)) == 0)
                         {
                            gotcha = YES;
                            break;
                         }
+                        else if (ret == 1)
+                             {
+                                /* This host is NOT wanted. */
+                                break;
+                             }
                      }
                   }
                }
@@ -1216,8 +1257,7 @@ insert_file(char         *queue_dir,
          {
             /* Check if we need to search for a specific file. */
             if ((search_file_name[0] == '\0') ||
-                ((search_file_name[0] != '\0') &&
-                 (pmatch(search_file_name, dirp->d_name, NULL) == 0)))
+                (pmatch(search_file_name, dirp->d_name, NULL) == 0))
             {
                (void)strcpy(ptr_file, dirp->d_name);
                if ((stat(queue_dir, &stat_buf) != -1) &&
@@ -1274,7 +1314,7 @@ insert_file(char         *queue_dir,
                            return;
                         }
                         qfl[total_no_files].msg_number = 0.0;
-                        qfl[total_no_files].retrieve_pos = -1;
+                        qfl[total_no_files].pos = -1;
                         qfl[total_no_files].job_id = job_id;
                         qfl[total_no_files].dir_id = dir_id;
                         qfl[total_no_files].size = stat_buf.st_size;

@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,12 +40,13 @@
 
 /* Definitions for Directory pulldown. */
 #define DIR_HANDLE_EVENT_W             0
-#define DIR_DISABLE_W                  1
-#define DIR_RESCAN_W                   2
-#define DIR_SELECT_W                   3
-#define DIR_VIEW_LOAD_W                4
-#define DIR_EXIT_W                     5
-#define NO_DIR_MENU                    6
+#define DIR_STOP_W                     1
+#define DIR_DISABLE_W                  2
+#define DIR_RESCAN_W                   3
+#define DIR_SELECT_W                   4
+#define DIR_VIEW_LOAD_W                5
+#define DIR_EXIT_W                     6
+#define NO_DIR_MENU                    7
 
 /* Definitions for View pulldown. */
 #define DIR_SYSTEM_W                   0
@@ -63,12 +64,13 @@
 /* Definitions of popup selections. */
 #define DIR_INFO_SEL                   70
 #define DIR_HANDLE_EVENT_SEL           71
-#define DIR_DISABLE_SEL                72
-#define DIR_RESCAN_SEL                 73
-#define DIR_VIEW_DC_SEL                74
+#define DIR_STOP_SEL                   72
+#define DIR_DISABLE_SEL                73
+#define DIR_RESCAN_SEL                 74
+#define DIR_VIEW_DC_SEL                75
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
-/*         afd_ctrl.h        0 - 39                    */
+/*         mafd_ctrl.h       0 - 39                    */
 /*         mon_ctrl.h       40 - 69                    */
 /*         dir_ctrl.h       70 - 99                    */
 /*         x_common_defs.h 100 onwards.                */
@@ -117,12 +119,14 @@ struct dir_line
           off_t         bytes_in_dir;
           off_t         bytes_in_queue;
           time_t        last_retrieval;
+          time_t        start_event_handle;
+          time_t        end_event_handle;
           time_t        warn_time;
           unsigned char dir_status;
           double        average_tr;         /* Average byte rate.    */
-          double        max_average_tr;     /* Max byte rate         */
+          double        max_average_tr;     /* Max byte rate.        */
           double        average_fr;         /* Average file rate.    */
-          double        max_average_fr;     /* Max file rate         */
+          double        max_average_fr;     /* Max file rate.        */
           unsigned int  bar_length[3];
           clock_t       start_time;
           unsigned char inverse;
@@ -135,6 +139,7 @@ struct dir_control_perm
           char        **dir_ctrl_list;
           char        **info_list;
           char        **handle_event_list;
+          char        **stop_list;
           char        **disable_list;
           char        **rescan_list;
           char        **show_slog_list;
@@ -149,7 +154,8 @@ struct dir_control_perm
           char        **view_dc_list;
           signed char info;                  /* Info about AFD           */
           signed char handle_event;          /* Handle event             */
-          signed char disable;               /* Enable/Disable AFD       */
+          signed char stop;                  /* Start/Stop Directory     */
+          signed char disable;               /* Enable/Disable Directory */
           signed char rescan;                /* Rescan Directory         */
           signed char show_slog;             /* Show System Log          */
           signed char show_elog;             /* Show Event Log           */
@@ -166,29 +172,30 @@ struct dir_control_perm
 /* Function Prototypes. */
 signed char dir_window_size(int *, int *),
             resize_dir_window(void);
-void        check_dir_status(Widget),
-            draw_dir_identifier(int, int, int),
-            draw_dir_bar(int, signed char, char, int, int),
-            draw_dir_blank_line(int),
-            draw_dir_chars(int, char, int, int),
-            draw_dir_full_marker(int, int, int, int),
-            draw_dir_label_line(void),
-            draw_dir_line_status(int, signed char),
-            draw_dir_proc_led(int, signed char, int, int),
-            draw_dir_type(int, int, int),
+void        change_dir_font_cb(Widget, XtPointer, XtPointer),
+            change_dir_rows_cb(Widget, XtPointer, XtPointer),
+            change_dir_style_cb(Widget, XtPointer, XtPointer),
+            check_dir_status(Widget),
             dir_expose_handler_label(Widget, XtPointer,
                                      XmDrawingAreaCallbackStruct *),
             dir_expose_handler_line(Widget, XtPointer,
                                     XmDrawingAreaCallbackStruct *),
             dir_focus(Widget, XtPointer, XEvent *),
             dir_input(Widget, XtPointer, XEvent *),
+            dir_popup_cb(Widget, XtPointer, XtPointer),
+            draw_dir_bar(int, signed char, char, int, int),
+            draw_dir_blank_line(int),
+            draw_dir_chars(int, char, int, int),
+            draw_dir_full_marker(int, int, int, int),
+            draw_dir_identifier(int, int, int),
+            draw_dir_label_line(void),
+            draw_dir_line_status(int, signed char),
+            draw_dir_proc_led(int, signed char, int, int),
+            draw_dir_type(int, int, int),
             init_gcs(void),
             popup_dir_menu_cb(Widget, XtPointer, XEvent *),
+            redraw_all(void),
             save_dir_setup_cb(Widget, XtPointer, XtPointer),
-            dir_popup_cb(Widget, XtPointer, XtPointer),
-            change_dir_font_cb(Widget, XtPointer, XtPointer),
-            change_dir_rows_cb(Widget, XtPointer, XtPointer),
-            change_dir_style_cb(Widget, XtPointer, XtPointer),
             select_dir_dialog(Widget, XtPointer, XtPointer),
             setup_dir_window(char *);
 

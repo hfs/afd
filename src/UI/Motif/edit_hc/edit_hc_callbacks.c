@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,7 +63,7 @@ DESCR__E_M3
 #include <Xm/List.h>
 #include <Xm/ToggleB.h>
 #include "edit_hc.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "logdefs.h"
 
 /* External global variables. */
@@ -74,20 +74,27 @@ extern Widget                     active_mode_w,
 #endif
                                   appshell,
                                   auto_toggle_w,
+                                  compression_w,
 #ifdef WITH_DUP_CHECK
+                                  dc_alias_w,
                                   dc_delete_w,
                                   dc_disable_w,
                                   dc_enable_w,
                                   dc_filecontent_w,
                                   dc_filenamecontent_w,
                                   dc_filename_w,
+                                  dc_namesize_w,
                                   dc_nosuffix_w,
+                                  dc_recipient_w,
+                                  dc_reference_w,
+                                  dc_ref_label_w,
                                   dc_store_w,
                                   dc_timeout_label_w,
                                   dc_timeout_w,
                                   dc_type_w,
                                   dc_warn_w,
 #endif
+                                  do_not_delete_data_toggle_w,
                                   extended_mode_w,
                                   first_label_w,
                                   ftp_fast_cd_w,
@@ -109,6 +116,7 @@ extern Widget                     active_mode_w,
                                   kc_fetch_w,
                                   kc_send_w,
                                   keep_connected_w,
+                                  keep_time_stamp_w,
                                   max_errors_w,
                                   mode_label_w,
                                   no_source_icon_w,
@@ -121,23 +129,34 @@ extern Widget                     active_mode_w,
                                   retry_interval_w,
                                   rm_button_w,
                                   second_label_w,
+                                  sequence_locking_w,
                                   socket_send_buffer_size_label_w,
                                   socket_send_buffer_size_w,
                                   socket_receive_buffer_size_label_w,
                                   socket_receive_buffer_size_w,
+                                  sort_file_names_w,
                                   source_icon_w,
                                   start_drag_w,
                                   statusbox_w,
                                   successful_retries_label_w,
                                   successful_retries_w,
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                                  tcp_keepalive_w,
+#endif
                                   transfer_timeout_w,
                                   transfer_rate_limit_label_w,
                                   transfer_rate_limit_w,
-                                  use_file_when_local_w;
+                                  use_file_when_local_w,
+                                  warn_time_days_w,
+                                  warn_time_hours_w,
+                                  warn_time_mins_w,
+                                  warn_time_secs_w;
 extern XtInputId                  db_update_cmd_id;
-extern int                        fsa_id,
+extern int                        fsa_fd,
+                                  fsa_id,
                                   host_alias_order_change,
                                   in_drop_site,
+                                  last_selected,
                                   sys_log_fd,
                                   no_of_hosts;
 extern char                       fake_user[],
@@ -148,7 +167,6 @@ extern struct filetransfer_status *fsa;
 extern struct afd_status          *p_afd_status;
 extern struct changed_entry       *ce;
 extern struct parallel_transfers  pt;
-extern struct no_of_no_bursts     nob;
 extern struct transfer_blocksize  tb;
 extern struct file_size_offset    fso;
 
@@ -423,11 +441,13 @@ read_reply(XtPointer client_data, int *fd, XtInputId *id)
    }
    XtRemoveInput(db_update_cmd_id);
    db_update_cmd_id = 0L;
+#ifdef WHEN_WE_KNOW
    if (close(*fd) == -1)
    {
       (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
    }
+#endif
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (close(db_update_reply_writefd) == -1)
    {
@@ -484,9 +504,7 @@ host_switch_toggle(Widget w, XtPointer client_data, XtPointer call_data)
             char real_hostname[MAX_REAL_HOSTNAME_LENGTH];
 
             (void)strcpy(real_hostname, fsa[cur_pos].host_alias);
-            XtVaSetValues(real_hostname_1_w,
-                          XmNvalue, real_hostname,
-                          NULL);
+            XtVaSetValues(real_hostname_1_w, XmNvalue, real_hostname, NULL);
          }
       }
       else
@@ -518,17 +536,17 @@ host_switch_toggle(Widget w, XtPointer client_data, XtPointer call_data)
          toggle_pos = strlen(host_dsp_name);
          host_dsp_name[toggle_pos] = ce[cur_pos].host_toggle[(int)(fsa[cur_pos].host_toggle - 1)][0];
          host_dsp_name[toggle_pos + 1] = '\0';
-         if (strncmp(fsa[cur_pos].real_hostname[0], fsa[cur_pos].host_alias, toggle_pos) == 0)
+         if (strncmp(fsa[cur_pos].real_hostname[0], fsa[cur_pos].host_alias,
+                     toggle_pos) == 0)
          {
             char real_hostname[MAX_REAL_HOSTNAME_LENGTH];
 
             (void)strcpy(real_hostname, host_dsp_name);
-            XtVaSetValues(real_hostname_1_w,
-                          XmNvalue, real_hostname,
-                          NULL);
+            XtVaSetValues(real_hostname_1_w, XmNvalue, real_hostname, NULL);
          }
          if ((fsa[cur_pos].real_hostname[1][0] == '\0') ||
-             (strncmp(fsa[cur_pos].real_hostname[1], fsa[cur_pos].host_alias, toggle_pos) == 0))
+             (strncmp(fsa[cur_pos].real_hostname[1], fsa[cur_pos].host_alias,
+                      toggle_pos) == 0))
          {
             char real_hostname[MAX_REAL_HOSTNAME_LENGTH];
 
@@ -541,9 +559,7 @@ host_switch_toggle(Widget w, XtPointer client_data, XtPointer call_data)
             {
                real_hostname[toggle_pos] = ce[cur_pos].host_toggle[0][0];
             }
-            XtVaSetValues(real_hostname_2_w,
-                          XmNvalue, real_hostname,
-                          NULL);
+            XtVaSetValues(real_hostname_2_w, XmNvalue, real_hostname, NULL);
          }
          ce[cur_pos].host_toggle[0][0] = '1';
          ce[cur_pos].value_changed |= HOST_1_ID_CHANGED;
@@ -603,19 +619,6 @@ pt_option_changed(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 
-/*######################## nob_option_changed() #########################*/
-void
-nob_option_changed(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
-
-   ce[cur_pos].value_changed |= NO_OF_NO_BURST_CHANGED;
-   ce[cur_pos].no_of_no_bursts = nob.value[item_no];
-
-   return;
-}
-
-
 /*####################### ftp_mode_radio_button() #######################*/
 void
 ftp_mode_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -646,8 +649,11 @@ edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       ce[cur_pos].dup_check_timeout = DEFAULT_DUPCHECK_TIMEOUT;
       ce[cur_pos].dup_check_flag = (DC_FILENAME_ONLY | DC_CRC32 | DC_DELETE);
+      XtSetSensitive(dc_timeout_w, True);
+      XtSetSensitive(dc_timeout_label_w, True);
       XtSetSensitive(dc_type_w, True);
       XtVaSetValues(dc_filename_w, XmNset, True, NULL);
+      XtVaSetValues(dc_namesize_w, XmNset, False, NULL);
       XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
       XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
       XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
@@ -656,8 +662,12 @@ edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       XtVaSetValues(dc_store_w, XmNset, False, NULL);
       XtSetSensitive(dc_store_w, False);
       XtSetSensitive(dc_warn_w, True);
-      XtSetSensitive(dc_timeout_w, True);
-      XtSetSensitive(dc_timeout_label_w, True);
+      XtSetSensitive(dc_reference_w, True);
+      XtSetSensitive(dc_ref_label_w, True);
+      XtSetSensitive(dc_alias_w, True);
+      XtSetSensitive(dc_recipient_w, True);
+      XtVaSetValues(dc_alias_w, XmNset, True, NULL);
+      XtVaSetValues(dc_recipient_w, XmNset, False, NULL);
       (void)sprintf(numeric_str, "%ld", ce[cur_pos].dup_check_timeout);
       XtVaSetValues(dc_timeout_w, XmNvalue, numeric_str, NULL);
    }
@@ -665,12 +675,16 @@ edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       ce[cur_pos].dup_check_timeout = 0L;
       ce[cur_pos].dup_check_flag = 0;
+      XtSetSensitive(dc_timeout_w, False);
+      XtSetSensitive(dc_timeout_label_w, False);
       XtSetSensitive(dc_type_w, False);
       XtSetSensitive(dc_delete_w, False);
       XtSetSensitive(dc_store_w, False);
       XtSetSensitive(dc_warn_w, False);
-      XtSetSensitive(dc_timeout_w, False);
-      XtSetSensitive(dc_timeout_label_w, False);
+      XtSetSensitive(dc_reference_w, False);
+      XtSetSensitive(dc_ref_label_w, False);
+      XtSetSensitive(dc_alias_w, False);
+      XtSetSensitive(dc_recipient_w, False);
    }
    ce[cur_pos].value_changed |= DC_TYPE_CHANGED;
    ce[cur_pos].value_changed |= DC_DELETE_CHANGED;
@@ -689,68 +703,62 @@ dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
    ce[cur_pos].value_changed |= DC_TYPE_CHANGED;
    if ((XT_PTR_TYPE)client_data == FILE_CONTENT_SEL)
    {
-      if (ce[cur_pos].dup_check_flag & DC_FILENAME_ONLY)
-      {
-         ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
-      }
-      if (ce[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
-      {
-         ce[cur_pos].dup_check_flag ^= DC_NAME_NO_SUFFIX;
-      }
-      if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
-      {
-         ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
-      }
+      ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
+      ce[cur_pos].dup_check_flag &= ~DC_FILENAME_AND_SIZE;
+      ce[cur_pos].dup_check_flag &= ~DC_NAME_NO_SUFFIX;
       ce[cur_pos].dup_check_flag |= DC_FILE_CONTENT;
+      ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
    }
    else if ((XT_PTR_TYPE)client_data == FILE_NAME_CONTENT_SEL)
         {
-           if (ce[cur_pos].dup_check_flag & DC_FILENAME_ONLY)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
-           }
-           if (ce[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_NAME_NO_SUFFIX;
-           }
-           if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
-           }
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_AND_SIZE;
+           ce[cur_pos].dup_check_flag &= ~DC_NAME_NO_SUFFIX;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
            ce[cur_pos].dup_check_flag |= DC_FILE_CONT_NAME;
         }
    else if ((XT_PTR_TYPE)client_data == FILE_NOSUFFIX_SEL)
         {
-           if (ce[cur_pos].dup_check_flag & DC_FILENAME_ONLY)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
-           }
-           if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
-           }
-           if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
-           }
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_AND_SIZE;
            ce[cur_pos].dup_check_flag |= DC_NAME_NO_SUFFIX;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
+        }
+   else if ((XT_PTR_TYPE)client_data == FILE_NOSUFFIX_SEL)
+        {
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
+           ce[cur_pos].dup_check_flag |= DC_FILENAME_AND_SIZE;
+           ce[cur_pos].dup_check_flag &= ~DC_NAME_NO_SUFFIX;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
         }
         else
         {
-           if (ce[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_NAME_NO_SUFFIX;
-           }
-           if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
-           }
-           if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
-           {
-              ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
-           }
            ce[cur_pos].dup_check_flag |= DC_FILENAME_ONLY;
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_AND_SIZE;
+           ce[cur_pos].dup_check_flag &= ~DC_NAME_NO_SUFFIX;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
         }
+
+   return;
+}
+
+
+/*######################## dc_ref_radio_button() ########################*/
+void
+dc_ref_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   ce[cur_pos].value_changed2 |= DC_REF_CHANGED;
+   if ((XT_PTR_TYPE)client_data == RECIPIENT_DUPCHECK_SEL)
+   {
+      ce[cur_pos].dup_check_flag |= USE_RECIPIENT_ID;
+   }
+   else
+   {
+      ce[cur_pos].dup_check_flag &= ~USE_RECIPIENT_ID;
+   }
 
    return;
 }
@@ -1032,7 +1040,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             }
             else
             {
-               ce[cur_pos].transfer_rate_limit = (off_t)strtoul(input_data, NULL, 0) * 1024;
+               ce[cur_pos].transfer_rate_limit = (off_t)str2offt(input_data, NULL, 10) * 1024;
             }
             ce[cur_pos].value_changed |= TRANSFER_RATE_LIMIT_CHANGED;
             break;
@@ -1073,6 +1081,54 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             ce[cur_pos].value_changed |= KEEP_CONNECTED_CHANGED;
             break;
 
+         case WARN_TIME_DAYS :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].warn_time_days = 0;
+            }
+            else
+            {
+               ce[cur_pos].warn_time_days = (unsigned int)strtoul(input_data, NULL, 10);
+            }
+            ce[cur_pos].value_changed2 |= WARN_TIME_DAYS_CHANGED;
+            break;
+
+         case WARN_TIME_HOURS :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].warn_time_hours = 0;
+            }
+            else
+            {
+               ce[cur_pos].warn_time_hours = (unsigned short)strtoul(input_data, NULL, 10);
+            }
+            ce[cur_pos].value_changed2 |= WARN_TIME_HOURS_CHANGED;
+            break;
+
+         case WARN_TIME_MINS :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].warn_time_mins = 0;
+            }
+            else
+            {
+               ce[cur_pos].warn_time_mins = (unsigned short)strtoul(input_data, NULL, 10);
+            }
+            ce[cur_pos].value_changed2 |= WARN_TIME_MINS_CHANGED;
+            break;
+
+         case WARN_TIME_SECS :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].warn_time_secs = 0;
+            }
+            else
+            {
+               ce[cur_pos].warn_time_secs = (unsigned short)strtoul(input_data, NULL, 10);
+            }
+            ce[cur_pos].value_changed2 |= WARN_TIME_SECS_CHANGED;
+            break;
+
 #ifdef WITH_DUP_CHECK
          case DC_TIMEOUT :
             if (input_data[0] == '\0')
@@ -1104,7 +1160,6 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
 void
 selected(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   static int           last_select = -1;
    char                 *host_selected;
    XmListCallbackStruct *cbs = (XmListCallbackStruct *)call_data;
 
@@ -1126,27 +1181,29 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
    /*
     * Don't always show the same data!!!!
     */
-   if (cur_pos != last_select)
+   if (cur_pos != last_selected)
    {
-      int      choice;
-      char     *tmp_ptr,
-               numeric_str[MAX_LONG_LENGTH];
-      XmString xstr;
+      int          choice;
+      unsigned int value;
+      time_t       warn_time;
+      char         *tmp_ptr,
+                   numeric_str[MAX_LONG_LENGTH];
+      XmString     xstr;
 
-      last_select = cur_pos;
+      last_selected = cur_pos;
 
       if ((fsa[cur_pos].protocol & FTP_FLAG) ||
           (fsa[cur_pos].protocol & SFTP_FLAG) ||
           (fsa[cur_pos].protocol & HTTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
           (fsa[cur_pos].protocol & SCP_FLAG) ||
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
           (fsa[cur_pos].protocol & WMO_FLAG) ||
-#endif /* _WITH_WMO_SUPPORT */
+#endif
 #ifdef _WITH_MAP_SUPPORT
           (fsa[cur_pos].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#endif
           (fsa[cur_pos].protocol & SMTP_FLAG))
       {
          XtSetSensitive(host_switch_toggle_w, True);
@@ -1161,9 +1218,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             XtSetSensitive(real_hostname_2_w, False);
             label_str[5] = '1';
             xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
-            XtVaSetValues(first_label_w,
-                          XmNlabelString, xstr,
-                          NULL);
+            XtVaSetValues(first_label_w, XmNlabelString, xstr, NULL);
             XmStringFree(xstr);
 
             ce[cur_pos].host_switch_toggle = OFF;
@@ -1182,15 +1237,11 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             XtSetSensitive(real_hostname_2_w, True);
             label_str[5] = fsa[cur_pos].host_toggle_str[HOST_ONE];
             xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
-            XtVaSetValues(first_label_w,
-                          XmNlabelString, xstr,
-                          NULL);
+            XtVaSetValues(first_label_w, XmNlabelString, xstr, NULL);
             XmStringFree(xstr);
             label_str[5] = fsa[cur_pos].host_toggle_str[HOST_TWO];
             xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
-            XtVaSetValues(second_label_w,
-                          XmNlabelString, xstr,
-                          NULL);
+            XtVaSetValues(second_label_w, XmNlabelString, xstr, NULL);
             XmStringFree(xstr);
 
             XtVaSetValues(host_switch_toggle_w, XmNset, True, NULL);
@@ -1382,7 +1433,8 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
                              fsa[cur_pos].sockrcv_bufsize / 1024U);
             }
          }
-         XtVaSetValues(socket_receive_buffer_size_w, XmNvalue, numeric_str, NULL);
+         XtVaSetValues(socket_receive_buffer_size_w, XmNvalue,
+                       numeric_str, NULL);
       }
       else
       {
@@ -1476,7 +1528,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          {
             XtVaSetValues(ftp_keepalive_w, XmNset, False, NULL);
          }
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
          XtSetSensitive(ftp_fast_rename_w, True);
          if (fsa[cur_pos].protocol_options & FTP_FAST_MOVE)
          {
@@ -1515,7 +1567,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(ftp_idle_time_w, False);
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
          XtSetSensitive(ftp_keepalive_w, False);
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
          XtSetSensitive(ftp_fast_rename_w, False);
          if (fsa[cur_pos].protocol & SFTP_FLAG)
          {
@@ -1546,6 +1598,14 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtVaSetValues(allow_burst_w, XmNset, True, NULL);
       }
 #endif
+      if (fsa[cur_pos].protocol_options & SORT_FILE_NAMES)
+      {
+         XtVaSetValues(sort_file_names_w, XmNset, True, NULL);
+      }
+      else
+      {
+         XtVaSetValues(sort_file_names_w, XmNset, False, NULL);
+      }
 
       if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
       {
@@ -1590,6 +1650,29 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          }
       }
 
+      if (ce[cur_pos].value_changed2 & DO_NOT_DELETE_DATA_CHANGED)
+      {
+         if (fsa[cur_pos].host_status & DO_NOT_DELETE_DATA)
+         {
+            XtVaSetValues(do_not_delete_data_toggle_w, XmNset, False, NULL);
+         }
+         else
+         {
+            XtVaSetValues(do_not_delete_data_toggle_w, XmNset, True, NULL);
+         }
+      }
+      else
+      {
+         if (fsa[cur_pos].host_status & DO_NOT_DELETE_DATA)
+         {
+            XtVaSetValues(do_not_delete_data_toggle_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(do_not_delete_data_toggle_w, XmNset, False, NULL);
+         }
+      }
+
       if (ce[cur_pos].value_changed & KEEP_CONNECTED_CHANGED)
       {
          (void)sprintf(numeric_str, "%u", ce[cur_pos].keep_connected);
@@ -1599,6 +1682,51 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          (void)sprintf(numeric_str, "%u", fsa[cur_pos].keep_connected);
       }
       XtVaSetValues(keep_connected_w, XmNvalue, numeric_str, NULL);
+
+      warn_time = fsa[cur_pos].warn_time;
+      value = warn_time / 86400;
+      if (value)
+      {
+         warn_time -= (value * 86400);
+      }
+      if ((ce[cur_pos].value_changed2 & WARN_TIME_DAYS_CHANGED) == 0)
+      {
+         ce[cur_pos].warn_time_days = value;
+      }
+      value = warn_time / 3600;
+      if (value)
+      {
+         warn_time -= (value * 3600);
+      }
+      if ((ce[cur_pos].value_changed2 & WARN_TIME_HOURS_CHANGED) == 0)
+      {
+         ce[cur_pos].warn_time_hours = (unsigned short)value;
+      }
+      value = warn_time / 60;
+      if (value)
+      {
+         warn_time -= (value * 60);
+      }
+      if ((ce[cur_pos].value_changed2 & WARN_TIME_MINS_CHANGED) == 0)
+      {
+         ce[cur_pos].warn_time_mins = (unsigned short)value;
+      }
+      if ((ce[cur_pos].value_changed2 & WARN_TIME_SECS_CHANGED) == 0)
+      {
+         ce[cur_pos].warn_time_secs = (unsigned short)warn_time;
+      }
+
+      (void)sprintf(numeric_str, "%u", ce[cur_pos].warn_time_days);
+      XtVaSetValues(warn_time_days_w, XmNvalue, numeric_str, NULL);
+      (void)sprintf(numeric_str, "%u",
+                    (unsigned int)ce[cur_pos].warn_time_hours);
+      XtVaSetValues(warn_time_hours_w, XmNvalue, numeric_str, NULL);
+      (void)sprintf(numeric_str, "%u",
+                    (unsigned int)ce[cur_pos].warn_time_mins);
+      XtVaSetValues(warn_time_mins_w, XmNvalue, numeric_str, NULL);
+      (void)sprintf(numeric_str, "%u",
+                    (unsigned int)ce[cur_pos].warn_time_secs);
+      XtVaSetValues(warn_time_secs_w, XmNvalue, numeric_str, NULL);
 
       if ((ce[cur_pos].value_changed2 & KC_DIRECTION_CHANGED) == 0)
       {
@@ -1628,30 +1756,39 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
           ((ce[cur_pos].value_changed & DC_DELETE_CHANGED) == 0) &&
           ((ce[cur_pos].value_changed & DC_STORE_CHANGED) == 0) &&
           ((ce[cur_pos].value_changed & DC_WARN_CHANGED) == 0) &&
-          ((ce[cur_pos].value_changed & DC_TIMEOUT_CHANGED) == 0))
+          ((ce[cur_pos].value_changed & DC_TIMEOUT_CHANGED) == 0) &&
+          ((ce[cur_pos].value_changed2 & DC_REF_CHANGED) == 0))
       {
          if (fsa[cur_pos].dup_check_timeout == 0L)
          {
             ce[cur_pos].dup_check_timeout = 0L;
             ce[cur_pos].dup_check_flag = 0;
+            XtSetSensitive(dc_timeout_w, False);
+            XtSetSensitive(dc_timeout_label_w, False);
             XtSetSensitive(dc_type_w, False);
             XtSetSensitive(dc_delete_w, False);
             XtSetSensitive(dc_store_w, False);
             XtSetSensitive(dc_warn_w, False);
-            XtSetSensitive(dc_timeout_w, False);
-            XtSetSensitive(dc_timeout_label_w, False);
+            XtSetSensitive(dc_reference_w, False);
+            XtSetSensitive(dc_ref_label_w, False);
+            XtSetSensitive(dc_alias_w, False);
+            XtSetSensitive(dc_recipient_w, False);
             XmToggleButtonSetState(dc_disable_w, True, True);
          }
          else
          {
             ce[cur_pos].dup_check_timeout = fsa[cur_pos].dup_check_timeout;
             ce[cur_pos].dup_check_flag = fsa[cur_pos].dup_check_flag;
+            XtSetSensitive(dc_timeout_w, True);
+            XtSetSensitive(dc_timeout_label_w, True);
             XtSetSensitive(dc_type_w, True);
             XtSetSensitive(dc_delete_w, True);
             XtSetSensitive(dc_store_w, True);
             XtSetSensitive(dc_warn_w, True);
-            XtSetSensitive(dc_timeout_w, True);
-            XtSetSensitive(dc_timeout_label_w, True);
+            XtSetSensitive(dc_reference_w, True);
+            XtSetSensitive(dc_ref_label_w, True);
+            XtSetSensitive(dc_alias_w, True);
+            XtSetSensitive(dc_recipient_w, True);
             XmToggleButtonSetState(dc_enable_w, True, True);
          }
       }
@@ -1661,6 +1798,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          if (fsa[cur_pos].dup_check_flag & DC_FILE_CONTENT)
          {
             XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+            XtVaSetValues(dc_namesize_w, XmNset, False, NULL);
             XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
             XtVaSetValues(dc_filecontent_w, XmNset, True, NULL);
             XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
@@ -1668,6 +1806,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          else if (fsa[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
               {
                  XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_namesize_w, XmNset, False, NULL);
                  XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filenamecontent_w, XmNset, True, NULL);
@@ -1675,13 +1814,23 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          else if (fsa[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
               {
                  XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_namesize_w, XmNset, False, NULL);
                  XtVaSetValues(dc_nosuffix_w, XmNset, True, NULL);
+                 XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
+              }
+         else if (fsa[cur_pos].dup_check_flag & DC_FILENAME_AND_SIZE)
+              {
+                 XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_namesize_w, XmNset, True, NULL);
+                 XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
               }
               else
               {
                  XtVaSetValues(dc_filename_w, XmNset, True, NULL);
+                 XtVaSetValues(dc_namesize_w, XmNset, False, NULL);
                  XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
@@ -1737,6 +1886,20 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          (void)sprintf(numeric_str, "%ld", fsa[cur_pos].dup_check_timeout);
       }
       XtVaSetValues(dc_timeout_w, XmNvalue, numeric_str, NULL);
+
+      if ((ce[cur_pos].value_changed2 & DC_REF_CHANGED) == 0)
+      {
+         if (fsa[cur_pos].dup_check_flag & USE_RECIPIENT_ID)
+         {
+            XtVaSetValues(dc_alias_w, XmNset, False, NULL);
+            XtVaSetValues(dc_recipient_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(dc_alias_w, XmNset, True, NULL);
+            XtVaSetValues(dc_recipient_w, XmNset, False, NULL);
+         }
+      }
 #endif /* WITH_DUP_CHECK */
 
       /* Set option menu for Parallel Transfers. */
@@ -1752,9 +1915,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       {
          choice = 0;
       }
-      XtVaSetValues(pt.option_menu_w,
-                    XmNmenuHistory, pt.button_w[choice],
-                    NULL);
+      XtVaSetValues(pt.option_menu_w, XmNmenuHistory, pt.button_w[choice], NULL);
       XmUpdateDisplay(pt.option_menu_w);
 
       /* Set option menu for Transfer Blocksize. */
@@ -1844,9 +2005,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
                  choice = 2;
               }
       }
-      XtVaSetValues(tb.option_menu_w,
-                    XmNmenuHistory, tb.button_w[choice],
-                    NULL);
+      XtVaSetValues(tb.option_menu_w, XmNmenuHistory, tb.button_w[choice], NULL);
       XmUpdateDisplay(tb.option_menu_w);
 
       /* Set option menu for Filesize Offset. */
@@ -1906,8 +2065,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
                     choice = fsa[cur_pos].file_size_offset;
                  }
          }
-         XtVaSetValues(fso.option_menu_w,
-                       XmNmenuHistory, fso.button_w[choice],
+         XtVaSetValues(fso.option_menu_w, XmNmenuHistory, fso.button_w[choice],
                        NULL);
          XmUpdateDisplay(fso.option_menu_w);
       }
@@ -1916,35 +2074,91 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(fso.option_menu_w, False);
       }
 
-      /* Set option menu for number of no bursts. */
-      if ((fsa[cur_pos].protocol & FTP_FLAG)
-          || (fsa[cur_pos].protocol & FTP_FLAG)
-#ifdef _WITH_WMO_SUPPORT
-          || (fsa[cur_pos].protocol & WMO_FLAG)
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      /* Set TCP_KEEPALIVE option or not. */
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+# ifdef _WITH_WMO_SUPPORT
+          (fsa[cur_pos].protocol & WMO_FLAG) ||
+# endif
+          (fsa[cur_pos].protocol & HTTP_FLAG) ||
+          (fsa[cur_pos].protocol & SMTP_FLAG))
+      {
+         XtSetSensitive(tcp_keepalive_w, True);
+         if (fsa[cur_pos].protocol_options & AFD_TCP_KEEPALIVE)
+         {
+            XtVaSetValues(tcp_keepalive_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(tcp_keepalive_w, XmNset, False, NULL);
+         }
+      }
+      else
+      {
+         XtSetSensitive(tcp_keepalive_w, False);
+      }
 #endif
+
+      /* Set USE_SEQUENCE_LOCKING option or not. */
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+          (fsa[cur_pos].protocol & SFTP_FLAG))
+      {
+         XtSetSensitive(sequence_locking_w, True);
+         if (fsa[cur_pos].protocol_options & USE_SEQUENCE_LOCKING)
+         {
+            XtVaSetValues(sequence_locking_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(sequence_locking_w, XmNset, False, NULL);
+         }
+      }
+      else
+      {
+         XtSetSensitive(sequence_locking_w, False);
+      }
+
+      /* Set KEEP_TIME_STAMP option or not. */
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+          (fsa[cur_pos].protocol & SFTP_FLAG) ||
+          (fsa[cur_pos].protocol & LOC_FLAG))
+      {
+         XtSetSensitive(keep_time_stamp_w, True);
+         if (fsa[cur_pos].protocol_options & KEEP_TIME_STAMP)
+         {
+            XtVaSetValues(keep_time_stamp_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(keep_time_stamp_w, XmNset, False, NULL);
+         }
+      }
+      else
+      {
+         XtSetSensitive(keep_time_stamp_w, False);
+      }
+
+      /* Enable or disable compression. */
+      if ((fsa[cur_pos].protocol & SFTP_FLAG)
 #ifdef _WITH_SCP_SUPPORT
           || (fsa[cur_pos].protocol & SCP_FLAG))
 #else
          )
 #endif
       {
-         XtSetSensitive(nob.option_menu_w, True);
-         if (ce[cur_pos].value_changed & NO_OF_NO_BURST_CHANGED)
+         XtSetSensitive(compression_w, True);
+         if (fsa[cur_pos].protocol_options & ENABLE_COMPRESSION)
          {
-            choice = ce[cur_pos].no_of_no_bursts;
+            XtVaSetValues(compression_w, XmNset, True, NULL);
          }
          else
          {
-            choice = 0;
+            XtVaSetValues(compression_w, XmNset, False, NULL);
          }
-         XtVaSetValues(nob.option_menu_w,
-                       XmNmenuHistory, nob.button_w[choice],
-                       NULL);
-         XmUpdateDisplay(nob.option_menu_w);
       }
       else
       {
-         XtSetSensitive(nob.option_menu_w, False);
+         XtSetSensitive(compression_w, False);
       }
 
       /* See if we need to disable the remove button. */
@@ -1956,7 +2170,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       {
          XtSetSensitive(rm_button_w, True);
       }
-   } /* if (cur_pos != last_select) */
+   } /* if (cur_pos != last_selected) */
 
    return;
 }
@@ -1966,14 +2180,14 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
 void
 submite_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int  i,
-        changes = 0,
-        changed_hosts = 0,
-        prev_changes;
-   char **host_list = NULL,
-        msg[MAX_MESSAGE_LENGTH];
+   int    i,
+          changes = 0,
+          changed_hosts = 0,
+          prev_changes;
+   char   **host_list = NULL,
+          msg[MAX_MESSAGE_LENGTH];
 
-   /* Ensure that the FSA we are mapped to is up to date */
+   /* Ensure that the FSA we are mapped to is up to date. */
    if (check_fsa(NO) == YES)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -2185,6 +2399,26 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             ce[i].keep_connected = 0;
             changes++;
          }
+         if ((ce[i].value_changed2 & WARN_TIME_DAYS_CHANGED) ||
+             (ce[i].value_changed2 & WARN_TIME_HOURS_CHANGED) ||
+             (ce[i].value_changed2 & WARN_TIME_MINS_CHANGED) ||
+             (ce[i].value_changed2 & WARN_TIME_SECS_CHANGED))
+         {
+            time_t warn_time;
+
+            warn_time = (ce[i].warn_time_days * 86400) +
+                        (ce[i].warn_time_hours * 3600) +
+                        (ce[i].warn_time_mins * 60) + ce[i].warn_time_secs;
+            ce[i].warn_time_days = 0;
+            ce[i].warn_time_hours = 0;
+            ce[i].warn_time_mins = 0;
+            ce[i].warn_time_secs = 0;
+            if (fsa[i].warn_time != warn_time)
+            {
+               fsa[i].warn_time = warn_time;
+               changes++;
+            }
+         }
          if (ce[i].value_changed2 & KC_DIRECTION_CHANGED)
          {
             if (((ce[i].special_flag & KEEP_CON_NO_FETCH) == 0) &&
@@ -2369,10 +2603,23 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             }
             changes++;
          }
+         if (ce[i].value_changed2 & DC_REF_CHANGED)
+         {
+            if (ce[i].dup_check_flag & USE_RECIPIENT_ID)
+            {
+               fsa[i].dup_check_flag |= USE_RECIPIENT_ID;
+            }
+            else
+            {
+               fsa[i].dup_check_flag &= ~USE_RECIPIENT_ID;
+            }
+            changes++;
+         }
          if ((ce[i].value_changed & DC_TYPE_CHANGED) ||
              (ce[i].value_changed & DC_DELETE_CHANGED) ||
              (ce[i].value_changed & DC_STORE_CHANGED) ||
-             (ce[i].value_changed & DC_WARN_CHANGED))
+             (ce[i].value_changed & DC_WARN_CHANGED) ||
+             (ce[i].value_changed2 & DC_REF_CHANGED))
          {
             ce[i].dup_check_flag = 0;
          }
@@ -2410,7 +2657,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                   if (fsa[i].job_status[j].connect_status == 0)
                   {
                      fsa[i].job_status[j].connect_status = DISCONNECT;
+                     fsa[i].job_status[j].proc_id = -1;
+#ifdef _WITH_BURST_2
                      fsa[i].job_status[j].job_id = NO_ID;
+#endif
                   }
                }
             }
@@ -2456,7 +2706,32 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             fsa[i].protocol_options ^= STAT_KEEPALIVE;
             changes++;
          }
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+         if (ce[i].value_changed2 & TCP_KEEPALIVE_CHANGED)
+         {
+            fsa[i].protocol_options ^= AFD_TCP_KEEPALIVE;
+            changes++;
+         }
+#endif
+         if (ce[i].value_changed2 & USE_SEQUENCE_LOCKING_CHANGED)
+         {
+            fsa[i].protocol_options ^= USE_SEQUENCE_LOCKING;
+            changes++;
+         }
+         if (ce[i].value_changed2 & COMPRESION_CHANGED)
+         {
+            fsa[i].protocol_options ^= ENABLE_COMPRESSION;
+            changes++;
+         }
+         if (ce[i].value_changed2 & KEEP_TIME_STAMP_CHANGED)
+         {
+            fsa[i].protocol_options ^= KEEP_TIME_STAMP;
+            changes++;
+         }
+         if (ce[i].value_changed2 & SORT_FILE_NAMES_CHANGED)
+         {
+            fsa[i].protocol_options ^= SORT_FILE_NAMES;
+            changes++;
+         }
          if (ce[i].value_changed & FTP_FAST_RENAME_CHANGED)
          {
             fsa[i].protocol_options ^= FTP_FAST_MOVE;
@@ -2491,7 +2766,32 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          if (ce[i].value_changed2 & ERROR_OFFLINE_STATIC_CHANGED)
          {
+#ifdef LOCK_DEBUG
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
             fsa[i].host_status ^= HOST_ERROR_OFFLINE_STATIC;
+#ifdef LOCK_DEBUG
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+            changes++;
+         }
+         if (ce[i].value_changed2 & DO_NOT_DELETE_DATA_CHANGED)
+         {
+#ifdef LOCK_DEBUG
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+            fsa[i].host_status ^= DO_NOT_DELETE_DATA;
+#ifdef LOCK_DEBUG
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+            unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
             changes++;
          }
 
@@ -2516,9 +2816,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       char          **p_host_names = NULL;
       XmStringTable item_list;
 
-      XtVaGetValues(host_list_w,
-                    XmNitems, &item_list,
-                    NULL);
+      XtVaGetValues(host_list_w, XmNitems, &item_list, NULL);
       if ((p_host_names = malloc(new_size)) == NULL)
       {
          (void)xrec(FATAL_DIALOG, "malloc() error [%d Bytes] : %s (%s %d)",
@@ -2543,6 +2841,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       {
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
       }
+
       for (i = 0; i < no_of_hosts; i++)
       {
          XtFree(p_host_names[i]);
@@ -2579,8 +2878,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
               (void)sprintf(msg, "No values have been changed!");
            }
    }
-   event_log(0L, EC_GLOB, ET_MAN, EA_REREAD_HOST_CONFIG, "%s %s",
-             user, msg);
+   event_log(0L, EC_GLOB, ET_MAN, EA_REREAD_HOST_CONFIG, "%s %s", user, msg);
    show_message(statusbox_w, msg);
    if (changes != 0)
    {
@@ -2602,8 +2900,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          do
          {
-            line_length += sprintf(&msg[line_length], "%s ",
-                                   host_list[i]);
+            line_length += sprintf(&msg[line_length], "%s ", host_list[i]);
             i++;
          } while ((line_length <= MAX_CHARS_IN_LINE) && (changed_hosts > i));
 
@@ -2622,7 +2919,6 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
            db_update_fd;
       char db_update_fifo[MAX_PATH_LENGTH];
 
-      host_alias_order_change = NO;
       (void)strcpy(db_update_fifo, p_work_dir);
       (void)strcat(db_update_fifo, FIFO_DIR);
       (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
@@ -2656,6 +2952,27 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                        "close() error : %s", strerror(errno));
          }
       }
+
+      /*
+       * If the order changes we created a new FSA and we must reflect
+       * this is struct changed_entry! Otherwise if user continues using
+       * this dialog it will base it changes on a wrong FSA and thus,
+       * update wrong host(s).
+       * NOTE: We do not need detach and attach to the FSA because
+       *       function change_alias_order() did this for us.
+       */
+      if (host_alias_order_change == YES)
+      {
+         if ((cur_pos = get_host_position(fsa, last_selected_host, no_of_hosts)) < 0)
+         {
+            (void)xrec(FATAL_DIALOG,
+                       "AAAaaaarrrrghhhh!!! Could not find host %s in FSA. (%s %d)",
+                       last_selected_host, __FILE__, __LINE__);
+            return;
+         }
+         init_host_list(cur_pos);
+      }
+      host_alias_order_change = NO;
    }
 
    if (host_list != NULL)
@@ -2690,9 +3007,7 @@ leave_notify(Widget w, XtPointer client_data, XtPointer call_data)
    if ((in_drop_site != -2) && (in_drop_site == YES))
    {
       in_drop_site = NO;
-      XtVaSetValues(start_drag_w,
-                    XmNsourceCursorIcon, no_source_icon_w,
-                    NULL);
+      XtVaSetValues(start_drag_w, XmNsourceCursorIcon, no_source_icon_w, NULL);
    }
 
    return;
@@ -2706,9 +3021,7 @@ enter_notify(Widget w, XtPointer client_data, XtPointer call_data)
    if ((in_drop_site != -2) && (in_drop_site == NO))
    {
       in_drop_site = YES;
-      XtVaSetValues(start_drag_w,
-                    XmNsourceCursorIcon, source_icon_w,
-                    NULL);
+      XtVaSetValues(start_drag_w, XmNsourceCursorIcon, source_icon_w, NULL);
    }
 
    return;

@@ -1,6 +1,6 @@
 /*
  *  sf_wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -71,11 +71,11 @@ DESCR__E_M1
 #include <string.h>                    /* strcpy(), strcat(), strcmp(),  */
                                        /* strerror()                     */
 #include <stdlib.h>                    /* malloc(), free(), abort()      */
-#include <ctype.h>                     /* isdigit()                      */
+#include <ctype.h>                     /* isdigit(), isalpha()           */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _OUTPUT_LOG
-#include <sys/times.h>                 /* times(), struct tms            */
+# include <sys/times.h>                /* times(), struct tms            */
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
@@ -86,10 +86,10 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables. */
-int                        counter_fd = -1,     /* NOT USED */
+int                        counter_fd = -1,     /* NOT USED. */
                            event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
-                           files_to_delete,     /* NOT USED */
+                           files_to_delete,     /* NOT USED. */
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
                            *p_no_of_hosts = NULL,
@@ -106,6 +106,24 @@ int                        counter_fd = -1,     /* NOT USED */
                            trans_rename_blocked = NO,
                            amg_flag = NO,
                            timeout_flag;
+#ifdef _OUTPUT_LOG
+int                        ol_fd = -2;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+int                        ol_readfd = -2;
+# endif
+unsigned int               *ol_job_number,
+                           *ol_retries;
+char                       *ol_data = NULL,
+                           *ol_file_name,
+                           *ol_output_type;
+unsigned short             *ol_archive_name_length,
+                           *ol_file_name_length,
+                           *ol_unl;
+off_t                      *ol_file_size;
+size_t                     ol_size,
+                           ol_real_size;
+clock_t                    *ol_transfer_time;
+#endif
 #ifdef _WITH_BURST_2
 unsigned int               burst_2_counter = 0;
 #endif
@@ -113,12 +131,13 @@ unsigned int               burst_2_counter = 0;
 off_t                      fsa_size;
 #endif
 off_t                      *file_size_buffer = NULL;
+time_t                     *file_mtime_buffer = NULL;
 u_off_t                    prev_file_size_done = 0;
 long                       transfer_timeout;
 char                       *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            line_buffer[4096],
-                           *del_file_name_buffer = NULL, /* NOT USED */
+                           *del_file_name_buffer = NULL, /* NOT USED. */
                            *file_name_buffer = NULL;
 struct filetransfer_status *fsa = NULL;
 struct job                 db;
@@ -128,13 +147,20 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
+/* Local global variables. */
+static int                 files_send,
+                           files_to_send,
+                           local_file_counter;
+static off_t               local_file_size,
+                           *p_file_size_buffer;
+
 #ifdef _WITH_WMO_SUPPORT
-/* Local functions. */
-static void sf_wmo_exit(void),
-            sig_bus(int),
-            sig_segv(int),
-            sig_kill(int),
-            sig_exit(int);
+/* Local function prototypes. */
+static void                sf_wmo_exit(void),
+                           sig_bus(int),
+                           sig_segv(int),
+                           sig_kill(int),
+                           sig_exit(int);
 #endif
 
 
@@ -146,43 +172,29 @@ main(int argc, char *argv[])
 #ifdef _WITH_BURST_2
    int              cb2_ret;
 #endif
-   int              exit_status = TRANSFER_SUCCESS,
+   int              current_toggle,
+                    exit_status = TRANSFER_SUCCESS,
                     j,
                     fd,
                     status,
                     loops,
                     rest,
-                    files_to_send,
-                    files_send = 0,
                     blocksize,
+                    *wmo_counter,
                     wmo_counter_fd = -1;
    off_t            no_of_bytes;
    clock_t          clktck;
+   time_t           last_update_time,
+                    now;
 #ifdef _OUTPUT_LOG
-   int              ol_fd = -1;
-# ifdef WITHOUT_FIFO_RW_SUPPORT
-   int              ol_readfd = -1;
-# endif
-   unsigned int     *ol_job_number;
-   char             *ol_data = NULL,
-                    *ol_file_name;
-   unsigned short   *ol_archive_name_length,
-                    *ol_file_name_length,
-                    *ol_unl;
-   off_t            *ol_file_size;
-   size_t           ol_size,
-                    ol_real_size;
    clock_t          end_time = 0,
-                    start_time = 0,
-                    *ol_transfer_time;
+                    start_time = 0;
    struct tms       tmsdummy;
 #endif
-   off_t            *p_file_size_buffer;
    char             *p_file_name_buffer,
                     *buffer,
                     fullname[MAX_PATH_LENGTH],
-                    file_path[MAX_PATH_LENGTH],
-                    work_dir[MAX_PATH_LENGTH];
+                    file_path[MAX_PATH_LENGTH];
    struct stat      stat_buf;
    struct job       *p_db;
 #ifdef SA_FULLDUMP
@@ -206,7 +218,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(sf_wmo_exit) != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -214,8 +226,8 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
-   p_work_dir = work_dir;
+   /* Initialise variables. */
+   local_file_counter = 0;
    files_to_send = init_sf(argc, argv, file_path, WMO_FLAG);
    p_db = &db;
    if (fsa->trl_per_process > 0)
@@ -254,51 +266,43 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-#ifdef _OUTPUT_LOG
-   if (db.output_log == YES)
-   {
-      output_log_ptrs(&ol_fd,                /* File descriptor to fifo */
-# ifdef WITHOUT_FIFO_RW_SUPPORT
-                      &ol_readfd,
-# endif
-                      &ol_job_number,
-                      &ol_data,              /* Pointer to buffer       */
-                      &ol_file_name,
-                      &ol_file_name_length,
-                      &ol_archive_name_length,
-                      &ol_file_size,
-                      &ol_unl,
-                      &ol_size,
-                      &ol_transfer_time,
-                      db.host_alias,
-                      WMO);
-   }
-#endif
-
-   timeout_flag = OFF;
-
    /* Now determine the real hostname. */
    if (db.toggle_host == YES)
    {
       if (fsa->host_toggle == HOST_ONE)
       {
          (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
+         current_toggle = HOST_TWO;
       }
       else
       {
          (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
+         current_toggle = HOST_ONE;
       }
    }
    else
    {
       (void)strcpy(db.hostname,
                    fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+      current_toggle = (int)fsa->host_toggle;
    }
 
-   /* Connect to remote WMO-server */
+   /* Connect to remote WMO-server. */
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   if (fsa->protocol_options & AFD_TCP_KEEPALIVE)
+   {
+      timeout_flag = transfer_timeout - 5;
+      if (timeout_flag < MIN_KEEP_ALIVE_INTERVAL)
+      {
+         timeout_flag = MIN_KEEP_ALIVE_INTERVAL;
+      }
+   }
+#else
+   timeout_flag = OFF;
+#endif
    if ((status = wmo_connect(db.hostname, db.port, db.sndbuf_size)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                 "WMO connection to <%s> at port %d failed (%d).",
                 db.hostname, db.port, status);
       exit(eval_timeout(CONNECT_ERROR));
@@ -314,8 +318,7 @@ main(int argc, char *argv[])
 
    /* Inform FSA that we have finished connecting and */
    /* will now start to transfer data.                */
-   (void)gsf_check_fsa();
-   if (db.fsa_pos != INCORRECT)
+   if (gsf_check_fsa() != NEITHER)
    {
 #ifdef LOCK_DEBUG
       lock_region_w(fsa_fd, db.lock_offset + LOCK_CON, __FILE__, __LINE__);
@@ -333,7 +336,7 @@ main(int argc, char *argv[])
    }
 
    /* Allocate buffer to read data from the source file. */
-   if ((buffer = malloc(blocksize + 1 + 4 /* for bulletin end */)) == NULL)
+   if ((buffer = malloc(blocksize + 1 + 4 /* For bulletin end. */)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));
@@ -345,7 +348,7 @@ main(int argc, char *argv[])
       char counter_file_name[MAX_FILENAME_LENGTH];
 
       (void)sprintf(counter_file_name, "/%s.%d", db.host_alias, db.port);
-      if ((wmo_counter_fd = open_counter_file(counter_file_name)) < 0)
+      if ((wmo_counter_fd = open_counter_file(counter_file_name, &wmo_counter)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to open counter file `%s'.", counter_file_name);
@@ -361,25 +364,14 @@ main(int argc, char *argv[])
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL, "WMO Bursting.");
          }
-# ifdef _OUTPUT_LOG
-         if ((db.output_log == YES) && (ol_data == NULL))
-         {
-#  ifdef WITHOUT_FIFO_RW_SUPPORT
-            output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
-#  else
-            output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
-#  endif
-                            &ol_file_name_length, &ol_archive_name_length,
-                            &ol_file_size, &ol_unl, &ol_size, &ol_transfer_time,
-                            db.host_alias, WMO);
-         }
-# endif
       }
 #endif
 
-      /* Send all files */
+      /* Send all files. */
       p_file_name_buffer = file_name_buffer;
       p_file_size_buffer = file_size_buffer;
+      last_update_time = time(NULL);
+      local_file_size = 0;
       for (files_send = 0; files_send < files_to_send; files_send++)
       {
          (void)sprintf(fullname, "%s/%s", file_path, p_file_name_buffer);
@@ -390,22 +382,21 @@ main(int argc, char *argv[])
                 header_length = 0,
                 length_type_indicator = 10;
 
-            (void)gsf_check_fsa();
-            if (db.fsa_pos != INCORRECT)
+            if (gsf_check_fsa() != NEITHER)
             {
                fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
                (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
                             p_file_name_buffer);
             }
 
-            /* Open local file */
+            /* Open local file. */
 #ifdef O_LARGEFILE
             if ((fd = open(fullname, O_RDONLY | O_LARGEFILE)) == -1)
 #else
             if ((fd = open(fullname, O_RDONLY)) == -1)
 #endif
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          "Failed to open local file `%s' : %s",
                          fullname, strerror(errno));
                wmo_quit();
@@ -430,6 +421,7 @@ main(int argc, char *argv[])
              */
             if (db.special_flag & FILE_NAME_IS_HEADER)
             {
+               int  space_count;
                char *ptr = p_file_name_buffer;
 
                buffer[length_type_indicator] = 1; /* SOH */
@@ -437,41 +429,37 @@ main(int argc, char *argv[])
                buffer[length_type_indicator + 2] = '\015'; /* CR */
                buffer[length_type_indicator + 3] = '\012'; /* LF */
                header_length = 4;
+               space_count = 0;
 
                if (wmo_counter_fd > 0)
                {
-                  int wmo_counter;
-
-                  if ((wmo_counter = next_wmo_counter(wmo_counter_fd)) < 0)
+                  if (next_wmo_counter(wmo_counter_fd, wmo_counter) < 0)
                   {
-                     if (close(wmo_counter_fd) == -1)
-                     {
-                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                   "close() error : %s", strerror(errno));
-                     }
+                     close_counter_file(wmo_counter_fd, &wmo_counter);
                      wmo_counter_fd = -1;
+                     wmo_counter = NULL;
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 "Failed to get next WMO counter.");
                   }
                   else
                   {
-                     if (wmo_counter < 10)
+                     if (*wmo_counter < 10)
                      {
                         buffer[length_type_indicator + header_length] = '0';
                         buffer[length_type_indicator + header_length + 1] = '0';
-                        buffer[length_type_indicator + header_length + 2] = wmo_counter + '0';
+                        buffer[length_type_indicator + header_length + 2] = *wmo_counter + '0';
                      }
-                     else if (wmo_counter < 100)
+                     else if (*wmo_counter < 100)
                           {
                              buffer[length_type_indicator + header_length] = '0';
-                             buffer[length_type_indicator + header_length + 1] = (wmo_counter / 10) + '0';
-                             buffer[length_type_indicator + header_length + 2] = (wmo_counter % 10) + '0';
+                             buffer[length_type_indicator + header_length + 1] = (*wmo_counter / 10) + '0';
+                             buffer[length_type_indicator + header_length + 2] = (*wmo_counter % 10) + '0';
                           }
-                     else if (wmo_counter < 1000)
+                     else if (*wmo_counter < 1000)
                           {
-                             buffer[length_type_indicator + header_length] = ((wmo_counter / 100) % 10) + '0';
-                             buffer[length_type_indicator + header_length + 1] = ((wmo_counter / 10) % 10) + '0';
-                             buffer[length_type_indicator + header_length + 2] = (wmo_counter % 10) + '0';
+                             buffer[length_type_indicator + header_length] = ((*wmo_counter / 100) % 10) + '0';
+                             buffer[length_type_indicator + header_length + 1] = ((*wmo_counter / 10) % 10) + '0';
+                             buffer[length_type_indicator + header_length + 2] = (*wmo_counter % 10) + '0';
                           }
                      buffer[length_type_indicator + header_length + 3] = '\015'; /* CR */
                      buffer[length_type_indicator + header_length + 4] = '\015'; /* CR */
@@ -494,8 +482,25 @@ main(int argc, char *argv[])
                   }
                   else
                   {
-                     buffer[length_type_indicator + header_length] = ' ';
-                     header_length++; ptr++;
+                     if (space_count == 2)
+                     {
+                        if ((isalpha((int)(*(ptr + 1)))) &&
+                            (isalpha((int)(*(ptr + 2)))) &&
+                            (isalpha((int)(*(ptr + 3)))))
+                        {
+                           buffer[length_type_indicator + header_length] = ' ';
+                           buffer[length_type_indicator + header_length + 1] = *(ptr + 1);
+                           buffer[length_type_indicator + header_length + 2] = *(ptr + 2);
+                           buffer[length_type_indicator + header_length + 3] = *(ptr + 3);
+                           header_length += 4;
+                        }
+                        break;
+                     }
+                     else
+                     {
+                        buffer[length_type_indicator + header_length] = ' ';
+                        header_length++; ptr++; space_count++;
+                     }
                   }
                } /* for (;;) */
                buffer[length_type_indicator + header_length] = '\015'; /* CR */
@@ -505,7 +510,7 @@ main(int argc, char *argv[])
                end_length = 4;
             }
 
-            /* Read (local) and write (remote) file */
+            /* Read (local) and write (remote) file. */
             no_of_bytes = 0;
             loops = (length_type_indicator + header_length + *p_file_size_buffer) / blocksize;
             rest = (length_type_indicator + header_length + *p_file_size_buffer) % blocksize;
@@ -550,7 +555,7 @@ main(int argc, char *argv[])
                                      (buffer + length_type_indicator + header_length),
                                      (blocksize - length_type_indicator - header_length))) != (blocksize - length_type_indicator - header_length))
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                                "Could not read() local file `%s' : %s",
                                fullname, strerror(errno));
                      wmo_quit();
@@ -558,7 +563,7 @@ main(int argc, char *argv[])
                   }
                   if ((status = wmo_write(buffer, blocksize)) != SUCCESS)
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                                "Failed to write block from file `%s' to remote port %d [%d].",
                                p_file_name_buffer, db.port, status);
                      wmo_quit();
@@ -572,8 +577,7 @@ main(int argc, char *argv[])
 
                   no_of_bytes += blocksize;
 
-                  (void)gsf_check_fsa();
-                  if (db.fsa_pos != INCORRECT)
+                  if (gsf_check_fsa() != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                      fsa->job_status[(int)db.job_no].file_size_done += blocksize;
@@ -592,7 +596,7 @@ main(int argc, char *argv[])
                                      (buffer + length_type_indicator + header_length),
                                      (rest - length_type_indicator - header_length))) != (rest - length_type_indicator - header_length))
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                                "Could not read() local file `%s' : %s",
                                fullname, strerror(errno));
                      wmo_quit();
@@ -607,7 +611,7 @@ main(int argc, char *argv[])
                   }
                   if ((status = wmo_write(buffer, rest + end_length)) != SUCCESS)
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                                "Failed to write rest of file to remote port %d [%d].",
                                p_file_name_buffer, db.port, status);
                      wmo_quit();
@@ -621,8 +625,7 @@ main(int argc, char *argv[])
 
                   no_of_bytes += rest + end_length;
 
-                  (void)gsf_check_fsa();
-                  if (db.fsa_pos != INCORRECT)
+                  if (gsf_check_fsa() != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                      fsa->job_status[(int)db.job_no].file_size_done += rest;
@@ -659,7 +662,7 @@ main(int argc, char *argv[])
                       * can be taken against the originator.
                       */
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "File `%s' for host %s was DEFINITELY NOT send in dot notation.",
+                                "File `%s' for host %s was DEFINITELY send without any locking.",
                                 p_file_name_buffer,
                                 fsa->host_dsp_name);
                   }
@@ -676,14 +679,14 @@ main(int argc, char *argv[])
 
                if ((ret = wmo_check_reply()) == INCORRECT)
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to receive reply from port %d.", db.port);
                   wmo_quit();
                   exit(eval_timeout(CHECK_REPLY_ERROR));
                }
                else if (ret == NEGATIV_ACKNOWLEDGE)
                     {
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                                  "Received negative acknowledge from remote port %d for file %s.",
                                  db.port, p_file_name_buffer);
                     }
@@ -696,7 +699,7 @@ main(int argc, char *argv[])
             }
 #endif
 
-            /* Close local file */
+            /* Close local file. */
             if (close(fd) == -1)
             {
                (void)rec(transfer_log_fd, WARN_SIGN,
@@ -713,83 +716,30 @@ main(int argc, char *argv[])
          }
          else
          {
-            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
                       "File `%s' is of zero length, ignoring.",
                       p_file_name_buffer);
          }
 
          /* Update FSA, one file transmitted. */
-         (void)gsf_check_fsa();
-         if (db.fsa_pos != INCORRECT)
+         if (gsf_check_fsa() != NEITHER)
          {
-#ifdef LOCK_DEBUG
-            lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-            lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
             fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
             fsa->job_status[(int)db.job_no].no_of_files_done++;
             fsa->job_status[(int)db.job_no].file_size_in_use = 0;
             fsa->job_status[(int)db.job_no].file_size_in_use_done = 0;
+            local_file_size += *p_file_size_buffer;
+            local_file_counter += 1;
 
-            /* Total file counter */
-            fsa->total_file_counter -= 1;
-#ifdef _VERIFY_FSA
-            if (fsa->total_file_counter < 0)
+            now = time(NULL);
+            if (now >= (last_update_time + LOCK_INTERVAL_TIME))
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file counter for host %s less then zero. Correcting to %d.",
-                          fsa->host_dsp_name, files_to_send - (files_send + 1));
-               fsa->total_file_counter = files_to_send - (files_send + 1);
+               last_update_time = now;
+               update_tfc(local_file_counter, local_file_size,
+                          p_file_size_buffer, files_to_send, files_send);
+               local_file_size = 0;
+               local_file_counter = 0;
             }
-#endif
-
-            if (*p_file_size_buffer > 0)
-            {
-               /* Total file size */
-               fsa->total_file_size -= *p_file_size_buffer;
-#ifdef _VERIFY_FSA
-               if (fsa->total_file_size < 0)
-               {
-                  int   k;
-                  off_t *tmp_ptr = p_file_size_buffer;
-
-                  tmp_ptr++;
-                  fsa->total_file_size = 0;
-                  for (k = (files_send + 1); k < files_to_send; k++)
-                  {     
-                     fsa->total_file_size += *tmp_ptr;
-                  }
-
-                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
-# if SIZEOF_OFF_T == 4
-                             "Total file size for host %s overflowed. Correcting to %ld.",
-# else
-                             "Total file size for host %s overflowed. Correcting to %lld.",
-# endif
-                             fsa->host_dsp_name,
-                             (pri_off_t)fsa->total_file_size);
-               }
-               else if ((fsa->total_file_counter == 0) &&
-                        (fsa->total_file_size > 0))
-                    {
-                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                  "fc for host %s is zero but fs is not zero. Correcting.",
-                                  fsa->host_dsp_name);
-                       fsa->total_file_size = 0;
-                    }
-#endif
-               /* Number of bytes send */
-               fsa->bytes_send += *p_file_size_buffer;
-            }
-
-            /* File counter done */
-            fsa->file_counter_done += 1;
-#ifdef LOCK_DEBUG
-            unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-            unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
          }
 
 #ifdef _WITH_TRANS_EXEC
@@ -797,9 +747,40 @@ main(int argc, char *argv[])
          {
             trans_exec(file_path, fullname, p_file_name_buffer);
          }
-#endif /* _WITH_TRANS_EXEC */
+#endif
 
-         /* Now archive file if necessary */
+#ifdef _OUTPUT_LOG
+         if (db.output_log == YES)
+         {
+            if (ol_fd == -2)
+            {
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+               output_log_fd(&ol_fd, &ol_readfd);
+# else
+               output_log_fd(&ol_fd);
+# endif
+            }
+            if ((ol_fd > -1) && (ol_data == NULL))
+            {
+               output_log_ptrs(&ol_retries,
+                               &ol_job_number,
+                               &ol_data,              /* Pointer to buffer.      */
+                               &ol_file_name,
+                               &ol_file_name_length,
+                               &ol_archive_name_length,
+                               &ol_file_size,
+                               &ol_unl,
+                               &ol_size,
+                               &ol_transfer_time,
+                               &ol_output_type,
+                               db.host_alias,
+                               (current_toggle - 1),
+                               WMO);
+            }
+         }
+#endif
+
+         /* Now archive file if necessary. */
          if ((db.archive_time > 0) &&
              (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
          {
@@ -842,9 +823,11 @@ main(int argc, char *argv[])
                   (*ol_file_name_length)++;
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
+                  *ol_retries = db.retries;
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = 0;
+                  *ol_output_type = '0';
                   ol_real_size = *ol_file_name_length + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
@@ -875,9 +858,11 @@ main(int argc, char *argv[])
                                &db.archive_dir[db.archive_offset]);
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
+                  *ol_retries = db.retries;
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
+                  *ol_output_type = '0';
                   ol_real_size = *ol_file_name_length +
                                  *ol_archive_name_length + 1 + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -896,7 +881,7 @@ main(int argc, char *argv[])
 
 try_again_unlink:
 #endif
-            /* Delete the file we just have send */
+            /* Delete the file we just have send. */
             if (unlink(fullname) == -1)
             {
 #ifdef WITH_UNLINK_DELAY
@@ -923,9 +908,11 @@ try_again_unlink:
                (*ol_file_name_length)++;
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
+               *ol_retries = db.retries;
                *ol_unl = db.unl;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = 0;
+               *ol_output_type = '0';
                ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
@@ -1024,7 +1011,12 @@ try_again_unlink:
             {
                char *sign;
 
-               fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+#ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_HS, __FILE__, __LINE__);
+#else
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_HS);
+#endif
+               fsa->host_status &= ~AUTO_PAUSE_QUEUE_STAT;
                if (fsa->host_status & HOST_ERROR_EA_STATIC)
                {
                   fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
@@ -1033,6 +1025,12 @@ try_again_unlink:
                {
                   fsa->host_status &= ~EVENT_STATUS_FLAGS;
                }
+               fsa->host_status &= ~PENDING_ERRORS;
+#ifdef LOCK_DEBUG
+               unlock_region(fsa_fd, db.lock_offset + LOCK_HS, __FILE__, __LINE__);
+#else
+               unlock_region(fsa_fd, db.lock_offset + LOCK_HS);
+#endif
                error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
                event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                          fsa->host_alias);
@@ -1054,16 +1052,30 @@ try_again_unlink:
             }
          } /* if (fsa->error_counter > 0) */
 #ifdef WITH_ERROR_QUEUE
-         if ((db.special_flag & IN_ERROR_QUEUE) &&
-             (fsa->host_status & ERROR_QUEUE_SET))
+         if (fsa->host_status & ERROR_QUEUE_SET)
          {
-            remove_from_error_queue(db.job_id, fsa);
+            remove_from_error_queue(db.job_id, fsa, db.fsa_pos, fsa_fd);
          }
 #endif
+         if (fsa->host_status & HOST_ACTION_SUCCESS)
+         {
+            error_action(fsa->host_alias, "start", HOST_SUCCESS_ACTION);
+         }
 
          p_file_name_buffer += MAX_FILENAME_LENGTH;
          p_file_size_buffer++;
       } /* for (files_send = 0; files_send < files_to_send; files_send++) */
+
+      if (local_file_counter)
+      {
+         if (gsf_check_fsa() != NEITHER)
+         {
+            update_tfc(local_file_counter, local_file_size,
+                       p_file_size_buffer, files_to_send, files_send);
+            local_file_size = 0;
+            local_file_counter = 0;
+         }
+      }
 
       /*
        * Remove file directory, but only when all files have
@@ -1092,6 +1104,9 @@ try_again_unlink:
 # ifdef _WITH_INTERRUPT_JOB
                                      0,
 # endif
+# ifdef _OUTPUT_LOG
+                                     &ol_fd,
+# endif
 # ifndef AFDBENCH_CONFIG
                                      NULL,
 # endif
@@ -1106,7 +1121,7 @@ try_again_unlink:
 
    free(buffer);
 
-   /* Disconnect from remote port */
+   /* Disconnect from remote port. */
    wmo_quit();
    if (fsa->debug > NORMAL_MODE)
    {
@@ -1116,11 +1131,7 @@ try_again_unlink:
 
    if (wmo_counter_fd > 0)
    {
-      if (close(wmo_counter_fd) == -1)
-      {
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
-      }
+      close_counter_file(wmo_counter_fd, &wmo_counter);
    }
 #endif /* _WITH_WMO_SUPPORT */
 
@@ -1134,16 +1145,20 @@ try_again_unlink:
 static void
 sf_wmo_exit(void)
 {
-   int  fd;
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   int  readfd;
-#endif
-   char sf_fin_fifo[MAX_PATH_LENGTH];
-
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      int     diff_no_of_files_done;
+      int     diff_no_of_files_done,
+              length;
       u_off_t diff_file_size_done;
+
+      if (local_file_counter)
+      {
+         if (gsf_check_fsa() != NEITHER)
+         {
+            update_tfc(local_file_counter, local_file_size,
+                       p_file_size_buffer, files_to_send, files_send);
+         }
+      }
 
       diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
                               prev_no_of_files_done;
@@ -1151,28 +1166,31 @@ sf_wmo_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
+         char buffer[MAX_INT_LENGTH + 24 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
+
 #ifdef _WITH_BURST_2
 # if SIZEOF_OFF_T == 4
-         fd = sprintf(sf_fin_fifo, "%lu Bytes send in %d file(s).",
+         length = sprintf(buffer, "%lu bytes send in %d file(s).",
 # else
-         fd = sprintf(sf_fin_fifo, "%llu Bytes send in %d file(s).",
+         length = sprintf(buffer, "%llu bytes send in %d file(s).",
 # endif
-                      diff_file_size_done, diff_no_of_files_done);
+                          diff_file_size_done, diff_no_of_files_done);
          if (burst_2_counter == 1)
          {
-            (void)strcpy(&sf_fin_fifo[fd], " [BURST]");
+            (void)strcpy(&buffer[length], " [BURST]");
          }
          else if (burst_2_counter > 1)
               {
-                 (void)sprintf(sf_fin_fifo + fd, " [BURST * %u]",
+                 (void)sprintf(buffer + length, " [BURST * %u]",
                                burst_2_counter);
               }
-         trans_log(INFO_SIGN, NULL, 0, NULL, "%s", sf_fin_fifo);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
 #else
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
 # if SIZEOF_OFF_T == 4
-         trans_log(INFO_SIGN, NULL, 0, NULL, "%lu Bytes copied in %d file(s).",
+                   "%lu bytes copied in %d file(s).",
 # else
-         trans_log(INFO_SIGN, NULL, 0, NULL, "%llu Bytes copied in %d file(s).",
+                   "%llu bytes copied in %d file(s).",
 # endif
                    diff_file_size_done, diff_no_of_files_done);
 #endif /* _WITH_BURST_2 */
@@ -1189,37 +1207,7 @@ sf_wmo_exit(void)
       free(file_size_buffer);
    }
 
-   (void)strcpy(sf_fin_fifo, p_work_dir);
-   (void)strcat(sf_fin_fifo, FIFO_DIR);
-   (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
-#else
-   if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
-#endif
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
-   }
-   else
-   {
-#ifdef _FIFO_DEBUG
-      char  cmd[2];
-
-      cmd[0] = ACKN; cmd[1] = '\0';
-      show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
-#endif
-      /* Tell FD we are finished */
-      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
-      {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "write() error : %s", strerror(errno));
-      }
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      (void)close(readfd);
-#endif
-      (void)close(fd);
-   }
+   send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
    {
       (void)close(sys_log_fd);

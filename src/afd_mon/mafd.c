@@ -1,6 +1,6 @@
 /*
  *  mafd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -83,7 +83,7 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 
-/* Some local definitions */
+/* Some local definitions. */
 #define AFD_MON_ONLY            1
 #define AFD_MON_CHECK_ONLY      2
 #define AFD_MON_CHECK           3
@@ -94,7 +94,7 @@ DESCR__E_M1
 #define AFD_MON_INITIALIZE      8
 #define AFD_MON_FULL_INITIALIZE 9
 
-/* External global variables */
+/* External global variables. */
 int         sys_log_fd = STDERR_FILENO;
 char        *p_work_dir,
             mon_active_file[MAX_PATH_LENGTH],
@@ -102,7 +102,7 @@ char        *p_work_dir,
             probe_only_fifo[MAX_PATH_LENGTH];
 const char  *sys_log_name = MON_SYS_LOG_FIFO;
 
-/* Local functions */
+/* Local function prototypes. */
 static void delete_fifodir_files(char *, int),
             delete_log_files(char *, int),
             usage(char *);
@@ -198,7 +198,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            if (posi(perm_buffer, MON_CTRL_PERM) == NULL)
+            if (lposi(perm_buffer, MON_CTRL_PERM,
+                      MON_CTRL_PERM_LENGTH) == NULL)
             {
                mon_ctrl_perm = NO_PERMISSION;
             }
@@ -206,7 +207,8 @@ main(int argc, char *argv[])
             {
                mon_ctrl_perm = YES;
             }
-            if (posi(perm_buffer, MON_SHUTDOWN_PERM) == NULL)
+            if (lposi(perm_buffer, MON_SHUTDOWN_PERM,
+                      MON_SHUTDOWN_PERM_LENGTH) == NULL)
             {
                shutdown_perm = NO_PERMISSION;
             }
@@ -214,7 +216,8 @@ main(int argc, char *argv[])
             {
                shutdown_perm = YES;
             }
-            if (posi(perm_buffer, MON_STARTUP_PERM) == NULL)
+            if (lposi(perm_buffer, MON_STARTUP_PERM,
+                      MON_STARTUP_PERM_LENGTH) == NULL)
             {
                startup_perm = NO_PERMISSION;
             }
@@ -222,7 +225,8 @@ main(int argc, char *argv[])
             {
                startup_perm = YES;
             }
-            if (posi(perm_buffer, INITIALIZE_PERM) == NULL)
+            if (lposi(perm_buffer, INITIALIZE_PERM,
+                      INITIALIZE_PERM_LENGTH) == NULL)
             {
                initialize_perm = NO_PERMISSION;
             }
@@ -256,7 +260,7 @@ main(int argc, char *argv[])
    {
       if (argc == 2)
       {
-         if (strcmp(argv[1], "-a") == 0) /* Start AFD_MON */
+         if (strcmp(argv[1], "-a") == 0) /* Start AFD_MON. */
          {
             if (startup_perm != YES)
             {
@@ -266,11 +270,11 @@ main(int argc, char *argv[])
             }
             start_up = AFD_MON_ONLY;
          }
-         else if (strcmp(argv[1], "-c") == 0) /* Only check if AFD_MON is active */
+         else if (strcmp(argv[1], "-c") == 0) /* Only check if AFD_MON is active. */
               {
                  start_up = AFD_MON_CHECK_ONLY;
               }
-         else if (strcmp(argv[1], "-C") == 0) /* Only check if AFD_MON is active */
+         else if (strcmp(argv[1], "-C") == 0) /* Only check if AFD_MON is active. */
               {
                  if (startup_perm != YES)
                  {
@@ -280,7 +284,7 @@ main(int argc, char *argv[])
                  }
                  start_up = AFD_MON_CHECK;
               }
-         else if (strcmp(argv[1], "-d") == 0) /* Start mon_ctrl */
+         else if (strcmp(argv[1], "-d") == 0) /* Start mon_ctrl. */
               {
                  if (mon_ctrl_perm != YES)
                  {
@@ -310,7 +314,7 @@ main(int argc, char *argv[])
                  }
                  start_up = AFD_MON_FULL_INITIALIZE;
               }
-         else if (strcmp(argv[1], "-s") == 0) /* Shutdown AFD_MON */
+         else if (strcmp(argv[1], "-s") == 0) /* Shutdown AFD_MON. */
               {
                  if (shutdown_perm != YES)
                  {
@@ -320,7 +324,7 @@ main(int argc, char *argv[])
                  }
                  start_up = SHUTDOWN_ONLY;
               }
-         else if (strcmp(argv[1], "-S") == 0) /* Silent AFD_MON shutdown */
+         else if (strcmp(argv[1], "-S") == 0) /* Silent AFD_MON shutdown. */
               {
                  if (shutdown_perm != YES)
                  {
@@ -332,7 +336,7 @@ main(int argc, char *argv[])
               }
          else if ((strcmp(argv[1], "-h") == 0) ||
                   (strcmp(argv[1], "-?") == 0) ||
-                  (strcmp(argv[1], "--help") == 0)) /* Show usage */
+                  (strcmp(argv[1], "--help") == 0)) /* Show usage. */
               {
                  usage(argv[0]);
                  exit(0);
@@ -343,7 +347,7 @@ main(int argc, char *argv[])
                  exit(1);
               }
       }
-      else /* Start AFD_MON and mon_ctrl */
+      else /* Start AFD_MON and mon_ctrl. */
       {
          if ((startup_perm == YES) && (mon_ctrl_perm == YES))
          {
@@ -379,7 +383,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(block_file, work_dir);
    (void)strcat(block_file, ETC_DIR);
    (void)strcat(block_file, BLOCK_FILE);
@@ -429,7 +433,7 @@ main(int argc, char *argv[])
                (void)fprintf(stderr, "There is no AFD_MON active.\n");
             }
          }
-         exit(INCORRECT);
+         exit(AFD_MON_IS_NOT_ACTIVE);
       }
       if ((n = read(readfd, &ia_pid, sizeof(pid_t))) != sizeof(pid_t))
       {
@@ -494,7 +498,7 @@ main(int argc, char *argv[])
            {
               case -1 :
 
-                 /* Could not generate process */
+                 /* Could not generate process. */
                  (void)fprintf(stderr,
                                "Could not create a new process : %s (%s %d)\n",
                                strerror(errno),  __FILE__, __LINE__);
@@ -502,7 +506,7 @@ main(int argc, char *argv[])
 
               case  0 :
 
-                 /* Child process */
+                 /* Child process. */
                  if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                             (char *) 0) == -1)
                  {
@@ -516,7 +520,7 @@ main(int argc, char *argv[])
 
               default :
 
-                 /* Parent process */
+                 /* Parent process. */
                  break;
            }
            exit(0);
@@ -544,13 +548,13 @@ main(int argc, char *argv[])
                               user);
                    switch (fork())
                    {
-                      case -1 : /* Could not generate process */
+                      case -1 : /* Could not generate process. */
                          (void)fprintf(stderr,
                                        "Could not create a new process : %s (%s %d)\n",
                                        strerror(errno),  __FILE__, __LINE__);
                          break;
 
-                      case  0 : /* Child process */
+                      case  0 : /* Child process. */
                          if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                                     (char *) 0) == -1)
                          {
@@ -562,7 +566,7 @@ main(int argc, char *argv[])
                          }
                          exit(0);
 
-                      default : /* Parent process */
+                      default : /* Parent process. */
                          break;
                    }
                 }
@@ -601,7 +605,7 @@ main(int argc, char *argv[])
            }
         }
 
-   /* Create a lock, to ensure that AFD_MON does not get started twice */
+   /* Create a lock, to ensure that AFD_MON does not get started twice. */
    if ((fd = lock_file(sys_log_fifo, ON)) == INCORRECT)
    {
       (void)fprintf(stderr, "Failed to create lock! (%s %d)\n",
@@ -622,7 +626,7 @@ main(int argc, char *argv[])
    /* Is another AFD_MON active in this directory? */
    if (check_mon(10L) == 1)
    {
-      /* Unlock, so other users don't get blocked */
+      /* Unlock, so other users don't get blocked. */
       (void)close(fd);
 
       /* Another AFD_MON is active. Only start mon_ctrl. */
@@ -635,7 +639,7 @@ main(int argc, char *argv[])
          exit(1);
       }
    }
-   else /* Start both */
+   else /* Start both. */
    {
       if (check_database() == -1)
       {
@@ -667,19 +671,19 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      /* Start AFD_MON */
+      /* Start AFD_MON. */
       (void)strcpy(exec_cmd, AFD_MON);
       system_log(INFO_SIGN, NULL, 0,
                  "AFD_MON automatic startup initiated by %s", user);
       switch (fork())
       {
-         case -1 : /* Could not generate process */
+         case -1 : /* Could not generate process. */
             (void)fprintf(stderr,
                           "Could not create a new process : %s (%s %d)\n",
                           strerror(errno),  __FILE__, __LINE__);
             break;
 
-         case  0 : /* Child process */
+         case  0 : /* Child process. */
             if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                        (char *) 0) < 0)
             {
@@ -690,7 +694,7 @@ main(int argc, char *argv[])
             }
             exit(0);
 
-         default : /* Parent process */
+         default : /* Parent process. */
             break;
       }
 
@@ -714,12 +718,12 @@ main(int argc, char *argv[])
       }
       else if (FD_ISSET(readfd, &rset))
            {
-              /* Ahhh! Now we can start mon_ctrl */
+              /* Ahhh! Now we can start mon_ctrl. */
               if ((n = read(readfd, buffer, 1)) > 0)
               {
                  if (buffer[0] == ACKN)
                  {
-                    /* Unlock, so other users don't get blocked */
+                    /* Unlock, so other users don't get blocked. */
                     (void)close(fd);
 
                     (void)close(readfd);

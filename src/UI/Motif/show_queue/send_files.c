@@ -55,7 +55,7 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/List.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_queue.h"
 
 /* External global variables. */
@@ -79,7 +79,7 @@ send_files(int no_selected, int *select_list)
                        length = 0,
                        limit_reached = 0,
                        not_found = 0,
-                       to_do = 0;    /* Number still to be done */
+                       to_do = 0;    /* Number still to be done. */
    off_t               dnb_size;
    uid_t               euid, /* Effective user ID. */
                        ruid; /* Real user ID. */

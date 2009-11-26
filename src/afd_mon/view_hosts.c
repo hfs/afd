@@ -1,6 +1,6 @@
 /*
  *  view_hosts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M1
  **   view_hosts - lists all hosts served by all AFD's in MSA
  **
  ** SYNOPSIS
- **   view_hosts [working directory] -A|-a|-r <host name>
+ **   view_hosts [working directory] -A|-C|-a|-r <host name>
  **
  ** DESCRIPTION
  **
@@ -52,9 +52,7 @@ DESCR__E_M1
 #include "mondefs.h"
 #include "version.h"
 
-/* Local functions. */
-static void usage(void);
-
+/* Global variables. */
 int                    sys_log_fd = STDERR_FILENO,   /* Not used!    */
                        msa_id,
                        msa_fd = -1,
@@ -65,12 +63,16 @@ struct mon_status_area *msa;
 struct afd_host_list   **ahl;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
+/* Local function prototypes. */
+static void            usage(void);
+
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ view_hosts() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
    int  get_afd_alias = NO,
+        get_afd_alias_cut = NO,
         check_host_alias,
         i,
         j,
@@ -86,7 +88,8 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
 
    if ((argc > 2) && (argv[1][0] == '-') &&
-       ((argv[1][1] == 'A') || (argv[1][1] == 'a') || (argv[1][1] == 'r')) &&
+       ((argv[1][1] == 'A') || (argv[1][1] == 'C') ||
+        (argv[1][1] == 'a') || (argv[1][1] == 'r')) &&
        (argv[1][2] == '\0'))
    {
       if (argv[1][1] == 'a')
@@ -96,6 +99,10 @@ main(int argc, char *argv[])
       else if (argv[1][1] == 'A')
            {
               get_afd_alias = YES;
+           }
+      else if (argv[1][1] == 'C')
+           {
+              get_afd_alias_cut = YES;
            }
            else
            {
@@ -109,13 +116,21 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (msa_attach() < 0)
+   if ((i = msa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
-   if (get_afd_alias == YES)
+   if ((get_afd_alias == YES) || (get_afd_alias_cut == YES))
    {
       for (i = 0; i < no_of_afds; i++)
       {
@@ -125,7 +140,16 @@ main(int argc, char *argv[])
                 ((msa[i].hostname[1][0] != '\0') &&
                  (pmatch(argv[j + 2], msa[i].hostname[1], NULL) == 0)))
             {
-               (void)fprintf(stdout, "%s ", msa[i].afd_alias);
+               if (get_afd_alias_cut == YES)
+               {
+                  (void)fprintf(stdout, "%s", msa[i].afd_alias);
+                  j = no_of_filters;
+                  i = no_of_afds;
+               }
+               else
+               {
+                  (void)fprintf(stdout, "%s ", msa[i].afd_alias);
+               }
             }
          }
       }
@@ -157,8 +181,8 @@ main(int argc, char *argv[])
          (void)sprintf(p_ahl_file, "%s", msa[i].afd_alias);
          if ((stat(ahl_file, &stat_buf) == 0) && (stat_buf.st_size > 0))
          {
-            if ((ptr = map_file(ahl_file, &ahl_fd, &stat_buf, O_RDWR | O_CREAT,
-                                FILE_MODE)) == (caddr_t) -1)
+            if ((ptr = map_file(ahl_file, &ahl_fd, NULL, &stat_buf,
+                                O_RDWR | O_CREAT, FILE_MODE)) == (caddr_t) -1)
             {
                (void)fprintf(stderr,
                              "ERROR : Failed to mmap() to %s : %s (%s %d)\n",
@@ -360,6 +384,6 @@ static void
 usage(void)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : view_hosts [-w working directory] -A|-a|-r <host name 1> [.. <host name n>]\n");
+                 "SYNTAX  : view_hosts [-w working directory] -A|-C|-a|-r <host name 1> [.. <host name n>]\n");
    return;
 }

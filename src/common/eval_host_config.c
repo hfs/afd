@@ -1,6 +1,6 @@
 /*
  *  eval_host_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,13 +36,14 @@ DESCR__S_M3
  **   This function reads the HOST_CONFIG file which has the following
  **   format:
  **
- **   Keep connected        <------------------------------------------------+
- **   Duplicate check flag    <-------------------------------------------+  |
- **   Duplicate check timeout <----------------------------------------+  |  |
- **   Socket receive buffer <---------------------------------------+  |  |  |
- **   Socket send buffer    <-----------------------------------+   |  |  |  |
- **                                                             |   |  |  |  |
- **   AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC
+ **   Warn time             <---------------------------------------------------+
+ **   Keep connected        <------------------------------------------------+  |
+ **   Duplicate check flag    <-------------------------------------------+  |  |
+ **   Duplicate check timeout <----------------------------------------+  |  |  |
+ **   Socket receive buffer <---------------------------------------+  |  |  |  |
+ **   Socket send buffer    <-----------------------------------+   |  |  |  |  |
+ **                                                             |   |  |  |  |  |
+ **   AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC:WT
  **   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |
  **   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +-> TTL
  **   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +-----> Transfer rate
@@ -87,6 +88,9 @@ DESCR__S_M3
  **   16.02.2006 H.Kiehl Added socket send and receive buffer.
  **   28.02.2006 H.Kiehl Added keep connected parameter.
  **   09.03.2006 H.Kiehl Added dupcheck on a per host basis.
+ **   31.12.2007 H.Kiehl Added warn time.
+ **   21.09.2009 H.Kiehl Ensure that one cannot enter 0 as transfer block
+ **                      size.
  **
  */
 DESCR__E_M3
@@ -98,7 +102,7 @@ DESCR__E_M3
 #include <stdlib.h>                  /* atoi(), exit()                  */
 #include <errno.h>
 
-/* External global variables */
+/* External global variables. */
 extern int                        no_of_hosts;
 extern struct filetransfer_status *fsa;
 
@@ -139,7 +143,7 @@ eval_host_config(int              *hosts_found,
    }
 
    /* Read the contents of the HOST_CONFIG file into a buffer. */
-   if (read_file(host_config_file, &hostbase) == INCORRECT)
+   if (read_file_no_cr(host_config_file, &hostbase) == INCORRECT)
    {
       exit(INCORRECT);
    }
@@ -180,7 +184,7 @@ eval_host_config(int              *hosts_found,
    {
       if (*ptr == '#')
       {
-         /* Check if line is a comment */
+         /* Check if line is a comment. */
          while ((*ptr != '\0') && (*ptr != '\n'))
          {
             ptr++;
@@ -202,20 +206,20 @@ eval_host_config(int              *hosts_found,
       /* Check if buffer for host list structure is large enough. */
       if ((host_counter % HOST_BUF_SIZE) == 0)
       {
-         /* Calculate new size for host list */
+         /* Calculate new size for host list. */
          new_size = ((host_counter / HOST_BUF_SIZE) + 1) *
                     HOST_BUF_SIZE * sizeof(struct host_list);
 
-         /* Now increase the space */
+         /* Now increase the space. */
          if ((*hl = realloc(*hl, new_size)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       "Could not reallocate memory for host list : %s",
+                       _("Could not reallocate memory for host list : %s"),
                        strerror(errno));
             exit(INCORRECT);
          }
 
-         /* Initialise the new memory area */
+         /* Initialise the new memory area. */
          new_size = HOST_BUF_SIZE * sizeof(struct host_list);
          offset = (host_counter / HOST_BUF_SIZE) * new_size;
          (void)memset((char *)(*hl) + offset, 0, new_size);
@@ -233,7 +237,7 @@ eval_host_config(int              *hosts_found,
       {
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Maximum length for host alias name %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
+                    _("Maximum length for host alias name %s exceeded in HOST_CONFIG. Will be truncated to %d characters."),
                     (*hl)[host_counter].host_alias, MAX_HOSTNAME_LENGTH);
          if (warn_counter != NULL)
          {
@@ -249,7 +253,7 @@ eval_host_config(int              *hosts_found,
       (*hl)[host_counter].in_dir_config = (char)NO;
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
-         /* Initialise all other values with DEFAULTS */
+         /* Initialise all other values with DEFAULTS. */
          (*hl)[host_counter].real_hostname[0][0] = '\0';
          (*hl)[host_counter].real_hostname[1][0] = '\0';
          (*hl)[host_counter].proxy_name[0]       = '\0';
@@ -273,6 +277,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -302,7 +307,7 @@ eval_host_config(int              *hosts_found,
       {
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Maximum length for real hostname 1 for %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
+                    _("Maximum length for real hostname 1 for %s exceeded in HOST_CONFIG. Will be truncated to %d characters."),
                     (*hl)[host_counter].host_alias, MAX_REAL_HOSTNAME_LENGTH);
          if (warn_counter != NULL)
          {
@@ -320,7 +325,7 @@ eval_host_config(int              *hosts_found,
       }
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
-         /* Initialise all other values with DEFAULTS */
+         /* Initialise all other values with DEFAULTS. */
          (*hl)[host_counter].real_hostname[1][0] = '\0';
          (*hl)[host_counter].proxy_name[0]       = '\0';
          (*hl)[host_counter].host_toggle_str[0]  = '\0';
@@ -343,6 +348,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -372,7 +378,7 @@ eval_host_config(int              *hosts_found,
       {
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Maximum length for real hostname 2 for %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
+                    _("Maximum length for real hostname 2 for %s exceeded in HOST_CONFIG. Will be truncated to %d characters."),
                     (*hl)[host_counter].host_alias, MAX_REAL_HOSTNAME_LENGTH);
          if (warn_counter != NULL)
          {
@@ -412,6 +418,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -441,7 +448,7 @@ eval_host_config(int              *hosts_found,
       {
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Maximum length for the host toggle string %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
+                    _("Maximum length for the host toggle string %s exceeded in HOST_CONFIG. Will be truncated to %d characters."),
                     (*hl)[host_counter].host_alias, MAX_TOGGLE_STR_LENGTH);
          if (warn_counter != NULL)
          {
@@ -458,7 +465,7 @@ eval_host_config(int              *hosts_found,
               error_flag = YES;
               (*hl)[host_counter].host_toggle_str[i] = '\0';
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Host toggle string <%s> not four characters long for host %s in HOST_CONFIG. Will be ignored.",
+                         _("Host toggle string <%s> not four characters long for host %s in HOST_CONFIG. Will be ignored."),
                          (*hl)[host_counter].host_toggle_str,
                          (*hl)[host_counter].host_alias);
               if (warn_counter != NULL)
@@ -491,6 +498,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -520,7 +528,7 @@ eval_host_config(int              *hosts_found,
       {
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Maximum length for proxy name for host %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
+                    _("Maximum length for proxy name for host %s exceeded in HOST_CONFIG. Will be truncated to %d characters."),
                     (*hl)[host_counter].host_alias, MAX_PROXY_NAME_LENGTH);
          if (warn_counter != NULL)
          {
@@ -554,6 +562,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -585,7 +594,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in allowed transfers field for host %s, using default %d.",
+                       _("Non numeric character <%d> in allowed transfers field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_NO_PARALLEL_JOBS);
             if (warn_counter != NULL)
@@ -611,10 +620,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value allowed transfers to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value allowed transfers to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_NO_PARALLEL_JOBS);
               if (warn_counter != NULL)
               {
@@ -632,11 +641,11 @@ eval_host_config(int              *hosts_found,
               {
                  error_flag = YES;
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Maximum number of parallel (%d) transfers exceeded for %s. Value found in HOST_CONFIG %d",
+                            _("Maximum number of parallel (%d) transfers exceeded for %s. Value found in HOST_CONFIG %d"),
                             MAX_NO_PARALLEL_JOBS, (*hl)[host_counter].host_alias,
                             (*hl)[host_counter].allowed_transfers);
                  system_log(WARN_SIGN, NULL, 0,
-                            "Setting it to the maximum value %d.",
+                            _("Setting it to the maximum value %d."),
                             MAX_NO_PARALLEL_JOBS);
                  if (warn_counter != NULL)
                  {
@@ -667,6 +676,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -698,7 +708,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in max error field for host %s, using default %d.",
+                       _("Non numeric character <%d> in max error field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_MAX_ERRORS);
             if (warn_counter != NULL)
@@ -724,10 +734,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for max errors to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for max errors to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_MAX_ERRORS);
               if (warn_counter != NULL)
               {
@@ -764,6 +774,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -795,7 +806,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in retry interval field for host %s, using default %d.",
+                       _("Non numeric character <%d> in retry interval field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_RETRY_INTERVAL);
             if (warn_counter != NULL)
@@ -803,7 +814,7 @@ eval_host_config(int              *hosts_found,
                (*warn_counter)++;
             }
 
-            /* Ignore this entry */
+            /* Ignore this entry. */
             i = 0;
             while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
             {
@@ -821,10 +832,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for retry interval to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for retry interval to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_RETRY_INTERVAL);
               if (warn_counter != NULL)
               {
@@ -860,6 +871,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -891,7 +903,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in transfer block size field for host %s, using default %d.",
+                       _("Non numeric character <%d> in transfer block size field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_TRANSFER_BLOCKSIZE);
             if (warn_counter != NULL)
@@ -917,10 +929,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for transfer block size to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for transfer block size to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_TRANSFER_BLOCKSIZE);
               if (warn_counter != NULL)
               {
@@ -938,7 +950,7 @@ eval_host_config(int              *hosts_found,
               {
                  error_flag = YES;
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Transfer block size for host %s to large (%d Bytes) setting it to %d Bytes.",
+                            _("Transfer block size for host %s to large (%d bytes) setting it to %d bytes."),
                             (*hl)[host_counter].host_alias,
                             (*hl)[host_counter].transfer_blksize, 
                             MAX_TRANSFER_BLOCKSIZE);
@@ -948,6 +960,20 @@ eval_host_config(int              *hosts_found,
                  }
                  (*hl)[host_counter].transfer_blksize = MAX_TRANSFER_BLOCKSIZE;
               }
+              else if ((*hl)[host_counter].transfer_blksize < MIN_TRANSFER_BLOCKSIZE)
+                   {
+                      error_flag = YES;
+                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                 _("Transfer block size for host %s to small (%d bytes) setting it to %d bytes."),
+                                 (*hl)[host_counter].host_alias,
+                                 (*hl)[host_counter].transfer_blksize, 
+                                 MIN_TRANSFER_BLOCKSIZE);
+                      if (warn_counter != NULL)
+                      {
+                         (*warn_counter)++;
+                      }
+                      (*hl)[host_counter].transfer_blksize = MIN_TRANSFER_BLOCKSIZE;
+                   }
            }
 
       if ((*ptr == '\n') || (*ptr == '\0'))
@@ -968,6 +994,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -999,7 +1026,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in successful retries field for host %s, using default %d.",
+                       _("Non numeric character <%d> in successful retries field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_SUCCESSFUL_RETRIES);
             if (warn_counter != NULL)
@@ -1025,10 +1052,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for successful retries to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for successful retries to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_SUCCESSFUL_RETRIES);
               if (warn_counter != NULL)
               {
@@ -1062,6 +1089,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -1093,7 +1121,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in file size offset field for host %s, using default %d.",
+                       _("Non numeric character <%d> in file size offset field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_FILE_SIZE_OFFSET);
             if (warn_counter != NULL)
@@ -1119,10 +1147,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for file size offset to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for file size offset to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_FILE_SIZE_OFFSET);
               if (warn_counter != NULL)
               {
@@ -1155,6 +1183,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -1186,7 +1215,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in transfer timeout field for host %s, using default %d.",
+                       _("Non numeric character <%d> in transfer timeout field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_TRANSFER_TIMEOUT);
             if (warn_counter != NULL)
@@ -1212,10 +1241,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for transfer timeout to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for transfer timeout to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_TRANSFER_TIMEOUT);
               if (warn_counter != NULL)
               {
@@ -1247,6 +1276,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -1277,7 +1307,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in number of no bursts field for host %s, using default %d.",
+                       _("Non numeric character <%d> in number of no bursts field for host %s, using default %d."),
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_NO_OF_NO_BURSTS);
             if (warn_counter != NULL)
@@ -1303,10 +1333,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for number of no bursts to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for number of no bursts to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value %d.",
+                         _("Setting it to the default value %d."),
                          DEFAULT_NO_OF_NO_BURSTS);
               if (warn_counter != NULL)
               {
@@ -1324,10 +1354,10 @@ eval_host_config(int              *hosts_found,
               {
                  error_flag = YES;
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Number of no bursts for host %s is larger (%d) then allowed transfers.",
+                            _("Number of no bursts for host %s is larger (%d) then allowed transfers."),
                             (*hl)[host_counter].host_alias,
                             (*hl)[host_counter].number_of_no_bursts);
-                 system_log(WARN_SIGN, NULL, 0, "Setting it to %d.",
+                 system_log(WARN_SIGN, NULL, 0, _("Setting it to %d."),
                             (*hl)[host_counter].allowed_transfers);
                  if (warn_counter != NULL)
                  {
@@ -1417,6 +1447,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -1447,7 +1478,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in host status field for host %s, using default 0.",
+                       _("Non numeric character <%d> in host status field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -1472,10 +1503,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for host status to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for host status to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                        "Setting it to the default value 0.");
+                        _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -1488,15 +1519,15 @@ eval_host_config(int              *hosts_found,
            }
            else
            {
-              if (((*hl)[host_counter].host_status = (unsigned char)atoi(number)) > (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_ERROR_OFFLINE_STATIC|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG))
+              if (((*hl)[host_counter].host_status = (unsigned int)atoi(number)) > (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_ERROR_OFFLINE_STATIC|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG|DO_NOT_DELETE_DATA))
               {
                  error_flag = YES;
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Unknown host status <%d> for host %s, largest value is %d.",
+                            _("Unknown host status <%d> for host %s, largest value is %d."),
                             (*hl)[host_counter].host_status,
                             (*hl)[host_counter].host_alias,
-                            (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_ERROR_OFFLINE_STATIC|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG));
-                 system_log(WARN_SIGN, NULL, 0, "Setting it to 0.");
+                            (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_ERROR_OFFLINE_STATIC|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG|DO_NOT_DELETE_DATA));
+                 system_log(WARN_SIGN, NULL, 0, _("Setting it to 0."));
                  if (warn_counter != NULL)
                  {
                     (*warn_counter)++;
@@ -1530,7 +1561,7 @@ eval_host_config(int              *hosts_found,
             }
             else
             {
-               (*hl)[host_counter].host_status = (unsigned char)(*hl)[host_counter].transfer_rate_limit;
+               (*hl)[host_counter].host_status = (unsigned int)(*hl)[host_counter].transfer_rate_limit;
                (*hl)[host_counter].transfer_rate_limit = 0;
             }
          }
@@ -1549,6 +1580,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -1579,7 +1611,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in protocol options field for host %s, using default 0.",
+                       _("Non numeric character <%d> in protocol options field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -1604,10 +1636,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for protocol options to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for protocol options to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -1635,6 +1667,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          /*
           * As of 1.3.0 SET_IDLE_TIME, STAT_KEEPALIVE and FTP_PASSIVE_MODE
@@ -1688,7 +1721,11 @@ eval_host_config(int              *hosts_found,
        * have different values. So we must do this check here.
        */
       if (((*hl)[host_counter].protocol_options != 0) &&
-          (((*hl)[host_counter].protocol_options > (FILE_WHEN_LOCAL_FLAG|
+          (((*hl)[host_counter].protocol_options > (SORT_FILE_NAMES |
+                                                    KEEP_TIME_STAMP |
+                                                    ENABLE_COMPRESSION |
+                                                    USE_SEQUENCE_LOCKING |
+                                                    FILE_WHEN_LOCAL_FLAG |
                                                     FTP_ALLOW_DATA_REDIRECT |
 #ifdef _WITH_BURST_2
                                                     DISABLE_BURSTING |
@@ -1697,6 +1734,7 @@ eval_host_config(int              *hosts_found,
                                                     SET_IDLE_TIME |
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                                                     STAT_KEEPALIVE |
+                                                    AFD_TCP_KEEPALIVE |
 #endif
                                                     FTP_FAST_MOVE |
                                                     FTP_FAST_CD |
@@ -1706,10 +1744,14 @@ eval_host_config(int              *hosts_found,
       {
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Unknown protocol option <%d> for host %s, largest value is %d and smallest %d.",
+                    _("Unknown protocol option <%d> for host %s, largest value is %d and smallest %d."),
                     (*hl)[host_counter].protocol_options,
                     (*hl)[host_counter].host_alias,
-                    (FILE_WHEN_LOCAL_FLAG |
+                    (SORT_FILE_NAMES |
+                     KEEP_TIME_STAMP |
+                     ENABLE_COMPRESSION |
+                     USE_SEQUENCE_LOCKING |
+                     FILE_WHEN_LOCAL_FLAG |
                      FTP_ALLOW_DATA_REDIRECT |
 #ifdef _WITH_BURST_2
                      DISABLE_BURSTING |
@@ -1718,13 +1760,14 @@ eval_host_config(int              *hosts_found,
                      SET_IDLE_TIME |
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                      STAT_KEEPALIVE |
+                     AFD_TCP_KEEPALIVE |
 #endif
                      FTP_FAST_MOVE |
                      FTP_FAST_CD |
                      FTP_IGNORE_BIN |
                      FTP_PASSIVE_MODE),
                     FTP_PASSIVE_MODE);
-         system_log(WARN_SIGN, NULL, 0, "Setting it to 0.");
+         system_log(WARN_SIGN, NULL, 0, _("Setting it to 0."));
          if (warn_counter != NULL)
          {
             (*warn_counter)++;
@@ -1746,7 +1789,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in transfer rate limit field for host %s, using default 0.",
+                       _("Non numeric character <%d> in transfer rate limit field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -1771,10 +1814,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for transfer rate limit to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for transfer rate limit to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -1801,6 +1844,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -1831,7 +1875,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in TTL field for host %s, using default 0.",
+                       _("Non numeric character <%d> in TTL field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -1856,10 +1900,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for TTL to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for TTL to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -1884,6 +1928,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -1914,7 +1959,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in SSB field for host %s, using default 0.",
+                       _("Non numeric character <%d> in SSB field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -1939,10 +1984,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for SSB to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for SSB to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -1966,6 +2011,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -1996,7 +2042,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in SRB field for host %s, using default 0.",
+                       _("Non numeric character <%d> in SRB field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -2021,10 +2067,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for SRB to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for SRB to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -2047,6 +2093,7 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].dup_check_flag      = 0;
 #endif
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -2078,7 +2125,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in DT field for host %s, using default 0.",
+                       _("Non numeric character <%d> in DT field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -2103,10 +2150,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for DT to large (>%d characters) for host %s to store as long integer.",
+                         _("Numeric value for DT to large (>%d characters) for host %s to store as long integer."),
                          MAX_LONG_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -2119,13 +2166,14 @@ eval_host_config(int              *hosts_found,
            }
            else
            {
-              (*hl)[host_counter].dup_check_timeout = str2timet(number, NULL, 10);
+              (*hl)[host_counter].dup_check_timeout = (time_t)str2timet(number, NULL, 10);
            }
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
          /* Initialise rest with DEFAULTS. */
          (*hl)[host_counter].dup_check_flag      = 0;
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -2156,7 +2204,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in DF field for host %s, using default 0.",
+                       _("Non numeric character <%d> in DF field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -2181,10 +2229,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for DF to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for DF to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -2203,6 +2251,7 @@ eval_host_config(int              *hosts_found,
       {
          /* Initialise rest with DEFAULTS. */
          (*hl)[host_counter].keep_connected      = 0;
+         (*hl)[host_counter].warn_time           = 0L;
 
          if (*ptr == '\n')
          {
@@ -2234,7 +2283,7 @@ eval_host_config(int              *hosts_found,
          {
             error_flag = YES;
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Non numeric character <%d> in KC field for host %s, using default 0.",
+                       _("Non numeric character <%d> in KC field for host %s, using default 0."),
                        (int)*ptr, (*hl)[host_counter].host_alias);
             if (warn_counter != NULL)
             {
@@ -2259,10 +2308,10 @@ eval_host_config(int              *hosts_found,
            {
               error_flag = YES;
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Numeric value for KC to large (>%d characters) for host %s to store as integer.",
+                         _("Numeric value for KC to large (>%d characters) for host %s to store as integer."),
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
-                         "Setting it to the default value 0.");
+                         _("Setting it to the default value 0."));
               if (warn_counter != NULL)
               {
                  (*warn_counter)++;
@@ -2276,6 +2325,83 @@ eval_host_config(int              *hosts_found,
            else
            {
               (*hl)[host_counter].keep_connected = (unsigned int)strtoul(number, NULL, 10);
+           }
+      if ((*ptr == '\n') || (*ptr == '\0'))
+      {
+         /* Initialise rest with DEFAULTS. */
+         (*hl)[host_counter].warn_time           = 0L;
+
+         if (*ptr == '\n')
+         {
+            while (*ptr == '\n')
+            {
+               ptr++;
+            }
+            (host_counter)++;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+
+      /* Warn time. */
+      i = 0; ptr++;
+      while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
+             (i < MAX_LONG_LENGTH))
+      {
+         if (isdigit((int)(*ptr)))
+         {
+            number[i] = *ptr;
+            ptr++; i++;
+         }
+         else
+         {
+            error_flag = YES;
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       _("Non numeric character <%d> in WT field for host %s, using default 0."),
+                       (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
+
+            /* Ignore this entry. */
+            i = 0;
+            while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+         }
+      }
+      number[i] = '\0';
+      if (i == 0)
+      {
+         error_flag = YES;
+         (*hl)[host_counter].warn_time = 0L;
+      }
+      else if (i == MAX_LONG_LENGTH)
+           {
+              error_flag = YES;
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         _("Numeric value for WT to large (>%d characters) for host %s to store as integer."),
+                         MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         _("Setting it to the default value 0."));
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
+              (*hl)[host_counter].warn_time = 0L;
+              while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+           else
+           {
+              (*hl)[host_counter].warn_time = (time_t)str2timet(number, NULL, 10);
            }
 
       /* Ignore the rest of the line. We have everything we need. */

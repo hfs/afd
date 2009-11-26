@@ -1,7 +1,7 @@
 /*
  *  check_afd_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ DESCR__S_M3
  **   04.10.1998 H.Kiehl Created
  **   10.09.2000 H.Kiehl Addition of log history.
  **   27.02.2005 H.Kiehl Option to switch between two AFD's.
+ **   23.11.2008 H.Kiehl Added danger_no_of_jobs.
  **
  */
 DESCR__E_M3
@@ -60,7 +61,6 @@ DESCR__E_M3
 extern Display                *display;
 extern Window                 line_window;
 extern XtAppContext           app;
-extern XtIntervalId           interval_id_afd;
 extern char                   line_style,
                               *p_work_dir;
 extern float                  max_bar_length;
@@ -193,6 +193,8 @@ check_afd_status(Widget w)
             }
             new_connect_data[i].blink = TR_BAR;
             new_connect_data[i].jobs_in_queue = msa[i].jobs_in_queue;
+            new_connect_data[i].danger_no_of_jobs = msa[i].danger_no_of_jobs;
+            new_connect_data[i].link_max = msa[i].danger_no_of_jobs * 2;
             new_connect_data[i].no_of_transfers = msa[i].no_of_transfers;
             new_connect_data[i].host_error_counter = msa[i].host_error_counter;
             new_connect_data[i].fc = msa[i].fc;
@@ -208,14 +210,14 @@ check_afd_status(Widget w)
                              new_connect_data[i].fs);
             CREATE_FS_STRING(new_connect_data[i].str_tr,
                              new_connect_data[i].tr);
-            CREATE_FP_STRING(new_connect_data[i].str_fr,
+            CREATE_JQ_STRING(new_connect_data[i].str_fr,
                              new_connect_data[i].fr);
             CREATE_EC_STRING(new_connect_data[i].str_ec,
                              new_connect_data[i].ec);
-            CREATE_SFC_STRING(new_connect_data[i].str_jq,
-                              new_connect_data[i].jobs_in_queue);
-            CREATE_SFC_STRING(new_connect_data[i].str_at,
-                              new_connect_data[i].no_of_transfers);
+            CREATE_JQ_STRING(new_connect_data[i].str_jq,
+                             new_connect_data[i].jobs_in_queue);
+            CREATE_JQ_STRING(new_connect_data[i].str_at,
+                             new_connect_data[i].no_of_transfers);
             CREATE_EC_STRING(new_connect_data[i].str_hec,
                              new_connect_data[i].host_error_counter);
             new_connect_data[i].average_tr = 0.0;
@@ -279,7 +281,6 @@ check_afd_status(Widget w)
                                                                         new_connect_data[i].scale[HOST_ERROR_BAR_NO - 1];
                  }
             new_connect_data[i].inverse = OFF;
-            new_connect_data[i].expose_flag = NO;
 
             /*
              * If this line has been selected in the old
@@ -291,7 +292,7 @@ check_afd_status(Widget w)
             {
                if ((pos = check_msa_data(connect_data[i].afd_alias)) == INCORRECT)
                {
-                  /* Host has been deleted */
+                  /* Host has been deleted. */
                   no_selected--;
                }
             }
@@ -310,7 +311,7 @@ check_afd_status(Widget w)
             {
                if ((pos = check_msa_data(connect_data[i].afd_alias)) == INCORRECT)
                {
-                  /* Host has been deleted */
+                  /* Host has been deleted. */
                   no_selected--;
                }
             }
@@ -325,7 +326,7 @@ check_afd_status(Widget w)
          return;
       }
 
-      /* Activate the new connect_data structure */
+      /* Activate the new connect_data structure. */
       (void)memcpy(&connect_data[0], &new_connect_data[0],
                    no_of_afds * sizeof(struct mon_line));
 
@@ -690,7 +691,7 @@ check_afd_status(Widget w)
             }
 
             connect_data[i].fr = msa[i].fr;
-            CREATE_FP_STRING(connect_data[i].str_fr, connect_data[i].fr);
+            CREATE_JQ_STRING(connect_data[i].str_fr, connect_data[i].fr);
 
             if (i < location_where_changed)
             {
@@ -711,8 +712,29 @@ check_afd_status(Widget w)
             }
 
             connect_data[i].jobs_in_queue = msa[i].jobs_in_queue;
-            CREATE_SFC_STRING(connect_data[i].str_jq,
-                              connect_data[i].jobs_in_queue);
+            CREATE_JQ_STRING(connect_data[i].str_jq,
+                             connect_data[i].jobs_in_queue);
+
+            if (i < location_where_changed)
+            {
+               draw_mon_chars(i, JOBS_IN_QUEUE,
+                              x + (19 * glyph_width), y);
+               flush = YES;
+            }
+         }
+
+         /*
+          * Danger number of Jobs.
+          */
+         if (connect_data[i].danger_no_of_jobs != msa[i].danger_no_of_jobs)
+         {
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+
+            connect_data[i].danger_no_of_jobs = msa[i].danger_no_of_jobs;
+            connect_data[i].link_max = connect_data[i].danger_no_of_jobs * 2;
 
             if (i < location_where_changed)
             {
@@ -732,11 +754,8 @@ check_afd_status(Widget w)
                locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
-            {
-               connect_data[i].no_of_transfers = msa[i].no_of_transfers;
-            }
-            CREATE_SFC_STRING(connect_data[i].str_at, msa[i].no_of_transfers);
+            connect_data[i].no_of_transfers = msa[i].no_of_transfers;
+            CREATE_JQ_STRING(connect_data[i].str_at, msa[i].no_of_transfers);
 
             if (i < location_where_changed)
             {
@@ -777,10 +796,7 @@ check_afd_status(Widget w)
                locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
-            {
-               connect_data[i].host_error_counter = msa[i].host_error_counter;
-            }
+            connect_data[i].host_error_counter = msa[i].host_error_counter;
             CREATE_EC_STRING(connect_data[i].str_hec, msa[i].host_error_counter);
 
             if (i < location_where_changed)
@@ -811,7 +827,7 @@ check_afd_status(Widget w)
          /*
           * Transfer Rate Bar
           */
-         /* Calculate transfer rate (arithmetischer Mittelwert) */
+         /* Calculate transfer rate (arithmetischer Mittelwert). */
          connect_data[i].average_tr = (connect_data[i].average_tr +
                                       connect_data[i].tr) / 2.0;
          if (connect_data[i].average_tr > connect_data[i].max_average_tr)
@@ -986,13 +1002,7 @@ check_afd_status(Widget w)
    if (redraw_everything == YES)
    {
       calc_mon_but_coord(window_width);
-      XClearWindow(display, line_window);
-      draw_label_line();
-      for (i = 0; i < no_of_afds; i++)
-      {
-         draw_line_status(i, 1);
-      }
-      draw_mon_button_line();
+      redraw_all();
       flush = YES;
    }
 
@@ -1018,8 +1028,8 @@ check_afd_status(Widget w)
    }
 
    /* Redraw every redraw_time_line ms. */
-   interval_id_afd = XtAppAddTimeOut(app, redraw_time_line,
-                                     (XtTimerCallbackProc)check_afd_status, w);
+   (void)XtAppAddTimeOut(app, redraw_time_line,
+                         (XtTimerCallbackProc)check_afd_status, w);
  
    return;
 }

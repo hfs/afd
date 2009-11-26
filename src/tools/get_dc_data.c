@@ -1,6 +1,6 @@
 /*
  *  get_dc_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,17 +25,12 @@ DESCR__S_M3
  **   get_dc_data - gets all data out of the DIR_CONFIG for a host
  **
  ** SYNOPSIS
- **   get_dc_data [-h <host alias>] [-d <dir alias>]
+ **   get_dc_data [-h <host alias>] [-d <dir alias>] [-D <dir id>]
  **
  ** DESCRIPTION
  **
  ** RETURN VALUES
  **   None.
- **
- ** SEE ALSO
- **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
- **   fd/eval_recipient.c, amg/store_passwd.c, fd/init_msg_buffer.c,
- **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -49,6 +44,7 @@ DESCR__S_M3
  **                      to stdout.
  **   06.01.2006 H.Kiehl When printing data for a specific host, print
  **                      out information about directory options.
+ **   28.02.2008 H.Kiehl Added -D option.
  **
  */
 DESCR__E_M3
@@ -93,7 +89,7 @@ static int                    no_of_dc_ids,
                               no_of_gotchas,
                               no_of_job_ids,
                               no_of_passwd;
-static unsigned int           *gl; /* Gotcha List */
+static unsigned int           *gl; /* Gotcha List. */
 static char                   *fmd = NULL,
                               *fmd_end;
 static struct job_id_data     *jd = NULL;
@@ -103,14 +99,12 @@ static struct passwd_buf      *pwb = NULL;
 
 /* Local function prototypes. */
 static void                   check_dir_options(int),
-                              get_dc_data(char *, char *),
-                              print_recipient(char *),
+                              get_dc_data(char *, char *, unsigned int),
                               show_data(struct job_id_data *, char *, char *,
                                         int, struct passwd_buf *, int),
                               show_dir_data(int, int),
                               usage(FILE *, char *);
-static int                    get_current_jid_list(void),
-                              same_directory(int *, unsigned int),
+static int                    same_directory(int *, unsigned int),
                               same_file_filter(int *, unsigned int,
                                                unsigned int),
                               same_options(int *, unsigned int, unsigned int);
@@ -120,11 +114,14 @@ static int                    get_current_jid_list(void),
 int
 main(int argc, char *argv[])
 {
-   char dir_alias[MAX_INT_LENGTH + 1],
-        fake_user[MAX_FULL_USER_ID_LENGTH],
-        host_name[MAX_HOSTNAME_LENGTH + 1],
-        *perm_buffer,
-        work_dir[MAX_PATH_LENGTH];
+   unsigned int dir_id;
+   int          ret;
+   char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
+                fake_user[MAX_FULL_USER_ID_LENGTH],
+                host_name[MAX_HOSTNAME_LENGTH + 1],
+                *perm_buffer,
+                str_dir_id[MAX_INT_HEX_LENGTH + 1],
+                work_dir[MAX_PATH_LENGTH];
 
    CHECK_FOR_VERSION(argc, argv);
    p_work_dir = work_dir;
@@ -132,7 +129,7 @@ main(int argc, char *argv[])
    if (get_afd_path(&argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
-                    "Failed to get working directory of AFD. (%s %d)\n",
+                    _("Failed to get working directory of AFD. (%s %d)\n"),
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -147,28 +144,39 @@ main(int argc, char *argv[])
    {
       if (get_arg(&argc, argv, "-d", dir_alias, MAX_DIR_ALIAS_LENGTH) != SUCCESS)
       {
-         dir_alias[0] = '\0';
-         if (argc == 2)
+         if (get_arg(&argc, argv, "-D", str_dir_id, MAX_INT_HEX_LENGTH) != SUCCESS)
          {
-            if (my_strncpy(host_name, argv[1], MAX_HOSTNAME_LENGTH + 1) == -1)
+            dir_id = 0;
+            dir_alias[0] = '\0';
+            if (argc == 2)
             {
-               usage(stderr, argv[0]);
-               if (strlen(argv[1]) >= MAX_HOSTNAME_LENGTH)
+               if (my_strncpy(host_name, argv[1], MAX_HOSTNAME_LENGTH + 1) == -1)
                {
-                  (void)fprintf(stderr,
-                                "Given host_alias `%s' is to long (> %d)\n",
-                                argv[1], MAX_HOSTNAME_LENGTH);
+                  usage(stderr, argv[0]);
+                  if (strlen(argv[1]) >= MAX_HOSTNAME_LENGTH)
+                  {
+                     (void)fprintf(stderr,
+                                   _("Given host_alias `%s' is to long (> %d)\n"),
+                                   argv[1], MAX_HOSTNAME_LENGTH);
+                  }
+                  exit(INCORRECT);
                }
-               exit(INCORRECT);
+            }
+            else
+            {
+               host_name[0] = '\0';
             }
          }
          else
          {
+            dir_id = (unsigned int)strtoul(str_dir_id, NULL, 16);
+            dir_alias[0] = '\0';
             host_name[0] = '\0';
          }
       }
       else
       {
+         dir_id = 0;
          host_name[0] = '\0';
       }
    }
@@ -186,7 +194,7 @@ main(int argc, char *argv[])
             (void)strcat(afd_user_file, AFD_USER_FILE);
 
             (void)fprintf(stderr,
-                          "Failed to access `%s', unable to determine users permissions.\n",
+                          _("Failed to access `%s', unable to determine users permissions.\n"),
                           afd_user_file);
          }
          exit(INCORRECT);
@@ -211,12 +219,14 @@ main(int argc, char *argv[])
          }
          else
          {
-            if (posi(perm_buffer, VIEW_DIR_CONFIG_PERM) == NULL)
+            if (lposi(perm_buffer, VIEW_DIR_CONFIG_PERM,
+                      VIEW_DIR_CONFIG_PERM_LENGTH) == NULL)
             {
                (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                exit(INCORRECT);
             }
-            if (posi(perm_buffer, VIEW_PASSWD_PERM) != NULL)
+            if (lposi(perm_buffer, VIEW_PASSWD_PERM,
+                      VIEW_PASSWD_PERM_LENGTH) != NULL)
             {
                view_passwd = YES;
             }
@@ -228,16 +238,24 @@ main(int argc, char *argv[])
          break;
 
       default :
-         (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
+         (void)fprintf(stderr, _("Impossible!! Remove the programmer!\n"));
          exit(INCORRECT);
    }
 
-   if (fsa_attach_passive() == INCORRECT)
+   if ((ret = fsa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "Failed to attach to FSA!\n");
+      if (ret == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("This program is not able to attach to the FSA due to incorrect version!\n"));
+      }
+      else
+      {
+         (void)fprintf(stderr, _("Failed to attach to FSA!\n"));
+      }
       exit(INCORRECT);
    }
-   get_dc_data(host_name, dir_alias);
+   get_dc_data(host_name, dir_alias, dir_id);
    (void)fsa_detach(NO);
 
    exit(SUCCESS);
@@ -246,7 +264,7 @@ main(int argc, char *argv[])
 
 /*############################ get_dc_data() ############################*/
 static void
-get_dc_data(char *host_name, char *dir_alias)
+get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
 {
    int         dcl_fd,
                dnb_fd,
@@ -268,7 +286,7 @@ get_dc_data(char *host_name, char *dir_alias)
    if ((host_name[0] != '\0') &&
        ((position = get_host_position(fsa, host_name, no_of_hosts)) == INCORRECT))
    {
-      (void)fprintf(stderr, "Host alias %s is not in FSA. (%s %d)\n",
+      (void)fprintf(stderr, _("Host alias %s is not in FSA. (%s %d)\n"),
                     host_name, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -289,7 +307,7 @@ get_dc_data(char *host_name, char *dir_alias)
    if ((jd_fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr,
-                 "Failed to open() %s : %s (%s %d)",
+                 _("Failed to open() `%s' : %s (%s %d)\n"),
                  file, strerror(errno), __FILE__, __LINE__);
       if (current_jid_list != NULL)
       {
@@ -299,7 +317,7 @@ get_dc_data(char *host_name, char *dir_alias)
    }
    if (fstat(jd_fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       (void)close(jd_fd);
       if (current_jid_list != NULL)
@@ -316,8 +334,20 @@ get_dc_data(char *host_name, char *dir_alias)
       if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
       {
-         (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to mmap() to %s : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
+         (void)close(jd_fd);
+         if (current_jid_list != NULL)
+         {
+            free(current_jid_list);
+         }
+         return;
+      }
+      if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("Incorrect JID version (data=%d current=%d)!\n"),
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
          (void)close(jd_fd);
          if (current_jid_list != NULL)
          {
@@ -331,7 +361,7 @@ get_dc_data(char *host_name, char *dir_alias)
    }
    else
    {
-      (void)fprintf(stderr, "Job ID database file is empty. (%s %d)\n",
+      (void)fprintf(stderr, _("Job ID database file is empty. (%s %d)\n"),
                     __FILE__, __LINE__);
       (void)close(jd_fd);
       if (current_jid_list != NULL)
@@ -342,7 +372,7 @@ get_dc_data(char *host_name, char *dir_alias)
    }
    if (close(jd_fd) == -1)
    {
-      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
    }
 
@@ -350,7 +380,7 @@ get_dc_data(char *host_name, char *dir_alias)
    (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((dnb_fd = open(file, O_RDONLY)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       if (current_jid_list != NULL)
       {
@@ -360,7 +390,7 @@ get_dc_data(char *host_name, char *dir_alias)
       {
          if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
          {
-            (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+            (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                           strerror(errno), __FILE__, __LINE__);
          }
       }
@@ -368,7 +398,7 @@ get_dc_data(char *host_name, char *dir_alias)
    }
    if (fstat(dnb_fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       (void)close(dnb_fd);
       if (current_jid_list != NULL)
@@ -379,7 +409,7 @@ get_dc_data(char *host_name, char *dir_alias)
       {
          if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
          {
-            (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+            (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                           strerror(errno), __FILE__, __LINE__);
          }
       }
@@ -393,7 +423,7 @@ get_dc_data(char *host_name, char *dir_alias)
       if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
                       MAP_SHARED, dnb_fd, 0)) == (caddr_t) -1)
       {
-         (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to mmap() to `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
          (void)close(dnb_fd);
          if (current_jid_list != NULL)
@@ -404,7 +434,7 @@ get_dc_data(char *host_name, char *dir_alias)
          {
             if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
             {
-               (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+               (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                              strerror(errno), __FILE__, __LINE__);
             }
          }
@@ -416,7 +446,7 @@ get_dc_data(char *host_name, char *dir_alias)
    }
    else
    {
-      (void)fprintf(stderr, "Job ID database file is empty. (%s %d)\n",
+      (void)fprintf(stderr, _("Job ID database file is empty. (%s %d)\n"),
                     __FILE__, __LINE__);
       (void)close(dnb_fd);
       if (current_jid_list != NULL)
@@ -427,7 +457,7 @@ get_dc_data(char *host_name, char *dir_alias)
       {
          if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
          {
-            (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+            (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                           strerror(errno), __FILE__, __LINE__);
          }
       }
@@ -435,7 +465,7 @@ get_dc_data(char *host_name, char *dir_alias)
    }
    if (close(dnb_fd) == -1)
    {
-      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
    }
 
@@ -460,31 +490,33 @@ get_dc_data(char *host_name, char *dir_alias)
             }
             else
             {
-               (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
+               (void)fprintf(stderr,
+                             _("Failed to mmap() to `%s' : %s (%s %d)\n"),
                              file, strerror(errno),
                              __FILE__, __LINE__);
             }
          }
          else
          {
-            (void)fprintf(stderr, "File mask database file is empty. (%s %d)\n",
+            (void)fprintf(stderr,
+                          _("File mask database file is empty. (%s %d)\n"),
                           __FILE__, __LINE__);
          }
       }
       else
       {
-         (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
       if (close(fmd_fd) == -1)
       {
-         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
    else
    {
-      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
 
@@ -508,31 +540,32 @@ get_dc_data(char *host_name, char *dir_alias)
             }
             else
             {
-               (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
-                             file, strerror(errno),
-                             __FILE__, __LINE__);
+               (void)fprintf(stderr,
+                             _("Failed to mmap() to `%s' : %s (%s %d)\n"),
+                             file, strerror(errno), __FILE__, __LINE__);
             }
          }
          else
          {
-            (void)fprintf(stderr, "Password database file is empty. (%s %d)\n",
+            (void)fprintf(stderr,
+                          _("Password database file is empty. (%s %d)\n"),
                           __FILE__, __LINE__);
          }
       }
       else
       {
-         (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
       if (close(pwb_fd) == -1)
       {
-         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
    else
    {
-      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
 
@@ -556,31 +589,32 @@ get_dc_data(char *host_name, char *dir_alias)
             }
             else
             {
-               (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
-                             file, strerror(errno),
-                             __FILE__, __LINE__);
+               (void)fprintf(stderr,
+                             _("Failed to mmap() to `%s' : %s (%s %d)\n"),
+                             file, strerror(errno), __FILE__, __LINE__);
             }
          }
          else
          {
-            (void)fprintf(stderr, "File mask database file is empty. (%s %d)\n",
+            (void)fprintf(stderr,
+                          _("File mask database file is empty. (%s %d)\n"),
                           __FILE__, __LINE__);
          }
       }
       else
       {
-         (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+         (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
       }
       if (close(dcl_fd) == -1)
       {
-         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("close() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
    else
    {
-      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
 
@@ -588,14 +622,22 @@ get_dc_data(char *host_name, char *dir_alias)
     * Go through current job list and search the JID structure for
     * the host we are looking for.
     */
-   if (fra_attach_passive() == INCORRECT)
+   if ((i = fra_attach_passive()) != SUCCESS)
    {
-      (void)fprintf(stderr, "Failed to attach to FRA!\n");
+      if (i == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       _("This program is not able to attach to the FRA due to incorrect version!\n"));
+      }
+      else
+      {
+         (void)fprintf(stderr, _("Failed to attach to FRA!\n"));
+      }
       exit(INCORRECT);
    }
    if (host_name[0] == '\0')
    {
-      if (dir_alias[0] == '\0')
+      if ((dir_alias[0] == '\0') && (dir_id == 0))
       {
          for (i = 0; i < no_of_dirs_in_dnb; i++)
          {
@@ -604,19 +646,40 @@ get_dc_data(char *host_name, char *dir_alias)
       }
       else
       {
-         for (i = 0; i < no_of_dirs; i++)
+         if (dir_id == 0)
          {
-            if (strcmp(dir_alias, fra[i].dir_alias) == 0)
+            for (i = 0; i < no_of_dirs; i++)
             {
-               for (j = 0; j < no_of_dirs_in_dnb; j++)
+               if (strcmp(dir_alias, fra[i].dir_alias) == 0)
                {
-                  if (dnb[j].dir_id == fra[i].dir_id)
+                  for (j = 0; j < no_of_dirs_in_dnb; j++)
                   {
-                     show_dir_data(j, i);
-                     break;
+                     if (dnb[j].dir_id == fra[i].dir_id)
+                     {
+                        show_dir_data(j, i);
+                        break;
+                     }
                   }
+                  break;
                }
-               break;
+            }
+         }
+         else
+         {
+            for (i = 0; i < no_of_dirs; i++)
+            {
+               if (fra[i].dir_id == dir_id)
+               {
+                  for (j = 0; j < no_of_dirs_in_dnb; j++)
+                  {
+                     if (dnb[j].dir_id == dir_id)
+                     {
+                        show_dir_data(j, i);
+                        break;
+                     }
+                  }
+                  break;
+               }
             }
          }
       }
@@ -674,7 +737,7 @@ get_dc_data(char *host_name, char *dir_alias)
    {
       if (munmap(((char *)dcl - AFD_WORD_OFFSET), dcl_size) < 0)
       {
-         (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -682,7 +745,7 @@ get_dc_data(char *host_name, char *dir_alias)
    {
       if (munmap(((char *)pwb - AFD_WORD_OFFSET), pwb_size) < 0)
       {
-         (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -690,7 +753,7 @@ get_dc_data(char *host_name, char *dir_alias)
    {
       if (munmap((fmd - AFD_WORD_OFFSET), fmd_size) < 0)
       {
-         (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -698,7 +761,7 @@ get_dc_data(char *host_name, char *dir_alias)
    {
       if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) < 0)
       {
-         (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -706,7 +769,7 @@ get_dc_data(char *host_name, char *dir_alias)
    {
       if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
       {
-         (void)fprintf(stderr, "munmap() error : %s (%s %d)\n",
+         (void)fprintf(stderr, _("munmap() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -750,7 +813,7 @@ show_data(struct job_id_data *p_jd,
    if (d_o.url[0] != '\0')
    {
       (void)strcpy(value, d_o.url);
-      print_recipient(value);
+      url_insert_password(value, (view_passwd == YES) ? NULL : "XXXXX");
       (void)fprintf(stdout, "DIR-URL       : %s\n", value);
    }
 
@@ -822,7 +885,7 @@ show_data(struct job_id_data *p_jd,
 
    /* Print recipient. */
    (void)strcpy(value, p_jd->recipient);
-   print_recipient(value);
+   url_insert_password(value, (view_passwd == YES) ? NULL : "XXXXX");
    (void)fprintf(stdout, "Recipient     : %s\n", value);
    (void)fprintf(stdout, "Real hostname : %s\n",
                  fsa[position].real_hostname[0]);
@@ -930,7 +993,7 @@ show_dir_data(int dir_pos, int fra_pos)
       }
       if (fra_pos == -1)
       {
-         (void)fprintf(stderr, "Failed to locate `%s' in FRA!\n",
+         (void)fprintf(stderr, _("Failed to locate `%s' in FRA!\n"),
                        dnb[dir_pos].orig_dir_name);
          exit(INCORRECT);
       }
@@ -938,7 +1001,7 @@ show_dir_data(int dir_pos, int fra_pos)
 
    if ((gl = malloc((no_of_job_ids * sizeof(unsigned int)))) == NULL)
    {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+      (void)fprintf(stderr, _("malloc() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -946,7 +1009,7 @@ show_dir_data(int dir_pos, int fra_pos)
 
    /* Directory entry. */
    (void)strcpy(value, dnb[dir_pos].orig_dir_name);
-   print_recipient(value);
+   url_insert_password(value, (view_passwd == YES) ? NULL : "XXXXX");
    if (fra[fra_pos].in_dc_flag & DIR_ALIAS_IDC)
    {
       (void)fprintf(stdout, "%s %s\n%s\n\n",
@@ -1011,7 +1074,7 @@ show_dir_data(int dir_pos, int fra_pos)
          do
          {
             (void)strcpy(value, jd[job_pos].recipient);
-            print_recipient(value);
+            url_insert_password(value, (view_passwd == YES) ? NULL : "XXXXX");
             (void)fprintf(stdout, "         %s\n", value);
          } while (same_options(&job_pos, jd[job_pos].dir_id, jd[job_pos].file_mask_id));
 
@@ -1019,7 +1082,7 @@ show_dir_data(int dir_pos, int fra_pos)
          (void)fprintf(stdout, "\n         %s\n         %s %c\n",
                        OPTION_IDENTIFIER, PRIORITY_ID, jd[job_pos].priority);
 
-         /* Show all AMG options */
+         /* Show all AMG options. */
          if (jd[job_pos].no_of_loptions > 0)
          {
             char *ptr = jd[job_pos].loptions;
@@ -1224,255 +1287,12 @@ check_dir_options(int fra_pos)
 }
 
 
-/*######################## get_current_jid_list() #######################*/
-static int
-get_current_jid_list(void)
-{
-   int         fd;
-   char        file[MAX_PATH_LENGTH],
-               *ptr,
-               *tmp_ptr;
-   struct stat stat_buf;
-
-   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, CURRENT_MSG_LIST_FILE);
-   if ((fd = open(file, O_RDONLY)) == -1)
-   {
-      (void)fprintf(stderr,
-                    "Failed to open() %s. Will not be able to get all information. : %s (%s %d)\n",
-                    file, strerror(errno), __FILE__, __LINE__);
-      return(INCORRECT);
-   }
-
-   if (fstat(fd, &stat_buf) == -1)
-   {
-      (void)fprintf(stderr,
-                    "Failed to fstat() %s. Will not be able to get all information. : %s (%s %d)\n",
-                    file, strerror(errno), __FILE__, __LINE__);
-      (void)close(fd);
-      return(INCORRECT);
-   }
-
-   if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
-                   MAP_SHARED, fd, 0)) == (caddr_t)-1)
-   {
-      (void)fprintf(stderr,
-                    "Failed to mmap() to %s. Will not be able to get all information. : %s (%s %d)\n",
-                    file, strerror(errno), __FILE__, __LINE__);
-      (void)close(fd);
-      return(INCORRECT);
-   }
-   tmp_ptr = ptr;
-   no_of_current_jobs = *(int *)ptr;
-   ptr += sizeof(int);
-
-   if (no_of_current_jobs > 0)
-   {
-      int i;
-
-      if ((current_jid_list = malloc(no_of_current_jobs * sizeof(unsigned int))) == NULL)
-      {
-         (void)fprintf(stderr,
-                       "Failed to malloc() memory. Will not be able to get all information. : %s (%s %d)\n",
-                       strerror(errno), __FILE__, __LINE__);
-         (void)close(fd);
-         return(INCORRECT);
-      }
-      for (i = 0; i < no_of_current_jobs; i++)
-      {
-         current_jid_list[i] = *(unsigned int *)ptr;
-         ptr += sizeof(unsigned int);
-      }
-   }
-
-   if (munmap(tmp_ptr, stat_buf.st_size) == -1)
-   {
-      (void)fprintf(stderr, "Failed to munmap() %s : %s (%s %d)\n",
-                    file, strerror(errno), __FILE__, __LINE__);
-   }
-   if (close(fd) == -1)
-   {
-      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-   }
-
-   return(SUCCESS);
-}
-
-
-/*-------------------------- print_recipient() --------------------------*/
-static void
-print_recipient(char *print_buffer)
-{
-   /* Print recipient */
-   if (view_passwd == YES)
-   {
-      if (pwb != NULL)
-      {
-         int  i;
-         char *ptr;
-
-         ptr = print_buffer;
-         while ((*ptr != ':') && (*ptr != '\0'))
-         {
-            /* We don't need the scheme so lets ignore it here. */
-            ptr++;
-         }
-         if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
-         {
-            ptr += 3; /* Away with '://' */
-
-            /* There is no password if this is a mail group. */
-            if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '\0'))
-            {
-               char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
-
-               i = 0;
-#ifdef WITH_SSH_FINGERPRINT
-               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
-#else
-               while ((*ptr != ':') && (*ptr != '@') &&
-#endif
-                      (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  uh_name[i] = *ptr;
-                  ptr++; i++;
-               }
-#ifdef WITH_SSH_FINGERPRINT
-               if (*ptr == ';')
-               {
-                  while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     ptr++;
-                  }
-               }
-#endif
-               if ((*ptr != '\0') && (*ptr != ':') &&
-                   (i > 0) && (i != MAX_USER_NAME_LENGTH))
-               {
-                  int  uh_name_length = i;
-                  char *p_start = ptr;
-
-                  ptr++;
-                  i = 0;
-                  while ((*ptr != '\0') && (*ptr != '/') && (*ptr != ':') &&
-                         (*ptr != ';') && (i < MAX_REAL_HOSTNAME_LENGTH))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     uh_name[uh_name_length + i] = *ptr;
-                     i++; ptr++;
-                  }
-                  if (i > 0)
-                  {
-                     while (*ptr != '\0')
-                     {
-                        ptr++;
-                     }
-                     uh_name[uh_name_length + i] = '\0';
-                     for (i = 0; i < no_of_passwd; i++)
-                     {
-                        if (CHECK_STRCMP(uh_name, pwb[i].uh_name) == 0)
-                        {
-                           int           j;
-                           size_t        rest_length;
-                           char          tmp_buffer[MAX_RECIPIENT_LENGTH];
-                           unsigned char tmp_char,
-                                         *tmp_ptr;
-
-                           rest_length = strlen(p_start) + 1;
-                           (void)memcpy(tmp_buffer, p_start, rest_length);
-                           *p_start = ':';
-                           p_start++;
-                           tmp_ptr = pwb[i].passwd;
-                           j = 0;
-                           while (*tmp_ptr != '\0')
-                           {
-                              if ((j % 2) == 0)
-                              {
-                                 tmp_char = *tmp_ptr + 24 - j;
-                              }
-                              else
-                              {
-                                 tmp_char = *tmp_ptr + 11 - j;
-                              }
-                              if (tmp_char == '@')
-                              {
-                                 *p_start = '\\';
-                                 p_start++;
-                              }
-                              *p_start = tmp_char;
-                              tmp_ptr++; j++; p_start++;
-                           }
-                           (void)memcpy(p_start, tmp_buffer, rest_length);
-                           break;
-                        }
-                     }
-                  }
-               }
-            }
-         }
-      }
-   }
-   else
-   {
-      char *ptr = print_buffer;
-
-      /*
-       * The user may not see the password. Lets cut it out and
-       * replace it with XXXXX.
-       */
-      while ((*ptr != ':') && (*ptr != '\0'))
-      {
-         ptr++;
-      }
-      ptr++;
-      while ((*ptr != ':') && (*ptr != '@'))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         ptr++;
-      }
-      if (*ptr == ':')
-      {
-         char *p_end = ptr + 1,
-              tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-         ptr++;
-         while (*ptr != '@')
-         {
-            if (*ptr == '\\')
-            {
-               ptr++;
-            }
-            ptr++;
-         }
-         (void)strcpy(tmp_buffer, ptr);
-         *p_end = '\0';
-         (void)strcat(print_buffer, "XXXXX");
-         (void)strcat(print_buffer, tmp_buffer);
-      }
-   }
-   return;
-}
-
-
 /*++++++++++++++++++++++++++++ usage() +++++++++++++++++++++++++++++++++*/
 static void
 usage(FILE *stream, char *progname)
 {
-   (void)fprintf(stream, "Usage: %s [-d <dir alias>] [-h <host alias>]\n",
+   (void)fprintf(stream,
+                 _("Usage: %s [-d <dir alias>] [-h <host alias>] [-D <dir hex id>]\n"),
                  progname);
    return;
 }

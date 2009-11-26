@@ -1,7 +1,7 @@
 /*
  *  get_group_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   get_group_list - read list from group file
  **
  ** SYNOPSIS
- **   void get_group_list(void)
+ **   void get_group_list(char *user)
  **
  ** DESCRIPTION
  **
@@ -49,46 +49,50 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
-extern char       *p_work_dir;
+/* External global variables. */
+extern char   *p_work_dir;
 extern struct job db;
 
 
 /*########################### get_group_list() ##########################*/
 void
-get_group_list(void)
+get_group_list(char *user)
 {
    off_t file_size;
    char  *buffer = NULL,
          group_file[MAX_PATH_LENGTH];
 
    (void)sprintf(group_file, "%s%s%s", p_work_dir, ETC_DIR, GROUP_FILE);
-   if (((file_size = read_file(group_file, &buffer)) != INCORRECT) &&
+   if (((file_size = read_file_no_cr(group_file, &buffer)) != INCORRECT) &&
        (file_size > 0))
    {
-      char *ptr;
+      int  length;
+      char group_id[MAX_USER_NAME_LENGTH + 2 + 1],
+           *ptr;
 
-      if ((ptr = posi(buffer, db.user)) == NULL)
+      length = sprintf(group_id, "[%s]", user);
+      if ((ptr = lposi(buffer, group_id, length)) == NULL)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to locate group %s in group file.", db.user);
+                    "Failed to locate group %s in group file.", user);
          db.group_list = NULL;
       }
       else
       {
+         ptr--;
          while ((*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
          }
          if (*ptr == '\n')
          {
-            int  length = 0,
-                 max_length = 0;
+            int  max_length = 0;
             char *ptr_start = ptr; /* NOTE: NOT + 1 */
 
             /*
              * First count the number of groups.
              */
+            length = 0;
             db.no_listed = 0;
             do
             {
@@ -97,10 +101,6 @@ get_group_list(void)
                {
                   ptr++;
                }
-               else if (*ptr == '\0')
-                    {
-                       break;
-                    }
                else if (*ptr == '#')
                     {
                        while ((*ptr != '\n') && (*ptr != '\0'))
@@ -124,7 +124,7 @@ get_group_list(void)
                     else
                     {
                        length++;
-                       if (*ptr == '\n')
+                       if ((*ptr == '\n') || (*ptr == '\0'))
                        {
                           if (length > max_length)
                           {
@@ -134,7 +134,9 @@ get_group_list(void)
                           db.no_listed++;
                        }
                     }
-               if ((*ptr == '\n') && (*(ptr + 1) == '\n'))
+
+               if ((*ptr == '\n') &&
+                   ((*(ptr + 1) == '\n') || (*(ptr + 1) == '\0')))
                {
                   break;
                }
@@ -154,10 +156,6 @@ get_group_list(void)
                   {
                      ptr++;
                   }
-                  else if (*ptr == '\0')
-                       {
-                          break;
-                       }
                   else if (*ptr == '#')
                        {
                           while ((*ptr != '\n') && (*ptr != '\0'))
@@ -177,7 +175,7 @@ get_group_list(void)
                        }
                        else
                        {
-                          if (*ptr == '\n')
+                          if ((*ptr == '\n') || (*ptr == '\0'))
                           {
                              db.group_list[counter][length] = '\0';
                              length = 0;
@@ -189,7 +187,8 @@ get_group_list(void)
                              length++;
                           }
                        }
-                  if ((*ptr == '\n') && (*(ptr + 1) == '\n'))
+                  if ((*ptr == '\n') &&
+                      ((*(ptr + 1) == '\n') || (*(ptr + 1) == '\0')))
                   {
                      break;
                   }
@@ -198,14 +197,14 @@ get_group_list(void)
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "No group elements found for group %s.", db.user);
+                          "No group elements found for group %s.", user);
                db.group_list = NULL;
             }
          }
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "No group elements found for group %s.", db.user);
+                       "No group elements found for group %s.", user);
             db.group_list = NULL;
          }
       }

@@ -163,7 +163,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                int  status;
                char buf;
 
-               /* Send Control-D to printer queue */
+               /* Send Control-D to printer queue. */
                buf = CONTROL_D;
                if (write(fd, &buf, 1) != 1)
                {
@@ -256,7 +256,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
             int  status;
             char buf;
 
-            /* Send Control-D to printer queue */
+            /* Send Control-D to printer queue. */
             buf = CONTROL_D;
             if (write(fd, &buf, 1) != 1)
             {

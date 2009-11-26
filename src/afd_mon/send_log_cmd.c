@@ -1,6 +1,6 @@
 /*
  *  send_log_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -155,6 +155,21 @@ send_log_cmd(int afd_no, char *log_data_buffer, int *bytes_buffered)
       cmd_length += sprintf(&cmd_buffer[cmd_length], " LI 0 %s %ld",
 # else
       cmd_length += sprintf(&cmd_buffer[cmd_length], " LI 0 %s %lld",
+# endif
+                                     remote_log_inode,
+                                     (pri_off_t)log_file_size);
+   }
+#endif
+#ifdef _DISTRIBUTION_LOG
+   if ((msa[afd_no].log_capabilities & AFDD_DISTRIBUTION_LOG) &&
+       (msa[afd_no].options & AFDD_DISTRIBUTION_LOG))
+   {
+      init_log_values(DISTRIBUTION_BUFFER_FILE, msa[afd_no].afd_alias,
+                      remote_log_inode, &log_file_size);
+# if SIZEOF_OFF_T == 4
+      cmd_length += sprintf(&cmd_buffer[cmd_length], " LU 0 %s %ld",
+# else
+      cmd_length += sprintf(&cmd_buffer[cmd_length], " LU 0 %s %lld",
 # endif
                                      remote_log_inode,
                                      (pri_off_t)log_file_size);

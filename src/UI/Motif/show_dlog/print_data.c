@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,10 +54,10 @@ DESCR__E_M3
 #include <Xm/List.h>
 #include <Xm/LabelP.h>
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 #include "show_dlog.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display     *display;
 extern Widget      listbox_w,
                    printshell,
@@ -77,8 +77,7 @@ extern int         no_of_search_dirs,
                    no_of_search_hosts,
                    sum_line_length;
 extern XT_PTR_TYPE device_type,
-                   range_type,
-                   toggles_set;
+                   range_type;
 extern time_t      start_time_val,
                    end_time_val;
 extern FILE        *fp;
@@ -167,7 +166,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                int  status;
                char buf;
 
-               /* Send Control-D to printer queue */
+               /* Send Control-D to printer queue. */
                buf = CONTROL_D;
                if (write(fd, &buf, 1) != 1)
                {
@@ -260,7 +259,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
             int  status;
             char buf;
 
-            /* Send Control-D to printer queue */
+            /* Send Control-D to printer queue. */
             buf = CONTROL_D;
             if (write(fd, &buf, 1) != 1)
             {
@@ -310,8 +309,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 static void
 write_header(int fd, char *sum_sep_line)
 {
-   int  length,
-        tmp_length;
+   int  length;
    char buffer[1024];
 
    length = sprintf(buffer,
@@ -396,87 +394,6 @@ write_header(int fd, char *sum_sep_line)
    else
    {
       length += sprintf(&buffer[length], "\tHost name     :\n");
-   }
-
-   tmp_length = length;
-   if (toggles_set & SHOW_AGE_OUTPUT)
-   {
-      length += sprintf(&buffer[length], "\tDelete type   : %s",
-                        AGE_OUTPUT_ID_STR);
-   }
-   if (toggles_set & SHOW_AGE_INPUT)
-   {
-      if (length == tmp_length)
-      {
-         length += sprintf(&buffer[length], "\tDelete type   : %s",
-                           AGE_INPUT_ID_STR);
-      }
-      else
-      {
-         length += sprintf(&buffer[length], ", %s", AGE_INPUT_ID_STR);
-      }
-   }
-#ifdef WITH_DUP_CHECK
-   if (toggles_set & SHOW_DUP_INPUT)
-   {
-      if (length == tmp_length)
-      {
-         length += sprintf(&buffer[length], "\tDelete type   : %s",
-                           DUP_INPUT_ID_STR);
-      }
-      else
-      {
-         length += sprintf(&buffer[length], ", %s", DUP_INPUT_ID_STR);
-      }
-   }
-   if (toggles_set & SHOW_DUP_OUTPUT)
-   {
-      if (length == tmp_length)
-      {
-         length += sprintf(&buffer[length], "\tDelete type   : %s",
-                           DUP_OUTPUT_ID_STR);
-      }
-      else
-      {
-         length += sprintf(&buffer[length], ", %s", DUP_OUTPUT_ID_STR);
-      }
-   }
-#endif /* WITH_DUP_CHECK */
-   if (toggles_set & SHOW_USER_DEL)
-   {
-      if (length == tmp_length)
-      {
-         length += sprintf(&buffer[length], "\tDelete type   : %s",
-                           USER_DEL_ID_STR);
-      }
-      else
-      {
-         length += sprintf(&buffer[length], ", %s", USER_DEL_ID_STR);
-      }
-   }
-   if (toggles_set & SHOW_EXEC_FAILED_DEL)
-   {
-      if (length == tmp_length)
-      {
-         length += sprintf(&buffer[length], "\tDelete type   : %s",
-                           EXEC_FAILED_DEL_ID_STR);
-      }
-      else
-      {
-         length += sprintf(&buffer[length], ", %s", EXEC_FAILED_DEL_ID_STR);
-      }
-   }
-   if (toggles_set & SHOW_OTHER_DEL)
-   {
-      if (length == tmp_length)
-      {
-         length += sprintf(&buffer[length], "\tDelete type   : %s",
-                           OTHER_DEL_ID_STR);
-      }
-      else
-      {
-         length += sprintf(&buffer[length], ", %s", OTHER_DEL_ID_STR);
-      }
    }
 
    /* Don't forget the heading for the data. */

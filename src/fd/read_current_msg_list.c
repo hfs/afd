@@ -61,7 +61,7 @@ DESCR__E_M3
 #include "fddefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern char              *p_work_dir;
 extern struct afd_status *p_afd_status;
 
@@ -80,7 +80,7 @@ read_current_msg_list(unsigned int **cml, int *no_of_current_msg)
    (void)strcpy(current_msg_list_file, p_work_dir);
    (void)strcat(current_msg_list_file, FIFO_DIR);
    (void)strcat(current_msg_list_file, CURRENT_MSG_LIST_FILE);
-   if ((fd = open(current_msg_list_file, O_RDWR)) == -1) /* WR for locking */
+   if ((fd = open(current_msg_list_file, O_RDWR)) == -1) /* WR for locking. */
    {
       if (errno == ENOENT)
       {

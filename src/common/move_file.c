@@ -1,6 +1,6 @@
 /*
  *  move_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,9 @@ DESCR__S_M3
  **
  ** HISTORY
  **   05.10.1995 H.Kiehl Created
+ **   05.02.2009 H.Kiehl When we copied the file and we fail to unlink
+ **                      the original file we must delete the target
+ **                      file. Then it behaves as rename().
  **
  */
 DESCR__E_M3
@@ -70,28 +73,35 @@ move_file(char *from, char *to)
          if (copy_file(from, to, NULL) < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to copy `%s' to `%s'", from, to);
+                       _("Failed to copy `%s' to `%s'"), from, to);
             return(INCORRECT);
          }
 
-         /* Remove the source file */
+         /* Remove the source file. */
          if (unlink(from) < 0)
          {
-            /* Include some better error correction here. Since */
-            /* if we do not delete the file successful we will  */
-            /* have a continuous loop (when it is an instant    */
-            /* job) trying to copy a file we cannot delete.     */
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not delete file `%s' : %s", from, strerror(errno));
+                       _("Could not delete file `%s' : %s"),
+                       from, strerror(errno));
+
+            if (errno != ENOENT)
+            {
+               int tmp_errno;
+
+               /*
+                * Lets behave as rename(). When we fail to delete the source
+                * remove the target.
+                */
+               tmp_errno = errno;
+               (void)unlink(to);
+               errno = tmp_errno;
+            }
 
             return(2);
          }
       }
       else
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Error when renaming `%s' to `%s' : %s",
-                    from, to, strerror(errno));
          return(INCORRECT);
       }
    }

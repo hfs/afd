@@ -66,12 +66,13 @@ ac_cv_motif_includes=
 # /usr/dt is used on Solaris (Motif).
 # /usr/openwin is used on Solaris (X and Athena).
 # Other directories are just guesses.
-for dir in "$x_includes" "${prefix}/include" /usr/include /usr/local/include \
-           /usr/include/Motif2.0 /usr/include/Motif1.2 /usr/include/Motif1.1 \
-           /usr/include/X11R6 /usr/include/X11R5 /usr/include/X11R4 \
-           /usr/dt/include /usr/openwin/include \
-           /usr/dt/*/include /opt/*/include /usr/include/Motif* \
-           "${prefix}"/*/include /usr/*/include /usr/local/*/include \
+for dir in "$x_includes" "${prefix}/include" /usr/include/openmotif \
+           /usr/include /usr/local/include /usr/include/Motif2.0 \
+           /usr/include/Motif1.2 /usr/include/Motif1.1 /usr/include/X11R6 \
+           /usr/include/X11R5 /usr/include/X11R4 /usr/dt/include \
+           /usr/openwin/include /usr/dt/*/include /opt/*/include \
+           /usr/include/Motif* "${prefix}"/*/include /usr/*/include \
+           /usr/local/*/include \
            "${prefix}"/include/* /usr/include/* /usr/local/include/*; do
 if test -f "$dir/Xm/Xm.h"; then
 ac_cv_motif_includes="$dir"
@@ -120,7 +121,8 @@ ac_cv_motif_libraries=
 # /usr/lesstif is used on Linux (Lesstif).
 # /usr/openwin is used on Solaris (X and Athena).
 # Other directories are just guesses.
-for dir in "$x_libraries" "${prefix}/lib" /usr/lib /usr/local/lib \
+for dir in "$x_libraries" "${prefix}/lib" /usr/lib64/openmotif \
+           /usr/lib/openmotif /usr/lib /usr/local/lib \
            /usr/lib/Motif2.0 /usr/lib/Motif1.2 /usr/lib/Motif1.1 \
            /usr/lib/X11R6 /usr/lib/X11R5 /usr/lib/X11R4 /usr/lib/X11 \
            /usr/dt/lib /usr/openwin/lib \

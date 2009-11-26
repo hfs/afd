@@ -1,6 +1,6 @@
 /*
  *  check_paused_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2008 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                 /* NULL                               */
+#include <string.h>                /* strlen(), strcpy(), strerror()     */
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISREG()                  */
 #include <dirent.h>                /* opendir(), readdir(), closedir()   */
@@ -64,6 +65,9 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables. */
+#ifdef WITH_ERROR_QUEUE
+extern int                        fsa_fd;
+#endif
 extern int                        fra_fd;
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
@@ -155,7 +159,9 @@ check_paused_dir(struct directory_entry *p_de,
                      if (fsa[db[p_de->fme[i].pos[j]].position].host_status & ERROR_QUEUE_SET)
                      {
                         (void)remove_from_error_queue(db[p_de->fme[i].pos[j]].job_id,
-                                                      &fsa[db[p_de->fme[i].pos[j]].position]);
+                                                      &fsa[db[p_de->fme[i].pos[j]].position],
+                                                      db[p_de->fme[i].pos[j]].position,
+                                                      fsa_fd);
                      }
 #endif
                      if (remove_paused_dir(db[p_de->fme[i].pos[j]].paused_dir,

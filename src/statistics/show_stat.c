@@ -75,7 +75,7 @@ DESCR__E_M1
 #include <time.h>                   /* time()                            */
 #include <ctype.h>                  /* isdigit()                         */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>               /* struct tm                         */
+# include <sys/time.h>              /* struct tm                         */
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -83,7 +83,7 @@ DESCR__E_M1
                                     /* STDERR_FILENO                     */
 #include <stdlib.h>                 /* getenv(), free(), malloc()        */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap(), munmap()                  */
+# include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
 #include <fcntl.h>
 #include <errno.h>
@@ -91,9 +91,9 @@ DESCR__E_M1
 #include "version.h"
 
 #ifdef HAVE_MMAP
-#ifndef MAP_FILE    /* Required for BSD          */
-#define MAP_FILE 0  /* All others do not need it */
-#endif
+# ifndef MAP_FILE    /* Required for BSD          */
+#  define MAP_FILE 0 /* All others do not need it */
+# endif
 #endif
 
 /* Global variables. */

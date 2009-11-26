@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/RowColumn.h>
 #include <Xm/DrawingA.h>
-#include "show_log.h"
+#include "mshow_log.h"
 #include "dir_ctrl.h"
 #include "permission.h"
 
@@ -78,6 +78,8 @@ extern Widget                     fw[],
                                   tw[],
                                   lsw[];
 extern Window                     line_window;
+extern Pixmap                     label_pixmap,
+                                  line_pixmap;
 extern XFontStruct                *font_struct;
 extern GC                         letter_gc,
                                   normal_letter_gc,
@@ -93,11 +95,12 @@ extern GC                         letter_gc,
                                   color_gc,
                                   black_line_gc,
                                   white_line_gc;
-extern int                        no_of_active_process,
+extern int                        depth,
+                                  line_height,
+                                  line_length,
+                                  no_of_active_process,
                                   no_of_dirs,
                                   no_of_jobs_selected,
-                                  line_length,
-                                  line_height,
                                   no_selected,
                                   no_selected_static,
                                   no_of_rows,
@@ -358,7 +361,7 @@ save_dir_setup_cb(Widget    w,
                   XtPointer client_data,
                   XtPointer call_data)
 {
-   write_setup(-1, -1, NULL, 0, 0);
+   write_setup(-1, -1, -1, NULL, 0, 0);
 
    return;
 }
@@ -390,9 +393,9 @@ dir_popup_cb(Widget    w,
    XT_PTR_TYPE sel_typ = (XT_PTR_TYPE)client_data;
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
-       ((sel_typ == DIR_DISABLE_SEL) || (sel_typ == DIR_INFO_SEL) ||
-        (sel_typ == DIR_RESCAN_SEL) || (sel_typ == DIR_VIEW_DC_SEL) ||
-        (sel_typ == DIR_HANDLE_EVENT_SEL)))
+       ((sel_typ == DIR_STOP_SEL) || (sel_typ == DIR_DISABLE_SEL) ||
+        (sel_typ == DIR_INFO_SEL) || (sel_typ == DIR_RESCAN_SEL) ||
+        (sel_typ == DIR_VIEW_DC_SEL) || (sel_typ == DIR_HANDLE_EVENT_SEL)))
    {
       (void)xrec(INFO_DIALOG,
                  "You must first select a directory!\nUse mouse button 1 together with the SHIFT or CTRL key.");
@@ -434,6 +437,7 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, HANDLE_EVENT);
          break;
 
+      case DIR_STOP_SEL:
       case DIR_DISABLE_SEL:
       case DIR_RESCAN_SEL:
          break;
@@ -669,6 +673,7 @@ dir_popup_cb(Widget    w,
 
       case EXIT_SEL  : /* Exit */
          XFreeFont(display, font_struct);
+         font_struct = NULL;
          XFreeGC(display, letter_gc);
          XFreeGC(display, normal_letter_gc);
          XFreeGC(display, locked_letter_gc);
@@ -687,6 +692,10 @@ dir_popup_cb(Widget    w,
          if (dcp.info_list != NULL)
          {
             FREE_RT_ARRAY(dcp.info_list);
+         }
+         if (dcp.stop_list != NULL)
+         {
+            FREE_RT_ARRAY(dcp.stop_list);
          }
          if (dcp.disable_list != NULL)
          {
@@ -777,10 +786,18 @@ dir_popup_cb(Widget    w,
 
    if (sel_typ == T_LOG_SEL)
    {
-      if (fsa_attach() == INCORRECT)
+      if ((k = fsa_attach()) < 0)
       {
-         (void)xrec(FATAL_DIALOG, "Failed to attach to FSA! (%s %d)",
-                    __FILE__, __LINE__);
+         if (k == INCORRECT_VERSION)
+         {
+            (void)xrec(FATAL_DIALOG, "This program is not able to attach to the FSA due to incorrect version! (%s %d)",
+                       __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)xrec(FATAL_DIALOG, "Failed to attach to FSA! (%s %d)",
+                       __FILE__, __LINE__);
+         }
          return;
       }
    }
@@ -804,11 +821,99 @@ dir_popup_cb(Widget    w,
       {
          switch (sel_typ)
          {
+            case DIR_STOP_SEL : /* Start/Stop Directory. */
+               if (fra[i].dir_flag & DIR_STOPPED)
+               {
+                  fra[i].dir_flag ^= DIR_STOPPED;
+                  SET_DIR_STATUS(fra[i].dir_flag,
+                                 current_time,
+                                 fra[i].start_event_handle,
+                                 fra[i].end_event_handle,
+                                 fra[i].dir_status);
+                  config_log(EC_DIR, ET_MAN, EA_START_DIRECTORY,
+                             fra[i].dir_alias, NULL);
+               }
+               else
+               {
+                  if (xrec(QUESTION_DIALOG,
+                           "Are you shure that you want to stop %s",
+                           fra[i].dir_alias) == YES)
+                  {
+                     fra[i].dir_flag ^= DIR_STOPPED;
+                     SET_DIR_STATUS(fra[i].dir_flag,
+                                    current_time,
+                                    fra[i].start_event_handle,
+                                    fra[i].end_event_handle,
+                                    fra[i].dir_status);
+                     config_log(EC_DIR, ET_MAN, EA_STOP_DIRECTORY,
+                                fra[i].dir_alias, NULL);
+
+                     if (fra[i].host_alias[0] != '\0')
+                     {
+                        int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        int  readfd;
+#endif
+                        char fd_delete_fifo[MAX_PATH_LENGTH];
+
+
+                        (void)sprintf(fd_delete_fifo, "%s%s%s",
+                                      p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (open_fifo_rw(fd_delete_fifo, &readfd, &fd) == -1)
+#else
+                        if ((fd = open(fd_delete_fifo, O_RDWR)) == -1)
+#endif
+                        {
+                           (void)xrec(ERROR_DIALOG,
+                                      "Failed to open() %s : %s (%s %d)",
+                                      FD_DELETE_FIFO, strerror(errno),
+                                      __FILE__, __LINE__);
+                        }
+                        else
+                        {
+                           char   wbuf[MAX_DIR_ALIAS_LENGTH + 2];
+                           size_t length;
+
+                           wbuf[0] = DELETE_RETRIEVES_FROM_DIR;
+                           (void)strcpy(&wbuf[1], fra[i].dir_alias);
+                           length = 1 + strlen(fra[i].dir_alias) + 1;
+                           if (write(fd, wbuf, length) != length)
+                           {
+                              (void)xrec(ERROR_DIALOG,
+                                         "Failed to write() to %s : %s (%s %d)",
+                                         FD_DELETE_FIFO, strerror(errno),
+                                         __FILE__, __LINE__);
+                           }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           if (close(readfd) == -1)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO %s (read) : %s",
+                                         FD_DELETE_FIFO, strerror(errno));
+                           }
+#endif
+                           if (close(fd) == -1)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO %s (write) : %s",
+                                         FD_DELETE_FIFO, strerror(errno));
+                           }
+                        }
+                     }
+                  }
+               }
+               break;
+
             case DIR_DISABLE_SEL : /* Enable/Disable Directory. */
                if (fra[i].dir_flag & DIR_DISABLED)
                {
                   fra[i].dir_flag ^= DIR_DISABLED;
-                  SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
+                  SET_DIR_STATUS(fra[i].dir_flag,
+                                 current_time,
+                                 fra[i].start_event_handle,
+                                 fra[i].end_event_handle,
+                                 fra[i].dir_status);
                   config_log(EC_DIR, ET_MAN, EA_ENABLE_DIRECTORY,
                              fra[i].dir_alias, NULL);
                }
@@ -819,7 +924,11 @@ dir_popup_cb(Widget    w,
                            fra[i].dir_alias) == YES)
                   {
                      fra[i].dir_flag ^= DIR_DISABLED;
-                     SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
+                     SET_DIR_STATUS(fra[i].dir_flag,
+                                    current_time,
+                                    fra[i].start_event_handle,
+                                    fra[i].end_event_handle,
+                                    fra[i].dir_status);
                      config_log(EC_DIR, ET_MAN, EA_DISABLE_DIRECTORY,
                                 fra[i].dir_alias, NULL);
 
@@ -881,7 +990,7 @@ dir_popup_cb(Widget    w,
                break;
 
             case DIR_RESCAN_SEL : /* Rescan Directory. */
-               if ((fra[i].time_option != NO) &&
+               if ((fra[i].no_of_time_entries > 0) &&
                    (fra[i].next_check_time > current_time))
                {
                   event_log(current_time, EC_DIR, ET_MAN, EA_RESCAN_DIRECTORY,
@@ -1141,8 +1250,6 @@ change_dir_font_cb(Widget    w,
                    XtPointer client_data,
                    XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
    XGCValues   gc_values;
 
@@ -1219,10 +1326,7 @@ change_dir_font_cb(Widget    w,
    (void)fprintf(stderr, "You have chosen: %s\n", font_name);
 #endif
 
-   /* Remove old font. */
-   XFreeFont(display, font_struct);
-
-   /* calculate the new values for global variables */
+   /* Calculate the new values for global variables. */
    setup_dir_window(font_name);
 
    /* Load the font into the old GC. */
@@ -1237,22 +1341,7 @@ change_dir_font_cb(Widget    w,
    /* Resize and redraw window if necessary. */
    if (resize_dir_window() == YES)
    {
-      XClearWindow(display, line_window);
-
-      /* Redraw label. */
-      draw_dir_label_line();
-
-      /* Redraw all status lines. */
-      for (i = 0; i < no_of_dirs; i++)
-      {
-         draw_dir_line_status(i, 1);
-      }
-
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
+      redraw_all();
       XFlush(display);
    }
 
@@ -1266,8 +1355,6 @@ change_dir_rows_cb(Widget    w,
                    XtPointer client_data,
                    XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_row != item_no)
@@ -1367,22 +1454,7 @@ change_dir_rows_cb(Widget    w,
 
    if (resize_dir_window() == YES)
    {
-      XClearWindow(display, line_window);
-
-      /* redraw label */
-      draw_dir_label_line();
-
-      /* redraw all status lines */
-      for (i = 0; i < no_of_dirs; i++)
-      {
-         draw_dir_line_status(i, 1);
-      }
-
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
+      redraw_all();
       XFlush(display);
    }
 
@@ -1396,8 +1468,6 @@ change_dir_style_cb(Widget    w,
                     XtPointer client_data,
                     XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_style != item_no)
@@ -1453,22 +1523,7 @@ change_dir_style_cb(Widget    w,
 
    if (resize_dir_window() == YES)
    {
-      XClearWindow(display, line_window);
-
-      /* Redraw label. */
-      draw_dir_label_line();
-
-      /* Redraw all status lines. */
-      for (i = 0; i < no_of_dirs; i++)
-      {
-         draw_dir_line_status(i, 1);
-      }
-
-      redraw = YES;
-   }
-
-   if (redraw == YES)
-   {
+      redraw_all();
       XFlush(display);
    }
 

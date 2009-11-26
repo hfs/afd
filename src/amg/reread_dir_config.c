@@ -1,6 +1,6 @@
 /*
  *  reread_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -171,16 +171,16 @@ reread_dir_config(int              dc_changed,
          }
       } /* if ((dc_changed == NO) && (old_hl != NULL)) */
 
-      /* Check if DIR_CONFIG has changed */
+      /* Check if DIR_CONFIG has changed. */
       if (dc_changed == YES)
       {
          int   i;
          pid_t tmp_dc_pid;
 
-         /* Tell user we have to reread the new DIR_CONFIG file(s) */
+         /* Tell user we have to reread the new DIR_CONFIG file(s). */
          system_log(INFO_SIGN, NULL, 0, "Rereading DIR_CONFIG(s)...");
 
-         /* Stop running jobs */
+         /* Stop running jobs. */
          if ((data_length > 0) && (dc_pid > 0))
          {
             if (com(STOP) == INCORRECT)
@@ -194,7 +194,7 @@ reread_dir_config(int              dc_changed,
                {
                   dc_pid = status;
                }
-               else /* Mark process in unknown state */
+               else /* Mark process in unknown state. */
                {
                   tmp_dc_pid = dc_pid;
                   dc_pid = UNKNOWN_STATE;
@@ -233,7 +233,7 @@ reread_dir_config(int              dc_changed,
             unmap_data(dnb_fd, (void *)&dnb);
          }
 
-         /* Start, restart or stop jobs */
+         /* Start, restart or stop jobs. */
          if (data_length > 0)
          {
             /*
@@ -260,7 +260,7 @@ reread_dir_config(int              dc_changed,
                   break;
 
                case UNKNOWN_STATE :
-                  /* Since we do not know the state, lets just kill it */
+                  /* Since we do not know the state, lets just kill it. */
                   if (tmp_dc_pid > 0)
                   {
                      if (kill(tmp_dc_pid, SIGINT) < 0)
@@ -283,7 +283,7 @@ reread_dir_config(int              dc_changed,
 #endif
                   }
 
-                  /* Eliminate zombie of killed job */
+                  /* Eliminate zombie of killed job. */
                   (void)amg_zombie_check(&tmp_dc_pid, 0);
 
                   dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
@@ -318,7 +318,7 @@ reread_dir_config(int              dc_changed,
             ret = DIR_CONFIG_NO_VALID_DATA;
          }
 
-         /* Tell user we have reread new DIR_CONFIG file */
+         /* Tell user we have reread new DIR_CONFIG file. */
          system_log(INFO_SIGN, NULL, 0,
                     "Done with rereading DIR_CONFIG %s.",
                     (no_of_dir_configs > 1) ? "files" : "file");
@@ -420,6 +420,7 @@ reread_dir_config(int              dc_changed,
                        fsa[host_pos].socksnd_bufsize = hl[i].socksnd_bufsize;
                        fsa[host_pos].sockrcv_bufsize = hl[i].sockrcv_bufsize;
                        fsa[host_pos].keep_connected = hl[i].keep_connected;
+                       fsa[host_pos].warn_time = hl[i].warn_time;
 #ifdef WITH_DUP_CHECK
                        fsa[host_pos].dup_check_flag = hl[i].dup_check_flag;
                        fsa[host_pos].dup_check_timeout = hl[i].dup_check_timeout;
@@ -458,6 +459,14 @@ reread_dir_config(int              dc_changed,
                        {
                           fsa[host_pos].host_status &= ~HOST_ERROR_OFFLINE_STATIC;
                        }
+                       if (hl[i].host_status & DO_NOT_DELETE_DATA)
+                       {
+                          fsa[host_pos].host_status |= DO_NOT_DELETE_DATA;
+                       }
+                       else
+                       {
+                          fsa[host_pos].host_status &= ~DO_NOT_DELETE_DATA;
+                       }
                     }
                  }
               } /* for (i = 0; i < no_of_hosts; i++) */
@@ -482,7 +491,7 @@ reread_dir_config(int              dc_changed,
                  if ((p_host_names = malloc(new_size)) == NULL)
                  {
                     system_log(FATAL_SIGN, __FILE__, __LINE__,
-                               "malloc() error [%d Bytes] : %s",
+                               "malloc() error [%d bytes] : %s",
                                new_size, strerror(errno));
                     (void)fsa_detach(NO);
                     return(INCORRECT);

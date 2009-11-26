@@ -1,15 +1,39 @@
 Summary: A file distribution and fetching system
 Name: afd
-Version: @VERSION@
-Release: 1
-License: GPL
+Version: @AFD_VERSION@
+Release: @AFD_RELEASE@
+License: GPLv2
 Group: Applications/Communications
 BuildRoot: %{_builddir}/%{name}-root
 Prefix: @prefix@
-Source0: %{name}-%{version}.tar.bz2
+Source0: %{name}-%{version}-%{release}.tar.bz2
 Requires: @REQUIRES@
 BuildRequires: @BUILD_REQUIRES@
 URL: http://www.dwd.de/AFD/
+
+%define distro_style_rpms      @DISTRO_STYLE_RPMS@
+%define INITDIR                @INITDIR@
+%define BINARY_OWNER           @BINARY_OWNER@
+%define BINARY_GROUP           @BINARY_GROUP@
+%define cleaned_configure_args @cleaned_configure_args@
+
+%if %{distro_style_rpms}
+   %define prefix     %{_prefix}
+   %define bindir     %{_bindir}
+   %define sbindir    %{_sbindir}
+   %define mandir     %{_mandir}
+   %define docdir     %{_docdir}
+   %define share      %{_datadir}
+   %define sysconfdir %{_sysconfdir}
+%else
+   %define prefix     @prefix@
+   %define bindir     @bindir@
+   %define sbindir    @sbindir@
+   %define mandir     @mandir@
+   %define docdir     @docdir@
+   %define share      @datadir@
+   %define sysconfdir @SYSCONFIGDIR@
+%endif
 
 %description
 The Automatic File Distributor provides a framework for very flexible,
@@ -19,11 +43,21 @@ sftp and http supported with the mailto://user@domain and
 ftp://user:password@host URL conventions).
 
 %prep
-%setup -n %{name}-%{version}
+%setup -n %{name}-%{version}-%{release}
 
 %build
-./configure @ac_configure_args@
-make
+if [ -x /usr/bin/getconf ]; then
+  CPUS=`getconf _NPROCESSORS_ONLN`
+fi
+if test "x$CPUS" = "x" -o "x$CPUS" = "x0"; then
+  CPUS=1
+fi
+%if %{distro_style_rpms}
+%configure
+%else
+./configure '--libdir=%{prefix}/%{_lib}' %{cleaned_configure_args}
+%endif
+make -j$CPUS
 
 %install
 if [ ! "$RPM_BUILD_ROOT" = "/" ]
@@ -31,8 +65,8 @@ then
    rm -rf $RPM_BUILD_ROOT
    mkdir -p $RPM_BUILD_ROOT
    mkdir -p $RPM_BUILD_ROOT/%{prefix} $RPM_BUILD_ROOT/%{prefix}/bin $RPM_BUILD_ROOT/%{prefix}/sbin $RPM_BUILD_ROOT/%{prefix}/etc
-   mkdir -p $RPM_BUILD_ROOT/@INITDIR@
-   mkdir -p $RPM_BUILD_ROOT/@SYSCONFIGDIR@
+   mkdir -p $RPM_BUILD_ROOT/%{INITDIR}
+   mkdir -p $RPM_BUILD_ROOT/%{sysconfdir}
 else
    if [ ! -d $RPM_BUILD_ROOT/%{prefix} ]
    then
@@ -51,20 +85,20 @@ else
          mkdir $RPM_BUILD_ROOT/%{prefix}/etc
       fi
    fi
-   if [ ! -d $RPM_BUILD_ROOT/@INITDIR@ ]
+   if [ ! -d $RPM_BUILD_ROOT/%{INITDIR} ]
    then
-      mkdir -p $RPM_BUILD_ROOT/@INITDIR@
+      mkdir -p $RPM_BUILD_ROOT/%{INITDIR}
    fi
-   if [ ! -d $RPM_BUILD_ROOT/@SYSCONFIGDIR@ ]
+   if [ ! -d $RPM_BUILD_ROOT/%{sysconfdir} ]
    then
-      mkdir -p $RPM_BUILD_ROOT/@SYSCONFIGDIR@
+      mkdir -p $RPM_BUILD_ROOT/%{sysconfdir}
    fi
 fi
 make DESTDIR=$RPM_BUILD_ROOT install-strip
-install -p -m755 scripts/afd $RPM_BUILD_ROOT/@INITDIR@
-install -p -m755 scripts/afdmon $RPM_BUILD_ROOT/@INITDIR@
-install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT/@SYSCONFIGDIR@/afd
-install -p -m644 scripts/afdmon.sysconfig $RPM_BUILD_ROOT/@SYSCONFIGDIR@/afdmon
+install -p -m755 scripts/afd $RPM_BUILD_ROOT/%{INITDIR}
+install -p -m755 scripts/afdmon $RPM_BUILD_ROOT/%{INITDIR}
+install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT/%{sysconfdir}/afd
+install -p -m644 scripts/afdmon.sysconfig $RPM_BUILD_ROOT/%{sysconfdir}/afdmon
 install -p -m644 etc/AFD_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/DIR_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/host.info.sample $RPM_BUILD_ROOT/%{prefix}/etc
@@ -73,20 +107,13 @@ install -p -m644 etc/rename.rule.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/afd.name.sample $RPM_BUILD_ROOT/%{prefix}/etc
 install -p -m644 etc/afd.users.sample $RPM_BUILD_ROOT/%{prefix}/etc
 
-@GZIP_CMD@ -9 doc/man/*
-mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man1
-install -p -m644 doc/man/afdcmd.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
-install -p -m644 doc/man/afdcfg.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
-install -p -m644 doc/man/afd.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
-rm -fr doc/man
-
 
 %clean
 if [ ! "$RPM_BUILD_ROOT" = "/" ]
 then
    rm -rf $RPM_BUILD_ROOT
 fi
-rm -rf $RPM_BUILD_ROOT/%{name}-%{version}
+rm -rf $RPM_BUILD_ROOT/%{name}-%{version}-%{release}
 
 
 %post
@@ -105,9 +132,9 @@ fi
 %pre
 if [ "$1" != 1 ]
 then
-   if [ -r @SYSCONFIGDIR@/afd ]
+   if [ -r %{sysconfdir}/afd ]
    then
-      AFD_USERS="`grep \^AFD_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2` `grep \^AFD_HA_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2`"
+      AFD_USERS="`grep \^AFD_USER_ %{sysconfdir}/afd | cut -d '=' -f2` `grep \^AFD_HA_USER_ %{sysconfdir}/afd | cut -d '=' -f2`"
    else
       AFD_USERS=""
    fi
@@ -115,21 +142,41 @@ then
    then
       for afduser in $AFD_USERS
       do
-         su - $afduser -c "afd -c" > /dev/null 2>&1
-         if [ "$?" = 5 ]
+         AFD_WORK_DIR_LIST=`su - $afduser -c 'echo \$MULTI_AFD_DIRS'`
+         if [ "$AFD_WORK_DIR_LIST" = "" ]
          then
-            touch var/lock/subsys/restart_afd.$afduser
-         fi
-         su - $afduser -c "afd -S"
-         if [ $? -eq 0 ]
-         then
-            rm -f /var/lock/subsys/afd.$afduser
+            su - $afduser -c "afd -c" > /dev/null 2>&1
+            if [ "$?" = 5 ]
+            then
+               touch /var/lock/subsys/restart_afd.$afduser
+            fi
+            su - $afduser -c "afd -S"
+            if [ $? -eq 0 ]
+            then
+               rm -f /var/lock/subsys/afd.$afduser
+            fi
+         else
+            counter=0
+            for afddir in $AFD_WORK_DIR_LIST
+            do
+               su - $afduser -c "afd -w $afddir -c" > /dev/null 2>&1
+               if [ "$?" = 5 ]
+               then
+                  touch /var/lock/subsys/restart_afd.$afduser-$counter
+               fi
+               su - $afduser -c "afd -w $afddir -S"
+               if [ $? -eq 0 ]
+               then
+                  rm -f /var/lock/subsys/afd.$afduser-$counter
+               fi
+               counter=`expr "$counter" + 1`
+            done
          fi
       done
    fi
-   if [ -r @SYSCONFIGDIR@/afdmon ]
+   if [ -r %{sysconfdir}/afdmon ]
    then
-      AFDMON_USERS="`grep \^AFDMON_USER_ @SYSCONFIGDIR@/afdmon | cut -d '=' -f2` `grep \^AFD_HA_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2`"
+      AFDMON_USERS="`grep \^AFDMON_USER_ %{sysconfdir}/afdmon | cut -d '=' -f2` `grep \^AFD_HA_USER_ %{sysconfdir}/afd | cut -d '=' -f2`"
    else
       AFDMON_USERS=""
    fi
@@ -140,7 +187,7 @@ then
          su - $afduser -c "mafd -c" > /dev/null 2>&1
          if [ "$?" = 5 ]
          then
-            touch var/lock/subsys/restart_afdmon.$afduser
+            touch /var/lock/subsys/restart_afdmon.$afduser
          fi
          su - $afduser -c "mafd -S"
          if [ $? -eq 0 ]
@@ -154,10 +201,10 @@ fi
 %preun
 if [ "$1" = 0 ]
 then
-   @INITDIR@/afd stop > /dev/null 2>&1 || :
-   if [ -r @SYSCONFIGDIR@/afd ]
+   %{INITDIR}/afd stop > /dev/null 2>&1 || :
+   if [ -r %{sysconfdir}/afd ]
    then
-      AFD_HA_USERS="`grep \^AFD_HA_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2`"
+      AFD_HA_USERS="`grep \^AFD_HA_USER_ %{sysconfdir}/afd | cut -d '=' -f2`"
    else
       AFD_HA_USERS=""
    fi
@@ -172,10 +219,10 @@ then
    then
       sbin/chkconfig --del %{name}
    fi
-   @INITDIR@/afdmon stop > /dev/null 2>&1 || :
-   if [ -r @SYSCONFIGDIR@/afdmon ]
+   %{INITDIR}/afdmon stop > /dev/null 2>&1 || :
+   if [ -r %{sysconfdir}/afdmon ]
    then
-      AFDMON_HA_USERS="`grep \^AFDMON_HA_USER_ @SYSCONFIGDIR@/afdmon | cut -d '=' -f2`"
+      AFDMON_HA_USERS="`grep \^AFDMON_HA_USER_ %{sysconfdir}/afdmon | cut -d '=' -f2`"
    else
       AFDMON_HA_USERS=""
    fi
@@ -194,32 +241,31 @@ fi
 exit 0
 
 %files
-%config(noreplace) @SYSCONFIGDIR@/afd
-%config(noreplace) @SYSCONFIGDIR@/afdmon
 %defattr(-,root,root)
-%doc COPYING CREDITS INSTALL KNOWN-BUGS README.configure THANKS TODO changes-1.2.x-1.3.x
-%doc doc/*
-%{_mandir}/man1/*
-%defattr(-,@BINARY_OWNER@,@BINARY_GROUP@)
-%dir %{prefix}/bin
+%config(noreplace) %{sysconfdir}/afd
+%config(noreplace) %{sysconfdir}/afdmon
+%doc %{docdir}/*
+%doc %{mandir}/man1/*
+%doc %{mandir}/man5/*
 %{prefix}/bin/*
-%dir %{prefix}/sbin
 %{prefix}/sbin/*
-%dir %{prefix}/lib
-%{prefix}/lib/*
+%{prefix}/%{_lib}/*
 %{prefix}/etc/AFD_CONFIG.sample
 %{prefix}/etc/host.info.sample
 %{prefix}/etc/INFO-LOOP.sample
 %{prefix}/etc/rename.rule.sample
 %{prefix}/etc/afd.users.sample
 %{prefix}/etc/afd.name.sample
-%defattr(600,@BINARY_OWNER@,@BINARY_GROUP@)
+%defattr(600,%{BINARY_OWNER},%{BINARY_GROUP})
 %{prefix}/etc/DIR_CONFIG.sample
 %defattr(755,root,root)
-@INITDIR@/afd
-@INITDIR@/afdmon
+%{INITDIR}/afd
+%{INITDIR}/afdmon
 
 %changelog
+*Wed Nov 05 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+- Let autotools handle doc and man directories.
+
 *Wed Aug 08 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
 - Added AFD Monitor boot scripts.
 

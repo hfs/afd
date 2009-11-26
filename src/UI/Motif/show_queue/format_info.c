@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,9 +26,9 @@ DESCR__S_M3
  **                 form
  **
  ** SYNOPSIS
- **   void format_output_info(char *text, int pos)
- **   void format_input_info(char *text, int pos)
- **   void format_retrieve_info(char *text, int pos)
+ **   void format_output_info(char **text, int pos)
+ **   void format_input_info(char **text, int pos)
+ **   void format_retrieve_info(char **text, int pos)
  **
  ** DESCRIPTION
  **   The function format_output_info() formats data from the various
@@ -105,6 +105,9 @@ DESCR__E_M3
 #include <errno.h>
 #include "show_queue.h"
 
+#define MAX_INPUT_INFO_SIZE (3 * MEGABYTE)
+
+
 /* External global variables. */
 extern int                     max_x,
                                max_y;
@@ -115,17 +118,24 @@ extern struct queued_file_list *qfl;
 
 /*######################## format_output_info() #########################*/
 void
-format_output_info(char *text, int pos)
+format_output_info(char **text, int pos)
 {
-   int i,
+   int buffer_length = 8192,
+       i,
        count,
        length;
 
-   max_x = sprintf(text, "File name  : %s\n", qfl[pos].file_name);
+   if ((*text = malloc(buffer_length)) == NULL)
+   {
+      (void)xrec(FATAL_DIALOG, "Failed to malloc() %d bytes : %s (%s %d)",
+                 buffer_length, strerror(errno), __FILE__, __LINE__);
+      return;
+   }
+   max_x = sprintf(*text, "File name  : %s\n", qfl[pos].file_name);
    length = max_x;
 
    /* Show message name. */
-   count = sprintf(text + length, "Msg name   : %s%s%s/%s\n",
+   count = sprintf(*text + length, "Msg name   : %s%s%s/%s\n",
                    p_work_dir, AFD_FILE_DIR, OUTGOING_DIR, qfl[pos].msg_name);
    length += count;
    if (count > max_x)
@@ -143,6 +153,7 @@ format_output_info(char *text, int pos)
       char               fullname[MAX_PATH_LENGTH];
       struct stat        stat_buf;
       struct job_id_data *jd;
+      struct dir_options d_o;
 
       /* Map to job ID data file. */
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
@@ -169,6 +180,14 @@ format_output_info(char *text, int pos)
          {
             (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        fullname, strerror(errno), __FILE__, __LINE__);
+            (void)close(fd);
+            return;
+         }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG,
+                       "Incorrect JID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
             (void)close(fd);
             return;
          }
@@ -241,7 +260,7 @@ format_output_info(char *text, int pos)
             return;
          }
 
-         count = sprintf(text + length, "Directory  : %s\n",
+         count = sprintf(*text + length, "Directory  : %s\n",
                          dnb[qfl[pos].dir_id_pos].dir_name);
          length += count;
          if (count > max_x)
@@ -249,7 +268,7 @@ format_output_info(char *text, int pos)
             max_x = count;
          }
 
-         count = sprintf(text + length, "Dir Alias  : %s\n",
+         count = sprintf(*text + length, "Dir Alias  : %s\n",
                          qfl[pos].dir_alias);
          length += count;
          if (count > max_x)
@@ -257,18 +276,43 @@ format_output_info(char *text, int pos)
             max_x = count;
          }
 
-         count = sprintf(text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
+         count = sprintf(*text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
          length += count;
          if (count > max_x)
          {
             max_x = count;
          }
+
+         get_dir_options(qfl[pos].dir_id, &d_o);
+         if (d_o.no_of_dir_options > 0)
+         {
+            count = sprintf(*text + length, "DIR-options: %s\n",
+                            d_o.aoptions[0]);
+            length += count;
+            if (count > max_x)
+            {
+               max_x = count;
+            }
+            max_y++;
+            for (i = 1; i < d_o.no_of_dir_options; i++)
+            {
+               count = sprintf(*text + length, "             %s\n",
+                               d_o.aoptions[i]);
+               length += count;
+               if (count > max_x)
+               {
+                  max_x = count;
+               }
+               max_y++;
+            }
+         }
+
          get_file_mask_list(jd[jd_pos].file_mask_id, &no_of_file_masks,
                             &p_file_list);
          if (p_file_list != NULL)
          {
             ptr = p_file_list;
-            count = sprintf(text + length, "Filter     : %s\n", ptr);
+            count = sprintf(*text + length, "Filter     : %s\n", ptr);
             length += count;
             NEXT(ptr);
             if (count > max_x)
@@ -278,7 +322,26 @@ format_output_info(char *text, int pos)
             max_y += 4;
             for (i = 1; i < no_of_file_masks; i++)
             {
-               count = sprintf(text + length, "             %s\n", ptr);
+               if (length > (buffer_length - 1024))
+               {
+                  buffer_length += 8192;
+                  if (buffer_length > (10 * MEGABYTE))
+                  {
+                     (void)xrec(INFO_DIALOG,
+                                "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data incomplete. (%s %d)",
+                                __FILE__, __LINE__);
+                     return;
+                  }
+                  if ((*text = realloc(*text, buffer_length)) == NULL)
+                  {
+                     (void)xrec(FATAL_DIALOG,
+                                "Failed to realloc() %d bytes : %s (%s %d)",
+                                buffer_length, strerror(errno),
+                                __FILE__, __LINE__);
+                     return;
+                  }
+               }
+               count = sprintf(*text + length, "             %s\n", ptr);
                length += count;
                NEXT(ptr);
                if (count > max_x)
@@ -294,13 +357,13 @@ format_output_info(char *text, int pos)
             max_y += 3;
          }
 
-         /* Print recipient */
+         /* Print recipient. */
          (void)strcpy(recipient, jd[jd_pos].recipient);
          if (perm.view_passwd == YES)
          {
             insert_passwd(recipient);
          }
-         count = sprintf(text + length, "Recipient  : %s\n", recipient);
+         count = sprintf(*text + length, "Recipient  : %s\n", recipient);
          length += count;
          if (count > max_x)
          {
@@ -312,7 +375,7 @@ format_output_info(char *text, int pos)
             char *p_tmp;
 
             p_tmp = jd[jd_pos].loptions;
-            count = sprintf(text + length, "AMG-options: %s\n", p_tmp);
+            count = sprintf(*text + length, "AMG-options: %s\n", p_tmp);
             NEXT(p_tmp);
             length += count;
             if (count > max_x)
@@ -322,7 +385,7 @@ format_output_info(char *text, int pos)
             max_y++;
             for (i = 1; i < jd[jd_pos].no_of_loptions; i++)
             {
-               count = sprintf(text + length, "             %s\n", p_tmp);
+               count = sprintf(*text + length, "             %s\n", p_tmp);
                NEXT(p_tmp);
                length += count;
                if (count > max_x)
@@ -334,7 +397,8 @@ format_output_info(char *text, int pos)
          }
          if (jd[jd_pos].no_of_soptions == 1)
          {
-            count = sprintf(text + length, "FD-options : %s\n", jd[jd_pos].soptions);
+            count = sprintf(*text + length, "FD-options : %s\n",
+                            jd[jd_pos].soptions);
             length += count;
             if (count > max_x)
             {
@@ -356,7 +420,8 @@ format_output_info(char *text, int pos)
                     (void)close(fd);
                     return;
                  }
-                 (void)memcpy(p_soptions, jd[jd_pos].soptions, MAX_OPTION_LENGTH);
+                 (void)memcpy(p_soptions, jd[jd_pos].soptions,
+                              MAX_OPTION_LENGTH);
                  p_start = p_end = p_soptions;
                  do
                  {
@@ -370,11 +435,13 @@ format_output_info(char *text, int pos)
                        if (first == YES)
                        {
                           first = NO;
-                          count = sprintf(text + length, "FD-options : %s\n", p_start);
+                          count = sprintf(*text + length, "FD-options : %s\n",
+                                          p_start);
                        }
                        else
                        {
-                          count = sprintf(text + length, "             %s\n", p_start);
+                          count = sprintf(*text + length, "             %s\n",
+                                          p_start);
                        }
                        length += count;
                        if (count > max_x)
@@ -386,7 +453,7 @@ format_output_info(char *text, int pos)
                        p_start = p_end;
                     }
                  } while (*p_end != '\0');
-                 count = sprintf(text + length, "             %s\n", p_start);
+                 count = sprintf(*text + length, "             %s\n", p_start);
                  length += count;
                  if (count > max_x)
                  {
@@ -395,7 +462,8 @@ format_output_info(char *text, int pos)
                  max_y++;
                  free(p_soptions);
               }
-         count = sprintf(text + length, "Priority   : %c\n", jd[jd_pos].priority);
+         count = sprintf(*text + length, "Priority   : %c\n",
+                         jd[jd_pos].priority);
          length += count;
          if (count > max_x)
          {
@@ -416,7 +484,7 @@ format_output_info(char *text, int pos)
       }
    }
 
-   count = sprintf(text + length, "Job-ID     : %x", qfl[pos].job_id);
+   count = sprintf(*text + length, "Job-ID     : %x", qfl[pos].job_id);
    length += count;
    if (count > max_x)
    {
@@ -430,7 +498,7 @@ format_output_info(char *text, int pos)
 
 /*######################### format_input_info() #########################*/
 void
-format_input_info(char *text, int pos)
+format_input_info(char **text, int pos)
 {
    int                 count,
                        fd,
@@ -443,11 +511,17 @@ format_input_info(char *text, int pos)
    struct stat         stat_buf;
    struct dir_name_buf *dnb;
 
-   max_x = sprintf(text, "File name  : %s\n", qfl[pos].file_name);
+   if ((*text = malloc(MAX_INPUT_INFO_SIZE)) == NULL)
+   {
+      (void)xrec(FATAL_DIALOG, "Failed to malloc() %d bytes : %s (%s %d)",
+                 MAX_INPUT_INFO_SIZE, strerror(errno), __FILE__, __LINE__);
+      return;
+   }
+   max_x = sprintf(*text, "File name  : %s\n", qfl[pos].file_name);
    length = max_x;
 
    /* Show hostname. */
-   count = sprintf(text + length, "Hostname   : %s\n", qfl[pos].hostname);
+   count = sprintf(*text + length, "Hostname   : %s\n", qfl[pos].hostname);
    length += count;
    if (count > max_x)
    {
@@ -496,14 +570,14 @@ format_input_info(char *text, int pos)
       return;
    }
 
-   count = sprintf(text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
+   count = sprintf(*text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
    length += count;
    if (count > max_x)
    {
       max_x = count;
    }
 
-   count = sprintf(text + length, "Dir Alias  : %s\n", qfl[pos].dir_alias);
+   count = sprintf(*text + length, "Dir Alias  : %s\n", qfl[pos].dir_alias);
    length += count;
    if (count > max_x)
    {
@@ -517,8 +591,9 @@ format_input_info(char *text, int pos)
                          no_of_jobs;
       off_t              jd_size;
       struct job_id_data *jd;
+      struct dir_options d_o;
 
-      count = sprintf(text + length, "Directory  : %s\n",
+      count = sprintf(*text + length, "Directory  : %s\n",
                       dnb[qfl[pos].dir_id_pos].dir_name);
       length += count;
       if (count > max_x)
@@ -526,7 +601,31 @@ format_input_info(char *text, int pos)
          max_x = count;
       }
       max_y++;
-      p_begin_underline = text + length;
+
+      get_dir_options(qfl[pos].dir_id, &d_o);
+      if (d_o.no_of_dir_options > 0)
+      {
+         count = sprintf(*text + length, "DIR-options: %s\n",
+                         d_o.aoptions[0]);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+         for (i = 1; i < d_o.no_of_dir_options; i++)
+         {
+            count = sprintf(*text + length, "             %s\n",
+                            d_o.aoptions[i]);
+            length += count;
+            if (count > max_x)
+            {
+               max_x = count;
+            }
+            max_y++;
+         }
+      }
+      p_begin_underline = *text + length;
 
       /* Map to job ID data file. */
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
@@ -556,6 +655,14 @@ format_input_info(char *text, int pos)
             (void)close(fd);
             return;
          }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG,
+                       "Incorrect JID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
+            (void)close(fd);
+            return;
+         }
          jd_size = stat_buf.st_size;
          no_of_jobs = *(int *)ptr;
          ptr += AFD_WORD_OFFSET;
@@ -572,6 +679,13 @@ format_input_info(char *text, int pos)
 
       for (i = 0; i < no_of_jobs; i++)
       {
+         if ((length + 1024) > MAX_INPUT_INFO_SIZE)
+         {
+            (void)xrec(WARN_DIALOG,
+                       "Not enough memory to show all data. (%s %d)",
+                       __FILE__, __LINE__);
+            goto memory_full;
+         }
          if ((qfl[pos].dir_id_pos == jd[i].dir_id_pos) &&
              ((qfl[pos].hostname[0] == '\0') ||
               ((qfl[pos].hostname[0] != '\0') &&
@@ -591,7 +705,7 @@ format_input_info(char *text, int pos)
                p_file = p_file_list;
                for (j = 0; j < no_of_file_masks; j++)
                {
-                  if (sfilter(p_file, qfl[pos].file_name, ' ') == 0)
+                  if (sfilter(p_file, qfl[pos].file_name, 0) == 0)
                   {
                      gotcha = YES;
                      break;
@@ -603,6 +717,13 @@ format_input_info(char *text, int pos)
                {
                   char recipient[MAX_RECIPIENT_LENGTH];
 
+                  if ((length + 1024) > MAX_INPUT_INFO_SIZE)
+                  {
+                     (void)xrec(WARN_DIALOG,
+                                "Not enough memory to show all data. (%s %d)",
+                                __FILE__, __LINE__);
+                     goto memory_full;
+                  }
                   if (jobs_found == 0)
                   {
                      if ((p_array = malloc(1 * sizeof(char *))) == NULL)
@@ -614,7 +735,8 @@ format_input_info(char *text, int pos)
                   }
                   else
                   {
-                     if ((p_array = realloc(p_array, ((jobs_found + 1) * sizeof(char *)))) == NULL)
+                     if ((p_array = realloc(p_array,
+                                            ((jobs_found + 1) * sizeof(char *)))) == NULL)
                      {
                         (void)fprintf(stderr, "realloc() error : %s (%s %d)\n",
                                       strerror(errno), __FILE__, __LINE__);
@@ -622,7 +744,7 @@ format_input_info(char *text, int pos)
                      }
                   }
                   p_file = p_file_list;
-                  count = sprintf(text + length, "Filter     : %s\n", p_file);
+                  count = sprintf(*text + length, "Filter     : %s\n", p_file);
                   NEXT(p_file);
                   length += count;
                   if (count > max_x)
@@ -632,7 +754,8 @@ format_input_info(char *text, int pos)
                   max_y++;
                   for (j = 1; j < no_of_file_masks; j++)
                   {
-                     count = sprintf(text + length, "             %s\n", p_file);
+                     count = sprintf(*text + length, "             %s\n",
+                                     p_file);
                      NEXT(p_file);
                      length += count;
                      if (count > max_x)
@@ -642,13 +765,14 @@ format_input_info(char *text, int pos)
                      max_y++;
                   }
 
-                  /* Print recipient */
+                  /* Print recipient. */
                   (void)strcpy(recipient, jd[i].recipient);
                   if (perm.view_passwd == YES)
                   {
                      insert_passwd(recipient);
                   }
-                  count = sprintf(text + length, "Recipient  : %s\n", recipient);
+                  count = sprintf(*text + length, "Recipient  : %s\n",
+                                  recipient);
                   length += count;
                   if (count > max_x)
                   {
@@ -660,7 +784,8 @@ format_input_info(char *text, int pos)
                      char *p_tmp;
 
                      p_tmp = jd[i].loptions;
-                     count = sprintf(text + length, "AMG-options: %s\n", p_tmp);
+                     count = sprintf(*text + length, "AMG-options: %s\n",
+                                     p_tmp);
                      NEXT(p_tmp);
                      length += count;
                      if (count > max_x)
@@ -670,7 +795,8 @@ format_input_info(char *text, int pos)
                      max_y++;
                      for (j = 1; j < jd[i].no_of_loptions; j++)
                      {
-                        count = sprintf(text + length, "             %s\n", p_tmp);
+                        count = sprintf(*text + length, "             %s\n",
+                                        p_tmp);
                         NEXT(p_tmp);
                         length += count;
                         if (count > max_x)
@@ -682,7 +808,8 @@ format_input_info(char *text, int pos)
                   }
                   if (jd[i].no_of_soptions == 1)
                   {
-                     count = sprintf(text + length, "FD-options : %s\n", jd[i].soptions);
+                     count = sprintf(*text + length, "FD-options : %s\n",
+                                     jd[i].soptions);
                      length += count;
                      if (count > max_x)
                      {
@@ -705,7 +832,8 @@ format_input_info(char *text, int pos)
                              (void)close(fd);
                              return;
                           }
-                          (void)memcpy(p_soptions, jd[i].soptions, MAX_OPTION_LENGTH);
+                          (void)memcpy(p_soptions, jd[i].soptions,
+                                       MAX_OPTION_LENGTH);
                           p_start = p_end = p_soptions;
                           do
                           {
@@ -719,11 +847,15 @@ format_input_info(char *text, int pos)
                                 if (first == YES)
                                 {
                                    first = NO;
-                                   count = sprintf(text + length, "FD-options : %s\n", p_start);
+                                   count = sprintf(*text + length,
+                                                   "FD-options : %s\n",
+                                                   p_start);
                                 }
                                 else
                                 {
-                                   count = sprintf(text + length, "             %s\n", p_start);
+                                   count = sprintf(*text + length,
+                                                   "             %s\n",
+                                                   p_start);
                                 }
                                 length += count;
                                 if (count > max_x)
@@ -735,7 +867,8 @@ format_input_info(char *text, int pos)
                                 p_start = p_end;
                              }
                           } while (*p_end != '\0');
-                          count = sprintf(text + length, "             %s\n", p_start);
+                          count = sprintf(*text + length, "             %s\n",
+                                          p_start);
                           length += count;
                           if (count > max_x)
                           {
@@ -744,7 +877,8 @@ format_input_info(char *text, int pos)
                           max_y++;
                           free(p_soptions);
                        }
-                  count = sprintf(text + length, "Priority   : %c\n", jd[i].priority);
+                  count = sprintf(*text + length, "Priority   : %c\n",
+                                  jd[i].priority);
                   length += count;
                   if (count > max_x)
                   {
@@ -752,19 +886,21 @@ format_input_info(char *text, int pos)
                   }
                   max_y++;
 
-                  p_array[jobs_found] = text + length;
+                  p_array[jobs_found] = *text + length;
                   jobs_found++;
                }
                free(p_file_list);
             }
          }
       }
+
+memory_full:
       if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) == -1)
       {
          (void)xrec(INFO_DIALOG, "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
-      *(text + length - 1) = '\0';
+      *(*text + length - 1) = '\0';
    }
    if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
    {
@@ -777,7 +913,8 @@ format_input_info(char *text, int pos)
       int i,
           j;
 
-      (void)memmove(p_begin_underline + max_x + 1, p_begin_underline, (length - (p_begin_underline - text) + 1));
+      (void)memmove(p_begin_underline + max_x + 1, p_begin_underline,
+                    (length - (p_begin_underline - *text) + 1));
       (void)memset(p_begin_underline, '=', max_x);
       *(p_begin_underline + max_x) = '\n';
       max_y++;
@@ -790,7 +927,7 @@ format_input_info(char *text, int pos)
          }
          length += (max_x + 1);
          (void)memmove(p_array[i] + max_x + 1, p_array[i],
-                       (length - (p_array[i] - text) + 1));
+                       (length - (p_array[i] - *text) + 1));
          (void)memset(p_array[i], '-', max_x);
          *(p_array[i] + max_x) = '\n';
          max_y++;
@@ -808,7 +945,7 @@ format_input_info(char *text, int pos)
 
 /*####################### format_retrieve_info() ########################*/
 void
-format_retrieve_info(char *text, int pos)
+format_retrieve_info(char **text, int pos)
 {
    int                 count,
                        fd,
@@ -859,18 +996,25 @@ format_retrieve_info(char *text, int pos)
       return;
    }
 
+   if ((*text = malloc(8192)) == NULL)
+   {
+      (void)xrec(FATAL_DIALOG, "Failed to malloc() 8192 bytes : %s (%s %d)",
+                 strerror(errno), __FILE__, __LINE__);
+      return;
+   }
+
    /* Show hostname. */
-   max_x = sprintf(text, "Hostname   : %s\n", qfl[pos].hostname);
+   max_x = sprintf(*text, "Hostname   : %s\n", qfl[pos].hostname);
    length = max_x;
 
-   count = sprintf(text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
+   count = sprintf(*text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
    length += count;
    if (count > max_x)
    {
       max_x = count;
    }
 
-   count = sprintf(text + length, "Dir Alias  : %s\n", qfl[pos].dir_alias);
+   count = sprintf(*text + length, "Dir Alias  : %s\n", qfl[pos].dir_alias);
    length += count;
    if (count > max_x)
    {
@@ -880,7 +1024,9 @@ format_retrieve_info(char *text, int pos)
 
    if (dnb[qfl[pos].dir_id_pos].dir_name[0] != '\0')
    {
-      count = sprintf(text + length, "Directory  : %s\n",
+      struct dir_options d_o;
+
+      count = sprintf(*text + length, "Directory  : %s\n",
                       dnb[qfl[pos].dir_id_pos].dir_name);
       length += count;
       if (count > max_x)
@@ -888,6 +1034,32 @@ format_retrieve_info(char *text, int pos)
          max_x = count;
       }
       max_y++;
+
+      get_dir_options(qfl[pos].dir_id, &d_o);
+      if (d_o.no_of_dir_options > 0)
+      {
+         int i;
+
+         count = sprintf(*text + length, "DIR-options: %s\n",
+                         d_o.aoptions[0]);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+         for (i = 1; i < d_o.no_of_dir_options; i++)
+         {
+            count = sprintf(*text + length, "             %s\n",
+                            d_o.aoptions[i]);
+            length += count;
+            if (count > max_x)
+            {
+               max_x = count;
+            }
+            max_y++;
+         }
+      }
    }
    if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
    {

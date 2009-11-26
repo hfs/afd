@@ -1,6 +1,6 @@
 /*
  *  afd_info.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,13 +27,11 @@
 #define NO_OF_FSA_ROWS           5
 #define FSA_INFO_TEXT_WIDTH_L    15
 #define FSA_INFO_TEXT_WIDTH_R    18
-#define AFD_INFO_LENGTH          20
+#define AFD_INFO_STR_LENGTH      20
 
 #define UPDATE_INTERVAL          1000
 #define FILE_UPDATE_INTERVAL     4
 
-#define INFO_IDENTIFIER          "INFO-"
-#define HOST_INFO_FILE           "host.info"
 #define NO_SECODARY_HOST         "No secondary host    :"
 
 struct prev_values

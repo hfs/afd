@@ -1,6 +1,6 @@
 /*
  *  window_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -118,7 +118,7 @@ write_window_id(Window w, pid_t pid, char *progname)
    }
    tmp_sys_log_fd = sys_log_fd;
    sys_log_fd = STDERR_FILENO;
-   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+   ptr = attach_buf(window_id_file, &fd, &new_size, progname,
                     S_IRUSR | S_IWUSR, YES);
    sys_log_fd = tmp_sys_log_fd;
    if (euid != ruid)
@@ -200,7 +200,7 @@ get_window_id(pid_t pid, char *progname)
    }
    tmp_sys_log_fd = sys_log_fd;
    sys_log_fd = STDERR_FILENO;
-   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+   ptr = attach_buf(window_id_file, &fd, &new_size, progname,
                     S_IRUSR | S_IWUSR, YES);
    sys_log_fd = tmp_sys_log_fd;
    if (euid != ruid)
@@ -298,7 +298,7 @@ remove_window_id(pid_t pid, char *progname)
    }
    tmp_sys_log_fd = sys_log_fd;
    sys_log_fd = STDERR_FILENO;
-   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+   ptr = attach_buf(window_id_file, &fd, &new_size, progname,
                     S_IRUSR | S_IWUSR, YES);
    sys_log_fd = tmp_sys_log_fd;
    if (euid != ruid)
@@ -388,7 +388,7 @@ check_window_ids(char *progname)
    }
    tmp_sys_log_fd = sys_log_fd;
    sys_log_fd = STDERR_FILENO;
-   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+   ptr = attach_buf(window_id_file, &fd, &new_size, progname,
                     S_IRUSR | S_IWUSR, YES);
    sys_log_fd = tmp_sys_log_fd;
    if (euid != ruid)

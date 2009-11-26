@@ -1,7 +1,7 @@
 /*
  *  save_old_output_year.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -65,8 +65,7 @@ DESCR__E_M3
 #endif
 
 /* Global external variables. */
-extern int            no_of_hosts,
-                      sys_log_fd;
+extern int            no_of_hosts;
 extern char           statistic_file[MAX_PATH_LENGTH],
                       new_statistic_file[MAX_PATH_LENGTH];
 extern struct afdstat *stat_db;
@@ -84,9 +83,8 @@ save_old_output_year(int new_year)
                         *ptr;
    struct afd_year_stat *old_stat_db = NULL;
 
-   (void)rec(sys_log_fd, INFO_SIGN,
-             "Saving output statistics for year %d (%s %d)\n",
-             new_year - 1, __FILE__, __LINE__);
+   system_log(INFO_SIGN, __FILE__, __LINE__,
+              "Saving output statistics for year %d", new_year - 1);
 
    /*
     * Rename the file we are currently mapped to, to the new
@@ -105,9 +103,9 @@ save_old_output_year(int new_year)
    (void)sprintf(ptr, "%d", new_year);
    if (rename(statistic_file, new_file) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to rename() %s to %s : %s (%s %d)\n",
-                statistic_file, new_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to rename() %s to %s : %s",
+                 statistic_file, new_file, strerror(errno));
       return;
    }
    ptr = new_statistic_file + strlen(new_statistic_file) - 1;
@@ -128,52 +126,51 @@ save_old_output_year(int new_year)
    if ((old_year_fd = open(statistic_file, (O_RDWR | O_CREAT | O_TRUNC),
                            FILE_MODE)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open() %s : %s (%s %d)\n",
-                statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open() %s : %s",
+                 statistic_file, strerror(errno));
       (void)strcpy(statistic_file, new_file);
       return;
    }
 #ifdef HAVE_MMAP
    if (lseek(old_year_fd, old_year_stat_size - 1, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not seek() on %s : %s (%s %d)\n",
-                statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() on %s : %s",
+                 statistic_file, strerror(errno));
       (void)strcpy(statistic_file, new_file);
       (void)close(old_year_fd);
       return;
    }
    if (write(old_year_fd, "", 1) != 1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write() to %s : %s (%s %d)\n",
-                statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write() to %s : %s",
+                 statistic_file, strerror(errno));
       (void)strcpy(statistic_file, new_file);
       (void)close(old_year_fd);
       return;
    }
    if ((ptr = mmap(NULL, old_year_stat_size, (PROT_READ | PROT_WRITE),
-                   (MAP_FILE | MAP_SHARED),
-                   old_year_fd, 0)) == (caddr_t) -1)
+                   (MAP_FILE | MAP_SHARED), old_year_fd, 0)) == (caddr_t) -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not mmap() file %s : %s (%s %d)\n",
-                statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not mmap() file %s : %s",
+                 statistic_file, strerror(errno));
       (void)strcpy(statistic_file, new_file);
       (void)close(old_year_fd);
       return;
    }
    if (close(old_year_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 #else
    if ((ptr = malloc(old_year_stat_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       (void)strcpy(statistic_file, new_file);
       (void)close(old_year_fd);
       return;
@@ -197,16 +194,16 @@ save_old_output_year(int new_year)
 #ifdef HAVE_MMAP
    if (munmap(ptr, old_year_stat_size) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to munmap() %s : %s (%s %d)\n",
-                statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to munmap() %s : %s",
+                 statistic_file, strerror(errno));
    }
 #else
    if (write(old_year_fd, ptr, old_year_stat_size) != old_year_stat_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write() to %s : %s (%s %d)\n",
-                statistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write() to %s : %s",
+                 statistic_file, strerror(errno));
       (void)strcpy(statistic_file, new_file);
       (void)close(old_year_fd);
       free(ptr);
@@ -214,8 +211,8 @@ save_old_output_year(int new_year)
    }
    if (close(old_year_fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
    free(ptr);
 #endif

@@ -1,6 +1,6 @@
 /*
  *  scpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -102,6 +102,7 @@ int
 scp_connect(char          *hostname,
             int           port,
             unsigned char ssh_protocol,
+            int           compression,
             char          *user,
 #ifdef WITH_SSH_FINGERPRINT
             char          *fingerprint,
@@ -125,8 +126,9 @@ scp_connect(char          *hostname,
    {
 # endif
 #endif
-      if ((status = ssh_exec(hostname, port, ssh_protocol, user, passwd, cmd,
-                             NULL, &data_fd, &data_pid)) == SUCCESS)
+      if ((status = ssh_exec(hostname, port, ssh_protocol, compression, user,
+                             passwd, cmd, NULL, &data_fd,
+                             &data_pid)) == SUCCESS)
       {
 #ifdef WITH_SSH_FINGERPRINT
          status = ssh_login(data_fd, passwd, fingerprint);
@@ -169,8 +171,8 @@ scp_open_file(char *filename, off_t size, mode_t mode)
       if (errno != 0)
       {
          cmd[length - 1] = '\0';
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to pipe_write() <%s> to pipe [%d] : %s",
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_open_file", NULL,
+                   _("Failed to pipe_write() `%s' to pipe [%d] : %s"),
                    cmd, status, strerror(errno));
       }
       status = INCORRECT;
@@ -193,8 +195,8 @@ scp_close_file(void)
    {
       if (errno != 0)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to pipe_write() [close file] to pipe [%d] : %s",
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_close_file", NULL,
+                   _("Failed to pipe_write() [close file] to pipe [%d] : %s"),
                    status, strerror(errno));
       }
       status = INCORRECT;
@@ -215,7 +217,7 @@ scp_write(char *block, int size)
    fd_set         wset;
    struct timeval timeout;
 
-   /* Initialise descriptor set */
+   /* Initialise descriptor set. */
    FD_ZERO(&wset);
    FD_SET(data_fd, &wset);
    timeout.tv_usec = 0L;
@@ -226,7 +228,7 @@ scp_write(char *block, int size)
 
    if (status == 0)
    {
-      /* timeout has arrived */
+      /* Timeout has arrived. */
       timeout_flag = ON;
       return(INCORRECT);
    }
@@ -237,15 +239,15 @@ scp_write(char *block, int size)
            /* In some cases, the write system call hangs. */
            if (signal(SIGALRM, sig_handler) == SIG_ERR)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "scp_write(): Failed to set signal handler : %s",
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_write", NULL,
+                        _("Failed to set signal handler : %s"),
                         strerror(errno));
               return(INCORRECT);
            }
            if (sigsetjmp(env_alrm, 1) != 0)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "scp_write(): write() timeout (%ld)", transfer_timeout);
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_write", NULL,
+                        _("write() timeout (%ld)"), transfer_timeout);
               timeout_flag = ON;
               return(INCORRECT);
            }
@@ -256,8 +258,9 @@ scp_write(char *block, int size)
 
            if (status != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "write() error (%d) : %s", status, strerror(tmp_errno));
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_write", NULL,
+                        _("write() error (%d) : %s"),
+                        status, strerror(tmp_errno));
               return(tmp_errno);
            }
 #ifdef WITH_TRACE
@@ -266,14 +269,14 @@ scp_write(char *block, int size)
         }
    else if (status < 0)
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "select() error : %s", strerror(errno));
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_write", NULL,
+                     _("select() error : %s"), strerror(errno));
            return(INCORRECT);
         }
         else
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "Unknown condition.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_write", NULL,
+                     _("Unknown condition."));
            return(INCORRECT);
         }
    
@@ -298,8 +301,8 @@ scp_quit(void)
       {
          if (close(data_fd) == -1)
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to close() write pipe to ssh process : %s",
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "scp_quit", NULL,
+                      _("Failed to close() write pipe to ssh process : %s"),
                       strerror(errno));
          }
          data_fd = -1;
@@ -319,40 +322,40 @@ scp_quit(void)
          msg_str[0] = '\0';
          if (return_pid == -1)
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to catch zombie of data ssh process : %s",
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "scp_quit", NULL,
+                      _("Failed to catch zombie of data ssh process : %s"),
                       strerror(errno));
          }
          if (data_pid > 0)
          {
             if (kill(data_pid, SIGKILL) == -1)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "scp_quit", NULL,
 #if SIZEOF_PID_T == 4
-                         "Failed to kill() data ssh process %d : %s",
+                         _("Failed to kill() data ssh process %d : %s"),
 #else
-                         "Failed to kill() data ssh process %lld : %s",
+                         _("Failed to kill() data ssh process %lld : %s"),
 #endif
                          (pri_pid_t)data_pid, strerror(errno));
             }
             else
             {
-               trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(WARN_SIGN, __FILE__, __LINE__, "scp_quit", NULL,
 #if SIZEOF_PID_T == 4
-                         "Killing hanging data ssh process %d.",
+                         _("Killing hanging data ssh process %d."),
 #else
-                         "Killing hanging data ssh process %lld.",
+                         _("Killing hanging data ssh process %lld."),
 #endif
                          (pri_pid_t)data_pid);
             }
          }
          else
          {
-            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__, "scp_quit", NULL,
 #if SIZEOF_PID_T == 4
-                      "Hmm, pid is %d!!!", (pri_pid_t)data_pid);
+                      _("Hmm, pid is %d!!!"), (pri_pid_t)data_pid);
 #else
-                      "Hmm, pid is %lld!!!", (pri_pid_t)data_pid);
+                      _("Hmm, pid is %lld!!!"), (pri_pid_t)data_pid);
 #endif
          }
       }

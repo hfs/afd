@@ -1,6 +1,6 @@
 /*
  *  ssh_commondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,8 +40,8 @@ struct ssh_data
 /* Function prototypes. */
 extern int    get_ssh_reply(int, int),
               my_siginterrupt(int, int),
-              ssh_exec(char *, int, unsigned char, char *, char *, char *,
-                       char *, int *, pid_t *),
+              ssh_exec(char *, int, unsigned char, int, char *, char *,
+                       char *, char *, int *, pid_t *),
 #ifdef WITH_SSH_FINGERPRINT
               ssh_login(int, char *, char *);
 #else

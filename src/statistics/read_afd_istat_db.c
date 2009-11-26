@@ -1,6 +1,6 @@
 /*
  *  read_afd_istat_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,13 +45,13 @@ DESCR__E_M3
 #include <string.h>          /* strcpy(), strerror(), memcpy(), memset() */
 #include <time.h>            /* time()                                   */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>        /* struct tm                                */
+# include <sys/time.h>       /* struct tm                                */
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdlib.h>          /* exit(), malloc(), free()                 */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>        /* mmap(), munmap()                         */
+# include <sys/mman.h>       /* mmap(), munmap()                         */
 #endif
 #include <fcntl.h>
 #include <unistd.h>          /* close(), lseek(), write()                */
@@ -59,14 +59,13 @@ DESCR__E_M3
 #include "statdefs.h"
 
 #ifdef HAVE_MMAP
-#ifndef MAP_FILE    /* Required for BSD          */
-#define MAP_FILE 0  /* All others do not need it */
-#endif
+# ifndef MAP_FILE    /* Required for BSD          */
+#  define MAP_FILE 0 /* All others do not need it */
+# endif
 #endif
 
 /* Global external variables. */
-extern int                        sys_log_fd,
-                                  lock_fd;
+extern int                        lock_fd;
 extern size_t                     istat_db_size;
 extern char                       istatistic_file[MAX_PATH_LENGTH],
                                   new_istatistic_file[MAX_PATH_LENGTH];
@@ -109,17 +108,16 @@ read_afd_istat_db(int no_of_dirs)
       {
          if (stat_buf.st_size == 0)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hmm..., old input statistic file is empty. (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmm..., old input statistic file is empty.");
          }
          else
          {
             if (errno != ENOENT)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to stat() %s : %s (%s %d)\n",
-                         istatistic_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to stat() %s : %s",
+                          istatistic_file, strerror(errno));
                exit(INCORRECT);
             }
          }
@@ -131,16 +129,16 @@ read_afd_istat_db(int no_of_dirs)
 
          if ((lock_fd = lock_file(istatistic_file, OFF)) == LOCK_IS_SET)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Another process is currently using file %s (%s %d)\n",
-                      istatistic_file, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Another process is currently using file %s",
+                       istatistic_file);
             exit(INCORRECT);
          }
          if ((old_status_fd = open(istatistic_file, O_RDWR)) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      istatistic_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() %s : %s",
+                       istatistic_file, strerror(errno));
             exit(INCORRECT);
          }
 
@@ -149,24 +147,24 @@ read_afd_istat_db(int no_of_dirs)
                              (MAP_FILE | MAP_SHARED),
                              old_status_fd, 0)) == (caddr_t) -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not mmap() file %s : %s (%s %d)\n",
-                      istatistic_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not mmap() file %s : %s",
+                       istatistic_file, strerror(errno));
             (void)close(old_status_fd);
             exit(INCORRECT);
          }
 #else
          if ((old_ptr = malloc(stat_buf.st_size)) == NULL)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "malloc() error : %s", strerror(errno));
             exit(INCORRECT);
          }
          if (read(old_status_fd, old_ptr, stat_buf.st_size) != stat_buf.st_size)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to read() %s : %s (%s %d)\n",
-                      istatistic_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to read() %s : %s",
+                       istatistic_file, strerror(errno));
             free(old_ptr);
             (void)close(old_status_fd);
             exit(INCORRECT);
@@ -196,40 +194,40 @@ read_afd_istat_db(int no_of_dirs)
    if ((new_status_fd = open(new_istatistic_file, (O_RDWR | O_CREAT | O_TRUNC),
                              FILE_MODE)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open() %s : %s (%s %d)\n",
-                new_istatistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open() %s : %s",
+                 new_istatistic_file, strerror(errno));
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
    if (lseek(new_status_fd, istat_db_size - 1, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not seek() on %s : %s (%s %d)\n",
-                new_istatistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() on %s : %s",
+                 new_istatistic_file, strerror(errno));
       exit(INCORRECT);
    }
    if (write(new_status_fd, "", 1) != 1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write() to %s : %s (%s %d)\n",
-                new_istatistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write() to %s : %s",
+                 new_istatistic_file, strerror(errno));
       exit(INCORRECT);
    }
    if ((ptr = mmap(NULL, istat_db_size, (PROT_READ | PROT_WRITE),
                    (MAP_FILE | MAP_SHARED),
                    new_status_fd, 0)) == (caddr_t) -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not mmap() file %s : %s (%s %d)\n",
-                new_istatistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not mmap() file %s : %s",
+                 new_istatistic_file, strerror(errno));
       exit(INCORRECT);
    }
 #else
    if ((ptr = malloc(istat_db_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #endif
@@ -240,9 +238,9 @@ read_afd_istat_db(int no_of_dirs)
 
    if ((no_of_old_dirs < 1) && (old_istat_db != NULL))
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "Failed to find any old hosts! [%d %d Bytes] (%s %d)\n",
-                no_of_old_dirs, old_istat_db_size, __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Failed to find any old hosts! [%d %d Bytes]",
+                 no_of_old_dirs, old_istat_db_size);
    }
 
    /*
@@ -312,9 +310,9 @@ read_afd_istat_db(int no_of_dirs)
 #ifdef HAVE_MMAP
       if (munmap(old_ptr, old_istat_db_size) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap() %s : %s (%s %d)\n",
-                   istatistic_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() %s : %s",
+                    istatistic_file, strerror(errno));
       }
 #else
       free(old_ptr);
@@ -323,8 +321,8 @@ read_afd_istat_db(int no_of_dirs)
       {
          if (close(lock_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
    }
@@ -332,32 +330,30 @@ read_afd_istat_db(int no_of_dirs)
 #ifndef HAVE_MMAP
    if (write(new_status_fd, istat_db, istat_db_size) != istat_db_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write() to %s : %s (%s %d)\n",
-                new_istatistic_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write() to %s : %s",
+                 new_istatistic_file, strerror(errno));
       exit(INCORRECT);
    }
 #endif
    if (close(new_status_fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    if (rename(new_istatistic_file, istatistic_file) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to rename() %s to %s : %s (%s %d)\n",
-                new_istatistic_file, istatistic_file,
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to rename() %s to %s : %s",
+                 new_istatistic_file, istatistic_file, strerror(errno));
       exit(INCORRECT);
    }
 
    if ((lock_fd = lock_file(istatistic_file, OFF)) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to lock to file `%s' [%d] (%s %d)\n",
-                istatistic_file, lock_fd, __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to lock to file `%s' [%d]", istatistic_file, lock_fd);
       exit(INCORRECT);
    }
 
@@ -368,8 +364,8 @@ read_afd_istat_db(int no_of_dirs)
    {
       if (close(old_status_fd) == -1)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
       }
    }
 

@@ -1,6 +1,6 @@
 /*
  *  reset_values.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ DESCR__E_M3
 
 #include "fddefs.h"
 
-/* Global variables */
+/* External global variables. */
 extern int                        fsa_fd;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
@@ -63,8 +63,7 @@ reset_values(int   files_retrieved,
         (file_size_retrieved < file_size_to_retrieve)) &&
        (db.fsa_pos != INCORRECT))
    {
-      (void)gsf_check_fsa();
-      if (db.fsa_pos != INCORRECT)
+      if (gsf_check_fsa() != NEITHER)
       {
 #ifdef LOCK_DEBUG
          lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);

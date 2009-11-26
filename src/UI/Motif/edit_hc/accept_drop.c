@@ -1,7 +1,7 @@
 /*
  *  accept_drop.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   21.08.1997 H.Kiehl Created
+ **   27.08.2008 H.Kiehl Notify list widget about selected item.
  **
  */
 DESCR__E_M3
@@ -51,17 +52,18 @@ DESCR__E_M3
 #include <Xm/AtomMgr.h>
 #include "edit_hc.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display  *display;
 extern Widget   host_list_w;
 extern Atom     compound_text;
-extern int      host_alias_order_change;
+extern int      host_alias_order_change,
+                last_selected;
 extern char     last_selected_host[];
 
-/* Local global variables */
+/* Local global variables. */
 static Position y;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void     transfer_data(Widget, XtPointer, Atom *, Atom *, XtPointer,
                               unsigned long *, int *);
 
@@ -114,6 +116,8 @@ accept_drop(Widget w, XtPointer client_data, XmDropProcCallback drop)
    else
    {
       XtSetArg(args[argcount], XmNtransferStatus, XmTRANSFER_FAILURE);
+      argcount++;
+      XtSetArg(args[argcount], XmNdropTransfers,  0);
       argcount++;
       y = -1;
    }
@@ -171,7 +175,8 @@ transfer_data(Widget        w,
 
       /* Select the host that was selected last. */
       str = XmStringCreateLocalized(last_selected_host);
-      XmListSelectItem(host_list_w, str, False);
+      last_selected = -1;
+      XmListSelectItem(host_list_w, str, True);
       XmStringFree(str);
 
       XtFree((char *)select_list);

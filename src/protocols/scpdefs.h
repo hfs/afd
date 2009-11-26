@@ -1,6 +1,6 @@
 /*
  *  scpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,11 +20,12 @@
 #ifndef __scpdefs_h
 #define __scpdefs_h
 
-/* Function prototypes */
+/* Function prototypes. */
+extern int  scp_connect(char *, int, unsigned char, int, char *, char *,
 #ifdef WITH_SSH_FINGERPRINT
-extern int  scp_connect(char *, int, unsigned char, char *, char *, char *, char *),
+                        char *, char *),
 #else
-extern int  scp_connect(char *, int, unsigned char, char *, char *, char *),
+                        char *),
 #endif
             scp_close_file(void),
             scp_open_file(char *, off_t, mode_t),

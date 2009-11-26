@@ -1,7 +1,7 @@
 /*
  *  setup_dir_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -109,7 +109,17 @@ setup_dir_window(char *font_name)
                    new_max_bar_length;
    XmFontListEntry entry;
 
-   /* Get width and height of font and fid for the GC */
+   /* Get width and height of font and fid for the GC. */
+   if (font_struct != NULL)
+   {
+      XFreeFont(display, font_struct);
+      font_struct = NULL;
+   }
+   if (fontlist != NULL)
+   {
+      XmFontListFree(fontlist);
+      fontlist = NULL;
+   }
    if ((font_struct = XLoadQueryFont(display, font_name)) == NULL)
    {
       (void)fprintf(stderr, "Could not load %s font.\n", font_name);
@@ -132,11 +142,15 @@ setup_dir_window(char *font_name)
 
    if (line_height != 0)
    {
-      /* Set the font for the directory pulldown */
+      /* Set the font for the directory pulldown. */
       XtVaSetValues(mw[DIR_W], XmNfontList, fontlist, NULL);
       if (dcp.handle_event != NO_PERMISSION)
       {
          XtVaSetValues(dw[DIR_HANDLE_EVENT_W], XmNfontList, fontlist, NULL);
+      }
+      if (dcp.stop != NO_PERMISSION)
+      {
+         XtVaSetValues(dw[DIR_STOP_W], XmNfontList, fontlist, NULL);
       }
       if (dcp.disable != NO_PERMISSION)
       {
@@ -157,7 +171,7 @@ setup_dir_window(char *font_name)
       XtVaSetValues(dw[DIR_SELECT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(dw[DIR_EXIT_W], XmNfontList, fontlist, NULL);
 
-      /* Set the font for the View pulldown */
+      /* Set the font for the View pulldown. */
       if ((dcp.show_slog != NO_PERMISSION) ||
           (dcp.show_elog != NO_PERMISSION) ||
           (dcp.show_rlog != NO_PERMISSION) ||
@@ -212,14 +226,14 @@ setup_dir_window(char *font_name)
          }
       }
 
-      /* Set the font for the Setup pulldown */
+      /* Set the font for the Setup pulldown. */
       XtVaSetValues(mw[CONFIG_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[FONT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[ROWS_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[STYLE_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[SAVE_W], XmNfontList, fontlist, NULL);
 
-      /* Set the font for the Help pulldown */
+      /* Set the font for the Help pulldown. */
 #ifdef _WITH_HELP_PULLDOWN
       XtVaSetValues(mw[HELP_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(hw[ABOUT_W], XmNfontList, fontlist, NULL);
@@ -227,7 +241,7 @@ setup_dir_window(char *font_name)
       XtVaSetValues(hw[VERSION_W], XmNfontList, fontlist, NULL);
 #endif
 
-      /* Set the font for the Row pulldown */
+      /* Set the font for the Row pulldown. */
       XtVaSetValues(rw[ROW_0_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_1_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_2_W], XmNfontList, fontlist, NULL);
@@ -246,12 +260,10 @@ setup_dir_window(char *font_name)
       XtVaSetValues(rw[ROW_15_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_16_W], XmNfontList, fontlist, NULL);
 
-      /* Set the font for the Line Style pulldown */
+      /* Set the font for the Line Style pulldown. */
       XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
-
-      XmFontListFree(fontlist);
    }
 
    glyph_height       = font_struct->ascent + font_struct->descent;
@@ -277,7 +289,7 @@ setup_dir_window(char *font_name)
          /* Calculate new bar length for file rate. */
          if (connect_data[i].average_fr > 1.0)
          {
-            /* First ensure we do not divide by zero */
+            /* First ensure we do not divide by zero. */
             if (connect_data[i].max_average_fr < 2.0)
             {
                connect_data[i].bar_length[FILE_RATE_BAR_NO] =
@@ -326,7 +338,7 @@ setup_dir_window(char *font_name)
          /* Calculate new bar length for file rate. */
          if (connect_data[i].average_tr > 1.0)
          {
-            /* First ensure we do not divide by zero */
+            /* First ensure we do not divide by zero. */
             if (connect_data[i].max_average_tr < 2.0)
             {
                connect_data[i].bar_length[BYTE_RATE_BAR_NO] =
@@ -388,7 +400,7 @@ init_gcs(void)
    XGCValues  gc_values;
    Window     window = RootWindow(display, DefaultScreen(display));
 
-   /* GC for drawing letters on default background */
+   /* GC for drawing letters on default background. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[FG];
    gc_values.background = color_pool[DEFAULT_BG];
@@ -396,7 +408,7 @@ init_gcs(void)
                          GCBackground, &gc_values);
    XSetFunction(display, letter_gc, GXcopy);
 
-   /* GC for drawing letters for normal selection */
+   /* GC for drawing letters for normal selection. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[WHITE];
    gc_values.background = color_pool[BLACK];
@@ -404,7 +416,7 @@ init_gcs(void)
                                 GCForeground | GCBackground, &gc_values);
    XSetFunction(display, normal_letter_gc, GXcopy);
 
-   /* GC for drawing letters for locked selection */
+   /* GC for drawing letters for locked selection. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[WHITE];
    gc_values.background = color_pool[LOCKED_INVERSE];
@@ -412,7 +424,7 @@ init_gcs(void)
                                 GCForeground | GCBackground, &gc_values);
    XSetFunction(display, locked_letter_gc, GXcopy);
 
-   /* GC for drawing letters for host name */
+   /* GC for drawing letters for host name. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[FG];
    gc_values.background = color_pool[WHITE];
@@ -420,72 +432,72 @@ init_gcs(void)
                                GCForeground | GCBackground, &gc_values);
    XSetFunction(display, color_letter_gc, GXcopy);
 
-   /* GC for drawing error letters for EC counters */
+   /* GC for drawing error letters for EC counters. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[NOT_WORKING];
    red_color_letter_gc = XCreateGC(display, window, (XtGCMask) GCFont |
                                    GCForeground, &gc_values);
    XSetFunction(display, red_color_letter_gc, GXcopy);
 
-   /* GC for drawing the default background */
+   /* GC for drawing the default background. */
    gc_values.foreground = color_pool[DEFAULT_BG];
    default_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, default_bg_gc, GXcopy);
 
-   /* GC for drawing the normal selection background */
+   /* GC for drawing the normal selection background. */
    gc_values.foreground = color_pool[BLACK];
    normal_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, normal_bg_gc, GXcopy);
 
-   /* GC for drawing the locked selection background */
+   /* GC for drawing the locked selection background. */
    gc_values.foreground = color_pool[LOCKED_INVERSE];
    locked_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, locked_bg_gc, GXcopy);
 
-   /* GC for drawing the label background */
+   /* GC for drawing the label background. */
    gc_values.foreground = color_pool[LABEL_BG];
    label_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                            &gc_values);
    XSetFunction(display, label_bg_gc, GXcopy);
 
-   /* GC for drawing the background for "bytes on input" bar */
+   /* GC for drawing the background for "bytes on input" bar. */
    gc_values.foreground = color_pool[TR_BAR];
    tr_bar_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                          &gc_values);
    XSetFunction(display, tr_bar_gc, GXcopy);
 
-   /* GC for drawing the background for "directory time up" bar */
+   /* GC for drawing the background for "directory time up" bar. */
    gc_values.foreground = color_pool[WARNING_ID];
    tu_bar_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                          &gc_values);
    XSetFunction(display, tu_bar_gc, GXcopy);
 
-   /* GC for drawing the background for "files on input" bar */
+   /* GC for drawing the background for "files on input" bar. */
    gc_values.foreground = color_pool[NORMAL_STATUS];
    fr_bar_gc = XCreateGC(display, window, (XtGCMask) GCForeground, &gc_values);
    XSetFunction(display, fr_bar_gc, GXcopy);
 
-   /* GC for drawing the background for queue bar and leds */
+   /* GC for drawing the background for queue bar and leds. */
    gc_values.foreground = color_pool[TR_BAR];
    color_gc = XCreateGC(display, window, (XtGCMask) GCForeground, &gc_values);
    XSetFunction(display, color_gc, GXcopy);
 
-   /* GC for drawing the black lines */
+   /* GC for drawing the black lines. */
    gc_values.foreground = color_pool[BLACK];
    black_line_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, black_line_gc, GXcopy);
 
-   /* GC for drawing the white lines */
+   /* GC for drawing the white lines. */
    gc_values.foreground = color_pool[WHITE];
    white_line_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, white_line_gc, GXcopy);
 
-   /* Flush buffers so all GC's are known */
+   /* Flush buffers so all GC's are known. */
    XFlush(display);
 
    return;

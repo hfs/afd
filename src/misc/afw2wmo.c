@@ -207,8 +207,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    }
    else
    {
-      *(write_ptr + 2) = toupper(*read_ptr);
-      *(write_ptr + 3) = toupper(*(read_ptr + 1));
+      *(write_ptr + 2) = toupper((int)(*read_ptr));
+      *(write_ptr + 3) = toupper((int)(*(read_ptr + 1)));
    }
    if ((*(write_ptr + 2) == 'S') && (*(write_ptr + 3) == 'N') &&
        (*(read_ptr + 2) == '4') && (*(read_ptr + 3) == '0'))
@@ -495,10 +495,10 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
            }
            else
            {
-              *write_ptr = toupper(*read_ptr);
-              *(write_ptr + 1) = toupper(*(read_ptr + 1));
-              *(write_ptr + 2) = toupper(*(read_ptr + 2));
-              *(write_ptr + 3) = toupper(*(read_ptr + 3));
+              *write_ptr = toupper((int)(*read_ptr));
+              *(write_ptr + 1) = toupper((int)(*(read_ptr + 1)));
+              *(write_ptr + 2) = toupper((int)(*(read_ptr + 2)));
+              *(write_ptr + 3) = toupper((int)(*(read_ptr + 3)));
            }
            write_ptr   += 4;
            read_ptr    += 4;

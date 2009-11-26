@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2005 - 2007 Holger Kiehl
+## Copyright (C) 2005 - 2008 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = xsend_file.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
                        -I../common -I../../../init_afd -I../../../protocols\
-                       -I../../../log -I../afd_ctrl
+                       -I../../../log -I../mafd_ctrl
 bin_PROGRAMS         = xsend_file
 xsend_file_SOURCES   = callbacks.c\
                        create_url_file.c\

@@ -1,6 +1,6 @@
 /*
  *  output_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,45 +31,51 @@ DESCR__S_M1
  **   This function reads from the fifo OUTPUT_LOG_FIFO any file name
  **   that was distributed by sf_xxx(). The data in the fifo has the
  **   following structure:
- **   <TD><FS><JN><UNL><FNL><ANL><HN>\0<LFN>[ /<RFN>]\0[<AD>\0]
- **     |   |   |   |    |    |    |     |       |       |
- **     |   |   |   |    |    |    |     |   +---+       |
- **     |   |   |   |    |    |    |     |   |           V
- **     |   |   |   |    |    |    |     |   |   If ANL >0 this
- **     |   |   |   |    |    |    |     |   |   contains a \0
- **     |   |   |   |    |    |    |     |   |   terminated string of
- **     |   |   |   |    |    |    |     |   |   the Archive Directory.
- **     |   |   |   |    |    |    |     |   +-> Remote file name.
- **     |   |   |   |    |    |    |     +-----> Local file name.
- **     |   |   |   |    |    |    +-----------> \0 terminated string
- **     |   |   |   |    |    |                  of the Host Name and
- **     |   |   |   |    |    |                  protocol.
- **     |   |   |   |    |    +----------------> An unsigned short
- **     |   |   |   |    |                       holding the Archive
- **     |   |   |   |    |                       Name Length if the
- **     |   |   |   |    |                       file has been archived.
- **     |   |   |   |    |                       If not, ANL = 0.
- **     |   |   |   |    +---------------------> Unsigned short holding
- **     |   |   |   |                            the File Name Length.
- **     |   |   |   +--------------------------> Unsigned short holding
- **     |   |   |                                the Unique name length.
- **     |   |   +------------------------------> Unsigned int holding
- **     |   |                                    the Job Number.
- **     |   +----------------------------------> File Size of type
- **     |                                        off_t.
- **     +--------------------------------------> Transfer Duration of
- **                                              type clock_t.
+ **   <TD><FS><NR><JN><UNL><FNL><ANL><HN>\0<LFN>[ /<RFN>]\0[<AD>\0]
+ **     |   |   |   |   |    |    |    |     |       |       |
+ **     |   |   |   |   |    |    |    |     |   +---+       |
+ **     |   |   |   |   |    |    |    |     |   |           V
+ **     |   |   |   |   |    |    |    |     |   |   If ANL >0 this
+ **     |   |   |   |   |    |    |    |     |   |   contains a \0
+ **     |   |   |   |   |    |    |    |     |   |   terminated string of
+ **     |   |   |   |   |    |    |    |     |   |   the Archive Directory.
+ **     |   |   |   |   |    |    |    |     |   +-> Remote file name.
+ **     |   |   |   |   |    |    |    |     +-----> Local file name.
+ **     |   |   |   |   |    |    |    +-----------> \0 terminated string
+ **     |   |   |   |   |    |    |                  of the Host Name,
+ **     |   |   |   |   |    |    |                  output type, current
+ **     |   |   |   |   |    |    |                  toggle and protocol.
+ **     |   |   |   |   |    |    +----------------> An unsigned short
+ **     |   |   |   |   |    |                       holding the Archive
+ **     |   |   |   |   |    |                       Name Length if the
+ **     |   |   |   |   |    |                       file has been archived.
+ **     |   |   |   |   |    |                       If not, ANL = 0.
+ **     |   |   |   |   |    +---------------------> Unsigned short holding
+ **     |   |   |   |   |                            the File Name Length.
+ **     |   |   |   |   +--------------------------> Unsigned short holding
+ **     |   |   |   |                                the Unique name length.
+ **     |   |   |   +------------------------------> Unsigned int holding
+ **     |   |   |                                    the Job Number.
+ **     |   |   +----------------------------------> Number of retries.
+ **     |   +--------------------------------------> File Size of type
+ **     |                                            off_t.
+ **     +------------------------------------------> Transfer Duration of
+ **                                                  type clock_t.
  **
  **   This data is then written to the output log file in the following
  **   format:
  **
- **   40bae084  btx      1|dat.txt|[/...]|14a0|0.03|4a|40bae085_184_0|btx/emp/0/9_863042081_0239
- **      |       |       |    |      |     |     |  |            |        |
- **      |       |       |    |      |     |     |  +-----+      |        |
- **      |       |       |    |      |     |     |        |      |        |
- **   Transfer Host Transfer Local Remote File Transfer  Job   Unique   Archive
- **    time    name   type   file   file  size duration number   ID    directory
- **                          name   name
+ **   40bae084  btx      0 0 1|dat.txt|[/...]|14a0|0.03|0|4a|40bae085_184_0|btx/emp/0/9_863042081_0239
+ **      |       |       | | |    |      |     |     |  |  |            |        |
+ |       |       |  +----+ | |    |      |     |     |  |  |            |        |
+ **      |       |  | +----+ |    |      |     |     |  |  +-----+      |        |
+ **      |       |  | |      |    |      |     |     |  +----+   |      |        |
+ **   Transfer Host | | Transfer Local Remote File Transfer  |  Job   Unique   Archive
+ **    time    name | |   type   file   file  size duration  | number   ID    directory
+ **           +-----+ |          name   name                 |
+ **           |       |                                      |
+ **         Output Current                           Number of retries
+ **         type   toggle
  **
  ** RETURN VALUES
  **   SUCCESS on normal exit and INCORRECT when an error has occurred.
@@ -85,6 +91,13 @@ DESCR__S_M1
  **   14.06.2001 H.Kiehl Removed the above unnecessary checks.
  **   13.04.2002 H.Kiehl Added SEPARATOR_CHAR.
  **   14.10.2004 H.Kiehl Added Unique Identifier to trace a job within AFD.
+ **   21.02.2008 H.Kiehl Added host toggle and number of retries.
+ **   14.02.2009 H.Kiehl Handle files that have not been transfered,
+ **                      ie. deleted due to age, duplicate check, other
+ **                      process transmitting same file, etc. This is
+ **                      indicated by adding the output type.
+ **   14.08.2009 H.Kiehl Added ALDA cache file.
+ **                     
  **
  */
 DESCR__E_M1
@@ -104,7 +117,7 @@ DESCR__E_M1
 #include "version.h"
 
 
-/* External global variables */
+/* External global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *iobuf = NULL,
            *p_work_dir = NULL;
@@ -120,13 +133,11 @@ static void show_buffer(char *, int);
 int
 main(int argc, char *argv[])
 {
-#ifdef _OUTPUT_LOG
    FILE           *output_file;
    int            bytes_buffered = 0,
                   log_number = 0,
                   n,
                   length,
-                  offset,
                   max_output_log_files = MAX_OUTPUT_LOG_FILES,
                   no_of_buffered_writes = 0,
                   check_size,
@@ -138,7 +149,8 @@ main(int argc, char *argv[])
    off_t          *file_size;
    time_t         next_file_time,
                   now;
-   unsigned int   *job_number;
+   unsigned int   *job_number,
+                  *retries;
    clock_t        clktck,
                   *transfer_duration;
    long           fifo_size;
@@ -146,7 +158,7 @@ main(int argc, char *argv[])
                   *fifo_buffer,
                   *p_host_name,
                   *p_file_name,
-                  work_dir[MAX_PATH_LENGTH],
+                  *work_dir,
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH],
                   unique_string[9 + 1 + 9 + 1 + 9 + 2];
@@ -156,59 +168,70 @@ main(int argc, char *argv[])
    fd_set         rset;
    struct timeval timeout;
    struct stat    stat_buf;
+#ifdef WITH_LOG_CACHE
+   int            log_cache_buf_size,
+                  log_cache_fd;
+   char           *log_cache_buffer,
+                  current_log_cache_file[MAX_PATH_LENGTH],
+                  log_cache_file[MAX_PATH_LENGTH],
+                  *p_cache_end;
+   off_t          log_length,
+                  *log_pos;
+#endif
 
    CHECK_FOR_VERSION(argc, argv);
 
-   if (get_afd_path(&argc, argv, work_dir) < 0)
+   if (get_afd_path(&argc, argv, log_file) < 0)
    {
       exit(INCORRECT);
    }
-   else
+   if ((work_dir = malloc((strlen(log_file) + 1))) == NULL)
    {
-      char output_log_fifo[MAX_PATH_LENGTH];
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() memory : %s",
+                 strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)strcpy(work_dir, log_file);
+   p_work_dir = work_dir;
 
-      p_work_dir = work_dir;
-
-      /* Create and open fifos that we need */
-      (void)strcpy(output_log_fifo, work_dir);
-      (void)strcat(output_log_fifo, FIFO_DIR);
-      (void)strcat(output_log_fifo, OUTPUT_LOG_FIFO);
+   /* Create and open fifos that we need. */
+   (void)strcat(log_file, FIFO_DIR);
+   (void)strcat(log_file, OUTPUT_LOG_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(output_log_fifo, &log_fd, &writefd) == -1)
+   if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-      if ((log_fd = open(output_log_fifo, O_RDWR)) == -1)
+   if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
+   {
+      if (errno == ENOENT)
       {
-         if (errno == ENOENT)
+         if (make_fifo(log_file) == SUCCESS)
          {
-            if (make_fifo(output_log_fifo) == SUCCESS)
-            {
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-               if (open_fifo_rw(output_log_fifo, &log_fd, &writefd) == -1)
+            if (open_fifo_rw(log_file, &log_fd, &writefd) == -1)
 #else
-               if ((log_fd = open(output_log_fifo, O_RDWR)) == -1)
+            if ((log_fd = open(log_file, O_RDWR)) == -1)
 #endif
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to open() fifo %s : %s",
-                             output_log_fifo, strerror(errno));
-                  exit(INCORRECT);
-               }
-            }
-            else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to create fifo %s.", output_log_fifo);
+                          "Failed to open() fifo %s : %s",
+                          log_file, strerror(errno));
                exit(INCORRECT);
             }
          }
          else
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() fifo %s : %s",
-                       output_log_fifo, strerror(errno));
+                       "Failed to create fifo %s.", log_file);
             exit(INCORRECT);
          }
+      }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() fifo %s : %s", log_file, strerror(errno));
+         exit(INCORRECT);
       }
    }
 
@@ -216,14 +239,14 @@ main(int argc, char *argv[])
     * Lets determine the largest offset so the 'structure'
     * is aligned correctly.
     */
-   offset = sizeof(clock_t);
-   if (sizeof(off_t) > offset)
+   n = sizeof(clock_t);
+   if (sizeof(off_t) > n)
    {
-      offset = sizeof(off_t);
+      n = sizeof(off_t);
    }
-   if (sizeof(unsigned int) > offset)
+   if (sizeof(unsigned int) > n)
    {
-      offset = sizeof(unsigned int);
+      n = sizeof(unsigned int);
    }
    
    /*
@@ -232,23 +255,23 @@ main(int argc, char *argv[])
     */
    if ((fifo_size = fpathconf(log_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
-   if (fifo_size < (offset + offset + offset + MAX_HOSTNAME_LENGTH + 2 +
+   if (fifo_size < (n + n + n + n + MAX_HOSTNAME_LENGTH + 6 +
                     1 + sizeof(unsigned short) + sizeof(unsigned short) +
                     sizeof(unsigned short) + MAX_FILENAME_LENGTH +
                     MAX_FILENAME_LENGTH + 2 + MAX_FILENAME_LENGTH))
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Fifo is NOT large enough to ensure atomic writes!");
-      fifo_size = offset + offset + offset + MAX_HOSTNAME_LENGTH + 2 +
+      fifo_size = n + n + n + n + MAX_HOSTNAME_LENGTH + 6 +
                   1 + sizeof(unsigned short) + sizeof(unsigned short) +
                   sizeof(unsigned short) + MAX_FILENAME_LENGTH +
                   MAX_FILENAME_LENGTH + 2 + MAX_FILENAME_LENGTH;
    }
 
-   /* Now lets allocate memory for the fifo buffer */
+   /* Now lets allocate memory for the fifo buffer. */
    if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -256,6 +279,23 @@ main(int argc, char *argv[])
                  strerror(errno));
       exit(INCORRECT);
    }
+
+#ifdef WITH_LOG_CACHE
+   n = sizeof(time_t);
+   if (sizeof(off_t) > n)
+   {
+      n = sizeof(off_t);
+   }
+   log_cache_buf_size = n + n;
+   if ((log_cache_buffer = malloc((size_t)log_cache_buf_size)) == NULL)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() %d bytes : %s",
+                 log_cache_buf_size, strerror(errno));
+      exit(INCORRECT);
+   }
+   log_pos = (off_t *)(log_cache_buffer + n);
+#endif
 
    /*
     * Get clock ticks per second, so we can calculate the transfer time.
@@ -296,8 +336,15 @@ main(int argc, char *argv[])
    p_end = log_file;
    p_end += sprintf(log_file, "%s%s/%s",
                     work_dir, LOG_DIR, OUTPUT_BUFFER_FILE);
+#ifdef WITH_LOG_CACHE
+   (void)sprintf(current_log_cache_file, "%s%s/%s0",
+                 work_dir, LOG_DIR, OUTPUT_BUFFER_CACHE_FILE);
+   p_cache_end = log_cache_file;
+   p_cache_end += sprintf(log_cache_file, "%s%s/%s",
+                          work_dir, LOG_DIR, OUTPUT_BUFFER_CACHE_FILE);
+#endif
 
-   /* Calculate time when we have to start a new file */
+   /* Calculate time when we have to start a new file. */
    next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                     SWITCH_FILE_TIME;
 
@@ -310,35 +357,62 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+         if (max_output_log_files > 1)
+         {
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+#ifdef WITH_LOG_CACHE
+            reshuffel_log_files(log_number, log_cache_file, p_cache_end, 0, 0);
+#endif
+         }
+         else
+         {
+            if (unlink(current_log_file) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() current log file `%s' : %s",
+                          current_log_file, strerror(errno));
+            }
+#ifdef WITH_LOG_CACHE
+            if (unlink(current_log_cache_file) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() current log file `%s' : %s",
+                          current_log_cache_file, strerror(errno));
+            }
+#endif
+         }
       }
    }
 
+#ifdef WITH_LOG_CACHE
+   output_file = open_log_file(current_log_file, current_log_cache_file,
+                               &log_cache_fd, log_pos);
+#else
    output_file = open_log_file(current_log_file);
+#endif
 
    /* Position pointers in fifo so that we only need to read */
    /* the data as they are in the fifo.                      */
    transfer_duration = (clock_t *)fifo_buffer;
-   file_size = (off_t *)(fifo_buffer + offset);
-   job_number = (unsigned int *)(fifo_buffer + offset + offset);
-   unl = (unsigned short *)(fifo_buffer + offset + offset + offset);
-   file_name_length = (unsigned short *)(fifo_buffer + offset + offset +
-                                         offset + sizeof(unsigned short));
-   archive_name_length = (unsigned short *)(fifo_buffer + offset +
-                                            offset + offset +
+   file_size = (off_t *)(fifo_buffer + n);
+   retries = (unsigned int *)(fifo_buffer + n + n);
+   job_number = (unsigned int *)(fifo_buffer + n + n + n);
+   unl = (unsigned short *)(fifo_buffer + n + n + n + n);
+   file_name_length = (unsigned short *)(fifo_buffer + n + n + n  + n +
+                                         sizeof(unsigned short));
+   archive_name_length = (unsigned short *)(fifo_buffer + n + n + n + n +
                                             sizeof(unsigned short) +
                                             sizeof(unsigned short));
-   p_host_name = (char *)(fifo_buffer + offset + offset +
-                          offset + sizeof(unsigned short) +
-                          sizeof(unsigned short) + sizeof(unsigned short));
-   p_file_name = (char *)(fifo_buffer + offset + offset + offset +
+   p_host_name = (char *)(fifo_buffer + n + n + n +
+                          n + sizeof(unsigned short) + sizeof(unsigned short) + sizeof(unsigned short));
+   p_file_name = (char *)(fifo_buffer + n + n + n + n +
                           sizeof(unsigned short) + sizeof(unsigned short) +
-                          sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 2 + 1);
-   check_size = offset + offset + offset +
+                          sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 6 + 1);
+   check_size = n + n + n + n +
                 sizeof(unsigned short) + sizeof(unsigned short) +
-                sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 2 + 1 + 1;
+                sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 6 + 1 + 1;
 
-   /* Ignore any SIGHUP signal */
+   /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -352,7 +426,7 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      /* Initialise descriptor set and timeout. */
       FD_SET(log_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 3L;
@@ -380,8 +454,36 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+            if (max_output_log_files > 1)
+            {
+               reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+#ifdef WITH_LOG_CACHE
+               reshuffel_log_files(log_number, log_cache_file, p_cache_end, 0, 0);
+#endif
+            }
+            else
+            {
+               if (unlink(current_log_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_file, strerror(errno));
+               }
+#ifdef WITH_LOG_CACHE
+               if (unlink(current_log_cache_file) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to unlink() current log file `%s' : %s",
+                             current_log_cache_file, strerror(errno));
+               }
+#endif
+            }
+#ifdef WITH_LOG_CACHE
+            output_file = open_log_file(current_log_file, current_log_cache_file,
+                                        &log_cache_fd, log_pos);
+#else
             output_file = open_log_file(current_log_file);
+#endif
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
          }
@@ -414,7 +516,7 @@ main(int argc, char *argv[])
                                "After output_log buffer overflow (n = %d)", n);
                     show_buffer(fifo_buffer, n);
                  }
-#endif /* _TEST_FIFO_BUFFER */
+#endif
                  bytes_buffered = 0;
                  do
                  {
@@ -431,7 +533,7 @@ main(int argc, char *argv[])
                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                   "Output_log buffer overflow (n = %d)", n);
                        show_buffer(fifo_buffer, n);
-#endif /* _TEST_FIFO_BUFFER */
+#endif
                        length = n;
                        bytes_buffered = n;
                     }
@@ -453,18 +555,22 @@ main(int argc, char *argv[])
                        }
                        if (*archive_name_length > 0)
                        {
+#ifdef WITH_LOG_CACHE
+                          log_length = fprintf(output_file,
+#else
                           (void)fprintf(output_file,
+#endif
 #if SIZEOF_OFF_T == 4
 # if SIZEOF_TIME_T == 4
-                                        "%-*lx %s%c%s%c%lx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*lx %s%c%s%c%lx%c%.2f%c%x%c%x%c%s%c%s\n",
 # else
-                                        "%-*llx %s%c%s%c%lx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*llx %s%c%s%c%lx%c%.2f%c%x%c%x%c%s%c%s\n",
 # endif
 #else
 # if SIZEOF_TIME_T == 4
-                                        "%-*lx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*lx %s%c%s%c%llx%c%.2f%c%x%c%x%c%s%c%s\n",
 # else
-                                        "%-*llx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*llx %s%c%s%c%llx%c%.2f%c%x%c%x%c%s%c%s\n",
 # endif
 #endif
                                         LOG_DATE_LENGTH, (pri_time_t)now,
@@ -475,6 +581,8 @@ main(int argc, char *argv[])
                                         (pri_off_t)*file_size,
                                         SEPARATOR_CHAR,
                                         *transfer_duration / (double)clktck,
+                                        SEPARATOR_CHAR,
+                                        *retries,
                                         SEPARATOR_CHAR,
                                         *job_number,
                                         SEPARATOR_CHAR,
@@ -486,18 +594,22 @@ main(int argc, char *argv[])
                        }
                        else
                        {
+#ifdef WITH_LOG_CACHE
+                          log_length = fprintf(output_file,
+#else
                           (void)fprintf(output_file,
+#endif
 #if SIZEOF_OFF_T == 4
 # if SIZEOF_TIME_T == 4
-                                        "%-*lx %s%c%s%c%lx%c%.2f%c%x%c%s\n",
+                                        "%-*lx %s%c%s%c%lx%c%.2f%c%x%c%x%c%s\n",
 # else
-                                        "%-*llx %s%c%s%c%lx%c%.2f%c%x%c%s\n",
+                                        "%-*llx %s%c%s%c%lx%c%.2f%c%x%c%x%c%s\n",
 # endif
 #else
 # if SIZEOF_TIME_T == 4
-                                        "%-*lx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
+                                        "%-*lx %s%c%s%c%llx%c%.2f%c%x%c%x%c%s\n",
 # else
-                                        "%-*llx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
+                                        "%-*llx %s%c%s%c%llx%c%.2f%c%x%c%x%c%s\n",
 # endif
 #endif
                                         LOG_DATE_LENGTH, (pri_time_t)now,
@@ -509,11 +621,23 @@ main(int argc, char *argv[])
                                         SEPARATOR_CHAR,
                                         *transfer_duration / (double)clktck,
                                         SEPARATOR_CHAR,
+                                        *retries,
+                                        SEPARATOR_CHAR,
                                         *job_number,
                                         SEPARATOR_CHAR,
                                         unique_string);
                           length = check_size + *file_name_length;
                        }
+#ifdef WITH_LOG_CACHE
+                       *(time_t *)log_cache_buffer = now;
+                       if (write(log_cache_fd, log_cache_buffer,
+                                 log_cache_buf_size) != log_cache_buf_size)
+                       {
+                          system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                     "write() error : %s", strerror(errno));
+                       }
+                       (*log_pos) += log_length;
+#endif
                     }
                     n -= length;
                     if (n > 0)
@@ -553,8 +677,43 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+#ifdef WITH_LOG_CACHE
+                 if (close(log_cache_fd) == -1)
+                 {
+                    system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "close() error : %s", strerror(errno));
+                 }
+#endif
+                 if (max_output_log_files > 1)
+                 {
+                    reshuffel_log_files(log_number, log_file, p_end, 0, 0);
+#ifdef WITH_LOG_CACHE
+                    reshuffel_log_files(log_number, log_cache_file, p_cache_end, 0, 0);
+#endif
+                 }
+                 else
+                 {
+                    if (unlink(current_log_file) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to unlink() current log file `%s' : %s",
+                                  current_log_file, strerror(errno));
+                    }
+#ifdef WITH_LOG_CACHE
+                    if (unlink(current_log_cache_file) == -1)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to unlink() current log file `%s' : %s",
+                                  current_log_cache_file, strerror(errno));
+                    }
+#endif
+                 }
+#ifdef WITH_LOG_CACHE
+                 output_file = open_log_file(current_log_file, current_log_cache_file,
+                                             &log_cache_fd, log_pos);
+#else
                  output_file = open_log_file(current_log_file);
+#endif
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }
            }
@@ -566,7 +725,6 @@ main(int argc, char *argv[])
            }
    } /* for (;;) */
 
-#endif /* _OUTPUT_LOG */
    /* Should never come to this point. */
    exit(SUCCESS);
 }

@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,10 +55,10 @@ DESCR__E_M3
 #include "httpdefs.h"
 #include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
-#include "wmodefs.h"
+# include "wmodefs.h"
 #endif
 
-/* External global variables */
+/* External global variables. */
 extern int                        fsa_fd,
                                   no_of_hosts,
                                   no_of_dirs,
@@ -84,7 +84,7 @@ init_gf(int argc, char *argv[], int protocol)
    char       gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
    struct job *p_db;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    p_db = &db;
    (void)memset(&db, 0, sizeof(struct job));
    if (protocol & FTP_FLAG)
@@ -125,9 +125,12 @@ init_gf(int argc, char *argv[], int protocol)
    db.ssh_protocol = 0;
    db.sndbuf_size = 0;
    db.rcvbuf_size = 0;
+   db.my_pid = getpid();
+   db.remote_file_check_interval = DEFAULT_REMOTE_FILE_CHECK_INTERVAL;
 
    if ((status = eval_input_gf(argc, argv, p_db)) < 0)
    {
+      send_proc_fin(NO);
       exit(-status);
    }
    if (fra_attach() < 0)
@@ -140,6 +143,11 @@ init_gf(int argc, char *argv[], int protocol)
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to locate dir_alias <%s> in the FRA.", db.dir_alias);
       exit(INCORRECT);          
+   }
+   if ((db.special_flag & OLD_ERROR_JOB) && (fra[db.fra_pos].queued == 1))
+   {
+      /* No need to do any locking in get_remote_file_names_xxx(). */
+      db.special_flag &= ~OLD_ERROR_JOB;
    }
    if (fra[db.fra_pos].keep_connected > 0)
    {
@@ -154,6 +162,26 @@ init_gf(int argc, char *argv[], int protocol)
         {
            db.keep_connected = 0;
         }
+   db.no_of_time_entries = fra[db.fra_pos].no_of_time_entries;
+   if (db.no_of_time_entries == 0)
+   {
+      if ((db.te = malloc(sizeof(struct bd_time_entry))) == NULL)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not malloc() memory : %s", strerror(errno));
+         exit(ALLOC_ERROR);
+      }
+      if (eval_time_str("* * * * *", db.te) != SUCCESS)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to evaluate time string.");
+         exit(INCORRECT);
+      }
+   }
+   else
+   {
+      db.te = &fra[db.fra_pos].te[0];
+   }
 #ifdef WITH_SSL
    if ((fsa->protocol & HTTP_FLAG) && (fsa->protocol & SSL_FLAG))
    {
@@ -173,7 +201,7 @@ init_gf(int argc, char *argv[], int protocol)
       db.rcvbuf_size = fsa->sockrcv_bufsize;
    }
 
-   if ((fsa->error_counter > 0) && (fra[db.fra_pos].time_option == YES))
+   if ((fsa->error_counter > 0) && (fra[db.fra_pos].no_of_time_entries > 0))
    {
       next_check_time = fra[db.fra_pos].next_check_time;
    }
@@ -231,7 +259,7 @@ init_gf(int argc, char *argv[], int protocol)
       db.mode_str[0] = '\0';
    }
 
-   /* Open/create log fifos */
+   /* Open/create log fifos. */
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, TRANSFER_LOG_FIFO);
@@ -281,8 +309,7 @@ init_gf(int argc, char *argv[], int protocol)
 
    db.lock_offset = AFD_WORD_OFFSET +
                     (db.fsa_pos * sizeof(struct filetransfer_status));
-   (void)gsf_check_fsa();
-   if (db.fsa_pos != INCORRECT)
+   if (gsf_check_fsa() != NEITHER)
    {
 #ifdef LOCK_DEBUG
       rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);

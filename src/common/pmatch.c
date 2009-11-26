@@ -1,6 +1,6 @@
 /*
  *  pmatch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,7 +103,7 @@ pmatch2(char const *p, char const *s, time_t *pmatch_time)
       {
          if (*p == '\0')
          {
-            return(0); /* optimize common case */
+            return(0); /* Optimize common case. */
          }
          do
          {
@@ -250,62 +250,62 @@ expand_filter(char *orig_filter, char *tmp_filter, time_t check_time)
             }
             switch (*(rptr + 2))
             {
-               case 'a': /* short day of the week 'Tue' */
+               case 'a': /* Short day of the week 'Tue'. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%a", localtime(&time_buf));
                   break;
-               case 'b': /* short month 'Jan' */
+               case 'b': /* Short month 'Jan'. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%b", localtime(&time_buf));
                   break;
-               case 'j': /* day of year [001,366] */
+               case 'j': /* Day of year [001,366]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%j", localtime(&time_buf));
                   break;
-               case 'd': /* day of month [01,31] */
+               case 'd': /* Day of month [01,31]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%d", localtime(&time_buf));
                   break;
-               case 'M': /* minute [00,59] */
+               case 'M': /* Minute [00,59]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%M", localtime(&time_buf));
                   break;
-               case 'm': /* month [01,12] */
+               case 'm': /* Month [01,12]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%m", localtime(&time_buf));
                   break;
-               case 'y': /* year 2 chars [01,99] */
+               case 'y': /* Year 2 chars [01,99]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%y", localtime(&time_buf));
                   break;
-               case 'H': /* hour [00,23] */
+               case 'H': /* Hour [00,23]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%H", localtime(&time_buf));
                   break;
-               case 'S': /* second [00,59] */
+               case 'S': /* Second [00,59]. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%S", localtime(&time_buf));
                   break;
-               case 'Y': /* year 4 chars 2002 */
+               case 'Y': /* Year 4 chars 2002. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%Y", localtime(&time_buf));
                   break;
-               case 'A': /* long day of the week 'Tuesday' */
+               case 'A': /* Long day of the week 'Tuesday'. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%A", localtime(&time_buf));
                   break;
-               case 'B': /* month 'January' */
+               case 'B': /* Month 'January'. */
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%B", localtime(&time_buf));
@@ -362,32 +362,32 @@ expand_filter(char *orig_filter, char *tmp_filter, time_t check_time)
                     if (m == MAX_INT_LENGTH)
                     {
                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "The time modifier specified in the filter %s is to long.",
+                                  _("The time modifier specified in the filter %s is to long."),
                                   orig_filter);
                     }
                     else
                     {
                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "There is no time modifier specified in filter %s",
+                                  _("There is no time modifier specified in filter %s"),
                                   orig_filter);
                     }
                     time_modifier = 0;
                  }
                  switch (*rptr)
                  {
-                    case 'S' : /* Second */
+                    case 'S' : /* Second. */
                        time_unit = 1;
                        rptr++;
                        break;
-                    case 'M' : /* Minute */
+                    case 'M' : /* Minute. */
                        time_unit = 60;
                        rptr++;
                        break;
-                    case 'H' : /* Hour */
+                    case 'H' : /* Hour. */
                        time_unit = 3600;
                        rptr++;
                        break;
-                    case 'd' : /* Day */
+                    case 'd' : /* Day. */
                        time_unit = 86400;
                        rptr++;
                        break;

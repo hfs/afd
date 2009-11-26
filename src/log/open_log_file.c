@@ -43,6 +43,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   11.11.1998 H.Kiehl Created
+ **   14.08.2009 H.Kiehl Added support for log cache file.
  **
  */
 DESCR__E_M3
@@ -50,6 +51,9 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>               /* exit()                              */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>               /* sleep()                             */
 #include <errno.h>
 #include "logdefs.h"
@@ -60,7 +64,14 @@ extern char *iobuf;
 
 /*########################### open_log_file() ###########################*/
 FILE *
+#ifdef WITH_LOG_CACHE
+open_log_file(char  *log_file_name,
+              char  *current_log_cache_file,
+              int   *log_cache_fd,
+              off_t *log_pos)
+#else
 open_log_file(char *log_file_name)
+#endif
 {
    static FILE *log_file;
 
@@ -98,6 +109,28 @@ open_log_file(char *log_file_name)
          exit(INCORRECT);
       }
    }
+#ifdef WITH_LOG_CACHE
+   else
+   {
+      if (current_log_cache_file != NULL)
+      {
+         int fd;
+         struct stat stat_buf;
+
+         fd = fileno(log_file);
+         if (fstat(fd, &stat_buf) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to fstat() %s : %s",
+                       log_file_name, strerror(errno));
+         }
+         else
+         {
+            *log_pos = stat_buf.st_size;
+         }
+      }
+   }
+#endif
 
    /*
     * Increase the buffer of lib C I/O routines to have better disk
@@ -126,6 +159,50 @@ open_log_file(char *log_file_name)
                     strerror(errno));
       }
    }
+
+#ifdef WITH_LOG_CACHE
+   if (current_log_cache_file != NULL)
+   {
+      if ((*log_cache_fd = open(current_log_cache_file,
+                                (O_WRONLY | O_CREAT | O_APPEND),
+                                FILE_MODE)) == -1)
+      {
+         if (errno == ENOSPC)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "DISK FULL!!! Will retry in %d second interval.",
+                       DISK_FULL_RESCAN_TIME);
+
+            while (errno == ENOSPC)
+            {
+               (void)sleep(DISK_FULL_RESCAN_TIME);
+               errno = 0;
+               if ((*log_cache_fd = open(current_log_cache_file,
+                                         (O_WRONLY | O_CREAT | O_APPEND),
+                                         FILE_MODE)) == -1)
+               {
+                  if (errno != ENOSPC)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "Could not open() %s : %s",
+                                current_log_cache_file, strerror(errno));
+                     exit(INCORRECT);
+                  }
+               }
+            }
+            system_log(INFO_SIGN, __FILE__, __LINE__,
+                       "Continuing after disk was full.");
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open() %s : %s",
+                       current_log_cache_file, strerror(errno));
+            exit(INCORRECT);
+         }
+      }
+   }
+#endif
 
    return(log_file);
 }

@@ -47,7 +47,7 @@ DESCR__E_M1
 #include <string.h>                 /* strcpy(), strerror(), strcmp()    */
 #include <time.h>                   /* time()                            */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>               /* struct tm                         */
+# include <sys/time.h>              /* struct tm                         */
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -56,7 +56,7 @@ DESCR__E_M1
                                     /* STDERR_FILENO                     */
 #include <stdlib.h>                 /* free(), malloc()                  */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>               /* mmap(), munmap()                  */
+# include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
 #include <fcntl.h>
 #include <errno.h>
@@ -64,9 +64,9 @@ DESCR__E_M1
 #include "version.h"
 
 #ifdef HAVE_MMAP
-#ifndef MAP_FILE    /* Required for BSD          */
-#define MAP_FILE 0  /* All others do not need it */
-#endif
+# ifndef MAP_FILE    /* Required for BSD          */
+#  define MAP_FILE 0 /* All others do not need it */
+# endif
 #endif
 
 /* Global variables. */
@@ -189,11 +189,11 @@ main(int argc, char *argv[])
       afdstat_size[i] = stat_buf.st_size;
       if ((p_afd_stat[i] = mmap(NULL, stat_buf.st_size,
                                 PROT_READ, (MAP_FILE | MAP_SHARED),
-                                stat_fd, 0)) == (void *) -1)
+                                stat_fd, 0)) == (caddr_t) -1)
 #else
       if ((p_afd_stat[i] = mmap_emu(NULL, stat_buf.st_size,
                                     PROT_READ, (MAP_FILE | MAP_SHARED),
-                                    statistic_file[i], 0)) == (void *) -1)
+                                    statistic_file[i], 0)) == (caddr_t) -1)
 #endif
       {
          (void)fprintf(stderr,

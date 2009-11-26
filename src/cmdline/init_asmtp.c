@@ -1,6 +1,6 @@
 /*
  *  init_asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -54,14 +54,14 @@ DESCR__E_M3
 #include "cmdline.h"
 #include "smtpdefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int  sys_log_fd;
 extern char *p_work_dir;
 
-/* Local global variables */
+/* Local global variables. */
 static char name[30];
 
-/* local functions */
+/* Local function prototypes. */
 static void usage(void);
 
 
@@ -73,7 +73,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
    (void)strcpy(name, argv[0]);
 
-   /* First initialize all values with default values */
+   /* First initialize all values with default values. */
    p_db->blocksize        = DEFAULT_TRANSFER_BLOCKSIZE;
    p_db->smtp_server[0]   = '\0';
    p_db->user[0]          = '\0';
@@ -91,7 +91,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
    p_db->filename         = NULL;
    p_db->realname         = NULL;
 
-   /* Evaluate all arguments with '-' */
+   /* Evaluate all arguments with '-'. */
    while ((--argc > 0) && ((*++argv)[0] == '-'))
    {
       switch (*(argv[0] + 1))
@@ -100,11 +100,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Adresse angegeben fuer Option -a.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No address specified for option -a.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No address specified for option -a.\n"));
                correct = NO;
             }
             else
@@ -140,54 +137,35 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                         else
                         {
                            (void)fprintf(stderr,
-#ifdef _GERMAN
-                                         "ERROR   : Die Zieladdresse ist zu lang, darf maximal %d Zeichen lang sein.\n",
-#else
-                                         "ERROR   : The hostname is to long, it may only be %d characters long.\n",
-#endif
+                                         _("ERROR   : The hostname is to long, it may only be %d characters long.\n"),
                                          MAX_FILENAME_LENGTH);
                            correct = NO;
                         }
                      }
                      else
                      {
-#ifdef _GERMAN
-                        (void)fprintf(stderr, "ERROR   : Keine Zieladresse angegeben.\n");
-#else
-                        (void)fprintf(stderr, "ERROR   : No hostname specified.\n");
-#endif
+                        (void)fprintf(stderr,
+                                      _("ERROR   : No hostname specified.\n"));
                         correct = NO;
                      }
                   }
                   else /* No user name specified. */
                   {
-#ifdef _GERMAN
-                     (void)fprintf(stderr, "ERROR   : Kein Nutzername angegeben.\n");
-#else
-                     (void)fprintf(stderr, "ERROR   : No user specified.\n");
-#endif
+                     (void)fprintf(stderr, _("ERROR   : No user specified.\n"));
                      correct = NO;
                   }
                }
                else if (length < MAX_USER_NAME_LENGTH)
                     {
                        (void)fprintf(stderr,
-#ifdef _GERMAN
-                                     "ERROR   : Kein remote host angegeben. (%s)\n",
-#else
-                                     "ERROR   : No remote host specified. (%s)\n",
-#endif
+                                     _("ERROR   : No remote host specified. (%s)\n"),
                                      argv[1]);
                        correct = NO;
                     }
                     else
                     {
                        (void)fprintf(stderr,
-#ifdef _GERMAN
-                                     "ERROR   : Der Nutzername ist zu lang, darf maximal %d Zeichen lang sein.\n",
-#else
-                                     "ERROR   : The user name is to long, it may only be %d characters long.\n",
-#endif
+                                     _("ERROR   : The user name is to long, it may only be %d characters long.\n"),
                                      MAX_USER_NAME_LENGTH);
                        correct = NO;
                     }
@@ -196,15 +174,12 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'b' : /* Transfer block size */
+         case 'b' : /* Transfer block size. */
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Blockgroesse angegeben fuer Option -b.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No block size specified for option -b.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No block size specified for option -b.\n"));
                correct = NO;
             }
             else
@@ -218,11 +193,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
          case 'c' : /* Configuration file for user, passwd, etc */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Konfigurationsdatei angegeben fuer Option -c.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No config file specified for option -c.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No config file specified for option -c.\n"));
                correct = NO;
             }
             else
@@ -246,11 +218,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Dateinamendatei angegeben fuer Option -f.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No filename file specified for option -f.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No filename file specified for option -f.\n"));
                correct = NO;
             }
             else
@@ -268,15 +237,12 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'h' : /* Remote host name */
+         case 'h' : /* Remote host name. */
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Kein Rechnername oder IP-Nummer angegeben fuer Option -h.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No host name or IP number specified for option -h.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No host name or IP number specified for option -h.\n"));
                correct = NO;
             }
             else
@@ -291,11 +257,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine from Addresse angegeben fuer Option -i.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No from address specified for option -i.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No from address specified for option -i.\n"));
                correct = NO;
             }
             else
@@ -307,7 +270,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                if ((p_db->from = malloc(length)) == NULL)
                {
                   (void)fprintf(stderr,
-                                "ERROR   : malloc() error : %s (%s %d)\n",
+                                _("ERROR   : malloc() error : %s (%s %d)\n"),
                                 strerror(errno), __FILE__, __LINE__);
                   correct = NO;
                }
@@ -323,11 +286,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Kein Mailserver oder IP-Nummer angegeben fuer Option -m.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No mail server name or IP number specified for option -m.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No mail server name or IP number specified for option -m.\n"));
                correct = NO;
             }
             else
@@ -347,11 +307,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine reply-to Addresse angegeben fuer Option -o.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No reply-to address specified for option -o.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No reply-to address specified for option -o.\n"));
                correct = NO;
             }
             else
@@ -363,7 +320,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                if ((p_db->reply_to = malloc(length)) == NULL)
                {
                   (void)fprintf(stderr,
-                                "ERROR   : malloc() error : %s (%s %d)\n",
+                                _("ERROR   : malloc() error : %s (%s %d)\n"),
                                 strerror(errno), __FILE__, __LINE__);
                   correct = NO;
                }
@@ -375,15 +332,12 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'p' : /* Remote TCP port number */
+         case 'p' : /* Remote TCP port number. */
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Portnummer angegeben fuer Option -p.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No port number specified for option -p.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No port number specified for option -p.\n"));
                correct = NO;
             }
             else
@@ -403,11 +357,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine Subject angegeben fuer Option -s.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No subject specified for option -s.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No subject specified for option -s.\n"));
                correct = NO;
             }
             else
@@ -419,7 +370,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                if ((p_db->subject = malloc(length)) == NULL)
                {
                   (void)fprintf(stderr,
-                                "ERROR   : malloc() error : %s (%s %d)\n",
+                                _("ERROR   : malloc() error : %s (%s %d)\n"),
                                 strerror(errno), __FILE__, __LINE__);
                   correct = NO;
                }
@@ -436,11 +387,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
-               (void)fprintf(stderr, "ERROR   : Keine maximale Wartezeit angegeben fuer Option -t.\n");
-#else
-               (void)fprintf(stderr, "ERROR   : No timeout specified for option -t.\n");
-#endif
+               (void)fprintf(stderr,
+                             _("ERROR   : No timeout specified for option -t.\n"));
                correct = NO;
             }
             else
@@ -455,13 +403,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
-#ifdef _GERMAN
                (void)fprintf(stderr,
-                             "ERROR   : Kein Nutzername angegeben fuer Option -u.\n");
-#else
-               (void)fprintf(stderr,
-                             "ERROR   : No user specified for option -u.\n");
-#endif
+                             _("ERROR   : No user specified for option -u.\n"));
                correct = NO;
             }
             else
@@ -487,13 +430,10 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             usage();
             exit(0);
 
-         default : /* Unknown parameter */
+         default : /* Unknown parameter. */
 
-#ifdef _GERMAN
-            (void)fprintf(stderr, "ERROR   : Unbekannter Parameter <%c>. (%s %d)\n",
-#else
-            (void)fprintf(stderr, "ERROR   : Unknown parameter <%c>. (%s %d)\n",
-#endif
+            (void)fprintf(stderr,
+                          _("ERROR   : Unknown parameter <%c>. (%s %d)\n"),
                           *(argv[0] + 1), __FILE__, __LINE__);
             correct = NO;
             break;
@@ -507,25 +447,15 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
    if (p_db->hostname[0] == '\0')
    {
-#ifdef _GERMAN
       (void)fprintf(stderr,
-                     "ERROR   : Keinen Rechnernamen oder IP-Nummer angegeben.\n");
-#else
-      (void)fprintf(stderr,
-                    "ERROR   : No host name or IP number specified.\n");
-#endif
+                    _("ERROR   : No host name or IP number specified.\n"));
       correct = NO;
    }
 
    if ((p_db->no_of_files == 0) && (argc == 0))
    {
-#ifdef _GERMAN
       (void)fprintf(stderr,
-                    "ERROR   : Keine Dateien zum versenden angegeben.\n");
-#else
-      (void)fprintf(stderr,
-                    "ERROR   : No files to be send specified.\n");
-#endif
+                    _("ERROR   : No files to be send specified.\n"));
       correct = NO;
    }
    else if ((correct == YES) && (argc > 0) && (p_db->no_of_files == 0))
@@ -548,7 +478,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
            }
         }
 
-   /* If input is not correct show syntax */
+   /* If input is not correct show syntax. */
    if (correct == NO)
    {
       usage();
@@ -563,105 +493,53 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 static void
 usage(void)
 {
-#ifdef _GERMAN
-   (void)fprintf(stderr, "SYNTAX: %s [Optionen] Datei(en)\n\n", name);
-   (void)fprintf(stderr, "  Optionen                     Beschreibung\n");
-   (void)fprintf(stderr, "  --version                  - Zeigt aktuelle Version.\n");
-   (void)fprintf(stderr, "  -a <Nutzer@Zieladdresse>   - Die Addresse wohin die Mail geschickt\n");
-   (void)fprintf(stderr, "                               werden soll.\n");
-   (void)fprintf(stderr, "  -b <Blockgroesse>          - Blockgroesse in Bytes. Standard\n");
-   (void)fprintf(stderr, "                               %d Bytes.\n", DEFAULT_TRANSFER_BLOCKSIZE);
-   (void)fprintf(stderr, "  -c <Konfigurations Datei>  - Konfigurationsdatei die den User, domain\n");
-   (void)fprintf(stderr, "                               und SMTP-server im URL Format beinhaltet.\n");
-   (void)fprintf(stderr, "  -e                         - Enkodiere Dateien in BASE64.\n");
-   (void)fprintf(stderr, "  -f <Dateinamen Datei>      - Datei in der alle Dateinamen stehen die\n");
-   (void)fprintf(stderr, "                               zu verschicken sind.\n");
-   (void)fprintf(stderr, "  -h <Rechnername>           - Rechnername an den die Mail geschickt\n");
-   (void)fprintf(stderr, "                               werden soll.\n");
-   (void)fprintf(stderr, "  -m <Mailserver-addresse>   - Mailserver der die Mail verschicken.\n");
-   (void)fprintf(stderr, "                               soll. Standard ist %s.\n", SMTP_HOST_NAME);
-   (void)fprintf(stderr, "  -n                         - Dateiname ist das Subject.\n");
-   (void)fprintf(stderr, "  -o <Mail-addresse>         - Wo der Empfaenger seine Antwort schicken\n");
-   (void)fprintf(stderr, "                               soll.\n");
-   (void)fprintf(stderr, "  -p <Portnummer>            - IP Portnummer des SMTP-Servers.\n");
-   (void)fprintf(stderr, "                               Standard %d.\n", DEFAULT_SMTP_PORT);
-   (void)fprintf(stderr, "  -r                         - Loescht die uebertragenen Dateien.\n");
-   (void)fprintf(stderr, "  -s <Subject>               - .\n");
-   (void)fprintf(stderr, "  -t <Wartezeit>             - Maximale Wartezeit fuer SMTP, in Sekunden.\n");
-   (void)fprintf(stderr, "                               Standard %lds.\n", DEFAULT_TRANSFER_TIMEOUT);
-   (void)fprintf(stderr, "  -u <Nutzer>                - Nutzername an den die Mail geschickt\n");
-   (void)fprintf(stderr, "                               werden soll.\n");
-   (void)fprintf(stderr, "  -v                         - Ausfuehrlich. Die Kommandos und die\n");
-   (void)fprintf(stderr, "                               Antworten des Servers werden ausgegeben.\n");
-   (void)fprintf(stderr, "  -y                         - Dateiname ist der Nutzer.\n");
-   (void)fprintf(stderr, "  -?                         - Diese Hilfe.\n\n");
-   (void)fprintf(stderr, "  Es werden folgende Rueckgabewerte zurueckgegeben:\n");
-   (void)fprintf(stderr, "      %2d - Datei wurde erfolgreich Uebertragen.\n", TRANSFER_SUCCESS);
-   (void)fprintf(stderr, "      %2d - Es konnte keine Verbindung hergestellt werden.\n", CONNECT_ERROR);
-   (void)fprintf(stderr, "      %2d - Nutzername falsch.\n", USER_ERROR);
-   (void)fprintf(stderr, "      %2d - Konnte ascii/binary-modus nicht setzen.\n", TYPE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote Datei konnte nicht geoeffnet werden.\n", OPEN_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Fehler beim schreiben in der remote Datei.\n", WRITE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote Datei konnte nicht geschlossen werden.\n", CLOSE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote Datei konnte nicht umbenannt werden.\n", MOVE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Zielverzeichnis konnte nicht gesetzt werden.\n", CHDIR_ERROR);
-   (void)fprintf(stderr, "      %2d - Verbindung abgebrochen (SMTP-timeout).\n", TIMEOUT_ERROR);
-   (void)fprintf(stderr, "      %2d - Der remote partner hat Verbindung abgebrochen.\n", CONNECTION_RESET_ERROR);
-   (void)fprintf(stderr, "      %2d - Der remote partner hat sich geweigert die Verbindung anzunehmen.\n", CONNECTION_REFUSED_ERROR);
-   (void)fprintf(stderr, "      %2d - Ursprungsdatei konnte nicht geoeffnet werden.\n", OPEN_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - Fehler beim lesen der Ursprungsdatei.\n", READ_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - Systemfehler stat().\n", STAT_ERROR);
-   (void)fprintf(stderr, "      %2d - Systemfehler malloc().\n", ALLOC_ERROR);
-   (void)fprintf(stderr, "      %2d - Konnte Datei mit Dateinamen nicht lesen.\n", FILE_NAME_FILE_ERROR);
-   (void)fprintf(stderr, "      %2d - Falsche Eingabe.\n", SYNTAX_ERROR);
-#else
-   (void)fprintf(stderr, "SYNTAX: %s [options] file(s)\n\n", name);
-   (void)fprintf(stderr, "  OPTIONS                      DESCRIPTION\n");
-   (void)fprintf(stderr, "  --version                  - Show current version\n");
-   (void)fprintf(stderr, "  -a <user@host>             - The address where the mail is sent to.\n");
-   (void)fprintf(stderr, "  -b <block size>            - Transfer block size in bytes. Default %d\n", DEFAULT_TRANSFER_BLOCKSIZE);
-   (void)fprintf(stderr, "                               Bytes.\n");
-   (void)fprintf(stderr, "  -c <config file>           - Configuration file holding user name,\n");
-   (void)fprintf(stderr, "                               domain and SMTP server in URL format.\n");
-   (void)fprintf(stderr, "  -e                         - Encode files in BASE64.\n");
-   (void)fprintf(stderr, "  -f <filename>              - File containing a list of filenames\n");
-   (void)fprintf(stderr, "                               that are to be send.\n");
-   (void)fprintf(stderr, "  -h <hostname | IP number>  - Recipient hostname of this mail.\n");
-   (void)fprintf(stderr, "  -m <mailserver-address>    - Mailserver that will send this mail.\n");
-   (void)fprintf(stderr, "                               Default is %s.\n", SMTP_HOST_NAME);
-   (void)fprintf(stderr, "  -n                         - File name is subject.\n");
-   (void)fprintf(stderr, "  -o <mail address>          - Where the receiver should send is reply.\n");
-   (void)fprintf(stderr, "  -p <port number>           - Remote port number of SMTP-server.\n");
-   (void)fprintf(stderr, "                               Default %d.\n", DEFAULT_SMTP_PORT);
-   (void)fprintf(stderr, "  -r                         - Remove transmitted file.\n");
-   (void)fprintf(stderr, "  -s <subject>               - Subject of this mail.\n");
-   (void)fprintf(stderr, "  -t <timout>                - SMTP timeout in seconds. Default %lds.\n", DEFAULT_TRANSFER_TIMEOUT);
-   (void)fprintf(stderr, "  -u <user>                  - The user who should get the mail.\n");
-   (void)fprintf(stderr, "  -v                         - Verbose. Shows all SMTP commands and\n");
-   (void)fprintf(stderr, "                               the reply from the SMTP server.\n");
-   (void)fprintf(stderr, "  -y                         - File name is user.\n");
-   (void)fprintf(stderr, "  -?                         - Display this help and exit.\n");
-   (void)fprintf(stderr, "  The following values are returned on exit:\n");
-   (void)fprintf(stderr, "      %2d - File transmitted successfully.\n", TRANSFER_SUCCESS);
-   (void)fprintf(stderr, "      %2d - Failed to connect.\n", CONNECT_ERROR);
-   (void)fprintf(stderr, "      %2d - User name wrong.\n", USER_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to set ascii/binary mode.\n", TYPE_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to send NLST command.\n", LIST_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to open remote file.\n", OPEN_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Error when writting into remote file.\n", WRITE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to close remote file.\n", CLOSE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to rename remote file.\n", MOVE_REMOTE_ERROR);
-   (void)fprintf(stderr, "      %2d - Remote directory could not be set.\n", CHDIR_ERROR);
+   (void)fprintf(stderr, _("SYNTAX: %s [options] file(s)\n\n"), name);
+   (void)fprintf(stderr, _("  OPTIONS                      DESCRIPTION\n"));
+   (void)fprintf(stderr, _("  --version                  - Show current version\n"));
+   (void)fprintf(stderr, _("  -a <user@host>             - The address where the mail is sent to.\n"));
+   (void)fprintf(stderr, _("  -b <block size>            - Transfer block size in bytes. Default %d\n"), DEFAULT_TRANSFER_BLOCKSIZE);
+   (void)fprintf(stderr, _("                               bytes.\n"));
+   (void)fprintf(stderr, _("  -c <config file>           - Configuration file holding user name,\n"));
+   (void)fprintf(stderr, _("                               domain and SMTP server in URL format.\n"));
+   (void)fprintf(stderr, _("  -e                         - Encode files in BASE64.\n"));
+   (void)fprintf(stderr, _("  -f <filename>              - File containing a list of filenames\n"));
+   (void)fprintf(stderr, _("                               that are to be send.\n"));
+   (void)fprintf(stderr, _("  -h <hostname | IP number>  - Recipient hostname of this mail.\n"));
+   (void)fprintf(stderr, _("  -i <From-address>          - Address of who send the mail.\n"));
+   (void)fprintf(stderr, _("  -m <mailserver-address>    - Mailserver that will send this mail.\n"));
+   (void)fprintf(stderr, _("                               Default is %s.\n"), SMTP_HOST_NAME);
+   (void)fprintf(stderr, _("  -n                         - File name is subject.\n"));
+   (void)fprintf(stderr, _("  -o <reply-to address>      - Where the receiver should send is reply.\n"));
+   (void)fprintf(stderr, _("  -p <port number>           - Remote port number of SMTP-server.\n"));
+   (void)fprintf(stderr, _("                               Default %d.\n"), DEFAULT_SMTP_PORT);
+   (void)fprintf(stderr, _("  -r                         - Remove transmitted file.\n"));
+   (void)fprintf(stderr, _("  -s <subject>               - Subject of this mail.\n"));
+   (void)fprintf(stderr, _("  -t <timout>                - SMTP timeout in seconds. Default %lds.\n"), DEFAULT_TRANSFER_TIMEOUT);
+   (void)fprintf(stderr, _("  -u <user>                  - The user who should get the mail.\n"));
+   (void)fprintf(stderr, _("  -v                         - Verbose. Shows all SMTP commands and\n"));
+   (void)fprintf(stderr, _("                               the reply from the SMTP server.\n"));
+   (void)fprintf(stderr, _("  -y                         - File name is user.\n"));
+   (void)fprintf(stderr, _("  -?                         - Display this help and exit.\n"));
+   (void)fprintf(stderr, _("  The following values are returned on exit:\n"));
+   (void)fprintf(stderr, _("      %2d - File transmitted successfully.\n"), TRANSFER_SUCCESS);
+   (void)fprintf(stderr, _("      %2d - Failed to connect.\n"), CONNECT_ERROR);
+   (void)fprintf(stderr, _("      %2d - User name wrong.\n"), USER_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to open remote file.\n"), OPEN_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Error when writing into remote file.\n"), WRITE_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to close remote file.\n"), CLOSE_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to rename remote file.\n"), MOVE_REMOTE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Remote directory could not be set.\n"), CHDIR_ERROR);
    (void)fprintf(stderr, "      %2d - %s.\n", TIMEOUT_ERROR, TIMEOUT_ERROR_STR);
    (void)fprintf(stderr, "      %2d - %s.\n", CONNECTION_RESET_ERROR, CONNECTION_RESET_ERROR_STR);
    (void)fprintf(stderr, "      %2d - %s.\n", CONNECTION_REFUSED_ERROR, CONNECTION_REFUSED_ERROR_STR);
-   (void)fprintf(stderr, "      %2d - Could not open source file.\n", OPEN_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to read source file.\n", READ_LOCAL_ERROR);
-   (void)fprintf(stderr, "      %2d - System error stat().\n", STAT_ERROR);
-   (void)fprintf(stderr, "      %2d - System error malloc().\n", ALLOC_ERROR);
-   (void)fprintf(stderr, "      %2d - Failed to read file name file.\n", FILE_NAME_FILE_ERROR);
-   (void)fprintf(stderr, "      %2d - Syntax wrong.\n", SYNTAX_ERROR);
-#endif
+   (void)fprintf(stderr, _("      %2d - Could not open source file.\n"), OPEN_LOCAL_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to read source file.\n"), READ_LOCAL_ERROR);
+   (void)fprintf(stderr, _("      %2d - System error stat().\n"), STAT_ERROR);
+   (void)fprintf(stderr, _("      %2d - System error malloc().\n"), ALLOC_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to read file name file.\n"), FILE_NAME_FILE_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to send remote mail address.\n"), REMOTE_USER_ERROR);
+   (void)fprintf(stderr, _("      %2d - Failed to send SMTP DATA command.\n"), DATA_ERROR);
+   (void)fprintf(stderr, _("      %2d - Syntax wrong.\n"), SYNTAX_ERROR);
 
    return;
 }

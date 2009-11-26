@@ -12,23 +12,25 @@ used for this task. The program can take the following parameters:
 </p>
 <pre>
    Usage: afd [-w &lt;AFD working dir&gt;] [-u[ &lt;user&gt;]] [option]
-                 -a          only start AFD
-                 -b          blocks starting of AFD
-                 -c          only check if AFD is active
-                 -C          check if AFD is active, if not start it
-                 -d          only start afd_ctrl dialog
-                 -h          only check for heartbeat
-                 -H          check if heartbeat is active, if not start AFD
-                 -i          initialize AFD, by deleting fifodir
-                 -I          initialize AFD, by deleting everything
-                             except for etc directory
-                 -r          removes blocking startup of AFD
-                 -s          shutdown AFD
-                 -S          silent AFD shutdown
-                 -z          set shutdown bit
-                 --help      prints out this syntax
-                 -v          just print version number
-                 --version   show current version
+
+      Other possible options:
+       -a                        only start AFD
+       -b                        blocks starting of AFD
+       -c[ &lt;timeout in seconds&gt;] only check if AFD is active
+       -C[ &lt;timeout in seconds&gt;] check if AFD is active, if not start it
+       -d                        only start afd_ctrl dialog
+       -h[ &lt;timeout in seconds&gt;] only check for heartbeat
+       -H[ &lt;timeout in seconds&gt;] check if heartbeat is active, if not start AFD
+       -i                        initialize AFD, by deleting fifodir
+       -I                        initialize AFD, by deleting everything
+                                 except for etc directory
+       -r                        removes blocking startup of AFD
+       -s                        shutdown AFD
+       -S                        silent AFD shutdown
+       -z                        set shutdown bit
+       --help                    prints out this syntax
+       -v                        just print version number
+       --version                 show current version
 </pre>
 <p>
 Before starting make sure that you have done the following:
@@ -37,7 +39,7 @@ Before starting make sure that you have done the following:
    <li>Your PATH environment must point to the directory where the
        AFD binaries are located.</li>
    <li>Have set the AFD_WORK_DIR to the directory where the AFD is suppose
-       to be running. Alternativly you can set the directory with the
+       to be running. Alternatively you can set the directory with the
        -w option.</li>
    <li>$AFD_WORK_DIR/etc directory must exist and must contain a
        a valid DIR_CONFIG with a valid entry.</li>
@@ -91,9 +93,9 @@ by init_afd.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 2005 - 2007 by H.Kiehl<br>
+   Copyright &copy; 2005 - 2008 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 03.08.2007
+   Last updated: 23.12.2008
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

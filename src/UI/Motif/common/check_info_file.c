@@ -1,6 +1,6 @@
 /*
  *  check_info_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,9 @@ DESCR__S_M3
  **                     if it does
  **
  ** SYNOPSIS
- **   int check_info_file(char *alias_name)
+ **   int check_info_file(char *alias_name,
+ **                       char *central_info_filename,
+ **                       int  check_mtime)
  **
  ** DESCRIPTION
  **   Reads the contents of the file info_file into the buffer
@@ -66,10 +68,8 @@ DESCR__E_M3
 #include <Xm/Text.h>
 
 /* External global variables. */
-extern char   *alias_info_file,
-              *central_info_file,
-              *info_data;
-extern Widget info_w;
+extern char *info_data,
+            *p_work_dir;
 
 /* Local function prototypes. */
 static void fill_default_info(void);
@@ -77,18 +77,22 @@ static void fill_default_info(void);
 
 /*########################### check_info_file() #########################*/
 int
-check_info_file(char *alias_name)
+check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
 {
    static int    first_time = YES;
    static time_t last_mtime_central = 0,
                  last_mtime_host = 0;
    int           file_changed = NO,
                  src_fd;
+   char          alias_info_file[MAX_PATH_LENGTH],
+                 central_info_file[MAX_PATH_LENGTH];
    struct stat   stat_buf;
 
+   (void)sprintf(central_info_file, "%s%s/%s", p_work_dir,
+                 ETC_DIR, central_info_filename);
    if ((stat(central_info_file, &stat_buf) == 0) && (stat_buf.st_size > 0))
    {
-      if (stat_buf.st_mtime > last_mtime_central)
+      if ((check_mtime == NO) || (stat_buf.st_mtime > last_mtime_central))
       {
          last_mtime_central = stat_buf.st_mtime;
 
@@ -148,7 +152,7 @@ check_info_file(char *alias_name)
 
                   if (info_data != NULL)
                   {
-                     /* Free previous memory chunk */
+                     /* Free previous memory chunk. */
                      free(info_data);
                   }
                   if ((info_data = malloc(length + 1)) == NULL)
@@ -171,10 +175,6 @@ check_info_file(char *alias_name)
                                    central_info_file, strerror(errno));
                   }
 
-                  /* Display the information. */
-                  XmTextSetString(info_w, NULL);  /* Clears old entry */
-                  XmTextSetString(info_w, info_data);
-
                   first_time = YES;
                   return(YES);
                }
@@ -192,9 +192,11 @@ check_info_file(char *alias_name)
     * No central Info file or alias not found in it. So lets
     * search for alias info file.
     */
+   (void)sprintf(alias_info_file, "%s%s/%s%s", p_work_dir,
+                 ETC_DIR, INFO_IDENTIFIER, alias_name);
    if ((stat(alias_info_file, &stat_buf) == 0) && (stat_buf.st_size > 0))
    {
-      if (stat_buf.st_mtime > last_mtime_host)
+      if ((check_mtime == NO) || (stat_buf.st_mtime > last_mtime_host))
       {
          last_mtime_host = stat_buf.st_mtime;
 
@@ -214,7 +216,7 @@ check_info_file(char *alias_name)
          }
          if (info_data != NULL)
          {
-            /* Free previous memory chunk */
+            /* Free previous memory chunk. */
             free(info_data);
          }
          if ((info_data = malloc(stat_buf.st_size + 1)) == NULL)
@@ -235,10 +237,6 @@ check_info_file(char *alias_name)
          (void)close(src_fd);
          info_data[stat_buf.st_size] = '\0';
 
-         /* Display the information. */
-         XmTextSetString(info_w, NULL);  /* Clears old entry */
-         XmTextSetString(info_w, info_data);
-
          first_time = YES;
          file_changed = YES;
       }
@@ -254,7 +252,7 @@ check_info_file(char *alias_name)
       (void)fprintf(stderr, "Failed to stat() %s : %s (%s %d)\n",
                     alias_info_file, strerror(errno), __FILE__, __LINE__);
 #endif
-      if (first_time == YES)
+      if ((check_mtime == NO) || (first_time == YES))
       {
          fill_default_info();
          first_time = NO;
@@ -284,10 +282,6 @@ fill_default_info(void)
 
    (void)sprintf(info_data, "\n\n\n\n\n                   %s\n",
                  NO_INFO_AVAILABLE);
-
-   /* Display the information. */
-   XmTextSetString(info_w, NULL);  /* Clears old entry */
-   XmTextSetString(info_w, info_data);
 
    return;
 }

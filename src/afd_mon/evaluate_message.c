@@ -1,6 +1,6 @@
 /*
  *  evaluate_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ DESCR__S_M1
  **               AW - Status of archive_watch
  **               WD - remote AFD working directory
  **               AV - AFD version
+ **               DJ - Danger number of jobs
  **               HL - List of current host alias names and real
  **                    hostnames
  **               DL - List of current directories
@@ -64,13 +65,14 @@ DESCR__S_M1
  ** HISTORY
  **   22.10.2006 H.Kiehl Created
  **   21.04.2007 H.Kiehl Handle job ID data.
+ **   23.11.2008 H.Kiehl Added DJ (Danger number of jobs).
  **
  */
 DESCR__E_M1
 
 #include <stdio.h>           /* fprintf()                                */
 #include <string.h>          /* strcpy(), strcat(), strerror()           */
-#include <stdlib.h>          /* strtoul()                                */
+#include <stdlib.h>          /* strtoul(), atoi(), atol()                */
 #include <ctype.h>           /* isdigit()                                */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -490,7 +492,7 @@ evaluate_message(int *bytes_done)
               (void)sprintf(ahl_file_name, "%s%s%s%s",
                             p_work_dir, FIFO_DIR, AHL_FILE_NAME,
                             msa[afd_no].afd_alias);
-              if ((ahl_ptr = attach_buf(ahl_file_name, &fd, ahl_size,
+              if ((ahl_ptr = attach_buf(ahl_file_name, &fd, &ahl_size,
                                         NULL, FILE_MODE, NO)) == (caddr_t) -1)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -567,7 +569,7 @@ evaluate_message(int *bytes_done)
               }
               adl_size = new_no_of_dirs * sizeof(struct afd_dir_list);
               msa[afd_no].no_of_dirs = new_no_of_dirs;
-              if ((adl_ptr = attach_buf(adl_file_name, &fd, adl_size,
+              if ((adl_ptr = attach_buf(adl_file_name, &fd, &adl_size,
                                         NULL, FILE_MODE, NO)) == (caddr_t) -1)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -645,7 +647,7 @@ evaluate_message(int *bytes_done)
               }
               ajl_size = new_no_of_job_ids * sizeof(struct afd_job_list);
               msa[afd_no].no_of_jobs = new_no_of_job_ids;
-              if ((ajl_ptr = attach_buf(ajl_file_name, &fd, ajl_size,
+              if ((ajl_ptr = attach_buf(ajl_file_name, &fd, &ajl_size,
                                         NULL, FILE_MODE, NO)) == (caddr_t) -1)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1400,6 +1402,26 @@ evaluate_message(int *bytes_done)
            ret = SUCCESS;
         }
    /*
+    * Danger number of Jobs (DJ)
+    */
+   else if ((*ptr == 'D') && (*(ptr + 1) == 'J'))
+        {
+           if ((*bytes_done - 3) < MAX_INT_LENGTH)
+           {
+              msa[afd_no].danger_no_of_jobs = atol(ptr + 3);
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "DJ %ld\n", msa[afd_no].danger_no_of_jobs);
+#endif
+           }
+           else
+           {
+              mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                      "Danger number of Jobs is %d Bytes long, but can handle only %d Bytes.",
+                      *bytes_done - 3, MAX_INT_LENGTH);
+           }
+           ret = SUCCESS;
+        }
+   /*
     * Remote AFD working directory. (WD)
     */
    else if ((*ptr == 'W') && (*(ptr + 1) == 'D'))
@@ -1465,7 +1487,7 @@ reshuffel_dir_data(int no_of_dirs)
                  p_work_dir, FIFO_DIR, OLD_ADL_FILE_NAME,
                  msa[afd_no].afd_alias);
    oadl_size = AFD_WORD_OFFSET + (DATA_STEP_SIZE * sizeof(struct afd_dir_list));
-   if ((ptr = attach_buf(tmp_adl_file_name, &oadl_fd, oadl_size, NULL,
+   if ((ptr = attach_buf(tmp_adl_file_name, &oadl_fd, &oadl_size, NULL,
                          FILE_MODE, NO)) == (caddr_t) -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1492,7 +1514,7 @@ reshuffel_dir_data(int no_of_dirs)
          char *ptr2;
 
          tmp_no_of_dirs = stat_buf.st_size / sizeof(struct afd_dir_list);
-         if ((ptr2 = map_file(tmp_adl_file_name, &fd, &stat_buf,
+         if ((ptr2 = map_file(tmp_adl_file_name, &fd, NULL, &stat_buf,
                               O_RDONLY)) == (caddr_t)-1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1522,8 +1544,7 @@ reshuffel_dir_data(int no_of_dirs)
             old_no_of_dirs = *(int *)ptr;
             ptr += AFD_WORD_OFFSET;
             oadl = (struct afd_dir_list *)ptr;
-            get_max_log_number(&gotcha, MAX_INPUT_LOG_FILES_DEF,
-                              MAX_INPUT_LOG_FILES);
+            get_max_log_number(&gotcha, MAX_ADL_FILES_DEF, MAX_ADL_FILES);
             offset_time = gotcha * SWITCH_FILE_TIME;
             no_added = no_deleted = 0;
             for (i = 0; i < old_no_of_dirs; i++)
@@ -1696,7 +1717,7 @@ reshuffel_job_data(int no_of_job_ids)
                  p_work_dir, FIFO_DIR, OLD_AJL_FILE_NAME,
                  msa[afd_no].afd_alias);
    oajl_size = AFD_WORD_OFFSET + (DATA_STEP_SIZE * sizeof(struct afd_job_list));
-   if ((ptr = attach_buf(tmp_ajl_file_name, &oajl_fd, oajl_size, NULL,
+   if ((ptr = attach_buf(tmp_ajl_file_name, &oajl_fd, &oajl_size, NULL,
                          FILE_MODE, NO)) == (caddr_t) -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1723,7 +1744,7 @@ reshuffel_job_data(int no_of_job_ids)
          char *ptr2;
 
          tmp_no_of_job_ids = stat_buf.st_size / sizeof(struct afd_job_list);
-         if ((ptr2 = map_file(tmp_ajl_file_name, &fd, &stat_buf,
+         if ((ptr2 = map_file(tmp_ajl_file_name, &fd, NULL, &stat_buf,
                               O_RDONLY)) == (caddr_t)-1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1753,8 +1774,7 @@ reshuffel_job_data(int no_of_job_ids)
             old_no_of_job_ids = *(int *)ptr;
             ptr += AFD_WORD_OFFSET;
             oajl = (struct afd_job_list *)ptr;
-            get_max_log_number(&gotcha, MAX_OUTPUT_LOG_FILES_DEF,
-                              MAX_OUTPUT_LOG_FILES);
+            get_max_log_number(&gotcha, MAX_AJL_FILES_DEF, MAX_AJL_FILES);
             offset_time = gotcha * SWITCH_FILE_TIME;
             no_added = no_deleted = 0;
             for (i = 0; i < old_no_of_job_ids; i++)

@@ -1,6 +1,6 @@
 /*
  *  queue_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -83,14 +83,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, MSG_QUEUE_FILE);
    if ((fd = open(file, O_RDWR)) == -1)
    {
-      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
    if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
-      (void)fprintf(stderr, "Failed to mmap() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to mmap() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -136,13 +136,13 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stdout, "No messages queued.\n");
+      (void)fprintf(stdout, _("No messages queued.\n"));
    }
 
    ptr -= AFD_WORD_OFFSET;
    if (munmap(ptr, stat_buf.st_size) == -1)
    {
-      (void)fprintf(stderr, "Failed to munmap() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, _("Failed to munmap() %s : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
    }
    (void)close(fd);

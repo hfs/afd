@@ -47,7 +47,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int               no_of_time_jobs,
                          *time_job_list;
 extern struct instant_db *db;

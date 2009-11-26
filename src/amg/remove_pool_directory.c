@@ -29,7 +29,7 @@ DESCR__S_M3
  **   void remove_pool_directory(char *job_dir, unsigned int dir_id)
  **
  ** DESCRIPTION
- **   The function remove_job_directory() removes all files in job_dir
+ **   The function remove_pool_directory() removes all files in job_dir
  **   and the job_directory. All files deleted are logged in the
  **   delete log.
  **
@@ -55,7 +55,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 #ifdef _DELETE_LOG
 extern struct delete_log dl;
 #endif
@@ -108,13 +108,20 @@ remove_pool_directory(char *job_dir, unsigned int dir_id)
                size_t dl_real_size;
 
                (void)strcpy(dl.file_name, p_dir->d_name);
-               (void)sprintf(dl.host_name, "%-*s %x",
-                             MAX_HOSTNAME_LENGTH, "-", OTHER_INPUT_DEL);
+               (void)sprintf(dl.host_name, "%-*s %03x",
+                             MAX_HOSTNAME_LENGTH, "-", DELETE_UNKNOWN_POOL_DIR);
                *dl.file_size = stat_buf.st_size;
-               *dl.job_number = dir_id;
+               *dl.dir_id = dir_id;
+               *dl.job_id = 0;
+               *dl.input_time = 0L;
+               *dl.split_job_counter = 0;
+               *dl.unique_number = 0;
                *dl.file_name_length = strlen(p_dir->d_name);
+               *(ptr - 1) = '\0';
                prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
-                                          "AMG Removed from pool directory.");
+                                          "%s%c%s",
+                                          AMG, SEPARATOR_CHAR, job_dir);
+               *(ptr - 1) = '/';
                dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                {

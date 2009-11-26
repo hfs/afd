@@ -1,6 +1,6 @@
 /*
  *  msync_emu.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1994 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1994 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,12 +44,12 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "mmap_emu.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -70,7 +70,7 @@ msync_emu(char *shmptr)
    if ((write_fd = open(request_fifo, 1)) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "MSYNC_EMU : Failed to open() <%s> : %s",
+                 _("Failed to open() `%s' : %s",)
                  request_fifo, strerror(errno));
       return(-1);
    }
@@ -86,25 +86,26 @@ msync_emu(char *shmptr)
    {
       (void)close(write_fd);
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "MSYNC_EMU : Could not extract the filename.");
+                 _("Could not extract the filename."));
       return(-1);
    }
    buf[i++] = '\n';
    buf[i] = '\0';
 #ifdef _MMAP_EMU_DEBUG
-   (void)fprintf(stderr,"MSYNC_EMU : %s", buf);
+   (void)fprintf(stderr,"msync_emu() : %s", buf);
 #endif
    buf_length = strlen((char *)buf);
    if (write(write_fd, buf, buf_length) != buf_length)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "write() fifo error : %s", strerror(errno));
+                 _("write() error : %s"), strerror(errno));
    }
 
-   if (close(write_fd) < 0)
+   if (close(write_fd) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to close() <%s> : %s", request_fifo, strerror(errno));
+                 _("Failed to close() `%s' : %s"),
+                 request_fifo, strerror(errno));
    }
 #endif /* HAVE_MMAP */
 

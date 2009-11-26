@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                 dnb_fd,
                            *no_of_dir_names;
 extern struct dir_name_buf *dnb;
@@ -104,7 +104,7 @@ lookup_dir_id(char *dir_name, char *orig_dir_name)
       dnb = (struct dir_name_buf *)ptr;
    }
 
-   /* Determine the directory ID */
+   /* Determine the directory ID. */
    length = strlen(dir_name);
    orig_length = strlen(orig_dir_name);
    buf_size = length + orig_length + 3;

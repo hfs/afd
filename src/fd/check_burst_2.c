@@ -1,6 +1,6 @@
 /*
  *  check_burst_2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int check_burst_2(char         *file_path,
  **                     int          *files_to_send,
+ **                     int          *ol_fd,
  **                     unsigned int *total_append_count,
  **                     unsigned int *values_changed)
  **
@@ -106,6 +107,9 @@ check_burst_2(char         *file_path,
 #ifdef _WITH_INTERRUPT_JOB
               int          interrupt,
 #endif
+#ifdef _OUTPUT_LOG
+              int          *ol_fd,
+#endif
 #ifndef AFDBENCH_CONFIG
               unsigned int *total_append_count,
 #endif
@@ -116,7 +120,8 @@ check_burst_2(char         *file_path,
    if ((fsa->protocol_options & DISABLE_BURSTING) == 0)
    {
       int              in_keep_connected_loop;
-      unsigned int     alarm_sleep_time;
+      unsigned int     alarm_sleep_time,
+                       prev_job_id;
       time_t           start_time;
       sigset_t         newmask,
                        oldmask,
@@ -146,6 +151,7 @@ check_burst_2(char         *file_path,
       do
       {
          ret = NO;
+         prev_job_id = 0;
 
          /* It could be that the FSA changed. */
          if ((gsf_check_fsa() == YES) && (db.fsa_pos == INCORRECT))
@@ -219,15 +225,21 @@ check_burst_2(char         *file_path,
                   how[8] = 'o'; how[9] = 'v'; how[10] = 'e'; how[11] = 'd';
                   how[12] = '\0';
                }
-               else
-               {
-                  how[0] = 's'; how[1] = 'e'; how[2] = 'n';
-                  how[3] = 'd'; how[4] = '\0';
-               }
+               else if (db.protocol & SMTP_FLAG)
+                    {
+                       how[0] = 'm'; how[1] = 'a'; how[2] = 'i';
+                       how[3] = 'l'; how[4] = 'e'; how[5] = 'd';
+                       how[6] = '\0';
+                    }
+                    else
+                    {
+                       how[0] = 's'; how[1] = 'e'; how[2] = 'n';
+                       how[3] = 'd'; how[4] = '\0';
+                    }
 # if SIZEOF_OFF_T == 4
-               length = sprintf(msg_str, "%lu Bytes %s in %d file(s).",
+               length = sprintf(msg_str, "%lu bytes %s in %d file(s).",
 # else
-               length = sprintf(msg_str, "%llu Bytes %s in %d file(s).",
+               length = sprintf(msg_str, "%llu bytes %s in %d file(s).",
 # endif
                                 fsa->job_status[(int)db.job_no].file_size_done - prev_file_size_done,
                                 how, diff_no_of_files_done);
@@ -259,7 +271,7 @@ check_burst_2(char         *file_path,
                                      (burst_2_counter - 1));
                        burst_2_counter = 1;
                     }
-               trans_log(INFO_SIGN, NULL, 0, NULL, "%s", msg_str);
+               trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", msg_str);
             }
 #endif
             (void)alarm(alarm_sleep_time);
@@ -268,8 +280,7 @@ check_burst_2(char         *file_path,
             sigdelset(&suspmask, SIGUSR1);
             sigsuspend(&suspmask); /* Wait for SIGUSR1 or SIGALRM. */
             (void)alarm(0);
-            (void)gsf_check_fsa();
-            if (db.fsa_pos != INCORRECT)
+            if (gsf_check_fsa() != NEITHER)
             {
                if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
                {
@@ -418,8 +429,7 @@ check_burst_2(char         *file_path,
                sigdelset(&suspmask, SIGUSR1);
                sigsuspend(&suspmask);
                (void)alarm(0);
-               (void)gsf_check_fsa();
-               if (db.fsa_pos != INCORRECT)
+               if (gsf_check_fsa() != NEITHER)
                {
                   if (fsa->job_status[(int)db.job_no].unique_name[2] == 4)
                   {
@@ -476,8 +486,7 @@ check_burst_2(char         *file_path,
                if ((alarm_triggered == YES) &&
                    (fsa->job_status[(int)db.job_no].unique_name[1] == '\0'))
                {
-                  (void)gsf_check_fsa();
-                  if (db.fsa_pos != INCORRECT)
+                  if (gsf_check_fsa() != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].unique_name[2] = 1;
                   }
@@ -526,6 +535,7 @@ check_burst_2(char         *file_path,
             {
                char msg_name[MAX_PATH_LENGTH];
 
+               prev_job_id = db.job_id;
                db.job_id = fsa->job_status[(int)db.job_no].job_id;
                if ((p_new_db = malloc(sizeof(struct job))) == NULL)
                {
@@ -544,6 +554,10 @@ check_burst_2(char         *file_path,
                }
                p_new_db->special_ptr          = NULL;
                p_new_db->subject              = NULL;
+               p_new_db->from                 = NULL;
+               p_new_db->reply_to             = NULL;
+               p_new_db->charset              = NULL;
+               p_new_db->lock_file_name       = NULL;
 #ifdef _WITH_TRANS_EXEC
                p_new_db->trans_exec_cmd       = NULL;
                p_new_db->trans_exec_timeout   = DEFAULT_EXEC_TIMEOUT;
@@ -575,6 +589,7 @@ check_burst_2(char         *file_path,
                p_new_db->trans_rename_rule[0] = '\0';
                p_new_db->user_rename_rule[0]  = '\0';
                p_new_db->rename_file_busy     = '\0';
+               p_new_db->group_list           = NULL;
                p_new_db->no_of_restart_files  = 0;
                p_new_db->restart_file         = NULL;
                p_new_db->user_id              = -1;
@@ -582,7 +597,6 @@ check_burst_2(char         *file_path,
 #ifdef WITH_DUP_CHECK
                p_new_db->dup_check_flag       = fsa->dup_check_flag;
                p_new_db->dup_check_timeout    = fsa->dup_check_timeout;
-               p_new_db->crc_id               = fsa->host_id;
 #endif
 #ifdef WITH_SSL
                p_new_db->auth                 = NO;
@@ -617,6 +631,10 @@ check_burst_2(char         *file_path,
                     {
                        p_new_db->port = -1;
                     }
+               if (fsa->protocol_options & USE_SEQUENCE_LOCKING)
+               {
+                  p_new_db->special_flag |= SEQUENCE_LOCKING;
+               }
                (void)strcpy(p_new_db->lock_notation, DOT_NOTATION);
                (void)sprintf(msg_name, "%s%s/%x",
                              p_work_dir, AFD_MSG_DIR, db.job_id);
@@ -709,7 +727,8 @@ check_burst_2(char         *file_path,
 
          if (ret == YES)
          {
-            *files_to_send = init_sf_burst2(p_new_db, file_path, values_changed);
+            *files_to_send = init_sf_burst2(p_new_db, file_path, values_changed,
+                                            prev_job_id);
             if (*files_to_send < 1)
             {
                ret = RETRY;
@@ -719,7 +738,60 @@ check_burst_2(char         *file_path,
               {
                  if (time(NULL) < (start_time + db.keep_connected))
                  {
-                    if ((db.protocol & FTP_FLAG) || (db.protocol & SFTP_FLAG))
+#ifdef _OUTPUT_LOG
+                    if (*ol_fd > -1)
+                    {
+                       (void)close(*ol_fd);
+                       *ol_fd = -2;
+                    }
+#endif
+                    if (fsa->transfer_rate_limit > 0)
+                    {
+                       int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       int  readfd;
+#endif
+                       char trl_calc_fifo[MAX_PATH_LENGTH];
+
+                       (void)strcpy(trl_calc_fifo, p_work_dir);
+                       (void)strcat(trl_calc_fifo, FIFO_DIR);
+                       (void)strcat(trl_calc_fifo, TRL_CALC_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       if (open_fifo_rw(trl_calc_fifo, &readfd, &fd) == -1)
+#else
+                       if ((fd = open(trl_calc_fifo, O_RDWR)) == -1)
+#endif
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Failed to open() FIFO `%s' : %s",
+                                     trl_calc_fifo, strerror(errno));
+                       }
+                       else
+                       {
+                          if (write(fd, &db.fsa_pos, sizeof(int)) != sizeof(int))
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to write() to FIFO `%s' : %s",
+                                        trl_calc_fifo, strerror(errno));
+                          }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                          if (close(readfd) == -1)
+                          {
+                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                        "Failed to close() FIFO `%s' (read) : %s",
+                                        trl_calc_fifo, strerror(errno));
+                          }
+#endif
+                          if (close(fd) == -1)
+                          {
+                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                        "Failed to close() FIFO `%s' (read) : %s",
+                                        trl_calc_fifo, strerror(errno));
+                          }
+                       }
+                    }
+                    if ((db.protocol & FTP_FLAG) || (db.protocol & SFTP_FLAG) ||
+                        (db.protocol & SMTP_FLAG))
                     {
                        if (noop_wrapper() == SUCCESS)
                        {

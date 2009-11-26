@@ -12,7 +12,7 @@ and collects statistics as long as AFD is up and running. Should afd_stat
 be killed or crashes, it will always be restarted by init_afd. afd_stat
 stores input and output statistics in binary form in the files
 $AFD_WORK_DIR/log/afd_istatistic_file.2006 and AFD_WORK_DIR/log/afd_statistic_file.2006
-respectivly. Where the number 2006 is the current year of the system. For
+respectively. Where the number 2006 is the current year of the system. For
 each new year afd_stat will create new input and output statistics files.
 So the old ones will not be deleted.
 </p>
@@ -20,7 +20,7 @@ So the old ones will not be deleted.
 For the input statistic the database will hold the values: number of files
 received and the number of bytes received. The output statistic database
 holds the the number of files send, number of bytes send, the number of
-network connections and the number of errors that have occured. All those
+network connections and the number of errors that have occurred. All those
 values are stored on a hourly, daily and year basis. Where the hour holds
 values in 5 second interval (that is 720 values per hour), the day holds
 24 hours and the year 365 (or 366) days.

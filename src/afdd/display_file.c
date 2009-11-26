@@ -1,6 +1,6 @@
 /*
  *  display_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,13 +47,13 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>                     /* read(), write(), close()      */
 #include <errno.h>
 #include "afdddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -68,7 +68,7 @@ display_file(FILE *p_data)
    char        *buffer;
    struct stat stat_buf;
 
-   /* Open source file */
+   /* Open source file. */
    if ((from_fd = open(p_work_dir, O_RDONLY)) < 0)
    {
       (void)fprintf(p_data, "500 Failed to open() %s : %s (%s %d)\r\n",
@@ -134,7 +134,7 @@ display_file(FILE *p_data)
    if (close(from_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "Failed to close() %s : %s", p_work_dir, strerror(errno));
+                 _("Failed to close() %s : %s"), p_work_dir, strerror(errno));
    }
 
    return;

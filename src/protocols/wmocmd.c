@@ -1,6 +1,6 @@
 /*
  *  wmocmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,10 +26,10 @@ DESCR__S_M3
  **   wmocmd - commands to send files via TCP according WMO regulations
  **
  ** SYNOPSIS
- **   int  wmo_connect(char *hostname, int port, int sndbuf_size)
- **   int  wmo_write(char *block, char *buffer, int size)
- **   int  wmo_check_reply(char *expect_string)
- **   int  wmo_quit(void)
+ **   int wmo_connect(char *hostname, int port, int sndbuf_size)
+ **   int wmo_write(char *block, char *buffer, int size)
+ **   int wmo_check_reply(char *expect_string)
+ **   int wmo_quit(void)
  **
  ** DESCRIPTION
  **   wmocmd provides a set of commands to communicate with a TCP
@@ -75,7 +75,7 @@ DESCR__E_M3
 #include "fddefs.h"           /* struct job                              */
 
 
-/* External global variables */
+/* External global variables. */
 extern int                timeout_flag;
 #ifdef LINUX
 extern char               *h_errlist[];  /* for gethostbyname()          */
@@ -85,7 +85,7 @@ extern long               transfer_timeout;
 extern char               tr_hostname[];
 extern struct job         db;
 
-/* Local global variables */
+/* Local global variables. */
 static int                sock_fd;
 static struct timeval     timeout;
 
@@ -96,8 +96,10 @@ static struct timeval     timeout;
 int
 wmo_connect(char *hostname, int port, int sndbuf_size)
 {
-#ifdef _WITH_WMO_SUPPORT
    int                     loop_counter = 0;
+#ifdef WITH_TRACE
+   char                    line[26 + MAX_REAL_HOSTNAME_LENGTH + MAX_INT_LENGTH + 1];
+#endif
    struct sockaddr_in      sin;
    register struct hostent *p_host = NULL;
 #ifdef FTX
@@ -115,27 +117,27 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
 #ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to gethostbyname() %s : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                         _("Failed to gethostbyname() %s : %s"),
                          hostname, h_errlist[h_errno]);
             }
             else
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "Failed to gethostbyname() %s (h_errno = %d) : %s",
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                         _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
 #else
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to gethostbyname() %s (h_errno = %d) : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
 #endif
          }
          else
          {
 #endif /* !_HPUX && !_SCO */
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "Failed to gethostbyname() %s : %s",
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
 #if !defined (_HPUX) && !defined (_SCO)
          }
@@ -149,12 +151,36 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
 
    if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "socket() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                _("socket() error : %s"), strerror(errno));
       return(INCORRECT);
    }
    sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
+
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   if (timeout_flag != OFF)
+   {
+      int reply = 1;
+
+      if (setsockopt(sock_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
+      }
+# ifdef TCP_KEEPALIVE
+      reply = timeout_flag;
+      if (setsockopt(sock_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
+      }
+# endif
+      timeout_flag = OFF;
+   }
+#endif
 
    while (connect(sock_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
@@ -171,8 +197,8 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       }
       else
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "Failed to connect() to %s, have tried %d times : %s",
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("Failed to connect() to %s, have tried %d times : %s"),
                    hostname, loop_counter, strerror(errno));
          (void)close(sock_fd);
          sock_fd = -1;
@@ -180,35 +206,45 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       }
       if (close(sock_fd) == -1)
       {
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                   "close() error : %s", strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("close() error : %s"), strerror(errno));
       }
       if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                   "socket() error : %s", strerror(errno));
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("socket() error : %s"), strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
    }
+#ifdef WITH_TRACE
+   if (loop_counter)
+   {
+      loop_counter = sprintf(line, _("Connected to %s after %d tries"),
+                             hostname, loop_counter);
+   }
+   else
+   {
+      loop_counter = sprintf(line, _("Connected to %s"), hostname);
+   }
+   trace_log(NULL, 0, C_TRACE, line, loop_counter, NULL);
+#endif
 
 #ifdef FTX
    l.l_onoff = 1; l.l_linger = 240;
    if (setsockopt(sock_fd, SOL_SOCKET, SO_LINGER, (char *)&l,
                   sizeof(struct linger)) < 0)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "setsockopt() error : %s", strerror(errno));
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                _("setsockopt() error : %s"), strerror(errno));
       return(INCORRECT);
    }
 #endif
-#endif /* _WITH_WMO_SUPPORT */
 
    return(SUCCESS);
 }
 
 
-#ifdef _WITH_WMO_SUPPORT
 /*############################## wmo_write() ############################*/
 int
 wmo_write(char *block, int size)
@@ -216,7 +252,7 @@ wmo_write(char *block, int size)
    int    status;
    fd_set wset;
 
-   /* Initialise descriptor set */
+   /* Initialise descriptor set. */
    FD_ZERO(&wset);
    FD_SET(sock_fd, &wset);
    timeout.tv_usec = 0L;
@@ -227,7 +263,7 @@ wmo_write(char *block, int size)
 
    if (status == 0)
    {
-      /* timeout has arrived */
+      /* Timeout has arrived. */
       timeout_flag = ON;
       return(INCORRECT);
    }
@@ -236,29 +272,29 @@ wmo_write(char *block, int size)
 #ifdef _WITH_SEND
            if ((status = send(sock_fd, block, size, 0)) != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "send() error (%d) : %s", status, strerror(errno));
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_write", NULL,
+                        _("send() error (%d) : %s"), status, strerror(errno));
               return(errno);
            }
 #else
            if ((status = write(sock_fd, block, size)) != size)
            {
-              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                        "write() error (%d) : %s", status, strerror(errno));
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_write", NULL,
+                        _("write() error (%d) : %s"), status, strerror(errno));
               return(errno);
            }
 #endif
         }
         else if (status < 0)
              {
-                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                          "select() error : %s", strerror(errno));
+                trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_write", NULL,
+                          _("select() error : %s"), strerror(errno));
                 return(INCORRECT);
              }
              else
              {
-                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                          "Unknown condition.");
+                trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_write", NULL,
+                          _("Unknown condition."));
                 return(INCORRECT);
              }
    
@@ -290,8 +326,8 @@ wmo_check_reply(void)
               }
       }
 
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                "Incorrect reply from remote site.");
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_check_reply", NULL,
+                _("Incorrect reply from remote site."));
 
       /* Show context of what has been returned. */
       {
@@ -321,31 +357,32 @@ wmo_check_reply(void)
          } while (no_read > 0);
 
          line[line_length] = '\0';
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, "%s", line);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_check_reply", NULL,
+                   "%s", line);
       }
    }
-   else if (n == -1) /* Read error */
+   else if (n == -1) /* Read error. */
         {
            if (errno == ECONNRESET)
            {
               timeout_flag = CON_RESET;
            }
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "read() error : %s", strerror(errno));
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_check_reply", NULL,
+                     _("read() error : %s"), strerror(errno));
         }
-   else if (n == -2) /* Timeout */
+   else if (n == -2) /* Timeout. */
         {
            timeout_flag = ON;
         }
-   else if (n == -3) /* Select error */
+   else if (n == -3) /* Select error. */
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "select() error : %s", strerror(errno));
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_check_reply", NULL,
+                     _("select() error : %s"), strerror(errno));
         }
         else
         {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "Remote site closed connection.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_check_reply", NULL,
+                     _("Remote site closed connection."));
         }
 
    return(INCORRECT);
@@ -362,8 +399,8 @@ wmo_quit(void)
       {
          if (shutdown(sock_fd, 1) < 0)
          {
-            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                      "shutdown() error : %s", strerror(errno));
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
+                      _("shutdown() error : %s"), strerror(errno));
          }
          else
          {
@@ -371,7 +408,7 @@ wmo_quit(void)
             char   buffer[32];
             fd_set rset;
 
-            /* Initialise descriptor set */
+            /* Initialise descriptor set. */
             FD_ZERO(&rset);
             FD_SET(sock_fd, &rset);
             timeout.tv_usec = 0L;
@@ -382,38 +419,37 @@ wmo_quit(void)
 
             if (status == 0)
             {
-               /* timeout has arrived */
+               /* Timeout has arrived. */
                timeout_flag = ON;
             }
             else if (FD_ISSET(sock_fd, &rset))
                  {
                     if ((status = read(sock_fd, buffer, 32)) < 0)
                     {
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                 "read() error (%d) : %s",
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
+                                 _("read() error (%d) : %s"),
                                  status, strerror(errno));
                     }
                  }
             else if (status < 0)
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "select() error : %s", strerror(errno));
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
+                              _("select() error : %s"), strerror(errno));
                  }
                  else
                  {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "Unknown condition.");
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
+                              _("Unknown condition."));
                  }
          }
       }
       if (close(sock_fd) == -1)
       {
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                   "close() error : %s", strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
+                   _("close() error : %s"), strerror(errno));
       }
       sock_fd = -1;
    }
 
    return;
 }
-#endif /* _WITH_WMO_SUPPORT */

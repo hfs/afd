@@ -1,6 +1,6 @@
 /*
  *  get_pw.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   get_pw - gets the password from password file
  **
  ** SYNOPSIS
- **   int get_pw(char *uh_name, char *password)
+ **   int get_pw(char *uh_name, char *password, int url_conform)
  **
  ** DESCRIPTION
  **   Gets the password for the given user hostname combination (uh_name)
@@ -52,10 +52,10 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>           /* fstat()                               */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>           /* mmap(), munmap()                      */
+# include <sys/mman.h>          /* mmap(), munmap()                      */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>              /* open()                                */
+# include <fcntl.h>             /* open()                                */
 #endif
 #include <unistd.h>             /* close()                               */
 #include <errno.h>
@@ -66,7 +66,7 @@ extern char *p_work_dir;
 
 /*############################# get_pw() ################################*/
 int
-get_pw(char *uh_name, char *password)
+get_pw(char *uh_name, char *password, int url_conform)
 {
    int  pwb_fd,
         ret;
@@ -90,7 +90,8 @@ get_pw(char *uh_name, char *password)
       else
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to open() %s : %s", pwb_file_name, strerror(errno));
+                    _("Failed to open() `%s' : %s"),
+                    pwb_file_name, strerror(errno));
          ret = INCORRECT;
       }
    }
@@ -106,7 +107,7 @@ get_pw(char *uh_name, char *password)
       if (fstat(pwb_fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to fstat() %s : %s",
+                    _("Failed to fstat() `%s' : %s"),
                     pwb_file_name, strerror(errno));
          ret = INCORRECT;
       }
@@ -115,7 +116,7 @@ get_pw(char *uh_name, char *password)
          if (stat_buf.st_size <= AFD_WORD_OFFSET)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Password file %s is not long enough to contain any valid data.",
+                       _("Password file %s is not long enough to contain any valid data."),
                        pwb_file_name);
             ret = INCORRECT;
          }
@@ -132,14 +133,16 @@ get_pw(char *uh_name, char *password)
 #endif
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to mmap() %s : %s",
+                          _("Failed to mmap() `%s' : %s"),
                           pwb_file_name, strerror(errno));
                ret = INCORRECT;
             }
             else
             {
-               int               i, j,
+               int               digit,
+                                 i, j, k,
                                  no_of_passwd;
+               char              str_hex[2];
                unsigned char     *tmp_ptr;
                struct passwd_buf *pwb;
 
@@ -153,16 +156,99 @@ get_pw(char *uh_name, char *password)
                   if (CHECK_STRCMP(uh_name, pwb[i].uh_name) == 0)
                   {
                      tmp_ptr = pwb[i].passwd;
-                     j = 0;
+                     j = 0; k = 0;
+                     digit = -1;
                      while (*tmp_ptr != '\0')
                      {
                         if ((j % 2) == 0)
                         {
-                           password[j] = *tmp_ptr + 24 - j;
+                           password[k] = *tmp_ptr + 24 - j;
                         }
                         else
                         {
-                           password[j] = *tmp_ptr + 11 - j;
+                           password[k] = *tmp_ptr + 11 - j;
+                        }
+                        if (url_conform != YES)
+                        {
+                           if (password[k] == '%')
+                           {
+                              digit = 0;
+                           }
+                           else if (digit != -1)
+                                {
+                                   str_hex[digit] = password[k];
+                                   if (digit == 1)
+                                   {
+                                      int value = -1;
+
+                                      if ((str_hex[0] >= '0') &&
+                                          (str_hex[0] <= '9'))
+                                      {
+                                         value = (str_hex[0] - '0') * 16;
+                                      }
+                                      else if ((str_hex[0] >= 'a') &&
+                                               (str_hex[0] <= 'f'))
+                                           {
+                                              value = ((str_hex[0] - 'a') + 10) * 16;
+                                           }
+                                      else if ((str_hex[0] >= 'A') &&
+                                               (str_hex[0] <= 'F'))
+                                           {
+                                              value = ((str_hex[0] - 'A') + 10) * 16;
+                                           }
+                                      if (value != -1)
+                                      {
+                                         if ((str_hex[1] >= '0') &&
+                                             (str_hex[1] <= '9'))
+                                         {
+                                            value += (str_hex[1] - '0');
+                                            password[k] = value;
+                                            k++;
+                                         }
+                                         else if ((str_hex[1] >= 'a') &&
+                                                  (str_hex[1] <= 'f'))
+                                              {
+                                                 value += ((str_hex[1] - 'a') + 10);
+                                                 password[k] = value;
+                                                 k++;
+                                              }
+                                         else if ((str_hex[1] >= 'A') &&
+                                                  (str_hex[1] <= 'F'))
+                                              {
+                                                 value += ((str_hex[1] - 'A') + 10);
+                                                 password[k] = value;
+                                                 k++;
+                                              }
+                                              else
+                                              {
+                                                 password[k] = '%';
+                                                 password[k + 1] = str_hex[0];
+                                                 password[k + 2] = str_hex[1];
+                                                 k += 3;
+                                              }
+                                         digit = -1;
+                                      }
+                                      else
+                                      {
+                                         password[k] = '%';
+                                         password[k + 1] = str_hex[0];
+                                         k += 2;
+                                         digit = -1;
+                                      }
+                                   }
+                                   else
+                                   {
+                                      digit++;
+                                   }
+                                }
+                                else
+                                {
+                                   k++;
+                                }
+                        }
+                        else
+                        {
+                           k++;
                         }
                         tmp_ptr++; j++;
                      }
@@ -179,7 +265,7 @@ get_pw(char *uh_name, char *password)
 #endif
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to munmap() from %s : %s",
+                             _("Failed to munmap() from `%s' : %s"),
                              pwb_file_name, strerror(errno));
                }
             }
@@ -187,7 +273,7 @@ get_pw(char *uh_name, char *password)
       }
       if (close(pwb_fd) == -1)
       {
-         system_log(WARN_SIGN, __FILE__, __LINE__, "close() error : %s",
+         system_log(WARN_SIGN, __FILE__, __LINE__, _("close() error : %s"),
                     strerror(errno));
       }
    }

@@ -52,16 +52,16 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>                 /* close()                           */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern char       *p_work_dir;
 
-/* Global variables */
+/* Global variables. */
 int               first_time = YES;
 
 

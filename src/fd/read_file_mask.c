@@ -1,7 +1,7 @@
 /*
  *  read_file_mask.c - Part of AFD, an automatic file distribution
  *                     program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -102,8 +102,9 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to read() %d Bytes from `%s' : %s",
+                 "Failed to read() %d bytes from `%s' : %s",
                  stat_buf.st_size, file_mask_file, strerror(errno));
+      free(buffer);
       (void)close(fd);
       return(INCORRECT);
    }
@@ -115,6 +116,7 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to malloc() %d bytes : %s",
                  (*nfg * sizeof(struct file_mask)), strerror(errno));
+      free(buffer);
       (void)close(fd);
       return(INCORRECT);
    }

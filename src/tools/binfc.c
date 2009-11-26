@@ -10,8 +10,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-int         counter_fd,
-            sys_log_fd = STDERR_FILENO;
+int         sys_log_fd = STDERR_FILENO;
 char        *p_work_dir;
 const char  *sys_log_name = SYSTEM_LOG_FIFO;
 
@@ -39,13 +38,6 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
-   if ((counter_fd = open_counter_file(COUNTER_FILE)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open counter file : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
 
 /*
    while (argc > 1)
@@ -136,7 +128,7 @@ get_number_of_fields(char *bin_file)
       return(INCORRECT);
    }
 
-   /* Close the file since we do not need it anymore */
+   /* Close the file since we do not need it anymore. */
    if (close(fd) == -1)
    {
       (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
@@ -206,5 +198,5 @@ search_start(char *search_text,
    }
    *total_length = tmp_length;
 
-   return(NULL); /* Found nothing */
+   return(NULL); /* Found nothing. */
 }

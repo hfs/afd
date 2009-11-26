@@ -1,6 +1,6 @@
 /*
  *  sf_sftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,14 +67,14 @@ DESCR__E_M1
 #include <string.h>                    /* strcpy(), strcat(), strcmp(),  */
                                        /* strerror()                     */
 #include <stdlib.h>                    /* malloc(), free(), abort()      */
-#include <ctype.h>                     /* isdigit()                      */
+#include <ctype.h>                     /* isdigit(), isalpha()           */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _OUTPUT_LOG
-#include <sys/times.h>                 /* times()                        */
+# include <sys/times.h>                /* times()                        */
 #endif
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
@@ -84,7 +84,7 @@ DESCR__E_M1
 #include "sftpdefs.h"
 #include "version.h"
 #ifdef WITH_EUMETSAT_HEADERS
-#include "eumetsat_header_defs.h"
+# include "eumetsat_header_defs.h"
 #endif
 
 /* Global variables. */
@@ -106,6 +106,24 @@ int                        event_log_fd = STDERR_FILENO,
                            trans_rename_blocked = NO,
                            amg_flag = NO,
                            timeout_flag;
+#ifdef _OUTPUT_LOG
+int                        ol_fd = -2;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+int                        ol_readfd = -2;
+# endif
+unsigned int               *ol_job_number,
+                           *ol_retries;
+char                       *ol_data = NULL,
+                           *ol_file_name,
+                           *ol_output_type;
+unsigned short             *ol_archive_name_length,
+                           *ol_file_name_length,
+                           *ol_unl;
+off_t                      *ol_file_size;
+size_t                     ol_size,
+                           ol_real_size;
+clock_t                    *ol_transfer_time;
+#endif /* _OUTPUT_LOG */
 #ifdef _WITH_BURST_2
 unsigned int               burst_2_counter = 0,
                            total_append_count = 0;
@@ -115,6 +133,7 @@ off_t                      fsa_size;
 #endif
 off_t                      append_offset = 0,
                            *file_size_buffer = NULL;
+time_t                     *file_mtime_buffer = NULL;
 u_off_t                    prev_file_size_done = 0;
 long                       transfer_timeout;
 char                       *del_file_name_buffer = NULL,
@@ -131,7 +150,14 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions. */
+/* Local global variables. */
+static int                 files_send,
+                           files_to_send,
+                           local_file_counter;
+static off_t               local_file_size,
+                           *p_file_size_buffer;
+
+/* Local function prototypes. */
 static void                sf_sftp_exit(void),
                            sig_bus(int),
                            sig_segv(int),
@@ -144,6 +170,7 @@ int
 main(int argc, char *argv[])
 {
    int              buffer_offset,
+                    current_toggle,
                     counter_fd = -1,
                     exit_status = TRANSFER_SUCCESS,
                     j,
@@ -151,36 +178,23 @@ main(int argc, char *argv[])
                     status,
                     bytes_buffered,
                     append_file_number = -1,
-                    files_to_send,
-                    files_send = 0,
-                    blocksize;
+                    blocksize,
+                    *unique_counter;
    off_t            no_of_bytes;
    clock_t          clktck;
+   time_t           now,
+                    last_update_time,
+                    *p_file_mtime_buffer;
 #ifdef _WITH_BURST_2
    int              cb2_ret,
                     disconnect = NO;
    unsigned int     values_changed = 0;
-#endif /* _WITH_BURST_2 */
+#endif
 #ifdef _OUTPUT_LOG
-   int              ol_fd = -1;
-# ifdef WITHOUT_FIFO_RW_SUPPORT
-   int              ol_readfd = -1;
-# endif
-   unsigned int     *ol_job_number;
-   char             *ol_data = NULL,
-                    *ol_file_name;
-   unsigned short   *ol_archive_name_length,
-                    *ol_file_name_length,
-                    *ol_unl;
-   off_t            *ol_file_size;
-   size_t           ol_size,
-                    ol_real_size;
    clock_t          end_time = 0,
-                    start_time = 0,
-                    *ol_transfer_time;
+                    start_time = 0;
    struct tms       tmsdummy;
 #endif /* _OUTPUT_LOG */
-   off_t            *p_file_size_buffer;
    char             *ptr,
                     *p_file_name_buffer,
                     append_count = 0,
@@ -192,8 +206,7 @@ main(int argc, char *argv[])
                     *p_final_filename,
                     *p_remote_filename,
                     *p_fullname,
-                    file_path[MAX_PATH_LENGTH],
-                    work_dir[MAX_PATH_LENGTH];
+                    file_path[MAX_PATH_LENGTH];
    struct job       *p_db;
 #ifdef SA_FULLDUMP
    struct sigaction sact;
@@ -216,7 +229,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(sf_sftp_exit) != 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -224,8 +237,8 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
-   p_work_dir = work_dir;
+   /* Initialise variables. */
+   local_file_counter = 0;
    files_to_send = init_sf(argc, argv, file_path, SFTP_FLAG);
    p_db = &db;
    msg_str[0] = '\0';
@@ -265,37 +278,16 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-#ifdef _OUTPUT_LOG
-   if (db.output_log == YES)
-   {
-      output_log_ptrs(&ol_fd,                /* File descriptor to fifo */
-# ifdef WITHOUT_FIFO_RW_SUPPORT
-                      &ol_readfd,
-# endif
-                      &ol_job_number,
-                      &ol_data,              /* Pointer to buffer       */
-                      &ol_file_name,
-                      &ol_file_name_length,
-                      &ol_archive_name_length,
-                      &ol_file_size,
-                      &ol_unl,
-                      &ol_size,
-                      &ol_transfer_time,
-                      db.host_alias,
-                      SFTP);
-   }
-#endif
    timeout_flag = OFF;
 
    /* Now determine the real hostname. */
    if (fsa->real_hostname[1][0] == '\0')
    {
       (void)strcpy(db.hostname, fsa->real_hostname[0]);
+      current_toggle = HOST_ONE;
    }
    else
    {
-      int current_toggle;
-
       if (db.toggle_host == YES)
       {
          if (fsa->host_toggle == HOST_ONE)
@@ -333,14 +325,15 @@ main(int argc, char *argv[])
    }
 
    /* Connect to remote SFTP-server. */
+   if ((status = sftp_connect(db.hostname, db.port, db.ssh_protocol,
+                              (fsa->protocol_options & ENABLE_COMPRESSION) ? YES : NO,
+                              db.user,
 #ifdef WITH_SSH_FINGERPRINT
-   if ((status = sftp_connect(db.hostname, db.port, db.ssh_protocol, db.user, db.ssh_fingerprint,
-#else
-   if ((status = sftp_connect(db.hostname, db.port, db.ssh_protocol, db.user,
+                              db.ssh_fingerprint,
 #endif
                               db.password, fsa->debug)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                 "SFTP as user `%s' connection to `%s' at port %d failed (%d).",
                 db.user, db.hostname, db.port, status);
       exit(eval_timeout(CONNECT_ERROR));
@@ -367,20 +360,6 @@ main(int argc, char *argv[])
          (void)memcpy(fsa->job_status[(int)db.job_no].unique_name,
                       db.msg_name, MAX_MSG_NAME_LENGTH);
          fsa->job_status[(int)db.job_no].job_id = db.job_id;
-# ifdef _OUTPUT_LOG
-         if ((db.output_log == YES) && (ol_data == NULL))
-         {
-#  ifdef WITHOUT_FIFO_RW_SUPPORT
-            output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
-#  else
-            output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
-#  endif
-                            &ol_file_name_length, &ol_archive_name_length,
-                            &ol_file_size, &ol_unl,
-                            &ol_size, &ol_transfer_time, db.host_alias,
-                            SFTP);
-         }
-# endif /* _OUTPUT_LOG */
          (void)strcpy(fullname, file_path);
          p_fullname = fullname + strlen(fullname);
          if (*(p_fullname - 1) != '/')
@@ -401,7 +380,7 @@ main(int argc, char *argv[])
          {
             if ((status = sftp_cd("", NO)) != SUCCESS)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to change to home directory (%d).", status);
                sftp_quit();
                exit(eval_timeout(CHDIR_ERROR));
@@ -427,13 +406,13 @@ main(int argc, char *argv[])
                {
                   if (db.special_flag & CREATE_TARGET_DIR)
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                "Failed to change/create directory to `%s' (%d).",
                                db.target_dir, status);
                   }
                   else
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                "Failed to change directory to `%s' (%d).",
                                db.target_dir, status);
                   }
@@ -502,8 +481,7 @@ main(int argc, char *argv[])
       if (db.fsa_pos != INCORRECT)
 #endif
       {
-         (void)gsf_check_fsa();
-         if (db.fsa_pos != INCORRECT)
+         if (gsf_check_fsa() != NEITHER)
          {
 #ifdef LOCK_DEBUG
             lock_region_w(fsa_fd, db.lock_offset + LOCK_CON, __FILE__, __LINE__);
@@ -524,13 +502,13 @@ main(int argc, char *argv[])
       /* If we send a lock file, do it now. */
       if (db.lock == LOCKFILE)
       {
-         /* Create lock file on remote host */
+         /* Create lock file on remote host. */
          if ((status = sftp_open_file(SFTP_WRITE_FILE, db.lock_file_name, 0,
                                       (db.special_flag & CHANGE_PERMISSION) ? &db.chmod : NULL,
                                       blocksize, &buffer_offset,
                                       fsa->debug)) != SUCCESS)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to send lock file `%s' (%d).",
                       db.lock_file_name, status);
             sftp_quit();
@@ -545,10 +523,10 @@ main(int argc, char *argv[])
             }
          }
 
-         /* Close remote lock file */
+         /* Close remote lock file. */
          if ((status = sftp_close_file()) != SUCCESS)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to close lock file `%s' (%d).",
                       db.lock_file_name, status);
             sftp_quit();
@@ -592,7 +570,7 @@ main(int argc, char *argv[])
          {
             if ((status = sftp_dele(p_del_file_name)) != SUCCESS)
             {
-               trans_log(DEBUG_SIGN, __FILE__, __LINE__,
+               trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to delete `%s' (%d).",
                          p_del_file_name, status);
             }
@@ -600,7 +578,7 @@ main(int argc, char *argv[])
             {
                if (fsa->debug == YES)
                {
-                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
                                "Deleted `%s'.", p_del_file_name);
                }
             }
@@ -614,11 +592,13 @@ main(int argc, char *argv[])
 #endif
       p_file_name_buffer = file_name_buffer;
       p_file_size_buffer = file_size_buffer;
+      p_file_mtime_buffer = file_mtime_buffer;
+      last_update_time = time(NULL);
+      local_file_size = 0;
       for (files_send = 0; files_send < files_to_send; files_send++)
       {
          /* Write status to FSA? */
-         (void)gsf_check_fsa();
-         if (db.fsa_pos != INCORRECT)
+         if (gsf_check_fsa() != NEITHER)
          {
             if ((fsa->active_transfers > 1) &&
                 (*p_file_size_buffer > blocksize))
@@ -643,27 +623,88 @@ main(int argc, char *argv[])
                   {
 #ifdef _DELETE_LOG
                      size_t dl_real_size;
+#endif
 
+#ifdef _OUTPUT_LOG
+                     if (db.output_log == YES)
+                     {
+                        if (ol_fd == -2)
+                        {
+#  ifdef WITHOUT_FIFO_RW_SUPPORT
+                           output_log_fd(&ol_fd, &ol_readfd);
+#  else
+                           output_log_fd(&ol_fd);
+#  endif
+                        }
+                        if (ol_fd > -1)
+                        {
+                           if (ol_data == NULL)
+                           {
+                              output_log_ptrs(&ol_retries,
+                                              &ol_job_number,
+                                              &ol_data,   /* Pointer to buffer. */
+                                              &ol_file_name,
+                                              &ol_file_name_length,
+                                              &ol_archive_name_length,
+                                              &ol_file_size,
+                                              &ol_unl,
+                                              &ol_size,
+                                              &ol_transfer_time,
+                                              &ol_output_type,
+                                              db.host_alias,
+                                              (current_toggle - 1),
+                                              SFTP);
+                           }
+                           (void)memcpy(ol_file_name, db.p_unique_name, db.unl);
+                           (void)strcpy(ol_file_name + db.unl, p_file_name_buffer);
+                           *ol_file_name_length = (unsigned short)strlen(ol_file_name);
+                           ol_file_name[*ol_file_name_length] = SEPARATOR_CHAR;
+                           ol_file_name[*ol_file_name_length + 1] = '\0';
+                           (*ol_file_name_length)++;
+                           *ol_file_size = *p_file_size_buffer;
+                           *ol_job_number = db.job_id;
+                           *ol_retries = db.retries;
+                           *ol_unl = db.unl;
+                           *ol_transfer_time = 0L;
+                           *ol_archive_name_length = 0;
+                           *ol_output_type = '4';
+                           ol_real_size = *ol_file_name_length + ol_size;
+                           if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
+                           {
+                              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                         "write() error : %s", strerror(errno));
+                           }
+                        }
+                     }
+#endif
+
+#ifdef _DELETE_LOG
                      if (dl.fd == -1)
                      {
                         delete_log_ptrs(&dl);
                      }
                      (void)strcpy(dl.file_name, p_file_name_buffer);
-                     (void)sprintf(dl.host_name, "%-*s %x",
+                     (void)sprintf(dl.host_name, "%-*s %03x",
                                    MAX_HOSTNAME_LENGTH, fsa->host_alias,
-                                   OTHER_OUTPUT_DEL);
+                                   FILE_CURRENTLY_TRANSMITTED);
                      *dl.file_size = *p_file_size_buffer;
-                     *dl.job_number = db.job_id;
+                     *dl.job_id = db.job_id;
+                     *dl.dir_id = 0;
+                     *dl.input_time = db.creation_time;
+                     *dl.split_job_counter = db.split_job_counter;
+                     *dl.unique_number = db.unique_number;
                      *dl.file_name_length = strlen(p_file_name_buffer);
                      dl_real_size = *dl.file_name_length + dl.size +
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
-                                            "%s Duplicate file", SEND_FILE_SFTP);
+                                            "%s%c(%s %d)",
+                                            SEND_FILE_SFTP, SEPARATOR_CHAR,
+                                            __FILE__, __LINE__);
                      if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "write() error : %s", strerror(errno));
                      }
-#endif /* _DELETE_LOG */
+#endif
                      (void)strcpy(p_fullname, p_file_name_buffer);
                      if (unlink(fullname) == -1)
                      {
@@ -671,62 +712,32 @@ main(int argc, char *argv[])
                                    "Failed to unlink() duplicate file `%s' : %s",
                                    fullname, strerror(errno));
                      }
-                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                                "File `%s' is currently transmitted by job %d. Will NOT send file again!",
                                p_file_name_buffer, j);
 
                      fsa->job_status[(int)db.job_no].no_of_files_done++;
 
-                     /* Total file counter */
-#ifdef LOCK_DEBUG
-                     lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-                     lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
-                     fsa->total_file_counter -= 1;
-#ifdef _VERIFY_FSA
-                     if (fsa->total_file_counter < 0)
+                     local_file_size += *p_file_size_buffer;
+                     local_file_counter += 1;               
+                     now = time(NULL);
+                     if (now >= (last_update_time + LOCK_INTERVAL_TIME))
                      {
-                        system_log(INFO_SIGN, __FILE__, __LINE__,
-                                   "Total file counter for host %s less then zero. Correcting.",
-                                   fsa->host_dsp_name);
-                        fsa->total_file_counter = 0;
+                        last_update_time = now;
+                        update_tfc(local_file_counter, local_file_size,
+                                   p_file_size_buffer, files_to_send,
+                                   files_send);
+                        local_file_size = 0;
+                        local_file_counter = 0;
                      }
-#endif
-
-                     /* Total file size */
-                     fsa->total_file_size -= *p_file_size_buffer;
-#ifdef _VERIFY_FSA
-                     if (fsa->total_file_size < 0)
-                     {
-                        system_log(INFO_SIGN, __FILE__, __LINE__,
-                                   "Total file size for host %s overflowed. Correcting.",
-                                   fsa->host_dsp_name);
-                        fsa->total_file_size = 0;
-                     }
-                     else if ((fsa->total_file_counter == 0) &&
-                              (fsa->total_file_size > 0))
-                          {
-                             system_log(INFO_SIGN, __FILE__, __LINE__,
-# if SIZEOF_OFF_T == 4
-                                        "fc for host %s is zero but fs is not zero (%ld). Correcting.",
-# else
-                                        "fc for host %s is zero but fs is not zero (%lld). Correcting.",
-# endif
-                                        fsa->host_dsp_name,
-                                        (pri_off_t)fsa->total_file_size);
-                             fsa->total_file_size = 0;
-                          }
-#endif
-#ifdef LOCK_DEBUG
-                     unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-                     unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
 
                      file_is_duplicate = YES;
                      p_file_name_buffer += MAX_FILENAME_LENGTH;
                      p_file_size_buffer++;
+                     if (file_mtime_buffer != NULL)
+                     {
+                        p_file_mtime_buffer++;
+                     }
                      break;
                   }
                } /* for (j = 0; j < allowed_transfers; j++) */
@@ -750,10 +761,9 @@ main(int argc, char *argv[])
                   unlock_region(fsa_fd, db.lock_offset + LOCK_FIU + db.job_no);
 #endif
 #ifdef WITH_ERROR_QUEUE
-                  if ((db.special_flag & IN_ERROR_QUEUE) &&
-                      (fsa->host_status & ERROR_QUEUE_SET))
+                  if (fsa->host_status & ERROR_QUEUE_SET)
                   {
-                     remove_from_error_queue(db.job_id, fsa);
+                     remove_from_error_queue(db.job_id, fsa, db.fsa_pos, fsa_fd);
                   }
 #endif
                   continue;
@@ -785,6 +795,14 @@ main(int argc, char *argv[])
             }
          }
 
+         if (db.special_flag & UNIQUE_LOCKING)
+         {
+            char *p_end;                            
+
+            p_end = p_initial_filename + strlen(p_initial_filename);
+            (void)sprintf(p_end, ".%u", (unsigned int)db.unique_number);
+         }
+
          if (db.special_flag & SEQUENCE_LOCKING)
          {
             char *p_end;
@@ -794,12 +812,12 @@ main(int argc, char *argv[])
             /*
              * Check if we need to delete an old lock file.
              */
-            if (db.retries > 0)
+            if ((db.retries > 0) && ((db.special_flag & UNIQUE_LOCKING) == 0))
             {
                (void)sprintf(p_end, "-%u", db.retries - 1);
                if ((status = sftp_dele(initial_filename)) != SUCCESS)
                {
-                  trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+                  trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             "Failed to delete file `%s' (%d).",
                             initial_filename, status);
                }
@@ -844,7 +862,7 @@ main(int argc, char *argv[])
                if ((status = sftp_stat(initial_filename,
                                        &stat_buf)) != SUCCESS)
                {
-                  trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+                  trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             "Failed to stat() file `%s' (%d).",
                             initial_filename, status);
                   if (timeout_flag == ON)
@@ -893,7 +911,7 @@ main(int argc, char *argv[])
                                          blocksize, &buffer_offset,
                                          fsa->debug)) != SUCCESS)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to open remote file `%s' (%d).",
                          initial_filename, status);
                sftp_quit();
@@ -908,14 +926,14 @@ main(int argc, char *argv[])
                }
             }
 
-            /* Open local file */
+            /* Open local file. */
 #ifdef O_LARGEFILE
             if ((fd = open(fullname, O_RDONLY | O_LARGEFILE)) == -1)
 #else
             if ((fd = open(fullname, O_RDONLY)) == -1)
 #endif
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          "Failed to open local file `%s' : %s",
                          fullname, strerror(errno));
                sftp_quit();
@@ -933,7 +951,7 @@ main(int argc, char *argv[])
                   if (lseek(fd, append_offset, SEEK_SET) < 0)
                   {
                      append_offset = 0;
-                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                                "Failed to seek() in `%s' (Ignoring append): %s",
                                fullname, strerror(errno));
                   }
@@ -962,75 +980,52 @@ main(int argc, char *argv[])
             if ((db.special_flag & ADD_EUMETSAT_HEADER) &&
                 (append_offset == 0) && (db.special_ptr != NULL))
             {
-               struct stat stat_buf;
+               size_t header_length;
+               char   *p_header;
 
-               if (fstat(fd, &stat_buf) == -1)
+               if ((p_header = create_eumetsat_header(db.special_ptr,
+                                                      (unsigned char)db.special_ptr[4],
+                                                      *p_file_size_buffer,
+                                                      *p_file_mtime_buffer,
+                                                      &header_length)) != NULL)
                {
-                  trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                            "Hmmm. Failed to stat() `%s' : %s",
-                            fullname, strerror(errno));
-               }
-               else
-               {
-                  size_t header_length;
-                  char   *p_header;
-
-                  if ((p_header = create_eumetsat_header(db.special_ptr,
-                                                         (unsigned char)db.special_ptr[4],
-                                                         *p_file_size_buffer,
-                                                         stat_buf.st_mtime,
-                                                         &header_length)) != NULL)
+                  if ((status = sftp_write(p_header,
+                                           header_length)) != SUCCESS)
                   {
-                     if ((status = sftp_write(p_header,
-                                              header_length)) != SUCCESS)
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               (status == EPIPE) ? msg_str : NULL,
+                               "Failed to write EUMETSAT header to remote file `%s'",
+                               initial_filename);
+                     if (status == EPIPE)
                      {
-                        trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  (status == EPIPE) ? msg_str : NULL,
-                                  "Failed to write EUMETSAT header to remote file `%s'",
-                                  initial_filename);
-                        if (status == EPIPE)
-                        {
-                           /*
-                            * When pipe is broken no nead to send a QUIT
-                            * to the remote side since the connection has
-                            * already been closed by the remote side.
-                            */
-                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                                     "Hmm. Pipe is broken. Will NOT send a QUIT.");
-                        }
-                        else
-                        {
-                           sftp_quit();
-                        }
-                        exit(eval_timeout(WRITE_REMOTE_ERROR));
+                        /*
+                         * When pipe is broken no nead to send a QUIT
+                         * to the remote side since the connection has
+                         * already been closed by the remote side.
+                         */
+                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                  "Hmm. Pipe is broken. Will NOT send a QUIT.");
                      }
-                     (void)gsf_check_fsa();
-                     if (db.fsa_pos != INCORRECT)
+                     else
                      {
-#ifdef LOCK_DEBUG
-                        rlock_region(fsa_fd, db.lock_offset,
-                                     __FILE__, __LINE__);
-#else
-                        rlock_region(fsa_fd, db.lock_offset);
-#endif
-                        fsa->job_status[(int)db.job_no].file_size_done += header_length;
-                        fsa->job_status[(int)db.job_no].bytes_send += header_length;
-#ifdef LOCK_DEBUG
-                        unlock_region(fsa_fd, db.lock_offset,
-                                      __FILE__, __LINE__);
-#else
-                        unlock_region(fsa_fd, db.lock_offset);
-#endif
+                        sftp_quit();
                      }
-                     free(p_header);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
+                  if (gsf_check_fsa() != NEITHER)
+                  {
+                     fsa->job_status[(int)db.job_no].file_size_done += header_length;
+                     fsa->job_status[(int)db.job_no].bytes_send += header_length;
+                  }
+                  free(p_header);
                }
             }
 #endif
             if ((db.special_flag & FILE_NAME_IS_HEADER) &&
                 (append_offset == 0))
             {
-               int  header_length;
+               int header_length,
+                   space_count;
 
                ptr = p_file_name_buffer;
                buffer[0] = 1; /* SOH */
@@ -1038,6 +1033,7 @@ main(int argc, char *argv[])
                buffer[2] = '\015'; /* CR */
                buffer[3] = '\012'; /* LF */
                header_length = 4;
+               space_count = 0;
 
                for (;;)
                {
@@ -1053,8 +1049,25 @@ main(int argc, char *argv[])
                   }
                   else
                   {
-                     buffer[header_length] = ' ';
-                     header_length++; ptr++;
+                     if (space_count == 2)
+                     {
+                        if ((isalpha((int)(*(ptr + 1)))) &&
+                            (isalpha((int)(*(ptr + 2)))) &&
+                            (isalpha((int)(*(ptr + 3)))))
+                        {
+                           buffer[header_length] = ' ';
+                           buffer[header_length + 1] = *(ptr + 1);
+                           buffer[header_length + 2] = *(ptr + 2);
+                           buffer[header_length + 3] = *(ptr + 3);
+                           header_length += 4;
+                        }
+                        break;
+                     }
+                     else
+                     {
+                        buffer[header_length] = ' ';
+                        header_length++; ptr++; space_count++;
+                     }
                   }
                }
                buffer[header_length] = '\015'; /* CR */
@@ -1065,27 +1078,16 @@ main(int argc, char *argv[])
                if ((status = sftp_write(buffer,
                                         header_length)) != SUCCESS)
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to write WMO header to remote file `%s'",
                             initial_filename);
                   sftp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
-               (void)gsf_check_fsa();
-               if (db.fsa_pos != INCORRECT)
+               if (gsf_check_fsa() != NEITHER)
                {
-#ifdef LOCK_DEBUG
-                  rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
-#else
-                  rlock_region(fsa_fd, db.lock_offset);
-#endif
                   fsa->job_status[(int)db.job_no].file_size_done += header_length;
                   fsa->job_status[(int)db.job_no].bytes_send += header_length;
-#ifdef LOCK_DEBUG
-                  unlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
-#else
-                  unlock_region(fsa_fd, db.lock_offset);
-#endif
                }
             }
 
@@ -1101,7 +1103,7 @@ main(int argc, char *argv[])
 #endif
                if ((bytes_buffered = read(fd, buffer, blocksize - buffer_offset)) < 0)
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Could not read() local file `%s' [%d] : %s",
                             fullname, bytes_buffered, strerror(errno));
                   sftp_quit();
@@ -1117,8 +1119,8 @@ main(int argc, char *argv[])
                   if ((status = sftp_write(buffer, bytes_buffered)) != SUCCESS)
 #endif
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                               "Failed to write %d Bytes to remote file `%s'",
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                               "Failed to write %d bytes to remote file `%s'",
                                bytes_buffered, initial_filename);
                      sftp_quit();
                      exit(eval_timeout(WRITE_REMOTE_ERROR));
@@ -1133,12 +1135,11 @@ main(int argc, char *argv[])
                   no_of_bytes += bytes_buffered;
                   if (db.fsa_pos != INCORRECT)
                   {
-                     (void)gsf_check_fsa();
-                     if (db.fsa_pos != INCORRECT)
+                     if (gsf_check_fsa() != NEITHER)
                      {
-                           fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
-                           fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
-                           fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
+                        fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
+                        fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
+                        fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
                      }
                   }
                } /* if (bytes_buffered > 0) */
@@ -1157,16 +1158,16 @@ main(int argc, char *argv[])
                 */
                system_log(WARN_SIGN, __FILE__, __LINE__, 
 #if SIZEOF_OFF_T == 4
-                          "File `%s' for host %s was DEFINITELY NOT send in dot notation. Size changed from %ld to %ld.",
+                          "File `%s' for host %s was DEFINITELY send without any locking. Size changed from %ld to %ld.",
 #else
-                          "File `%s' for host %s was DEFINITELY NOT send in dot notation. Size changed from %lld to %lld.",
+                          "File `%s' for host %s was DEFINITELY send without any locking. Size changed from %lld to %lld.",
 #endif
                           p_final_filename, fsa->host_dsp_name,
                           (pri_off_t)*p_file_size_buffer,
                           (pri_off_t)(no_of_bytes + append_offset));
             }
 
-            /* Close local file */
+            /* Close local file. */
             if (close(fd) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -1181,7 +1182,7 @@ main(int argc, char *argv[])
 
             if (sftp_flush() != SUCCESS)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to flush remaining writes to `%s'",
                          initial_filename);
                sftp_quit();
@@ -1196,7 +1197,7 @@ main(int argc, char *argv[])
                buffer[3] = 3;  /* ETX */
                if ((status = sftp_write(buffer, 4)) != SUCCESS)
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to write <CR><CR><LF><ETX> to remote file `%s'",
                             initial_filename);
                   sftp_quit();
@@ -1205,8 +1206,7 @@ main(int argc, char *argv[])
 
                if (db.fsa_pos != INCORRECT)
                {
-                  (void)gsf_check_fsa();
-                  if (db.fsa_pos != INCORRECT)
+                  if (gsf_check_fsa() != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].file_size_done += 4;
                      fsa->job_status[(int)db.job_no].bytes_send += 4;
@@ -1214,7 +1214,7 @@ main(int argc, char *argv[])
                }
             }
 
-            /* Close remote file */
+            /* Close remote file. */
             if ((status = sftp_close_file()) != SUCCESS)
             {
                /*
@@ -1226,7 +1226,7 @@ main(int argc, char *argv[])
                 */
                if ((*p_file_size_buffer > 0) || (timeout_flag == ON))
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             "Failed to close remote file `%s'",
                             initial_filename);
                   sftp_quit();
@@ -1234,7 +1234,7 @@ main(int argc, char *argv[])
                }
                else
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             "Failed to close remote file `%s' (%d). Ignoring since file size is %d.",
                             initial_filename, status, *p_file_size_buffer);
                }
@@ -1262,7 +1262,7 @@ main(int argc, char *argv[])
                if ((status = sftp_stat(initial_filename,
                                        &stat_buf)) != SUCCESS)
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             "Failed to stat() remote file `%s' (%d).",
                             initial_filename, status);
                   if (timeout_flag == ON)
@@ -1285,9 +1285,23 @@ main(int argc, char *argv[])
             }
          } /* if (append_offset < p_file_size_buffer) */
 
-         /* If we used dot notation, don't forget to rename */
+         if ((fsa->protocol_options & KEEP_TIME_STAMP) &&
+             (file_mtime_buffer != NULL))
+         {
+            if ((status = sftp_set_file_time(initial_filename,
+                                             *p_file_mtime_buffer,
+                                             time(NULL))) != SUCCESS)
+            {
+               trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                         "Failed to set remote file modification time of `%s' (%d)",
+                         initial_filename, status);
+            }
+         }
+
+         /* If we used dot notation, don't forget to rename. */
          if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
              (db.special_flag & SEQUENCE_LOCKING) ||
+             (db.special_flag & UNIQUE_LOCKING) ||
              (db.trans_rename_rule[0] != '\0'))
          {
             *p_remote_filename = '\0';
@@ -1307,7 +1321,8 @@ main(int argc, char *argv[])
                      change_name(p_final_filename,
                                  rule[db.trans_rule_pos].filter[k],
                                  rule[db.trans_rule_pos].rename_to[k],
-                                 p_remote_filename, &counter_fd, db.job_id);
+                                 p_remote_filename, &counter_fd,
+                                 &unique_counter, db.job_id);
                      break;
                   }
                }
@@ -1320,7 +1335,7 @@ main(int argc, char *argv[])
                                     remote_filename,
                                     (db.special_flag & CREATE_TARGET_DIR) ? YES : NO)) != SUCCESS)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to move remote file `%s' to `%s' (%d)",
                          initial_filename, remote_filename, status);
                sftp_quit();
@@ -1337,86 +1352,32 @@ main(int argc, char *argv[])
             }
             if (db.lock == DOT_VMS)
             {
-               /* Remove dot at end of name */
+               /* Remove dot at end of name. */
                ptr = p_final_filename + strlen(p_final_filename) - 1;
                *ptr = '\0';
             }
          }
 
          /* Update FSA, one file transmitted. */
-         (void)gsf_check_fsa();
-         if (db.fsa_pos != INCORRECT)
+         if (gsf_check_fsa() != NEITHER)
          {
-#ifdef LOCK_DEBUG
-            lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-            lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
             fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
             fsa->job_status[(int)db.job_no].no_of_files_done++;
             fsa->job_status[(int)db.job_no].file_size_in_use = 0;
             fsa->job_status[(int)db.job_no].file_size_in_use_done = 0;
+            local_file_size += *p_file_size_buffer;
+            local_file_counter += 1;
 
-            /* Total file counter */
-            fsa->total_file_counter -= 1;
-#ifdef _VERIFY_FSA
-            if (fsa->total_file_counter < 0)
+            now = time(NULL);
+            if (now >= (last_update_time + LOCK_INTERVAL_TIME))
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file counter for host %s less then zero. Correcting to %d.",
-                          fsa->host_dsp_name, files_to_send - (files_send + 1));
-               fsa->total_file_counter = files_to_send - (files_send + 1);
+               last_update_time = now;
+               update_tfc(local_file_counter, local_file_size,
+                          p_file_size_buffer, files_to_send,
+                          files_send);
+               local_file_size = 0;
+               local_file_counter = 0;
             }
-#endif
-
-            /* Total file size */
-            fsa->total_file_size -= *p_file_size_buffer;
-#ifdef _VERIFY_FSA
-            if (fsa->total_file_size < 0)
-            {
-               int   k;
-               off_t *tmp_ptr = p_file_size_buffer;
-
-               tmp_ptr++;
-               fsa->total_file_size = 0;
-               for (k = (files_send + 1); k < files_to_send; k++)
-               {
-                  fsa->total_file_size += *tmp_ptr;
-               }
-
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-# if SIZEOF_OFF_T == 4
-                          "Total file size for host %s overflowed. Correcting to %ld.",
-# else
-                          "Total file size for host %s overflowed. Correcting to %lld.",
-# endif
-                          fsa->host_dsp_name, (pri_off_t)fsa->total_file_size);
-            }
-            else if ((fsa->total_file_counter == 0) &&
-                     (fsa->total_file_size > 0))
-                 {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-# if SIZEOF_OFF_T == 4
-                               "fc for host %s is zero but fs is not zero (%ld). Correcting.",
-# else
-                               "fc for host %s is zero but fs is not zero (%lld). Correcting.",
-# endif
-                               fsa->host_dsp_name,
-                               (pri_off_t)fsa->total_file_size);
-                    fsa->total_file_size = 0;
-                 }
-#endif
-
-            /* File counter done */
-            fsa->file_counter_done += 1;
-
-            /* Number of bytes send */
-            fsa->bytes_send += no_of_bytes;
-#ifdef LOCK_DEBUG
-            unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
-#else
-            unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
-#endif
          }
 
          if (append_file_number != -1)
@@ -1431,9 +1392,40 @@ main(int argc, char *argv[])
          {
             trans_exec(file_path, fullname, p_file_name_buffer);
          }
-#endif /* _WITH_TRANS_EXEC */
+#endif
 
-         /* Now archive file if necessary */
+#ifdef _OUTPUT_LOG
+         if (db.output_log == YES)
+         {
+            if (ol_fd == -2)
+            {
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+               output_log_fd(&ol_fd, &ol_readfd);
+# else
+               output_log_fd(&ol_fd);
+# endif
+            }
+            if ((ol_fd > -1) && (ol_data == NULL))
+            {
+               output_log_ptrs(&ol_retries,
+                               &ol_job_number,
+                               &ol_data,              /* Pointer to buffer.      */
+                               &ol_file_name,
+                               &ol_file_name_length,
+                               &ol_archive_name_length,
+                               &ol_file_size,
+                               &ol_unl,
+                               &ol_size,
+                               &ol_transfer_time,
+                               &ol_output_type,
+                               db.host_alias,
+                               (current_toggle - 1),
+                               SFTP);
+            }
+         }
+#endif
+
+         /* Now archive file if necessary. */
          if ((db.archive_time > 0) &&
              (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
          {
@@ -1488,9 +1480,11 @@ main(int argc, char *argv[])
                   }
                   *ol_file_size = no_of_bytes + append_offset;
                   *ol_job_number = db.job_id;
+                  *ol_retries = db.retries;
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = 0;
+                  *ol_output_type = '0';
                   ol_real_size = *ol_file_name_length + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
@@ -1533,9 +1527,11 @@ main(int argc, char *argv[])
                                &db.archive_dir[db.archive_offset]);
                   *ol_file_size = no_of_bytes + append_offset;
                   *ol_job_number = db.job_id;
+                  *ol_retries = db.retries;
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
+                  *ol_output_type = '0';
                   ol_real_size = *ol_file_name_length +
                                  *ol_archive_name_length + 1 + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -1554,7 +1550,7 @@ main(int argc, char *argv[])
 
 try_again_unlink:
 #endif
-            /* Delete the file we just have send */
+            /* Delete the file we just have send. */
             if (unlink(fullname) == -1)
             {
 #ifdef WITH_UNLINK_DELAY
@@ -1593,9 +1589,11 @@ try_again_unlink:
                }
                *ol_file_size = no_of_bytes + append_offset;
                *ol_job_number = db.job_id;
+               *ol_retries = db.retries;
                *ol_unl = db.unl;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = 0;
+               *ol_output_type = '0';
                ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
@@ -1693,7 +1691,12 @@ try_again_unlink:
             {
                char *sign;
 
-               fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+#ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_HS, __FILE__, __LINE__);
+#else
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_HS);
+#endif
+               fsa->host_status &= ~AUTO_PAUSE_QUEUE_STAT;
                if (fsa->host_status & HOST_ERROR_EA_STATIC)
                {
                   fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
@@ -1702,6 +1705,12 @@ try_again_unlink:
                {
                   fsa->host_status &= ~EVENT_STATUS_FLAGS;
                }
+               fsa->host_status &= ~PENDING_ERRORS;
+#ifdef LOCK_DEBUG
+               unlock_region(fsa_fd, db.lock_offset + LOCK_HS, __FILE__, __LINE__);
+#else
+               unlock_region(fsa_fd, db.lock_offset + LOCK_HS);
+#endif
                error_action(fsa->host_alias, "stop", HOST_ERROR_ACTION);
                event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
                          fsa->host_alias);
@@ -1723,23 +1732,41 @@ try_again_unlink:
             }
          } /* if (fsa->error_counter > 0) */
 #ifdef WITH_ERROR_QUEUE
-         if ((db.special_flag & IN_ERROR_QUEUE) &&
-             (fsa->host_status & ERROR_QUEUE_SET))
+         if (fsa->host_status & ERROR_QUEUE_SET)
          {
-            remove_from_error_queue(db.job_id, fsa);
+            remove_from_error_queue(db.job_id, fsa, db.fsa_pos, fsa_fd);
          }
 #endif
+         if (fsa->host_status & HOST_ACTION_SUCCESS)
+         {
+            error_action(fsa->host_alias, "start", HOST_SUCCESS_ACTION);
+         }
 
          p_file_name_buffer += MAX_FILENAME_LENGTH;
          p_file_size_buffer++;
+         if (file_mtime_buffer != NULL)
+         {
+            p_file_mtime_buffer++;
+         }
       } /* for (files_send = 0; files_send < files_to_send; files_send++) */
 
-      /* Do not forget to remove lock file if we have created one */
+      if (local_file_counter)
+      {
+         if (gsf_check_fsa() != NEITHER)
+         {
+            update_tfc(local_file_counter, local_file_size,
+                       p_file_size_buffer, files_to_send, files_send);
+            local_file_size = 0;
+            local_file_counter = 0;
+         }
+      }
+
+      /* Do not forget to remove lock file if we have created one. */
       if ((db.lock == LOCKFILE) && (fsa->active_transfers == 1))
       {
          if ((status = sftp_dele(db.lock_file_name)) != SUCCESS)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to remove remote lock file `%s' (%d)",
                       db.lock_file_name, status);
             sftp_quit();
@@ -1788,6 +1815,9 @@ try_again_unlink:
 # ifdef _WITH_INTERRUPT_JOB
                                      interrupt,
 # endif
+# ifdef _OUTPUT_LOG
+                                     &ol_fd,
+# endif
 # ifndef AFDBENCH_CONFIG
                                      &total_append_count,
 # endif
@@ -1806,7 +1836,7 @@ try_again_unlink:
 #ifdef _CHECK_BEFORE_EXIT
 #endif
 
-   /* Logout again */
+   /* Logout again. */
    sftp_quit();
    if (fsa->debug > NORMAL_MODE)
    {
@@ -1822,16 +1852,20 @@ try_again_unlink:
 static void
 sf_sftp_exit(void)
 {
-   int  fd;
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   int  readfd;
-#endif
-   char sf_fin_fifo[MAX_PATH_LENGTH];
-
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      int     diff_no_of_files_done;
+      int     diff_no_of_files_done,
+              length;
       u_off_t diff_file_size_done;
+
+      if (local_file_counter)
+      {
+         if (gsf_check_fsa() != NEITHER)
+         {
+            update_tfc(local_file_counter, local_file_size,
+                       p_file_size_buffer, files_to_send, files_send);
+         }
+      }
 
       diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
                               prev_no_of_files_done;
@@ -1839,47 +1873,49 @@ sf_sftp_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
+         char buffer[MAX_INT_LENGTH + 24 + MAX_INT_LENGTH + 12 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
+
 #if SIZEOF_OFF_T == 4
-         fd = sprintf(sf_fin_fifo, "%lu Bytes send in %d file(s).",
+         length = sprintf(buffer, "%lu bytes send in %d file(s).",
 #else
-         fd = sprintf(sf_fin_fifo, "%llu Bytes send in %d file(s).",
+         length = sprintf(buffer, "%llu bytes send in %d file(s).",
 #endif
-                      diff_file_size_done, diff_no_of_files_done);
+                          diff_file_size_done, diff_no_of_files_done);
 
 #ifdef _WITH_BURST_2
          if (total_append_count == 1)
          {
-            (void)strcpy(&sf_fin_fifo[fd], " [APPEND]");
-            fd += 9;
+            (void)strcpy(&buffer[length], " [APPEND]");
+            length += 9;
          }
          else if (total_append_count > 1)
               {
-                 fd += sprintf(&sf_fin_fifo[fd], " [APPEND * %u]",
+                 length += sprintf(&buffer[length], " [APPEND * %u]",
                                total_append_count);
               }
          if (burst_2_counter == 1)
          {
-            (void)strcpy(&sf_fin_fifo[fd], " [BURST]");
+            (void)strcpy(&buffer[length], " [BURST]");
          }
          else if (burst_2_counter > 1)
               {
-                 (void)sprintf(&sf_fin_fifo[fd], " [BURST * %u]",
+                 (void)sprintf(&buffer[length], " [BURST * %u]",
                                burst_2_counter);
            }
 #else
          if (append_count == 1)
          {
-            (void)strcat(sf_fin_fifo, " [APPEND]");
+            (void)strcat(buffer, " [APPEND]");
          }
          else if (append_count > 1)
               {
                  char tmp_buffer[13 + MAX_INT_LENGTH];
 
                  (void)sprintf(tmp_buffer, " [APPEND * %d]", append_count);
-                 (void)strcat(sf_fin_fifo, tmp_buffer);
+                 (void)strcat(buffer, tmp_buffer);
               }
 #endif
-         trans_log(INFO_SIGN, NULL, 0, NULL, "%s", sf_fin_fifo);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
 
       if ((fsa->job_status[(int)db.job_no].file_name_in_use[0] != '\0') &&
@@ -1902,38 +1938,7 @@ sf_sftp_exit(void)
       free(file_size_buffer);
    }
 
-   (void)strcpy(sf_fin_fifo, p_work_dir);
-   (void)strcat(sf_fin_fifo, FIFO_DIR);
-   (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
-#else
-   if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
-#endif
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo `%s' : %s",
-                 sf_fin_fifo, strerror(errno));
-   }
-   else
-   {
-#ifdef _FIFO_DEBUG
-      char  cmd[2];
-
-      cmd[0] = ACKN; cmd[1] = '\0';
-      show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
-#endif
-      /* Tell FD we are finished */
-      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
-      {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "write() error : %s", strerror(errno));
-      }
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      (void)close(readfd);
-#endif
-      (void)close(fd);
-   }
+   send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
    {
       (void)close(sys_log_fd);

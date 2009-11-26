@@ -33,7 +33,7 @@ DESCR__E_M3
 #include <string.h>                      /* strerror()                   */
 #include <stdlib.h>                      /* exit()                       */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>                      /* exit()                       */
 #include <errno.h>
@@ -48,16 +48,16 @@ clr_fl(int fd, int flags)
    if ((val = fcntl(fd, F_GETFL, 0)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "fcntl() error : %s", strerror(errno));
+                 _("fcntl() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
    
-   val &= ~flags; /* turn flags off */
+   val &= ~flags; /* Turn flags off. */
 
    if (fcntl(fd, F_SETFL, val) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "fcntl() error : %s", strerror(errno));
+                 _("fcntl() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
 

@@ -49,7 +49,7 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>
+# include <sys/mman.h>
 #endif
 #include <fcntl.h>
 #include <errno.h>
@@ -104,7 +104,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (fstat(fd, &stat_buf) < 0)   /* need size of input file */
+   if (fstat(fd, &stat_buf) < 0)   /* Need size of input file. */
    {
       (void)fprintf(stderr, "ERROR   : Could not fstat() on %s : %s\n",
                     argv[1], strerror(errno));
@@ -200,7 +200,7 @@ main(int argc, char *argv[])
 
       (void)fprintf(stdout, "IFH | Tag ID |   Type    | Count |   Offset   | Data\n");
       (void)fprintf(stdout, "----+--------+-----------+-------+------------+----------------------------\n");
-      /* Show all directory entries */
+      /* Show all directory entries. */
       for (j = 0; j < no_of_dirs; j++)
       {
          if (swap_bytes_flag == YES)
@@ -305,7 +305,7 @@ main(int argc, char *argv[])
       }
       (void)fprintf(stdout, "----+--------+-----------+-------+------------+----------------------------\n\n");
 
-      /* Get offset to the next IFD */
+      /* Get offset to the next IFD. */
       if (swap_bytes_flag == YES)
       {
          byte_swap_word(&buf[ifd_offset + offset]);

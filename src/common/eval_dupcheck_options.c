@@ -1,7 +1,7 @@
 /*
  *  eval_dupcheck_options.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,7 +101,7 @@ eval_dupcheck_options(char         *ptr,
    if ((length > 0) && (length != MAX_LONG_LENGTH))
    {
       number[length] = '\0';
-      *timeout = atol(number);
+      *timeout = str2timet(number, NULL, 10);
       while ((*ptr == ' ') || (*ptr == '\t'))
       {
          ptr++;
@@ -122,6 +122,10 @@ eval_dupcheck_options(char         *ptr,
          {
             *flag = DC_FILENAME_ONLY;
          }
+         else if (val == DC_FILENAME_AND_SIZE_BIT)
+              {
+                 *flag = DC_FILENAME_AND_SIZE;
+              }
          else if (val == DC_NAME_NO_SUFFIX_BIT)
               {
                  *flag = DC_NAME_NO_SUFFIX;
@@ -140,17 +144,18 @@ eval_dupcheck_options(char         *ptr,
                  if (warn == NULL)
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Unkown duplicate check type %d using default %d.",
+                               _("Unkown duplicate check type %d using default %d."),
                                val, DC_FILENAME_ONLY_BIT);
                  }
                  else
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Unkown duplicate check type %d.", val);
+                               _("Unkown duplicate check type %d."), val);
                  }
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Possible types are: %d (filename only), %d (file content only) and %d (filename and content).",
-                            DC_FILENAME_ONLY_BIT, DC_FILE_CONTENT_BIT,
+                            _("Possible types are: %d (filename only), %d (filename and size), %d (filename no suffix), %d (file content only) and %d (filename and content)."),
+                            DC_FILENAME_ONLY_BIT, DC_FILENAME_AND_SIZE_BIT,
+                            DC_NAME_NO_SUFFIX_BIT, DC_FILE_CONTENT_BIT,
                             DC_FILE_CONT_NAME_BIT);
                  if (warn != NULL)
                  {
@@ -197,13 +202,13 @@ eval_dupcheck_options(char         *ptr,
                     if (warn == NULL)
                     {
                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "Unkown duplicate check action %d using default %d.",
+                                  _("Unkown duplicate check action %d using default %d."),
                                   val, DC_DELETE);
                     }
                     else
                     {
                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "Unkown duplicate check action %d.", val);
+                                  _("Unkown duplicate check action %d."), val);
                        *warn = 1;
                     }
                  }
@@ -228,13 +233,13 @@ eval_dupcheck_options(char         *ptr,
                   if (warn == NULL)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Unkown duplicate check CRC type %d using default %d.",
+                                _("Unkown duplicate check CRC type %d using default %d."),
                                 val, DC_CRC32_BIT);
                   }
                   else
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Unkown duplicate check CRC type %d.", val);
+                                _("Unkown duplicate check CRC type %d."), val);
                      *warn = 1;
                   }
                }
@@ -249,7 +254,7 @@ eval_dupcheck_options(char         *ptr,
                if (length == MAX_INT_LENGTH)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Integer value for duplicate check CRC type to large.");
+                             _("Integer value for duplicate check CRC type to large."));
                   if (warn != NULL)
                   {
                      *warn = 1;
@@ -263,7 +268,7 @@ eval_dupcheck_options(char         *ptr,
             if (length == MAX_INT_LENGTH)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Integer value for duplicate check action to large.");
+                          _("Integer value for duplicate check action to large."));
                if (warn != NULL)
                {
                   *warn = 1;
@@ -277,7 +282,7 @@ eval_dupcheck_options(char         *ptr,
          if (length == MAX_INT_LENGTH)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Integer value for duplicate check type to large.");
+                       _("Integer value for duplicate check type to large."));
             if (warn != NULL)
             {
                *warn = 1;
@@ -292,7 +297,7 @@ eval_dupcheck_options(char         *ptr,
       if (length == MAX_LONG_LENGTH)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Long integer value for duplicate check timeout to large.");
+                    _("Long integer value for duplicate check timeout to large."));
          if (warn != NULL)
          {
             *warn = 1;

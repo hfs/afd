@@ -1,6 +1,6 @@
 /*
  *  check_changes.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,9 +68,9 @@ extern struct filetransfer_status *fsa;
 void
 check_changes(FILE *p_data)
 {
-   static int          old_amg_status,
-                       old_archive_watch_status,
-                       old_fd_status,
+   static int          old_amg_status = PROC_INIT_VALUE,
+                       old_archive_watch_status = PROC_INIT_VALUE,
+                       old_fd_status = PROC_INIT_VALUE,
                        old_max_connections;
    static unsigned int old_sys_log_ec;
    static time_t       next_stat_time,
@@ -99,7 +99,7 @@ retry_check:
          if (loop_counter < 10)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmm, FSA has changed again!");
+                       _("Hmm, FSA has changed again!"));
             my_usleep(500000L);
             goto retry_check;
          }
@@ -113,7 +113,7 @@ retry_check:
          if ((status > 1) && ((status % 100) == 0))
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Timeout arrived for waiting for AMG to finish writting to JID structure.");
+                       _("Timeout arrived for waiting for AMG to finish writting to JID structure."));
          }
       }
 
@@ -169,7 +169,7 @@ retry_check:
 
             old_st_mtime = stat_buf.st_mtime;
             if ((eaccess(afd_config_file, F_OK) == 0) &&
-                (read_file(afd_config_file, &buffer) != INCORRECT))
+                (read_file_no_cr(afd_config_file, &buffer) != INCORRECT))
             {
                int  max_connections = 0;
                char value[MAX_INT_LENGTH];
@@ -199,7 +199,7 @@ retry_check:
          if (errno != ENOENT)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                      "Failed to stat() `%s' : %s",
+                      _("Failed to stat() `%s' : %s"),
                       afd_config_file, strerror(errno));
          }
       }

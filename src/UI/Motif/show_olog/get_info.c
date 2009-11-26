@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -62,7 +62,7 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 #include "show_olog.h"
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 
 /* External global variables. */
 extern int                 no_of_log_files;
@@ -126,6 +126,13 @@ get_info(int item)
          {
             (void)xrec(ERROR_DIALOG, "Failed to mmap() `%s' : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(fd);
+            return;
+         }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG, "Incorrect JID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
             (void)close(fd);
             return;
          }
@@ -359,8 +366,26 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
          *date = 0L;
       }
 
-      /* Ignore file name */
-      ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
+      /* Ignore file name. */
+      if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2] == ' ')
+      {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+         ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 7];
+#else
+         if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4] == ' ')
+         {
+            ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 7];
+         }
+         else
+         {
+            ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
+         }
+#endif
+      }
+      else
+      {
+         ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
+      }
       while (*ptr != SEPARATOR_CHAR)
       {
          ptr++;
@@ -379,7 +404,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
       }
       ptr++;
 
-      /* Get file size */
+      /* Get file size. */
       i = 2;
       while ((*ptr != SEPARATOR_CHAR) && (i < 23))
       {
@@ -408,7 +433,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
               }
            }
 
-      /* Get transfer time */
+      /* Get transfer time. */
       *trans_time = strtod(ptr, NULL);
    }
 
@@ -444,7 +469,8 @@ get_all(int item)
    /* Get the job ID and file name. */
    if (pos > -1)
    {
-      int  i = 0;
+      int  i = 0,
+           type_offset;
       char *ptr,
            *p_tmp,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
@@ -474,7 +500,26 @@ get_all(int item)
       id.date_send = (time_t)str2timet(buffer, NULL, 16);
 
       /* Store local file name. */
-      ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
+      if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 2] == ' ')
+      {
+#ifdef ACTIVATE_THIS_AFTER_VERSION_14
+         type_offset = 5;
+#else
+         if (buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 4] == ' ')
+         {
+            type_offset = 5;
+         }
+         else
+         {
+            type_offset = 1;
+         }
+#endif
+      }
+      else
+      {
+         type_offset = 1;
+      }
+      ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2];
       i = 0;
       while (*ptr != SEPARATOR_CHAR)
       {
@@ -514,11 +559,7 @@ get_all(int item)
 #else
          (void)sprintf(id.file_size, "%lld",
 #endif
-#ifdef HAVE_STRTOULL
-                       (pri_off_t)strtoull(str_hex_number, NULL, 16));
-#else
-                       (pri_off_t)strtoul(str_hex_number, NULL, 16));
-#endif
+                       (pri_off_t)str2offt(str_hex_number, NULL, 16));
          ptr++;
       }
       else if (i >= 23)
@@ -546,6 +587,19 @@ get_all(int item)
       }
       id.trans_time[i] = '\0';
       ptr++;
+
+      /* Ignore number of retries. */
+      if (type_offset > 1)
+      {
+         while (*ptr != SEPARATOR_CHAR)
+         {
+            ptr++;
+         }
+         if (*ptr == SEPARATOR_CHAR)
+         {
+            ptr++;
+         }
+      }
 
       /* Get the job ID. */
       p_tmp = ptr;
@@ -608,7 +662,7 @@ get_job_data(struct job_id_data *p_jd)
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.dir_id = p_jd->dir_id;
    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
-   get_dir_options(p_jd->dir_id_pos, &id.d_o);
+   get_dir_options(id.dir_id, &id.d_o);
 
    id.priority = p_jd->priority;
    get_file_mask_list(p_jd->file_mask_id, &id.no_of_files, &id.files);

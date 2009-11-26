@@ -1,6 +1,6 @@
 /*
  *  eval_input_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,6 +33,8 @@ DESCR__S_M3
  **
  **    gf_xxx <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]
  **        OPTIONS
+ **          -d               Distributed helper job.
+ **          -i <interval>    Interval at which we should retry.
  **          -o <retries>     Old/Error message and number of retries.
  **          -t               Temp toggle.
  **
@@ -45,6 +47,7 @@ DESCR__S_M3
  ** HISTORY
  **   18.08.2000 H.Kiehl Created
  **   12.04.2003 H.Kiehl Rewrite to accomodate to new syntax.
+ **   09.07.2009 H.Kiehl Added -i option.
  **
  */
 DESCR__E_M3
@@ -53,14 +56,15 @@ DESCR__E_M3
 #include <stdlib.h>                /* exit(), atoi()                     */
 #include <string.h>                /* strcpy(), strerror(), strcmp()     */
 #include <ctype.h>                 /* isdigit()                          */
+#include <errno.h>
 #include "fddefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern int                        fsa_id;
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 
-/* local functions */
+/* Local function prototypes. */
 static void                       usage(char *);
 
 
@@ -77,7 +81,25 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
    }
    else
    {
-      STRNCPY(p_work_dir, argv[1], MAX_PATH_LENGTH);
+      if (p_work_dir == NULL)
+      {
+         size_t length;
+
+         length = strlen(argv[1]) + 1;
+         if ((p_work_dir = malloc(length)) == NULL)
+         {
+            (void)fprintf(stderr,
+#if SIZEOF_SIZE_T == 4
+                          "ERROR   : Failed to malloc() %d bytes : %s",
+#else
+                          "ERROR   : Failed to malloc() %lld bytes : %s",
+#endif
+                          (pri_size_t)length, strerror(errno));
+            ret = ALLOC_ERROR;
+            return(-ret);
+         }
+         (void)memcpy(p_work_dir, argv[1], length);
+      }
       if (isdigit((int)(argv[2][0])) == 0)
       {
          (void)fprintf(stderr,
@@ -134,6 +156,43 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                         {
                            switch (argv[i][1])
                            {
+                              case 'd' : /* Distribution helper job. */
+                                 p_db->special_flag |= DISTRIBUTED_HELPER_JOB;
+                                 break;
+                              case 'i' : /* Interval at which it should retry. */
+                                 if (((i + 1) < argc) &&
+                                     (argv[i + 1][0] != '-'))
+                                 {
+                                    int k = 0;
+
+                                    i++;
+                                    do
+                                    {
+                                       if (isdigit((int)(argv[i][k])) == 0)
+                                       {
+                                          k = MAX_INT_LENGTH;
+                                       }
+                                       k++;
+                                    } while ((argv[i][k] != '\0') &&
+                                             (k < MAX_INT_LENGTH));
+                                    if ((k > 0) && (k < MAX_INT_LENGTH))
+                                    {
+                                       p_db->remote_file_check_interval = (unsigned int)strtoul(argv[i], (char **)NULL, 10);
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : Hmm, could not find the interval for -i option.\n");
+                                    }
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stderr,
+                                                  "ERROR   : No interval specified for -i option.\n");
+                                    usage(argv[0]);
+                                    ret = SYNTAX_ERROR;
+                                 }
+                                 break;
                               case 'o' : /* This is an old/erro job. */
                                  p_db->special_flag |= OLD_ERROR_JOB;
                                  if (((i + 1) < argc) &&
@@ -169,10 +228,10 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                                     ret = SYNTAX_ERROR;
                                  }
                                  break;
-                              case 't' : /* Toggle host */
+                              case 't' : /* Toggle host. */
                                  p_db->toggle_host = YES;
                                  break;
-                              default  : /* Unknown parameter */
+                              default  : /* Unknown parameter. */
                                  (void)fprintf(stderr,
                                                "ERROR  : Unknown parameter %c. (%s %d)\n",
                                                argv[i][1], __FILE__, __LINE__);
@@ -230,7 +289,9 @@ usage(char *name)
    (void)fprintf(stderr, "SYNTAX: %s <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]\n\n", name);
    (void)fprintf(stderr, "OPTIONS                 DESCRIPTION\n");
    (void)fprintf(stderr, "  --version           - Show current version\n");
-   (void)fprintf(stderr, "  -o                  - old/error message\n");
+   (void)fprintf(stderr, "  -d                  - this is a distributed helper job\n");
+   (void)fprintf(stderr, "  -i <interval>       - interval at which we should retry\n");
+   (void)fprintf(stderr, "  -o <retries>        - old/error message\n");
    (void)fprintf(stderr, "  -t                  - use other host\n");
 
    return;

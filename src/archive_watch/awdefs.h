@@ -20,7 +20,7 @@
 #ifndef __awdefs_h
 #define __awdefs_h
 
-/* Function prototypes */
+/* Function prototypes. */
 extern void inspect_archive(char *);
 
 #endif /* __awdefs_h */

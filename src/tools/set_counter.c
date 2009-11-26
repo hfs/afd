@@ -51,8 +51,8 @@ DESCR__E_M1
 #include "amgdefs.h"
 #include "version.h"
 
-/* Global variables */
-int        sys_log_fd = STDERR_FILENO; /* Needed by get_afd_path() */
+/* Global variables. */
+int        sys_log_fd = STDERR_FILENO; /* Needed by get_afd_path(). */
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
 
@@ -79,7 +79,7 @@ main(int argc, char *argv[])
    new_counter = atoi(argv[1]);
    argc--; argv++;
 
-   /* Open file that holds the counter */
+   /* Open file that holds the counter. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Try to lock file which holds counter */
+   /* Try to lock file which holds counter. */
    if (fcntl(fd, F_SETLKW, &wlock) < 0)
    {
       (void)fprintf(stderr, "Could not set write lock. (%s %d)\n",
@@ -106,7 +106,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Read the value of counter */
+   /* Read the value of counter. */
    if (read(fd, &counter, sizeof(int)) < 0)
    {
       (void)fprintf(stderr, "Could not read value of counter : %s (%s %d)\n",
@@ -116,14 +116,14 @@ main(int argc, char *argv[])
 
    (void)fprintf(stdout, "Befor changing AFD counter = %d\n", counter);
 
-   /* Go to beginning in file */
+   /* Go to beginning in file. */
    if (lseek(fd, 0, SEEK_SET) < 0)
    {
       (void)fprintf(stderr, "Could not seek() : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
    }
 
-   /* Write new value into counter file */
+   /* Write new value into counter file. */
    if (write(fd, &new_counter, sizeof(int)) != sizeof(int))
    {
       (void)fprintf(stderr, "Could not write value to counter file : %s (%s %d)\n",
@@ -132,7 +132,7 @@ main(int argc, char *argv[])
    }
    (void)fprintf(stdout, "Changed AFD counter to %d\n", new_counter);
 
-   /* Unlock file which holds counter */
+   /* Unlock file which holds counter. */
    if (fcntl(fd, F_SETLKW, &ulock) < 0)
    {
       (void)fprintf(stderr, "Could not unset write lock : %s (%s %d)\n",
@@ -140,7 +140,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Close the counter file */
+   /* Close the counter file. */
    (void)close(fd);
 
    exit(SUCCESS);

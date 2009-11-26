@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <stdio.h>                    /* fprintf()                       */
 #include <time.h>                     /* localtime()                     */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>                 /* struct tm                       */
+# include <sys/time.h>                /* struct tm                       */
 #endif
 #include "logdefs.h"
 

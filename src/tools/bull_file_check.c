@@ -157,7 +157,7 @@ main(int argc, char *argv[])
          exit(0);
       }
 
-      /* Get bulletin header */
+      /* Get bulletin header. */
       i = 0;
       while ((*ptr != 13) && (*ptr != '\0'))
       {

@@ -1,6 +1,6 @@
 /*
  *  afd_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ DESCR__S_M1
  **   18.10.1997 H.Kiehl Initialize day, hour and second counter.
  **   23.02.2003 H.Kiehl Added input statistics.
  **   01.01.2006 H.Kiehl Catch leap seconds when we store an old year.
+ **   03.01.2009 H.Kiehl Catch another leap second bug.
  **
  */
 DESCR__E_M1
@@ -143,7 +144,7 @@ main(int argc, char *argv[])
 
    /*
     * NOTE: We must put the hour into a temporary storage since
-    *       function rec() uses the function localtime which seems
+    *       function system_log() uses the function localtime which seems
     *       to overwrite our p_ts->tm_hour with local time!?
     */
    hour = p_ts->tm_hour;
@@ -216,14 +217,12 @@ main(int argc, char *argv[])
    /* accumulate the statistics for both.              */
    if (fsa_attach() < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to attach to FSA. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
       exit(INCORRECT);
    }
    if (fra_attach() < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to attach to FRA. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FRA.");
       exit(INCORRECT);
    }
 
@@ -236,16 +235,15 @@ main(int argc, char *argv[])
    /* Tell user we are starting the AFD_STAT */
    if (other_file == NO)
    {
-      (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%s)\n",
-                AFD_STAT, PACKAGE_VERSION);
+      system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)",
+                 AFD_STAT, PACKAGE_VERSION);
    }
 
    /* Do some cleanups when we exit */
    if (atexit(stat_exit) != 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit handler : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);            
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not register exit handler : %s", strerror(errno));            
       exit(INCORRECT);
    }
 
@@ -257,8 +255,8 @@ main(int argc, char *argv[])
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "signal() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "signal() error : %s", strerror(errno));
    }
 
    next_rescan_time = (now / STAT_RESCAN_TIME) *
@@ -315,10 +313,9 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Hmmm..., second counter wrong [%d -> %d]. Correcting. (%s %d)\n",
-                         stat_db[0].sec_counter, test_sec_counter,
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm..., second counter wrong [%d -> %d]. Correcting.",
+                          stat_db[0].sec_counter, test_sec_counter);
                for (i = 0; i < no_of_hosts; i++)
                {
                   stat_db[i].sec_counter = test_sec_counter;
@@ -331,23 +328,33 @@ main(int argc, char *argv[])
          }
          if (test_hour_counter != stat_db[0].hour_counter)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hmmm..., hour counter wrong [%d -> %d]. Correcting. (%s %d)\n",
-                      stat_db[0].hour_counter, test_hour_counter,
-                      __FILE__, __LINE__);
-            for (i = 0; i < no_of_hosts; i++)
+            if ((((test_hour_counter + 1) == stat_db[0].hour_counter) ||
+                 ((stat_db[0].hour_counter == 0) && (test_hour_counter == 23))) &&
+                (p_ts->tm_min == 59) && (p_ts->tm_sec > 54))
             {
-               stat_db[i].hour_counter = test_hour_counter;
-               stat_db[i].day[stat_db[i].hour_counter].nfs = 0;
-               stat_db[i].day[stat_db[i].hour_counter].nbs = 0.0;
-               stat_db[i].day[stat_db[i].hour_counter].ne  = 0;
-               stat_db[i].day[stat_db[i].hour_counter].nc  = 0;
+               /* Sometimes it happens that current time is just one  */
+               /* second behind and when this is just before the hour */
+               /* value changes we think we are an hour behind.       */;
             }
-            for (i = 0; i < no_of_dirs; i++)
+            else
             {
-               istat_db[i].hour_counter = test_hour_counter;
-               istat_db[i].day[istat_db[i].hour_counter].nfr = 0;
-               istat_db[i].day[istat_db[i].hour_counter].nbr = 0.0;
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm..., hour counter wrong [%d -> %d]. Correcting.",
+                          stat_db[0].hour_counter, test_hour_counter);
+               for (i = 0; i < no_of_hosts; i++)
+               {
+                  stat_db[i].hour_counter = test_hour_counter;
+                  stat_db[i].day[stat_db[i].hour_counter].nfs = 0;
+                  stat_db[i].day[stat_db[i].hour_counter].nbs = 0.0;
+                  stat_db[i].day[stat_db[i].hour_counter].ne  = 0;
+                  stat_db[i].day[stat_db[i].hour_counter].nc  = 0;
+               }
+               for (i = 0; i < no_of_dirs; i++)
+               {
+                  istat_db[i].hour_counter = test_hour_counter;
+                  istat_db[i].day[istat_db[i].hour_counter].nfr = 0;
+                  istat_db[i].day[istat_db[i].hour_counter].nbr = 0.0;
+               }
             }
          }
 
@@ -425,9 +432,8 @@ main(int argc, char *argv[])
             if (stat_db[i].hour[stat_db[i].sec_counter].nbs < 0.0)
             {
                stat_db[i].hour[stat_db[i].sec_counter].nbs = 0.0;
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Hmm.... Byte counter less then zero?!? [%d] (%s %d)\n",
-                         i, __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmm.... Byte counter less then zero?!? [%d]", i);
             }
             stat_db[i].day[stat_db[i].hour_counter].nbs += stat_db[i].hour[stat_db[i].sec_counter].nbs;
 
@@ -500,10 +506,9 @@ main(int argc, char *argv[])
             if (istat_db[i].hour[istat_db[i].sec_counter].nbr < 0.0)
             {
                istat_db[i].hour[istat_db[i].sec_counter].nbr = 0.0;
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Hmm.... Byte counter less then zero?!? [%d: %f %f] (%s %d)\n",
-                         i, d_value[0], istat_db[i].prev_nbr,
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmm.... Byte counter less then zero?!? [%d: %f %f]",
+                          i, d_value[0], istat_db[i].prev_nbr);
             }
             istat_db[i].day[istat_db[i].hour_counter].nbr += istat_db[i].hour[istat_db[i].sec_counter].nbr;
             istat_db[i].prev_nbr = d_value[0];
@@ -511,7 +516,7 @@ main(int argc, char *argv[])
          } /* for (i = 0; i < no_of_dirs; i++) */
 
          /* Did we reach another hour? */
-         if (stat_db[0].sec_counter == SECS_PER_HOUR)
+         if (stat_db[0].sec_counter >= SECS_PER_HOUR)
          {
             for (i = 0; i < no_of_hosts; i++)
             {
@@ -519,7 +524,7 @@ main(int argc, char *argv[])
                stat_db[i].sec_counter = 0;
                stat_db[i].hour_counter++;
 
-               if (stat_db[i].hour_counter == HOURS_PER_DAY)
+               if (stat_db[i].hour_counter >= HOURS_PER_DAY)
                {
                   stat_db[i].hour_counter = 0;
                   stat_db[i].year[stat_db[i].day_counter].nfs = 0;
@@ -546,7 +551,7 @@ main(int argc, char *argv[])
                istat_db[i].sec_counter = 0;
                istat_db[i].hour_counter++;
 
-               if (istat_db[i].hour_counter == HOURS_PER_DAY)
+               if (istat_db[i].hour_counter >= HOURS_PER_DAY)
                {
                   istat_db[i].hour_counter = 0;
                   istat_db[i].year[istat_db[i].day_counter].nfr = 0;
@@ -561,7 +566,7 @@ main(int argc, char *argv[])
                istat_db[i].day[istat_db[i].hour_counter].nfr = 0;
                istat_db[i].day[istat_db[i].hour_counter].nbr = 0.0;
             }
-         } /* if (stat_db[i].sec_counter == SECS_PER_HOUR) */
+         } /* if (stat_db[i].sec_counter >= SECS_PER_HOUR) */
 
          /* Did we reach another year? */
          new_year = p_ts->tm_year + 1900;
@@ -575,41 +580,67 @@ main(int argc, char *argv[])
             current_year = new_year;
 
             /*
-             * Reset all values in current memory mapped file.
+             * Reset all values in current memory mapped file. Watch out
+             * for leap seconds and NTP!
              */
-            test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) /
-                               STAT_RESCAN_TIME;
+            if ((test_hour_counter == 23) && (p_ts->tm_min == 59) &&
+                (p_ts->tm_yday >= 363))
+            {
+               test_sec_counter = 0;
+               test_hour_counter = 0;
+               j = 0;
+            }
+            else
+            {
+               test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) /
+                                  STAT_RESCAN_TIME;
+               j = p_ts->tm_yday;
+            }
             for (i = 0; i < no_of_hosts; i++)
             {
-               stat_db[i].sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME;
-               stat_db[i].hour_counter = p_ts->tm_hour;
-               stat_db[i].day_counter = p_ts->tm_yday;
+               stat_db[i].sec_counter = test_sec_counter;
+               stat_db[i].hour_counter = test_hour_counter;
+               stat_db[i].day_counter = j;
                (void)memset(&stat_db[i].year, 0, (DAYS_PER_YEAR * sizeof(struct statistics)));
                (void)memset(&stat_db[i].day, 0, (HOURS_PER_DAY * sizeof(struct statistics)));
                (void)memset(&stat_db[i].hour, 0, (SECS_PER_HOUR * sizeof(struct statistics)));
             }
             for (i = 0; i < no_of_dirs; i++)
             {
-               istat_db[i].sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME;
-               istat_db[i].hour_counter = p_ts->tm_hour;
-               istat_db[i].day_counter = p_ts->tm_yday;
+               istat_db[i].sec_counter = test_sec_counter;
+               istat_db[i].hour_counter = test_hour_counter;
+               istat_db[i].day_counter = j;
                (void)memset(&istat_db[i].year, 0, (DAYS_PER_YEAR * sizeof(struct istatistics)));
                (void)memset(&istat_db[i].day, 0, (HOURS_PER_DAY * sizeof(struct istatistics)));
                (void)memset(&istat_db[i].hour, 0, (SECS_PER_HOUR * sizeof(struct istatistics)));
+            }
+         }
+
+         if (stat_db[0].day_counter >= DAYS_PER_YEAR)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmmm..., day counter wrong [%d -> 0]. Correcting.",
+                       stat_db[0].day_counter);
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               stat_db[i].day_counter = p_ts->tm_yday;
+            }
+            for (i = 0; i < no_of_dirs; i++)
+            {
+               istat_db[i].day_counter = p_ts->tm_yday;
             }
          }
       }
            /* An error has occured */
       else if (status < 0)
            {
-              (void)rec(sys_log_fd, FATAL_SIGN, "Select error : %s (%s %d)\n",
-                        strerror(errno),  __FILE__, __LINE__);
+              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                         "select() error : %s", strerror(errno));
               exit(INCORRECT);
            }
            else
            {
-              (void)rec(sys_log_fd, FATAL_SIGN, "Unknown condition. (%s %d)\n",
-                        __FILE__, __LINE__);
+              system_log(FATAL_SIGN, __FILE__, __LINE__, "Unknown condition.");
               exit(INCORRECT);
            }
    } /* for (;;) */
@@ -624,23 +655,23 @@ stat_exit(void)
 {
    if (msync(((char *)stat_db - AFD_WORD_OFFSET), stat_db_size, MS_SYNC) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "msync() error : %s", strerror(errno));
    }
    if (msync(((char *)istat_db - AFD_WORD_OFFSET), istat_db_size, MS_SYNC) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "msync() error : %s", strerror(errno));
    }
    if (munmap(((char *)stat_db - AFD_WORD_OFFSET), stat_db_size) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "munmap() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "munmap() error : %s", strerror(errno));
    }
    if (munmap(((char *)istat_db - AFD_WORD_OFFSET), istat_db_size) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "munmap() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "munmap() error : %s", strerror(errno));
    }
 
    return;
@@ -651,8 +682,7 @@ stat_exit(void)
 static void                                                                
 sig_segv(int signo)
 {                  
-   (void)rec(sys_log_fd, FATAL_SIGN, "Aaarrrggh! Received SIGSEGV. (%s %d)\n",
-             __FILE__, __LINE__);                                             
+   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
    stat_exit();
 
    /* Dump core so we know what happened. */
@@ -664,8 +694,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   (void)rec(sys_log_fd, FATAL_SIGN, "Uuurrrggh! Received SIGBUS. (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    stat_exit();
 
    /* Dump core so we know what happened. */

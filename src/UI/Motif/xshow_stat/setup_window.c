@@ -86,7 +86,7 @@ setup_window(char *font_name)
 {
    XmFontListEntry entry;
 
-   /* Get width and height of font and fid for the GC */
+   /* Get width and height of font and fid for the GC. */
    if ((font_struct = XLoadQueryFont(display, font_name)) == NULL)
    {
       (void)fprintf(stderr, "Could not load %s font.\n", font_name);
@@ -137,7 +137,7 @@ init_gcs(void)
    XGCValues  gc_values;
    Window     window = RootWindow(display, DefaultScreen(display));
 
-   /* GC for drawing letters on default background */
+   /* GC for drawing letters on default background. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[FG];
    gc_values.background = color_pool[DEFAULT_BG];
@@ -145,7 +145,7 @@ init_gcs(void)
                          GCBackground, &gc_values);
    XSetFunction(display, letter_gc, GXcopy);
 
-   /* GC for drawing letters for normal selection */
+   /* GC for drawing letters for normal selection. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[WHITE];
    gc_values.background = color_pool[BLACK];
@@ -153,7 +153,7 @@ init_gcs(void)
                                 GCForeground | GCBackground, &gc_values);
    XSetFunction(display, normal_letter_gc, GXcopy);
 
-   /* GC for drawing letters for host name */
+   /* GC for drawing letters for host name. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[FG];
    gc_values.background = color_pool[WHITE];
@@ -161,43 +161,43 @@ init_gcs(void)
                                  GCForeground | GCBackground, &gc_values);
    XSetFunction(display, color_letter_gc, GXcopy);
 
-   /* GC for drawing the default background */
+   /* GC for drawing the default background. */
    gc_values.foreground = color_pool[DEFAULT_BG];
    default_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, default_bg_gc, GXcopy);
 
-   /* GC for drawing the normal selection background */
+   /* GC for drawing the normal selection background. */
    gc_values.foreground = color_pool[BLACK];
    normal_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, normal_bg_gc, GXcopy);
 
-   /* GC for drawing the button background */
+   /* GC for drawing the button background. */
    gc_values.foreground = color_pool[BUTTON_BACKGROUND];
    button_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, button_bg_gc, GXcopy);
 
-   /* GC for drawing the background for queue bar and leds */
+   /* GC for drawing the background for queue bar and leds. */
    gc_values.foreground = color_pool[TR_BAR];
    color_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                         &gc_values);
    XSetFunction(display, color_gc, GXcopy);
 
-   /* GC for drawing the black lines */
+   /* GC for drawing the black lines. */
    gc_values.foreground = color_pool[BLACK];
    black_line_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, black_line_gc, GXcopy);
 
-   /* GC for drawing the white lines */
+   /* GC for drawing the white lines. */
    gc_values.foreground = color_pool[WHITE];
    white_line_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, white_line_gc, GXcopy);
 
-   /* Flush buffers so all GC's are known */
+   /* Flush buffers so all GC's are known. */
    XFlush(display);
 
    return;

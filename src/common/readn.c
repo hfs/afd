@@ -83,20 +83,20 @@ readn(int fd, void *buf, int nbyte)
       {
          if ((nread = read(fd, ptr, nleft)) < 0)
          {
-            return(nread); /* read() error */
+            return(nread); /* read() error. */
          }
          else if (nread == 0)
               {
-                 break; /* EOF or remote hangup */
+                 break; /* EOF or remote hangup. */
               }
       }
       else if (status == 0)
            {
-              return(-2); /* Timeout arrived */
+              return(-2); /* Timeout arrived. */
            }
            else
            {
-              return(-3); /* select() error */
+              return(-3); /* select() error. */
            }
       nleft -= nread;
       ptr += nread;

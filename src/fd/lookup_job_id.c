@@ -47,7 +47,7 @@ DESCR__E_M3
 
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                  *no_msg_cached;
 extern struct msg_cache_buf *mdb;
 

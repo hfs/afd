@@ -1,6 +1,6 @@
 /*
  *  get_file_size.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,8 @@ main(int argc, char *argv[])
 
    if (argc == 1)
    {
-      (void)fprintf(stderr, "Usage: %s <file-name 1> [<file-name 2> ... <file-name n>]\n",
+      (void)fprintf(stderr,
+                    _("Usage: %s <file-name 1> [<file-name 2> ... <file-name n>]\n"),
                     argv[0]);
       exit(INCORRECT);
    }
@@ -69,7 +70,7 @@ main(int argc, char *argv[])
    {
       if (stat(argv[i], &stat_buf) < 0)
       {
-         (void)fprintf(stderr, "Failed to stat() %s : %s\n",
+         (void)fprintf(stderr, _("Failed to stat() `%s' : %s\n"),
                        argv[i], strerror(errno));
          continue;
       }

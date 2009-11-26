@@ -1,6 +1,6 @@
 /*
  *  lookup_job_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,6 +47,8 @@ DESCR__S_M3
  **   26.08.2003 H.Kiehl Ensure that the options are not to long.
  **   05.01.2004 H.Kiehl Store DIR_CONFIG ID.
  **   17.10.2004 H.Kiehl Create outgoing job directory.
+ **   26.06.2008 H.Kiehl Added recipient + host ID.
+ **   26.10.2009 H.Kiehl Use host ID to calculate CRC checksum.
  **
  */
 DESCR__E_M3
@@ -59,7 +61,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                 jd_fd,
                            *no_of_dir_names,
                            *no_of_job_ids;
@@ -101,7 +103,8 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
           (jd[i].file_mask_id == p_db->file_mask_id) &&
           (jd[i].no_of_loptions == p_db->no_of_loptions) &&
           (jd[i].no_of_soptions == p_db->no_of_soptions) &&
-          (CHECK_STRCMP(jd[i].recipient, p_db->recipient) == 0))
+          (jd[i].host_id == p_db->host_id) && /* can differ via aias.list! */
+          (jd[i].recipient_id == p_db->recipient_id))
       {
          /*
           * NOTE: Since all standart options are stored in a character
@@ -150,7 +153,7 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
          p_db->job_id = jd[i].job_id;
          (void)sprintf(p_db->str_job_id, "%x", jd[i].job_id);
 
-         /* Touch the message file so FD knows this is a new file */
+         /* Touch the message file so FD knows this is a new file. */
          (void)sprintf(p_msg_dir, "%x", p_db->job_id);
          if (utime(msg_dir, NULL) == -1)
          {
@@ -224,6 +227,7 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
    }
    buf_size = sizeof(unsigned int) +                /* p_db->dir_config_id */
               sizeof(unsigned int) +                /* p_db->dir_id */
+              sizeof(unsigned int) +                /* p_db->host_id */
               sizeof(unsigned int) +                /* p_db->file_mask_id */
               sizeof(char) +                        /* p_db->priority */
               sizeof(int) +                         /* p_db->no_of_files */
@@ -244,6 +248,8 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
    (void)memcpy(buffer, &p_db->dir_config_id, sizeof(unsigned int));
    offset = sizeof(unsigned int);
    (void)memcpy(&buffer[offset], &p_db->dir_id, sizeof(unsigned int));
+   offset += sizeof(unsigned int);
+   (void)memcpy(&buffer[offset], &p_db->host_id, sizeof(unsigned int));
    offset += sizeof(unsigned int);
    (void)memcpy(&buffer[offset], &p_db->file_mask_id, sizeof(unsigned int));
    offset += sizeof(unsigned int);
@@ -267,8 +273,10 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
    jd[*no_of_job_ids].no_of_loptions = p_db->no_of_loptions;
    jd[*no_of_job_ids].no_of_soptions = p_db->no_of_soptions;
    jd[*no_of_job_ids].dir_id = p_db->dir_id;
+   jd[*no_of_job_ids].host_id = p_db->host_id;
    jd[*no_of_job_ids].dir_config_id = p_db->dir_config_id;
    jd[*no_of_job_ids].file_mask_id = p_db->file_mask_id;
+   jd[*no_of_job_ids].recipient_id = p_db->recipient_id; /* Not used for CRC. */
 
    /*
     * NOTE: p_db->recipient is NOT MAX_RECIPIENT_LENGTH, it has the

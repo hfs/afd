@@ -33,7 +33,7 @@
 #define DAY_STAT                1
 #define YEAR_STAT               2
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int  window_size(int *, int *, int, int);
 extern void close_button(Widget, XtPointer, XtPointer),
             draw_graph(void),

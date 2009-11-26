@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,7 @@ DESCR__S_M3
  **                    char         *rename_to_rule,
  **                    char         *new_name,
  **                    int          *counter_fd,
+ **                    int          **counter,
  **                    unsigned int job_id)
  **
  ** DESCRIPTION
@@ -83,7 +84,10 @@ DESCR__S_M3
  **   09.10.2001 H.Kiehl    Insert option for inserting hostname.
  **   16.06.2002 H.Kiehl    Insert option Unix time.
  **   28.06.2003 H.Kiehl    Added time modifier.
- **   10.04.2005 H.Kiehl    Added alternating numbers.
+ **   10.04.2005 H.Kiehl    Added binary alternating numbers.
+ **   14.02.2008 H.Kiehl    Added decimal and hexadecimal alternating numbers.
+ **   09.05.2008 H.Kiehl    For %o or %O check that the original file name
+ **                         is long enough.
  **
  */
 DESCR__E_M3
@@ -115,6 +119,7 @@ change_name(char         *orig_file_name,
             char         *rename_to_rule,
             char         *new_name,
             int          *counter_fd,
+            int          **counter,
             unsigned int job_id)
 {
    char   buffer[MAX_FILENAME_LENGTH],
@@ -138,62 +143,63 @@ change_name(char         *orig_file_name,
           *ptr_rule = NULL,
           *ptr_newname = NULL,
           time_mod_sign = '+';
-   int    alternate,
+   int    act_asterix = 0,
+          act_questioner = 0,
+          alternate,
           count_asterix = 0,
           count_questioner = 0,
-          tmp_count_questioner,
-          act_asterix = 0,
-          act_questioner = 0,
+          end,
           i,
           number,
-          start = 0,
-          end,
-          pattern_found = NO;
+          original_filename_length = -1,
+          pattern_found = NO,
+          start,
+          tmp_count_questioner;
    time_t time_buf,
           time_modifier = 0;
 
-   /* copy original filename to a temporary buffer */
+   /* Copy original filename to a temporary buffer. */
    (void)strcpy(buffer, orig_file_name);
 
    ptr_oldname = ptr_oldname_tmp = buffer;
    ptr_filter  = ptr_filter_tmp  = filter;
 
-   /* taking 'orig_file_name' in pieces like 'filter' */
+   /* Taking 'orig_file_name' in pieces like 'filter'. */
    while (*ptr_filter != '\0')
    {
       switch (*ptr_filter)
       {
-         case '*' : /* '*' in filter detected -> mark position in array */
+         case '*' : /* '*' in filter detected -> mark position in array. */
             ptr_asterix[count_asterix++] = ptr_oldname;
             ptr_filter++;
             break;
 
          case '?' : /* '?' in filter -> skip one character in both words */
-                    /*                  and mark questioner              */
+                    /*                  and mark questioner.             */
             ptr_filter++;
             ptr_questioner[count_questioner++] = ptr_oldname++;
             break;
 
-         default  : /* search the char, found in filter, in oldname */
+         default  : /* Search the char, found in filter, in oldname. */
             pattern_found = NO;
             tmp_count_questioner = 0;
 
-            /* mark the latest position */
+            /* Mark the latest position. */
             ptr_filter_tmp = ptr_filter;
             while (*ptr_filter_tmp != '\0')
             {
-               /* position the orig_file_name pointer to the next      */
+               /* Position the orig_file_name pointer to the next      */
                /* place where filter pointer and orig_file_name pointer*/
-               /* are equal                                            */
+               /* are equal.                                           */
                while ((*ptr_oldname != *ptr_filter_tmp) &&
                       (*ptr_oldname != '\0'))
                {
                   ptr_oldname++;
                }
-               /* mark the latest position */
+               /* Mark the latest position. */
                ptr_oldname_tmp = ptr_oldname;
 
-               /* test the rest of the pattern */
+               /* Test the rest of the pattern. */
                while ((*ptr_filter_tmp != '*') && (*ptr_filter_tmp != '\0'))
                {
                   if ((*ptr_filter_tmp == *ptr_oldname_tmp) ||
@@ -201,7 +207,7 @@ change_name(char         *orig_file_name,
                   {
                      if (*ptr_filter_tmp == '?')
                      {
-                        /* mark questioner */
+                        /* Mark questioner. */
                         ptr_questioner[count_questioner + tmp_count_questioner++] = ptr_oldname_tmp;
                      }
                      ptr_filter_tmp++;
@@ -221,8 +227,8 @@ change_name(char         *orig_file_name,
                }
                if (pattern_found == YES)
                {
-                  /* mark end of string 'ptr_asterix[count_asterix]' */
-                  /* and position the pointer to next char           */
+                  /* Mark end of string 'ptr_asterix[count_asterix]' */
+                  /* and position the pointer to next char.          */
                   *ptr_oldname = '\0';
                   ptr_oldname = ptr_oldname_tmp;
                   ptr_filter = ptr_filter_tmp;
@@ -244,12 +250,12 @@ change_name(char         *orig_file_name,
    }
 
 #ifdef _DEBUG
-   system_log(INFO_SIGN, NULL, 0, "found %d *", count_asterix);
+   system_log(INFO_SIGN, NULL, 0, _("found %d *"), count_asterix);
    for (i = 0; i < count_asterix; i++)
    {
       system_log(INFO_SIGN, NULL, 0, "ptr_asterix[%d]=%s", i, ptr_asterix[i]);
    }
-   system_log(INFO_SIGN, NULL, 0, "found %d ?", count_questioner);
+   system_log(INFO_SIGN, NULL, 0, _("found %d ?"), count_questioner);
    for (i = 0; i < count_questioner; i++)
    {
       system_log(INFO_SIGN, NULL, 0, "ptr_questioner[%d]=%c",
@@ -257,33 +263,36 @@ change_name(char         *orig_file_name,
    }
 #endif
 
-   /* Create new_name as specified in rename_to_rule */
+   /* Create new_name as specified in rename_to_rule. */
    ptr_rule = rename_to_rule;
    ptr_newname = new_name;
    while (*ptr_rule != '\0')
    {
-      /* work trough the rule and paste the name */
+      /* Work trough the rule and paste the name. */
       switch (*ptr_rule)
       {
-         case '%' : /* locate the '%' -> handle the rule */
+         case '%' : /* Locate the '%' -> handle the rule. */
             ptr_rule++;
             switch (*ptr_rule)
             {
-               case '*' : /* insert the addressed ptr_asterix */
+               case '*' : /* Insert the addressed ptr_asterix. */
                   ptr_rule++;
 
-                  /* test for number */
+                  /* Test for number. */
                   i = 0;
-                  while ((isdigit((int)(*ptr_rule))) && (i < MAX_INT_LENGTH))
+                  while ((isdigit((int)(*(ptr_rule + i)))) &&
+                         (i < MAX_INT_LENGTH))
                   {
-                     string[i++] = *ptr_rule++;
+                     string[i] = *(ptr_rule + i);
+                     i++;
                   }
+                  ptr_rule += i;
                   string[i] = '\0';
-                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                  number = atoi(string) - 1; /* Human count from 1 and computer from 0. */
                   if (number >= count_asterix)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "illegal '*' addressed: %d", number + 1);
+                                _("illegal '*' addressed: %d"), number + 1);
                   }
                   else
                   {
@@ -292,21 +301,24 @@ change_name(char         *orig_file_name,
                   }
                   break;
 
-               case '?' : /* insert the addressed ptr_questioner */
+               case '?' : /* Insert the addressed ptr_questioner. */
                   ptr_rule++;
 
-                  /* test for a number */
+                  /* Test for number. */
                   i = 0;
-                  while ((isdigit((int)(*ptr_rule))) && (i < MAX_INT_LENGTH))
+                  while ((isdigit((int)(*(ptr_rule + i)))) &&
+                         (i < MAX_INT_LENGTH))
                   {
-                     string[i++] = *ptr_rule++;
+                     string[i] = *(ptr_rule + i);
+                     i++;
                   }
+                  ptr_rule += i;
                   string[i] = '\0';
-                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                  number = atoi(string) - 1; /* Human count from 1 and computer from 0. */
                   if (number >= count_questioner)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "illegal '?' addressed: %d (%s %s)",
+                                _("illegal '?' addressed: %d (%s %s)"),
                                 number + 1, filter, rename_to_rule);
 
                   }
@@ -317,96 +329,123 @@ change_name(char         *orig_file_name,
                   }
                   break;
 
-               case 'o' : /* insert the addressed character from orig_file_name */
+               case 'o' : /* Insert the addressed character from orig_file_name. */
                   ptr_rule++;
 
-                  /* test for a number */
+                  /* Test for number. */
                   i = 0;
-                  while ((isdigit((int)(*ptr_rule))) && (i < MAX_INT_LENGTH))
+                  while ((isdigit((int)(*(ptr_rule + i)))) &&
+                         (i < MAX_INT_LENGTH))
                   {
-                     string[i++] = *ptr_rule++;
+                     string[i] = *(ptr_rule + i);
+                     i++;
                   }
+                  if (original_filename_length == -1)
+                  {
+                     original_filename_length = strlen(orig_file_name);
+                  }
+                  ptr_rule += i;
                   string[i] = '\0';
-                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                  *ptr_newname++ = *(orig_file_name + number);
+                  number = atoi(string) - 1; /* Human count from 1 and computer from 0. */
+                  if (number <= original_filename_length)
+                  {
+                     *ptr_newname++ = *(orig_file_name + number);
+                  }
                   break;
 
-               case 'O' : /* insert the addressed range of characters from orig_file_name */
+               case 'O' : /* Insert the addressed range of characters from orig_file_name. */
                   ptr_rule++;
 
-                  /* read the begin */
-                  if (*ptr_rule == '^') /* means start from the beginning */
+                  /* Read from start. */
+                  if (*ptr_rule == '^') /* Means start from the beginning. */
                   {
                      ptr_oldname = orig_file_name;
                      ptr_rule++;
+                     start = 0;
                   }
-                  else /* read the start number */
+                  else /* Read the start number. */
                   {
                      i = 0;
-                     while ((isdigit((int)(*ptr_rule))) && (i < MAX_INT_LENGTH))
+                     while ((isdigit((int)(*(ptr_rule + i)))) &&
+                            (i < MAX_INT_LENGTH))
                      {
-                        string[i++] = *ptr_rule++;
+                        string[i] = *(ptr_rule + i);
+                        i++;
                      }
+                     ptr_rule += i;
                      string[i] = '\0';
-                     start = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                     start = atoi(string) - 1; /* Human count from 1 and computer from 0. */
                      ptr_oldname = orig_file_name + start;
                   }
                   if (*ptr_rule == '-')
                   {
-                     /* skip the '-' */
-                     ptr_rule++;
-                     /* read the end */
-                     if (*ptr_rule == '$') /* means up to the end */
+                     if (original_filename_length == -1)
                      {
-                        (void)strcpy(ptr_newname, ptr_oldname);
-                        ptr_newname += strlen(ptr_oldname);
-                        ptr_rule++;
+                        original_filename_length = strlen(orig_file_name);
                      }
-                     else
+                     if (start <= original_filename_length)
                      {
-                        i = 0;
-                        while ((isdigit((int)(*ptr_rule))) &&
-                               (i < MAX_INT_LENGTH))
+                        /* Skip the '-'. */
+                        ptr_rule++;
+                        /* Read the end. */
+                        if (*ptr_rule == '$') /* Means up to the end. */
                         {
-                           string[i++] = *ptr_rule++;
-                        }
-                        string[i] = '\0';
-                        end = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                        number = end - start + 1;  /* including the first and last */
-                        if (number < 0)
-                        {
-                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "The start (%d) and end (%d) range do not make sense in rule %s. Start must be larger then end!",
-                                      rename_to_rule);
+                           (void)strcpy(ptr_newname, ptr_oldname);
+                           ptr_newname += strlen(ptr_oldname);
+                           ptr_rule++;
                         }
                         else
                         {
-                           my_strncpy(ptr_newname, ptr_oldname, number);
-                           ptr_newname += number;
+                           i = 0;
+                           while ((isdigit((int)(*(ptr_rule + i)))) &&
+                                  (i < MAX_INT_LENGTH))
+                           {
+                              string[i] = *(ptr_rule + i);
+                              i++;
+                           }
+                           ptr_rule += i;
+                           string[i] = '\0';
+                           end = atoi(string) - 1; /* Human count from 1 and computer from 0. */
+                           if (end > original_filename_length)
+                           {
+                              end = original_filename_length;
+                           }
+                           number = end - start + 1;  /* Including the first and last. */
+                           if (number < 0)
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         _("The start (%d) and end (%d) range do not make sense in rule %s. Start must be larger then end!"),
+                                         start, end, rename_to_rule);
+                           }
+                           else
+                           {
+                              my_strncpy(ptr_newname, ptr_oldname, number);
+                              ptr_newname += number;
+                           }
                         }
                      }
                   }
                   else
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "There is no end range specified for rule %s",
+                                _("There is no end range specified for rule %s"),
                                 rename_to_rule);
                   }
                   break;
 
-               case 'n' : /* generate a unique number 4 characters */
+               case 'n' : /* Generate a unique number 4 characters. */
                   ptr_rule++;
                   if (*counter_fd == -1)
                   {
-                     if ((*counter_fd = open_counter_file(COUNTER_FILE)) < 0)
+                     if ((*counter_fd = open_counter_file(COUNTER_FILE, counter)) < 0)
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Failed to open counter file, ignoring %n.");
+                                   _("Failed to open counter file, ignoring %n."));
                         break;
                      }
                   }
-                  next_counter(*counter_fd, &number);
-                  (void)sprintf(ptr_newname, "%04d", number);
+                  next_counter(*counter_fd, *counter);
+                  (void)sprintf(ptr_newname, "%04x", **counter);
                   ptr_newname += 4;
                   break;
 
@@ -431,7 +470,7 @@ change_name(char         *orig_file_name,
                   }
                   break;
 
-               case 'T' : /* Time modifier */
+               case 'T' : /* Time modifier. */
                   {
                      int time_unit;
 
@@ -451,10 +490,13 @@ change_name(char         *orig_file_name,
                            break;
                      }
                      i = 0;
-                     while ((isdigit((int)(*ptr_rule))) && (i < MAX_INT_LENGTH))
+                     while ((isdigit((int)(*(ptr_rule + i)))) &&
+                            (i < MAX_INT_LENGTH))
                      {
-                        string[i++] = *ptr_rule++;
+                        string[i] = *(ptr_rule + i);
+                        i++;
                      }
+                     ptr_rule += i;
                      if ((i > 0) && (i < MAX_INT_LENGTH))
                      {
                         string[i] = '\0';
@@ -465,13 +507,13 @@ change_name(char         *orig_file_name,
                         if (i == MAX_INT_LENGTH)
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "The time modifier specified for rule %s is to large.",
+                                      _("The time modifier specified for rule %s is to large."),
                                       rename_to_rule);
                         }
                         else
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "There is no time modifier specified for rule %s",
+                                      _("There is no time modifier specified for rule %s"),
                                       rename_to_rule);
                         }
                         time_modifier = 0;
@@ -505,7 +547,7 @@ change_name(char         *orig_file_name,
                   }
                   break;
 
-               case 't' : /* insert the actual time like strftime */
+               case 't' : /* Insert the actual time as strftime. */
                   time_buf = time(NULL);
                   if (time_modifier > 0)
                   {
@@ -532,51 +574,51 @@ change_name(char         *orig_file_name,
                   ptr_rule++;
                   switch (*ptr_rule)
                   {
-                     case 'a' : /* short day of the week 'Tue' */
+                     case 'a' : /* Short day of the week 'Tue'. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%a", gmtime(&time_buf));
                         break;
-                     case 'A' : /* long day of the week 'Tuesday' */
+                     case 'A' : /* Long day of the week 'Tuesday'. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%A", gmtime(&time_buf));
                         break;
-                     case 'b' : /* short month 'Jan' */
+                     case 'b' : /* Short month 'Jan'. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%b", gmtime(&time_buf));
                         break;
-                     case 'B' : /* month 'January' */
+                     case 'B' : /* Month 'January'. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%B", gmtime(&time_buf));
                         break;
-                     case 'd' : /* day of month [01,31] */
+                     case 'd' : /* Day of month [01,31]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%d", gmtime(&time_buf));
                         break;
-                     case 'j' : /* day of year [001,366] */
+                     case 'j' : /* Day of year [001,366]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%j", gmtime(&time_buf));
                         break;
-                     case 'm' : /* month [01,12] */
+                     case 'm' : /* Month [01,12]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%m", gmtime(&time_buf));
                         break;
-                     case 'y' : /* year 2 chars [01,99] */
+                     case 'y' : /* Year 2 chars [01,99]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%y", gmtime(&time_buf));
                         break;
-                     case 'Y' : /* year 4 chars 1997 */
+                     case 'Y' : /* Year 4 chars 1997. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%Y", gmtime(&time_buf));
                         break;
-                     case 'H' : /* hour [00,23] */
+                     case 'H' : /* Hour [00,23]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%H", gmtime(&time_buf));
                         break;
-                     case 'M' : /* minute [00,59] */
+                     case 'M' : /* Minute [00,59]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%M", gmtime(&time_buf));
                         break;
-                     case 'S' : /* second [00,59] */
+                     case 'S' : /* Second [00,59]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%S", gmtime(&time_buf));
                         break;
@@ -588,9 +630,9 @@ change_name(char         *orig_file_name,
 #endif
                                          (pri_time_t)time_buf);
                         break;
-                     default  : /* unknown character - ignore */
+                     default  : /* Unknown character - ignore. */
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Illegal time option (%c) in rule %s",
+                                   _("Illegal time option (%c) in rule %s"),
                                    *ptr_rule, rename_to_rule);
                         number = 0;
                         break;
@@ -599,7 +641,7 @@ change_name(char         *orig_file_name,
                   ptr_rule++;
                   break;
 
-               case '%' : /* insert the '%' sign */
+               case '%' : /* Insert the '%' sign. */
                   *ptr_newname = '%';
                   ptr_newname++;
                   ptr_rule++;
@@ -613,7 +655,7 @@ change_name(char         *orig_file_name,
                   }
                   switch (*ptr_rule)
                   {
-                     case 'b' : /* Binary */
+                     case 'b' : /* Binary. */
                         if ((alternate % 2) == 0)
                         {
                            *ptr_newname = '0';
@@ -630,46 +672,85 @@ change_name(char         *orig_file_name,
                         ptr_rule++;
                         if (isdigit((int)*ptr_rule))
                         {
-                           if ((alternate % (*ptr_rule - '0')) == 0)
-                           {
-                              *ptr_newname = '0';
-                           }
-                           else
-                           {
-                           }
+                           *ptr_newname = '0' + (alternate % (*ptr_rule + 1 - '0'));
+                           ptr_rule++;
                            ptr_newname++;
                         }
                         else
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Illegal character (%c) found in rule %s",
+                                      _("Illegal character (%c - not a decimal digit) found in rule %s"),
                                       *ptr_rule, rename_to_rule);
                         }
                         break;
 
-                     default : /* Unknown character - ignore */
+                     case 'h' : /* Hexadecimal. */
+                        {
+                           char ul_char; /* Upper/lower character. */
+
+                           ptr_rule++;
+                           if ((*ptr_rule >= '0') && (*ptr_rule <= '9'))
+                           {
+                              number = *ptr_rule + 1 - '0';
+                           }
+                           else if ((*ptr_rule >= 'A') && (*ptr_rule <= 'F'))
+                                {
+                                   number = 10 + *ptr_rule + 1 - 'A';
+                                   ul_char = 'A';
+                                }
+                           else if ((*ptr_rule >= 'a') && (*ptr_rule <= 'f'))
+                                {
+                                   number = 10 + *ptr_rule + 1 - 'a';
+                                   ul_char = 'a';
+                                }
+                                else
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              _("Illegal character (%c - not a hexadecimal digit) found in rule %s"),
+                                              *ptr_rule, rename_to_rule);
+                                   number = -1;
+                                }
+
+                           if (number != -1)
+                           {
+                              number = alternate % number;
+                              if (number >= 10)
+                              {
+                                 *ptr_newname = ul_char + number - 10;
+                              }
+                              else
+                              {
+                                 *ptr_newname = '0' + number;
+                              }
+                              ptr_rule++;
+                              ptr_newname++;
+                           }
+                        }
+                        break;
+
+                     default : /* Unknown character - ignore. */
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Illegal character (%c) found in rule %s",
+                                   _("Illegal character (%c) found in rule %s"),
                                    *ptr_rule, rename_to_rule);
                         ptr_rule++;
                         break;
                   }
                   break;
 
-               default  : /* no action be specified, write an error message */
+               default  : /* No action specified, write an error message. */
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Illegal option (%d) in rule %s",
+                             _("Illegal option (%d) in rule %s"),
                              *ptr_rule, rename_to_rule);
                   ptr_rule++;
                   break;
             }
             break;
-            
-         case '*' : /* locate the '*' -> insert the next 'ptr_asterix' */
+
+         case '*' : /* Locate the '*' -> insert the next 'ptr_asterix'. */
             if (act_asterix == count_asterix)
             {
                system_log(WARN_SIGN, NULL, 0,
-                          "can not paste more '*' as defined before -> ignored");
+                          _("can not pass more '*' as found before -> ignored"));
                system_log(DEBUG_SIGN, NULL, 0,
                           "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
                           orig_file_name, filter, rename_to_rule, new_name);
@@ -683,11 +764,11 @@ change_name(char         *orig_file_name,
             ptr_rule++;
             break;
 
-         case '?' : /* locate the '?' -> insert the next 'ptr_questioner' */
+         case '?' : /* Locate the '?' -> insert the next 'ptr_questioner' */
             if (act_questioner == count_questioner)
             {
                system_log(WARN_SIGN, NULL, 0,
-                          "can not paste more '?' as defined before -> ignored");
+                          _("can not pass more '?' as found before -> ignored"));
                system_log(DEBUG_SIGN, NULL, 0,
                           "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
                           orig_file_name, filter, rename_to_rule, new_name);
@@ -701,11 +782,11 @@ change_name(char         *orig_file_name,
             ptr_rule++;
             break;
 
-         case '\\' : /* ignore */
+         case '\\' : /* Ignore. */
             ptr_rule++;
             break;
 
-         default  : /* found an ordinary character -> append it */
+         default  : /* Found an ordinary character -> append it. */
             *ptr_newname = *ptr_rule;
             ptr_newname++;
             ptr_rule++;
@@ -731,7 +812,8 @@ get_alternate_number(unsigned int job_id)
    if ((fd = open(alternate_file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to open() %s : %s", alternate_file, strerror(errno));
+                 _("Failed to open() `%s' : %s"),
+                 alternate_file, strerror(errno));
       ret = INCORRECT;
    }
    else
@@ -741,7 +823,8 @@ get_alternate_number(unsigned int job_id)
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to lock %s : %s", alternate_file, strerror(errno));
+                    _("Failed to lock `%s' : %s"),
+                    alternate_file, strerror(errno));
          ret = INCORRECT;
       }
       else
@@ -751,7 +834,7 @@ get_alternate_number(unsigned int job_id)
          if (fstat(fd, &stat_buf) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to open() %s : %s",
+                       _("Failed to open() `%s' : %s"),
                        alternate_file, strerror(errno));
             ret = INCORRECT;
          }
@@ -766,7 +849,7 @@ get_alternate_number(unsigned int job_id)
                if (read(fd, &ret, sizeof(int)) != sizeof(int))
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to read() from %s : %s",
+                             _("Failed to read() from `%s' : %s"),
                              alternate_file, strerror(errno));
                   ret = INCORRECT;
                }
@@ -775,7 +858,7 @@ get_alternate_number(unsigned int job_id)
                   if (lseek(fd, 0, SEEK_SET) == -1)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "Failed to lseek() in %s : %s",
+                                _("Failed to lseek() in `%s' : %s"),
                                 alternate_file, strerror(errno));
                      ret = INCORRECT;
                   }
@@ -794,7 +877,7 @@ get_alternate_number(unsigned int job_id)
                if (write(fd, &ret, sizeof(int)) != sizeof(int))
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to write() to %s : %s",
+                             _("Failed to write() to `%s' : %s"),
                              alternate_file, strerror(errno));
                }
             }
@@ -803,7 +886,7 @@ get_alternate_number(unsigned int job_id)
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "Failed to close() %s : %s",
+                    _("Failed to close() `%s' : %s"),
                     alternate_file, strerror(errno));
       }
    }

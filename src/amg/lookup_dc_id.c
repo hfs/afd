@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -71,7 +71,7 @@ lookup_dc_id(struct dir_config_buf **dcl, int dcl_counter)
    (void)strcat(file, FIFO_DIR);
    (void)strcat(file, DC_LIST_FILE);
    new_size = dcl_counter * sizeof(struct dir_config_list);
-   if ((ptr = attach_buf(file, &dcl_fd, new_size,
+   if ((ptr = attach_buf(file, &dcl_fd, &new_size,
                          "AMG", FILE_MODE, NO)) == (caddr_t) -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,

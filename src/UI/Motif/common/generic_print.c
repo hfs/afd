@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ DESCR__E_M3
 # include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
-#include "afd_ctrl.h"
+#include "mafd_ctrl.h"
 
 /* Global variables. */
 Widget         printshell = (Widget)NULL;
@@ -242,7 +242,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
          /*---------------------------------------------------------------*/
          /*                         Range Box                             */
          /*---------------------------------------------------------------*/
-         /* Frame for Range Box */
+         /* Frame for Range Box. */
          frame_w = XtVaCreateManagedWidget("range_frame",
                            xmFrameWidgetClass,  criteriabox_w,
                            XmNshadowType,       XmSHADOW_ETCHED_IN,
@@ -254,14 +254,14 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                            XmNbottomOffset,     5,
                            NULL);
 
-         /* Label for the frame */
+         /* Label for the frame. */
          XtVaCreateManagedWidget("Range",
                            xmLabelGadgetClass,        frame_w,
                            XmNchildType,              XmFRAME_TITLE_CHILD,
                            XmNchildVerticalAlignment, XmALIGNMENT_CENTER,
                            NULL);
 
-         /* Manager widget for the actual range stuff */
+         /* Manager widget for the actual range stuff. */
          radiobox_w = XtVaCreateWidget("radiobox",
                            xmRowColumnWidgetClass, frame_w,
                            XmNradioBehavior,       True,
@@ -288,7 +288,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
          XtManageChild(radiobox_w);
          range_type = SELECTION_TOGGLE;
 
-         /* Frame for Device Box */
+         /* Frame for Device Box. */
          frame_w = XtVaCreateManagedWidget("device_frame",
                            xmFrameWidgetClass,   criteriabox_w,
                            XmNshadowType,        XmSHADOW_ETCHED_IN,
@@ -305,7 +305,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
       }
       else
       {
-         /* Frame for Device Box */
+         /* Frame for Device Box. */
          frame_w = XtVaCreateManagedWidget("device_frame",
                            xmFrameWidgetClass,   criteriabox_w,
                            XmNshadowType,        XmSHADOW_ETCHED_IN,
@@ -323,7 +323,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
       /*---------------------------------------------------------------*/
       /*                        Device Box                             */
       /*---------------------------------------------------------------*/
-      /* Label for the frame */
+      /* Label for the frame. */
       XtVaCreateManagedWidget("Device",
                         xmLabelGadgetClass,          frame_w,
                         XmNchildType,                XmFRAME_TITLE_CHILD,
@@ -334,7 +334,7 @@ print_data(Widget w, XtPointer client_data, XtPointer call_data)
                         xmFormWidgetClass, frame_w,
                         NULL);
 
-      /* Create selection line to select a printer */
+      /* Create selection line to select a printer. */
       inputline_w = XtVaCreateWidget("input_line",
                         xmFormWidgetClass,  form_w,
                         XmNtopAttachment,   XmATTACH_FORM,
@@ -546,7 +546,7 @@ send_print_cmd(char *message)
         cmd[MAX_PATH_LENGTH];
 
    (void)sprintf(cmd, "%s%s %s", printer_cmd, printer_name, file_name);
-   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES)) != 0)
+   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES, YES)) != 0)
    {
       (void)xrec(ERROR_DIALOG,
                  "Failed to send printer command `%s' [%d] : %s (%s %d)",
@@ -584,7 +584,7 @@ send_mail_cmd(char *message)
 
    (void)sprintf(cmd, "%s -a %s -s \"AFD log data\" -t 20 %s",
                  ASMTP, mailto, file_name);
-   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES)) != 0)
+   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES, YES)) != 0)
    {
       (void)xrec(ERROR_DIALOG,
                  "Failed to send mail command `%s' [%d] : %s (%s %d)",

@@ -1,6 +1,6 @@
 /*
  *  topview.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -117,10 +117,18 @@ main(int argc, char *argv[])
       }
    }
 
-   if (msa_attach() < 0)
+   if ((j = msa_attach_passive()) < 0)
    {
-      (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
-                    __FILE__, __LINE__);
+      if (j == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr, "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
       exit(INCORRECT);
    }
 

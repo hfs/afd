@@ -1,6 +1,6 @@
 /*
  *  check_afd_heartbeat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   16.06.2002 H.Kiehl Created
+ **   27.04.2009 H.Kiehl Read from AFD_ACTIVE file so NFS updates the
+ **                      content.
  **
  */
 DESCR__E_M3
@@ -48,12 +50,9 @@ DESCR__E_M3
 #include <string.h>              /* strerror()                           */
 #include <stdlib.h>              /* malloc(), free()                     */
 #include <sys/types.h>
-#ifdef HAVE_MMAP
-#include <sys/mman.h>            /* mmap(), munmap()                     */
-#endif
 #include <sys/stat.h>
 #include <signal.h>              /* kill()                               */
-#include <unistd.h>              /* sleep(), unlink()                    */
+#include <unistd.h>              /* sleep(), unlink(), lseek(), read()   */
 #include <fcntl.h>               /* O_RDWR                               */
 #include <errno.h>
 
@@ -78,69 +77,69 @@ check_afd_heartbeat(long wait_time, int remove_process)
 
       if ((afd_active_fd = open(afd_active_file, O_RDWR)) == -1)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to open() %s : %s",
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to open() `%s' : %s"),
                     afd_active_file, strerror(errno));
       }
       else
       {
-         char *ptr;
+         unsigned int current_value,
+                      heartbeat;
+         long         elapsed_time = 0L;
+         off_t        offset;
 
-#ifdef HAVE_MMAP
-         if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
-                         MAP_SHARED, afd_active_fd, 0)) == (caddr_t) -1)
-#else
-         if ((ptr = mmap_emu(NULL, stat_buf.st_size,
-                             (PROT_READ | PROT_WRITE),
-                             MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1) 
-#endif
+         /* NOTE: Since this is a memory mapped file, NFS needs a read() */
+         /*       event so it does update the content of the file. So    */
+         /*       do NOT use mmap()!!!                                   */
+         offset = (NO_OF_PROCESS + 1) * sizeof(pid_t);
+         if (lseek(afd_active_fd, offset, SEEK_SET) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to mmap() to %s : %s",
-                       afd_active_file, strerror(errno));
+                       _("lseek() error : %s"), strerror(errno));
+            (void)close(afd_active_fd);
+            return(0);
          }
-         else
+         if (read(afd_active_fd, &current_value, sizeof(unsigned int)) != sizeof(unsigned int))
          {
-            unsigned int current_value,
-                         *heartbeat;
-            long         elapsed_time = 0L;
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("read() error : %s"), strerror(errno));
+            (void)close(afd_active_fd);
+            return(0);
+         }
 
-            heartbeat = (unsigned int *)(ptr + ((NO_OF_PROCESS + 1) * sizeof(pid_t)));
-            current_value = *heartbeat;
-
-            wait_time = wait_time * 1000000L;
-            while (elapsed_time < wait_time)
-            {
-               if (current_value != *heartbeat)
-               {
-                  afd_active = 1;
-                  break;
-               }
-               my_usleep(100000L);
-               elapsed_time += 100000L;
-            }
-#ifdef HAVE_MMAP
-            if (munmap(ptr, stat_buf.st_size) == -1)
+         wait_time = wait_time * 1000000L;
+         while (elapsed_time < wait_time)
+         {
+            if (lseek(afd_active_fd, offset, SEEK_SET) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to munmap() from %s : %s",
-                          afd_active_file, strerror(errno));
+                          _("lseek() error : %s"), strerror(errno));
+               (void)close(afd_active_fd);
+               return(0);
             }
-#else
-            if (munmap_emu(ptr) == -1)
+            if (read(afd_active_fd, &heartbeat, sizeof(unsigned int)) != sizeof(unsigned int))
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to munmap_emu() from %s", afd_active_file);
+                          _("read() error : %s"), strerror(errno));
+               (void)close(afd_active_fd);
+               return(0);
             }
-#endif
-            if ((afd_active == 0) && (remove_process == YES))
+            if (current_value != heartbeat)
             {
-               kill_jobs(stat_buf.st_size);
+               afd_active = 1;
+               break;
             }
+            my_usleep(100000L);
+            elapsed_time += 100000L;
+         }
+         if ((afd_active == 0) && (remove_process == YES))
+         {
+            kill_jobs(stat_buf.st_size);
          }
          if (close(afd_active_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Failed to close() %s : %s",
+                       _("Failed to close() `%s' : %s"),
                        afd_active_file, strerror(errno));
          }
       }
@@ -164,21 +163,22 @@ kill_jobs(off_t st_size)
    if ((read_fd = open(afd_active_file, O_RDWR)) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to open %s : %s", afd_active_file, strerror(errno));
+                 _("Failed to open `%s' : %s"),
+                 afd_active_file, strerror(errno));
       exit(-10);
    }
 
    if ((buffer = malloc(st_size)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "malloc() error : %s", strerror(errno));
+                 _("malloc() error : %s"), strerror(errno));
       exit(-11);
    }
 
    if (read(read_fd, buffer, st_size) != st_size)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "read() error : %s", strerror(errno));
+                 _("read() error : %s"), strerror(errno));
       exit(-12);
    }
 
@@ -228,7 +228,7 @@ kill_jobs(off_t st_size)
    if (close(read_fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
+                 _("close() error : %s"), strerror(errno));
    }
    free(buffer);
 

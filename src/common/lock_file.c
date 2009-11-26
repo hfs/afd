@@ -1,6 +1,6 @@
 /*
  *  lock_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,7 +58,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 
@@ -78,7 +78,7 @@ lock_file(char *file, int block_flag)
       else
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not open() `%s' : %s", file, strerror(errno));
+                    _("Could not open() `%s' : %s"), file, strerror(errno));
          fd = INCORRECT;
       }
    }
@@ -91,7 +91,7 @@ lock_file(char *file, int block_flag)
          if (fcntl(fd, F_SETLKW, &wlock) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not set read lock : %s", strerror(errno));
+                       _("Could not set read lock : %s"), strerror(errno));
             (void)close(fd);
             fd = INCORRECT;
          }
@@ -102,14 +102,14 @@ lock_file(char *file, int block_flag)
          {
             if ((errno == EACCES) || (errno == EAGAIN) || (errno == EBUSY))
             {
-               /* The file is already locked, so don't bother */
+               /* The file is already locked, so don't bother. */
                (void)close(fd);
                fd = LOCK_IS_SET;
             }
             else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Could not set read lock : %s", strerror(errno));
+                          _("Could not set read lock : %s"), strerror(errno));
                (void)close(fd);
                fd = INCORRECT;
             }

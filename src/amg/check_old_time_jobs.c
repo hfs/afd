@@ -1,7 +1,7 @@
 /*
  *  check_old_time_jobs.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                 *no_of_job_ids,
                            no_of_time_jobs,
                            *time_job_list;
@@ -69,7 +69,7 @@ extern struct instant_db   *db;
 extern struct job_id_data  *jd;
 extern struct dir_name_buf *dnb;
 
-/* Local function prototype */
+/* Local function prototype. */
 static void move_time_dir(unsigned int);
 
 /* #define _STRONG_OPTION_CHECK 1 */
@@ -88,7 +88,7 @@ check_old_time_jobs(int no_of_jobs)
    if ((dp = opendir(time_dir)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Can't access directory %s : %s", time_dir, strerror(errno));
+                 _("Failed to opendir() `%s' : %s"), time_dir, strerror(errno));
    }
    else
    {
@@ -128,7 +128,7 @@ check_old_time_jobs(int no_of_jobs)
                if (errno != ENOENT)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to stat() %s : %s", strerror(errno));
+                             _("Failed to stat() `%s' : %s"), strerror(errno));
                }
             }
             else
@@ -162,7 +162,7 @@ check_old_time_jobs(int no_of_jobs)
                      {
                         int jid_pos = -1;
 
-                        /* Locate the lost job in structure job_id_data */
+                        /* Locate the lost job in structure job_id_data. */
                         for (i = 0; i < *no_of_job_ids; i++)
                         {
                            if (jd[i].job_id == job_id)
@@ -178,7 +178,8 @@ check_old_time_jobs(int no_of_jobs)
                             * The only thing we can do now is remove them.
                             */
 #ifdef _DELETE_LOG
-                           remove_time_dir("-", -1, OTHER_INPUT_DEL);
+                           remove_time_dir("-", -1, -1, JID_LOOKUP_FAILURE_DEL,
+                                           __FILE__, __LINE__);
 #else
                            remove_time_dir("-", -1);
 #endif
@@ -266,7 +267,9 @@ check_old_time_jobs(int no_of_jobs)
 #ifdef _DELETE_LOG
                              remove_time_dir(jd[jid_pos].host_alias,
                                              jd[jid_pos].job_id,
-                                             OTHER_INPUT_DEL);
+                                             jd[jid_pos].dir_id,
+                                             JID_LOOKUP_FAILURE_DEL,
+                                             __FILE__, __LINE__);
 #else
                              remove_time_dir(jd[jid_pos].host_alias,
                                              jd[jid_pos].job_id);
@@ -293,12 +296,13 @@ check_old_time_jobs(int no_of_jobs)
       if (errno)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to readdir() `%s' : %s", time_dir, strerror(errno));
+                    _("Failed to readdir() `%s' : %s"),
+                    time_dir, strerror(errno));
       }
       if (closedir(dp) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to closedir() `%s' : %s",
+                    _("Failed to closedir() `%s' : %s"),
                     time_dir, strerror(errno));
       }
    }
@@ -313,14 +317,14 @@ move_time_dir(unsigned int job_id)
 {
 #ifdef _CHECK_TIME_DIR_DEBUG
    system_log(INFO_SIGN, __FILE__, __LINE__,
-              "Moving time directory `%s' to %x", time_dir, job_id);
+              _("Moving time directory `%s' to %x"), time_dir, job_id);
 #else
    DIR *dp;
 
    if ((dp = opendir(time_dir)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() `%s' to move old time jobs : %s",
+                 _("Failed to opendir() `%s' to move old time jobs : %s"),
                  time_dir, strerror(errno));
    }
    else
@@ -351,12 +355,12 @@ move_time_dir(unsigned int job_id)
       else
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Hmmm.. , something is wrong here!?");
+                    _("Hmmm.. , something is wrong here!?"));
          *(ptr - 1) = '\0';
          if (closedir(dp) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not closedir() `%s' : %s",
+                       _("Could not closedir() `%s' : %s"),
                        time_dir, strerror(errno));
          }
          return;
@@ -366,13 +370,13 @@ move_time_dir(unsigned int job_id)
          if (errno != EEXIST)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not mkdir() `%s' to move old time job : %s",
+                       _("Could not mkdir() `%s' to move old time job : %s"),
                        to_dir, strerror(errno));
             *(ptr - 1) = '\0';
             if (closedir(dp) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Could not closedir() `%s' : %s",
+                          _("Failed to closedir() `%s' : %s"),
                           time_dir, strerror(errno));
             }
             return;
@@ -393,14 +397,14 @@ move_time_dir(unsigned int job_id)
          if (rename(time_dir, to_dir) == -1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Failed to rename() `%s' to `%s' : %s",
+                       _("Failed to rename() `%s' to `%s' : %s"),
                        time_dir, to_dir, strerror(errno));
             if (unlink(time_dir) == -1)
             {
                if (errno != ENOENT)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to unlink() `%s' : %s",
+                             _("Failed to unlink() `%s' : %s"),
                              time_dir, strerror(errno));
                }
             }
@@ -412,18 +416,19 @@ move_time_dir(unsigned int job_id)
       if (errno)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not readdir() `%s' : %s", time_dir, strerror(errno));
+                    _("Could not readdir() `%s' : %s"),
+                    time_dir, strerror(errno));
       }
       if (closedir(dp) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not closedir() `%s' : %s",
+                    _("Could not closedir() `%s' : %s"),
                     time_dir, strerror(errno));
       }
       if (rmdir(time_dir) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not rmdir() `%s' [to_dir = `%s'] : %s",
+                    _("Could not rmdir() `%s' [to_dir = `%s'] : %s"),
                     time_dir, to_dir, strerror(errno));
       }
    }

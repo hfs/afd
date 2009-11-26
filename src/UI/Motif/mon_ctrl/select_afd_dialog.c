@@ -1,6 +1,6 @@
 /*
  *  select_afd_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ DESCR__E_M3
 #include <Xm/PushB.h>
 #include <Xm/ToggleBG.h>
 #ifdef WITH_EDITRES
-#include <X11/Xmu/Editres.h>
+# include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
 #include "mon_ctrl.h"
@@ -535,7 +535,7 @@ search_select_afd(Widget w, XtPointer client_data, XtPointer call_data)
          (void)sprintf(p_ahl_file, "%s", msa[i].afd_alias);
          if ((stat(ahl_file, &stat_buf) == 0) && (stat_buf.st_size > 0))
          {
-            if ((ptr = map_file(ahl_file, &ahl_fd, &stat_buf,
+            if ((ptr = map_file(ahl_file, &ahl_fd, NULL, &stat_buf,
                                 O_RDONLY)) == (caddr_t) -1)
             {
                (void)fprintf(stderr,

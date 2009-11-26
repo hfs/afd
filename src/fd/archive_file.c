@@ -1,6 +1,6 @@
 /*
  *  archive_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,9 @@ DESCR__S_M3
  **                      otherwise archive_watch will NOT remove
  **                      any files from here.
  **   23.01.2005 H.Kiehl Write numbers in hexadecimal.
+ **   30.01.2009 H.Kiehl Catch case when filename is too long to add a
+ **                      unique part. Otherwise we end up in an endless
+ **                      loop.
  **
  */
 DESCR__E_M3
@@ -87,7 +90,7 @@ extern char   *p_work_dir;
 static time_t archive_start_time = 0L;
 static long   link_max = 0L;
 
-/* Local functions. */
+/* Local function prototypes. */
 static int    create_archive_dir(char *, time_t, time_t, unsigned int, char *),
               get_archive_dir_number(char *);
 
@@ -108,30 +111,33 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
 
    now = time(NULL);
    diff_time = now - archive_start_time;
-   if ((p_db->archive_dir[0] == '\0') || (diff_time > ARCHIVE_STEP_TIME))
+   if ((p_db->archive_dir[p_db->archive_offset] == '\0') ||
+       (diff_time > ARCHIVE_STEP_TIME))
    {
-      int         i = 0,
-                  dir_number,
-                  length;
-      struct stat stat_buf;
+      int i = 0,
+          dir_number,
+          length;
 
       /*
        * Create a unique directory where we can store the
        * file(s).
        */
-      (void)strcpy(p_db->archive_dir, p_work_dir);
-      (void)strcat(p_db->archive_dir, AFD_ARCHIVE_DIR);
-      (void)strcat(p_db->archive_dir, "/");
-#ifdef _OUTPUT_LOG
-      p_db->archive_offset = strlen(p_db->archive_dir);
-#endif
-      (void)strcat(p_db->archive_dir, p_db->host_alias);
+      if (archive_start_time == 0L)
+      {
+         (void)strcpy(p_db->archive_dir, p_work_dir);
+         (void)strcat(p_db->archive_dir, AFD_ARCHIVE_DIR);
+         p_db->archive_offset = strlen(p_db->archive_dir);
+         p_db->archive_dir[p_db->archive_offset] = '/';
+         p_db->archive_offset++;
+      }
+      (void)strcpy(&p_db->archive_dir[p_db->archive_offset], p_db->host_alias);
 
       /*
        * Lets make an educated guest: Most the time both host_alias,
        * user name and directory number zero do already exist.
        */
-      tmp_ptr = ptr = p_db->archive_dir + strlen(p_db->archive_dir);
+      tmp_ptr = ptr = p_db->archive_dir + p_db->archive_offset +
+                      strlen(p_db->host_alias);
       *ptr = '/';
       ptr++;
       while (p_db->user[i] != '\0')
@@ -158,8 +164,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       if (access(p_db->archive_dir, F_OK) != 0)
       {
          *tmp_ptr = '\0';
-         if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
-             (!S_ISDIR(stat_buf.st_mode)))
+         if (access(p_db->archive_dir, F_OK) != 0)
          {
             if (mkdir(p_db->archive_dir, DIR_MODE) < 0)
             {
@@ -178,8 +183,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          *tmp_ptr = '/';
          *ptr = '\0';
 
-         if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
-             (!S_ISDIR(stat_buf.st_mode)))
+         if (access(p_db->archive_dir, F_OK) != 0)
          {
             if (mkdir(p_db->archive_dir, DIR_MODE) < 0)
             {
@@ -232,7 +236,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
             /* Directory does already exist. */
             break;
          }
-         else if (errno == EMLINK) /* Too many links */
+         else if (errno == EMLINK) /* Too many links. */
               {
                  *ptr = '\0';
                  if ((dir_number = get_archive_dir_number(p_db->archive_dir)) < 0)
@@ -311,11 +315,11 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Hmm, `%s' this does not look like a message.",
                     p_db->msg_name);
-#if SIZEOF_TIME_T == 4
+# if SIZEOF_TIME_T == 4
          (void)sprintf(ptr, "%lx_%x_%x_%s",
-#else
+# else
          (void)sprintf(ptr, "%llx_%x_%x_%s",
-#endif
+# endif
                        (pri_time_t)p_db->creation_time, p_db->unique_number,
                        p_db->split_job_counter, filename);
       }
@@ -325,11 +329,11 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Hmm, `%s' this does not look like a message.",
                  p_db->msg_name);
-#if SIZEOF_TIME_T == 4
+# if SIZEOF_TIME_T == 4
       (void)sprintf(ptr, "%lx_%x_%x_%s",
-#else
+# else
       (void)sprintf(ptr, "%llx_%x_%x_%s",
-#endif
+# endif
                     (pri_time_t)p_db->creation_time, p_db->unique_number,
                     p_db->split_job_counter, filename);
    }
@@ -340,7 +344,28 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
 
    if (move_file(oldname, newname) < 0)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__, "move_file() error.");
+#ifndef DO_NOT_ARCHIVE_UNIQUE_PART
+      if (errno == ENAMETOOLONG)
+      {
+         /*
+          * When name is to long the cause can only be due to our
+          * adding a unique part to the name (newname). So in this
+          * case lets not archive file. We however need to inform
+          * the user about this.
+          */
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "Failed to archive %s because name is to long to add a unique part.",
+                   filename);
+         (void)unlink(oldname);
+      }
+      else
+      {
+#endif
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "move_file() error : %s", strerror(errno));
+#ifndef DO_NOT_ARCHIVE_UNIQUE_PART
+      }
+#endif
    }
    else
    {

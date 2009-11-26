@@ -1,6 +1,6 @@
 /*
  *  get_dir_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,7 +75,7 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
       if (fra_attach_passive() < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to attach to FRA.");
+                    _("Failed to attach to FRA."));
          return;
       }
       attached = YES;
@@ -112,6 +112,15 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                              DEL_OLD_LOCKED_FILES_ID,
                              fra[i].locked_file_time / 3600);
+               d_o->no_of_dir_options++;
+            }
+         }
+         else
+         {
+            if (fra[i].in_dc_flag & DONT_DELUKW_FILES_IDC)
+            {
+               (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                            DONT_DEL_UNKNOWN_FILES_ID);
                d_o->no_of_dir_options++;
             }
          }
@@ -267,10 +276,22 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  (void)strcat(d_o->aoptions[d_o->no_of_dir_options], " once");
                  d_o->no_of_dir_options++;
               }
+         if (fra[i].dir_flag & DONT_GET_DIR_LIST)
+         {
+            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                         DO_NOT_GET_DIR_LIST_ID);
+            d_o->no_of_dir_options++;
+         }
          if (fra[i].remove == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          DO_NOT_REMOVE_ID);
+            d_o->no_of_dir_options++;
+         }
+         if (fra[i].dir_flag & ACCEPT_DOT_FILES)
+         {
+            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                         ACCEPT_DOT_FILES_ID);
             d_o->no_of_dir_options++;
          }
          if (fra[i].force_reread == YES)
@@ -313,173 +334,181 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             }
             d_o->no_of_dir_options++;
          }
-         if (fra[i].time_option == YES)
+         if (fra[i].no_of_time_entries > 0)
          {
-            int           length,
+            int           j,
+                          length,
                           ii;
-            unsigned char full_minute[8] = {0,0,0,0,0,0,0,0};
-
-            length = sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s ",
-                             TIME_ID);
-
-            /* Minute */
-#ifdef _WORKING_LONG_LONG
-            if (fra[i].te.minute == ALL_MINUTES)
-#else
-            for (ii = 0; ii < 60; ii++)
-            {
-               bitset(full_minute, ii);
-            }
-            if (memcmp(fra[i].te.minute, full_minute, 8) == 0)
+#ifndef HAVE_LONG_LONG
+            unsigned char full_minute[8];
 #endif
+
+            for (j = 0; j < fra[i].no_of_time_entries; j++)
             {
-               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-               length += 2;
-            }
-            else
-            {
+               length = sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s ",
+                                TIME_ID);
+
+               /* Minute. */
+#ifdef HAVE_LONG_LONG
+               if (fra[i].te[j].minute == ALL_MINUTES)
+#else
+               full_minute[0] = full_minute[1] = full_minute[2] = full_minute[3] = 0;
+               full_minute[4] = full_minute[5] = full_minute[6] = full_minute[7] = 0;
                for (ii = 0; ii < 60; ii++)
                {
-#ifdef _WORKING_LONG_LONG
-                  if (fra[i].te.minute & bit_array[ii])
-#else
-                  if (bittest(fra[i].te.minute, ii) == YES)
+                  bitset(full_minute, ii);
+               }
+               if (memcmp(fra[i].te[j].minute, full_minute, 8) == 0)
 #endif
-                  {
-                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          "%d", ii);
-                     }
-                     else
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          ",%d", ii);
-                     }
-                  }
-               }
-               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-               length++;
-            }
-
-            /* Hour */
-            if (fra[i].te.hour == ALL_HOURS)
-            {
-               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-               length += 2;
-            }
-            else
-            {
-               for (ii = 0; ii < 24; ii++)
                {
-                  if (fra[i].te.hour & bit_array[ii])
-                  {
-                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          "%d", ii);
-                     }
-                     else
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          ",%d", ii);
-                     }
-                  }
+                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                  length += 2;
                }
-               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-               length++;
-            }
-
-            /* Day of Month */
-            if (fra[i].te.day_of_month == ALL_DAY_OF_MONTH)
-            {
-               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-               length += 2;
-            }
-            else
-            {
-               for (ii = 1; ii < 32; ii++)
+               else
                {
-                  if (fra[i].te.day_of_month & bit_array[ii - 1])
+                  for (ii = 0; ii < 60; ii++)
                   {
-                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+#ifdef HAVE_LONG_LONG
+                     if (fra[i].te[j].minute & bit_array_long[ii])
+#else
+                     if (bittest(fra[i].te[j].minute, ii) == YES)
+#endif
                      {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          "%d", ii);
-                     }
-                     else
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          ",%d", ii);
+                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             "%d", ii);
+                        }
+                        else
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             ",%d", ii);
+                        }
                      }
                   }
+                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                  length++;
                }
-               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-               length++;
-            }
 
-            /* Month */
-            if (fra[i].te.month == ALL_MONTH)
-            {
-               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-               length += 2;
-            }
-            else
-            {
-               for (ii = 1; ii < 13; ii++)
+               /* Hour. */
+               if (fra[i].te[j].hour == ALL_HOURS)
                {
-                  if (fra[i].te.month & bit_array[ii - 1])
+                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                  length += 2;
+               }
+               else
+               {
+                  for (ii = 0; ii < 24; ii++)
                   {
-                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     if (fra[i].te[j].hour & bit_array[ii])
                      {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          "%d", ii);
-                     }
-                     else
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          ",%d", ii);
+                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             "%d", ii);
+                        }
+                        else
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             ",%d", ii);
+                        }
                      }
                   }
+                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                  length++;
                }
-               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-               length++;
-            }
 
-            /* Day of Week */
-            if (fra[i].te.day_of_week == ALL_DAY_OF_WEEK)
-            {
-               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-               length += 2;
-            }
-            else
-            {
-               for (ii = 1; ii < 8; ii++)
+               /* Day of Month. */
+               if (fra[i].te[j].day_of_month == ALL_DAY_OF_MONTH)
                {
-                  if (fra[i].te.day_of_week & bit_array[ii - 1])
+                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                  length += 2;
+               }
+               else
+               {
+                  for (ii = 1; ii < 32; ii++)
                   {
-                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     if (fra[i].te[j].day_of_month & bit_array[ii - 1])
                      {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          "%d", ii);
-                     }
-                     else
-                     {
-                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                          ",%d", ii);
+                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             "%d", ii);
+                        }
+                        else
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             ",%d", ii);
+                        }
                      }
                   }
+                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                  length++;
                }
-               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-               length++;
-            }
-            d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
-            d_o->no_of_dir_options++;
+
+               /* Month. */
+               if (fra[i].te[j].month == ALL_MONTH)
+               {
+                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                  length += 2;
+               }
+               else
+               {
+                  for (ii = 1; ii < 13; ii++)
+                  {
+                     if (fra[i].te[j].month & bit_array[ii - 1])
+                     {
+                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             "%d", ii);
+                        }
+                        else
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             ",%d", ii);
+                        }
+                     }
+                  }
+                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                  length++;
+               }
+
+               /* Day of Week. */
+               if (fra[i].te[j].day_of_week == ALL_DAY_OF_WEEK)
+               {
+                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                  length += 2;
+               }
+               else
+               {
+                  for (ii = 1; ii < 8; ii++)
+                  {
+                     if (fra[i].te[j].day_of_week & bit_array[ii - 1])
+                     {
+                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             "%d", ii);
+                        }
+                        else
+                        {
+                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                             ",%d", ii);
+                        }
+                     }
+                  }
+                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                  length++;
+               }
+               d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
+               d_o->no_of_dir_options++;
+            } /* for (j = 0; j < fra[i].no_of_time_entries; j++) */
          }
 #ifdef WITH_DUP_CHECK
          if (fra[i].dup_check_flag != 0)
@@ -498,6 +527,18 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                                 (pri_time_t)fra[i].dup_check_timeout,
                                 DC_FILENAME_ONLY_BIT);
             }
+            else if (fra[i].dup_check_flag & DC_FILENAME_AND_SIZE)
+                 {
+                    length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# if SIZEOF_TIME_T == 4
+                                     "%s %ld %d",
+# else
+                                     "%s %lld %d",
+# endif
+                                     DUPCHECK_ID,
+                                     (pri_time_t)fra[i].dup_check_timeout,
+                                     DC_FILENAME_AND_SIZE_BIT);
+                 }
             else if (fra[i].dup_check_flag & DC_NAME_NO_SUFFIX)
                  {
                     length = sprintf(d_o->aoptions[d_o->no_of_dir_options],

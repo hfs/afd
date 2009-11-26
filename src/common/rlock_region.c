@@ -1,6 +1,6 @@
 /*
  *  rlock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   rlock_region - sets a read lock for a specific region in a file
  **
  ** SYNOPSIS
- **   void rlock_region(int fd, off_t offset)
+ **   void rlock_region(const int fd, const off_t offset)
  **
  ** DESCRIPTION
  **   This function sets a read lock to the region specified by offset
@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <unistd.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
 #include "fddefs.h"
@@ -63,7 +63,7 @@ void
 #ifdef LOCK_DEBUG
 rlock_region(int fd, off_t offset, char *file, int line)
 #else
-rlock_region(int fd, off_t offset)
+rlock_region(const int fd, const off_t offset)
 #endif
 {
    struct flock rlock;
@@ -85,7 +85,7 @@ rlock_region(int fd, off_t offset)
    if (fcntl(fd, F_SETLKW, &rlock) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "fcntl() error : %s", strerror(errno));
+                 _("fcntl() error : %s"), strerror(errno));
       exit(LOCK_REGION_ERROR);
    }
 

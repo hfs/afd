@@ -1,6 +1,6 @@
 /*
  *  afd_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -623,6 +623,8 @@ eval_cmd_buffer(char *buffer, int bytes_read, int *bytes_buffered)
                        (msa[pos].options & AFDD_TRANSFER_DEBUG_LOG)) ||
                       ((msa[pos].log_capabilities & AFDD_INPUT_LOG) &&
                        (msa[pos].options & AFDD_INPUT_LOG)) ||
+                      ((msa[pos].log_capabilities & AFDD_DISTRIBUTION_LOG) &&
+                       (msa[pos].options & AFDD_DISTRIBUTION_LOG)) ||
                       ((msa[pos].log_capabilities & AFDD_PRODUCTION_LOG) &&
                        (msa[pos].options & AFDD_PRODUCTION_LOG)) ||
                       ((msa[pos].log_capabilities & AFDD_OUTPUT_LOG) &&
@@ -1048,8 +1050,10 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "files_received overflowed!");
-         diff_files_received = msa[i].files_received[CURRENT_SUM];
+                 "files_received overflowed (%u < %u)! Correcting.",
+                 msa[i].files_received[CURRENT_SUM],
+                 msa[i].files_received[sum_type]);
+         diff_files_received = 0;
       }
       if (msa[i].bytes_received[CURRENT_SUM] >= msa[i].bytes_received[sum_type])
       {
@@ -1058,8 +1062,14 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "bytes_received overflowed!");
-         diff_bytes_received = msa[i].bytes_received[CURRENT_SUM];
+#if SIZEOF_OFF_T == 4
+                 "bytes_received overflowed (%ld < %ld)! Correcting.",
+#else
+                 "bytes_received overflowed (%lld < %lld)! Correcting.",
+#endif
+                 msa[i].bytes_received[CURRENT_SUM],
+                 msa[i].bytes_received[sum_type]);
+         diff_bytes_received = 0;
       }
       if (msa[i].files_send[CURRENT_SUM] >= msa[i].files_send[sum_type])
       {
@@ -1068,8 +1078,9 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "files_send overflowed!");
-         diff_files_send = msa[i].files_send[CURRENT_SUM];
+                 "files_send overflowed (%u < %u)! Correcting.",
+                 msa[i].files_send[CURRENT_SUM], msa[i].files_send[sum_type]);
+         diff_files_send = 0;
       }
       if (msa[i].bytes_send[CURRENT_SUM] >= msa[i].bytes_send[sum_type])
       {
@@ -1078,8 +1089,13 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "bytes_send overflowed!");
-         diff_bytes_send = msa[i].bytes_send[CURRENT_SUM];
+#if SIZEOF_OFF_T == 4
+                 "bytes_send overflowed (%ld < %ld)! Correcting.",
+#else
+                 "bytes_send overflowed (%lld < %lld)! Correcting.",
+#endif
+                 msa[i].bytes_send[CURRENT_SUM], msa[i].bytes_send[sum_type]);
+         diff_bytes_send = 0;
       }
       if (msa[i].connections[CURRENT_SUM] >= msa[i].connections[sum_type])
       {
@@ -1088,8 +1104,9 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "connections overflowed!");
-         diff_connections = msa[i].connections[CURRENT_SUM];
+                 "connections overflowed (%u < %u)! Correcting.",
+                 msa[i].connections[CURRENT_SUM], msa[i].connections[sum_type]);
+         diff_connections = 0;
       }
       if (msa[i].total_errors[CURRENT_SUM] >= msa[i].total_errors[sum_type])
       {
@@ -1098,8 +1115,10 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "total_errors overflowed!");
-         diff_total_errors = msa[i].total_errors[CURRENT_SUM];
+                 "total_errors overflowed (%u < %u)! Correcting.",
+                 msa[i].total_errors[CURRENT_SUM],
+                 msa[i].total_errors[sum_type]);
+         diff_total_errors = 0;
       }
       if (msa[i].log_bytes_received[CURRENT_SUM] >= msa[i].log_bytes_received[sum_type])
       {
@@ -1108,8 +1127,14 @@ get_sum_data(int sum_type)
       else
       {
          mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "log_bytes_received overflowed!");
-         diff_log_bytes_received = msa[i].log_bytes_received[CURRENT_SUM];
+#if SIZEOF_OFF_T == 4
+                 "log_bytes_received overflowed (%ld < %ld)! Correcting.",
+#else
+                 "log_bytes_received overflowed (%lld < %lld)! Correcting.",
+#endif
+                 msa[i].log_bytes_received[CURRENT_SUM],
+                 msa[i].log_bytes_received[sum_type]);
+         diff_log_bytes_received = 0;
       }
 
       print_data(YES, sum_type, diff_files_received,

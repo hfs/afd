@@ -1,6 +1,6 @@
 /*
  *  get_definition.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,20 +60,21 @@ get_definition(char *buffer,
                char *definition,
                int  max_definition_length)
 {
-   int  i = 0;
+   int  i;
    char *ptr = buffer,
         *real_search_value;
 
-   if ((real_search_value = malloc(strlen(search_value) + 2)) == NULL)
+   i = strlen(search_value);
+   if ((real_search_value = malloc(i + 2)) == NULL)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "malloc() error : %s", strerror(errno));
+                 _("malloc() error : %s"), strerror(errno));
       return(NULL);
    }
    real_search_value[0] = '\n';
    (void)strcpy(&real_search_value[1], search_value);
 
-   if ((ptr = posi(buffer, real_search_value)) == NULL)
+   if ((ptr = lposi(buffer, real_search_value, i + 1)) == NULL)
    {
       free(real_search_value);
       return(NULL);
@@ -93,6 +94,7 @@ get_definition(char *buffer,
    }
    else
    {
+      i = 0;
       if (*ptr == '"')
       {
          ptr++;
@@ -106,8 +108,7 @@ get_definition(char *buffer,
       else
       {
          while ((*ptr != '\n') && (*ptr != '\0') &&
-                (*ptr != ' ') && (*ptr != '\t') &&
-                (i < max_definition_length))
+                (*ptr != ' ') && (*ptr != '\t') && (i < max_definition_length))
          {
             definition[i] = *ptr;
             ptr++; i++;

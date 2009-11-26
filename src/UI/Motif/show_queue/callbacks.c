@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@@dwd.de>
+ *  Copyright (c) 2001 - 2008 Holger Kiehl <Holger.Kiehl@@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@ DESCR__E_M3
 #include <ctype.h>          /* isdigit()                                 */
 #include <time.h>           /* time(), localtime(), mktime(), strftime() */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 #include <unistd.h>         /* close()                                   */
 #include <Xm/Xm.h>
@@ -174,7 +174,7 @@ item_selection(Widget w, XtPointer client_data, XtPointer call_data)
          file_size_selected += qfl[(cbs->selected_item_positions[i] - 1)].size;
       }
 
-      /* Show summary */
+      /* Show summary. */
       if (cbs->selected_item_count > 0)
       {
          show_summary(no_files_selected, file_size_selected);
@@ -288,25 +288,29 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
       XtVaGetValues(w, XmNitemCount, &max_pos, NULL);
       if ((max_pos > 0) && (pos > 0) && (pos <= max_pos))
       {
-         char text[8192];
+         char *text = NULL;
 
          /* Format information in a human readable text. */
          if (qfl[pos - 1].queue_type == SHOW_OUTPUT)
          {
-            format_output_info(text, pos - 1);
+            format_output_info(&text, pos - 1);
          }
          else if ((qfl[pos - 1].queue_type == SHOW_RETRIEVES) ||
                   (qfl[pos - 1].queue_type == SHOW_PENDING_RETRIEVES))
               {
-                 format_retrieve_info(text, pos - 1);
+                 format_retrieve_info(&text, pos - 1);
               }
               else /* SHOW_INPUT || SHOW_TIME_JOBS */
               {
-                 format_input_info(text, pos - 1);
+                 format_input_info(&text, pos - 1);
               }
 
-         /* Show the information. */
-         show_info(text);
+         if (text != NULL)
+         {
+            /* Show the information. */
+            show_info(text);
+            free(text);
+         }
       }
    }
 
@@ -759,7 +763,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
 
-      case RECIPIENT_NAME_NO_ENTER : /* Read the recipient */
+      case RECIPIENT_NAME_NO_ENTER : /* Read the recipient. */
       case RECIPIENT_NAME :
          {
             int  i = 0,
@@ -883,7 +887,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    switch (length)
    {
-      case 0 : /* Assume user means current time */
+      case 0 : /* Assume user means current time. */
                {
                   char time_str[9];
 
@@ -907,7 +911,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
          return(INCORRECT);
       }
 
-      if (length == 3)
+      if (length == 3) /* -mm */
       {
          str[0] = numeric_str[1];
          str[1] = numeric_str[2];
@@ -920,7 +924,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
          *value = time_val - (min * 60);
       }
-      else if (length == 5)
+      else if (length == 5) /* -hhmm */
            {
               if ((!isdigit((int)numeric_str[3])) ||
                   (!isdigit((int)numeric_str[4])))
@@ -946,7 +950,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
               *value = time_val - (min * 60) - (hour * 3600);
            }
-      else if (length == 7)
+      else if (length == 7) /* -DDhhmm */
            {
               int days;
 
@@ -1000,7 +1004,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
    if (length == 4) /* hhmm */
    {
-      struct tm *bd_time;     /* Broken-down time */
+      struct tm *bd_time;     /* Broken-down time. */
 
       hour = atoi(str);
       if ((hour < 0) || (hour > 23))
@@ -1023,9 +1027,15 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    }
    else if (length == 6) /* DDhhmm */
         {
-           int       day = atoi(str);
-           struct tm *bd_time;     /* Broken-down time */
+           int       day;
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])))
+           {
+              return(INCORRECT);
+           }
+           day = atoi(str);
            if ((day < 0) || (day > 31))
            {
               return(INCORRECT);
@@ -1054,10 +1064,18 @@ eval_time(char *numeric_str, Widget w, time_t *value)
         }
         else /* MMDDhhmm */
         {
-           int       month = atoi(str),
+           int       month,
                      day;
-           struct tm *bd_time;     /* Broken-down time */
+           struct tm *bd_time;     /* Broken-down time. */
 
+           if ((!isdigit((int)numeric_str[4])) ||
+               (!isdigit((int)numeric_str[5])) ||
+               (!isdigit((int)numeric_str[6])) ||
+               (!isdigit((int)numeric_str[7])))
+           {
+              return(INCORRECT);
+           }
+           month = atoi(str);
            if ((month < 0) || (month > 12))
            {
               return(INCORRECT);

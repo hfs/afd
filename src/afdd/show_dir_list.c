@@ -1,6 +1,6 @@
 /*
  *  show_dir_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,7 +85,7 @@ show_dir_list(FILE *p_data)
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to open() `%s' : %s", fullname, strerror(errno));
+                 _("Failed to open() `%s' : %s"), fullname, strerror(errno));
    }
    else
    {
@@ -94,7 +94,7 @@ show_dir_list(FILE *p_data)
       if (fstat(fd, &stat_buf) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to fstat() `%s' : %s", fullname, strerror(errno));
+                    _("Failed to fstat() `%s' : %s"), fullname, strerror(errno));
       }
       else
       {
@@ -111,7 +111,7 @@ show_dir_list(FILE *p_data)
 #endif
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to mmap() to `%s' : %s",
+                          _("Failed to mmap() to `%s' : %s"),
                           fullname, strerror(errno));
             }
             else
@@ -181,7 +181,7 @@ show_dir_list(FILE *p_data)
 #endif
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to munmap() `%s' : %s",
+                             _("Failed to munmap() `%s' : %s"),
                              fullname, strerror(errno));
                }
             }
@@ -189,14 +189,14 @@ show_dir_list(FILE *p_data)
          else
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm, `%s' is less then %d bytes long.",
+                       _("Hmmm, `%s' is less then %d bytes long."),
                        fullname, AFD_WORD_OFFSET);
          }
       }
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "Failed to close() `%s' : %s",
+                    _("Failed to close() `%s' : %s"),
                     fullname, strerror(errno));
       }
    }

@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,16 +27,18 @@ DESCR__S_M3
  **                      one file per bulletin
  **
  ** SYNOPSIS
- **   int   bin_file_chopper(char           *bin_file,
- **                          int            *files_to_send,
- **                          off_t          *file_size,
- **                          char           *p_filter,
- **                          char           wmo_header_file_name,
- **                          time_t         creation_time,
- **                          unsigned short unique_number,
- **                          unsigned int   split_job_counter,
- **                          char           *extract_id,
- **                          char           *p_file_name)
+ **   int   bin_file_chopper(char         *bin_file,
+ **                          int          *files_to_send,
+ **                          off_t        *file_size,
+ **                          char         *p_filter,
+ **                          char         wmo_header_file_name,
+ **                          time_t       creation_time,
+ **                          unsigned int unique_number,
+ **                          unsigned int split_job_counter,
+ **                          unsigned int job_id,
+ **                          unsigned int dir_id,
+ **                          char         *full_option,
+ **                          char         *p_file_name)
  **   off_t bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
  **
  ** DESCRIPTION
@@ -70,6 +72,7 @@ DESCR__S_M3
  **   20.07.2006 H.Kiehl Added bin_file_convert().
  **   13.07.2007 H.Kiehl Added option to filter out only those bulletins
  **                      we really nead.
+ **   21.01.2009 H.Kiehl Added support for GRIB edition 2.
  **
  */
 DESCR__E_M3
@@ -77,62 +80,81 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>              /* strlen(), strcpy()                   */
 #include <time.h>                /* time(), strftime(), gmtime()         */
-#include <stdlib.h>              /* malloc(), free()                     */
+#include <stdlib.h>              /* malloc(), realloc(), free()          */
 #include <unistd.h>              /* close(), read()                      */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#ifdef HAVE_MMAP
+# include <sys/mman.h>           /* mmap(), munmap()                     */
+#endif
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
 #include <errno.h>
 #include "amgdefs.h"
 
 #define DATA_TYPES 3
+#ifdef _PRODUCTION_LOG
+#define LOG_ENTRY_STEP_SIZE 10
+struct prod_log_db
+       {
+          char  file_name[MAX_FILENAME_LENGTH + 1];
+          off_t size;
+       };
+#endif
 
 /* Global local variables */
-static int   counter_fd,
-             id_length[DATA_TYPES] = { 4, 4, 4 },
-             end_id_length[DATA_TYPES] = { 4, 4, 4 };
-static char  bul_format[DATA_TYPES][5] =
-             {
-                "GRIB",
-                "BUFR",
-                "BLOK"
-             },
-             end_id[DATA_TYPES][5] =
-             {
-                "7777",
-                "7777",
-                "7777"
-             };
+static int                counter_fd,
+                          id_length[DATA_TYPES] = { 4, 4, 4 },
+                          end_id_length[DATA_TYPES] = { 4, 4, 4 };
+static char               bul_format[DATA_TYPES][5] =
+                          {
+                             "GRIB",
+                             "BUFR",
+                             "BLOK"
+                          },
+                          end_id[DATA_TYPES][5] =
+                          {
+                             "7777",
+                             "7777",
+                             "7777"
+                          };
+#ifdef _PRODUCTION_LOG
+static int                no_of_log_entries = 0;
+static struct prod_log_db *pld = NULL;
+#endif
 
 /* External global variables */
-extern char  *p_work_dir;
+extern char               *p_work_dir;
 
 /* Local functions */
-static char  *bin_search_start(char *, int, int *, off_t *);
-static off_t bin_search_end(char *, char *, off_t);
+static char               *bin_search_start(char *, int, int *, off_t *);
+static off_t              bin_search_end(char *, char *, off_t);
 
 
 /*########################## bin_file_chopper() #########################*/
 int
-bin_file_chopper(char           *bin_file,
-                 int            *files_to_send,
-                 off_t          *file_size,
-                 char           *p_filter,
+bin_file_chopper(char         *bin_file,
+                 int          *files_to_send,
+                 off_t        *file_size,
+                 char         *p_filter,
 #ifdef _PRODUCTION_LOG
-                 char           wmo_header_file_name,
-                 time_t         creation_time,
-                 unsigned short unique_number,
-                 unsigned int   split_job_counter,
-                 char           *extract_id,
-                 char           *p_file_name)
+                 char         wmo_header_file_name,
+                 time_t       creation_time,
+                 unsigned int unique_number,
+                 unsigned int split_job_counter,
+                 unsigned int job_id,
+                 unsigned int dir_id,
+                 char         *full_option,
+                 char         *p_file_name)
 #else
-                 char           wmo_header_file_name)
+                 char         wmo_header_file_name)
 #endif
 {
    int         i,
                fd,
                first_time = YES,
-               counter;     /* counter to keep file name unique          */
+               *counter;     /* Counter to keep file name unique.        */
    off_t       data_length = 0,
                length,
                total_length;
@@ -159,7 +181,8 @@ bin_file_chopper(char           *bin_file,
       else
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to stat() %s : %s", bin_file, strerror(errno));
+                     _("Failed to stat() `%s' : %s"),
+                     bin_file, strerror(errno));
          return(INCORRECT);
       }
    }
@@ -177,37 +200,32 @@ bin_file_chopper(char           *bin_file,
    if ((fd = open(bin_file, O_RDONLY)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to open() %s : %s", bin_file, strerror(errno));
+                  _("Failed to open() `%s' : %s"), bin_file, strerror(errno));
       return(INCORRECT);
    }
 
-   if ((buffer = malloc(stat_buf.st_size)) == NULL)
+#ifdef HAVE_MMAP
+   if ((buffer = mmap(NULL, stat_buf.st_size, PROT_READ,
+                      MAP_SHARED, fd, 0)) == (caddr_t) -1)
+#else
+   if ((buffer = mmap_emu(NULL, stat_buf.st_size, PROT_READ,
+                          MAP_SHARED, bin_file, 0)) == (caddr_t) -1)
+#endif
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "malloc() error (size = %d) : %s",
-                  stat_buf.st_size, strerror(errno));
+                  _("mmap() error : %s"), strerror(errno));
+      (void)close(fd);
       return(INCORRECT);
    }
    p_file = buffer;
 
-   /*
-    * Read the hole file in one go. We can do this here since the
-    * files in question are not larger then appr. 500KB.
-    */
-   if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
-   {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "read() error : %s", strerror(errno));
-      free(p_file);
-      return(INCORRECT);
-   }
    total_length = stat_buf.st_size;
 
    /* Close the file since we do not need it anymore */
    if (close(fd) == -1)
    {
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                  "close() error : %s", strerror(errno));
+                  _("close() error : %s"), strerror(errno));
    }
 
    /* Get directory where files are to be stored. */
@@ -221,7 +239,12 @@ bin_file_chopper(char           *bin_file,
    {
       /* Impossible */
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Cannot determine directory where to store files!");
+                  _("Cannot determine directory where to store files!"));
+#ifdef HAVE_MMAP
+      (void)munmap(p_file, stat_buf.st_size);
+#else
+      (void)munmap_emu(p_file);
+#endif
       return(INCORRECT);
    }
 
@@ -236,7 +259,12 @@ bin_file_chopper(char           *bin_file,
    {
       /* Impossible */
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Cannot determine directory where to store files!");
+                  _("Cannot determine directory where to store files!"));
+#ifdef HAVE_MMAP
+      (void)munmap(p_file, stat_buf.st_size);
+#else
+      (void)munmap_emu(p_file);
+#endif
       return(INCORRECT);
    }
    ptr++;
@@ -252,10 +280,15 @@ bin_file_chopper(char           *bin_file,
     * Open AFD counter file to create unique numbers for the new
     * file names.
     */
-   if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
+   if ((counter_fd = open_counter_file(COUNTER_FILE, &counter)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to open AFD counter file.");
+                  _("Failed to open AFD counter file."));
+#ifdef HAVE_MMAP
+      (void)munmap(p_file, stat_buf.st_size);
+#else
+      (void)munmap_emu(p_file);
+#endif
       return(INCORRECT);
    }
 
@@ -263,7 +296,7 @@ bin_file_chopper(char           *bin_file,
    {
       if ((ptr = bin_search_start(buffer, total_length, &i, &total_length)) != NULL)
       {
-         unsigned int message_length = 0;
+         unsigned long long message_length = 0;
 
          /*
           * When data type is GRIB and it is still using edition
@@ -291,65 +324,128 @@ bin_file_chopper(char           *bin_file,
                continue;
 #else
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to extract data from %s", bin_file);
-               (void)close(counter_fd);
-               free(p_file);
+                           _("Failed to extract data from `%s'"), bin_file);
+               close_counter_file(counter_fd, &counter);
+# ifdef HAVE_MMAP
+               (void)munmap(p_file, stat_buf.st_size);
+# else
+               (void)munmap_emu(p_file);
+# endif
+# ifdef _PRODUCTION_LOG
+               if (pld != NULL)
+               {
+                  free(pld);
+                  no_of_log_entries = 0;
+                  pld = NULL;
+               }
+# endif
                return(INCORRECT);
 #endif
             }
          }
-         else /* When GRIB it has to be at least edition 1 */
-         {
-            /*
-             * Determine length by reading byte 4 - 6.
-             */
-            message_length = 0;
-            message_length |= (unsigned char)*ptr;
-            message_length <<= 8;
-            message_length |= (unsigned char)*(ptr + 1);
-            message_length <<= 8;
-            message_length |= (unsigned char)*(ptr + 2);
+              /* When GRIB it has to be at least edition 2 */
+         else if ((i == 0) && (*(ptr + 3) == 2))
+              {
+                 /*
+                  * Determine length by reading byte 8 - 15.
+                  */
+                 message_length = 0;
+                 message_length |= (unsigned char)*(ptr + 4);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 5);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 6);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 7);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 8);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 9);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 10);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 11);
 
-            if (message_length > (total_length + id_length[i]))
-            {
-               if (first_time == YES)
-               {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "Hey! Whats this? Message length (%u) > then total length (%u) [%s]",
-                              message_length, total_length + id_length[i],
-                              bin_file);
-                  first_time = NO;
-               }
-               buffer = ptr;
-               continue;
-            }
-            else
-            {
-               char *tmp_ptr = ptr - id_length[i] +
-                               message_length -
-                               end_id_length[i];
+                 if (message_length > (total_length + id_length[i]))
+                 {
+                    if (first_time == YES)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? Message length (%llu) > then total length (%u) [%s]"),
+                                   message_length, total_length + id_length[i],
+                                   bin_file);
+                       first_time = NO;
+                    }
+                    buffer = ptr;
+                    continue;
+                 }
+                 else
+                 {
+                    char *tmp_ptr = ptr - id_length[i] +
+                                    message_length -
+                                    end_id_length[i];
 
-               if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
-               {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "Hey! Whats this? End locator not where it should be!");
-                  buffer = ptr;
-                  continue;
-               }
-            }
-         }
+                    if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? End locator not where it should be!"));
+                       buffer = ptr;
+                       continue;
+                    }
+                 }
+              }
+              else
+              {
+                 /*
+                  * Determine length by reading byte 4 - 6.
+                  */
+                 message_length = 0;
+                 message_length |= (unsigned char)*ptr;
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 1);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 2);
+
+                 if (message_length > (total_length + id_length[i]))
+                 {
+                    if (first_time == YES)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? Message length (%llu) > then total length (%u) [%s]"),
+                                   message_length, total_length + id_length[i],
+                                   bin_file);
+                       first_time = NO;
+                    }
+                    buffer = ptr;
+                    continue;
+                 }
+                 else
+                 {
+                    char *tmp_ptr = ptr - id_length[i] +
+                                    message_length -
+                                    end_id_length[i];
+
+                    if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? End locator not where it should be!"));
+                       buffer = ptr;
+                       continue;
+                    }
+                 }
+              }
 
          if (wmo_header_file_name == YES)
          {
+            int  local_counter = 0;
             char *p_end;
 
             wmoheader_from_grib(ptr - 4, p_new_file, NULL);
             p_end = p_new_file + strlen(p_new_file);
-            counter = 0;
             while (eaccess(new_file, F_OK) == 0)
             {
-               (void)sprintf(p_end, ";%d", counter);
-               counter++;
+               (void)sprintf(p_end, ";%d", local_counter);
+               local_counter++;
             }
          }
          else
@@ -364,18 +460,30 @@ bin_file_chopper(char           *bin_file,
              *        |    +------------------------> originator
              *        +-----------------------------> data type
              */
-            if (next_counter(counter_fd, &counter) < 0)
+            if (next_counter(counter_fd, counter) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "Failed to get the next number.");
-               free(p_file);
-               (void)close(counter_fd);
+#ifdef HAVE_MMAP
+               (void)munmap(p_file, stat_buf.st_size);
+#else
+               (void)munmap_emu(p_file);
+#endif
+               close_counter_file(counter_fd, &counter);
+#ifdef _PRODUCTION_LOG
+               if (pld != NULL)
+               {
+                  free(pld);
+                  no_of_log_entries = 0;
+                  pld = NULL;
+               }
+#endif
                return(INCORRECT);
             }
             if (time(&tvalue) == -1)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to get time() : %s", strerror(errno));
+                           _("Failed to get time() : %s"), strerror(errno));
                (void)strcpy(date_str, "YYYYMMDDhhmmss");
             }
             else
@@ -384,8 +492,8 @@ bin_file_chopper(char           *bin_file,
                                  "%Y%m%d%H%M%S", gmtime(&tvalue));
                date_str[length] = '\0';
             }
-            (void)sprintf(p_new_file, "%s_%s_%s_%d", bul_format[i],
-                          originator, date_str, counter);
+            (void)sprintf(p_new_file, "%s_%s_%s_%x", bul_format[i],
+                          originator, date_str, *counter);
          }
 
          if ((p_filter == NULL) || (pmatch(p_filter, p_new_file, NULL) == 0))
@@ -397,9 +505,22 @@ bin_file_chopper(char           *bin_file,
                            file_mode)) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
-                           "Failed to open() %s : %s", new_file, strerror(errno));
-               free(p_file);
-               (void)close(counter_fd);
+                           _("Failed to open() `%s' : %s"),
+                           new_file, strerror(errno));
+#ifdef HAVE_MMAP
+               (void)munmap(p_file, stat_buf.st_size);
+#else
+               (void)munmap_emu(p_file);
+#endif
+               close_counter_file(counter_fd, &counter);
+#ifdef _PRODUCTION_LOG
+               if (pld != NULL)
+               {
+                  free(pld);
+                  no_of_log_entries = 0;
+                  pld = NULL;
+               }
+#endif
                return(INCORRECT);
             }
 
@@ -414,28 +535,66 @@ bin_file_chopper(char           *bin_file,
                data_length = message_length;
             }
 
-            if (write(fd, ptr, data_length) != data_length)
+            if (writen(fd, ptr, data_length, stat_buf.st_blksize) != data_length)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
-                           "write() error : %s", strerror(errno));
-               free(p_file);
+                           _("writen() error : %s"), strerror(errno));
+#ifdef HAVE_MMAP
+               (void)munmap(p_file, stat_buf.st_size);
+#else
+               (void)munmap_emu(p_file);
+#endif
                (void)close(fd);
                (void)unlink(new_file); /* End user should not get any junk! */
-               (void)close(counter_fd);
+               close_counter_file(counter_fd, &counter);
+#ifdef _PRODUCTION_LOG
+               if (pld != NULL)
+               {
+                  free(pld);
+                  no_of_log_entries = 0;
+                  pld = NULL;
+               }
+#endif
                return(INCORRECT);
             }
 
             if (close(fd) == -1)
             {
                receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
-                           "close() error : %s", strerror(errno));
+                           _("close() error : %s"), strerror(errno));
             }
 #ifdef _PRODUCTION_LOG
             if (p_file_name != NULL)
             {
-               production_log(creation_time, unique_number,
-                              split_job_counter, "%s|%s|extract(%s)",
-                              p_file_name, p_new_file, extract_id);
+               if (no_of_log_entries == 0)
+               {
+                  if ((pld = malloc((LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db)))) == NULL)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                _("malloc() error : %s"), strerror(errno));
+                  }
+               }
+               else
+               {
+                  if ((no_of_log_entries % LOG_ENTRY_STEP_SIZE) == 0)
+                  {
+                     size_t new_size;
+
+                     new_size = ((no_of_log_entries / LOG_ENTRY_STEP_SIZE) + 1) *
+                                LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db);
+                     if ((pld = realloc(pld, new_size)) == NULL)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   _("realloc() error : %s"), strerror(errno));
+                     }
+                  }
+               }
+               if (pld != NULL)
+               {
+                  pld[no_of_log_entries].size = data_length;
+                  (void)strcpy(pld[no_of_log_entries].file_name, p_new_file);
+                  no_of_log_entries++;
+               }
             }
 #endif
 
@@ -460,7 +619,7 @@ bin_file_chopper(char           *bin_file,
             if ((data_length - total_length) > 5)
             {
                receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
-                           "Hmmm. data_length (%d) > total_length (%u)?",
+                           _("Hmmm. data_length (%d) > total_length (%u)?"),
                            data_length, total_length);
             }
             total_length = 0;
@@ -503,7 +662,7 @@ bin_file_chopper(char           *bin_file,
    if (unlink(bin_file) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to unlink() original file %s : %s",
+                  _("Failed to unlink() original file `%s' : %s"),
                   bin_file, strerror(errno));
    }
    else
@@ -511,12 +670,37 @@ bin_file_chopper(char           *bin_file,
       *file_size -= stat_buf.st_size;
       (*files_to_send)--;
    }
-   if (close(counter_fd) == -1)
+   close_counter_file(counter_fd, &counter);
+#ifdef _PRODUCTION_LOG
+   if ((pld != NULL) && (no_of_log_entries))
+   {
+      for (i = 0; i < no_of_log_entries; i++)
+      {
+         production_log(creation_time, 1, no_of_log_entries, unique_number,
+                        split_job_counter, job_id, dir_id,
+# if SIZEOF_OFF_T == 4
+                        "%s%c%s%c%lx%c0%c%s",
+# else
+                        "%s%c%s%c%llx%c0%c%s",
+# endif
+                        p_file_name, SEPARATOR_CHAR, pld[i].file_name,
+                        SEPARATOR_CHAR, (pri_off_t)pld[i].size,
+                        SEPARATOR_CHAR, SEPARATOR_CHAR, full_option);
+      }
+      free(pld);
+      no_of_log_entries = 0;
+      pld = NULL;
+   }
+#endif
+#ifdef HAVE_MMAP
+   if (munmap(p_file, stat_buf.st_size) == -1)
+#else
+   if (munmap_emu(p_file) == -1)
+#endif
    {
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                  "close() error : %s", strerror(errno));
+                  _("munmap() error : %s"), strerror(errno));
    }
-   free(p_file);
 
    return(SUCCESS);
 }
@@ -568,50 +752,100 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
                continue;
 #else
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           "Failed to extract data.");
+                           _("Failed to extract data."));
                return(INCORRECT);
 #endif
             }
          }
-         else /* When GRIB it has to be at least edition 1 */
-         {
-            /*
-             * Determine length by reading byte 4 - 6.
-             */
-            message_length = 0;
-            message_length |= (unsigned char)*ptr;
-            message_length <<= 8;
-            message_length |= (unsigned char)*(ptr + 1);
-            message_length <<= 8;
-            message_length |= (unsigned char)*(ptr + 2);
+              /* When GRIB it has to be at least edition 2. */
+         else if ((i == 0) && (*(ptr + 3) == 2))
+              {
+                 /*
+                  * Determine length by reading byte 8 - 15.
+                  */
+                 message_length = 0;
+                 message_length |= (unsigned char)*(ptr + 4);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 5);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 6);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 7);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 8);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 9);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 10);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 11);
 
-            if (message_length > (total_length + id_length[i]))
-            {
-               if (first_time == YES)
-               {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "Hey! Whats this? Message length (%u) > then total length (%u)",
-                              message_length, total_length + id_length[i]);
-                  first_time = NO;
-               }
-               buffer = ptr;
-               continue;
-            }
-            else
-            {
-               char *tmp_ptr = ptr - id_length[i] +
-                               message_length -
-                               end_id_length[i];
+                 if (message_length > (total_length + id_length[i]))
+                 {
+                    if (first_time == YES)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? Message length (%llu) > then total length (%u)"),
+                                   message_length, total_length + id_length[i]);
+                       first_time = NO;
+                    }
+                    buffer = ptr;
+                    continue;
+                 }
+                 else
+                 {
+                    char *tmp_ptr = ptr - id_length[i] +
+                                    message_length -
+                                    end_id_length[i];
 
-               if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
-               {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              "Hey! Whats this? End locator not where it should be!");
-                  buffer = ptr;
-                  continue;
-               }
-            }
-         }
+                    if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? End locator not where it should be!"));
+                       buffer = ptr;
+                       continue;
+                    }
+                 }
+              }
+              else
+              {
+                 /*
+                  * Determine length by reading byte 4 - 6.
+                  */
+                 message_length = 0;
+                 message_length |= (unsigned char)*ptr;
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 1);
+                 message_length <<= 8;
+                 message_length |= (unsigned char)*(ptr + 2);
+
+                 if (message_length > (total_length + id_length[i]))
+                 {
+                    if (first_time == YES)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? Message length (%u) > then total length (%u)"),
+                                   message_length, total_length + id_length[i]);
+                       first_time = NO;
+                    }
+                    buffer = ptr;
+                    continue;
+                 }
+                 else
+                 {
+                    char *tmp_ptr = ptr - id_length[i] +
+                                    message_length -
+                                    end_id_length[i];
+
+                    if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+                    {
+                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Hey! Whats this? End locator not where it should be!"));
+                       buffer = ptr;
+                       continue;
+                    }
+                 }
+              }
 
          /* Add data type and end identifier to file. */
          ptr -= id_length[i];
@@ -637,16 +871,16 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
          if (write(to_fd, length_indicator, 14) != 14)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "write() error : %s", strerror(errno));
+                        _("write() error : %s"), strerror(errno));
             return(INCORRECT);
          }
          bytes_written += 14;
 
          /* Write message body. */
-         if (write(to_fd, ptr, data_length) != data_length)
+         if (writen(to_fd, ptr, data_length, 0) != data_length)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "write() error : %s", strerror(errno));
+                        _("writen() error : %s"), strerror(errno));
             return(INCORRECT);
          }
          bytes_written += data_length;
@@ -658,7 +892,7 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
          if (write(to_fd, length_indicator, 4) != 4)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "write() error : %s", strerror(errno));
+                        _("write() error : %s"), strerror(errno));
             return(INCORRECT);
          }
          bytes_written += 4;
@@ -670,7 +904,7 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
             if ((data_length - total_length) > 5)
             {
                receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                           "Hmmm. data_length (%d) > total_length (%u)?",
+                           _("Hmmm. data_length (%d) > total_length (%u)?"),
                            data_length, total_length);
             }
             total_length = 0;

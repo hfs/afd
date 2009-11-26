@@ -1,6 +1,6 @@
 /*
- *  my_usleep.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  my_strncpy.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   my_strncpy - copy a string
  **
  ** SYNOPSIS
- **   int my_strncpy(char *dest, char *src, size_t n)
+ **   int my_strncpy(char *dest, const char *src, const size_t n)
  **
  ** DESCRIPTION
  **   The my_strncpy() function copies the string pointed to by src
@@ -48,7 +48,7 @@ DESCR__E_M3
 
 /*############################# my_strncpy() ############################*/
 int
-my_strncpy(char *dest, char *src, size_t n)
+my_strncpy(char *dest, const char *src, const size_t n)
 {
    size_t i = 0;
 

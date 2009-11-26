@@ -1,7 +1,7 @@
 /*
  *  gen_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004, 2005 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2008 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   13.05.2004 H.Kiehl Created
+ **   07.09.2008 H.Kiehl Write with blocksize suggested by filesystem.
  **
  */
 DESCR__E_M1
@@ -51,10 +52,8 @@ DESCR__E_M1
 #include <fcntl.h>
 #include <errno.h>
 
-#define DEFAULT_BLOCKSIZE 4096
 
-
-/* Local functions */
+/* Local function prototypes. */
 static void usage(char *);
 
 
@@ -72,18 +71,19 @@ main(int argc, char *argv[])
    off_t        filesize;
    time_t       current_time,
                 *p_block;
-   char         block[DEFAULT_BLOCKSIZE],
+   char         *block,
                 *dot_ptr,
                 *ptr,
                 filename[MAX_FILENAME_LENGTH],
                 dot_target_dir[MAX_PATH_LENGTH],
                 str_number[MAX_INT_LENGTH],
                 target_dir[MAX_PATH_LENGTH];
+   struct stat  stat_buf;
 
    if (argc == 6)
    {
       no_of_files = atoi(argv[1]);
-      filesize = (off_t)strtoul(argv[2], NULL, 10);
+      filesize = (off_t)str2offt(argv[2], NULL, 10);
       interval = atol(argv[3]);
       (void)strcpy(target_dir, argv[4]);
       (void)strcpy(dot_target_dir, argv[4]);
@@ -93,6 +93,22 @@ main(int argc, char *argv[])
    {
       usage(argv[0]);
       exit(0);
+   }
+
+   /*
+    * Determine blocksize with which we should create the files.
+    */
+   if (stat(target_dir, &stat_buf) == -1)
+   {
+      (void)fprintf(stderr, "Failed to stat() target directory %s : %s\n",
+                    target_dir, strerror(errno));
+      exit(INCORRECT);
+   }
+   if ((block = malloc(stat_buf.st_blksize)) == NULL)
+   {
+      (void)fprintf(stderr, "Failed to malloc() %d bytes of memory : %s\n",
+                    (int)stat_buf.st_blksize, strerror(errno));
+      exit(INCORRECT);
    }
 
    ptr = target_dir + strlen(target_dir);
@@ -106,14 +122,14 @@ main(int argc, char *argv[])
    (void)strcpy(dot_ptr, filename);
    dot_ptr += strlen(filename);
    *dot_ptr++ = '-';
-   loops = filesize / DEFAULT_BLOCKSIZE;
-   rest = filesize % DEFAULT_BLOCKSIZE;
+   loops = filesize / stat_buf.st_blksize;
+   rest = filesize % stat_buf.st_blksize;
 
    for (;;)
    {
       p_block = (time_t *)block;
       current_time = time(NULL);
-      while (p_block < (time_t *)&block[DEFAULT_BLOCKSIZE - sizeof(time_t)])
+      while (p_block < (time_t *)&block[stat_buf.st_blksize - sizeof(time_t)])
       {
          *p_block = current_time;
          p_block++;
@@ -136,10 +152,10 @@ main(int argc, char *argv[])
          }
          for (j = 0; j < loops; j++)
          {
-            if (write(fd, block, DEFAULT_BLOCKSIZE) != DEFAULT_BLOCKSIZE)
+            if (write(fd, block, stat_buf.st_blksize) != stat_buf.st_blksize)
             {
                (void)fprintf(stderr, "Failed to write() %d bytes : %s\n",
-                             DEFAULT_BLOCKSIZE, strerror(errno));
+                             (int)stat_buf.st_blksize, strerror(errno));
                exit(INCORRECT);
             }
          }
@@ -164,7 +180,14 @@ main(int argc, char *argv[])
          }
          counter++;
       }
-      (void)sleep(interval);
+      if (interval)
+      {
+         (void)sleep(interval);
+      }
+      else
+      {
+         break;
+      }
    }
 
    exit(0);

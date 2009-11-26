@@ -81,7 +81,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int   fmd_fd,
              *no_of_file_masks;
 extern off_t fmd_size;
