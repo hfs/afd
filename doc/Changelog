@@ -973,3 +973,13 @@
 16.11.2009 - For option assemble, fix problem where target file name
              is the same as one of the source files.
 ------------------------> Released: 26.11.2009 <---------------------------
+
+
+
+----------------------------> Version 1.4.0 <------------------------------
+                             ---------------
+30.11.2009 - Improve detection of XPM support.
+01.12.2009 - When we report old files do a proper cast to integer,
+             otherwise on some systems this will lead to a crash of
+             process dir_check.
+------------------------> Released: ??.??.201? <---------------------------

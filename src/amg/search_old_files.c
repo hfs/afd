@@ -521,28 +521,29 @@ search_old_files(time_t current_time)
                 ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0))
             {
                p_fra = &fra[de[i].fra_pos];
-               if (file_size >= 1073741824)
+               if (file_size >= GIGABYTE)
                {
                   receive_log(WARN_SIGN, NULL, 0, current_time,
                               "There are %d (%d GiB) old (>%dh) files in %s",
-                              file_counter - junk_files, file_size / 1073741824,
+                              file_counter - junk_files,
+                              (int)(file_size / 1073741824),
                               fra[de[i].fra_pos].unknown_file_time / 3600,
                               tmp_dir);
                }
-               else if (file_size >= 1048576)
+               else if (file_size >= MEGABYTE)
                     {
                        receive_log(WARN_SIGN, NULL, 0, current_time,
                                    "There are %d (%d MiB) old (>%dh) files in %s",
                                    file_counter - junk_files,
-                                   file_size / 1048576,
+                                   (int)(file_size / 1048576),
                                    fra[de[i].fra_pos].unknown_file_time / 3600,
                                    tmp_dir);
                     }
-               else if (file_size >= 1024)
+               else if (file_size >= KILOBYTE)
                     {
                        receive_log(WARN_SIGN, NULL, 0, current_time,
                                    "There are %d (%d KiB) old (>%dh) files in %s",
-                                   file_counter - junk_files, file_size / 1024,
+                                   file_counter - junk_files, (int)(file_size / 1024),
                                    fra[de[i].fra_pos].unknown_file_time / 3600,
                                    tmp_dir);
                     }
@@ -572,32 +573,39 @@ search_old_files(time_t current_time)
             if (queued_files > 0)
             {
                p_fra = &fra[de[i].fra_pos];
-               if (queued_size_deleted >= 1073741824)
+               if (queued_size_deleted >= GIGABYTE)
                {
                   receive_log(DEBUG_SIGN, NULL, 0, current_time,
                               "Deleted %d (%d GiB) queued file(s), in %s",
-                              queued_files, queued_size_deleted / 1073741824,
+                              queued_files,
+                              (int)(queued_size_deleted / 1073741824),
                               tmp_dir);
                }
-               else if (queued_size_deleted >= 1048576)
+               else if (queued_size_deleted >= MEGABYTE)
                     {
                        receive_log(DEBUG_SIGN, NULL, 0, current_time,
                                    "Deleted %d (%d MiB) queued file(s), in %s",
-                                   queued_files, queued_size_deleted / 1048576,
+                                   queued_files,
+                                   (int)(queued_size_deleted / 1048576),
                                    tmp_dir);
                     }
-               else if (queued_size_deleted >= 1024)
+               else if (queued_size_deleted >= KILOBYTE)
                     {
                        receive_log(DEBUG_SIGN, NULL, 0, current_time,
                                    "Deleted %d (%d KiB) queued file(s), in %s",
-                                   queued_files, queued_size_deleted / 1024,
+                                   queued_files,
+                                   (int)(queued_size_deleted / 1024),
                                    tmp_dir);
                     }
                     else
                     {
                        receive_log(DEBUG_SIGN, NULL, 0, current_time,
-                                   "Deleted %d (%d bytes) queued file(s), in %s",
-                                   queued_files, queued_size_deleted,
+#if SIZEOF_OFF_T == 4
+                                   "Deleted %d (%ld bytes) queued file(s), in %s",
+#else
+                                   "Deleted %d (%lld bytes) queued file(s), in %s",
+#endif
+                                   queued_files, (pri_off_t)queued_size_deleted,
                                    tmp_dir);
                     }
             }
