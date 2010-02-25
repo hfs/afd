@@ -99,7 +99,7 @@ DESCR__E_M3
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>                  /* F_OK                            */
-#include <stdlib.h>                  /* atoi(), exit()                  */
+#include <stdlib.h>                  /* atoi(), exit(), free()          */
 #include <errno.h>
 
 /* External global variables. */

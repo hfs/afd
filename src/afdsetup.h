@@ -1,6 +1,6 @@
 /*
  *  afdsetup.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -305,6 +305,14 @@
 #define DEFAULT_RESCAN_TIME 5
 
 /*-----------------------------------------------------------------------*
+ * The default interval in seconds at which a directory is scanned even
+ * if the time stamp did not change. A value of zero will disable this
+ * option.
+ * DEFAULT: 0
+ *-----------------------------------------------------------------------*/
+#define FORCE_REREAD_INTERVAL 0
+
+/*-----------------------------------------------------------------------*
  * The following entries are used to set the maximum values for the
  * DIR_CONFIG file. They are as followed:
  *
@@ -349,7 +357,7 @@
 #define ONE_DIR_COPY_TIMEOUT 10
 #define FULL_SCAN_TIMEOUT    0
 #ifndef _WITH_PTHREAD
-#define DIR_CHECK_TIMEOUT    60
+# define DIR_CHECK_TIMEOUT   60
 #endif
 
 /*-----------------------------------------------------------------------*

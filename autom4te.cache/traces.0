@@ -1,3 +1,768 @@
+m4trace:/usr/share/aclocal/codeset.m4:9: -1- AC_DEFUN([AM_LANGINFO_CODESET], [
+  AC_CACHE_CHECK([for nl_langinfo and CODESET], am_cv_langinfo_codeset,
+    [AC_TRY_LINK([#include <langinfo.h>],
+      [char* cs = nl_langinfo(CODESET); return !cs;],
+      am_cv_langinfo_codeset=yes,
+      am_cv_langinfo_codeset=no)
+    ])
+  if test $am_cv_langinfo_codeset = yes; then
+    AC_DEFINE(HAVE_LANGINFO_CODESET, 1,
+      [Define if you have <langinfo.h> and nl_langinfo(CODESET).])
+  fi
+])
+m4trace:/usr/share/aclocal/glibc2.m4:10: -1- AC_DEFUN([gt_GLIBC2], [
+    AC_CACHE_CHECK(whether we are using the GNU C Library 2 or newer,
+      ac_cv_gnu_library_2,
+      [AC_EGREP_CPP([Lucky GNU user],
+	[
+#include <features.h>
+#ifdef __GNU_LIBRARY__
+ #if (__GLIBC__ >= 2)
+  Lucky GNU user
+ #endif
+#endif
+	],
+	ac_cv_gnu_library_2=yes,
+	ac_cv_gnu_library_2=no)
+      ]
+    )
+    AC_SUBST(GLIBC2)
+    GLIBC2="$ac_cv_gnu_library_2"
+  
+])
+m4trace:/usr/share/aclocal/glibc21.m4:10: -1- AC_DEFUN([gl_GLIBC21], [
+    AC_CACHE_CHECK(whether we are using the GNU C Library 2.1 or newer,
+      ac_cv_gnu_library_2_1,
+      [AC_EGREP_CPP([Lucky GNU user],
+	[
+#include <features.h>
+#ifdef __GNU_LIBRARY__
+ #if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1) || (__GLIBC__ > 2)
+  Lucky GNU user
+ #endif
+#endif
+	],
+	ac_cv_gnu_library_2_1=yes,
+	ac_cv_gnu_library_2_1=no)
+      ]
+    )
+    AC_SUBST(GLIBC21)
+    GLIBC21="$ac_cv_gnu_library_2_1"
+  
+])
+m4trace:/usr/share/aclocal/intdiv0.m4:9: -1- AC_DEFUN([gt_INTDIV0], [
+  AC_REQUIRE([AC_PROG_CC])dnl
+  AC_REQUIRE([AC_CANONICAL_HOST])dnl
+
+  AC_CACHE_CHECK([whether integer division by zero raises SIGFPE],
+    gt_cv_int_divbyzero_sigfpe,
+    [
+      gt_cv_int_divbyzero_sigfpe=
+changequote(,)dnl
+      case "$host_os" in
+        macos* | darwin[6-9]* | darwin[1-9][0-9]*)
+          # On MacOS X 10.2 or newer, just assume the same as when cross-
+          # compiling. If we were to perform the real test, 1 Crash Report
+          # dialog window would pop up.
+          case "$host_cpu" in
+            i[34567]86 | x86_64)
+              gt_cv_int_divbyzero_sigfpe="guessing yes" ;;
+          esac
+          ;;
+      esac
+changequote([,])dnl
+      if test -z "$gt_cv_int_divbyzero_sigfpe"; then
+        AC_TRY_RUN([
+#include <stdlib.h>
+#include <signal.h>
+
+static void
+sigfpe_handler (int sig)
+{
+  /* Exit with code 0 if SIGFPE, with code 1 if any other signal.  */
+  exit (sig != SIGFPE);
+}
+
+int x = 1;
+int y = 0;
+int z;
+int nan;
+
+int main ()
+{
+  signal (SIGFPE, sigfpe_handler);
+/* IRIX and AIX (when "xlc -qcheck" is used) yield signal SIGTRAP.  */
+#if (defined (__sgi) || defined (_AIX)) && defined (SIGTRAP)
+  signal (SIGTRAP, sigfpe_handler);
+#endif
+/* Linux/SPARC yields signal SIGILL.  */
+#if defined (__sparc__) && defined (__linux__)
+  signal (SIGILL, sigfpe_handler);
+#endif
+
+  z = x / y;
+  nan = y / y;
+  exit (1);
+}
+], gt_cv_int_divbyzero_sigfpe=yes, gt_cv_int_divbyzero_sigfpe=no,
+          [
+            # Guess based on the CPU.
+changequote(,)dnl
+            case "$host_cpu" in
+              alpha* | i[34567]86 | x86_64 | m68k | s390*)
+                gt_cv_int_divbyzero_sigfpe="guessing yes";;
+              *)
+                gt_cv_int_divbyzero_sigfpe="guessing no";;
+            esac
+changequote([,])dnl
+          ])
+      fi
+    ])
+  case "$gt_cv_int_divbyzero_sigfpe" in
+    *yes) value=1;;
+    *) value=0;;
+  esac
+  AC_DEFINE_UNQUOTED(INTDIV0_RAISES_SIGFPE, $value,
+    [Define if integer division by zero raises signal SIGFPE.])
+])
+m4trace:/usr/share/aclocal/intl.m4:25: -1- AC_DEFUN([AM_INTL_SUBDIR], [
+  AC_REQUIRE([AC_PROG_INSTALL])dnl
+  AC_REQUIRE([AM_PROG_MKDIR_P])dnl defined by automake
+  AC_REQUIRE([AC_PROG_CC])dnl
+  AC_REQUIRE([AC_CANONICAL_HOST])dnl
+  AC_REQUIRE([gt_GLIBC2])dnl
+  AC_REQUIRE([AC_PROG_RANLIB])dnl
+  AC_REQUIRE([gl_VISIBILITY])dnl
+  AC_REQUIRE([gt_INTL_SUBDIR_CORE])dnl
+  AC_REQUIRE([AC_TYPE_LONG_LONG_INT])dnl
+  AC_REQUIRE([gt_TYPE_WCHAR_T])dnl
+  AC_REQUIRE([gt_TYPE_WINT_T])dnl
+  AC_REQUIRE([gl_AC_HEADER_INTTYPES_H])
+  AC_REQUIRE([gt_TYPE_INTMAX_T])
+  AC_REQUIRE([gt_PRINTF_POSIX])
+  AC_REQUIRE([gl_GLIBC21])dnl
+  AC_REQUIRE([gl_XSIZE])dnl
+  AC_REQUIRE([gt_INTL_MACOSX])dnl
+
+  AC_CHECK_TYPE([ptrdiff_t], ,
+    [AC_DEFINE([ptrdiff_t], [long],
+       [Define as the type of the result of subtracting two pointers, if the system doesn't define it.])
+    ])
+  AC_CHECK_HEADERS([stddef.h stdlib.h string.h])
+  AC_CHECK_FUNCS([asprintf fwprintf putenv setenv setlocale snprintf wcslen])
+
+  dnl Use the _snprintf function only if it is declared (because on NetBSD it
+  dnl is defined as a weak alias of snprintf; we prefer to use the latter).
+  gt_CHECK_DECL(_snprintf, [#include <stdio.h>])
+  gt_CHECK_DECL(_snwprintf, [#include <stdio.h>])
+
+  dnl Use the *_unlocked functions only if they are declared.
+  dnl (because some of them were defined without being declared in Solaris
+  dnl 2.5.1 but were removed in Solaris 2.6, whereas we want binaries built
+  dnl on Solaris 2.5.1 to run on Solaris 2.6).
+  dnl Don't use AC_CHECK_DECLS because it isn't supported in autoconf-2.13.
+  gt_CHECK_DECL(getc_unlocked, [#include <stdio.h>])
+
+  case $gt_cv_func_printf_posix in
+    *yes) HAVE_POSIX_PRINTF=1 ;;
+    *) HAVE_POSIX_PRINTF=0 ;;
+  esac
+  AC_SUBST([HAVE_POSIX_PRINTF])
+  if test "$ac_cv_func_asprintf" = yes; then
+    HAVE_ASPRINTF=1
+  else
+    HAVE_ASPRINTF=0
+  fi
+  AC_SUBST([HAVE_ASPRINTF])
+  if test "$ac_cv_func_snprintf" = yes; then
+    HAVE_SNPRINTF=1
+  else
+    HAVE_SNPRINTF=0
+  fi
+  AC_SUBST([HAVE_SNPRINTF])
+  if test "$ac_cv_func_wprintf" = yes; then
+    HAVE_WPRINTF=1
+  else
+    HAVE_WPRINTF=0
+  fi
+  AC_SUBST([HAVE_WPRINTF])
+
+  AM_LANGINFO_CODESET
+  gt_LC_MESSAGES
+
+  dnl Compilation on mingw and Cygwin needs special Makefile rules, because
+  dnl 1. when we install a shared library, we must arrange to export
+  dnl    auxiliary pointer variables for every exported variable,
+  dnl 2. when we install a shared library and a static library simultaneously,
+  dnl    the include file specifies __declspec(dllimport) and therefore we
+  dnl    must arrange to define the auxiliary pointer variables for the
+  dnl    exported variables _also_ in the static library.
+  if test "$enable_shared" = yes; then
+    case "$host_os" in
+      mingw* | cygwin*) is_woe32dll=yes ;;
+      *) is_woe32dll=no ;;
+    esac
+  else
+    is_woe32dll=no
+  fi
+  WOE32DLL=$is_woe32dll
+  AC_SUBST([WOE32DLL])
+
+  dnl On mingw and Cygwin, we can activate special Makefile rules which add
+  dnl version information to the shared libraries and executables.
+  case "$host_os" in
+    mingw* | cygwin*) is_woe32=yes ;;
+    *) is_woe32=no ;;
+  esac
+  WOE32=$is_woe32
+  AC_SUBST([WOE32])
+  if test $WOE32 = yes; then
+    dnl Check for a program that compiles Windows resource files.
+    AC_CHECK_TOOL([WINDRES], [windres])
+  fi
+
+  dnl Determine whether when creating a library, "-lc" should be passed to
+  dnl libtool or not. On many platforms, it is required for the libtool option
+  dnl -no-undefined to work. On HP-UX, however, the -lc - stored by libtool
+  dnl in the *.la files - makes it impossible to create multithreaded programs,
+  dnl because libtool also reorders the -lc to come before the -pthread, and
+  dnl this disables pthread_create() <http://docs.hp.com/en/1896/pthreads.html>.
+  case "$host_os" in
+    hpux*) LTLIBC="" ;;
+    *)     LTLIBC="-lc" ;;
+  esac
+  AC_SUBST([LTLIBC])
+
+  dnl Rename some macros and functions used for locking.
+  AH_BOTTOM([
+#define __libc_lock_t                   gl_lock_t
+#define __libc_lock_define              gl_lock_define
+#define __libc_lock_define_initialized  gl_lock_define_initialized
+#define __libc_lock_init                gl_lock_init
+#define __libc_lock_lock                gl_lock_lock
+#define __libc_lock_unlock              gl_lock_unlock
+#define __libc_lock_recursive_t                   gl_recursive_lock_t
+#define __libc_lock_define_recursive              gl_recursive_lock_define
+#define __libc_lock_define_initialized_recursive  gl_recursive_lock_define_initialized
+#define __libc_lock_init_recursive                gl_recursive_lock_init
+#define __libc_lock_lock_recursive                gl_recursive_lock_lock
+#define __libc_lock_unlock_recursive              gl_recursive_lock_unlock
+#define glthread_in_use  libintl_thread_in_use
+#define glthread_lock_init     libintl_lock_init
+#define glthread_lock_lock     libintl_lock_lock
+#define glthread_lock_unlock   libintl_lock_unlock
+#define glthread_lock_destroy  libintl_lock_destroy
+#define glthread_rwlock_init     libintl_rwlock_init
+#define glthread_rwlock_rdlock   libintl_rwlock_rdlock
+#define glthread_rwlock_wrlock   libintl_rwlock_wrlock
+#define glthread_rwlock_unlock   libintl_rwlock_unlock
+#define glthread_rwlock_destroy  libintl_rwlock_destroy
+#define glthread_recursive_lock_init     libintl_recursive_lock_init
+#define glthread_recursive_lock_lock     libintl_recursive_lock_lock
+#define glthread_recursive_lock_unlock   libintl_recursive_lock_unlock
+#define glthread_recursive_lock_destroy  libintl_recursive_lock_destroy
+#define glthread_once                 libintl_once
+#define glthread_once_call            libintl_once_call
+#define glthread_once_singlethreaded  libintl_once_singlethreaded
+])
+])
+m4trace:/usr/share/aclocal/intl.m4:186: -1- AC_DEFUN([gt_INTL_SUBDIR_CORE], [
+  AC_REQUIRE([AC_C_INLINE])dnl
+  AC_REQUIRE([AC_TYPE_SIZE_T])dnl
+  AC_REQUIRE([gl_AC_HEADER_STDINT_H])
+  AC_REQUIRE([AC_FUNC_ALLOCA])dnl
+  AC_REQUIRE([AC_FUNC_MMAP])dnl
+  AC_REQUIRE([gt_INTDIV0])dnl
+  AC_REQUIRE([gl_AC_TYPE_UINTMAX_T])dnl
+  AC_REQUIRE([gt_INTTYPES_PRI])dnl
+  AC_REQUIRE([gl_LOCK])dnl
+
+  AC_TRY_LINK(
+    [int foo (int a) { a = __builtin_expect (a, 10); return a == 10 ? 0 : 1; }],
+    [],
+    [AC_DEFINE([HAVE_BUILTIN_EXPECT], 1,
+       [Define to 1 if the compiler understands __builtin_expect.])])
+
+  AC_CHECK_HEADERS([argz.h inttypes.h limits.h unistd.h sys/param.h])
+  AC_CHECK_FUNCS([getcwd getegid geteuid getgid getuid mempcpy munmap \
+    stpcpy strcasecmp strdup strtoul tsearch argz_count argz_stringify \
+    argz_next __fsetlocking])
+
+  dnl Use the *_unlocked functions only if they are declared.
+  dnl (because some of them were defined without being declared in Solaris
+  dnl 2.5.1 but were removed in Solaris 2.6, whereas we want binaries built
+  dnl on Solaris 2.5.1 to run on Solaris 2.6).
+  dnl Don't use AC_CHECK_DECLS because it isn't supported in autoconf-2.13.
+  gt_CHECK_DECL(feof_unlocked, [#include <stdio.h>])
+  gt_CHECK_DECL(fgets_unlocked, [#include <stdio.h>])
+
+  AM_ICONV
+
+  dnl glibc >= 2.4 has a NL_LOCALE_NAME macro when _GNU_SOURCE is defined,
+  dnl and a _NL_LOCALE_NAME macro always.
+  AC_CACHE_CHECK([for NL_LOCALE_NAME macro], gt_cv_nl_locale_name,
+    [AC_TRY_LINK([#include <langinfo.h>
+#include <locale.h>],
+      [char* cs = nl_langinfo(_NL_LOCALE_NAME(LC_MESSAGES));
+       return !cs;
+      ],
+      gt_cv_nl_locale_name=yes,
+      gt_cv_nl_locale_name=no)
+    ])
+  if test $gt_cv_nl_locale_name = yes; then
+    AC_DEFINE(HAVE_NL_LOCALE_NAME, 1,
+      [Define if you have <langinfo.h> and it defines the NL_LOCALE_NAME macro if _GNU_SOURCE is defined.])
+  fi
+
+  dnl intl/plural.c is generated from intl/plural.y. It requires bison,
+  dnl because plural.y uses bison specific features. It requires at least
+  dnl bison-1.26 because earlier versions generate a plural.c that doesn't
+  dnl compile.
+  dnl bison is only needed for the maintainer (who touches plural.y). But in
+  dnl order to avoid separate Makefiles or --enable-maintainer-mode, we put
+  dnl the rule in general Makefile. Now, some people carelessly touch the
+  dnl files or have a broken "make" program, hence the plural.c rule will
+  dnl sometimes fire. To avoid an error, defines BISON to ":" if it is not
+  dnl present or too old.
+  AC_CHECK_PROGS([INTLBISON], [bison])
+  if test -z "$INTLBISON"; then
+    ac_verc_fail=yes
+  else
+    dnl Found it, now check the version.
+    AC_MSG_CHECKING([version of bison])
+changequote(<<,>>)dnl
+    ac_prog_version=`$INTLBISON --version 2>&1 | sed -n 's/^.*GNU Bison.* \([0-9]*\.[0-9.]*\).*$/\1/p'`
+    case $ac_prog_version in
+      '') ac_prog_version="v. ?.??, bad"; ac_verc_fail=yes;;
+      1.2[6-9]* | 1.[3-9][0-9]* | [2-9].*)
+changequote([,])dnl
+         ac_prog_version="$ac_prog_version, ok"; ac_verc_fail=no;;
+      *) ac_prog_version="$ac_prog_version, bad"; ac_verc_fail=yes;;
+    esac
+    AC_MSG_RESULT([$ac_prog_version])
+  fi
+  if test $ac_verc_fail = yes; then
+    INTLBISON=:
+  fi
+])
+m4trace:/usr/share/aclocal/intl.m4:270: -1- AC_DEFUN([gt_CHECK_DECL], [
+  AC_CACHE_CHECK([whether $1 is declared], ac_cv_have_decl_$1,
+    [AC_TRY_COMPILE([$2], [
+#ifndef $1
+  char *p = (char *) $1;
+#endif
+], ac_cv_have_decl_$1=yes, ac_cv_have_decl_$1=no)])
+  if test $ac_cv_have_decl_$1 = yes; then
+    gt_value=1
+  else
+    gt_value=0
+  fi
+  AC_DEFINE_UNQUOTED([HAVE_DECL_]translit($1, [a-z], [A-Z]), [$gt_value],
+    [Define to 1 if you have the declaration of `$1', and to 0 if you don't.])
+])
+m4trace:/usr/share/aclocal/intlmacosx.m4:18: -1- AC_DEFUN([gt_INTL_MACOSX], [
+  dnl Check for API introduced in MacOS X 10.2.
+  AC_CACHE_CHECK([for CFPreferencesCopyAppValue],
+    gt_cv_func_CFPreferencesCopyAppValue,
+    [gt_save_LIBS="$LIBS"
+     LIBS="$LIBS -Wl,-framework -Wl,CoreFoundation"
+     AC_TRY_LINK([#include <CoreFoundation/CFPreferences.h>],
+       [CFPreferencesCopyAppValue(NULL, NULL)],
+       [gt_cv_func_CFPreferencesCopyAppValue=yes],
+       [gt_cv_func_CFPreferencesCopyAppValue=no])
+     LIBS="$gt_save_LIBS"])
+  if test $gt_cv_func_CFPreferencesCopyAppValue = yes; then
+    AC_DEFINE([HAVE_CFPREFERENCESCOPYAPPVALUE], 1,
+      [Define to 1 if you have the MacOS X function CFPreferencesCopyAppValue in the CoreFoundation framework.])
+  fi
+  dnl Check for API introduced in MacOS X 10.3.
+  AC_CACHE_CHECK([for CFLocaleCopyCurrent], gt_cv_func_CFLocaleCopyCurrent,
+    [gt_save_LIBS="$LIBS"
+     LIBS="$LIBS -Wl,-framework -Wl,CoreFoundation"
+     AC_TRY_LINK([#include <CoreFoundation/CFLocale.h>], [CFLocaleCopyCurrent();],
+       [gt_cv_func_CFLocaleCopyCurrent=yes],
+       [gt_cv_func_CFLocaleCopyCurrent=no])
+     LIBS="$gt_save_LIBS"])
+  if test $gt_cv_func_CFLocaleCopyCurrent = yes; then
+    AC_DEFINE([HAVE_CFLOCALECOPYCURRENT], 1,
+      [Define to 1 if you have the MacOS X function CFLocaleCopyCurrent in the CoreFoundation framework.])
+  fi
+  INTL_MACOSX_LIBS=
+  if test $gt_cv_func_CFPreferencesCopyAppValue = yes || test $gt_cv_func_CFLocaleCopyCurrent = yes; then
+    INTL_MACOSX_LIBS="-Wl,-framework -Wl,CoreFoundation"
+  fi
+  AC_SUBST([INTL_MACOSX_LIBS])
+])
+m4trace:/usr/share/aclocal/intmax.m4:11: -1- AC_DEFUN([gt_TYPE_INTMAX_T], [
+  AC_REQUIRE([gl_AC_HEADER_INTTYPES_H])
+  AC_REQUIRE([gl_AC_HEADER_STDINT_H])
+  AC_CACHE_CHECK(for intmax_t, gt_cv_c_intmax_t,
+    [AC_TRY_COMPILE([
+#include <stddef.h>
+#include <stdlib.h>
+#if HAVE_STDINT_H_WITH_UINTMAX
+#include <stdint.h>
+#endif
+#if HAVE_INTTYPES_H_WITH_UINTMAX
+#include <inttypes.h>
+#endif
+],     [intmax_t x = -1;
+        return !x;],
+       gt_cv_c_intmax_t=yes,
+       gt_cv_c_intmax_t=no)])
+  if test $gt_cv_c_intmax_t = yes; then
+    AC_DEFINE(HAVE_INTMAX_T, 1,
+      [Define if you have the 'intmax_t' type in <stdint.h> or <inttypes.h>.])
+  fi
+])
+m4trace:/usr/share/aclocal/inttypes-pri.m4:14: -1- AC_DEFUN([gt_INTTYPES_PRI], [
+  AC_CHECK_HEADERS([inttypes.h])
+  if test $ac_cv_header_inttypes_h = yes; then
+    AC_CACHE_CHECK([whether the inttypes.h PRIxNN macros are broken],
+      gt_cv_inttypes_pri_broken,
+      [
+        AC_TRY_COMPILE([#include <inttypes.h>
+#ifdef PRId32
+char *p = PRId32;
+#endif
+], [], gt_cv_inttypes_pri_broken=no, gt_cv_inttypes_pri_broken=yes)
+      ])
+  fi
+  if test "$gt_cv_inttypes_pri_broken" = yes; then
+    AC_DEFINE_UNQUOTED(PRI_MACROS_BROKEN, 1,
+      [Define if <inttypes.h> exists and defines unusable PRI* macros.])
+    PRI_MACROS_BROKEN=1
+  else
+    PRI_MACROS_BROKEN=0
+  fi
+  AC_SUBST([PRI_MACROS_BROKEN])
+])
+m4trace:/usr/share/aclocal/inttypes_h.m4:12: -1- AC_DEFUN([gl_AC_HEADER_INTTYPES_H], [
+  AC_CACHE_CHECK([for inttypes.h], gl_cv_header_inttypes_h,
+  [AC_TRY_COMPILE(
+    [#include <sys/types.h>
+#include <inttypes.h>],
+    [uintmax_t i = (uintmax_t) -1; return !i;],
+    gl_cv_header_inttypes_h=yes,
+    gl_cv_header_inttypes_h=no)])
+  if test $gl_cv_header_inttypes_h = yes; then
+    AC_DEFINE_UNQUOTED(HAVE_INTTYPES_H_WITH_UINTMAX, 1,
+      [Define if <inttypes.h> exists, doesn't clash with <sys/types.h>,
+       and declares uintmax_t. ])
+  fi
+])
+m4trace:/usr/share/aclocal/lcmessage.m4:21: -1- AC_DEFUN([gt_LC_MESSAGES], [
+  AC_CACHE_CHECK([for LC_MESSAGES], gt_cv_val_LC_MESSAGES,
+    [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],
+       gt_cv_val_LC_MESSAGES=yes, gt_cv_val_LC_MESSAGES=no)])
+  if test $gt_cv_val_LC_MESSAGES = yes; then
+    AC_DEFINE(HAVE_LC_MESSAGES, 1,
+      [Define if your <locale.h> file defines LC_MESSAGES.])
+  fi
+])
+m4trace:/usr/share/aclocal/lock.m4:22: -1- AC_DEFUN([gl_LOCK_EARLY], [
+  AC_REQUIRE([gl_LOCK_EARLY_BODY])
+])
+m4trace:/usr/share/aclocal/lock.m4:29: -1- AC_DEFUN([gl_LOCK_EARLY_BODY], [
+  dnl Ordering constraints: This macro modifies CPPFLAGS in a way that
+  dnl influences the result of the autoconf tests that test for *_unlocked
+  dnl declarations, on AIX 5 at least. Therefore it must come early.
+  AC_BEFORE([$0], [gl_FUNC_GLIBC_UNLOCKED_IO])dnl
+  AC_BEFORE([$0], [gl_ARGP])dnl
+
+  AC_REQUIRE([AC_CANONICAL_HOST])
+  dnl _GNU_SOURCE is needed for pthread_rwlock_t on glibc systems.
+  dnl AC_USE_SYSTEM_EXTENSIONS was introduced in autoconf 2.60 and obsoletes
+  dnl AC_GNU_SOURCE.
+  m4_ifdef([AC_USE_SYSTEM_EXTENSIONS],
+    [AC_REQUIRE([AC_USE_SYSTEM_EXTENSIONS])],
+    [AC_REQUIRE([AC_GNU_SOURCE])])
+  dnl Check for multithreading.
+  AC_ARG_ENABLE(threads,
+AC_HELP_STRING([--enable-threads={posix|solaris|pth|win32}], [specify multithreading API])
+AC_HELP_STRING([--disable-threads], [build without multithread safety]),
+    [gl_use_threads=$enableval],
+    [case "$host_os" in
+       dnl Disable multithreading by default on OSF/1, because it interferes
+       dnl with fork()/exec(): When msgexec is linked with -lpthread, its child
+       dnl process gets an endless segmentation fault inside execvp().
+       osf*) gl_use_threads=no ;;
+       *)    gl_use_threads=yes ;;
+     esac
+    ])
+  if test "$gl_use_threads" = yes || test "$gl_use_threads" = posix; then
+    # For using <pthread.h>:
+    case "$host_os" in
+      osf*)
+        # On OSF/1, the compiler needs the flag -D_REENTRANT so that it
+        # groks <pthread.h>. cc also understands the flag -pthread, but
+        # we don't use it because 1. gcc-2.95 doesn't understand -pthread,
+        # 2. putting a flag into CPPFLAGS that has an effect on the linker
+        # causes the AC_TRY_LINK test below to succeed unexpectedly,
+        # leading to wrong values of LIBTHREAD and LTLIBTHREAD.
+        CPPFLAGS="$CPPFLAGS -D_REENTRANT"
+        ;;
+    esac
+    # Some systems optimize for single-threaded programs by default, and
+    # need special flags to disable these optimizations. For example, the
+    # definition of 'errno' in <errno.h>.
+    case "$host_os" in
+      aix* | freebsd*) CPPFLAGS="$CPPFLAGS -D_THREAD_SAFE" ;;
+      solaris*) CPPFLAGS="$CPPFLAGS -D_REENTRANT" ;;
+    esac
+  fi
+])
+m4trace:/usr/share/aclocal/lock.m4:82: -1- AC_DEFUN([gl_LOCK_BODY], [
+  AC_REQUIRE([gl_LOCK_EARLY_BODY])
+  gl_threads_api=none
+  LIBTHREAD=
+  LTLIBTHREAD=
+  LIBMULTITHREAD=
+  LTLIBMULTITHREAD=
+  if test "$gl_use_threads" != no; then
+    dnl Check whether the compiler and linker support weak declarations.
+    AC_MSG_CHECKING([whether imported symbols can be declared weak])
+    gl_have_weak=no
+    AC_TRY_LINK([extern void xyzzy ();
+#pragma weak xyzzy], [xyzzy();], [gl_have_weak=yes])
+    AC_MSG_RESULT([$gl_have_weak])
+    if test "$gl_use_threads" = yes || test "$gl_use_threads" = posix; then
+      # On OSF/1, the compiler needs the flag -pthread or -D_REENTRANT so that
+      # it groks <pthread.h>. It's added above, in gl_LOCK_EARLY_BODY.
+      AC_CHECK_HEADER(pthread.h, gl_have_pthread_h=yes, gl_have_pthread_h=no)
+      if test "$gl_have_pthread_h" = yes; then
+        # Other possible tests:
+        #   -lpthreads (FSU threads, PCthreads)
+        #   -lgthreads
+        gl_have_pthread=
+        # Test whether both pthread_mutex_lock and pthread_mutexattr_init exist
+        # in libc. IRIX 6.5 has the first one in both libc and libpthread, but
+        # the second one only in libpthread, and lock.c needs it.
+        AC_TRY_LINK([#include <pthread.h>],
+          [pthread_mutex_lock((pthread_mutex_t*)0);
+           pthread_mutexattr_init((pthread_mutexattr_t*)0);],
+          [gl_have_pthread=yes])
+        # Test for libpthread by looking for pthread_kill. (Not pthread_self,
+        # since it is defined as a macro on OSF/1.)
+        if test -n "$gl_have_pthread"; then
+          # The program links fine without libpthread. But it may actually
+          # need to link with libpthread in order to create multiple threads.
+          AC_CHECK_LIB(pthread, pthread_kill,
+            [LIBMULTITHREAD=-lpthread LTLIBMULTITHREAD=-lpthread
+             # On Solaris and HP-UX, most pthread functions exist also in libc.
+             # Therefore pthread_in_use() needs to actually try to create a
+             # thread: pthread_create from libc will fail, whereas
+             # pthread_create will actually create a thread.
+             case "$host_os" in
+               solaris* | hpux*)
+                 AC_DEFINE([PTHREAD_IN_USE_DETECTION_HARD], 1,
+                   [Define if the pthread_in_use() detection is hard.])
+             esac
+            ])
+        else
+          # Some library is needed. Try libpthread and libc_r.
+          AC_CHECK_LIB(pthread, pthread_kill,
+            [gl_have_pthread=yes
+             LIBTHREAD=-lpthread LTLIBTHREAD=-lpthread
+             LIBMULTITHREAD=-lpthread LTLIBMULTITHREAD=-lpthread])
+          if test -z "$gl_have_pthread"; then
+            # For FreeBSD 4.
+            AC_CHECK_LIB(c_r, pthread_kill,
+              [gl_have_pthread=yes
+               LIBTHREAD=-lc_r LTLIBTHREAD=-lc_r
+               LIBMULTITHREAD=-lc_r LTLIBMULTITHREAD=-lc_r])
+          fi
+        fi
+        if test -n "$gl_have_pthread"; then
+          gl_threads_api=posix
+          AC_DEFINE([USE_POSIX_THREADS], 1,
+            [Define if the POSIX multithreading library can be used.])
+          if test -n "$LIBMULTITHREAD" || test -n "$LTLIBMULTITHREAD"; then
+            if test $gl_have_weak = yes; then
+              AC_DEFINE([USE_POSIX_THREADS_WEAK], 1,
+                [Define if references to the POSIX multithreading library should be made weak.])
+              LIBTHREAD=
+              LTLIBTHREAD=
+            fi
+          fi
+          # OSF/1 4.0 and MacOS X 10.1 lack the pthread_rwlock_t type and the
+          # pthread_rwlock_* functions.
+          AC_CHECK_TYPE([pthread_rwlock_t],
+            [AC_DEFINE([HAVE_PTHREAD_RWLOCK], 1,
+               [Define if the POSIX multithreading library has read/write locks.])],
+            [],
+            [#include <pthread.h>])
+          # glibc defines PTHREAD_MUTEX_RECURSIVE as enum, not as a macro.
+          AC_TRY_COMPILE([#include <pthread.h>],
+            [#if __FreeBSD__ == 4
+error "No, in FreeBSD 4.0 recursive mutexes actually don't work."
+#else
+int x = (int)PTHREAD_MUTEX_RECURSIVE;
+return !x;
+#endif],
+            [AC_DEFINE([HAVE_PTHREAD_MUTEX_RECURSIVE], 1,
+               [Define if the <pthread.h> defines PTHREAD_MUTEX_RECURSIVE.])])
+        fi
+      fi
+    fi
+    if test -z "$gl_have_pthread"; then
+      if test "$gl_use_threads" = yes || test "$gl_use_threads" = solaris; then
+        gl_have_solaristhread=
+        gl_save_LIBS="$LIBS"
+        LIBS="$LIBS -lthread"
+        AC_TRY_LINK([#include <thread.h>
+#include <synch.h>],
+          [thr_self();],
+          [gl_have_solaristhread=yes])
+        LIBS="$gl_save_LIBS"
+        if test -n "$gl_have_solaristhread"; then
+          gl_threads_api=solaris
+          LIBTHREAD=-lthread
+          LTLIBTHREAD=-lthread
+          LIBMULTITHREAD="$LIBTHREAD"
+          LTLIBMULTITHREAD="$LTLIBTHREAD"
+          AC_DEFINE([USE_SOLARIS_THREADS], 1,
+            [Define if the old Solaris multithreading library can be used.])
+          if test $gl_have_weak = yes; then
+            AC_DEFINE([USE_SOLARIS_THREADS_WEAK], 1,
+              [Define if references to the old Solaris multithreading library should be made weak.])
+            LIBTHREAD=
+            LTLIBTHREAD=
+          fi
+        fi
+      fi
+    fi
+    if test "$gl_use_threads" = pth; then
+      gl_save_CPPFLAGS="$CPPFLAGS"
+      AC_LIB_LINKFLAGS(pth)
+      gl_have_pth=
+      gl_save_LIBS="$LIBS"
+      LIBS="$LIBS -lpth"
+      AC_TRY_LINK([#include <pth.h>], [pth_self();], gl_have_pth=yes)
+      LIBS="$gl_save_LIBS"
+      if test -n "$gl_have_pth"; then
+        gl_threads_api=pth
+        LIBTHREAD="$LIBPTH"
+        LTLIBTHREAD="$LTLIBPTH"
+        LIBMULTITHREAD="$LIBTHREAD"
+        LTLIBMULTITHREAD="$LTLIBTHREAD"
+        AC_DEFINE([USE_PTH_THREADS], 1,
+          [Define if the GNU Pth multithreading library can be used.])
+        if test -n "$LIBMULTITHREAD" || test -n "$LTLIBMULTITHREAD"; then
+          if test $gl_have_weak = yes; then
+            AC_DEFINE([USE_PTH_THREADS_WEAK], 1,
+              [Define if references to the GNU Pth multithreading library should be made weak.])
+            LIBTHREAD=
+            LTLIBTHREAD=
+          fi
+        fi
+      else
+        CPPFLAGS="$gl_save_CPPFLAGS"
+      fi
+    fi
+    if test -z "$gl_have_pthread"; then
+      if test "$gl_use_threads" = yes || test "$gl_use_threads" = win32; then
+        if { case "$host_os" in
+               mingw*) true;;
+               *) false;;
+             esac
+           }; then
+          gl_threads_api=win32
+          AC_DEFINE([USE_WIN32_THREADS], 1,
+            [Define if the Win32 multithreading API can be used.])
+        fi
+      fi
+    fi
+  fi
+  AC_MSG_CHECKING([for multithread API to use])
+  AC_MSG_RESULT([$gl_threads_api])
+  AC_SUBST(LIBTHREAD)
+  AC_SUBST(LTLIBTHREAD)
+  AC_SUBST(LIBMULTITHREAD)
+  AC_SUBST(LTLIBMULTITHREAD)
+])
+m4trace:/usr/share/aclocal/lock.m4:253: -1- AC_DEFUN([gl_LOCK], [
+  AC_REQUIRE([gl_LOCK_EARLY])
+  AC_REQUIRE([gl_LOCK_BODY])
+  gl_PREREQ_LOCK
+])
+m4trace:/usr/share/aclocal/lock.m4:261: -1- AC_DEFUN([gl_PREREQ_LOCK], [
+  AC_REQUIRE([AC_C_INLINE])
+])
+m4trace:/usr/share/aclocal/longlong.m4:17: -1- AC_DEFUN([AC_TYPE_LONG_LONG_INT], [
+  AC_CACHE_CHECK([for long long int], [ac_cv_type_long_long_int],
+    [AC_LINK_IFELSE(
+       [_AC_TYPE_LONG_LONG_SNIPPET],
+       [dnl This catches a bug in Tandem NonStop Kernel (OSS) cc -O circa 2004.
+	dnl If cross compiling, assume the bug isn't important, since
+	dnl nobody cross compiles for this platform as far as we know.
+	AC_RUN_IFELSE(
+	  [AC_LANG_PROGRAM(
+	     [[@%:@include <limits.h>
+	       @%:@ifndef LLONG_MAX
+	       @%:@ define HALF \
+			(1LL << (sizeof (long long int) * CHAR_BIT - 2))
+	       @%:@ define LLONG_MAX (HALF - 1 + HALF)
+	       @%:@endif]],
+	     [[long long int n = 1;
+	       int i;
+	       for (i = 0; ; i++)
+		 {
+		   long long int m = n << i;
+		   if (m >> i != n)
+		     return 1;
+		   if (LLONG_MAX / 2 < m)
+		     break;
+		 }
+	       return 0;]])],
+	  [ac_cv_type_long_long_int=yes],
+	  [ac_cv_type_long_long_int=no],
+	  [ac_cv_type_long_long_int=yes])],
+       [ac_cv_type_long_long_int=no])])
+  if test $ac_cv_type_long_long_int = yes; then
+    AC_DEFINE([HAVE_LONG_LONG_INT], 1,
+      [Define to 1 if the system has the type `long long int'.])
+  fi
+])
+m4trace:/usr/share/aclocal/longlong.m4:63: -1- AC_DEFUN([AC_TYPE_UNSIGNED_LONG_LONG_INT], [
+  AC_CACHE_CHECK([for unsigned long long int],
+    [ac_cv_type_unsigned_long_long_int],
+    [AC_LINK_IFELSE(
+       [_AC_TYPE_LONG_LONG_SNIPPET],
+       [ac_cv_type_unsigned_long_long_int=yes],
+       [ac_cv_type_unsigned_long_long_int=no])])
+  if test $ac_cv_type_unsigned_long_long_int = yes; then
+    AC_DEFINE([HAVE_UNSIGNED_LONG_LONG_INT], 1,
+      [Define to 1 if the system has the type `unsigned long long int'.])
+  fi
+])
+m4trace:/usr/share/aclocal/longlong.m4:82: -1- AC_DEFUN([_AC_TYPE_LONG_LONG_SNIPPET], [
+  AC_LANG_PROGRAM(
+    [[/* Test preprocessor.  */
+      #if ! (-9223372036854775807LL < 0 && 0 < 9223372036854775807ll)
+        error in preprocessor;
+      #endif
+      #if ! (18446744073709551615ULL <= -1ull)
+        error in preprocessor;
+      #endif
+      /* Test literals.  */
+      long long int ll = 9223372036854775807ll;
+      long long int nll = -9223372036854775807LL;
+      unsigned long long int ull = 18446744073709551615ULL;
+      /* Test constant expressions.   */
+      typedef int a[((-9223372036854775807LL < 0 && 0 < 9223372036854775807ll)
+		     ? 1 : -1)];
+      typedef int b[(18446744073709551615ULL <= (unsigned long long int) -1
+		     ? 1 : -1)];
+      int i = 63;]],
+    [[/* Test availability of runtime routines for shift and division.  */
+      long long int llmax = 9223372036854775807ll;
+      unsigned long long int ullmax = 18446744073709551615ull;
+      return ((ll << 63) | (ll >> 63) | (ll < i) | (ll > i)
+	      | (llmax / ll) | (llmax % ll)
+	      | (ull << 63) | (ull >> 63) | (ull << i) | (ull >> i)
+	      | (ullmax / ull) | (ullmax % ull));]])
+])
 m4trace:/usr/share/aclocal/pkg.m4:26: -1- AC_DEFUN([PKG_PROG_PKG_CONFIG], [m4_pattern_forbid([^_?PKG_[A-Z_]+$])
 m4_pattern_allow([^PKG_CONFIG(_PATH)?$])
 AC_ARG_VAR([PKG_CONFIG], [path to pkg-config utility])dnl
@@ -83,28 +848,206 @@ else
 	ifelse([$3], , :, [$3])
 fi[]dnl
 ])
-m4trace:/usr/share/aclocal-1.10/amversion.m4:14: -1- AC_DEFUN([AM_AUTOMAKE_VERSION], [am__api_version='1.10'
+m4trace:/usr/share/aclocal/printf-posix.m4:11: -1- AC_DEFUN([gt_PRINTF_POSIX], [
+  AC_REQUIRE([AC_PROG_CC])
+  AC_CACHE_CHECK([whether printf() supports POSIX/XSI format strings],
+    gt_cv_func_printf_posix,
+    [
+      AC_TRY_RUN([
+#include <stdio.h>
+#include <string.h>
+/* The string "%2$d %1$d", with dollar characters protected from the shell's
+   dollar expansion (possibly an autoconf bug).  */
+static char format[] = { '%', '2', '$', 'd', ' ', '%', '1', '$', 'd', '\0' };
+static char buf[100];
+int main ()
+{
+  sprintf (buf, format, 33, 55);
+  return (strcmp (buf, "55 33") != 0);
+}], gt_cv_func_printf_posix=yes, gt_cv_func_printf_posix=no,
+      [
+        AC_EGREP_CPP(notposix, [
+#if defined __NetBSD__ || defined __BEOS__ || defined _MSC_VER || defined __MINGW32__ || defined __CYGWIN__
+  notposix
+#endif
+        ], gt_cv_func_printf_posix="guessing no",
+           gt_cv_func_printf_posix="guessing yes")
+      ])
+    ])
+  case $gt_cv_func_printf_posix in
+    *yes)
+      AC_DEFINE(HAVE_POSIX_PRINTF, 1,
+        [Define if your printf() function supports format strings with positions.])
+      ;;
+  esac
+])
+m4trace:/usr/share/aclocal/size_max.m4:9: -1- AC_DEFUN([gl_SIZE_MAX], [
+  AC_CHECK_HEADERS(stdint.h)
+  dnl First test whether the system already has SIZE_MAX.
+  AC_MSG_CHECKING([for SIZE_MAX])
+  AC_CACHE_VAL([gl_cv_size_max], [
+    gl_cv_size_max=
+    AC_EGREP_CPP([Found it], [
+#include <limits.h>
+#if HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef SIZE_MAX
+Found it
+#endif
+], gl_cv_size_max=yes)
+    if test -z "$gl_cv_size_max"; then
+      dnl Define it ourselves. Here we assume that the type 'size_t' is not wider
+      dnl than the type 'unsigned long'. Try hard to find a definition that can
+      dnl be used in a preprocessor #if, i.e. doesn't contain a cast.
+      AC_COMPUTE_INT([size_t_bits_minus_1], [sizeof (size_t) * CHAR_BIT - 1],
+        [#include <stddef.h>
+#include <limits.h>], size_t_bits_minus_1=)
+      AC_COMPUTE_INT([fits_in_uint], [sizeof (size_t) <= sizeof (unsigned int)],
+        [#include <stddef.h>], fits_in_uint=)
+      if test -n "$size_t_bits_minus_1" && test -n "$fits_in_uint"; then
+        if test $fits_in_uint = 1; then
+          dnl Even though SIZE_MAX fits in an unsigned int, it must be of type
+          dnl 'unsigned long' if the type 'size_t' is the same as 'unsigned long'.
+          AC_TRY_COMPILE([#include <stddef.h>
+            extern size_t foo;
+            extern unsigned long foo;
+            ], [], fits_in_uint=0)
+        fi
+        dnl We cannot use 'expr' to simplify this expression, because 'expr'
+        dnl works only with 'long' integers in the host environment, while we
+        dnl might be cross-compiling from a 32-bit platform to a 64-bit platform.
+        if test $fits_in_uint = 1; then
+          gl_cv_size_max="(((1U << $size_t_bits_minus_1) - 1) * 2 + 1)"
+        else
+          gl_cv_size_max="(((1UL << $size_t_bits_minus_1) - 1) * 2 + 1)"
+        fi
+      else
+        dnl Shouldn't happen, but who knows...
+        gl_cv_size_max='((size_t)~(size_t)0)'
+      fi
+    fi
+  ])
+  AC_MSG_RESULT([$gl_cv_size_max])
+  if test "$gl_cv_size_max" != yes; then
+    AC_DEFINE_UNQUOTED([SIZE_MAX], [$gl_cv_size_max],
+      [Define as the maximum value of type 'size_t', if the system doesn't define it.])
+  fi
+])
+m4trace:/usr/share/aclocal/stdint_h.m4:12: -1- AC_DEFUN([gl_AC_HEADER_STDINT_H], [
+  AC_CACHE_CHECK([for stdint.h], gl_cv_header_stdint_h,
+  [AC_TRY_COMPILE(
+    [#include <sys/types.h>
+#include <stdint.h>],
+    [uintmax_t i = (uintmax_t) -1; return !i;],
+    gl_cv_header_stdint_h=yes,
+    gl_cv_header_stdint_h=no)])
+  if test $gl_cv_header_stdint_h = yes; then
+    AC_DEFINE_UNQUOTED(HAVE_STDINT_H_WITH_UINTMAX, 1,
+      [Define if <stdint.h> exists, doesn't clash with <sys/types.h>,
+       and declares uintmax_t. ])
+  fi
+])
+m4trace:/usr/share/aclocal/uintmax_t.m4:14: -1- AC_DEFUN([gl_AC_TYPE_UINTMAX_T], [
+  AC_REQUIRE([gl_AC_HEADER_INTTYPES_H])
+  AC_REQUIRE([gl_AC_HEADER_STDINT_H])
+  if test $gl_cv_header_inttypes_h = no && test $gl_cv_header_stdint_h = no; then
+    AC_REQUIRE([AC_TYPE_UNSIGNED_LONG_LONG_INT])
+    test $ac_cv_type_unsigned_long_long_int = yes \
+      && ac_type='unsigned long long' \
+      || ac_type='unsigned long'
+    AC_DEFINE_UNQUOTED(uintmax_t, $ac_type,
+      [Define to unsigned long or unsigned long long
+       if <stdint.h> and <inttypes.h> don't define.])
+  else
+    AC_DEFINE(HAVE_UINTMAX_T, 1,
+      [Define if you have the 'uintmax_t' type in <stdint.h> or <inttypes.h>.])
+  fi
+])
+m4trace:/usr/share/aclocal/visibility.m4:23: -1- AC_DEFUN([gl_VISIBILITY], [
+  AC_REQUIRE([AC_PROG_CC])
+  CFLAG_VISIBILITY=
+  HAVE_VISIBILITY=0
+  if test -n "$GCC"; then
+    AC_MSG_CHECKING([for simple visibility declarations])
+    AC_CACHE_VAL(gl_cv_cc_visibility, [
+      gl_save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -fvisibility=hidden"
+      AC_TRY_COMPILE(
+        [extern __attribute__((__visibility__("hidden"))) int hiddenvar;
+         extern __attribute__((__visibility__("default"))) int exportedvar;
+         extern __attribute__((__visibility__("hidden"))) int hiddenfunc (void);
+         extern __attribute__((__visibility__("default"))) int exportedfunc (void);],
+        [],
+        gl_cv_cc_visibility=yes,
+        gl_cv_cc_visibility=no)
+      CFLAGS="$gl_save_CFLAGS"])
+    AC_MSG_RESULT([$gl_cv_cc_visibility])
+    if test $gl_cv_cc_visibility = yes; then
+      CFLAG_VISIBILITY="-fvisibility=hidden"
+      HAVE_VISIBILITY=1
+    fi
+  fi
+  AC_SUBST([CFLAG_VISIBILITY])
+  AC_SUBST([HAVE_VISIBILITY])
+  AC_DEFINE_UNQUOTED([HAVE_VISIBILITY], [$HAVE_VISIBILITY],
+    [Define to 1 or 0, depending whether the compiler supports simple visibility declarations.])
+])
+m4trace:/usr/share/aclocal/wchar_t.m4:11: -1- AC_DEFUN([gt_TYPE_WCHAR_T], [
+  AC_CACHE_CHECK([for wchar_t], gt_cv_c_wchar_t,
+    [AC_TRY_COMPILE([#include <stddef.h>
+       wchar_t foo = (wchar_t)'\0';], ,
+       gt_cv_c_wchar_t=yes, gt_cv_c_wchar_t=no)])
+  if test $gt_cv_c_wchar_t = yes; then
+    AC_DEFINE(HAVE_WCHAR_T, 1, [Define if you have the 'wchar_t' type.])
+  fi
+])
+m4trace:/usr/share/aclocal/wint_t.m4:11: -1- AC_DEFUN([gt_TYPE_WINT_T], [
+  AC_CACHE_CHECK([for wint_t], gt_cv_c_wint_t,
+    [AC_TRY_COMPILE([
+/* Tru64 with Desktop Toolkit C has a bug: <stdio.h> must be included before
+   <wchar.h>.
+   BSD/OS 4.0.1 has a bug: <stddef.h>, <stdio.h> and <time.h> must be included
+   before <wchar.h>.  */
+#include <stddef.h>
+#include <stdio.h>
+#include <time.h>
+#include <wchar.h>
+       wint_t foo = (wchar_t)'\0';], ,
+       gt_cv_c_wint_t=yes, gt_cv_c_wint_t=no)])
+  if test $gt_cv_c_wint_t = yes; then
+    AC_DEFINE(HAVE_WINT_T, 1, [Define if you have the 'wint_t' type.])
+  fi
+])
+m4trace:/usr/share/aclocal/xsize.m4:7: -1- AC_DEFUN([gl_XSIZE], [
+  dnl Prerequisites of lib/xsize.h.
+  AC_REQUIRE([gl_SIZE_MAX])
+  AC_REQUIRE([AC_C_INLINE])
+  AC_CHECK_HEADERS(stdint.h)
+])
+m4trace:/usr/share/aclocal-1.11/amversion.m4:14: -1- AC_DEFUN([AM_AUTOMAKE_VERSION], [am__api_version='1.11'
 dnl Some users find AM_AUTOMAKE_VERSION and mistake it for a way to
 dnl require some minimum version.  Point them to the right macro.
-m4_if([$1], [1.10.1], [],
+m4_if([$1], [1.11.1], [],
       [AC_FATAL([Do not call $0, use AM_INIT_AUTOMAKE([$1]).])])dnl
 ])
-m4trace:/usr/share/aclocal-1.10/amversion.m4:33: -1- AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION], [AM_AUTOMAKE_VERSION([1.10.1])dnl
+m4trace:/usr/share/aclocal-1.11/amversion.m4:33: -1- AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION], [AM_AUTOMAKE_VERSION([1.11.1])dnl
 m4_ifndef([AC_AUTOCONF_VERSION],
   [m4_copy([m4_PACKAGE_VERSION], [AC_AUTOCONF_VERSION])])dnl
-_AM_AUTOCONF_VERSION(AC_AUTOCONF_VERSION)])
-m4trace:/usr/share/aclocal-1.10/auxdir.m4:47: -1- AC_DEFUN([AM_AUX_DIR_EXPAND], [dnl Rely on autoconf to set up CDPATH properly.
+_AM_AUTOCONF_VERSION(m4_defn([AC_AUTOCONF_VERSION]))])
+m4trace:/usr/share/aclocal-1.11/auxdir.m4:47: -1- AC_DEFUN([AM_AUX_DIR_EXPAND], [dnl Rely on autoconf to set up CDPATH properly.
 AC_PREREQ([2.50])dnl
 # expand $ac_aux_dir to an absolute path
 am_aux_dir=`cd $ac_aux_dir && pwd`
 ])
-m4trace:/usr/share/aclocal-1.10/cond.m4:15: -1- AC_DEFUN([AM_CONDITIONAL], [AC_PREREQ(2.52)dnl
+m4trace:/usr/share/aclocal-1.11/cond.m4:15: -1- AC_DEFUN([AM_CONDITIONAL], [AC_PREREQ(2.52)dnl
  ifelse([$1], [TRUE],  [AC_FATAL([$0: invalid condition: $1])],
 	[$1], [FALSE], [AC_FATAL([$0: invalid condition: $1])])dnl
 AC_SUBST([$1_TRUE])dnl
 AC_SUBST([$1_FALSE])dnl
 _AM_SUBST_NOTMAKE([$1_TRUE])dnl
 _AM_SUBST_NOTMAKE([$1_FALSE])dnl
+m4_define([_AM_COND_VALUE_$1], [$2])dnl
 if $2; then
   $1_TRUE=
   $1_FALSE='#'
@@ -117,7 +1060,7 @@ AC_CONFIG_COMMANDS_PRE(
   AC_MSG_ERROR([[conditional "$1" was never defined.
 Usually this means the macro was only invoked conditionally.]])
 fi])])
-m4trace:/usr/share/aclocal-1.10/depend.m4:28: -1- AC_DEFUN([_AM_DEPENDENCIES], [AC_REQUIRE([AM_SET_DEPDIR])dnl
+m4trace:/usr/share/aclocal-1.11/depend.m4:28: -1- AC_DEFUN([_AM_DEPENDENCIES], [AC_REQUIRE([AM_SET_DEPDIR])dnl
 AC_REQUIRE([AM_OUTPUT_DEPENDENCY_COMMANDS])dnl
 AC_REQUIRE([AM_MAKE_INCLUDE])dnl
 AC_REQUIRE([AM_DEP_TRACK])dnl
@@ -154,6 +1097,16 @@ AC_CACHE_CHECK([dependency style of $depcc],
   if test "$am_compiler_list" = ""; then
      am_compiler_list=`sed -n ['s/^#*\([a-zA-Z0-9]*\))$/\1/p'] < ./depcomp`
   fi
+  am__universal=false
+  m4_case([$1], [CC],
+    [case " $depcc " in #(
+     *\ -arch\ *\ -arch\ *) am__universal=true ;;
+     esac],
+    [CXX],
+    [case " $depcc " in #(
+     *\ -arch\ *\ -arch\ *) am__universal=true ;;
+     esac])
+
   for depmode in $am_compiler_list; do
     # Setup a source with many dependencies, because some compilers
     # like to wrap large dependency lists on column 80 (with \), and
@@ -171,7 +1124,17 @@ AC_CACHE_CHECK([dependency style of $depcc],
     done
     echo "${am__include} ${am__quote}sub/conftest.Po${am__quote}" > confmf
 
+    # We check with `-c' and `-o' for the sake of the "dashmstdout"
+    # mode.  It turns out that the SunPro C++ compiler does not properly
+    # handle `-M -o', and we need to detect this.  Also, some Intel
+    # versions had trouble with output in subdirs
+    am__obj=sub/conftest.${OBJEXT-o}
+    am__minus_obj="-o $am__obj"
     case $depmode in
+    gcc)
+      # This depmode causes a compiler race in universal mode.
+      test "$am__universal" = false || continue
+      ;;
     nosideeffect)
       # after this tag, mechanisms are not by side-effect, so they'll
       # only be used when explicitly requested
@@ -181,19 +1144,23 @@ AC_CACHE_CHECK([dependency style of $depcc],
 	break
       fi
       ;;
+    msvisualcpp | msvcmsys)
+      # This compiler won't grok `-c -o', but also, the minuso test has
+      # not run yet.  These depmodes are late enough in the game, and
+      # so weak that their functioning should not be impacted.
+      am__obj=conftest.${OBJEXT-o}
+      am__minus_obj=
+      ;;
     none) break ;;
     esac
-    # We check with `-c' and `-o' for the sake of the "dashmstdout"
-    # mode.  It turns out that the SunPro C++ compiler does not properly
-    # handle `-M -o', and we need to detect this.
     if depmode=$depmode \
-       source=sub/conftest.c object=sub/conftest.${OBJEXT-o} \
+       source=sub/conftest.c object=$am__obj \
        depfile=sub/conftest.Po tmpdepfile=sub/conftest.TPo \
-       $SHELL ./depcomp $depcc -c -o sub/conftest.${OBJEXT-o} sub/conftest.c \
+       $SHELL ./depcomp $depcc -c $am__minus_obj sub/conftest.c \
          >/dev/null 2>conftest.err &&
        grep sub/conftst1.h sub/conftest.Po > /dev/null 2>&1 &&
        grep sub/conftst6.h sub/conftest.Po > /dev/null 2>&1 &&
-       grep sub/conftest.${OBJEXT-o} sub/conftest.Po > /dev/null 2>&1 &&
+       grep $am__obj sub/conftest.Po > /dev/null 2>&1 &&
        ${MAKE-make} -s -f confmf > /dev/null 2>&1; then
       # icc doesn't choke on unknown options, it will just issue warnings
       # or remarks (even with -Werror).  So we grep stderr for any message
@@ -221,10 +1188,10 @@ AM_CONDITIONAL([am__fastdep$1], [
   test "x$enable_dependency_tracking" != xno \
   && test "$am_cv_$1_dependencies_compiler_type" = gcc3])
 ])
-m4trace:/usr/share/aclocal-1.10/depend.m4:139: -1- AC_DEFUN([AM_SET_DEPDIR], [AC_REQUIRE([AM_SET_LEADING_DOT])dnl
+m4trace:/usr/share/aclocal-1.11/depend.m4:163: -1- AC_DEFUN([AM_SET_DEPDIR], [AC_REQUIRE([AM_SET_LEADING_DOT])dnl
 AC_SUBST([DEPDIR], ["${am__leading_dot}deps"])dnl
 ])
-m4trace:/usr/share/aclocal-1.10/depend.m4:147: -1- AC_DEFUN([AM_DEP_TRACK], [AC_ARG_ENABLE(dependency-tracking,
+m4trace:/usr/share/aclocal-1.11/depend.m4:171: -1- AC_DEFUN([AM_DEP_TRACK], [AC_ARG_ENABLE(dependency-tracking,
 [  --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors])
 if test "x$enable_dependency_tracking" != xno; then
@@ -235,55 +1202,66 @@ AM_CONDITIONAL([AMDEP], [test "x$enable_dependency_tracking" != xno])
 AC_SUBST([AMDEPBACKSLASH])dnl
 _AM_SUBST_NOTMAKE([AMDEPBACKSLASH])dnl
 ])
-m4trace:/usr/share/aclocal-1.10/depout.m4:14: -1- AC_DEFUN([_AM_OUTPUT_DEPENDENCY_COMMANDS], [for mf in $CONFIG_FILES; do
-  # Strip MF so we end up with the name of the file.
-  mf=`echo "$mf" | sed -e 's/:.*$//'`
-  # Check whether this is an Automake generated Makefile or not.
-  # We used to match only the files named `Makefile.in', but
-  # some people rename them; so instead we look at the file content.
-  # Grep'ing the first line is not enough: some people post-process
-  # each Makefile.in and add a new line on top of each file to say so.
-  # Grep'ing the whole file is not good either: AIX grep has a line
-  # limit of 2048, but all sed's we know have understand at least 4000.
-  if sed -n 's,^#.*generated by automake.*,X,p' "$mf" | grep X >/dev/null 2>&1; then
-    dirpart=`AS_DIRNAME("$mf")`
-  else
-    continue
-  fi
-  # Extract the definition of DEPDIR, am__include, and am__quote
-  # from the Makefile without running `make'.
-  DEPDIR=`sed -n 's/^DEPDIR = //p' < "$mf"`
-  test -z "$DEPDIR" && continue
-  am__include=`sed -n 's/^am__include = //p' < "$mf"`
-  test -z "am__include" && continue
-  am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
-  # When using ansi2knr, U may be empty or an underscore; expand it
-  U=`sed -n 's/^U = //p' < "$mf"`
-  # Find all dependency output files, they are included files with
-  # $(DEPDIR) in their names.  We invoke sed twice because it is the
-  # simplest approach to changing $(DEPDIR) to its actual value in the
-  # expansion.
-  for file in `sed -n "
-    s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
-       sed -e 's/\$(DEPDIR)/'"$DEPDIR"'/g' -e 's/\$U/'"$U"'/g'`; do
-    # Make sure the directory exists.
-    test -f "$dirpart/$file" && continue
-    fdir=`AS_DIRNAME(["$file"])`
-    AS_MKDIR_P([$dirpart/$fdir])
-    # echo "creating $dirpart/$file"
-    echo '# dummy' > "$dirpart/$file"
+m4trace:/usr/share/aclocal-1.11/depout.m4:14: -1- AC_DEFUN([_AM_OUTPUT_DEPENDENCY_COMMANDS], [{
+  # Autoconf 2.62 quotes --file arguments for eval, but not when files
+  # are listed without --file.  Let's play safe and only enable the eval
+  # if we detect the quoting.
+  case $CONFIG_FILES in
+  *\'*) eval set x "$CONFIG_FILES" ;;
+  *)   set x $CONFIG_FILES ;;
+  esac
+  shift
+  for mf
+  do
+    # Strip MF so we end up with the name of the file.
+    mf=`echo "$mf" | sed -e 's/:.*$//'`
+    # Check whether this is an Automake generated Makefile or not.
+    # We used to match only the files named `Makefile.in', but
+    # some people rename them; so instead we look at the file content.
+    # Grep'ing the first line is not enough: some people post-process
+    # each Makefile.in and add a new line on top of each file to say so.
+    # Grep'ing the whole file is not good either: AIX grep has a line
+    # limit of 2048, but all sed's we know have understand at least 4000.
+    if sed -n 's,^#.*generated by automake.*,X,p' "$mf" | grep X >/dev/null 2>&1; then
+      dirpart=`AS_DIRNAME("$mf")`
+    else
+      continue
+    fi
+    # Extract the definition of DEPDIR, am__include, and am__quote
+    # from the Makefile without running `make'.
+    DEPDIR=`sed -n 's/^DEPDIR = //p' < "$mf"`
+    test -z "$DEPDIR" && continue
+    am__include=`sed -n 's/^am__include = //p' < "$mf"`
+    test -z "am__include" && continue
+    am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
+    # When using ansi2knr, U may be empty or an underscore; expand it
+    U=`sed -n 's/^U = //p' < "$mf"`
+    # Find all dependency output files, they are included files with
+    # $(DEPDIR) in their names.  We invoke sed twice because it is the
+    # simplest approach to changing $(DEPDIR) to its actual value in the
+    # expansion.
+    for file in `sed -n "
+      s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
+	 sed -e 's/\$(DEPDIR)/'"$DEPDIR"'/g' -e 's/\$U/'"$U"'/g'`; do
+      # Make sure the directory exists.
+      test -f "$dirpart/$file" && continue
+      fdir=`AS_DIRNAME(["$file"])`
+      AS_MKDIR_P([$dirpart/$fdir])
+      # echo "creating $dirpart/$file"
+      echo '# dummy' > "$dirpart/$file"
+    done
   done
-done
+}
 ])
-m4trace:/usr/share/aclocal-1.10/depout.m4:64: -1- AC_DEFUN([AM_OUTPUT_DEPENDENCY_COMMANDS], [AC_CONFIG_COMMANDS([depfiles],
+m4trace:/usr/share/aclocal-1.11/depout.m4:75: -1- AC_DEFUN([AM_OUTPUT_DEPENDENCY_COMMANDS], [AC_CONFIG_COMMANDS([depfiles],
      [test x"$AMDEP_TRUE" != x"" || _AM_OUTPUT_DEPENDENCY_COMMANDS],
      [AMDEP_TRUE="$AMDEP_TRUE" ac_aux_dir="$ac_aux_dir"])
 ])
-m4trace:/usr/share/aclocal-1.10/header.m4:12: -1- AU_DEFUN([AM_CONFIG_HEADER], [AC_CONFIG_HEADERS($@)])
-m4trace:/usr/share/aclocal-1.10/header.m4:12: -1- AC_DEFUN([AM_CONFIG_HEADER], [AC_DIAGNOSE([obsolete], [The macro `AM_CONFIG_HEADER' is obsolete.
+m4trace:/usr/share/aclocal-1.11/header.m4:12: -1- AU_DEFUN([AM_CONFIG_HEADER], [AC_CONFIG_HEADERS($@)])
+m4trace:/usr/share/aclocal-1.11/header.m4:12: -1- AC_DEFUN([AM_CONFIG_HEADER], [AC_DIAGNOSE([obsolete], [The macro `AM_CONFIG_HEADER' is obsolete.
 You should run autoupdate.])dnl
 AC_CONFIG_HEADERS($@)])
-m4trace:/usr/share/aclocal-1.10/init.m4:26: -1- AC_DEFUN([AM_INIT_AUTOMAKE], [AC_PREREQ([2.60])dnl
+m4trace:/usr/share/aclocal-1.11/init.m4:26: -1- AC_DEFUN([AM_INIT_AUTOMAKE], [AC_PREREQ([2.62])dnl
 dnl Autoconf wants to disallow AM_ names.  We explicitly allow
 dnl the ones we care about.
 m4_pattern_allow([^AM_[A-Z]+FLAGS$])dnl
@@ -334,8 +1312,8 @@ AM_MISSING_PROG(AUTOCONF, autoconf)
 AM_MISSING_PROG(AUTOMAKE, automake-${am__api_version})
 AM_MISSING_PROG(AUTOHEADER, autoheader)
 AM_MISSING_PROG(MAKEINFO, makeinfo)
-AM_PROG_INSTALL_SH
-AM_PROG_INSTALL_STRIP
+AC_REQUIRE([AM_PROG_INSTALL_SH])dnl
+AC_REQUIRE([AM_PROG_INSTALL_STRIP])dnl
 AC_REQUIRE([AM_PROG_MKDIR_P])dnl
 # We need awk for the "check" target.  The system "awk" is bad on
 # some platforms.
@@ -343,24 +1321,31 @@ AC_REQUIRE([AC_PROG_AWK])dnl
 AC_REQUIRE([AC_PROG_MAKE_SET])dnl
 AC_REQUIRE([AM_SET_LEADING_DOT])dnl
 _AM_IF_OPTION([tar-ustar], [_AM_PROG_TAR([ustar])],
-              [_AM_IF_OPTION([tar-pax], [_AM_PROG_TAR([pax])],
-	      		     [_AM_PROG_TAR([v7])])])
+	      [_AM_IF_OPTION([tar-pax], [_AM_PROG_TAR([pax])],
+			     [_AM_PROG_TAR([v7])])])
 _AM_IF_OPTION([no-dependencies],,
 [AC_PROVIDE_IFELSE([AC_PROG_CC],
-                  [_AM_DEPENDENCIES(CC)],
-                  [define([AC_PROG_CC],
-                          defn([AC_PROG_CC])[_AM_DEPENDENCIES(CC)])])dnl
+		  [_AM_DEPENDENCIES(CC)],
+		  [define([AC_PROG_CC],
+			  defn([AC_PROG_CC])[_AM_DEPENDENCIES(CC)])])dnl
 AC_PROVIDE_IFELSE([AC_PROG_CXX],
-                  [_AM_DEPENDENCIES(CXX)],
-                  [define([AC_PROG_CXX],
-                          defn([AC_PROG_CXX])[_AM_DEPENDENCIES(CXX)])])dnl
+		  [_AM_DEPENDENCIES(CXX)],
+		  [define([AC_PROG_CXX],
+			  defn([AC_PROG_CXX])[_AM_DEPENDENCIES(CXX)])])dnl
 AC_PROVIDE_IFELSE([AC_PROG_OBJC],
-                  [_AM_DEPENDENCIES(OBJC)],
-                  [define([AC_PROG_OBJC],
-                          defn([AC_PROG_OBJC])[_AM_DEPENDENCIES(OBJC)])])dnl
+		  [_AM_DEPENDENCIES(OBJC)],
+		  [define([AC_PROG_OBJC],
+			  defn([AC_PROG_OBJC])[_AM_DEPENDENCIES(OBJC)])])dnl
 ])
+_AM_IF_OPTION([silent-rules], [AC_REQUIRE([AM_SILENT_RULES])])dnl
+dnl The `parallel-tests' driver may need to know about EXEEXT, so add the
+dnl `am__EXEEXT' conditional if _AM_COMPILER_EXEEXT was seen.  This macro
+dnl is hooked onto _AC_COMPILER_EXEEXT early, see below.
+AC_CONFIG_COMMANDS_PRE(dnl
+[m4_provide_if([_AM_COMPILER_EXEEXT],
+  [AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])])])dnl
 ])
-m4trace:/usr/share/aclocal-1.10/init.m4:113: -1- AC_DEFUN([_AC_AM_CONFIG_HEADER_HOOK], [# Compute $1's index in $config_headers.
+m4trace:/usr/share/aclocal-1.11/init.m4:126: -1- AC_DEFUN([_AC_AM_CONFIG_HEADER_HOOK], [# Compute $1's index in $config_headers.
 _am_arg=$1
 _am_stamp_count=1
 for _am_header in $config_headers :; do
@@ -372,10 +1357,17 @@ for _am_header in $config_headers :; do
   esac
 done
 echo "timestamp for $_am_arg" >`AS_DIRNAME(["$_am_arg"])`/stamp-h[]$_am_stamp_count])
-m4trace:/usr/share/aclocal-1.10/install-sh.m4:11: -1- AC_DEFUN([AM_PROG_INSTALL_SH], [AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
-install_sh=${install_sh-"\$(SHELL) $am_aux_dir/install-sh"}
+m4trace:/usr/share/aclocal-1.11/install-sh.m4:11: -1- AC_DEFUN([AM_PROG_INSTALL_SH], [AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
+if test x"${install_sh}" != xset; then
+  case $am_aux_dir in
+  *\ * | *\	*)
+    install_sh="\${SHELL} '$am_aux_dir/install-sh'" ;;
+  *)
+    install_sh="\${SHELL} $am_aux_dir/install-sh"
+  esac
+fi
 AC_SUBST(install_sh)])
-m4trace:/usr/share/aclocal-1.10/lead-dot.m4:12: -1- AC_DEFUN([AM_SET_LEADING_DOT], [rm -rf .tst 2>/dev/null
+m4trace:/usr/share/aclocal-1.11/lead-dot.m4:12: -1- AC_DEFUN([AM_SET_LEADING_DOT], [rm -rf .tst 2>/dev/null
 mkdir .tst 2>/dev/null
 if test -d .tst; then
   am__leading_dot=.
@@ -384,10 +1376,10 @@ else
 fi
 rmdir .tst 2>/dev/null
 AC_SUBST([am__leading_dot])])
-m4trace:/usr/share/aclocal-1.10/make.m4:14: -1- AC_DEFUN([AM_MAKE_INCLUDE], [am_make=${MAKE-make}
+m4trace:/usr/share/aclocal-1.11/make.m4:14: -1- AC_DEFUN([AM_MAKE_INCLUDE], [am_make=${MAKE-make}
 cat > confinc << 'END'
 am__doit:
-	@echo done
+	@echo this is the am__doit target
 .PHONY: am__doit
 END
 # If we don't find an include directive, just comment out the code.
@@ -397,36 +1389,43 @@ am__quote=
 _am_result=none
 # First try GNU make style include.
 echo "include confinc" > confmf
-# We grep out `Entering directory' and `Leaving directory'
-# messages which can occur if `w' ends up in MAKEFLAGS.
-# In particular we don't look at `^make:' because GNU make might
-# be invoked under some other name (usually "gmake"), in which
-# case it prints its new name instead of `make'.
-if test "`$am_make -s -f confmf 2> /dev/null | grep -v 'ing directory'`" = "done"; then
-   am__include=include
-   am__quote=
-   _am_result=GNU
-fi
+# Ignore all kinds of additional output from `make'.
+case `$am_make -s -f confmf 2> /dev/null` in #(
+*the\ am__doit\ target*)
+  am__include=include
+  am__quote=
+  _am_result=GNU
+  ;;
+esac
 # Now try BSD make style include.
 if test "$am__include" = "#"; then
    echo '.include "confinc"' > confmf
-   if test "`$am_make -s -f confmf 2> /dev/null`" = "done"; then
-      am__include=.include
-      am__quote="\""
-      _am_result=BSD
-   fi
+   case `$am_make -s -f confmf 2> /dev/null` in #(
+   *the\ am__doit\ target*)
+     am__include=.include
+     am__quote="\""
+     _am_result=BSD
+     ;;
+   esac
 fi
 AC_SUBST([am__include])
 AC_SUBST([am__quote])
 AC_MSG_RESULT([$_am_result])
 rm -f confinc confmf
 ])
-m4trace:/usr/share/aclocal-1.10/missing.m4:14: -1- AC_DEFUN([AM_MISSING_PROG], [AC_REQUIRE([AM_MISSING_HAS_RUN])
+m4trace:/usr/share/aclocal-1.11/missing.m4:14: -1- AC_DEFUN([AM_MISSING_PROG], [AC_REQUIRE([AM_MISSING_HAS_RUN])
 $1=${$1-"${am_missing_run}$2"}
 AC_SUBST($1)])
-m4trace:/usr/share/aclocal-1.10/missing.m4:24: -1- AC_DEFUN([AM_MISSING_HAS_RUN], [AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
+m4trace:/usr/share/aclocal-1.11/missing.m4:24: -1- AC_DEFUN([AM_MISSING_HAS_RUN], [AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
 AC_REQUIRE_AUX_FILE([missing])dnl
-test x"${MISSING+set}" = xset || MISSING="\${SHELL} $am_aux_dir/missing"
+if test x"${MISSING+set}" != xset; then
+  case $am_aux_dir in
+  *\ * | *\	*)
+    MISSING="\${SHELL} \"$am_aux_dir/missing\"" ;;
+  *)
+    MISSING="\${SHELL} $am_aux_dir/missing" ;;
+  esac
+fi
 # Use eval to expand $SHELL
 if eval "$MISSING --run true"; then
   am_missing_run="$MISSING --run "
@@ -435,7 +1434,7 @@ else
   AC_MSG_WARN([`missing' script is too old or missing])
 fi
 ])
-m4trace:/usr/share/aclocal-1.10/mkdirp.m4:11: -1- AC_DEFUN([AM_PROG_MKDIR_P], [AC_PREREQ([2.60])dnl
+m4trace:/usr/share/aclocal-1.11/mkdirp.m4:11: -1- AC_DEFUN([AM_PROG_MKDIR_P], [AC_PREREQ([2.60])dnl
 AC_REQUIRE([AC_PROG_MKDIR_P])dnl
 dnl Automake 1.8 to 1.9.6 used to define mkdir_p.  We now use MKDIR_P,
 dnl while keeping a definition of mkdir_p for backward compatibility.
@@ -450,29 +1449,42 @@ case $mkdir_p in
   */*) mkdir_p="\$(top_builddir)/$mkdir_p" ;;
 esac
 ])
-m4trace:/usr/share/aclocal-1.10/options.m4:13: -1- AC_DEFUN([_AM_MANGLE_OPTION], [[_AM_OPTION_]m4_bpatsubst($1, [[^a-zA-Z0-9_]], [_])])
-m4trace:/usr/share/aclocal-1.10/options.m4:19: -1- AC_DEFUN([_AM_SET_OPTION], [m4_define(_AM_MANGLE_OPTION([$1]), 1)])
-m4trace:/usr/share/aclocal-1.10/options.m4:25: -1- AC_DEFUN([_AM_SET_OPTIONS], [AC_FOREACH([_AM_Option], [$1], [_AM_SET_OPTION(_AM_Option)])])
-m4trace:/usr/share/aclocal-1.10/options.m4:31: -1- AC_DEFUN([_AM_IF_OPTION], [m4_ifset(_AM_MANGLE_OPTION([$1]), [$2], [$3])])
-m4trace:/usr/share/aclocal-1.10/runlog.m4:12: -1- AC_DEFUN([AM_RUN_LOG], [{ echo "$as_me:$LINENO: $1" >&AS_MESSAGE_LOG_FD
+m4trace:/usr/share/aclocal-1.11/options.m4:13: -1- AC_DEFUN([_AM_MANGLE_OPTION], [[_AM_OPTION_]m4_bpatsubst($1, [[^a-zA-Z0-9_]], [_])])
+m4trace:/usr/share/aclocal-1.11/options.m4:19: -1- AC_DEFUN([_AM_SET_OPTION], [m4_define(_AM_MANGLE_OPTION([$1]), 1)])
+m4trace:/usr/share/aclocal-1.11/options.m4:25: -1- AC_DEFUN([_AM_SET_OPTIONS], [m4_foreach_w([_AM_Option], [$1], [_AM_SET_OPTION(_AM_Option)])])
+m4trace:/usr/share/aclocal-1.11/options.m4:31: -1- AC_DEFUN([_AM_IF_OPTION], [m4_ifset(_AM_MANGLE_OPTION([$1]), [$2], [$3])])
+m4trace:/usr/share/aclocal-1.11/runlog.m4:12: -1- AC_DEFUN([AM_RUN_LOG], [{ echo "$as_me:$LINENO: $1" >&AS_MESSAGE_LOG_FD
    ($1) >&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD
    ac_status=$?
    echo "$as_me:$LINENO: \$? = $ac_status" >&AS_MESSAGE_LOG_FD
    (exit $ac_status); }])
-m4trace:/usr/share/aclocal-1.10/sanity.m4:14: -1- AC_DEFUN([AM_SANITY_CHECK], [AC_MSG_CHECKING([whether build environment is sane])
+m4trace:/usr/share/aclocal-1.11/sanity.m4:14: -1- AC_DEFUN([AM_SANITY_CHECK], [AC_MSG_CHECKING([whether build environment is sane])
 # Just in case
 sleep 1
 echo timestamp > conftest.file
+# Reject unsafe characters in $srcdir or the absolute working directory
+# name.  Accept space and tab only in the latter.
+am_lf='
+'
+case `pwd` in
+  *[[\\\"\#\$\&\'\`$am_lf]]*)
+    AC_MSG_ERROR([unsafe absolute working directory name]);;
+esac
+case $srcdir in
+  *[[\\\"\#\$\&\'\`$am_lf\ \	]]*)
+    AC_MSG_ERROR([unsafe srcdir value: `$srcdir']);;
+esac
+
 # Do `set' in a subshell so we don't clobber the current shell's
 # arguments.  Must try -L first in case configure is actually a
 # symlink; some systems play weird games with the mod time of symlinks
 # (eg FreeBSD returns the mod time of the symlink's containing
 # directory).
 if (
-   set X `ls -Lt $srcdir/configure conftest.file 2> /dev/null`
+   set X `ls -Lt "$srcdir/configure" conftest.file 2> /dev/null`
    if test "$[*]" = "X"; then
       # -L didn't work.
-      set X `ls -t $srcdir/configure conftest.file`
+      set X `ls -t "$srcdir/configure" conftest.file`
    fi
    rm -f conftest.file
    if test "$[*]" != "X $srcdir/configure conftest.file" \
@@ -496,7 +1508,20 @@ else
 Check your system clock])
 fi
 AC_MSG_RESULT(yes)])
-m4trace:/usr/share/aclocal-1.10/strip.m4:17: -1- AC_DEFUN([AM_PROG_INSTALL_STRIP], [AC_REQUIRE([AM_PROG_INSTALL_SH])dnl
+m4trace:/usr/share/aclocal-1.11/silent.m4:14: -1- AC_DEFUN([AM_SILENT_RULES], [AC_ARG_ENABLE([silent-rules],
+[  --enable-silent-rules          less verbose build output (undo: `make V=1')
+  --disable-silent-rules         verbose build output (undo: `make V=0')])
+case $enable_silent_rules in
+yes) AM_DEFAULT_VERBOSITY=0;;
+no)  AM_DEFAULT_VERBOSITY=1;;
+*)   AM_DEFAULT_VERBOSITY=m4_if([$1], [yes], [0], [1]);;
+esac
+AC_SUBST([AM_DEFAULT_VERBOSITY])dnl
+AM_BACKSLASH='\'
+AC_SUBST([AM_BACKSLASH])dnl
+_AM_SUBST_NOTMAKE([AM_BACKSLASH])dnl
+])
+m4trace:/usr/share/aclocal-1.11/strip.m4:17: -1- AC_DEFUN([AM_PROG_INSTALL_STRIP], [AC_REQUIRE([AM_PROG_INSTALL_SH])dnl
 # Installed binaries are usually stripped using `strip' when the user
 # run `make install-strip'.  However `strip' might not be the right
 # tool to use in cross-compilation environments, therefore Automake
@@ -507,8 +1532,9 @@ if test "$cross_compiling" != no; then
 fi
 INSTALL_STRIP_PROGRAM="\$(install_sh) -c -s"
 AC_SUBST([INSTALL_STRIP_PROGRAM])])
-m4trace:/usr/share/aclocal-1.10/substnot.m4:12: -1- AC_DEFUN([_AM_SUBST_NOTMAKE])
-m4trace:/usr/share/aclocal-1.10/tar.m4:24: -1- AC_DEFUN([_AM_PROG_TAR], [# Always define AMTAR for backward compatibility.
+m4trace:/usr/share/aclocal-1.11/substnot.m4:14: -1- AC_DEFUN([_AM_SUBST_NOTMAKE])
+m4trace:/usr/share/aclocal-1.11/substnot.m4:19: -1- AC_DEFUN([AM_SUBST_NOTMAKE], [_AM_SUBST_NOTMAKE($@)])
+m4trace:/usr/share/aclocal-1.11/tar.m4:24: -1- AC_DEFUN([_AM_PROG_TAR], [# Always define AMTAR for backward compatibility.
 AM_MISSING_PROG([AMTAR], [tar])
 m4_if([$1], [v7],
      [am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'],
@@ -3375,7 +4401,7 @@ m4trace:configure.in:3: -1- m4_pattern_allow([^target_alias$])
 m4trace:configure.in:8: -1- AM_INIT_AUTOMAKE([dist-bzip2])
 m4trace:configure.in:8: -1- m4_pattern_allow([^AM_[A-Z]+FLAGS$])
 m4trace:configure.in:8: -1- AM_SET_CURRENT_AUTOMAKE_VERSION
-m4trace:configure.in:8: -1- AM_AUTOMAKE_VERSION([1.10.1])
+m4trace:configure.in:8: -1- AM_AUTOMAKE_VERSION([1.11.1])
 m4trace:configure.in:8: -1- _AM_AUTOCONF_VERSION([2.63])
 m4trace:configure.in:8: -1- m4_pattern_allow([^INSTALL_PROGRAM$])
 m4trace:configure.in:8: -1- m4_pattern_allow([^INSTALL_SCRIPT$])
@@ -3386,11 +4412,6 @@ m4trace:configure.in:8: -1- m4_pattern_allow([^CYGPATH_W$])
 m4trace:configure.in:8: -1- _AM_SET_OPTIONS([dist-bzip2])
 m4trace:configure.in:8: -1- _AM_SET_OPTION([dist-bzip2])
 m4trace:configure.in:8: -2- _AM_MANGLE_OPTION([dist-bzip2])
-m4trace:configure.in:8: -1- _m4_warn([obsolete], [The macro `AC_FOREACH' is obsolete.
-You should run autoupdate.], [../../lib/autoconf/general.m4:196: AC_FOREACH is expanded from...
-/usr/share/aclocal-1.10/options.m4:25: _AM_SET_OPTIONS is expanded from...
-/usr/share/aclocal-1.10/init.m4:26: AM_INIT_AUTOMAKE is expanded from...
-configure.in:8: the top level])
 m4trace:configure.in:8: -1- m4_pattern_allow([^PACKAGE$])
 m4trace:configure.in:8: -1- m4_pattern_allow([^VERSION$])
 m4trace:configure.in:8: -1- _AM_IF_OPTION([no-define], [], [AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE", [Name of package])
@@ -3424,7 +4445,7 @@ m4trace:configure.in:8: -1- m4_pattern_allow([^SET_MAKE$])
 m4trace:configure.in:8: -1- AM_SET_LEADING_DOT
 m4trace:configure.in:8: -1- m4_pattern_allow([^am__leading_dot$])
 m4trace:configure.in:8: -1- _AM_IF_OPTION([tar-ustar], [_AM_PROG_TAR([ustar])], [_AM_IF_OPTION([tar-pax], [_AM_PROG_TAR([pax])],
-	      		     [_AM_PROG_TAR([v7])])])
+			     [_AM_PROG_TAR([v7])])])
 m4trace:configure.in:8: -2- _AM_MANGLE_OPTION([tar-ustar])
 m4trace:configure.in:8: -1- _AM_IF_OPTION([tar-pax], [_AM_PROG_TAR([pax])], [_AM_PROG_TAR([v7])])
 m4trace:configure.in:8: -2- _AM_MANGLE_OPTION([tar-pax])
@@ -3434,22 +4455,24 @@ m4trace:configure.in:8: -1- m4_pattern_allow([^AMTAR$])
 m4trace:configure.in:8: -1- m4_pattern_allow([^am__tar$])
 m4trace:configure.in:8: -1- m4_pattern_allow([^am__untar$])
 m4trace:configure.in:8: -1- _AM_IF_OPTION([no-dependencies], [], [AC_PROVIDE_IFELSE([AC_PROG_CC],
-                  [_AM_DEPENDENCIES(CC)],
-                  [define([AC_PROG_CC],
-                          defn([AC_PROG_CC])[_AM_DEPENDENCIES(CC)])])dnl
+		  [_AM_DEPENDENCIES(CC)],
+		  [define([AC_PROG_CC],
+			  defn([AC_PROG_CC])[_AM_DEPENDENCIES(CC)])])dnl
 AC_PROVIDE_IFELSE([AC_PROG_CXX],
-                  [_AM_DEPENDENCIES(CXX)],
-                  [define([AC_PROG_CXX],
-                          defn([AC_PROG_CXX])[_AM_DEPENDENCIES(CXX)])])dnl
+		  [_AM_DEPENDENCIES(CXX)],
+		  [define([AC_PROG_CXX],
+			  defn([AC_PROG_CXX])[_AM_DEPENDENCIES(CXX)])])dnl
 AC_PROVIDE_IFELSE([AC_PROG_OBJC],
-                  [_AM_DEPENDENCIES(OBJC)],
-                  [define([AC_PROG_OBJC],
-                          defn([AC_PROG_OBJC])[_AM_DEPENDENCIES(OBJC)])])dnl
+		  [_AM_DEPENDENCIES(OBJC)],
+		  [define([AC_PROG_OBJC],
+			  defn([AC_PROG_OBJC])[_AM_DEPENDENCIES(OBJC)])])dnl
 ])
 m4trace:configure.in:8: -2- _AM_MANGLE_OPTION([no-dependencies])
+m4trace:configure.in:8: -1- _AM_IF_OPTION([silent-rules], [AC_REQUIRE([AM_SILENT_RULES])])
+m4trace:configure.in:8: -2- _AM_MANGLE_OPTION([silent-rules])
 m4trace:configure.in:9: -1- AM_CONFIG_HEADER([config.h:ac-tools/config.h.in])
 m4trace:configure.in:9: -1- _m4_warn([obsolete], [The macro `AM_CONFIG_HEADER' is obsolete.
-You should run autoupdate.], [/usr/share/aclocal-1.10/header.m4:12: AM_CONFIG_HEADER is expanded from...
+You should run autoupdate.], [/usr/share/aclocal-1.11/header.m4:12: AM_CONFIG_HEADER is expanded from...
 configure.in:9: the top level])
 m4trace:configure.in:10: -1- _m4_warn([obsolete], [The macro `AC_GNU_SOURCE' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/specific.m4:332: AC_GNU_SOURCE is expanded from...
@@ -3961,15 +4984,65 @@ m4trace:configure.in:1015: -1- m4_pattern_allow([^pid_t$])
 m4trace:configure.in:1016: -1- m4_pattern_allow([^size_t$])
 m4trace:configure.in:1017: -1- m4_pattern_allow([^TIME_WITH_SYS_TIME$])
 m4trace:configure.in:1018: -1- m4_pattern_allow([^TM_IN_SYS_TIME$])
+m4trace:configure.in:1019: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_off_t])], [(long int) (sizeof (off_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_off_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (off_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_off_t])=0
+   fi])
 m4trace:configure.in:1019: -1- m4_pattern_allow([^SIZEOF_OFF_T$])
+m4trace:configure.in:1020: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_pid_t])], [(long int) (sizeof (pid_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_pid_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (pid_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_pid_t])=0
+   fi])
 m4trace:configure.in:1020: -1- m4_pattern_allow([^SIZEOF_PID_T$])
+m4trace:configure.in:1021: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_time_t])], [(long int) (sizeof (time_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_time_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (time_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_time_t])=0
+   fi])
 m4trace:configure.in:1021: -1- m4_pattern_allow([^SIZEOF_TIME_T$])
+m4trace:configure.in:1022: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_nlink_t])], [(long int) (sizeof (nlink_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_nlink_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (nlink_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_nlink_t])=0
+   fi])
 m4trace:configure.in:1022: -1- m4_pattern_allow([^SIZEOF_NLINK_T$])
+m4trace:configure.in:1023: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_size_t])], [(long int) (sizeof (size_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_size_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (size_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_size_t])=0
+   fi])
 m4trace:configure.in:1023: -1- m4_pattern_allow([^SIZEOF_SIZE_T$])
+m4trace:configure.in:1024: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_ssize_t])], [(long int) (sizeof (ssize_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_ssize_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (ssize_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_ssize_t])=0
+   fi])
 m4trace:configure.in:1024: -1- m4_pattern_allow([^SIZEOF_SSIZE_T$])
+m4trace:configure.in:1025: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_ino_t])], [(long int) (sizeof (ino_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_ino_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (ino_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_ino_t])=0
+   fi])
 m4trace:configure.in:1025: -1- m4_pattern_allow([^SIZEOF_INO_T$])
+m4trace:configure.in:1026: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_uid_t])], [(long int) (sizeof (uid_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_uid_t])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (uid_t)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_uid_t])=0
+   fi])
 m4trace:configure.in:1026: -1- m4_pattern_allow([^SIZEOF_UID_T$])
+m4trace:configure.in:1027: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_int])], [(long int) (sizeof (int))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_int])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (int)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_int])=0
+   fi])
 m4trace:configure.in:1027: -1- m4_pattern_allow([^SIZEOF_INT$])
+m4trace:configure.in:1028: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_long])], [(long int) (sizeof (long))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_long])" = yes; then
+     AC_MSG_FAILURE([cannot compute sizeof (long)], 77)
+   else
+     AS_TR_SH([ac_cv_sizeof_long])=0
+   fi])
 m4trace:configure.in:1028: -1- m4_pattern_allow([^SIZEOF_LONG$])
 m4trace:configure.in:1033: -1- m4_pattern_allow([^my_socklen_t$])
 m4trace:configure.in:1037: -1- m4_pattern_allow([^my_socklen_t$])
@@ -4086,6 +5159,26 @@ m4trace:configure.in:1085: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
 m4trace:configure.in:1085: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
 m4trace:configure.in:1085: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
 m4trace:configure.in:1085: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1085: -1- gt_INTL_MACOSX
+m4trace:configure.in:1085: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+You should run autoupdate.], [../../lib/autoconf/general.m4:2527: AC_TRY_LINK is expanded from...
+../../lib/m4sugar/m4sh.m4:505: AS_IF is expanded from...
+../../lib/autoconf/general.m4:1974: AC_CACHE_VAL is expanded from...
+../../lib/autoconf/general.m4:1994: AC_CACHE_CHECK is expanded from...
+/usr/share/aclocal/intlmacosx.m4:18: gt_INTL_MACOSX is expanded from...
+ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
+configure.in:1085: the top level])
+m4trace:configure.in:1085: -1- m4_pattern_allow([^HAVE_CFPREFERENCESCOPYAPPVALUE$])
+m4trace:configure.in:1085: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+You should run autoupdate.], [../../lib/autoconf/general.m4:2527: AC_TRY_LINK is expanded from...
+../../lib/m4sugar/m4sh.m4:505: AS_IF is expanded from...
+../../lib/autoconf/general.m4:1974: AC_CACHE_VAL is expanded from...
+../../lib/autoconf/general.m4:1994: AC_CACHE_CHECK is expanded from...
+/usr/share/aclocal/intlmacosx.m4:18: gt_INTL_MACOSX is expanded from...
+ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
+configure.in:1085: the top level])
+m4trace:configure.in:1085: -1- m4_pattern_allow([^HAVE_CFLOCALECOPYCURRENT$])
+m4trace:configure.in:1085: -1- m4_pattern_allow([^INTL_MACOSX_LIBS$])
 m4trace:configure.in:1085: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2527: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:505: AS_IF is expanded from...
@@ -4178,5 +5271,10 @@ m4trace:configure.in:1085: -1- m4_pattern_allow([^LTLIBINTL$])
 m4trace:configure.in:1085: -1- m4_pattern_allow([^POSUB$])
 m4trace:configure.in:1160: -1- m4_pattern_allow([^LIB@&t@OBJS$])
 m4trace:configure.in:1160: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.in:1160: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
+m4trace:configure.in:1160: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
+m4trace:configure.in:1160: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
+m4trace:configure.in:1160: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
+m4trace:configure.in:1160: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
 m4trace:configure.in:1160: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
 m4trace:configure.in:1160: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

@@ -1,6 +1,6 @@
 /*
  *  get_position.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,7 @@ DESCR__S_M3
  **   03.11.1995 H.Kiehl Created
  **   31.03.2000 H.Kiehl Added function get_dir_position().
  **   26.06.2008 H.Kiehl Added function get_host_id_position().
+ **   28.01.2010 H.Kiehl Added function get_dir_id_position().
  **
  */
 DESCR__E_M3
@@ -122,5 +123,26 @@ get_dir_position(struct fileretrieve_status *fra,
    }
 
    /* Directory not found in struct. */
+   return(INCORRECT);
+}
+
+
+/*####################### get_dir_id_position() #########################*/
+int
+get_dir_id_position(struct fileretrieve_status *fra,
+                     unsigned int               dir_id,
+                     int                        no_of_dirs)
+{
+   int position;
+
+   for (position = 0; position < no_of_dirs; position++)
+   {
+      if (fra[position].dir_id == dir_id)
+      {
+         return(position);
+      }
+   }
+
+   /* Host not found in struct. */
    return(INCORRECT);
 }

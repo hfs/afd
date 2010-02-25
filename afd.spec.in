@@ -6,7 +6,7 @@ License: GPLv2
 Group: Applications/Communications
 BuildRoot: %{_builddir}/%{name}-root
 Prefix: @prefix@
-Source0: %{name}-%{version}-%{release}.tar.bz2
+Source0: %{name}-%{version}-@AFD_RELEASE@.tar.bz2
 Requires: @REQUIRES@
 BuildRequires: @BUILD_REQUIRES@
 URL: http://www.dwd.de/AFD/
@@ -43,7 +43,7 @@ sftp and http supported with the mailto://user@domain and
 ftp://user:password@host URL conventions).
 
 %prep
-%setup -n %{name}-%{version}-%{release}
+%setup -n %{name}-%{version}-@AFD_RELEASE@
 
 %build
 if [ -x /usr/bin/getconf ]; then
@@ -113,7 +113,7 @@ if [ ! "$RPM_BUILD_ROOT" = "/" ]
 then
    rm -rf $RPM_BUILD_ROOT
 fi
-rm -rf $RPM_BUILD_ROOT/%{name}-%{version}-%{release}
+rm -rf $RPM_BUILD_ROOT/%{name}-%{version}-@AFD_RELEASE@
 
 
 %post

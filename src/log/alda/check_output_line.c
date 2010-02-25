@@ -1,6 +1,6 @@
 /*
  *  check_output_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   22.11.2008 H.Kiehl Created
+ **   11.02.2010 H.Kiehl Check if we need to search for a certain directory.
  **
  */
 DESCR__E_M1
@@ -57,6 +58,9 @@ extern int                       gt_lt_sign,
                                  verbose;
 extern unsigned int              file_pattern_counter,
                                  mode,
+                                 search_dir_alias_counter,
+                                 search_dir_id_counter,
+                                 search_dir_name_counter,
                                  search_file_size_flag,
                                  search_job_id;
 extern time_t                    start_time_end,
@@ -67,6 +71,10 @@ extern struct alda_cache_data    *ocache;
 extern struct alda_position_list **opl;
 extern struct log_file_data      output;
 extern struct alda_odata         olog;
+extern struct jid_data           jidd;
+
+/* Local function prototypes. */
+static int                       get_dir_id(unsigned int);
 
 
 /*######################### check_output_line() #########################*/
@@ -376,7 +384,12 @@ check_output_line(char         *line,
                                  if (((search_job_id == 0) ||
                                       (olog.job_id == search_job_id)) &&
                                      ((prev_job_id == 0) ||
-                                      (olog.job_id == prev_job_id)))
+                                      (olog.job_id == prev_job_id)) &&
+                                     (((search_dir_alias_counter == 0) &&
+                                       (search_dir_id_counter == 0) &&
+                                       (search_dir_name_counter == 0)) ||
+                                      (get_dir_id(olog.job_id) == INCORRECT) ||
+                                      (check_did(olog.dir_id) == SUCCESS)))
                                  {
                                     ptr += i + 1;
 
@@ -974,4 +987,34 @@ check_output_line(char         *line,
    }
 
    return(NOT_WANTED);
+}
+
+
+/*+++++++++++++++++++++++++++++ get_dir_id() ++++++++++++++++++++++++++++*/
+static int
+get_dir_id(unsigned int job_id)
+{
+   if ((jidd.prev_pos != -1) && (job_id == jidd.jd[jidd.prev_pos].job_id))
+   {
+      olog.dir_id = jidd.jd[jidd.prev_pos].dir_id;
+      return(SUCCESS);
+   }
+   else
+   {
+      int i;
+
+      for (i = 0; i < jidd.no_of_job_ids; i++)
+      {
+         if (job_id == jidd.jd[i].job_id)
+         {
+            olog.dir_id = jidd.jd[i].dir_id;
+            jidd.prev_pos = i;
+            return(SUCCESS);
+         }
+      }
+   }
+   olog.dir_id = -1;
+   jidd.prev_pos = -1;
+
+   return(INCORRECT);
 }

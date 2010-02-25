@@ -36,10 +36,11 @@ sbin_PROGRAMS                = cache_spy convert_fsa convert_stat\
                                view_ls_data
 EXTRA_PROGRAMS               = afdconvert bfc binfc byte_order convert_jid\
                                count_burst convert_ls_data del_cache\
-                               dc_proc_spy $(EXTRA_DUPCHECK) get_counter\
-                               get_full_date get_file_size gts2tiff linger\
-                               reset_fsa rdu sysconf tiff_sniffer watch_dir\
-                               fra_version view_error_queue
+                               dc_proc_spy $(EXTRA_DUPCHECK) fax2gts\
+                               get_counter get_checksum get_full_date\
+                               get_file_size gts2tiff linger reset_fsa rdu\
+                               sysconf tiff_sniffer watch_dir fra_version\
+                               view_error_queue
 MAINTAINERCLEANFILES         = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES                   = gmon.out core core.*
 afdcfg_SOURCES               = afdcfg.c
@@ -79,6 +80,8 @@ dir_spy_SOURCES              = dir_spy.c
 dir_spy_LDADD                = ../common/libafd.a
 dup_spy_SOURCES              = dup_spy.c
 dup_spy_LDADD                = ../common/libafd.a
+fax2gts_SOURCES              = fax2gts.c
+fax2gts_LDADD                = ../common/libafd.a
 file_mask_list_spy_SOURCES   = file_mask_list_spy.c
 file_mask_list_spy_LDADD     = ../common/libafd.a
 fsa_edit_SOURCES             = fsa_edit.c
@@ -94,6 +97,8 @@ fra_view_LDADD               = ../common/libafd.a
 gen_file_SOURCES             = gen_file.c
 get_counter_SOURCES          = get_counter.c
 get_counter_LDADD            = ../common/libafd.a
+get_checksum_SOURCES         = get_checksum.c
+get_checksum_LDADD           = ../common/libafd.a
 get_dc_data_SOURCES          = get_current_jid_list.c\
                                get_dc_data.c
 get_dc_data_LDADD            = ../common/libafd.a

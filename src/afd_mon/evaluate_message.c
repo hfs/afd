@@ -840,6 +840,7 @@ evaluate_message(int *bytes_done)
                  if (*ptr == ' ')
                  {
                     ahl[pos].host_alias[i] = '\0';
+                    ahl[pos].host_id = get_str_checksum(ahl[pos].host_alias);
                     i = 0;
                     ptr = ptr + 1;
                     while ((*ptr != ' ') && (*ptr != '\0') &&

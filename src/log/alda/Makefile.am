@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2008, 2009 Holger Kiehl
+## Copyright (C) 2008 - 2010 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -58,15 +58,23 @@ else
    AFD_SEEK_ALDA_CACHE_POSITION  =
    EXTRA_SEEK_ALDA_CACHE_POSITION= seek_cache_position.c
 endif
+if WITH_AFD_MON
+   HANDLE_AXL                    = handle_adl.c handle_ahl.c
+   EXTRA_HANDLE_AXL              =
+else
+   HANDLE_AXL                    =
+   EXTRA_HANDLE_AXL              = handle_adl.c handle_ahl.c
+endif
 EXTRA_DIST                       = $(EXTRA_CHECK_INPUT_LINE)\
                                    $(EXTRA_CHECK_DISTRIBUTION_LINE)\
                                    $(EXTRA_CHECK_OUTPUT_LINE)\
                                    $(EXTRA_CHECK_DELETE_LINE)\
+                                   $(EXTRA_HANDLE_AXL)\
                                    $(EXTRA_CHECK_PRODUCTION_LINE)\
                                    $(EXTRA_SEEK_ALDA_CACHE_POSITION)
 MAINTAINERCLEANFILES             = Makefile.in
 CLEANFILES                       = gmon.out core core.*
-noinst_HEADERS                   = aldadefs.h
+noinst_HEADERS                   = aldadefs.h ot_str.h
 if WITH_AFD_MON
    INCLUDES                      = -I.. -I../.. -I../../init_afd -I../../afd_mon
 else
@@ -85,6 +93,8 @@ alda_SOURCES                     = alda.c\
                                    eval_input_alda.c\
                                    get_full_source.c\
                                    get_real_hostname.c\
+                                   $(HANDLE_AXL)\
+                                   handle_jid.c\
                                    print_alda_data.c\
                                    $(AFD_SEEK_ALDA_CACHE_POSITION)\
                                    show_file_content.c

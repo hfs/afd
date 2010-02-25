@@ -1,6 +1,6 @@
 /*
  *  get_dir_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   25.03.2005 H.Kiehl Created
+ **   04.02.2010 H.Kiehl When we create a directory and it already
+ **                      exists, do not return INCORRECT.
  **
  */
 DESCR__E_M3
@@ -130,10 +132,25 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
             (void)sprintf(&fulldir[length], "%x/%x", id, i);
             if (mkdir(fulldir, DIR_MODE) < 0)
             {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          _("Failed to mkdir() `%s' : %s"),
-                          fulldir, strerror(errno));
-               return(INCORRECT);
+               /*
+                * For now lets not return INCORRECT when a directory
+                * does already exist. It looks as if this can happen
+                * when we have a time job. Process dir_check does not
+                * behave well when we return INCORRECT here.
+                */
+               if (errno == EEXIST)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             _("Failed to mkdir() `%s' : %s"),
+                             fulldir, strerror(errno));
+               }
+               else
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             _("Failed to mkdir() `%s' : %s"),
+                             fulldir, strerror(errno));
+                  return(INCORRECT);
+               }
             }
             if (dirs_left != NULL)
             {

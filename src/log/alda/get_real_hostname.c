@@ -1,6 +1,6 @@
 /*
  *  get_real_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,50 +52,88 @@ DESCR__E_M1
 
 /* External global variables. */
 extern int                        fsa_fd,
+                                  mode,
                                   no_of_hosts;
 extern struct filetransfer_status *fsa;
+#ifdef WITH_AFD_MON
+extern unsigned int               ahl_entries;
+extern struct afd_host_list       *ahl;
+#endif
 
 
 /*######################### get_real_hostname() #########################*/
 int
 get_real_hostname(char *host_alias, int current_toggle, char *real_hostname)
 {
-   int ret = INCORRECT,
-       we_attached;
+   int ret = INCORRECT;
 
    real_hostname[0] = '\0';
-   if (fsa_fd == -1)
+   if (mode & ALDA_LOCAL_MODE)
    {
-      if (fsa_attach_passive() != SUCCESS)
+      int we_attached;
+
+      if (fsa_fd == -1)
       {
-         (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
-                       __FILE__, __LINE__);
-         we_attached = NO;
+         if (fsa_attach_passive() != SUCCESS)
+         {
+            (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
+                          __FILE__, __LINE__);
+            we_attached = NO;
+         }
+         else
+         {
+            we_attached = YES;
+         }
       }
       else
       {
-         we_attached = YES;
+         we_attached = NO;
+      }
+      if (fsa_fd != -1)
+      {
+         int i;
+
+         for (i = 0; i < no_of_hosts; i++)
+         {
+            if (strcmp(host_alias, fsa[i].host_alias) == 0)
+            {
+               if (current_toggle == -1)
+               {
+                  (void)strcpy(real_hostname, fsa[i].real_hostname[0]);
+               }
+               else
+               {
+                  (void)strcpy(real_hostname,
+                               fsa[i].real_hostname[current_toggle]);
+               }
+               ret = i;
+
+               break;
+            }
+         }
+      }
+      if (we_attached == YES)
+      {
+         (void)fsa_detach(NO);
       }
    }
+#ifdef WITH_AFD_MON
    else
-   {
-      we_attached = NO;
-   }
-   if (fsa_fd != -1)
    {
       int i;
 
-      for (i = 0; i < no_of_hosts; i++)
+      for (i = 0; i < ahl_entries; i++)
       {
-         if (strcmp(host_alias, fsa[i].host_alias) == 0)
+         if (strcmp(host_alias, ahl[i].host_alias) == 0)
          {
             if (current_toggle == -1)
             {
-               (void)strcpy(real_hostname, fsa[i].real_hostname[0]);
+               (void)strcpy(real_hostname, ahl[i].real_hostname[0]);
             }
             else
             {
-               (void)strcpy(real_hostname, fsa[i].real_hostname[current_toggle]);
+               (void)strcpy(real_hostname,
+                            ahl[i].real_hostname[current_toggle]);
             }
             ret = i;
 
@@ -103,10 +141,7 @@ get_real_hostname(char *host_alias, int current_toggle, char *real_hostname)
          }
       }
    }
-   if (we_attached == YES)
-   {
-      (void)fsa_detach(NO);
-   }
+#endif
 
    return(ret);
 }

@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -280,10 +280,7 @@ create_db(void)
    if (stat(afd_file_dir, &stat_buf) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to stat() `%s' : %s", afd_file_dir, strerror(errno));
       exit(INCORRECT);
@@ -294,10 +291,7 @@ create_db(void)
    if ((amg_data_fd = open(amg_data_file, O_RDWR)) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to open() `%s' : %s", amg_data_file, strerror(errno));
       exit(INCORRECT);
@@ -305,10 +299,7 @@ create_db(void)
    if (fstat(amg_data_fd, &stat_buf) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to fstat() `%s' : %s", amg_data_file, strerror(errno));
       exit(INCORRECT);
@@ -323,10 +314,7 @@ create_db(void)
 #endif
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to mmap() `%s' : %s", amg_data_file, strerror(errno));
       exit(INCORRECT);
@@ -346,10 +334,7 @@ create_db(void)
    if ((db = malloc(no_of_jobs * sizeof(struct instant_db))) == NULL)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));
       exit(INCORRECT);
@@ -364,10 +349,7 @@ create_db(void)
    if ((gotcha = malloc(size)) == NULL)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to malloc() memory : %s", strerror(errno));
       exit(INCORRECT);
@@ -411,10 +393,7 @@ create_db(void)
    if ((tmp_ptr = calloc(no_of_jobs, sizeof(struct p_array))) == NULL)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not allocate memory : %s", strerror(errno));
       exit(INCORRECT);
@@ -634,10 +613,7 @@ create_db(void)
                           "Failed to realloc() %d bytes : %s",
                           new_size, strerror(errno));
                p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-               if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-               {
-                  p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-               }
+               p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
                unmap_data(jd_fd, (void *)&jd);
                exit(INCORRECT);
             }
@@ -663,10 +639,7 @@ create_db(void)
                        "Failed to malloc() %d bytes : %s",
                        db[i].no_of_files * sizeof(char *), strerror(errno));
             p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-            if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-            {
-               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-            }
+            p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
             unmap_data(jd_fd, (void *)&jd);
             exit(INCORRECT);
          }
@@ -713,10 +686,7 @@ create_db(void)
                           "Failed to realloc() %d bytes : %s",
                           new_size, strerror(errno));
                p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-               if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-               {
-                  p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-               }
+               p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
                unmap_data(jd_fd, (void *)&jd);
                exit(INCORRECT);
             }
@@ -741,10 +711,7 @@ create_db(void)
                                "Failed to realloc() %d bytes : %s",
                                new_size, strerror(errno));
                     p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-                    if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-                    {
-                       p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-                    }
+                    p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
                     unmap_data(jd_fd, (void *)&jd);
                     exit(INCORRECT);
                  }
@@ -1044,10 +1011,7 @@ create_db(void)
                          "Unknown sheme in url: `%s'.",
                          db[i].recipient);
               p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-              if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-              {
-                 p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-              }
+              p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
               free(db); free(de);
               free(tmp_ptr);
               unmap_data(jd_fd, (void *)&jd);
@@ -1072,6 +1036,8 @@ create_db(void)
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           "Could not realloc() %d bytes : %s",
                           new_size, strerror(errno));
+               p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+               p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
                exit(INCORRECT);
             }
          }
@@ -1220,10 +1186,7 @@ create_db(void)
       unmap_data(pwb_fd, (void *)&pwb);
    }
    p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-   if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-   {
-      p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-   }
+   p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
 
    if (p_afd_status->start_time == 0)
    {

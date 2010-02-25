@@ -1,6 +1,6 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -92,8 +92,7 @@ static void                       add_message_to_queue(char *, int, off_t,
                                                        unsigned int, int),
                                   check_jobs(void);
 static int                        lookup_db_pos(unsigned int),
-                                  message_in_queue(char *),
-                                  read_job_ids(void);
+                                  message_in_queue(char *);
 
 
 /*########################## check_file_dir() ###########################*/
@@ -118,7 +117,7 @@ check_file_dir(time_t now)
               _("%s starting file dir check . . ."), DIR_CHECK);
 #endif
 
-   if (read_job_ids() == INCORRECT)
+   if (read_job_ids(NULL, &no_of_job_ids, &jd) == INCORRECT)
    {
       no_of_job_ids = 0;
    }
@@ -965,77 +964,4 @@ lookup_db_pos(unsigned int job_id)
    }
 
    return(INCORRECT);
-}
-
-
-/*++++++++++++++++++++++++++++ read_job_ids() +++++++++++++++++++++++++++*/
-static int
-read_job_ids(void)
-{
-   int  fd,
-        ret = SUCCESS;
-   char job_id_data_file[MAX_PATH_LENGTH];
-
-   (void)strcpy(job_id_data_file, p_work_dir);
-   (void)strcat(job_id_data_file, FIFO_DIR);
-   (void)strcat(job_id_data_file, JOB_ID_DATA_FILE);
-   if ((fd = open(job_id_data_file, O_RDONLY)) == -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 _("Failed to open() `%s' : %s"),
-                 job_id_data_file, strerror(errno));
-      ret = INCORRECT;
-   }
-   else
-   {
-      if (read(fd, &no_of_job_ids, sizeof(int)) != sizeof(int))
-      {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    _("Failed to read() `%s' : %s"),
-                    job_id_data_file, strerror(errno));
-         ret = INCORRECT;
-      }
-      else
-      {
-         if (lseek(fd, AFD_WORD_OFFSET, SEEK_SET) == -1)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("Failed to lseek() `%s' : %s"),
-                       job_id_data_file, strerror(errno));
-            ret = INCORRECT;
-         }
-         else
-         {
-            size_t size;
-
-            size = no_of_job_ids * sizeof(struct job_id_data);
-            if ((jd = malloc(size)) == NULL)
-            {
-               system_log(FATAL_SIGN, __FILE__, __LINE__,
-                          _("Failed to malloc() %d bytes : %s"),
-                          size, strerror(errno));
-               ret = INCORRECT;
-            }
-            else
-            {
-               if (read(fd, jd, size) != size)
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             _("Failed to read() from `%s' : %s"),
-                             job_id_data_file, strerror(errno));
-                  free(jd);
-                  jd = NULL;
-                  ret = INCORRECT;
-               }
-            }
-         }
-      }
-      if (close(fd) == -1)
-      {
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    _("Failed to close() `%s' : %s"),
-                    job_id_data_file, strerror(errno));
-      }
-   }
-   return(ret);
 }

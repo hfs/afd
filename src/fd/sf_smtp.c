@@ -1257,32 +1257,29 @@ main(int argc, char *argv[])
                     no_of_bytes += length;
                  }
 
-            if ((db.special_flag & FILE_NAME_IS_USER) == 0)
+            if (db.group_list == NULL)
             {
-               if (db.group_list == NULL)
+               length = sprintf(buffer, "To: %s\r\n", remote_user);
+            }
+            else
+            {
+               if (p_db->user[0] == MAIL_GROUP_IDENTIFIER)
                {
-                  length = sprintf(buffer, "To: %s\r\n", remote_user);
+                  length = sprintf(buffer, "To: %s\r\n", &p_db->user[1]);
                }
                else
                {
-                  if (p_db->user[0] == MAIL_GROUP_IDENTIFIER)
-                  {
-                     length = sprintf(buffer, "To: %s\r\n", &p_db->user[1]);
-                  }
-                  else
-                  {
-                     length = sprintf(buffer, "To: %s\r\n", p_db->hostname);
-                  }
+                  length = sprintf(buffer, "To: %s\r\n", p_db->hostname);
                }
-               if (smtp_write(buffer, NULL, length) < 0)
-               {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                            "Failed to write To header to SMTP-server.");
-                  (void)smtp_quit();
-                  exit(eval_timeout(WRITE_REMOTE_ERROR));
-               }
-               no_of_bytes += length;
             }
+            if (smtp_write(buffer, NULL, length) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         "Failed to write To header to SMTP-server.");
+               (void)smtp_quit();
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
+            }
+            no_of_bytes += length;
 
             /* Send MIME information. */
             if (db.special_flag & ATTACH_FILE)
@@ -2221,7 +2218,7 @@ try_again_unlink:
       }
 #ifdef _WITH_BURST_2
       burst_2_counter++;
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, 0,
 # ifdef _WITH_INTERRUPT_JOB
                                      0,
 # endif
@@ -2295,15 +2292,14 @@ sf_smtp_exit(void)
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
          int  length;
-         char buffer[MAX_INT_LENGTH + 26 + MAX_INT_LENGTH + 12 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
-
-#if SIZEOF_OFF_T == 4
-         length = sprintf(buffer, "%lu bytes mailed in %d file(s).",
+#ifdef _WITH_BURST_2
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
 #else
-         length = sprintf(buffer, "%llu bytes mailed in %d file(s).",
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 1];
 #endif
-                          diff_file_size_done, diff_no_of_files_done);
 
+         WHAT_DONE_BUFFER(length, buffer, "mailed",
+                          diff_file_size_done, diff_no_of_files_done);
 #ifdef _WITH_BURST_2
          if (burst_2_counter == 1)
          {

@@ -95,6 +95,16 @@ MAX_NO_OF_DIR_CHECKS             12
 AMG_DIR_RESCAN_TIME              5
 
 ##########################################################################
+# The minimum interval in seconds that all source directories must be    #
+# scanned. This can be usefull on systems that do not update the         #
+# directory modification time reliably (for example NFS when time of     #
+# client and server is out of sync). Setting this will generate a higher #
+# system load, since directories will be scanned more often.             #
+# Default: 0 (disabled)                                                  #
+##########################################################################
+#FORCE_REREAD_INTERVAL           0
+
+##########################################################################
 # The time when AMG will warn in receive log that no data has been       #
 # received in the specified directory. directory. This value will be     #
 # overridden by 'warn time' value from DIR_CONFIG if set. The unit is    #

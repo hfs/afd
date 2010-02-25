@@ -1,6 +1,6 @@
 /*
  *  eval_input_alda.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -111,6 +111,8 @@ DESCR__S_M3
  **              %[Z]OL                 - split job number
  **              %[Y]Oh                 - target real hostname/IP
  **              %[Y]OH                 - target alias name
+ **              %[Z]Oo                 - output type ID
+ **              %[Y]OO                 - output type string
  **              -- Delete log data --
  **              %[Z]Dt<time char>      - time when job was created
  **              %[Z]DT<time char>      - time when file was deleted
@@ -131,7 +133,7 @@ DESCR__S_M3
  **               [Y] -> [-]#
  **               [Z] -> [-][0]#[d|o|x]
  **
- **            (used second chars: AbBcCDeEfFhHIJjLNnpPrRStTUWYZ)
+ **            (used second chars: AbBcCDeEfFhHIJjLNnpOoPrRStTUWYZ)
  **
  **            Time character (t,T):
  **                 a - Abbreviated weekday name: Tue
@@ -241,6 +243,9 @@ DESCR__E_M3
 #include <unistd.h>         /* access()                                  */
 #include <errno.h>
 #include "aldadefs.h"
+#ifdef WITH_AFD_MON
+# include "mondefs.h"
+#endif
 
 #define START_HOST_TYPE  1
 #define END_HOST_TYPE    2
@@ -373,9 +378,9 @@ eval_input_alda(int *argc, char *argv[])
                (void)fprintf(stderr,
                              "         --enable-compile_afd_mon_only and recompile.\n");
                correct = NO;
+#endif
                (*argc)--;
                argv++;
-#endif
                break;
 
             case 'b' : /* Back trace data. */
@@ -850,6 +855,31 @@ eval_input_alda(int *argc, char *argv[])
                argv++;
                break;
 
+            /*
+             * NOTE: AFD_WORK_DIR is handled by function get_afd_path()
+             *       much earlier. That function cuts away the -w argument
+             *       so if we hit it here again it is a second -w argument!
+             *       Do not bail out, just give a warning, since it is
+             *       common error that users using aldad specify the
+             *       working directory as an argument.
+             */
+            case 'w' : /* Second working directory argument is wrong! */
+               if ((*argc == 1) || (*(argv + 1)[0] == '-'))
+               {
+                  (void)fprintf(stderr,
+                                "WARNING: Working directory already set and no working directory specified for parameter -w.\n");
+                  (*argc) -= 1;
+                  argv += 1;
+               }
+               else
+               {
+                  (void)fprintf(stderr,
+                                "WARNING: Working directory already set. Ignoring.\n");
+                  (*argc) -= 2;
+                  argv += 2;
+               }
+               break;
+
             default : /* Unknown parameter. */
                (void)fprintf(stderr,
                              "ERROR  : Unknown parameter %c. (%s %d)\n",
@@ -1081,13 +1111,13 @@ store_name_alias_id(char *input, int dir_host_type)
          ptr++;
          if (dir_host_type == START_HOST_TYPE)
          {
-            max_length = MAX_HOSTNAME_LENGTH + 1;
+            max_length = MAX_AFDNAME_LENGTH + 1;
             p_alias = &start_alias;
             p_alias_counter = &start_alias_counter;
          }
          else if (dir_host_type == END_HOST_TYPE)
               {
-                 max_length = MAX_HOSTNAME_LENGTH + 1;
+                 max_length = MAX_AFDNAME_LENGTH + 1;
                  p_alias = &end_alias;
                  p_alias_counter = &end_alias_counter;
               }
@@ -1997,6 +2027,8 @@ usage(char *progname)
    (void)fprintf(stderr, "              %%[Z]OL                 - split job number\n");
    (void)fprintf(stderr, "              %%[Y]Oh                 - target real hostname/IP\n");
    (void)fprintf(stderr, "              %%[Y]OH                 - target alias name\n");
+   (void)fprintf(stderr, "              %%[Z]Oo                 - output type ID\n");
+   (void)fprintf(stderr, "              %%[Y]OO                 - output type string\n");
 #endif
 #ifdef _DELETE_LOG
    (void)fprintf(stderr, "              -- Delete log data --\n");

@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -287,10 +287,11 @@ typedef unsigned long       u_long_64;
 # define CONVERSION_FAILED          18
 # define RENAME_OVERWRITE           19
 # define RECIPIENT_REJECTED         20
+# define MIRROR_REMOVE              21
 # ifdef WITH_DUP_CHECK
-#  define MAX_DELETE_REASONS        20
+#  define MAX_DELETE_REASONS        21
 # else
-#  define MAX_DELETE_REASONS        18
+#  define MAX_DELETE_REASONS        19
 # endif
 # define UKN_DEL_REASON_STR         "Unknown delete reason"
 # define UKN_DEL_REASON_STR_LENGTH  (sizeof(UKN_DEL_REASON_STR) - 1)
@@ -608,9 +609,9 @@ typedef unsigned long       u_long_64;
 # define UNKNOWN_KEY_TYPE          4
 # define NOT_A_FINGERPRINT         8
 # define ONLY_FINGERPRINT_KNOWN    16
-# define MAX_URL_ERROR_MSG         (14 + 35 + 29 + 11 + 18 + 21 + 48 + 34 + 34 + 37 + 11 + 47 + 11 + 34 + 30 + 11 + 23 + 42 + 11 + 30 + 1)
+# define MAX_URL_ERROR_MSG         (14 + 35 + 29 + 11 + 18 + 21 + 48 + 34 + 34 + 37 + 11 + 47 + 11 + 34 + 30 + 11 + 23 + 42 + 11 + 30 + 25 + 1)
 #else
-# define MAX_URL_ERROR_MSG         (14 + 35 + 29 + 11 + 34 + 34 + 37 + 11 + 47 + 11 + 34 + 30 + 11 + 23 + 42 + 11 + 30 + 1)
+# define MAX_URL_ERROR_MSG         (14 + 35 + 29 + 11 + 34 + 34 + 37 + 11 + 47 + 11 + 34 + 30 + 11 + 23 + 42 + 11 + 30 + 25 + 1)
 #endif
 #define PASSWORD_TO_LONG           32
 #define HOSTNAME_TO_LONG           64
@@ -623,6 +624,7 @@ typedef unsigned long       u_long_64;
 #define NO_PROTOCOL_VERSION        8192
 #define NOT_A_URL                  16384
 #define UNKNOWN_SMTP_AUTH          32768
+#define NO_PORT_SPECIFIED          65536
 
 /* When looking at difference in two URL's, flags for which parts differ. */
 #define URL_SCHEME_DIFS            1
@@ -851,6 +853,8 @@ typedef unsigned long       u_long_64;
 #define SOCKET_SEND_BUFFER_ID_LENGTH    (sizeof(SOCKET_SEND_BUFFER_ID) - 1)
 #define SOCKET_RECEIVE_BUFFER_ID        "socket receive buffer"
 #define SOCKET_RECEIVE_BUFFER_ID_LENGTH (sizeof(SOCKET_RECEIVE_BUFFER_ID) - 1)
+#define MIRROR_DIR_ID                   "mirror source"
+#define MIRROR_DIR_ID_LENGTH            (sizeof(MIRROR_DIR_ID) - 1)
 
 /* Default definitions. */
 #define AFD_CONFIG_FILE                  "/AFD_CONFIG"
@@ -920,6 +924,7 @@ typedef unsigned long       u_long_64;
 #define VIEW_DATA_PROG_DEF               "VIEW_DATA_PROG"
 #define VIEW_DATA_PROG_DEF_LENGTH        (sizeof(VIEW_DATA_PROG_DEF) - 1)
 #define IN_GLOBAL_FILESYSTEM_DEF         "IN_GLOBAL_FILESYSTEM"
+#define FORCE_REREAD_INTERVAL_DEF        "FORCE_REREAD_INTERVAL"
 
 /* Heading identifiers for the DIR_CONFIG file and messages. */
 #define DIR_IDENTIFIER                   "[directory]"
@@ -1037,6 +1042,9 @@ typedef unsigned long       u_long_64;
                                           /* that the AMG may collect     */
                                           /* before it creates a message  */
                                           /* for the FD.                  */
+#define MAX_FILE_BUFFER_SIZE       51200  /* The maximum number that can  */
+                                          /* be handled in one directory  */
+                                          /* scan.                        */
 #define MAX_COPIED_FILE_SIZE       102400 /* Same as above only that this */
                                           /* limits the total size copied */
                                           /* in Kilobytes.                */
@@ -2804,6 +2812,228 @@ struct old_int_retrieve_list
                 }                               \
         }
 
+/* Macro to show how many files and bytes where send/received. */
+#if SIZEOF_OFF_T == 4
+# define WHAT_DONE_BUFFER(length, buffer, how, file_size_done, no_of_files_done)\
+        {                                                      \
+           if ((file_size_done) >= EXABYTE)                    \
+           {                                                   \
+              (length) = sprintf((buffer), "%.3f EiB (%lu bytes) %s in %d file(s).",\
+                               (double)(file_size_done) / EXABYTE,\
+                               (file_size_done), (how),        \
+                               (no_of_files_done));            \
+           }                                                   \
+           else if ((file_size_done) >= PETABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f PiB (%lu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / PETABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= TERABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f TiB (%lu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / TERABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= GIGABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f GiB (%lu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / GIGABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= MEGABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f MiB (%lu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / MEGABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= KILOBYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f KiB (%lu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / KILOBYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+                else                                           \
+                {                                              \
+                   (length) = sprintf((buffer), "%lu bytes %s in %d file(s).",  \
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+        }
+# define WHAT_DONE(how, file_size_done, no_of_files_done)      \
+        {                                                      \
+           if ((file_size_done) >= EXABYTE)                    \
+           {                                                   \
+              trans_log(INFO_SIGN, NULL, 0, NULL, NULL,        \
+                        "%.3f EiB (%ld bytes) %s in %d file(s).",\
+                        (double)(file_size_done) / EXABYTE,    \
+                        (pri_off_t)(file_size_done), (how),    \
+                        (no_of_files_done));                   \
+           }                                                   \
+           else if ((file_size_done) >= PETABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f PiB (%ld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / PETABYTE,\
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= TERABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f TiB (%ld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / TERABYTE,\
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= GIGABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f GiB (%ld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / GIGABYTE,\
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= MEGABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f MiB (%ld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / MEGABYTE,\
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= KILOBYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f KiB (%ld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / KILOBYTE,\
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+                else                                           \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%ld bytes %s in %d file(s).",    \
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+        }
+#else
+# define WHAT_DONE_BUFFER(length, buffer, how, file_size_done, no_of_files_done)\
+        {                                                      \
+           if ((file_size_done) >= EXABYTE)                    \
+           {                                                   \
+              (length) = sprintf((buffer), "%.3f EiB (%llu bytes) %s in %d file(s).",\
+                               (double)(file_size_done) / EXABYTE,\
+                               (file_size_done), (how), (no_of_files_done));\
+           }                                                   \
+           else if ((file_size_done) >= PETABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f PiB (%llu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / PETABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= TERABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f TiB (%llu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / TERABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= GIGABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f GiB (%llu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / GIGABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= MEGABYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f MiB (%llu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / MEGABYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+           else if ((file_size_done) >= KILOBYTE)              \
+                {                                              \
+                   (length) = sprintf((buffer), "%.3f KiB (%llu bytes) %s in %d file(s).",\
+                                    (double)(file_size_done) / KILOBYTE,\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+                else                                           \
+                {                                              \
+                   (length) = sprintf((buffer), "%llu bytes %s in %d file(s).",\
+                                    (file_size_done), (how),   \
+                                    (no_of_files_done));       \
+                }                                              \
+        }
+# define WHAT_DONE(how, file_size_done, no_of_files_done)      \
+        {                                                      \
+           if ((file_size_done) >= EXABYTE)                    \
+           {                                                   \
+              trans_log(INFO_SIGN, NULL, 0, NULL, NULL,        \
+                        "%.3f EiB (%lld bytes) %s in %d file(s).",\
+                        (double)(file_size_done) / EXABYTE,    \
+                        (pri_off_t)(file_size_done), (how),    \
+                        (no_of_files_done));                   \
+           }                                                   \
+           else if ((file_size_done) >= PETABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f PiB (%lld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / PETABYTE,\
+                             (pri_off_t)(file_size_done), (how),\
+                             (no_of_files_done));              \
+                }                                              \
+           else if ((file_size_done) >= TERABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f TiB (%lld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / TERABYTE,\
+                             (pri_off_t)(file_size_done), (how),\
+                             (no_of_files_done));              \
+                }                                              \
+           else if ((file_size_done) >= GIGABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f GiB (%lld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / GIGABYTE,\
+                             (pri_off_t)(file_size_done), (how),\
+                             (no_of_files_done));              \
+                }                                              \
+           else if ((file_size_done) >= MEGABYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f MiB (%lld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / MEGABYTE,\
+                             (pri_off_t)(file_size_done), (how),\
+                             (no_of_files_done));              \
+                }                                              \
+           else if ((file_size_done) >= KILOBYTE)              \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%.3f KiB (%lld bytes) %s in %d file(s).",\
+                             (double)(file_size_done) / KILOBYTE,\
+                             (pri_off_t)(file_size_done), (how),\
+                             (no_of_files_done));              \
+                }                                              \
+                else                                           \
+                {                                              \
+                   trans_log(INFO_SIGN, NULL, 0, NULL, NULL,   \
+                             "%lld bytes %s in %d file(s).",   \
+                             (pri_off_t)(file_size_done),      \
+                             (how), (no_of_files_done));       \
+                }                                              \
+        }
+#endif
+
 /* Macro to check if we can avoid a strcmp or strncmp. */
 #define CHECK_STRCMP(a, b)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strcmp((a), (b)))
 #define CHECK_STRNCMP(a, b, c)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strncmp((a), (b), (c)))
@@ -2902,6 +3132,8 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                     get_arg_array(int *, char **, char *, char ***, int *),
                     get_current_jid_list(void),
                     get_dir_number(char *, unsigned int, long *),
+                    get_dir_id_position(struct fileretrieve_status *,
+                                        unsigned int, int),
                     get_dir_position(struct fileretrieve_status *, char *, int),
                     get_file_checksum(int, char *, int, int, unsigned int *),
                     get_host_id_position(struct filetransfer_status *,
@@ -2934,6 +3166,7 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                     open_fifo_rw(char *, int *, int *),
 #endif
                     pmatch(char const *, char const *, time_t *),
+                    read_job_ids(char *, int *, struct job_id_data **),
                     rec(int, char *, char *, ...),
                     rec_rmdir(char *),
 #ifdef WITH_UNLINK_DELAY
@@ -2988,6 +3221,7 @@ extern void         *attach_buf(char *, int *, size_t *, char *, mode_t, int),
                     get_alias_names(void),
                     get_dir_options(unsigned int, struct dir_options *),
                     get_dc_result_str(char *, int, int, int *, int *),
+                    get_file_mask_list(unsigned int, int *, char **),
                     get_hc_result_str(char *, int, int, int *, int *),
                     get_log_number(int *, int, char *, int, char *),
                     get_max_log_number(int *, char *, int),

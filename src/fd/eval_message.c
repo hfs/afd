@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -84,6 +84,7 @@ DESCR__S_M3
  **   05.08.2006 H.Kiehl For option 'subject' added possibility to insert
  **                      the filename or part of it.
  **   11.02.2006 H.Kiehl Evaluate options for pexec command.
+ **   23.01.2010 H.Kiehl Add support to mirror source.
  **
  */
 DESCR__E_M3
@@ -152,6 +153,7 @@ extern char *p_work_dir;
 #define SOCK_SND_BUF_SIZE_FLAG      2
 #define SOCK_RCV_BUF_SIZE_FLAG      4
 #define FILE_NAME_IS_TARGET_FLAG    8
+#define MIRROR_DIR_FLAG             16
 
 
 #define MAX_HUNK                    4096
@@ -974,6 +976,21 @@ eval_message(char *message_name, struct job *p_db)
                        {
                           ptr++;
                        }
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used2 & MIRROR_DIR_FLAG) == 0) &&
+                     (CHECK_STRNCMP(ptr, MIRROR_DIR_ID,
+                                    MIRROR_DIR_ID_LENGTH) == 0))
+                 {
+                    used2 |= MIRROR_DIR_FLAG;
+                    p_db->special_flag |= MIRROR_DIR;
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
                     }
                     while (*ptr == '\n')
                     {

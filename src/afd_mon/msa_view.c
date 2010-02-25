@@ -62,8 +62,8 @@ DESCR__E_M1
 
 /* Global variables. */
 int                    sys_log_fd = STDERR_FILENO,   /* Not used!    */
-                       msa_id,
                        msa_fd = -1,
+                       msa_id,
                        no_of_afds = 0;
 off_t                  msa_size;
 char                   *p_work_dir;
@@ -119,7 +119,8 @@ main(int argc, char *argv[])
    {
       if (i == INCORRECT_VERSION)
       {
-         (void)fprintf(stderr, "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+         (void)fprintf(stderr,
+                       "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
                        __FILE__, __LINE__);
       }
       else
@@ -171,6 +172,9 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stdout, "=============================> %s (%d) <=============================\n",
                     msa[j].afd_alias, j);
+#ifdef NEW_MSA
+      (void)fprintf(stdout, "AFD alias CRC      : %x\n", msa[j].afd_id);
+#endif
       (void)fprintf(stdout, "Remote work dir    : %s\n", msa[j].r_work_dir);
       (void)fprintf(stdout, "Remote AFD version : %s\n", msa[j].afd_version);
       (void)fprintf(stdout, "Remote command     : %s\n", msa[j].rcmd);

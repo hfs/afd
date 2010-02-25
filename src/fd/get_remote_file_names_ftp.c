@@ -396,10 +396,23 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
       }
 
       /* Get all file masks for this directory. */
-      if (read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml) == INCORRECT)
+      if ((j = read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml)) != SUCCESS)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to get the file masks.");
+         if (j == LOCKFILE_NOT_THERE)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to set lock in file masks, because the file is not there.");
+         }
+         else if (j == LOCK_IS_SET)
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to get the file masks, because lock is already set");
+              }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to get the file masks. (%d)", j);
+              }
          if (fml != NULL)
          {
             free(fml);

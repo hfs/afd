@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,6 +75,7 @@ DESCR__S_M1
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **   18.09.2003 H.Kiehl Check if time goes backward.
  **   01.03.2008 H.Kiehl check_file_dir() is now performed by dir_check.
+ **   01.02.2010 H.Kiehl Option to set system wide force reread interval.
  **
  */
 DESCR__E_M1
@@ -168,7 +169,8 @@ int                        afd_file_dir_length,
                            receive_log_fd = STDERR_FILENO,
                            sys_log_fd = STDERR_FILENO,
                            *time_job_list = NULL;
-unsigned int               default_age_limit;
+unsigned int               default_age_limit,
+                           force_reread_interval;
 time_t                     default_exec_timeout;
 off_t                      amg_data_size;
 pid_t                      *opl;
@@ -442,6 +444,12 @@ main(int argc, char *argv[])
    /* Tell user we are starting dir_check. */
    system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)",
               DIR_CHECK, PACKAGE_VERSION);
+
+   if (force_reread_interval)
+   {
+      system_log(DEBUG_SIGN, NULL, 0, "Force reread interval : %u seconds",
+                 force_reread_interval);
+   }
 
    /*
     * Before we start lets make shure that there are no old
@@ -768,6 +776,8 @@ main(int argc, char *argv[])
                         * Handle any new files that have arrived.
                         */
                        if ((fra[de[i].fra_pos].force_reread == YES) ||
+                           ((force_reread_interval) &&
+                            ((now - de[i].search_time) > force_reread_interval)) ||
                            (dir_stat_buf.st_mtime >= de[i].search_time))
                        {
                           /* The directory time has changed. New files */
@@ -894,7 +904,7 @@ main(int argc, char *argv[])
 
               /* Check if time went backwards. */
               now = time(NULL);
-              if ((now < start_time) && ((start_time - now) > 10))
+              if ((now < start_time) && ((start_time - now) > 0))
               {
                  for (i = 0; i < no_of_local_dirs; i++)
                  {
@@ -903,7 +913,8 @@ main(int argc, char *argv[])
                        de[i].search_time = now - 1;
                     }
                  }
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                 system_log(((start_time - now) > 5) ? WARN_SIGN : DEBUG_SIGN,
+                            __FILE__, __LINE__,
                             "Time went backwards %d seconds.",
                             (int)(start_time - now));
               }
@@ -2446,6 +2457,8 @@ get_one_zombie(pid_t cpid, time_t now)
       /* Update table. */
       if ((pos = get_process_pos(pid)) == -1)
       {
+         int i;
+
          system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
                     "Failed to locate process %d in array.",
@@ -2453,6 +2466,20 @@ get_one_zombie(pid_t cpid, time_t now)
                     "Failed to locate process %lld in array.",
 #endif
                     (pri_pid_t)pid);
+
+         /* For debug process print internal process list. */
+         for (i = 0; i < *no_of_process; i++)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                       "dcpl[%d]: pid=%d fra_pos=%d jid=%x fra[%d].no_of_process=%d",
+#else
+                       "dcpl[%d]: pid=%lld fra_pos=%d jid=%x fra[%d].no_of_process=%d",
+#endif
+                       i, (pri_pid_t)dcpl[i].pid, dcpl[i].fra_pos,
+                       dcpl[i].job_id, dcpl[i].fra_pos,
+                       fra[dcpl[i].fra_pos].no_of_process);
+         }
       }
       else
       {
@@ -2571,6 +2598,7 @@ get_process_pos(pid_t pid)
          return(i);
       }
    }
+
    return(-1);
 }
 
@@ -2932,11 +2960,8 @@ sig_segv(int signo)
    }
    else
    {
-      /* Set flag to indicate that the the dir_check is NOT active. */
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      /* Unset flag to indicate that the the dir_check is NOT active. */
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
    }
 
    system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
@@ -2966,11 +2991,8 @@ sig_bus(int signo)
    }
    else
    {
-      /* Set flag to indicate that the the dir_check is NOT active. */
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      /* Unset flag to indicate that the the dir_check is NOT active. */
+      p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
    }
 
    system_log(FATAL_SIGN, __FILE__, __LINE__,

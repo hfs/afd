@@ -927,7 +927,7 @@ main(int argc, char *argv[])
                             _("Failed to fstat() local file %s"),
                             db.filename[files_send]);
                }
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                (void)ftp_quit();
                exit(STAT_ERROR);
             }
@@ -1110,7 +1110,7 @@ main(int argc, char *argv[])
          if ((status = ftp_data(initial_filename, append_offset,
                                 db.ftp_mode, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("send", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       _("Failed to open remote file %s (%d)."),
                       initial_filename, status);
@@ -1177,7 +1177,7 @@ main(int argc, char *argv[])
                                   _("Could not read local file %s : %s"),
                                   final_filename, strerror(errno));
                      }
-                     WHAT_DONE(file_size_done, no_of_files_done);
+                     WHAT_DONE("send", file_size_done, no_of_files_done);
                      (void)ftp_quit();
                      exit(READ_LOCAL_ERROR);
                   }
@@ -1196,7 +1196,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_get_reply();
                      }
-                     WHAT_DONE(file_size_done, no_of_files_done);
+                     WHAT_DONE("send", file_size_done, no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                (sigpipe_flag == ON) ? msg_str : NULL,
 #if SIZEOF_OFF_T == 4
@@ -1257,7 +1257,7 @@ main(int argc, char *argv[])
                                   _("Could not read local file %s : %s"),
                                   final_filename, strerror(errno));
                      }
-                     WHAT_DONE(file_size_done, no_of_files_done);
+                     WHAT_DONE("send", file_size_done, no_of_files_done);
                      (void)ftp_quit();
                      exit(READ_LOCAL_ERROR);
                   }
@@ -1275,7 +1275,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_get_reply();
                      }
-                     WHAT_DONE(file_size_done, no_of_files_done);
+                     WHAT_DONE("send", file_size_done, no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                (sigpipe_flag == ON) ? msg_str : NULL,
                                _("Failed to write rest to remote file %s"),
@@ -1363,7 +1363,7 @@ main(int argc, char *argv[])
                   {
                      (void)ftp_get_reply();
                   }
-                  WHAT_DONE(file_size_done, no_of_files_done);
+                  WHAT_DONE("send", file_size_done, no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             (sigpipe_flag == ON) ? msg_str : NULL,
 #if SIZEOF_OFF_T == 4
@@ -1402,7 +1402,7 @@ main(int argc, char *argv[])
                   {
                      (void)ftp_get_reply();
                   }
-                  WHAT_DONE(file_size_done, no_of_files_done);
+                  WHAT_DONE("send", file_size_done, no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             (sigpipe_flag == ON) ? msg_str : NULL,
                             _("Failed to write rest to remote file %s"),
@@ -1436,7 +1436,7 @@ main(int argc, char *argv[])
              */
             if ((local_file_size > 0) || (timeout_flag == ON))
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Failed to close remote file %s"), initial_filename);
                (void)ftp_quit();
@@ -1535,7 +1535,7 @@ main(int argc, char *argv[])
             if ((status = ftp_move(initial_filename, final_filename, 0,
                                    db.create_target_dir)) != SUCCESS)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Failed to move remote file %s to %s (%d)"),
                          initial_filename, final_filename, status);
@@ -1568,7 +1568,7 @@ main(int argc, char *argv[])
             if ((status = ftp_data(ready_file_name, append_offset,
                                    db.ftp_mode, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Failed to open remote ready file %s (%d)."),
                          ready_file_name, status);
@@ -1633,7 +1633,7 @@ main(int argc, char *argv[])
                {
                   (void)ftp_get_reply();
                }
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          (sigpipe_flag == ON) ? msg_str : NULL,
                          _("Failed to write to remote ready file %s (%d)."),
@@ -1653,7 +1653,7 @@ main(int argc, char *argv[])
             /* Close remote ready file. */
             if ((status = ftp_close_data()) != SUCCESS)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Failed to close remote ready file %s (%d)."),
                          ready_file_name, status);
@@ -1673,7 +1673,7 @@ main(int argc, char *argv[])
             if ((status = ftp_move(ready_file_name, &ready_file_name[1], 0,
                                    db.create_target_dir)) != SUCCESS)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Failed to move remote ready file %s to %s (%d)"),
                          ready_file_name, &ready_file_name[1], status);

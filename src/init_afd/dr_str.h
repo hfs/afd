@@ -1,6 +1,6 @@
 /*
  *  dr_str.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,7 +44,8 @@ static const char *drstr[] = /* Delete reason string. */
                      "Host disabled",                        /* 17 */
                      "Conversion failed",                    /* 18 */
                      "Rename overwrite",                     /* 19 */
-                     "Mail recipient rejected"               /* 20 */
+                     "Mail recipient rejected",              /* 20 */
+                     "Mirror delete"                         /* 21 */
                   };
 
 /* NOTE: If the maximum length changes, don't forget to change */

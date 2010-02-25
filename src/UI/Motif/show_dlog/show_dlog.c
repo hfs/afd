@@ -1,6 +1,6 @@
 /*
  *  show_dlog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1122,7 +1122,8 @@ init_show_dlog(int *argc, char *argv[])
                     (1 << (DELETE_HOST_DISABLED + 1)) |
                     (1 << (CONVERSION_FAILED + 1)) |
                     (1 << (RENAME_OVERWRITE + 1)) |
-                    (1 << (RECIPIENT_REJECTED + 1))) + 1;
+                    (1 << (RECIPIENT_REJECTED + 1)) |
+                    (1 << (MIRROR_REMOVE + 1))) + 1;
 
    /* Get the maximum number of logfiles we keep for history. */
    get_max_log_number(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,

@@ -65,6 +65,11 @@ unsigned int               end_alias_counter,
                            end_name_counter,
                            file_pattern_counter,
                            mode,
+#ifdef WITH_AFD_MON
+                           msa_fd = -1,
+                           msa_id,
+                           no_of_afds = 0,
+#endif
                            protocols,
                            search_dir_alias_counter,
                            *search_dir_id,
@@ -80,7 +85,8 @@ unsigned int               end_alias_counter,
                            start_alias_counter,
                            *start_id,
                            start_id_counter,
-                           start_name_counter;
+                           start_name_counter,
+                           start_search_counter;
 int                        data_printed,
                            fra_fd = -1,
                            fra_id,
@@ -105,6 +111,9 @@ off_t                      log_data_written,
 off_t                      fra_size,
                            fsa_size;
 #endif
+#ifdef WITH_AFD_MON
+off_t                      msa_size;
+#endif
 char                       **end_alias,
                            **end_name,
                            **file_pattern,
@@ -113,6 +122,7 @@ char                       **end_alias,
                            header_filename[MAX_PATH_LENGTH],
                            output_filename[MAX_PATH_LENGTH],
                            *p_work_dir,
+                           **search_afd_start_alias = NULL,
                            **search_dir_alias,
                            **search_dir_name,
                            **search_host_alias,
@@ -126,7 +136,11 @@ struct fileretrieve_status *fra = NULL;
 struct filetransfer_status *fsa = NULL;
 struct jid_data            jidd;
 #ifdef WITH_AFD_MON
+unsigned int               adl_entries = 0,
+                           ahl_entries = 0;
 struct afd_dir_list        *adl = NULL;
+struct afd_host_list       *ahl = NULL;
+struct mon_status_area     *msa;
 #endif
 #ifdef _INPUT_LOG
 off_t                      *icp;    /* Input current position. */
@@ -167,10 +181,7 @@ int                        cache_step_size;
 #endif
 
 /* Local function prototypes. */
-static void                check_end_afds(void),
-                           check_start_afds(void),
-                           get_current_afd_mon_list(void),
-                           init_file_data(time_t, time_t, int, char *),
+static void                init_file_data(time_t, time_t, int, char *),
 #ifdef CACHE_DEBUG
                            print_alda_cache(void),
 #endif
@@ -199,6 +210,13 @@ static int                 check_output_log(char *, char *, off_t, time_t,
 static int                 check_delete_log(char *, char *, off_t, time_t,
                                             unsigned int, unsigned int *,
                                             unsigned int *);
+#endif
+#ifdef WITH_AFD_MON
+static int                 check_log_availability(int);
+static void                add_afd_to_list(int),
+                           check_end_afds(void),
+                           check_start_afds(void),
+                           get_current_afd_mon_list(void);
 #endif
 
 
@@ -303,20 +321,42 @@ main(int argc, char *argv[])
       data_printed = NO;
       if (mode & ALDA_REMOTE_MODE)
       {
+#ifdef WITH_AFD_MON
          int i;
 
          get_current_afd_mon_list();
          check_start_afds();
          check_end_afds();
 
-         for (i = 0; i < start_alias_counter; i++)
+         for (i = 0; i < start_search_counter; i++)
          {
-            search_afd(start_alias[i]);
+            if (search_log_type & SEARCH_INPUT_LOG)
+            {
+               attach_adl(search_afd_start_alias[i]);
+            }
+            if (search_log_type & SEARCH_OUTPUT_LOG)
+            {
+               attach_ahl(search_afd_start_alias[i]);
+            }
+            alloc_jid(search_afd_start_alias[i]);
+            search_afd(search_afd_start_alias[i]);
+            dealloc_jid();
+            if (search_log_type & SEARCH_INPUT_LOG)
+            {
+               detach_adl();
+            }
+            if (search_log_type & SEARCH_OUTPUT_LOG)
+            {
+               detach_ahl();
+            }
          }
+#endif
       }
       else
       {
+         alloc_jid(NULL);
          search_afd(NULL);
+         dealloc_jid();
       }
       if ((mode & ALDA_CONTINUOUS_MODE) ||
           (mode & ALDA_CONTINUOUS_DAEMON_MODE))
@@ -1907,18 +1947,157 @@ search_afd(char *search_afd)
 }
 
 
+#ifdef WITH_AFD_MON
 /*##################### get_current_afd_mon_list() ######################*/
 static void
 get_current_afd_mon_list(void)
 {
+   int ret;
+
+   if ((ret = msa_attach_passive()) < 0)
+   {
+      if (ret == INCORRECT_VERSION)
+      {
+         (void)fprintf(stderr,
+                       "ERROR   : This program is not able to attach to the MSA due to incorrect version. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)fprintf(stderr, "ERROR   : Failed to attach to MSA. (%s %d)\n",
+                       __FILE__, __LINE__);
+      }
+      exit(INCORRECT);
+   }
+
    return;
 }
+#endif
 
 
+#ifdef WITH_AFD_MON
 /*######################### check_start_afds() ##########################*/
 static void
 check_start_afds(void)
 {
+   int i, j;
+
+   start_search_counter = 0;
+   if (search_afd_start_alias != NULL)
+   {
+      FREE_RT_ARRAY(search_afd_start_alias);
+      search_afd_start_alias = NULL;
+   }
+   for (i = 0; i < start_alias_counter; i++)
+   {
+      for (j = 0; j < no_of_afds; j++)
+      {
+         if (check_log_availability(j) == YES)
+         {
+            if (pmatch(start_alias[i], msa[j].afd_alias, NULL) == 0)
+            {
+               add_afd_to_list(j);
+            }
+         }
+      }
+   }
+   for (i = 0; i < start_id_counter; i++)
+   {
+      for (j = 0; j < no_of_afds; j++)
+      {
+# ifdef NEW_MSA
+         if (start_id[i] == msa[j].afd_id)
+# else
+         if (start_id[i] == get_str_checksum(msa[j].afd_alias))
+# endif
+         {
+            if (check_log_availability(j) == YES)
+            {
+               add_afd_to_list(j);
+            }
+         }
+      }
+   }
+   for (i = 0; i < start_name_counter; i++)
+   {
+      for (j = 0; j < no_of_afds; j++)
+      {
+         if (check_log_availability(j) == YES)
+         {
+            if ((pmatch(start_name[i], msa[j].hostname[0], NULL) == 0) ||
+                ((msa[j].hostname[1][0] != '\0') &&
+                 (pmatch(start_name[i], msa[j].hostname[i], NULL) == 0)))
+            {
+               add_afd_to_list(j);
+            }
+         }
+      }
+   }
+   if (start_search_counter == 0)
+   {
+      for (i = 0; i < no_of_afds; i++)
+      {
+         if (check_log_availability(i) == YES)
+         {
+            add_afd_to_list(i);
+         }
+      }
+   }
+
+   return;
+}
+
+
+/*+++++++++++++++++++++++ check_log_availability() ++++++++++++++++++++++*/
+static int
+check_log_availability(int pos)
+{
+   if (((search_log_type & SEARCH_INPUT_LOG) &&
+        (msa[pos].options & AFDD_INPUT_LOG) &&
+        (msa[pos].log_capabilities & AFDD_INPUT_LOG)) ||
+       ((search_log_type & SEARCH_DISTRIBUTION_LOG) &&
+        (msa[pos].options & AFDD_DISTRIBUTION_LOG) &&
+        (msa[pos].log_capabilities & AFDD_DISTRIBUTION_LOG)) ||
+       ((search_log_type & SEARCH_PRODUCTION_LOG) &&
+        (msa[pos].options & AFDD_PRODUCTION_LOG) &&
+        (msa[pos].log_capabilities & AFDD_PRODUCTION_LOG)) ||
+       ((search_log_type & SEARCH_OUTPUT_LOG) &&
+        (msa[pos].options & AFDD_OUTPUT_LOG) &&
+        (msa[pos].log_capabilities & AFDD_OUTPUT_LOG)) ||
+       ((search_log_type & SEARCH_DELETE_LOG) &&
+        (msa[pos].options & AFDD_DELETE_LOG) &&
+        (msa[pos].log_capabilities & AFDD_DELETE_LOG)))
+   {
+      return(YES);
+   }
+   return(NO);
+}
+
+
+#define ALLOC_STEP_SIZE 10
+
+/*++++++++++++++++++++++++++ add_afd_to_list() ++++++++++++++++++++++++++*/
+static void
+add_afd_to_list(int pos)
+{
+   if (start_search_counter == 0)
+   {
+      RT_ARRAY(search_afd_start_alias, ALLOC_STEP_SIZE, MAX_AFDNAME_LENGTH + 1,
+               char);
+   }
+   else if ((start_search_counter != 0) &&
+            ((start_search_counter % ALLOC_STEP_SIZE) == 0))
+        {
+           int new_size;
+
+           new_size = ((start_search_counter / ALLOC_STEP_SIZE) + 1) * ALLOC_STEP_SIZE;
+           REALLOC_RT_ARRAY(search_afd_start_alias, new_size,
+                            MAX_AFDNAME_LENGTH + 1, char);
+        }
+   (void)strcpy(search_afd_start_alias[start_search_counter],
+                msa[pos].afd_alias);
+   start_search_counter++;
+
    return;
 }
 
@@ -1929,6 +2108,7 @@ check_end_afds(void)
 {
    return;
 }
+#endif
 
 
 #ifdef _INPUT_LOG

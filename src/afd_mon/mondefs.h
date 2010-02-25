@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -144,6 +144,7 @@
 /* Structure to hold all host alias names and their real names. */
 struct afd_host_list
        {
+          unsigned int  host_id;
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
           char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
           unsigned char error_history[ERROR_HISTORY_LENGTH];
@@ -266,7 +267,11 @@ struct afd_mon_status
  *    -------+---------------+---------------------------------------
  *     9 - 16|               | Not used.
  *-----------------------------------------------------------------------*/
-#define CURRENT_MSA_VERSION           2
+#ifdef NEW_MSA
+# define CURRENT_MSA_VERSION           3
+#else
+# define CURRENT_MSA_VERSION           2
+#endif
 struct mon_status_area
        {
           char          r_work_dir[MAX_PATH_LENGTH];
@@ -297,6 +302,10 @@ struct mon_status_area
                                                  /* disconnect.          */
           unsigned int  disconnect_time;         /* How long should we   */
                                                  /* stay disconnected.   */
+#ifdef NEW_MSA
+          unsigned int  afd_id;                  /* CRC-32 checksum of   */
+                                                 /* afd_alias above.     */
+#endif
           char          amg;                     /* Status of AMG.       */
           char          fd;                      /* Status of FD.        */
           char          archive_watch;           /* Status of AW.        */

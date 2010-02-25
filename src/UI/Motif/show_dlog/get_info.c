@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -612,6 +612,11 @@ get_job_data(struct job_id_data *p_jd)
    id.dbe[0].priority = p_jd->priority;
    get_file_mask_list(p_jd->file_mask_id, &id.dbe[0].no_of_files,
                       &id.dbe[0].files);
+   if (id.dbe[0].files == NULL)
+   {
+      (void)xrec(WARN_DIALOG,
+                 "Failed to get file mask list, see system log for more details.");
+   }
    id.dbe[0].no_of_loptions = p_jd->no_of_loptions;
 
    /* Save all AMG (local) options. */

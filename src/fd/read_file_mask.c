@@ -82,7 +82,7 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
 
    if ((fd = lock_file(file_mask_file, ON)) < 0)
    {
-      return(INCORRECT);
+      return(fd);
    }
    if (fstat(fd, &stat_buf) == -1)
    {

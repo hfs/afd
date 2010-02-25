@@ -1,6 +1,6 @@
 /*
  *  check_did.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   22.11.2008 H.Kiehl Created
+ **   06.12.2009 H.Kiehl Added support for remote AFD's.
  **
  */
 DESCR__E_M1
@@ -68,6 +69,7 @@ extern struct alda_idata          ilog;
 extern struct alda_udata          ulog;
 #endif
 #ifdef WITH_AFD_MON
+extern unsigned int               adl_entries;
 extern struct afd_dir_list        *adl;
 #endif
 
@@ -79,20 +81,19 @@ check_did(unsigned int did)
    if ((search_dir_alias_counter != 0) || (search_dir_id_counter != 0) ||
        (search_dir_name_counter != 0))
    {
-      int ret;
+      int i,
+          ret;
+
+      for (i = 0; i < search_dir_id_counter; i++)
+      {
+         if (did == search_dir_id[i])
+         {
+            return(SUCCESS);
+         }
+      }
 
       if (mode & ALDA_LOCAL_MODE)
       {
-         int i;
-
-         for (i = 0; i < search_dir_id_counter; i++)
-         {
-            if (did == search_dir_id[i])
-            {
-               return(SUCCESS);
-            }
-         }
-
          if (search_dir_alias_counter != 0)
          {
             if (fra_fd == -1)
@@ -184,6 +185,81 @@ check_did(unsigned int did)
 #ifdef WITH_AFD_MON
       else
       {
+         if ((search_dir_alias_counter != 0) && (adl != NULL))
+         {
+            int j;
+
+            for (i = 0; i < adl_entries; i++)
+            {
+               if (adl[i].dir_id == did)
+               {
+                  for (j = 0; j < search_dir_alias_counter; j++)
+                  {
+                     if ((ret = pmatch(search_dir_alias[j],
+                                       adl[i].dir_alias, NULL)) == 0)
+                     {
+                        return(SUCCESS);
+                     }
+                     else if (ret == 1)
+                          {
+                             /*
+                              * This alias is definitly not wanted,
+                              * so no need to check the other filters.
+                              */
+                             j = search_dir_alias_counter;
+                          }
+                  }
+               }
+            }
+         }
+
+# if defined (_INPUT_LOG) || defined (_DISTRIBUTION_LOG)
+         if ((search_dir_name_counter != 0) && (adl != NULL))
+         {
+            int j, k;
+
+            for (i = 0; i < adl_entries; i++)
+            {
+               if (adl[i].dir_id == did)
+               {
+                  for (j = 0; j < search_dir_name_counter; j++)
+                  {
+                     if ((ret = pmatch(search_dir_name[j],
+                                       adl[i].orig_dir_name, NULL)) == 0)
+                     {
+                        k = 0;
+                        while (adl[i].orig_dir_name[k] != '\0')
+                        {
+#  ifdef _INPUT_LOG
+                           ilog.full_source[k] = adl[i].orig_dir_name[k];
+#  else
+                           ulog.full_source[k] = adl[i].orig_dir_name[k];
+#  endif
+                           k++;
+                        }
+#  ifdef _INPUT_LOG
+                        ilog.full_source[k] = '\0';
+                        ilog.full_source_length = k;
+#  else
+                        ulog.full_source[k] = '\0';
+                        ulog.full_source_length = k;
+#  endif
+
+                        return(SUCCESS);
+                     }
+                     else if (ret == 1)
+                          {
+                             /*
+                              * This name is definitly not wanted,
+                              * so no need to check the other filters.
+                              */
+                             j = search_dir_name_counter;
+                          }
+                  }
+               }
+            }
+         }
+# endif
       }
 #endif
 

@@ -1,7 +1,7 @@
 /*
  *  get_file_mask_list.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@ DESCR__S_M3
  ** HISTORY
  **   31.12.2003 H.Kiehl Created
  **   21.04.2005 H.Kiehl Don't lock FILE_MASK_FILE!
+ **   05.02.2010 H.Kiehl Make it a global function.
  **
  */
 DESCR__E_M3
@@ -58,8 +59,8 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include "ui_common_defs.h"
 
+/* External global variables. */
 extern char *p_work_dir;
 
 
@@ -78,8 +79,9 @@ get_file_mask_list(unsigned int file_mask_id,
    (void)strcat(fmd_file_name, FILE_MASK_FILE);
    if ((fmd_fd = open(fmd_file_name, O_RDONLY)) == -1)
    {
-      (void)xrec(ERROR_DIALOG, "Failed to open() `%s' : %s (%s %d)",
-                 fmd_file_name, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 _("Failed to open() `%s' : %s"),
+                 fmd_file_name, strerror(errno));
    }
    else
    {
@@ -87,8 +89,9 @@ get_file_mask_list(unsigned int file_mask_id,
 
       if (fstat(fmd_fd, &stat_buf) == -1)
       {
-         (void)xrec(ERROR_DIALOG, "Failed to fstat() `%s' : %s (%s %d)",
-                    fmd_file_name, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    _("Failed to fstat() `%s' : %s"),
+                    fmd_file_name, strerror(errno));
       }
       else
       {
@@ -98,26 +101,26 @@ get_file_mask_list(unsigned int file_mask_id,
 
             if ((buffer = malloc(stat_buf.st_size)) == NULL)
             {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
-               (void)xrec(ERROR_DIALOG, "Failed to malloc() %ld : %s (%s %d)",
+                          _("Failed to malloc() %ld : %s"),
 #else
-               (void)xrec(ERROR_DIALOG, "Failed to malloc() %lld : %s (%s %d)",
+                          _("Failed to malloc() %lld : %s"),
 #endif
-                          (pri_off_t)stat_buf.st_size, strerror(errno),
-                          __FILE__, __LINE__);
+                          (pri_off_t)stat_buf.st_size, strerror(errno));
             }
             else
             {
                if (read(fmd_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
                {
-                  (void)xrec(ERROR_DIALOG,
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
-                             "Failed to read() %ld bytes from %s : %s (%s %d)",
+                             _("Failed to read() %ld bytes from %s : %s"),
 #else
-                             "Failed to read() %lld bytes from %s : %s (%s %d)",
+                             _("Failed to read() %lld bytes from %s : %s"),
 #endif
                              (pri_off_t)stat_buf.st_size, fmd_file_name,
-                             strerror(errno), __FILE__, __LINE__);
+                             strerror(errno));
                }
                else
                {
@@ -141,10 +144,10 @@ get_file_mask_list(unsigned int file_mask_id,
                      {
                         if ((*files = malloc(*(int *)(ptr + fml_offset))) == NULL)
                         {
-                           (void)xrec(ERROR_DIALOG,
-                                      "Failed to malloc() %d bytes : %s (%s %d)",
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      _("Failed to malloc() %d bytes : %s"),
                                       *(int *)(ptr + fml_offset),
-                                      strerror(errno), __FILE__, __LINE__);
+                                      strerror(errno));
                         }
                         else
                         {
@@ -160,9 +163,9 @@ get_file_mask_list(unsigned int file_mask_id,
                      {
                         system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
-                                   "Hmm, buffer overflow by %d bytes! This filemask (%s (%ld)) is not correct.",
+                                   _("Hmm, buffer overflow by %d bytes! This filemask (%s (%ld)) is not correct."),
 #else
-                                   "Hmm, buffer overflow by %d bytes! This filemask (%s (%lld)) is not correct.",
+                                   _("Hmm, buffer overflow by %d bytes! This filemask (%s (%lld)) is not correct."),
 #endif
                                    (ptr + shift_length + fml_offset + sizeof(int) + sizeof(int)) - (buffer + stat_buf.st_size),
                                    fmd_file_name, (pri_off_t)stat_buf.st_size);
@@ -179,15 +182,20 @@ get_file_mask_list(unsigned int file_mask_id,
          }
          else
          {
-            (void)xrec(ERROR_DIALOG,
-                       "File `%s' is not large enough (%d bytes) to contain any valid data.",
-                       fmd_file_name, stat_buf.st_size);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                       _("File `%s' is not large enough (%ld bytes) to contain any valid data."),
+#else
+                       _("File `%s' is not large enough (%lld bytes) to contain any valid data."),
+#endif
+                       fmd_file_name, (pri_off_t)stat_buf.st_size);
          }
       }
       if (close(fmd_fd) == -1)
       {
-         (void)xrec(ERROR_DIALOG, "Failed to close() `%s' : %s (%s %d)",
-                    fmd_file_name, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    _("Failed to close() `%s' : %s"),
+                    fmd_file_name, strerror(errno));
       }
    }
    

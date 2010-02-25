@@ -751,12 +751,7 @@ try_again_unlink:
       }
    }
 
-#if SIZEOF_OFF_T == 4
-   trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%lu bytes send in %d file(s).",
-#else
-   trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%llu bytes send in %d file(s).",
-#endif
-             fsa->job_status[(int)db.job_no].file_size_done, files_send);
+   WHAT_DONE("send", fsa->job_status[(int)db.job_no].file_size_done, files_send);
 
    /*
     * Remove file directory.

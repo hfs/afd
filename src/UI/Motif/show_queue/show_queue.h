@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,13 +68,13 @@
 /* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT       32
 #define SHOW_MEDIUM_FORMAT      46
-#define SHOW_LONG_FORMAT        66
+#define SHOW_LONG_FORMAT        95
 #define HEADING_LINE_SHORT      "Date   Time     File name                        Type Hostname    File size"
 #define SUM_SEP_LINE_SHORT      "==========================================================================="
 #define HEADING_LINE_MEDIUM     "Date   Time     File name                                      Type Hostname    File size"
 #define SUM_SEP_LINE_MEDIUM     "========================================================================================="
-#define HEADING_LINE_LONG       "Date   Time     File name                                                          Type Hostname    File size"
-#define SUM_SEP_LINE_LONG       "============================================================================================================="
+#define HEADING_LINE_LONG       "Date   Time     File name                                                                                       Type Hostname    File size"
+#define SUM_SEP_LINE_LONG       "=========================================================================================================================================="
 
 /* Structure that holds a list of files that where found. */
 struct queued_file_list

@@ -1004,6 +1004,17 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <td><a name="mirror_source">mirror source</a></td>
+   <td>Deletes all files from destination not found in source.</td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
    <td><a name="rename">rename &lt;rule&gt; [overwrite]</a></td>
    <td>Rename files as defined in the 'rule'-section of the 
        <a href="rename_rules.html">etc/rename.rule</a> file. If the
@@ -1045,6 +1056,24 @@ section. Valid options can be taken from the following table:
    <td><a name="force_copy">force copy</a></td>
    <td>Force files to be copied and not linked nor memory mapped
        (Good for copying files to /dev/null).
+   </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="mirror_source">mirror source</a></td>
+   <td>Will delete files from target directory if they are not
+       found in the source directory. This will only work if the
+       <a href="#directory_options">[dir options]</a>
+       <a href="store retrieve list">store retrieve list</a> is set!
+       Also note currently the implementation is incomplete in that it
+       only deletes from destination when it finds files to fetch
+       from source.
    </td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -2328,9 +2357,9 @@ to 30 minutes, it needs to be done as follows:
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2009 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2010 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 25.11.2009
+   Last updated: 23.02.2010
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -976,10 +976,46 @@
 
 
 
-----------------------------> Version 1.4.0 <------------------------------
+----------------------------> Version 1.4.1 <------------------------------
                              ---------------
 30.11.2009 - Improve detection of XPM support.
 01.12.2009 - When we report old files do a proper cast to integer,
              otherwise on some systems this will lead to a crash of
              process dir_check.
-------------------------> Released: ??.??.201? <---------------------------
+02.12.2009 - Added support for fetching files via HTTP from the
+             NOAA web site.
+07.12.2009 - ALDA can now work with log data from remote AFD's.
+12.12.2009 - If we read the file mask list and we hit an error, tell
+             the user the reason why we failed.
+15.12.2009 - In transfer log show if we moved, copied or copied/moved
+             a file for sf_loc.
+           - Show the volume transmitted in transfer log in a human
+             readable format.
+16.12.2009 - The option dupcheck did not work correctly during a
+             burst. Fixed.
+17.01.2010 - Handle case when no port number is specified in URL.
+           - When evaluting DIR_CONFIG we need to fool function
+             url_evaluate() with dummy values so it does more syntax
+             checking on the URL.
+19.01.2010 - Standalone program fax2gts.
+20.01.2010 - Add support to convert DWD data type to WMO data type.
+23.01.2010 - Fix bug when user echos output to stdout or stderr
+             from .profile (or .bash_profile) and afd boot script
+             then tries to start multiple AFD's.
+           - Added option 'mirror source', to mirror a directory.
+01.02.2010 - Added AFD_CONFIG option FORCE_REREAD_INTERVAL to specify
+             an interval at which each source directory must be
+             scanned, regardless if the modification time changed
+             or not.
+04.02.2010 - When function get_dir_number() creates a directory and
+             it already exists, it no longer returns INCORRECT.
+11.02.2010 - Added option to alda to print out the output type
+             (delivered, deleted, etc).
+12.02.2010 - When alda searches in output log it now also respects if
+             user searches via source directory.
+18.02.2010 - When sending mails set To: line when option 'file name is
+             user' is set.
+22.02.2010 - When time goes back, correct internal search time even
+             when time went back just one second. Before we only
+             updated when time went back more then 10 seconds.
+------------------------> Released: 22.02.2010 <---------------------------

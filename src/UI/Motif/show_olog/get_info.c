@@ -666,6 +666,11 @@ get_job_data(struct job_id_data *p_jd)
 
    id.priority = p_jd->priority;
    get_file_mask_list(p_jd->file_mask_id, &id.no_of_files, &id.files);
+   if (id.files == NULL)
+   {
+      (void)xrec(WARN_DIALOG,
+                 "Failed to get file mask list, see system log for more details.");
+   }
    id.no_of_loptions = p_jd->no_of_loptions;
 
    /* Save all AMG (local) options. */

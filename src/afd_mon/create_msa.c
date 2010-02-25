@@ -1,6 +1,6 @@
 /*
  *  create_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,6 +55,7 @@ DESCR__S_M3
  **   03.12.2003 H.Kiehl Added connection and disconnection time.
  **   27.02.2005 H.Kiehl Option to switch between two AFD's.
  **   23.11.2008 H.Kiehl Added danger_no_of_jobs.
+ **   05.12.2009 H.Kiehl Added afd_id.
  **
  */
 DESCR__E_M3
@@ -395,6 +396,9 @@ create_msa(void)
          msa[i].poll_interval      = ml[i].poll_interval;
          msa[i].connect_time       = ml[i].connect_time;
          msa[i].disconnect_time    = ml[i].disconnect_time;
+#ifdef NEW_MSA
+         msa[i].afd_id             = get_str_checksum(ml[i].afd_alias);
+#endif
          msa[i].port[0]            = ml[i].port[0];
          msa[i].port[1]            = ml[i].port[1];
          msa[i].afd_switching      = ml[i].afd_switching;
@@ -506,6 +510,9 @@ create_msa(void)
 
             (void)strcpy(msa[i].r_work_dir, old_msa[afd_pos].r_work_dir);
             (void)strcpy(msa[i].afd_version, old_msa[afd_pos].afd_version);
+#ifdef NEW_MSA
+            msa[i].afd_id             = old_msa[afd_pos].afd_id;
+#endif
             msa[i].afd_toggle         = old_msa[afd_pos].afd_toggle;
             (void)memcpy(msa[i].log_history, old_msa[afd_pos].log_history,
                          (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
@@ -556,6 +563,9 @@ create_msa(void)
          else /* This AFD is not in the old MSA, therefor it is new. */
          {
             msa[i].afd_toggle         = DEFAULT_TOGGLE_HOST - 1;
+#ifdef NEW_MSA
+            msa[i].afd_id             = get_str_checksum(ml[i].afd_alias);
+#endif
             (void)memset(msa[i].log_history, NO_INFORMATION,
                          (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
             msa[i].amg                = STOPPED;

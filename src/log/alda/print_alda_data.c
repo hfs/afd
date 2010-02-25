@@ -1,6 +1,6 @@
 /*
  *  print_alda_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ DESCR__E_M3
 #ifdef _DELETE_LOG
 # include "dr_str.h"
 #endif
+#include "ot_str.h"
 
 /* External global variables. */
 extern unsigned int      mode;
@@ -732,6 +733,30 @@ print_alda_data(void)
                   case 'H' : /* Target alias name. */
                      i += pri_string(right_side, max_length, olog.alias_name,
                                      olog.alias_name_length, i);
+                     ptr++;
+                     break;
+
+                  case 'o' : /* Output type ID. */
+                     i += pri_int(format_orientation, fo_pos, max_length,
+                                  base_char, (int)olog.output_type, i);
+                     ptr++;
+                     break;
+
+                  case 'O' : /* Output type string. */
+                     if (olog.output_type <= MAX_OUTPUT_TYPES)
+                     {
+                        i += pri_string(right_side, max_length,
+                                        otstr[olog.output_type],
+                                        strlen(otstr[olog.output_type]),
+                                        i);
+                     }
+                     else
+                     {
+                        i += pri_string(right_side, max_length,
+                                        otstr[MAX_OUTPUT_TYPES],
+                                        strlen(otstr[MAX_OUTPUT_TYPES]),
+                                        i);
+                     }
                      ptr++;
                      break;
 

@@ -1,6 +1,6 @@
 /*
  *  check_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -273,6 +273,9 @@ check_files(struct directory_entry *p_de,
       }
    }
 
+#ifdef _DEBUG
+   system_log(DEBUG_SIGN, __FILE__, __LINE__, "Scanning: %s", fullname);
+#endif
    if ((dp = opendir(fullname)) == NULL)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, current_time,

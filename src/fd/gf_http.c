@@ -676,7 +676,8 @@ main(int argc, char *argv[])
                               fsa->job_status[(int)db.job_no].file_size_done += status;
                               fsa->job_status[(int)db.job_no].bytes_send += status;
                            }
-                        } while ((status != 0) && (bytes_done < content_length));
+                        } while ((status != HTTP_LAST_CHUNK) &&
+                                 (bytes_done < content_length));
                      }
                   } /* if (status != NOTHING_TO_FETCH) */
 
@@ -1178,13 +1179,7 @@ gf_http_exit(void)
 {
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
-#if SIZEOF_OFF_T == 4
-                "%ld bytes retrieved in %d file(s).",
-#else
-                "%lld bytes retrieved in %d file(s).",
-#endif
-                (pri_off_t)fsa->job_status[(int)db.job_no].file_size_done,
+      WHAT_DONE("retrieved", fsa->job_status[(int)db.job_no].file_size_done,
                 fsa->job_status[(int)db.job_no].no_of_files_done);
       reset_fsa((struct job *)&db, exitflag);
    }

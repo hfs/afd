@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -191,10 +191,7 @@ create_fsa(void)
    }
 
    /* Set flag to indicate that we are rereading the DIR_CONFIG. */
-   if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
-   {
-      p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-   }
+   p_afd_status->amg_jobs |= REREADING_DIR_CONFIG;
 
    /*
     * Mark memory mapped region as old, so no process puts

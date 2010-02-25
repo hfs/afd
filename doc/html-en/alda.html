@@ -110,6 +110,8 @@ Usage: alda [options] &lt;file name pattern&gt;
               %[Z]OL                 - split job number
               %[Y]Oh                 - target real hostname/IP
               %[Y]OH                 - target alias name
+              %[Z]Oo                 - output type ID
+              %[Y]OO                 - output type string
               -- Delete log data --
               %[Z]Dt&lt;time char&gt;      - time when job was created
               %[Z]DT&lt;time char&gt;      - time when file was deleted
@@ -419,13 +421,19 @@ put in front of the actual size value, it will search for files less
 then or greater then the given size. If a = or no sign is specified
 it will search for the exact given size.
 </p>
+<p>
+It is possible to search by which protocol the data was send with the
+<b>-p</b> parameter and the protocol name after a space. Multiple
+protocols can be specified by separating the protocol names with a
+comma.
+</p>
 <hr size=3 noshade>
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 2009 by H.Kiehl<br>
+   Copyright &copy; 2009, 2010 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 26.11.2009
+   Last updated: 16.02.2010
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

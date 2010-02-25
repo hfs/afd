@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2009 Holger Kiehl
+## Copyright (C) 2001 - 2010 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -263,7 +263,9 @@ sf_map_SOURCES        = append.c\
 sf_map_LDADD          = @EXTRA_SOCKET_LIBS@ ../common/libafd.a @AFD_MAP_LIBS@
 sf_loc_SOURCES        = append.c\
                         archive_file.c\
+                        attach_ls_data.c\
                         check_burst_2.c\
+                        compare_dir_local.c\
                         eval_input_sf.c\
                         eval_message.c\
                         eval_recipient.c\

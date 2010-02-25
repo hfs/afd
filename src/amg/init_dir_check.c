@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,6 +48,7 @@ DESCR__S_M1
  **   06.04.1999 H.Kiehl Created
  **   12.01.2000 H.Kiehl Added receive log.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
+ **   01.02.2010 H.Kiehl Option to set system wide force reread interval.
  **
  */
 DESCR__E_M1
@@ -110,7 +111,8 @@ extern int                        afd_file_dir_length,
 #endif
                                   receive_log_fd;
 extern time_t                     default_exec_timeout;
-extern unsigned int               default_age_limit;
+extern unsigned int               default_age_limit,
+                                  force_reread_interval;
 extern pid_t                      *opl;
 #ifdef _WITH_PTHREAD
 extern pthread_t                  *thread;
@@ -858,6 +860,15 @@ get_afd_config_value(void)
       {
          full_scan_timeout = FULL_SCAN_TIMEOUT;
       }
+      if (get_definition(buffer, FORCE_REREAD_INTERVAL_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         force_reread_interval = atoi(value);
+      }
+      else
+      {
+         force_reread_interval = FORCE_REREAD_INTERVAL;
+      }
 #ifndef _WITH_PTHREAD
       if (get_definition(buffer, DIR_CHECK_TIMEOUT_DEF,
                          value, MAX_INT_LENGTH) != NULL)
@@ -876,10 +887,14 @@ get_afd_config_value(void)
                          value, MAX_INT_LENGTH) != NULL)
       {
          max_file_buffer = atoi(value);
-         if ((max_file_buffer < 1) || (max_file_buffer > 10240))
+         if (max_file_buffer < 1)
          {
             max_file_buffer = MAX_COPIED_FILES;
          }
+         else if (max_file_buffer > MAX_FILE_BUFFER_SIZE)
+              {
+                 max_file_buffer = MAX_FILE_BUFFER_SIZE;
+              }
       }
       else
       {

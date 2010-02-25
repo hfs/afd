@@ -1,6 +1,6 @@
 /*
  *  get_full_source.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,15 +39,24 @@ DESCR__S_M1
  **
  ** HISTORY
  **   22.11.2008 H.Kiehl Created
+ **   06.12.2009 H.Kiehl Added support for remote AFD's.
  **
  */
 DESCR__E_M1
 
 #include "aldadefs.h"
+#ifdef WITH_AFD_MON
+# include "mondefs.h"
+#endif
 
 
 /* External global variables. */
+extern int                  mode;
 extern struct dir_name_area dna;
+#ifdef WITH_AFD_MON
+extern unsigned int         adl_entries;
+extern struct afd_dir_list  *adl;
+#endif
 
 
 /*++++++++++++++++++++++++++ get_full_source() ++++++++++++++++++++++++++*/
@@ -56,24 +65,51 @@ get_full_source(unsigned int dir_id, char *full_source, int *full_source_length)
 {
    int i, k;
 
-   check_dna();
-
-   for (i = 0; i < *dna.no_of_dir_names; i++)
+   if (mode & ALDA_LOCAL_MODE)
    {
-      if (dna.dnb[i].dir_id == dir_id)
-      {
-         k = 0;
-         while (dna.dnb[i].orig_dir_name[k] != '\0')
-         {
-            full_source[k] = dna.dnb[i].orig_dir_name[k];
-            k++;
-         }
-         full_source[k] = '\0';
-         *full_source_length = k;
+      check_dna();
 
-         return;
+      for (i = 0; i < *dna.no_of_dir_names; i++)
+      {
+         if (dna.dnb[i].dir_id == dir_id)
+         {
+            k = 0;
+            while (dna.dnb[i].orig_dir_name[k] != '\0')
+            {
+               full_source[k] = dna.dnb[i].orig_dir_name[k];
+               k++;
+            }
+            full_source[k] = '\0';
+            *full_source_length = k;
+
+            return;
+         }
       }
    }
+#ifdef WITH_AFD_MON
+   else
+   {
+      if (adl != NULL)
+      {
+         for (i = 0; i < adl_entries; i++)
+         {
+            if (adl[i].dir_id == dir_id)
+            {
+               k = 0;
+               while (adl[i].orig_dir_name[k] != '\0')
+               {
+                  full_source[k] = adl[i].orig_dir_name[k];
+                  k++;
+               }
+               full_source[k] = '\0';
+               *full_source_length = k;
+
+               return;
+            }
+         }
+      }
+   }
+#endif
 
    return;
 }

@@ -1213,7 +1213,7 @@ try_again_unlink:
 
 #ifdef _WITH_BURST_2
       burst_2_counter++;
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, 0,
 # ifdef _WITH_INTERRUPT_JOB
                                      0,
 # endif
@@ -1277,15 +1277,15 @@ sf_http_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
-         char buffer[MAX_INT_LENGTH + 24 + MAX_INT_LENGTH + 12 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
-
 #ifdef _WITH_BURST_2
-# if SIZEOF_OFF_T == 4
-         length = sprintf(buffer, "%lu bytes send in %d file(s).",
-# else
-         length = sprintf(buffer, "%llu bytes send in %d file(s).",
-# endif
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
+#else
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 1];
+#endif
+
+         WHAT_DONE_BUFFER(length, buffer, "send",
                           diff_file_size_done, diff_no_of_files_done);
+#ifdef _WITH_BURST_2
          if (burst_2_counter == 1)
          {
             (void)strcpy(&buffer[length], " [BURST]");
@@ -1295,16 +1295,8 @@ sf_http_exit(void)
                  (void)sprintf(buffer + length, " [BURST * %u]",
                                burst_2_counter);
               }
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
-#else
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
-# if SIZEOF_OFF_T == 4
-                   "%lu bytes copied in %d file(s).",
-# else
-                   "%llu bytes copied in %d file(s).",
-# endif
-                   diff_file_size_done, diff_no_of_files_done);
 #endif /* _WITH_BURST_2 */
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
       reset_fsa((struct job *)&db, exitflag);
    }

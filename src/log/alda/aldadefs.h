@@ -26,6 +26,10 @@
 # include <time.h>                    /* struct tm                       */
 #endif
 
+#ifndef WITH_AFD_MON
+# define MAX_AFDNAME_LENGTH 12
+#endif
+
 /* Definitions for evaluating log data (alda). */
 #define ALDA_CONTINUOUS_MODE                1
 #define ALDA_CONTINUOUS_DAEMON_MODE         2
@@ -235,6 +239,7 @@
             olog.output_type = 0;                 \
             olog.current_toggle = 0;              \
             olog.job_id = 0;                      \
+            olog.dir_id = 0;                      \
             olog.unique_number = 0;               \
             olog.split_job_counter = 0;           \
             olog.protocol = 0;                    \
@@ -391,10 +396,8 @@ struct log_file_data
 /* Structure for holding all meta data for struct job_id_data. */
 struct jid_data
        {
-          int                fd;
           int                no_of_job_ids;
           int                prev_pos;
-          off_t              size;
           struct job_id_data *jd;
           char               name[MAX_PATH_LENGTH];
        };
@@ -526,6 +529,7 @@ struct alda_odata
           int           output_type;
           int           current_toggle;
           unsigned int  job_id;
+          unsigned int  dir_id;
           unsigned int  unique_number;
           unsigned int  split_job_counter;
           unsigned int  protocol;
@@ -571,6 +575,14 @@ struct aldad_proc_list
 extern void check_dna(void),
             eval_input_alda(int *, char **),
             get_full_source(unsigned int, char *, int *),
+            alloc_jid(char *),
+#ifdef WITH_AFD_MON
+            attach_adl(char *),
+            attach_ahl(char *),
+            detach_adl(void),
+            detach_ahl(void),
+#endif
+            dealloc_jid(void),
             print_alda_data(void),
             seek_cache_position(struct log_file_data *, time_t),
             show_file_content(FILE *, char *);

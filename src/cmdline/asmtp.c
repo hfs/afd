@@ -347,7 +347,7 @@ main(int argc, char *argv[])
          /* Close remote file. */
          if ((status = smtp_close()) != SUCCESS)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("mailed", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       _("Failed to close DATA mode (%d)."), status);
             (void)smtp_quit();
@@ -371,7 +371,7 @@ main(int argc, char *argv[])
                       _("Failed to fstat() local file `%s'"),
                       db.filename[files_send]);
          }
-         WHAT_DONE(file_size_done, no_of_files_done);
+         WHAT_DONE("mailed", file_size_done, no_of_files_done);
          (void)smtp_close();
          (void)smtp_quit();
          exit(STAT_ERROR);
@@ -390,7 +390,7 @@ main(int argc, char *argv[])
             /* Close remote file. */
             if ((status = smtp_close()) != SUCCESS)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("mailed", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Failed to close DATA mode (%d)."), status);
                (void)smtp_quit();
@@ -425,7 +425,7 @@ main(int argc, char *argv[])
          length = sprintf(buffer, "From: %s\r\n", db.from);
          if (smtp_write(buffer, NULL, length) < 0)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("mailed", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                       _("Failed to write From to SMTP-server."));
             (void)smtp_quit();
@@ -438,7 +438,7 @@ main(int argc, char *argv[])
          length = sprintf(buffer, "Reply-To: %s\r\n", db.reply_to);
          if (smtp_write(buffer, NULL, length) < 0)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("mailed", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                       _("Failed to write Reply-To to SMTP-server."));
             (void)smtp_quit();
@@ -450,7 +450,7 @@ main(int argc, char *argv[])
       length = sprintf(buffer, "To: %s\r\n", remote_user);
       if (smtp_write(buffer, NULL, length) < 0)
       {
-         WHAT_DONE(file_size_done, no_of_files_done);
+         WHAT_DONE("mailed", file_size_done, no_of_files_done);
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                    _("Failed to write To header to SMTP-server."));
          (void)smtp_quit();
@@ -463,7 +463,7 @@ main(int argc, char *argv[])
          length = sprintf(buffer, "Subject: %s\r\n", db.subject);
          if (smtp_write(buffer, NULL, length) < 0)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("mailed", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                       _("Failed to write subject to SMTP-server."));
             (void)smtp_quit();
@@ -476,7 +476,7 @@ main(int argc, char *argv[])
               length = sprintf(buffer, "Subject: %s\r\n", final_filename);
               if (smtp_write(buffer, NULL, length) < 0)
               {
-                 WHAT_DONE(file_size_done, no_of_files_done);
+                 WHAT_DONE("mailed", file_size_done, no_of_files_done);
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                            _("Failed to write the filename as subject to SMTP-server."));
                  (void)smtp_quit();
@@ -507,7 +507,7 @@ main(int argc, char *argv[])
 
          if (smtp_write(buffer_ptr, NULL, length) < 0)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("mailed", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                       _("Failed to write start of multipart boundary to SMTP-server."));
             (void)smtp_quit();
@@ -524,7 +524,7 @@ main(int argc, char *argv[])
       }
       if (smtp_write("\r\n", NULL, 2) < 0)
       {
-         WHAT_DONE(file_size_done, no_of_files_done);
+         WHAT_DONE("mailed", file_size_done, no_of_files_done);
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                    _("Failed to write carriage return line feed to mark end of header to SMTP-server."));
          (void)smtp_quit();
@@ -538,7 +538,7 @@ main(int argc, char *argv[])
          {
             if (read(fd, buffer, blocksize) != blocksize)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("mailed", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          _("Failed to read() from `%s' : %s"),
                          db.filename[files_send], strerror(errno));
@@ -552,7 +552,7 @@ main(int argc, char *argv[])
                                           (unsigned char *)encode_buffer);
                if (smtp_write(encode_buffer, NULL, write_size) < 0)
                {
-                  WHAT_DONE(file_size_done, no_of_files_done);
+                  WHAT_DONE("mailed", file_size_done, no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             _("Failed to write data from the source file to the SMTP-server."));
                   (void)smtp_quit();
@@ -563,7 +563,7 @@ main(int argc, char *argv[])
             {
                if (smtp_write(buffer, smtp_buffer, blocksize) < 0)
                {
-                  WHAT_DONE(file_size_done, no_of_files_done);
+                  WHAT_DONE("mailed", file_size_done, no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             _("Failed to write data from the source file to the SMTP-server."));
                   (void)smtp_quit();
@@ -579,7 +579,7 @@ main(int argc, char *argv[])
          {
             if (read(fd, buffer, rest) != rest)
             {
-               WHAT_DONE(file_size_done, no_of_files_done);
+               WHAT_DONE("mailed", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                          _("Failed to read() rest from `%s' : %s"),
                          db.filename[files_send], strerror(errno));
@@ -593,7 +593,7 @@ main(int argc, char *argv[])
                                           (unsigned char *)encode_buffer);
                if (smtp_write(encode_buffer, NULL, write_size) < 0)
                {
-                  WHAT_DONE(file_size_done, no_of_files_done);
+                  WHAT_DONE("mailed", file_size_done, no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             _("Failed to write the rest data from the source file to the SMTP-server."));
                   (void)smtp_quit();
@@ -604,7 +604,7 @@ main(int argc, char *argv[])
             {
                if (smtp_write(buffer, smtp_buffer, rest) < 0)
                {
-                  WHAT_DONE(file_size_done, no_of_files_done);
+                  WHAT_DONE("mailed", file_size_done, no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             _("Failed to write the rest data from the source file to the SMTP-server."));
                   (void)smtp_quit();
@@ -662,7 +662,7 @@ main(int argc, char *argv[])
 
          if (smtp_write(buffer, NULL, length) < 0)
          {
-            WHAT_DONE(file_size_done, no_of_files_done);
+            WHAT_DONE("mailed", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                       _("Failed to write end of multipart boundary to SMTP-server."));
             (void)smtp_quit();
@@ -687,7 +687,7 @@ main(int argc, char *argv[])
       /* Close remote file. */
       if ((status = smtp_close()) != SUCCESS)
       {
-         WHAT_DONE(file_size_done, no_of_files_done);
+         WHAT_DONE("mailed", file_size_done, no_of_files_done);
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                    _("Failed to close DATA mode (%d)."), status);
          (void)smtp_quit();
@@ -717,7 +717,7 @@ main(int argc, char *argv[])
       }
    } /* for (files_send = 0; files_send < db.no_of_files; files_send++) */
 
-   WHAT_DONE(file_size_done, no_of_files_done);
+   WHAT_DONE("mailed", file_size_done, no_of_files_done);
    msg_str[0] = '\0';
    free(buffer);
 

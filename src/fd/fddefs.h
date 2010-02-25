@@ -1,6 +1,6 @@
 /*
  *  fddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,10 @@
 #define TRL_MEMBER_ID_LENGTH     (sizeof(TRL_MEMBER_ID) - 1)
 #define TRL_LIMIT_ID             "limit"
 #define TRL_LIMIT_ID_LENGTH      (sizeof(TRL_LIMIT_ID) - 1)
+
+/* Flag to indicate how file was distributed. */
+#define FILES_COPIED             1
+#define FILES_MOVED              2
 
 /* The different types of locking. */
 #define MAX_LOCK_FILENAME_LENGTH 32
@@ -254,6 +258,7 @@
 #define SMTP_SERVER_NAME_IN_MESSAGE    262144
 #define UNIQUE_LOCKING                 524288
 #define DISTRIBUTED_HELPER_JOB         1048576
+#define MIRROR_DIR                     2097152
 
 #ifdef _WITH_BURST_2
 # define MORE_DATA_FIFO                "/more_data_"
@@ -533,6 +538,7 @@ struct job
                                          /*|21 | This is a distributed  |*/
                                          /*|   | helper job for         |*/
                                          /*|   | retrieving files.      |*/
+                                         /*|22 | Mirror source dir.     |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
           unsigned int  dup_check_flag;  /* Flag storing the type of     */
@@ -653,7 +659,7 @@ struct trl_cache
 extern int   append_compare(char *, char *),
              archive_file(char *, char *, struct job *),
              attach_ls_data(void),
-             check_burst_2(char *, int *,
+             check_burst_2(char *, int *, int,
 #ifdef _WITH_INTERRUPT_JOB
                            int,
 #endif
@@ -695,6 +701,7 @@ extern void  calc_trl_per_process(int),
              check_msg_time(void),
              check_queue_space(void),
              check_trl_file(void),
+             compare_dir_local(void),
              fsa_detach_pos(int),
              get_group_list(char *),
              get_new_positions(void),

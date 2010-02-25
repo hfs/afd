@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2007 - 2009 Holger Kiehl
+## Copyright (C) 2007 - 2010 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ lib_LIBRARIES        = libuiafd.a
 libuiafd_a_SOURCES   = check_host_permissions.c\
                        config_log.c\
                        get_current_jid_list.c\
-                       get_file_mask_list.c\
                        get_ip_no.c\
                        get_printer_cmd.c\
                        handle_setup_file.c\

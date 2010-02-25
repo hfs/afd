@@ -1,6 +1,6 @@
 /*
  *  sf_loc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,7 @@ DESCR__S_M1
  **   09.07.2000 H.Kiehl Cleaned up log output to reduce code size.
  **   03.03.2004 H.Kiehl Create target directory if it does not exist.
  **   02.09.2007 H.Kiehl Added copying via splice().
+ **   23.01.2010 H.Kiehl Added support for mirroring source.
  **
  */
 DESCR__E_M1
@@ -94,12 +95,18 @@ DESCR__E_M1
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
+                           no_of_dirs = 0,
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
+                           *no_of_listed_files,
                            *p_no_of_hosts = NULL,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_id,
                            fsa_fd = -1,
                            prev_no_of_files_done = 0,
+                           move_flag,
+                           rl_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag = OFF,
                            transfer_log_fd = STDERR_FILENO,
@@ -133,7 +140,8 @@ unsigned int               burst_2_counter = 0;
 #endif
 long                       transfer_timeout; /* Not used [init_sf()]    */
 #ifdef HAVE_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
 off_t                      *file_size_buffer = NULL;
 time_t                     *file_mtime_buffer = NULL;
@@ -142,7 +150,9 @@ char                       *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            *del_file_name_buffer = NULL,
                            *file_name_buffer = NULL;
+struct fileretrieve_status *fra = NULL;
 struct filetransfer_status *fsa = NULL;
+struct retrieve_list       *rl;
 struct job                 db;
 struct rule                *rule;
 #ifdef _DELETE_LOG
@@ -450,6 +460,7 @@ main(int argc, char *argv[])
       {
          p_to_name = ff_name;
       }
+      move_flag = 0;
 
 #ifdef WITH_FAST_MOVE
       /*
@@ -648,6 +659,10 @@ try_link_again:
                                                       source_file, p_to_name, strerror(errno));
                                             exit(MOVE_ERROR);
                                          }
+                                         else
+                                         {
+                                            move_flag |= FILES_MOVED;
+                                         }
                                       }
                                    }
                                    else
@@ -732,6 +747,7 @@ try_link_again:
                                   "Linked file `%s' to `%s'.",
                                   source_file, p_to_name);
                   }
+                  move_flag |= FILES_MOVED;
                }
             }
             else
@@ -745,6 +761,7 @@ try_link_again:
                }
                else
                {
+                  move_flag |= FILES_COPIED;
                   if ((fsa->protocol_options & KEEP_TIME_STAMP) &&
                       (file_mtime_buffer != NULL))
                   {
@@ -1360,13 +1377,17 @@ try_again_unlink:
             exit_status = STILL_FILES_TO_SEND;
          }
 #endif
+         if (db.special_flag & MIRROR_DIR)
+         {
+            compare_dir_local();
+         }
 #ifdef WITH_FAST_MOVE
       }
 #endif
 
 #ifdef _WITH_BURST_2
       burst_2_counter++;
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, move_flag,
 # ifdef _WITH_INTERRUPT_JOB
                                      0,
 # endif
@@ -1679,15 +1700,28 @@ sf_loc_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
-         char buffer[MAX_INT_LENGTH + 24 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
-
 #ifdef _WITH_BURST_2
-# if SIZEOF_OFF_T == 4
-         length = sprintf(buffer, "%lu bytes copied/moved in %d file(s).",
-# else
-         length = sprintf(buffer, "%llu bytes copied/moved in %d file(s).",
-# endif
-                          diff_file_size_done, diff_no_of_files_done);
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 24 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
+#else
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 24 + MAX_INT_LENGTH + 1];
+#endif
+
+         if ((move_flag & FILES_MOVED) && ((move_flag & FILES_COPIED) == 0))
+         {
+            WHAT_DONE_BUFFER(length, buffer, "moved",
+                              diff_file_size_done, diff_no_of_files_done);
+         }
+         else if (((move_flag & FILES_MOVED) == 0) && (move_flag & FILES_COPIED))
+              {
+                 WHAT_DONE_BUFFER(length, buffer, "copied",
+                                   diff_file_size_done, diff_no_of_files_done);
+              }
+              else
+              {
+                 WHAT_DONE_BUFFER(length, buffer, "copied/moved",
+                                   diff_file_size_done, diff_no_of_files_done);
+              }
+#ifdef _WITH_BURST_2
          if (burst_2_counter == 1)
          {
             (void)strcpy(&buffer[length], " [BURST]");
@@ -1697,16 +1731,8 @@ sf_loc_exit(void)
                  (void)sprintf(buffer + length, " [BURST * %u]",
                                burst_2_counter);
               }
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
-#else
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
-# if SIZEOF_OFF_T == 4
-                   "%lu bytes copied/moved in %d file(s).",
-# else
-                   "%llu bytes copied/moved in %d file(s).",
-# endif
-                   diff_file_size_done, diff_no_of_files_done);
 #endif /* _WITH_BURST_2 */
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
       reset_fsa((struct job *)&db, exitflag);
    }

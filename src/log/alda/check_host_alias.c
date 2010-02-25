@@ -1,6 +1,6 @@
 /*
  *  check_host_alias.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,15 @@ extern unsigned int               mode,
 extern char                       **search_host_alias,
                                   **search_host_name;
 extern struct filetransfer_status *fsa;
+#ifdef WITH_AFD_MON
+extern unsigned int               start_alias_counter,
+                                  start_id_counter,
+                                  *start_id,
+                                  start_name_counter;
+extern char                       **start_alias,
+                                  **start_name;
+extern struct afd_host_list       *ahl;
+#endif
 
 
 /*########################## check_host_alias() #########################*/
@@ -203,6 +212,109 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
 #ifdef WITH_AFD_MON
       else
       {
+         int i;
+
+         if (start_alias_counter != 0)
+         {
+            for (i = 0; i < start_alias_counter; i++)
+            {
+               if ((ret = pmatch(start_alias[i], host_alias, NULL)) == 0)
+               {
+                  return(SUCCESS);
+               }
+               else if (ret == 1)
+                    {
+                       /*
+                        * This alias is definitly not wanted,
+                        * so no need to check the other filters.
+                        */
+                       i = start_alias_counter;
+                    }
+            }
+         }
+
+         if (start_id_counter != 0)
+         {
+            int j;
+
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               if (strcmp(host_alias, ahl[i].host_alias) == 0)
+               {
+                  for (j = 0; j < start_id_counter; j++)
+                  {
+                     if (ahl[i].host_id == start_id[j])
+                     {
+                        return(SUCCESS);
+                     }
+                  }
+               }
+            }
+         }
+
+         if (start_name_counter != 0)
+         {
+            if ((i = get_real_hostname(host_alias, current_toggle,
+                                       real_hostname)) != INCORRECT)
+            {
+               int j;
+
+               for (j = 0; j < start_name_counter; j++)
+               {
+                  if (current_toggle == -1)
+                  {
+                     if ((ret = pmatch(start_name[j],
+                                       ahl[i].real_hostname[0],
+                                       NULL)) == 0)
+                     {
+                        return(SUCCESS);
+                     }
+                     else if (ret == 1)
+                          {
+                             /*
+                              * This alias is definitly not wanted,
+                              * so no need to check the other filters.
+                              */
+                             j = search_host_alias_counter;
+                          }
+                     else if (fsa[i].host_toggle_str[0] != '\0')
+                          {
+                             if ((ret = pmatch(start_name[j],
+                                               ahl[i].real_hostname[1],
+                                               NULL)) == 0)
+                             {
+                                return(SUCCESS);
+                             }
+                             else if (ret == 1)
+                                  {
+                                     /*
+                                      * This alias is definitly not wanted,
+                                      * so no need to check the other filters.
+                                      */
+                                     j = search_host_alias_counter;
+                                  }
+                          }
+                  }
+                  else
+                  {
+                     if ((ret = pmatch(start_name[j],
+                                       ahl[i].real_hostname[current_toggle],
+                                       NULL)) == 0)
+                     {
+                        return(SUCCESS);
+                     }
+                     else if (ret == 1)
+                          {
+                             /*
+                              * This alias is definitly not wanted,
+                              * so no need to check the other filters.
+                              */
+                             j = start_name_counter;
+                          }
+                  }
+               }
+            }
+         }
       }
 #endif
 

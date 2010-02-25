@@ -1811,7 +1811,7 @@ try_again_unlink:
       burst_2_counter++;
       total_append_count += append_count;
       append_count = 0;
-   } while ((cb2_ret = check_burst_2(file_path, &files_to_send,
+   } while ((cb2_ret = check_burst_2(file_path, &files_to_send, 0,
 # ifdef _WITH_INTERRUPT_JOB
                                      interrupt,
 # endif
@@ -1873,15 +1873,14 @@ sf_sftp_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
-         char buffer[MAX_INT_LENGTH + 24 + MAX_INT_LENGTH + 12 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
-
-#if SIZEOF_OFF_T == 4
-         length = sprintf(buffer, "%lu bytes send in %d file(s).",
+#ifdef _WITH_BURST_2
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 21 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
 #else
-         length = sprintf(buffer, "%llu bytes send in %d file(s).",
+         char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 21 + MAX_INT_LENGTH + 1];
 #endif
-                          diff_file_size_done, diff_no_of_files_done);
 
+         WHAT_DONE_BUFFER(length, buffer, "send",
+                          diff_file_size_done, diff_no_of_files_done);
 #ifdef _WITH_BURST_2
          if (total_append_count == 1)
          {

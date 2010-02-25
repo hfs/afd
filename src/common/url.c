@@ -1,7 +1,7 @@
 /*
  *  url.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,6 +72,7 @@ DESCR__S_M3
  **   08.07.2009 H.Kiehl Made functions more RFC-conform by allowing
  **                      to specify special characters with % character
  **                      and two hexa digits.
+ **   17.01.2010 H.Kiehl Handle case when no port number is specified.
  **
  */
 DESCR__E_M3
@@ -1116,8 +1117,6 @@ url_evaluate(char          *url,
                         str_number[i] = *ptr;
                         i++; ptr++;
                      }
-                     str_number[i] = '\0';
-                     *port = atoi(str_number);
                      if (i >= MAX_INT_LENGTH)
                      {
                         url_error |= PORT_TO_LONG;
@@ -1126,6 +1125,15 @@ url_evaluate(char          *url,
                            ptr++;
                         }
                      }
+                     else if (i == 0)
+                          {
+                             url_error |= NO_PORT_SPECIFIED;
+                          }
+                          else
+                          {
+                             str_number[i] = '\0';
+                             *port = atoi(str_number);
+                          }
                      todo &= ~URL_GET_PORT;
                   }
                }
@@ -2463,6 +2471,19 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
             else
             {
                length = sprintf(error_str, "no protocol version supplied");
+            }
+            error_str_length -= length;
+         }
+         if ((error_str_length > 25) && (error_mask & NO_PORT_SPECIFIED))
+         {
+            if (length)
+            {
+               length += sprintf(&error_str[length],
+                                 ", no port number supplied");
+            }
+            else
+            {
+               length = sprintf(error_str, "no port number supplied");
             }
             error_str_length -= length;
          }

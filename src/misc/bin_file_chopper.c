@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -73,6 +73,7 @@ DESCR__S_M3
  **   13.07.2007 H.Kiehl Added option to filter out only those bulletins
  **                      we really nead.
  **   21.01.2009 H.Kiehl Added support for GRIB edition 2.
+ **   20.01.2010 H.Kiehl Added support for DWD data type.
  **
  */
 DESCR__E_M3
@@ -717,157 +718,34 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
          length;
    char  *buffer,
          *ptr,
-         length_indicator[14];
+         length_indicator[15];
 
    buffer = src_ptr;
-   while (total_length > 9)
+   if ((*buffer == 0) && (*(buffer + 1) == 0) &&
+       (*(buffer + 2) == 0) && (*(buffer + 3) == 0))
    {
-      if ((ptr = bin_search_start(buffer, total_length, &i, &total_length)) != NULL)
+      int          byte_order = 1;
+      unsigned int data_length;
+
+      ptr = buffer + 4;
+      while (total_length > 9)
       {
-         unsigned int message_length = 0;
-
-         /*
-          * When data type is GRIB and it is still using edition
-          * 0 we cannot use the length indicator.
-          */
-         if ((i == 0) && (*(ptr + 3) == 0))
+         if (*(char *)&byte_order == 1)
          {
-            /*
-             * Let's look for the end. If we don't find an end marker
-             * try get the next data type. Maybe this is not a good
-             * idea and it would be better to discard this file.
-             * Experience will show which is the better solution.
-             */
-            if ((data_length = bin_search_end(end_id[i], ptr, total_length)) == 0)
-            {
-#ifdef _END_DIFFER
-               /*
-                * Since we did not find a valid end_marker, it does not
-                * mean that all data in this file is incorrect. Ignore
-                * this bulletin and try search for the next data type
-                * identifier. Since we have no clue where this might start
-                * we have to extend the search across the whole file.
-                */
-               buffer = ptr;
-               continue;
-#else
-               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                           _("Failed to extract data."));
-               return(INCORRECT);
-#endif
-            }
-         }
-              /* When GRIB it has to be at least edition 2. */
-         else if ((i == 0) && (*(ptr + 3) == 2))
-              {
-                 /*
-                  * Determine length by reading byte 8 - 15.
-                  */
-                 message_length = 0;
-                 message_length |= (unsigned char)*(ptr + 4);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 5);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 6);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 7);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 8);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 9);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 10);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 11);
-
-                 if (message_length > (total_length + id_length[i]))
-                 {
-                    if (first_time == YES)
-                    {
-                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                   _("Hey! Whats this? Message length (%llu) > then total length (%u)"),
-                                   message_length, total_length + id_length[i]);
-                       first_time = NO;
-                    }
-                    buffer = ptr;
-                    continue;
-                 }
-                 else
-                 {
-                    char *tmp_ptr = ptr - id_length[i] +
-                                    message_length -
-                                    end_id_length[i];
-
-                    if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
-                    {
-                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                   _("Hey! Whats this? End locator not where it should be!"));
-                       buffer = ptr;
-                       continue;
-                    }
-                 }
-              }
-              else
-              {
-                 /*
-                  * Determine length by reading byte 4 - 6.
-                  */
-                 message_length = 0;
-                 message_length |= (unsigned char)*ptr;
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 1);
-                 message_length <<= 8;
-                 message_length |= (unsigned char)*(ptr + 2);
-
-                 if (message_length > (total_length + id_length[i]))
-                 {
-                    if (first_time == YES)
-                    {
-                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                   _("Hey! Whats this? Message length (%u) > then total length (%u)"),
-                                   message_length, total_length + id_length[i]);
-                       first_time = NO;
-                    }
-                    buffer = ptr;
-                    continue;
-                 }
-                 else
-                 {
-                    char *tmp_ptr = ptr - id_length[i] +
-                                    message_length -
-                                    end_id_length[i];
-
-                    if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
-                    {
-                       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                   _("Hey! Whats this? End locator not where it should be!"));
-                       buffer = ptr;
-                       continue;
-                    }
-                 }
-              }
-
-         /* Add data type and end identifier to file. */
-         ptr -= id_length[i];
-         if (message_length == 0)
-         {
-            data_length = data_length + id_length[i] + end_id_length[i];
+            ((char *)&data_length)[0] = *(ptr + 3);
+            ((char *)&data_length)[1] = *(ptr + 2);
+            ((char *)&data_length)[2] = *(ptr + 1);
+            ((char *)&data_length)[3] = *ptr;
          }
          else
          {
-            data_length = message_length;
+            ((char *)&data_length)[0] = *ptr;
+            ((char *)&data_length)[1] = *(ptr + 1);
+            ((char *)&data_length)[2] = *(ptr + 2);
+            ((char *)&data_length)[3] = *(ptr + 3);
          }
-
-#if SIZEOF_OFF_T == 4
-         (void)sprintf(length_indicator, "%08ld00",
-#else
-         (void)sprintf(length_indicator, "%08lld00",
-#endif
-                       (pri_off_t)(data_length + 8));
-         length_indicator[10] = 1;
-         length_indicator[11] = 13;
-         length_indicator[12] = 13;
-         length_indicator[13] = 10;
+         (void)sprintf(length_indicator, "%08u00\01\015\015\012",
+                       data_length + 4 + 4);
          if (write(to_fd, length_indicator, 14) != 14)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -875,73 +753,249 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
             return(INCORRECT);
          }
          bytes_written += 14;
-
-         /* Write message body. */
-         if (writen(to_fd, ptr, data_length, 0) != data_length)
+         if (write(to_fd, ptr + 4, data_length) != data_length)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        _("writen() error : %s"), strerror(errno));
+                        _("write() error : %s"), strerror(errno));
             return(INCORRECT);
          }
          bytes_written += data_length;
-
-         length_indicator[0] = 13;
-         length_indicator[1] = 13;
-         length_indicator[2] = 10;
-         length_indicator[3] = 3;
-         if (write(to_fd, length_indicator, 4) != 4)
+         if (write(to_fd, "\015\015\012\03", 4) != 4)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         _("write() error : %s"), strerror(errno));
             return(INCORRECT);
          }
          bytes_written += 4;
-
-         length = data_length;
-/*         length = data_length + end_id_length[i]; */
-         if (data_length > total_length)
+         ptr += (4 + data_length + 4);
+         total_length -= (4 + data_length + 4);
+      }
+   }
+   else
+   {
+      while (total_length > 9)
+      {
+         if ((ptr = bin_search_start(buffer, total_length, &i, &total_length)) != NULL)
          {
-            if ((data_length - total_length) > 5)
+            unsigned int message_length = 0;
+
+            /*
+             * When data type is GRIB and it is still using edition
+             * 0 we cannot use the length indicator.
+             */
+            if ((i == 0) && (*(ptr + 3) == 0))
             {
-               receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                           _("Hmmm. data_length (%d) > total_length (%u)?"),
-                           data_length, total_length);
+               /*
+                * Let's look for the end. If we don't find an end marker
+                * try get the next data type. Maybe this is not a good
+                * idea and it would be better to discard this file.
+                * Experience will show which is the better solution.
+                */
+               if ((data_length = bin_search_end(end_id[i], ptr, total_length)) == 0)
+               {
+#ifdef _END_DIFFER
+                  /*
+                   * Since we did not find a valid end_marker, it does not
+                   * mean that all data in this file is incorrect. Ignore
+                   * this bulletin and try search for the next data type
+                   * identifier. Since we have no clue where this might start
+                   * we have to extend the search across the whole file.
+                   */
+                  buffer = ptr;
+                  continue;
+#else
+                  receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                              _("Failed to extract data."));
+                  return(INCORRECT);
+#endif
+               }
             }
-            total_length = 0;
-         }
-         else
-         {
-/*            total_length -= data_length; */
-            total_length -= (data_length - end_id_length[i]);
-         }
-         if (message_length != 0)
-         {
-            int rest;
+                 /* When GRIB it has to be at least edition 2. */
+            else if ((i == 0) && (*(ptr + 3) == 2))
+                 {
+                    /*
+                     * Determine length by reading byte 8 - 15.
+                     */
+                    message_length = 0;
+                    message_length |= (unsigned char)*(ptr + 4);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 5);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 6);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 7);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 8);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 9);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 10);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 11);
 
-            if ((rest = (message_length % 4)) == 0)
+                    if (message_length > (total_length + id_length[i]))
+                    {
+                       if (first_time == YES)
+                       {
+                          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Hey! Whats this? Message length (%llu) > then total length (%u)"),
+                                      message_length, total_length + id_length[i]);
+                          first_time = NO;
+                       }
+                       buffer = ptr;
+                       continue;
+                    }
+                    else
+                    {
+                       char *tmp_ptr = ptr - id_length[i] +
+                                       message_length -
+                                       end_id_length[i];
+
+                       if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+                       {
+                          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Hey! Whats this? End locator not where it should be!"));
+                          buffer = ptr;
+                          continue;
+                       }
+                    }
+                 }
+                 else
+                 {
+                    /*
+                     * Determine length by reading byte 4 - 6.
+                     */
+                    message_length = 0;
+                    message_length |= (unsigned char)*ptr;
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 1);
+                    message_length <<= 8;
+                    message_length |= (unsigned char)*(ptr + 2);
+
+                    if (message_length > (total_length + id_length[i]))
+                    {
+                       if (first_time == YES)
+                       {
+                          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Hey! Whats this? Message length (%u) > then total length (%u)"),
+                                      message_length, total_length + id_length[i]);
+                          first_time = NO;
+                       }
+                       buffer = ptr;
+                       continue;
+                    }
+                    else
+                    {
+                       char *tmp_ptr = ptr - id_length[i] +
+                                       message_length -
+                                       end_id_length[i];
+
+                       if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+                       {
+                          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Hey! Whats this? End locator not where it should be!"));
+                          buffer = ptr;
+                          continue;
+                       }
+                    }
+                 }
+
+            /* Add data type and end identifier to file. */
+            ptr -= id_length[i];
+            if (message_length == 0)
             {
-               buffer = ptr + length;
+               data_length = data_length + id_length[i] + end_id_length[i];
             }
             else
             {
-               buffer = ptr + length - rest;
-               total_length += rest;
+               data_length = message_length;
+            }
+
+#if SIZEOF_OFF_T == 4
+            (void)sprintf(length_indicator, "%08ld00",
+#else
+            (void)sprintf(length_indicator, "%08lld00",
+#endif
+                          (pri_off_t)(data_length + 8));
+            length_indicator[10] = 1;
+            length_indicator[11] = 13;
+            length_indicator[12] = 13;
+            length_indicator[13] = 10;
+            if (write(to_fd, length_indicator, 14) != 14)
+            {
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                           _("write() error : %s"), strerror(errno));
+               return(INCORRECT);
+            }
+            bytes_written += 14;
+
+            /* Write message body. */
+            if (writen(to_fd, ptr, data_length, 0) != data_length)
+            {
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                           _("writen() error : %s"), strerror(errno));
+               return(INCORRECT);
+            }
+            bytes_written += data_length;
+
+            length_indicator[0] = 13;
+            length_indicator[1] = 13;
+            length_indicator[2] = 10;
+            length_indicator[3] = 3;
+            if (write(to_fd, length_indicator, 4) != 4)
+            {
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                           _("write() error : %s"), strerror(errno));
+               return(INCORRECT);
+            }
+            bytes_written += 4;
+
+            length = data_length;
+/*            length = data_length + end_id_length[i]; */
+            if (data_length > total_length)
+            {
+               if ((data_length - total_length) > 5)
+               {
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                              _("Hmmm. data_length (%d) > total_length (%u)?"),
+                              data_length, total_length);
+               }
+               total_length = 0;
+            }
+            else
+            {
+/*               total_length -= data_length; */
+               total_length -= (data_length - end_id_length[i]);
+            }
+            if (message_length != 0)
+            {
+               int rest;
+
+               if ((rest = (message_length % 4)) == 0)
+               {
+                  buffer = ptr + length;
+               }
+               else
+               {
+                  buffer = ptr + length - rest;
+                  total_length += rest;
+               }
+            }
+            else
+            {
+               buffer = ptr + length;
             }
          }
          else
          {
-            buffer = ptr + length;
+            /*
+             * Since we did not find a valid data type identifier, lets
+             * forget it.
+             */
+            break;
          }
-      }
-      else
-      {
-         /*
-          * Since we did not find a valid data type identifier, lets
-          * forget it.
-          */
-         break;
-      }
-   } /* while (total_length > 9) */
+      } /* while (total_length > 9) */
+   }
 
    return(bytes_written);
 }

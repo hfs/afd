@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -496,19 +496,13 @@ reread_host_config(time_t           *hc_old_time,
          }
          if (inform_fd == YES)
          {
-            if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
-            {
-               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-            }
+            p_afd_status->amg_jobs |= REREADING_DIR_CONFIG;
             inform_fd_about_fsa_change();
          }
          change_alias_order(p_host_names, new_no_of_hosts);
          if (inform_fd == YES)
          {
-            if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-            {
-               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-            }
+            p_afd_status->amg_jobs &= ~REREADING_DIR_CONFIG;
          }
          free(p_host_names);
       }

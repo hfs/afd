@@ -138,22 +138,6 @@ extern void my_usleep(unsigned long),
 extern int  rec(int, char *, char *, ...);
 #endif /* _STANDALONE_ */
 
-#if SIZEOF_OFF_T == 4
-# define WHAT_DONE(file_size_done, no_of_files_done)           \
-        {                                                      \
-           trans_log(INFO_SIGN, NULL, 0, NULL, NULL,           \
-                     _("%ld bytes send in %d file(s)."),       \
-                     (file_size_done), (no_of_files_done));    \
-        }
-#else
-# define WHAT_DONE(file_size_done, no_of_files_done)           \
-        {                                                      \
-           trans_log(INFO_SIGN, NULL, 0, NULL, NULL,           \
-                     _("%lld bytes send in %d file(s)."),      \
-                     (file_size_done), (no_of_files_done));    \
-        }
-#endif
-
 #define FILE_NAME_FILE_ERROR       40
 
 /* Structure holding all filenames that are to be retrieved. */

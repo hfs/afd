@@ -104,6 +104,7 @@ static void                       sig_alarm(int);
 int
 check_burst_2(char         *file_path,
               int          *files_to_send,
+              int          move_flag,
 #ifdef _WITH_INTERRUPT_JOB
               int          interrupt,
 #endif
@@ -214,16 +215,34 @@ check_burst_2(char         *file_path,
                                     prev_no_of_files_done;
             if (diff_no_of_files_done > 0)
             {
-               int  length;
-               char how[13],
-                    msg_str[MAX_PATH_LENGTH];
+               int     length;
+               char    how[13],
+                       msg_str[MAX_PATH_LENGTH];
+               u_off_t diff_file_size_done;
 
                if (db.protocol & LOC_FLAG)
                {
-                  how[0] = 'c'; how[1] = 'o'; how[2] = 'p'; how[3] = 'i';
-                  how[4] = 'e'; how[5] = 'd'; how[6] = '/'; how[7] = 'm';
-                  how[8] = 'o'; how[9] = 'v'; how[10] = 'e'; how[11] = 'd';
-                  how[12] = '\0';
+                  if ((move_flag & FILES_MOVED) &&
+                      ((move_flag & FILES_COPIED) == 0))
+                  {
+                     how[0] = 'm'; how[1] = 'o'; how[2] = 'v';
+                     how[3] = 'e'; how[4] = 'd'; how[5] = '\0';
+                  }
+                  else if (((move_flag & FILES_MOVED) == 0) &&
+                           (move_flag & FILES_COPIED))
+                       {
+                          how[0] = 'c'; how[1] = 'o'; how[2] = 'p';
+                          how[3] = 'i'; how[4] = 'e'; how[5] = 'd';
+                          how[6] = '\0';
+                       }
+                       else
+                       {
+                          how[0] = 'c'; how[1] = 'o'; how[2] = 'p';
+                          how[3] = 'i'; how[4] = 'e'; how[5] = 'd';
+                          how[6] = '/'; how[7] = 'm'; how[8] = 'o';
+                          how[9] = 'v'; how[10] = 'e'; how[11] = 'd';
+                          how[12] = '\0';
+                       }
                }
                else if (db.protocol & SMTP_FLAG)
                     {
@@ -236,13 +255,9 @@ check_burst_2(char         *file_path,
                        how[0] = 's'; how[1] = 'e'; how[2] = 'n';
                        how[3] = 'd'; how[4] = '\0';
                     }
-# if SIZEOF_OFF_T == 4
-               length = sprintf(msg_str, "%lu bytes %s in %d file(s).",
-# else
-               length = sprintf(msg_str, "%llu bytes %s in %d file(s).",
-# endif
-                                fsa->job_status[(int)db.job_no].file_size_done - prev_file_size_done,
-                                how, diff_no_of_files_done);
+               diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done - prev_file_size_done;
+               WHAT_DONE_BUFFER(length, msg_str, how,
+                                diff_file_size_done, diff_no_of_files_done);
                prev_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done;
                prev_file_size_done = fsa->job_status[(int)db.job_no].file_size_done;
                if (total_append_count != NULL)
@@ -648,6 +663,7 @@ check_burst_2(char         *file_path,
                 *       otherwise some values are NOT set!
                 */
                p_new_db->protocol = db.protocol;
+               p_new_db->job_id = db.job_id;
                if (eval_message(msg_name, p_new_db) < 0)
                {
                   free(p_new_db);

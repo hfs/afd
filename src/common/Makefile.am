@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2009 Holger Kiehl
+## Copyright (C) 2001 - 2010 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -134,6 +134,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        get_dir_number.c\
                        get_dir_options.c\
                        get_error_str.c\
+                       get_file_mask_list.c\
                        get_log_number.c\
                        get_max_log_number.c\
                        get_mon_path.c\
@@ -167,6 +168,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        $(PRODUCTION_LOG)\
                        read_file.c\
                        read_file_no_cr.c\
+                       read_job_ids.c\
                        readn.c\
                        rec.c\
                        rec_rmdir.c\

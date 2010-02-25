@@ -1,6 +1,6 @@
 /*
  *  show_dlog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@
 /* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT         26
 #define SHOW_MEDIUM_FORMAT        40
-#define SHOW_LONG_FORMAT          70
+#define SHOW_LONG_FORMAT          95
 #define DATE_TIME_HEADER         "Date   Time     "
 #define FILE_NAME_HEADER         "File name"
 #define FILE_SIZE_HEADER         "File size   "

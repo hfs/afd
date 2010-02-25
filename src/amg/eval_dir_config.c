@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -109,6 +109,8 @@ DESCR__S_M3
  **   03.05.2007 H.Kiehl Return the number of warnings that where generated.
  **   17.05.2007 H.Kiehl Added check for options.
  **   20.04.2008 H.Kiehl Let url_evaluate() handle the URL parts once.
+ **   17.01.2010 H.Kiehl Give url_evaluate() dummy variables for values we
+ **                      do not need, to fool it to do syntax checking.
  **
  */
 DESCR__E_M3
@@ -244,6 +246,10 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                     k,
                     m,
 #endif
+                    dummy_port,          /* Is actually not required for  */
+                                         /* url_evaluate(). But we supply */
+                                         /* it so we fool the function to */
+                                         /* do syntax checking on the URL.*/
                     ret,                 /* Return value.                 */
                     t_dgc = 0,           /* Total number of destination   */
                                          /* groups found.                 */
@@ -256,6 +262,11 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
    uid_t            current_uid;
    char             *database = NULL,
                     *dir_ptr,
+                    dummy_transfer_mode,
+#ifdef WITH_SSH_FINGERPRINT
+                    dummy_ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1],
+                    dummy_key_type,
+#endif
                     *error_ptr,          /* Pointer showing where we fail */
                                          /* to see that the directory is  */
                                          /* available for us.             */
@@ -291,8 +302,10 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                     smtp_user[MAX_USER_NAME_LENGTH + 1],
                     password[MAX_USER_NAME_LENGTH + 1],
                     directory[MAX_RECIPIENT_LENGTH + 1],
+                    dummy_directory[MAX_RECIPIENT_LENGTH + 1],
                     smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
-   unsigned char    smtp_auth;
+   unsigned char    dummy_ssh_protocol,
+                    smtp_auth;
    struct dir_group *dir;
 
    /* Allocate memory for the directory structure. */
@@ -686,15 +699,17 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
          else if ((error_mask = url_evaluate(dir->location, &dir->scheme, user,
                                              &smtp_auth, smtp_user,
 #ifdef WITH_SSH_FINGERPRINT
-                                             NULL, NULL,
+                                             dummy_ssh_fingerprint,
+                                             &dummy_key_type,
 #endif
 #ifdef WITH_PASSWD_IN_MSG
                                              password, NO, dir->real_hostname,
 #else
                                              password, YES, dir->real_hostname,
 #endif
-                                             NULL, directory, NULL, NULL, NULL,
-                                             NULL, NULL)) == 0)
+                                             &dummy_port, directory, NULL,
+                                             NULL, &dummy_transfer_mode,
+                                             &dummy_ssh_protocol, NULL)) == 0)
               {
                  if (dir->scheme & FTP_FLAG)
                  {
@@ -1417,15 +1432,20 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                                                        scheme, user,
                                                        &smtp_auth, smtp_user,
 #ifdef WITH_SSH_FINGERPRINT
-                                                       NULL, NULL,
+                                                       dummy_ssh_fingerprint,
+                                                       &dummy_key_type,
 #endif
                                                        password, YES,
                                                        dir->file[dir->fgc].\
                                                        dest[dir->file[dir->fgc].dgc].\
                                                        rec[dir->file[dir->fgc].\
                                                        dest[dir->file[dir->fgc].dgc].rc].real_hostname,
-                                                       NULL, NULL, NULL, NULL,
-                                                       NULL, NULL, smtp_server)) == 0)
+                                                       &dummy_port,
+                                                       dummy_directory, NULL,
+                                                       NULL,
+                                                       &dummy_transfer_mode,
+                                                       &dummy_ssh_protocol,
+                                                       smtp_server)) == 0)
                         {
                            if (user[0] == '\0')
                            {

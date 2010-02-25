@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -611,10 +611,7 @@ main(int argc, char *argv[])
        * If necessary inform FD that AMG is (possibly) about to change
        * the FSA. This is needed when we start/stop the AMG by hand.
        */
-      if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
+      p_afd_status->amg_jobs |= REREADING_DIR_CONFIG;
       inform_fd_about_fsa_change();
 
       /* Evaluate database. */
@@ -1141,10 +1138,7 @@ main(int argc, char *argv[])
 
                                       /* Set flag to indicate that we are */
                                       /* rereading the DIR_CONFIG.        */
-                                      if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
-                                      {
-                                         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-                                      }
+                                      p_afd_status->amg_jobs |= REREADING_DIR_CONFIG;
                                       inform_fd_about_fsa_change();
 
                                       /* Better check if there was a change in HOST_CONFIG. */
@@ -1488,13 +1482,21 @@ get_afd_config_value(int          *rescan_time,
                          value, MAX_INT_LENGTH) != NULL)
       {
          *max_copied_files = atoi(value);
-         if ((*max_copied_files < 1) || (*max_copied_files > 10240))
+         if (*max_copied_files < 1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       _("The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 10240, setting to default %d."),
+                       _("The specified variable for %s in AFD_CONFIG is less then 0, setting to default %d."),
                        MAX_COPIED_FILES_DEF, MAX_COPIED_FILES);
             *max_copied_files = MAX_COPIED_FILES;
          }
+         else if (*max_copied_files > MAX_FILE_BUFFER_SIZE)
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            _("The specified variable for %s in AFD_CONFIG is more then the allowed maximum %d, setting to maximum %d."),
+                            MAX_COPIED_FILES_DEF, MAX_FILE_BUFFER_SIZE,
+                            MAX_FILE_BUFFER_SIZE);
+                 *max_copied_files = MAX_FILE_BUFFER_SIZE;
+              }
       }
       else
       {

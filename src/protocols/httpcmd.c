@@ -133,7 +133,7 @@ static struct http_message_reply hmr;
 static int                       basic_authentication(void),
                                  check_connection(void),
                                  get_http_reply(int *),
-                                 read_msg(int *);
+                                 read_msg(int *, int);
 #ifdef WITH_SSL
 static void                      sig_handler(int);
 #endif
@@ -596,7 +596,7 @@ retry_put_response:
 
       while (hmr.content_length > total_read)
       {
-         if ((reply = read_msg(&read_length)) <= 0)
+         if ((reply = read_msg(&read_length, 0)) <= 0)
          {
             if (reply == 0)
             {
@@ -1146,21 +1146,8 @@ http_chunk_read(char **chunk, int *chunksize)
    int bytes_buffered,
        read_length;
 
-   if ((hmr.bytes_buffered > 0) && (msg_str[4] == '\r') && (msg_str[5] == '\n'))
-   {
-      bytes_buffered = hmr.bytes_buffered;
-      msg_str[4] = '\0';
-      read_length = 5;
-      hmr.bytes_buffered = 0;
-      hmr.bytes_read = 0;
-   }
-   else
-   {
-      bytes_buffered = 0;
-   }
-
    /* First, try read the chunk size. */
-   if ((bytes_buffered) || ((bytes_buffered = read_msg(&read_length)) > 0))
+   if ((bytes_buffered = read_msg(&read_length, 0)) > 0)
    {
       int    bytes_read,
              status,
@@ -1180,6 +1167,7 @@ http_chunk_read(char **chunk, int *chunksize)
          if (tmp_chunksize == 0)
          {
             hmr.bytes_read = 0;
+            hmr.bytes_buffered = 0;
             return(HTTP_LAST_CHUNK);
          }
          tmp_chunksize += 2;
@@ -1202,9 +1190,10 @@ http_chunk_read(char **chunk, int *chunksize)
          }
          else
          {
-            (void)memcpy(*chunk, msg_str + read_length + 1, tmp_chunksize);
-            hmr.bytes_read = tmp_chunksize;
-            return(tmp_chunksize);
+            (void)memcpy(*chunk, msg_str + read_length + 1, tmp_chunksize - 2);
+            hmr.bytes_read = bytes_buffered - tmp_chunksize;
+            (void)read_msg(NULL, tmp_chunksize);
+            return(tmp_chunksize - 2);
          }
       }
 
@@ -1243,7 +1232,7 @@ http_chunk_read(char **chunk, int *chunksize)
                return(INCORRECT);
             }
 # ifdef WITH_TRACE
-            trace_log(NULL, 0, BIN_R_TRACE, (*chunk + bytes_buffered),
+            trace_log(NULL, 0, BIN_CMD_R_TRACE, (*chunk + bytes_buffered),
                       bytes_read, NULL);
 # endif
             bytes_buffered += bytes_read;
@@ -1341,8 +1330,8 @@ http_chunk_read(char **chunk, int *chunksize)
                        return(INCORRECT);
                     }
 #ifdef WITH_TRACE
-                    trace_log(NULL, 0, BIN_R_TRACE, (*chunk + bytes_buffered),
-                              bytes_read, NULL);
+                    trace_log(NULL, 0, BIN_CMD_R_TRACE,
+                              (*chunk + bytes_buffered), bytes_read, NULL);
 #endif
                     bytes_buffered += bytes_read;
                  }
@@ -1477,7 +1466,7 @@ get_http_reply(int *ret_bytes_buffered)
    {
       *ret_bytes_buffered = 0;
    }
-   if ((bytes_buffered = read_msg(&read_length)) > 0)
+   if ((bytes_buffered = read_msg(&read_length, 0)) > 0)
    {
       hmr.close = NO;
       hmr.chunked = NO;
@@ -1514,7 +1503,7 @@ get_http_reply(int *ret_bytes_buffered)
           */
          for (;;)
          {
-            if ((bytes_buffered = read_msg(&read_length)) <= 0)
+            if ((bytes_buffered = read_msg(&read_length, 0)) <= 0)
             {
                if (bytes_buffered == 0)
                {
@@ -1757,6 +1746,11 @@ get_http_reply(int *ret_bytes_buffered)
                              *ret_bytes_buffered);
             }
          }
+         if ((read_length == 1) && (msg_str[0] == '\0') && (msg_str[1] == '\n'))
+         {
+            (void)memmove(msg_str, msg_str + 1 + 1, (bytes_buffered - 1 - 1));
+            (void)read_msg(NULL, -2);
+         }
       }
    }
    else if (bytes_buffered == 0)
@@ -1799,12 +1793,21 @@ get_http_reply(int *ret_bytes_buffered)
 /* returned by read_length.                                              */
 /*-----------------------------------------------------------------------*/
 static int
-read_msg(int *read_length)
+read_msg(int *read_length, int offset)
 {
    static int  bytes_buffered;
    static char *read_ptr = NULL;
    int         status;
    fd_set      rset;
+
+   if (read_length == NULL)
+   {
+      if (read_ptr != NULL)
+      {
+         read_ptr += offset;
+      }
+      return(0);
+   }
 
    *read_length = 0;
    if (hmr.bytes_read == 0)
@@ -1813,7 +1816,7 @@ read_msg(int *read_length)
    }
    else
    {
-      (void)memmove(msg_str, read_ptr + 1, hmr.bytes_read);
+      (void)memmove(msg_str, read_ptr, hmr.bytes_read);
       bytes_buffered = hmr.bytes_read;
       read_ptr = msg_str;
    }
@@ -1984,6 +1987,7 @@ read_msg(int *read_length)
                *read_ptr = '\0';
             }
             *read_length = read_ptr - msg_str;
+            read_ptr++;
             return(bytes_buffered);
          }
          read_ptr++;

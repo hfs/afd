@@ -1,6 +1,6 @@
 /*
  *  ui_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1037,7 +1037,6 @@ extern Window get_window_id(pid_t, char *);
 extern void   check_window_ids(char *),
               config_log(unsigned int, unsigned int, unsigned int, char *,
                          char *, ...),
-              get_file_mask_list(unsigned int, int *, char **),
               get_ip_no(char *, char *),
               get_printer_cmd(char *, char *),
               init_color(Display *),

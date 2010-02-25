@@ -39,9 +39,12 @@ DESCR__S_M3
  **
  ** HISTORY
  **   09.08.2006 H.Kiehl Created
+ **   02.12.2009 H.Kiehl Added support for NOAA type HTML file listing.
  **
  */
 DESCR__E_M3
+
+#define DUMP_DIR_LIST_TO_DISK
 
 #include <stdio.h>
 #include <string.h>                /* strcpy(), strerror(), memmove()    */
@@ -53,6 +56,9 @@ DESCR__E_M3
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef DUMP_DIR_LIST_TO_DISK
+# include <fcntl.h>
+#endif
 #include <unistd.h>                /* unlink()                           */
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -353,10 +359,23 @@ get_remote_file_names_http(off_t *file_size_to_retrieve, int *more_files_in_list
       struct tm *p_tm;
 
       /* Get all file masks for this directory. */
-      if (read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml) == INCORRECT)
+      if ((j == read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml)) == SUCCESS)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to get the file masks.");
+         if (j == LOCKFILE_NOT_THERE)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to set lock in file masks, because the file is not there.");
+         }
+         else if (j == LOCK_IS_SET)
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to get the file masks, because lock is already set");
+              }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to get the file masks. (%d)", j);
+              }
          if (fml != NULL)
          {
             free(fml);
@@ -485,15 +504,15 @@ get_remote_file_names_http(off_t *file_size_to_retrieve, int *more_files_in_list
             int  chunksize;
             char *chunkbuffer = NULL;
 
-            if ((chunkbuffer = malloc(fsa->block_size + 4)) == NULL)
+            chunksize = fsa->block_size + 4;
+            if ((chunkbuffer = malloc(chunksize)) == NULL)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Failed to malloc() %d bytes : %s",
-                          fsa->block_size + 4, strerror(errno));
+                          chunksize, strerror(errno));
                http_quit();
                exit(ALLOC_ERROR);
             }
-            chunksize = fsa->block_size + 4;
             do
             {
                if ((status = http_chunk_read(&chunkbuffer,
@@ -557,7 +576,7 @@ get_remote_file_names_http(off_t *file_size_to_retrieve, int *more_files_in_list
                                     status);
                        bytes_buffered += status;
                     }
-            } while (status != 0);
+            } while (status != HTTP_LAST_CHUNK);
 
             if ((listbuffer = realloc(listbuffer, bytes_buffered + 1)) == NULL)
             {
@@ -578,7 +597,34 @@ get_remote_file_names_http(off_t *file_size_to_retrieve, int *more_files_in_list
 
          if (bytes_buffered > 0)
          {
+#ifdef DUMP_DIR_LIST_TO_DISK
+            int fd;
+
+            if ((fd = open("http_list.dump", (O_WRONLY | O_CREAT | O_TRUNC),
+                           FILE_MODE)) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to open() `http_list.dump' : %s",
+                          strerror(errno));
+            }
+            else
+            {
+               if (write(fd, listbuffer, bytes_buffered) != bytes_buffered)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to write() to `http_list.dump' : %s",
+                             strerror(errno));
+               }
+               if (close(fd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() `http_list.dump' : %s",
+                             strerror(errno));
+               }
+            }
+#else
             listbuffer[bytes_buffered] = '\0';
+#endif
             if (eval_html_dir_list(listbuffer, &files_to_retrieve,
                                    file_size_to_retrieve) == INCORRECT)
             {
@@ -809,9 +855,203 @@ eval_html_dir_list(char  *html_buffer,
 #endif
       if ((ptr = lposi(html_buffer, "<h1>", 4)) == NULL)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                   "Unknown HTML directory listing. Please send author a link so that this can be implemented.");
-         return(INCORRECT);
+         if ((ptr = lposi(html_buffer, "<PRE>", 5)) == NULL)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      "Unknown HTML directory listing. Please send author a link so that this can be implemented.");
+            return(INCORRECT);
+         }
+         else
+         {
+            while ((*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+            while ((*ptr == '\n') || (*ptr == '\r'))
+            {
+               ptr++;
+            }
+            if ((*ptr == '<') && (*(ptr + 1) == 'H') && (*(ptr + 2) == 'R'))
+            {
+               time_t file_mtime;
+               off_t  exact_size,
+                      file_size;
+               char   date_str[MAX_FILENAME_LENGTH],
+                      file_name[MAX_FILENAME_LENGTH],
+                      size_str[MAX_FILENAME_LENGTH];
+
+               /* Ignore HR line. */
+               while ((*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+               {
+                  ptr++;
+               }
+               while ((*ptr == '\n') || (*ptr == '\r'))
+               {
+                  ptr++;
+               }
+
+               /* Ignore the two directory lines. */
+               while ((*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+               {
+                  ptr++;
+               }
+               while ((*ptr == '\n') || (*ptr == '\r'))
+               {
+                  ptr++;
+               }
+               while ((*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+               {
+                  ptr++;
+               }
+               while ((*ptr == '\n') || (*ptr == '\r'))
+               {
+                  ptr++;
+               }
+
+               while (*ptr == '<')
+               {
+                  while (*ptr == '<')
+                  {
+                     ptr++;
+                     while ((*ptr != '>') && (*ptr != '\n') &&
+                            (*ptr != '\r') && (*ptr != '\0'))
+                     {
+                        ptr++;
+                     }
+                     if (*ptr == '>')
+                     {
+                        ptr++;
+                        while (*ptr == ' ')
+                        {
+                           ptr++;
+                        }
+                     }
+                  }
+
+                  if ((*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+                  {
+                     /* Store file name. */
+                     STORE_HTML_STRING(file_name, MAX_FILENAME_LENGTH);
+
+                     if (check_name(file_name) == YES)
+                     {
+                        if (*ptr == '<')
+                        {
+                           while (*ptr == '<')
+                           {
+                              ptr++;
+                              while ((*ptr != '>') && (*ptr != '\n') &&
+                                     (*ptr != '\r') && (*ptr != '\0'))
+                              {
+                                 ptr++;
+                              }
+                              if (*ptr == '>')
+                              {
+                                 ptr++;
+                                 while (*ptr == ' ')
+                                 {
+                                    ptr++;
+                                 }
+                              }
+                           }
+                        }
+                        if ((*ptr != '\n') && (*ptr != '\r') &&
+                            (*ptr != '\0'))
+                        {
+                           while (*ptr == ' ')
+                           {
+                              ptr++;
+                           }
+
+                           /* Store date string. */
+                           STORE_HTML_DATE();
+                           file_mtime = datestr2unixtime(date_str);
+
+                           if (*ptr == '<')
+                           {
+                              while (*ptr == '<')
+                              {
+                                 ptr++;
+                                 while ((*ptr != '>') && (*ptr != '\n') &&
+                                        (*ptr != '\r') && (*ptr != '\0'))
+                                 {
+                                    ptr++;
+                                 }
+                                 if (*ptr == '>')
+                                 {
+                                    ptr++;
+                                    while (*ptr == ' ')
+                                    {
+                                       ptr++;
+                                    }
+                                 }
+                              }
+                           }
+                           if ((*ptr != '\n') && (*ptr != '\r') &&
+                               (*ptr != '\0'))
+                           {
+                              /* Store size string. */
+                              STORE_HTML_STRING(size_str,
+                                                MAX_FILENAME_LENGTH);
+                              exact_size = convert_size(size_str,
+                                                        &file_size);
+                           }
+                           else
+                           {
+                              exact_size = -1;
+                              file_size = -1;
+                           }
+                        }
+                        else
+                        {
+                           file_mtime = -1;
+                           exact_size = -1;
+                           file_size = -1;
+                        }
+                     }
+                     else
+                     {
+                        file_name[0] = '\0';
+                     }
+                  }
+                  else
+                  {
+                     file_name[0] = '\0';
+                     file_mtime = -1;
+                     exact_size = -1;
+                     file_size = -1;
+                     break;
+                  }
+
+                  if (file_name[0] != '\0')
+                  {
+                     if (check_list(file_name, file_mtime, exact_size,
+                                    file_size, files_to_retrieve,
+                                    file_size_to_retrieve) == 0)
+                     {
+                        (*files_to_retrieve)++;
+                     }
+                  }
+
+                  /* Go to end of line. */
+                  while ((*ptr != '\n') && (*ptr != '\r') &&
+                         (*ptr != '\0'))
+                  {
+                     ptr++;
+                  }
+                  while ((*ptr == '\n') || (*ptr == '\r'))
+                  {
+                     ptr++;
+                  }
+               }
+            }
+            else
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         "Unknown HTML directory listing. Please send author a link so that this can be implemented.");
+               return(INCORRECT);
+            }
+         }
       }
       else
       {
