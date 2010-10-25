@@ -1,6 +1,6 @@
 /*
  *  afd_info.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,7 @@ struct prev_values
 
 /* Function prototypes. */
 extern void close_button(Widget, XtPointer, XtPointer),
+            save_button(Widget, XtPointer, XtPointer),
             update_info(Widget);
 
 #endif /* __afd_info_h */

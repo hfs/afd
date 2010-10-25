@@ -1,6 +1,6 @@
 /*
  *  draw_tv_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ DESCR__S_M3
  **   void draw_tv_blank_line(int pos)
  **   void draw_tv_dest_identifier(int pos, int x, int y)
  **   void draw_tv_job_number(int pos, int x, int y)
+ **   void draw_tv_priority(int pos, int x, int y)
  **   void draw_file_name(int pos, int x, int y)
  **   void draw_tv_chars(int pos, char type, int x, int y)
  **   void draw_tv_bar(int pos, signed char delta, char bar_no, int x, int y)
@@ -48,6 +49,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   08.01.1998 H.Kiehl Created
+ **   05.03.2010 H.Kiehl Show again priority.
  **
  */
 DESCR__E_M3
@@ -140,7 +142,7 @@ draw_tv_label_line(void)
                 line_height - 1);
 
       /* Draw string "  host   P     file name". */
-      length = sprintf(text, "  host  J    %-*s",
+      length = sprintf(text, "  host  J P    %-*s",
                        filename_display_length, "file name");
       XDrawString(display, tv_label_window, letter_gc,
                   x + DEFAULT_FRAME_SPACE,
@@ -198,6 +200,9 @@ draw_detailed_line(int pos)
 
    /* Write the job number of the host. */
    draw_tv_job_number(pos, x, y);
+
+   /* Write the priority of the host. */
+   draw_tv_priority(pos, x, y);
 
    /* Show file currently being transfered. */
    draw_file_name(pos, x, y);
@@ -367,6 +372,37 @@ draw_tv_job_number(int pos, int x, int y)
    XDrawImageString(display, detailed_window, color_letter_gc,
                     DEFAULT_FRAME_SPACE + x +
                     (hostname_display_length * glyph_width) + DEFAULT_FRAME_SPACE,
+                    y + text_offset + SPACE_ABOVE_LINE,
+                    string,
+                    1);
+
+   return;
+}
+
+
+/*+++++++++++++++++++++++++ draw_tv_priority() ++++++++++++++++++++++++++*/
+void
+draw_tv_priority(int pos, int x, int y)
+{
+   char      string[2];
+   XGCValues gc_values;
+
+   if (jd[pos].priority[0] == '\0')
+   {
+      string[0] = '-';
+   }
+   else
+   {
+      string[0] = jd[pos].priority[0];
+   }
+   string[1] = '\0';
+
+   gc_values.background = color_pool[DEFAULT_BG];
+   gc_values.foreground = color_pool[BLACK];
+   XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
+   XDrawImageString(display, detailed_window, color_letter_gc,
+                    x + (3 * DEFAULT_FRAME_SPACE) +
+                    ((MAX_HOSTNAME_LENGTH + 1) * glyph_width),
                     y + text_offset + SPACE_ABOVE_LINE,
                     string,
                     1);

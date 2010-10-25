@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -410,6 +410,10 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                         {
                            p_db->special_flag |= CREATE_TARGET_DIR;
                         }
+#ifdef WITH_DUP_CHECK
+                        p_db->dup_check_flag = fsa->dup_check_flag;
+                        p_db->dup_check_timeout = fsa->dup_check_timeout;
+#endif
                         if (ret == SUCCESS)
                         {
                            char fullname[MAX_PATH_LENGTH];

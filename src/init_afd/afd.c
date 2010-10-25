@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,11 +60,12 @@ DESCR__S_M1
  **          archive_watch   - Searches archive for old files and
  **                            removes them.
  **          input_log       - Logs all activities on input.
+ **          production_log  - Logs all production activity such as
+ **                            exec, rename, assemble, etc.
  **          output_log      - Logs activities on output (can be turned
  **                            on/off on a per job basis).
  **          delete_log      - Logs all files that are being removed
  **                            by the AFD.
- **          rename_log      - Logs all files being renamed.
  **          afd_stat        - Collects statistic information.
  **          amg             - Searches user directories and generates
  **                            messages for the FD.
@@ -94,6 +95,9 @@ DESCR__S_M1
  **                      AFD is not active.
  **   03.02.2009 H.Kiehl Try handle the case better when the AFD_ACTIVE
  **                      file gets deleted while AFD is still active.
+ **   04.03.2010 H.Kiehl When initializing with -i delete everything in
+ **                      crc, incoming/file_mask and incoming/ls_data
+ **                      directory.
  **
  */
 DESCR__E_M1
@@ -527,7 +531,7 @@ main(int argc, char *argv[])
       pid_t ia_pid;
 
       p_afd_status = NULL;
-      if (attach_afd_status(NULL) == SUCCESS)
+      if (attach_afd_status(NULL, 5) == SUCCESS)
       {
          char hostname[MAX_REAL_HOSTNAME_LENGTH];
 
@@ -722,7 +726,7 @@ main(int argc, char *argv[])
            {
               (void)fprintf(stderr,
                             _("AFD is currently disabled by system manager.\n"));
-              exit(INCORRECT);
+              exit(AFD_DISABLED_BY_SYSADM);
            }
 
            if (check_database() == -1)
@@ -776,7 +780,7 @@ main(int argc, char *argv[])
               {
                  (void)fprintf(stderr,
                                _("AFD is currently disabled by system manager.\n"));
-                 exit(INCORRECT);
+                 exit(AFD_DISABLED_BY_SYSADM);
               }
 
               if (check_database() == -1)
@@ -854,6 +858,32 @@ main(int argc, char *argv[])
               offset = sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
               delete_fifodir_files(dirs, offset);
               (void)sprintf(dirs, "%s%s", p_work_dir, AFD_MSG_DIR);
+              if (rec_rmdir(dirs) == INCORRECT)
+              {
+                 (void)fprintf(stderr,
+                               _("WARNING : Failed to delete everything in %s.\n"),
+                               dirs);
+              }
+#ifdef WITH_DUP_CHECK
+              (void)sprintf(dirs, "%s%s%s", p_work_dir, AFD_FILE_DIR,
+                            CRC_DIR);
+              if (rec_rmdir(dirs) == INCORRECT)
+              {
+                 (void)fprintf(stderr,
+                               _("WARNING : Failed to delete everything in %s.\n"),
+                               dirs);
+              }
+#endif
+              (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
+                            INCOMING_DIR, FILE_MASK_DIR);
+              if (rec_rmdir(dirs) == INCORRECT)
+              {
+                 (void)fprintf(stderr,
+                               _("WARNING : Failed to delete everything in %s.\n"),
+                               dirs);
+              }
+              (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
+                            INCOMING_DIR, LS_DATA_DIR);
               if (rec_rmdir(dirs) == INCORRECT)
               {
                  (void)fprintf(stderr,
@@ -941,7 +971,7 @@ main(int argc, char *argv[])
    if (eaccess(auto_block_file, F_OK) == 0)
    {
       (void)fprintf(stderr, _("AFD is currently disabled by system manager.\n"));
-      exit(INCORRECT);
+      exit(AFD_DISABLED_BY_SYSADM);
    }
 
    /* Is another AFD active in this directory? */

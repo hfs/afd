@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ DESCR__S_M3
  **                      option_n
  **         Priority   : 5
  **         Job-ID     : d88f540e
+ **         DIR_CONFIG : /home/afd/etc/DIR_CONFIG
  **         -----------------------------------------------------
  **                                  .
  **                                  .
@@ -313,6 +314,13 @@ format_info(char **text, int with_alda_data)
          }
          max_y++;
          count = sprintf(*text, "Job-ID      : %x\n", id.dbe[j].job_id);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+         count = sprintf(*text, "DIR_CONFIG  : %s\n", id.dbe[j].dir_config_file);
          length += count;
          if (count > max_x)
          {
@@ -673,6 +681,8 @@ format_info(char **text, int with_alda_data)
                            "Priority    : %c\n", id.dbe[j].priority);
          length += sprintf(*text + length,
                            "Job-ID      : %x\n", id.dbe[j].job_id);
+         length += sprintf(*text + length,
+                           "DIR_CONFIG  : %s\n", id.dbe[j].dir_config_file);
 
          if (with_alda_data == YES)
          {

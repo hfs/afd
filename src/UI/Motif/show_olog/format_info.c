@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ DESCR__S_M3
  ** DESCRIPTION
  **   This function formats data from the global structure info_data
  **   to the following form:
+ **         DIR_CONFIG : /home/afd/etc/DIR_CONFIG
  **         Local name : xxxxxxx.xx
  **         Remote name: XXXyyyy.ZZ
  **         File size  : 34234 Bytes
@@ -101,9 +102,16 @@ format_info(char **text)
                  buffer_length, strerror(errno), __FILE__, __LINE__);
       return;
    }
-   max_x = sprintf(*text, "Local name : %s\n", id.local_file_name);
+   max_x = sprintf(*text, "DIR_CONFIG : %s\n", id.dir_config_file);
    length = max_x;
    max_y = 1;
+   count = sprintf(*text + length, "Local name : %s\n", id.local_file_name);
+   length += count;
+   if (count > max_x)
+   {
+      max_x = count;
+   }
+   max_y++;
    if (id.remote_file_name[0] != '\0')
    {
       count = sprintf(*text + length, "Remote name: %s\n", id.remote_file_name);

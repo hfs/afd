@@ -779,6 +779,7 @@ check_option(char *option)
                     case 'B' :
                     case 'c' :
                     case 'C' :
+                    case 'H' :
                     case 'n' :
                     case 'N' :
                     case 's' :

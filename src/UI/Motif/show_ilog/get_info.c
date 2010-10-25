@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,25 +63,27 @@ DESCR__E_M3
 #include "show_ilog.h"
 
 /* Global variables. */
-unsigned int               *current_jid_list;
-int                        no_of_current_jobs;
+unsigned int                  *current_jid_list;
+int                           no_of_current_jobs;
 
 /* External global variables. */
-extern int                 no_of_log_files;
-extern char                *p_work_dir;
-extern struct item_list    *il;
-extern struct info_data    id;
+extern int                    no_of_log_files;
+extern char                   *p_work_dir;
+extern struct item_list       *il;
+extern struct info_data       id;
 
 /* Local variables. */
-static int                 *no_of_dir_names,
-                           *no_of_job_ids;
-static struct job_id_data  *jd = NULL;
-static struct dir_name_buf *dnb = NULL;
+static int                    *no_of_dc_ids,
+                              *no_of_dir_names,
+                              *no_of_job_ids;
+static struct job_id_data     *jd = NULL;
+static struct dir_name_buf    *dnb = NULL;
+static struct dir_config_list *dcl = NULL;
 
 /* Local function prototypes. */
-static unsigned int        get_all(int);
-static void                get_dir_data(int),
-                           get_recipient_only(int);
+static unsigned int           get_all(int);
+static void                   get_dir_data(int),
+                              get_recipient_only(int);
 
 
 /*############################### get_info() ############################*/
@@ -240,6 +242,75 @@ get_info(int item)
          }
          return;
       }
+
+      /* Map to DIR_CONFIG name database. */
+      (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
+                    DC_LIST_FILE);
+      if ((jd_fd = open(job_id_data_file, O_RDONLY)) == -1)
+      {
+         (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
+                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+         if (current_jid_list != NULL)
+         {
+            free(current_jid_list);
+         }
+         return;
+      }
+      if (fstat(jd_fd, &stat_buf) == -1)
+      {
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
+                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+         (void)close(jd_fd);
+         if (current_jid_list != NULL)
+         {
+            free(current_jid_list);
+         }
+         return;
+      }
+      if (stat_buf.st_size > 0)
+      {
+         char *ptr;
+
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                         MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
+         {
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
+                       job_id_data_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(jd_fd);
+            if (current_jid_list != NULL)
+            {
+               free(current_jid_list);
+            }
+            return;
+         }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_DCID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG, "Incorrect DCID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_DCID_VERSION);
+            (void)close(jd_fd);
+            if (current_jid_list != NULL)
+            {
+               free(current_jid_list);
+            }
+            return;
+         }
+         no_of_dc_ids = (int *)ptr;
+         ptr += AFD_WORD_OFFSET;
+         dcl = (struct dir_config_list *)ptr;
+         (void)close(jd_fd);
+      }
+      else
+      {
+         (void)xrec(ERROR_DIALOG,
+                    "DIR_CONFIG ID database file is empty. (%s %d)",
+                    __FILE__, __LINE__);
+         (void)close(jd_fd);
+         if (current_jid_list != NULL)
+         {
+            free(current_jid_list);
+         }
+         return;
+      }
    }
 
    /* Search through all history files. */
@@ -276,9 +347,9 @@ get_info(int item)
 int
 get_sum_data(int item, time_t *date, double *file_size)
 {
-   int  file_no,
-        total_no_of_items = 0,
-        pos = -1;
+   int file_no,
+       total_no_of_items = 0,
+       pos = -1;
 
    /* Determine log file and position in this log file. */
    for (file_no = 0; file_no < no_of_log_files; file_no++)
@@ -371,9 +442,9 @@ get_sum_data(int item, time_t *date, double *file_size)
 static unsigned int
 get_all(int item)
 {
-   int  file_no,
-        total_no_of_items = 0,
-        pos = -1;
+   int file_no,
+       total_no_of_items = 0,
+       pos = -1;
 
    /* Determine log file and position in this log file. */
    for (file_no = 0; file_no < no_of_log_files; file_no++)
@@ -559,6 +630,18 @@ get_dir_data(int dir_pos)
                      (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                      return;
+                  }
+               }
+
+               /* Get DIR_CONFIG name. */
+               id.dbe[id.count].dir_config_file[0] = '\0';
+               for (k = 0; k < *no_of_dc_ids; k++)
+               {
+                  if (jd[i].dir_config_id == dcl[k].dc_id)
+                  {
+                     (void)strcpy(id.dbe[id.count].dir_config_file,
+                                  dcl[k].dir_config_file);
+                     break;
                   }
                }
 

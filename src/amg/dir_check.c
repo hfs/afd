@@ -283,6 +283,9 @@ main(int argc, char *argv[])
                     status,
                     write_fd;
    unsigned int     average_diff_time = 0,
+#ifdef MAX_DIFF_TIME
+                    max_diff_time_counter = 0,
+#endif
                     no_of_dir_searches = 0;
    time_t           diff_time,
                     max_diff_time = 0L,
@@ -518,14 +521,23 @@ main(int argc, char *argv[])
             average_diff_time = average_diff_time / no_of_dir_searches;
             (void)strftime(time_str, 10, "%H:%M:%S",
                            localtime(&max_diff_time_time));
+#ifdef MAX_DIFF_TIME
+            system_log(DEBUG_SIGN, NULL, 0,
+                       "Directory search times for %d dirs AVG: %u COUNT: %u MAX: %ld (at %s) SEARCHES: %u",
+                       no_of_local_dirs, average_diff_time,
+                       max_diff_time_counter, max_diff_time, time_str,
+                       no_of_dir_searches);
+#else
             system_log(DEBUG_SIGN, NULL, 0,
                        "Directory search times for %d dirs AVG: %u MAX: %ld (at %s) SEARCHES: %u",
                        no_of_local_dirs, average_diff_time,
                        max_diff_time, time_str, no_of_dir_searches);
+#endif
 #ifdef MAX_DIFF_TIME
          }
 #endif
          average_diff_time = 0;
+         max_diff_time_counter = 0;
          max_diff_time = max_diff_time_time = 0L;
          no_of_dir_searches = 0;
          next_report_time = (now / REPORT_DIR_TIME_INTERVAL) *
@@ -925,6 +937,12 @@ main(int argc, char *argv[])
                  max_diff_time = diff_time;
                  max_diff_time_time = now;
               }
+#ifdef MAX_DIFF_TIME
+              if (diff_time >= MAX_DIFF_TIME)
+              {
+                 max_diff_time_counter++;
+              }
+#endif
               average_diff_time += diff_time;
               no_of_dir_searches++;
               if ((fdc == 0) && (fpdc == 0))
@@ -2253,11 +2271,39 @@ handle_dir(int    dir_pos,
 #ifdef _DISTRIBUTION_LOG
                      else
                      {
-                        for (split_job_counter = 0; split_job_counter < files_moved; split_job_counter++)
+                        if (de[dir_pos].flag & ALL_FILES)
                         {
-                           file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
-                           file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
-                           file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                           for (split_job_counter = 0; split_job_counter < files_moved; split_job_counter++)
+                           {
+                              file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
+                              file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
+                              file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                           }
+                        }
+                        else
+                        {
+                           int    n,
+                                  ret;
+                           time_t pmatch_time = current_time;
+
+                           for (split_job_counter = 0; split_job_counter < files_moved; split_job_counter++)
+                           {
+                              for (n = 0; n < de[dir_pos].fme[j].nfm; n++)
+                              {
+                                 if ((ret = pmatch(de[dir_pos].fme[j].file_mask[n],
+                                                   file_name_pool[split_job_counter],
+                                                   &pmatch_time)) == 0)
+                                 {
+                                    file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
+                                    file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
+                                    file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                                 }
+                                 else if (ret == 1)
+                                      {
+                                         break;
+                                      }
+                              }
+                           }
                         }
                      }
 #endif
@@ -2840,7 +2886,8 @@ check_fifo(int read_fd, int write_fd)
                   free(fjd);
                   fjd = NULL;
                }
-               system_log(INFO_SIGN, NULL, 0, "Stopped dir_check.");
+               system_log(INFO_SIGN, NULL, 0, "Stopped %s (%s)",
+                          DIR_CHECK, PACKAGE_VERSION);
 
                /* Unmap from AFD status area. */
                {

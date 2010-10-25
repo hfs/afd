@@ -1,6 +1,6 @@
 /*
  *  extract.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -835,6 +835,18 @@ write_file(char *msg, unsigned int length, int soh_etx)
                   p_orig_name);
       return(INCORRECT);
    }
+   else
+   {
+      if (p_file_name[i - 1] == '_')
+      {
+         p_file_name[i - 1] = '\0';
+         i--;
+      }
+      else
+      {
+         p_file_name[i] = '\0';
+      }
+   }
 
    if (extract_options & EXTRACT_REPORTS)
    {
@@ -1296,7 +1308,8 @@ write_file(char *msg, unsigned int length, int soh_etx)
          return(INCORRECT);
       }
 
-      if (extract_options & EXTRACT_ADD_SOH_ETX)
+      if ((extract_options & EXTRACT_ADD_SOH_ETX) &&
+          ((extract_options & EXTRACT_REMOVE_WMO_HEADER) == 0))
       {
          if (soh_etx == NO)
          {
@@ -1333,6 +1346,15 @@ write_file(char *msg, unsigned int length, int soh_etx)
       }
       else
       {
+         if (extract_options & EXTRACT_REMOVE_WMO_HEADER)
+         {
+            p_start = ptr;
+            while ((*p_start == '\012') || (*p_start == '\015'))
+            {
+               p_start++;
+            }
+         }
+
          if (msg[length - 1] == 3)
          {
             length--;

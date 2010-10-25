@@ -1,6 +1,6 @@
 /*
  *  motif_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ extern void   check_nummeric(Widget, XtPointer, XtPointer),
               show_info(char *),                    /* show_?log */
               show_message(Widget, char *),         /* show_?log */
               update_time(XtPointer, XtIntervalId), /* show_?log */
-              wait_visible(Widget);
+              wait_visible(Widget),
+              write_info_file(Widget, char*, char *);
 
 #endif /* __motif_common_defs_h */

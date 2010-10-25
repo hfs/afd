@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1909,8 +1909,13 @@ eval_permissions(char *perm_buffer)
       /* May he see the data being distributed? */
       if (posi(perm_buffer, VIEW_DATA_PERM) == NULL)
       {
-         /* The user may NOT view the password. */
+         /* The user may NOT view content of file. */
          perm.view_data = NO;
+      }
+      else
+      {
+         /* The user may view content of file. */
+         perm.view_data = YES;
       }
 
       /* Is there a limit on how many items the user may view? */

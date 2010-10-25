@@ -815,54 +815,56 @@ get_input_files(void)
          {
             int fra_pos;
 
-            fra_pos = lookup_fra_pos(dnb[i].dir_id);
-            while (((p_dir = readdir(dp)) != NULL) && (limit_reached == NO))
+            if ((fra_pos = lookup_fra_pos(dnb[i].dir_id)) != -1)
             {
-               if ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] != '\0') &&
-                   (p_dir->d_name[1] != '.') &&
-                   (strlen(&p_dir->d_name[1]) <= MAX_HOSTNAME_LENGTH))
+               while (((p_dir = readdir(dp)) != NULL) && (limit_reached == NO))
                {
-                  char *p_file,
-                       queue_dir[MAX_PATH_LENGTH];
-
-                  p_file = queue_dir + sprintf(queue_dir, "%s/%s/",
-                                               dnb[i].dir_name, p_dir->d_name);
-                  if ((stat(queue_dir, &stat_buf) != -1) &&
-                      (S_ISDIR(stat_buf.st_mode)))
+                  if ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] != '\0') &&
+                      (p_dir->d_name[1] != '.') &&
+                      (strlen(&p_dir->d_name[1]) <= MAX_HOSTNAME_LENGTH))
                   {
-                     int gotcha,
-                         ret;
+                     char *p_file,
+                          queue_dir[MAX_PATH_LENGTH];
 
-                     if (no_of_search_hosts == 0)
+                     p_file = queue_dir + sprintf(queue_dir, "%s/%s/",
+                                                  dnb[i].dir_name, p_dir->d_name);
+                     if ((stat(queue_dir, &stat_buf) != -1) &&
+                         (S_ISDIR(stat_buf.st_mode)))
                      {
-                        gotcha = YES;
-                     }
-                     else
-                     {
-                        register int j;
+                        int gotcha,
+                            ret;
 
-                        gotcha = NO;
-                        for (j = 0; j < no_of_search_hosts; j++)
+                        if (no_of_search_hosts == 0)
                         {
-                           if ((ret = pmatch(search_recipient[j],
-                                             &p_dir->d_name[1], NULL)) == 0)
-                           {
-                              gotcha = YES;
-                              break;
-                           }
-                           else if (ret == 1)
-                                {
-                                   /* This host is NOT wanted. */
-                                   break;
-                                }
+                           gotcha = YES;
                         }
-                     }
+                        else
+                        {
+                           register int j;
 
-                     if (gotcha == YES)
-                     {
-                        insert_file(queue_dir, p_file, "\0", &p_dir->d_name[1],
-                                    SHOW_INPUT, 0, -1, i, dnb[i].dir_id, 0,
-                                    fra_pos);
+                           gotcha = NO;
+                           for (j = 0; j < no_of_search_hosts; j++)
+                           {
+                              if ((ret = pmatch(search_recipient[j],
+                                                &p_dir->d_name[1], NULL)) == 0)
+                              {
+                                 gotcha = YES;
+                                 break;
+                              }
+                              else if (ret == 1)
+                                   {
+                                      /* This host is NOT wanted. */
+                                      break;
+                                   }
+                           }
+                        }
+
+                        if (gotcha == YES)
+                        {
+                           insert_file(queue_dir, p_file, "\0", &p_dir->d_name[1],
+                                       SHOW_INPUT, 0, -1, i, dnb[i].dir_id, 0,
+                                       fra_pos);
+                        }
                      }
                   }
                }

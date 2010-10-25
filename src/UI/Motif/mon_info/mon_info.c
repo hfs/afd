@@ -1,6 +1,6 @@
 /*
  *  mon_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M1
  **   21.02.1999 H.Kiehl Created
  **   10.09.2000 H.Kiehl Added top transfer and top file rate.
  **   07.08.2004 H.Kiehl Write window ID to a common file.
+ **   06.10.2010 H.Kiehl Make information editable.
  **
  */
 DESCR__E_M1
@@ -70,6 +71,7 @@ DESCR__E_M1
 # include <X11/Xmu/Editres.h>
 #endif
 #include <errno.h>
+#include "permission.h"
 #include "mon_info.h"
 #include "version.h"
 
@@ -83,11 +85,13 @@ Widget                 appshell,
                        text_wr[NO_OF_MSA_ROWS],
                        label_l_widget[NO_OF_MSA_ROWS],
                        label_r_widget[NO_OF_MSA_ROWS];
-int                    sys_log_fd = STDERR_FILENO,
-                       no_of_afds,
-                       msa_id,
+int                    afd_position = -1,
+                       editable = NO,
+                       event_log_fd = STDERR_FILENO,
                        msa_fd = -1,
-                       afd_position = -1;
+                       msa_id,
+                       no_of_afds,
+                       sys_log_fd = STDERR_FILENO;
 off_t                  msa_size;
 char                   afd_name[MAX_AFD_NAME_LENGTH + 1],
                        font_name[40],
@@ -110,13 +114,15 @@ char                   afd_name[MAX_AFD_NAME_LENGTH + 1],
                           "TOP connections:",
                           "Number of hosts:",
                           "Top file rate  :"
-                       };
+                       },
+                       user[MAX_FULL_USER_ID_LENGTH];
 struct mon_status_area *msa;
 struct prev_values     prev;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
 /* Local function prototypes. */
-static void            init_mon_info(int *, char **),
+static void            eval_permissions(char *),
+                       init_mon_info(int *, char **),
                        mon_info_exit(void),
                        usage(char *);
 
@@ -423,21 +429,55 @@ main(int argc, char *argv[])
    h_separator2_w = XmCreateSeparator(form_w, "h_separator2", args, argcount);
    XtManageChild(h_separator2_w);
 
-   button_w = XtVaCreateManagedWidget("Close",
-                                      xmPushButtonWidgetClass, buttonbox_w,
-                                      XmNfontList,         fontlist,
-                                      XmNtopAttachment,    XmATTACH_POSITION,
-                                      XmNtopPosition,      2,
-                                      XmNbottomAttachment, XmATTACH_POSITION,
-                                      XmNbottomPosition,   19,
-                                      XmNleftAttachment,   XmATTACH_POSITION,
-                                      XmNleftPosition,     1,
-                                      XmNrightAttachment,  XmATTACH_POSITION,
-                                      XmNrightPosition,    20,
-                                      NULL);
-   XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)close_button, (XtPointer)0);
-   XtManageChild(buttonbox_w);
+   if (editable == YES)
+   {
+      button_w = XtVaCreateManagedWidget("Save",
+                                         xmPushButtonWidgetClass, buttonbox_w,
+                                         XmNfontList,         fontlist,
+                                         XmNtopAttachment,    XmATTACH_POSITION,
+                                         XmNtopPosition,      2,
+                                         XmNbottomAttachment, XmATTACH_POSITION,
+                                         XmNbottomPosition,   19,
+                                         XmNleftAttachment,   XmATTACH_POSITION,
+                                         XmNleftPosition,     1,
+                                         XmNrightAttachment,  XmATTACH_POSITION,
+                                         XmNrightPosition,    9,
+                                         NULL);
+      XtAddCallback(button_w, XmNactivateCallback,
+                    (XtCallbackProc)save_button, (XtPointer)0);
+      button_w = XtVaCreateManagedWidget("Close",
+                                         xmPushButtonWidgetClass, buttonbox_w,
+                                         XmNfontList,         fontlist,     
+                                         XmNtopAttachment,    XmATTACH_POSITION,
+                                         XmNtopPosition,      2,                
+                                         XmNbottomAttachment, XmATTACH_POSITION,
+                                         XmNbottomPosition,   19,
+                                         XmNleftAttachment,   XmATTACH_POSITION,
+                                         XmNleftPosition,     10,
+                                         XmNrightAttachment,  XmATTACH_POSITION,
+                                         XmNrightPosition,    20,
+                                         NULL);
+      XtAddCallback(button_w, XmNactivateCallback,
+                    (XtCallbackProc)close_button, (XtPointer)0);
+   }
+   else
+   {
+      button_w = XtVaCreateManagedWidget("Close",
+                                         xmPushButtonWidgetClass, buttonbox_w,
+                                         XmNfontList,         fontlist,
+                                         XmNtopAttachment,    XmATTACH_POSITION,
+                                         XmNtopPosition,      2,
+                                         XmNbottomAttachment, XmATTACH_POSITION,
+                                         XmNbottomPosition,   19,
+                                         XmNleftAttachment,   XmATTACH_POSITION,
+                                         XmNleftPosition,     1,
+                                         XmNrightAttachment,  XmATTACH_POSITION,
+                                         XmNrightPosition,    20,
+                                         NULL);
+      XtAddCallback(button_w, XmNactivateCallback,
+                    (XtCallbackProc)close_button, (XtPointer)0);
+      XtManageChild(buttonbox_w);
+   }
 
    /* Create log_text as a ScrolledText window. */
    argcount = 0;
@@ -447,7 +487,22 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNcolumns,                80);
    argcount++;
-   XtSetArg(args[argcount], XmNeditable,               False);
+   if (editable == YES)
+   {
+      XtSetArg(args[argcount], XmNeditable,               True);
+      argcount++;
+      XtSetArg(args[argcount], XmNcursorPositionVisible,  True);
+      argcount++;
+      XtSetArg(args[argcount], XmNautoShowCursorPosition, True);
+   }
+   else
+   {
+      XtSetArg(args[argcount], XmNeditable,               False);
+      argcount++;
+      XtSetArg(args[argcount], XmNcursorPositionVisible,  False);
+      argcount++;
+      XtSetArg(args[argcount], XmNautoShowCursorPosition, False);
+   }
    argcount++;
    XtSetArg(args[argcount], XmNeditMode,               XmMULTI_LINE_EDIT);
    argcount++;
@@ -522,7 +577,11 @@ main(int argc, char *argv[])
 static void
 init_mon_info(int *argc, char *argv[])
 {
-   int i;
+   int i,
+       user_offset;
+   char fake_user[MAX_FULL_USER_ID_LENGTH],
+        *perm_buffer,
+        profile[MAX_PROFILE_NAME_LENGTH + 1];
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -540,6 +599,16 @@ init_mon_info(int *argc, char *argv[])
       usage(argv[0]);
       exit(INCORRECT);
    }
+   if (get_arg(argc, argv, "-p", profile, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+      profile[0] = '\0';
+   }
+   else
+   {
+      (void)strcpy(user, profile);
+      user_offset = strlen(profile);
+   }
    if (get_mon_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
@@ -547,6 +616,47 @@ init_mon_info(int *argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+   /* Now lets see if user may use this program. */
+   check_fake_user(argc, argv, MON_CONFIG_FILE, fake_user);
+   switch (get_permissions(&perm_buffer, fake_user))
+   {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
+      case NONE :
+         (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
+         exit(INCORRECT);
+
+      case SUCCESS : /* Lets evaluate the permissions and see what */
+                     /* the user may do.                           */
+         eval_permissions(perm_buffer);
+         free(perm_buffer);
+         break;
+
+      case INCORRECT : /* Hmm. Something did go wrong. Since we want to */
+                       /* be able to disable permission checking let    */
+                       /* the user have all permissions.                */
+         editable = NO;
+         break;
+
+      default :
+         (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
+         exit(INCORRECT);
+   }
+
+   get_user(user, fake_user, user_offset);
 
    /* Attach to the MSA. */
    if ((i = msa_attach_passive()) < 0)
@@ -614,6 +724,42 @@ usage(char *progname)
    (void)fprintf(stderr, "           --version\n");
    (void)fprintf(stderr, "           -f <font name>]\n");
    (void)fprintf(stderr, "           -w <working directory>]\n");
+   return;
+}
+
+
+/*-------------------------- eval_permissions() -------------------------*/
+static void
+eval_permissions(char *perm_buffer)
+{
+   char *ptr;
+
+   /*
+    * If we find 'all' right at the beginning, no further evaluation
+    * is needed, since the user has all permissions.
+    */
+   if ((perm_buffer[0] == 'a') && (perm_buffer[1] == 'l') &&
+       (perm_buffer[2] == 'l') &&
+       ((perm_buffer[3] == '\0') || (perm_buffer[3] == ' ') ||
+        (perm_buffer[3] == '\t')))
+   {
+      editable = YES;
+   }
+   else
+   {
+      /* May the user change the information? */
+      if ((ptr = posi(perm_buffer, EDIT_MON_INFO_PERM)) == NULL)
+      {
+         /* The user may NOT change the information. */
+         editable = NO;
+      }
+      else
+      {
+         /* The user may change the information. */
+         editable = YES;
+      }
+   }
+
    return;
 }
 

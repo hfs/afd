@@ -1,6 +1,6 @@
 /*
  *  show_elog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1216,7 +1216,8 @@ init_show_elog(int *argc, char *argv[])
                       (1 << (EA_EXEC_SUCCESS_ACTION_START - EA_DISABLE_HOST)) |
                       (1 << (EA_EXEC_SUCCESS_ACTION_STOP - EA_DISABLE_HOST)) |
                       (1 << (EA_START_DIRECTORY - EA_DISABLE_HOST)) |
-                      (1 << (EA_STOP_DIRECTORY - EA_DISABLE_HOST));
+                      (1 << (EA_STOP_DIRECTORY - EA_DISABLE_HOST)) |
+                      (1 << (EA_CHANGE_INFO - EA_DISABLE_HOST));
 
    return;
 }

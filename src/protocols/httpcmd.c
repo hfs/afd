@@ -1,6 +1,6 @@
 /*
  *  httpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -504,6 +504,7 @@ retry_get:
                         (hmr.authorization == NULL) ? "" : hmr.authorization,
                         host)) == SUCCESS)
    {
+      hmr.content_length = 0;
       if ((reply = get_http_reply(&hmr.bytes_buffered)) == 200)
       {
          if (hmr.chunked == YES)
@@ -513,6 +514,11 @@ retry_get:
          else
          {
             reply = SUCCESS;
+         }
+         if ((*content_length != hmr.content_length) &&
+             (hmr.content_length != 0))
+         {
+            *content_length = hmr.content_length;
          }
       }
       else if (reply == 401)

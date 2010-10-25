@@ -1,6 +1,6 @@
 /*
  *  create_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -628,9 +628,6 @@ create_fra(int no_of_dirs)
             }
 #endif
             fra[i].queued                 = 0;
-            fra[i].wait_for_filename[0]   = '\0';
-            fra[i].accumulate_size        = 0;
-            fra[i].accumulate             = 0;
             (void)memset(&fra[i].ate, 0, sizeof(struct bd_time_entry));
          }
       } /* for (i = 0; i < no_of_dirs; i++) */

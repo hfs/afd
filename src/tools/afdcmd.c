@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -619,7 +619,7 @@ main(int argc, char *argv[])
                           user);
                event_log(0L, EC_DIR, ET_MAN, EA_ENABLE_DIRECTORY, "%s%c%s",
                          fra[position].dir_alias, SEPARATOR_CHAR, user);
-               fra[position].dir_flag ^= DIR_DISABLED;
+               fra[position].dir_flag &= ~DIR_DISABLED;
                SET_DIR_STATUS(fra[position].dir_flag,
                               current_time,
                               fra[position].start_event_handle,
@@ -652,7 +652,7 @@ main(int argc, char *argv[])
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
                event_log(0L, EC_DIR, ET_MAN, EA_DISABLE_DIRECTORY, "%s%c%s",
                          fra[position].dir_alias, SEPARATOR_CHAR, user);
-               fra[position].dir_flag ^= DIR_DISABLED;
+               fra[position].dir_flag |= DIR_DISABLED;
                SET_DIR_STATUS(fra[position].dir_flag,
                               current_time,
                               fra[position].start_event_handle,
@@ -823,7 +823,7 @@ main(int argc, char *argv[])
                           user);
                event_log(0L, EC_DIR, ET_MAN, EA_START_DIRECTORY, "%s%c%s",
                          fra[position].dir_alias, SEPARATOR_CHAR, user);
-               fra[position].dir_flag ^= DIR_STOPPED;
+               fra[position].dir_flag &= ~DIR_STOPPED;
                SET_DIR_STATUS(fra[position].dir_flag,
                               current_time,
                               fra[position].start_event_handle,
@@ -856,7 +856,7 @@ main(int argc, char *argv[])
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
                event_log(0L, EC_DIR, ET_MAN, EA_STOP_DIRECTORY, "%s%c%s",
                          fra[position].dir_alias, SEPARATOR_CHAR, user);
-               fra[position].dir_flag ^= DIR_STOPPED;
+               fra[position].dir_flag |= DIR_STOPPED;
                SET_DIR_STATUS(fra[position].dir_flag,
                               current_time,
                               fra[position].start_event_handle,
@@ -1904,7 +1904,7 @@ main(int argc, char *argv[])
       }
       else
       {
-         if (attach_afd_status(NULL) < 0)
+         if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
          {
             (void)fprintf(stderr,
                           _("ERROR   : Failed to attach to AFD status area. (%s %d)\n"),
@@ -2212,7 +2212,7 @@ main(int argc, char *argv[])
 #ifdef AFDBENCH_CONFIG
    if (options & ENABLE_DIRECTORY_SCAN_OPTION)
    {
-      if (attach_afd_status(NULL) < 0)
+      if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
       {
          (void)fprintf(stderr,
                        _("ERROR   : Failed to attach to AFD status area. (%s %d)\n"),

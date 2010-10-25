@@ -111,6 +111,7 @@ DESCR__S_M3
  **              %[Z]OL                 - split job number
  **              %[Y]Oh                 - target real hostname/IP
  **              %[Y]OH                 - target alias name
+ **              %[Y]OR                 - Recipient of job
  **              %[Z]Oo                 - output type ID
  **              %[Y]OO                 - output type string
  **              -- Delete log data --
@@ -2027,6 +2028,7 @@ usage(char *progname)
    (void)fprintf(stderr, "              %%[Z]OL                 - split job number\n");
    (void)fprintf(stderr, "              %%[Y]Oh                 - target real hostname/IP\n");
    (void)fprintf(stderr, "              %%[Y]OH                 - target alias name\n");
+   (void)fprintf(stderr, "              %%[Y]OR                 - Recipient of job\n");
    (void)fprintf(stderr, "              %%[Z]Oo                 - output type ID\n");
    (void)fprintf(stderr, "              %%[Y]OO                 - output type string\n");
 #endif

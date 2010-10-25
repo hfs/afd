@@ -92,14 +92,14 @@ AR = ar
 ARFLAGS = cru
 libmotifafd_a_AR = $(AR) $(ARFLAGS)
 libmotifafd_a_LIBADD =
-am__libmotifafd_a_SOURCES_DIST = check_info_file.c check_nummeric.c \
-	disable_drag_drop.c generic_print.c make_xprocess.c \
+am__libmotifafd_a_SOURCES_DIST = check_nummeric.c disable_drag_drop.c \
+	generic_print.c handle_info_file.c make_xprocess.c \
 	setup_icon.c show_info.c show_message.c update_time.c \
 	wait_visible.c xrec.c
 @WITH_XPM_TRUE@am__objects_1 = setup_icon.$(OBJEXT)
-am_libmotifafd_a_OBJECTS = check_info_file.$(OBJEXT) \
-	check_nummeric.$(OBJEXT) disable_drag_drop.$(OBJEXT) \
-	generic_print.$(OBJEXT) make_xprocess.$(OBJEXT) \
+am_libmotifafd_a_OBJECTS = check_nummeric.$(OBJEXT) \
+	disable_drag_drop.$(OBJEXT) generic_print.$(OBJEXT) \
+	handle_info_file.$(OBJEXT) make_xprocess.$(OBJEXT) \
 	$(am__objects_1) show_info.$(OBJEXT) show_message.$(OBJEXT) \
 	update_time.$(OBJEXT) wait_visible.$(OBJEXT) xrec.$(OBJEXT)
 libmotifafd_a_OBJECTS = $(am_libmotifafd_a_OBJECTS)
@@ -277,10 +277,10 @@ INCLUDES = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
                         -I../../common -I../mafd_ctrl -I../show_olog
 
 lib_LIBRARIES = libmotifafd.a
-libmotifafd_a_SOURCES = check_info_file.c\
-                        check_nummeric.c\
+libmotifafd_a_SOURCES = check_nummeric.c\
                         disable_drag_drop.c\
                         generic_print.c\
+                        handle_info_file.c\
                         make_xprocess.c\
                         $(AFD_SETUP_ICON)\
                         show_info.c\
@@ -366,10 +366,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_info_file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_nummeric.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/disable_drag_drop.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/generic_print.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_info_file.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/make_xprocess.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/setup_icon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_info.Po@am__quote@

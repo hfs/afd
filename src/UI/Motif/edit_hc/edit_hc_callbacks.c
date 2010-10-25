@@ -1919,91 +1919,32 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       XmUpdateDisplay(pt.option_menu_w);
 
       /* Set option menu for Transfer Blocksize. */
+      choice = 4;
       if (ce[cur_pos].value_changed & BLOCK_SIZE_CHANGED)
       {
-         if (ce[cur_pos].block_size == tb.value[0])
+         int i;
+
+         for (i = 0; i < MAX_TB_BUTTONS; i++)
          {
-            choice = 0;
+            if (ce[cur_pos].block_size == tb.value[i])
+            {
+               choice = i;
+               break;
+            }
          }
-         else if (ce[cur_pos].block_size == tb.value[1])
-              {
-                 choice = 1;
-              }
-         else if (ce[cur_pos].block_size == tb.value[3])
-              {
-                 choice = 3;
-              }
-         else if (ce[cur_pos].block_size == tb.value[4])
-              {
-                 choice = 4;
-              }
-         else if (ce[cur_pos].block_size == tb.value[5])
-              {
-                 choice = 5;
-              }
-         else if (ce[cur_pos].block_size == tb.value[6])
-              {
-                 choice = 6;
-              }
-         else if (ce[cur_pos].block_size == tb.value[7])
-              {
-                 choice = 7;
-              }
-         else if (ce[cur_pos].block_size == tb.value[8])
-              {
-                 choice = 8;
-              }
-         else if (ce[cur_pos].block_size == tb.value[9])
-              {
-                 choice = 9;
-              }
-              else
-              {
-                 choice = 2;
-              }
       }
       else
       {
-         if (fsa[cur_pos].block_size == tb.value[0])
+         int i;
+
+         for (i = 0; i < MAX_TB_BUTTONS; i++)
          {
-            choice = 0;
+            if (fsa[cur_pos].block_size == tb.value[i])
+            {
+               choice = i;
+               break;
+            }
          }
-         else if (fsa[cur_pos].block_size == tb.value[1])
-              {
-                 choice = 1;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[3])
-              {
-                 choice = 3;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[4])
-              {
-                 choice = 4;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[5])
-              {
-                 choice = 5;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[6])
-              {
-                 choice = 6;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[7])
-              {
-                 choice = 7;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[8])
-              {
-                 choice = 8;
-              }
-         else if (fsa[cur_pos].block_size == tb.value[9])
-              {
-                 choice = 9;
-              }
-              else
-              {
-                 choice = 2;
-              }
       }
       XtVaSetValues(tb.option_menu_w, XmNmenuHistory, tb.button_w[choice], NULL);
       XmUpdateDisplay(tb.option_menu_w);

@@ -115,7 +115,7 @@ check_output_line(char         *line,
    }
    if ((olog.output_time >= start_time_start) &&
        (((prev_file_name != NULL) && (mode & ALDA_FORWARD_MODE)) ||
-        (start_time_end == 0) || (olog.output_time <= start_time_end)))
+        (start_time_end == 0) || (olog.output_time < start_time_end)))
    {
       while ((*(ptr + i) != ' ') && (i < MAX_REAL_HOSTNAME_LENGTH) &&
              (*(ptr + i) != '\0'))
@@ -381,6 +381,7 @@ check_output_line(char         *line,
                               {
                                  *(ptr + i) = '\0';
                                  olog.job_id = (unsigned int)strtoul(ptr, NULL, 16);
+                                 (void)get_recipient(olog.job_id);
                                  if (((search_job_id == 0) ||
                                       (olog.job_id == search_job_id)) &&
                                      ((prev_job_id == 0) ||
@@ -407,7 +408,7 @@ check_output_line(char         *line,
                                        olog.job_creation_time = (time_t)str2timet(ptr, NULL, 16);
                                        if ((olog.job_creation_time >= start_time_start) &&
                                            ((prev_log_time == 0) || (olog.job_creation_time == prev_log_time)) &&
-                                           ((start_time_end == 0) || (olog.job_creation_time <= start_time_end)))
+                                           ((start_time_end == 0) || (olog.job_creation_time < start_time_end)))
                                        {
                                           ptr += i + 1;
                                           i = 0;

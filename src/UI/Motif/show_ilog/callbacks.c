@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -205,7 +205,7 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       file_name_length = new_file_name_length;
 
       XGetGeometry(display, main_window, &root_return, &x, &y, &width, &window_height, &border, &depth);
-      sum_line_length = sprintf(header_line, "%s%-*s %s",
+      sum_line_length = sprintf(header_line, "%s%-*s  %s",
                                 DATE_TIME_HEADER, file_name_length,
                                 FILE_NAME_HEADER, REST_HEADER);
       XmTextSetString(headingbox_w, header_line);

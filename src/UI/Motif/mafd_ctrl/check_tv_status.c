@@ -1,6 +1,6 @@
 /*
  *  check_tv_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -142,6 +142,29 @@ check_tv_status(Widget w)
          jd[i].connect_status = fsa[jd[i].fsa_no].job_status[jd[i].job_no].connect_status;
          draw_tv_job_number(i, x, y);
          flush = YES;
+      }
+
+      /*
+       * PRIORITY
+       * ========
+       */
+      if (jd[i].job_id != fsa[jd[i].fsa_no].job_status[jd[i].job_no].job_id)
+      {
+         signed char tmp_priority;
+
+         jd[i].job_id = fsa[jd[i].fsa_no].job_status[jd[i].job_no].job_id;
+         tmp_priority = (signed char)get_job_priority(jd[i].job_id);
+         if (tmp_priority != jd[i].priority[0])
+         {
+            jd[i].priority[0] = tmp_priority;
+            jd[i].priority[1] = '\0';
+            if (x == -1)
+            {
+               tv_locate_xy(i, &x, &y);
+            }
+            draw_tv_priority(i, x, y);
+            flush = YES;
+         }
       }
 
       /*

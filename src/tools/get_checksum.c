@@ -1,7 +1,7 @@
 /*
  *  get_checksum.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009, 2010 Deutscher Wetterdienst (DWD),
+ *                           Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ main(int argc, char *argv[])
       (void)fprintf(stderr, _("Usage: %s <arbitary string>]\n"), argv[0]);
       return(INCORRECT);
    }
-   (void)fprintf(stdout, "CRC32=%u\n", get_checksum(argv[1], strlen(argv[1])));
+   (void)fprintf(stdout, "CRC32=%x\n", get_str_checksum(argv[1]));
 
    return(SUCCESS);
 }

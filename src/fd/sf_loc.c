@@ -868,8 +868,10 @@ try_link_again:
                              }
                         else if (ret == SUCCESS)
                              {
+                                errno = ENOENT;
                                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                          "Hmmm, directory does seem to be ok, so why can we not open the file!?");
+                                          "Hmmm, directory does seem to be ok: %s",
+                                          strerror(errno));
                                 ret = MOVE_ERROR;
                              }
                         if (ret != CREATED_DIR)
@@ -1062,7 +1064,7 @@ try_link_again:
                      *ol_unl = db.unl;
                      *ol_transfer_time = end_time - start_time;
                      *ol_archive_name_length = 0;
-                     *ol_output_type = '0';
+                     *ol_output_type = OT_NORMAL_DELIVERED + '0';
                      ol_real_size = *ol_file_name_length + ol_size;
                      if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                      {
@@ -1108,7 +1110,7 @@ try_link_again:
                      *ol_unl = db.unl;
                      *ol_transfer_time = end_time - start_time;
                      *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
-                     *ol_output_type = '0';
+                     *ol_output_type = OT_NORMAL_DELIVERED + '0';
                      ol_real_size = *ol_file_name_length +
                                     *ol_archive_name_length + 1 + ol_size;
                      if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -1170,7 +1172,7 @@ try_again_unlink:
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = 0;
-                  *ol_output_type = '0';
+                  *ol_output_type = OT_NORMAL_DELIVERED + '0';
                   ol_real_size = *ol_file_name_length + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {

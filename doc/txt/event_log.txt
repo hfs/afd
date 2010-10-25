@@ -74,3 +74,4 @@ production|extern|production error   |<dir alias> |<error id>
           |manual|Disable debug      |<host alias>|<user>
           |manual|Disable trace      |<host alias>|<user>
           |manual|Disable full trace |<host alias>|<user>
+          |manual|Changed information|<host alias>|<user>

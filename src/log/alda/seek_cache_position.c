@@ -1,6 +1,6 @@
 /*
  *  seek_cache_position.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009, 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,6 +120,10 @@ seek_cache_position(struct log_file_data *log, time_t search_time)
                        "Failed to fseeko() in %s : %s",
                        log->log_dir, strerror(errno));
          }
+         else
+         {
+            log->bytes_read = *offset_val;
+         }
       }
       else
       {
@@ -164,6 +168,10 @@ seek_cache_position(struct log_file_data *log, time_t search_time)
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Failed to fseeko() in %s : %s",
                        log->log_dir, strerror(errno));
+         }
+         else
+         {
+            log->bytes_read = *offset_val;
          }
 #ifdef HAVE_MMAP
          if (munmap(ptr, stat_buf.st_size) == -1)

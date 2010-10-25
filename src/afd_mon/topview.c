@@ -1,6 +1,6 @@
 /*
  *  topview.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -136,37 +136,26 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stdout, "TOP file rates (per second) for %d AFD's:\n\n",
                     no_of_afds);
-      (void)fprintf(stdout, "%-*s  ", MAX_AFDNAME_LENGTH, "AFD-name");
-      for (j = 0; j < STORAGE_TIME; j++)
-      {
-         (void)fprintf(stdout, " %4d", j);
-      }
-      (void)fprintf(stdout, "\n=================================================\n");
    }
    else if (show == 1)
         {
            (void)fprintf(stdout,
                          "TOP transfer rates (per second) for %d AFD's:\n\n",
                          no_of_afds);
-           (void)fprintf(stdout, "%-*s  ", MAX_AFDNAME_LENGTH, "AFD-name");
-           for (j = 0; j < STORAGE_TIME; j++)
-           {
-              (void)fprintf(stdout, " %4d   ", j);
-           }
-           (void)fprintf(stdout, "\n======================================================================\n");
         }
         else
         {
            (void)fprintf(stdout,
                          "TOP number of transfers for %d AFD's:\n\n",
                          no_of_afds);
-           (void)fprintf(stdout, "%-*s  ", MAX_AFDNAME_LENGTH, "AFD-name");
-           for (j = 0; j < STORAGE_TIME; j++)
-           {
-              (void)fprintf(stdout, " %4d", j);
-           }
-           (void)fprintf(stdout, "\n=================================================\n");
         }
+   (void)fprintf(stdout, "%-*s  ", MAX_AFDNAME_LENGTH, "AFD-name");
+   for (j = 0; j < STORAGE_TIME; j++)
+   {
+      (void)fprintf(stdout, " %4d", j);
+   }
+   (void)fprintf(stdout, "\n=================================================\n");
+
    if (show_afds > 0)
    {
       for (i = 0; i < show_afds; i++)

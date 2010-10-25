@@ -1,6 +1,6 @@
 /*
  *  mafd_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -258,6 +258,7 @@ struct job_data
        {
           char          hostname[MAX_HOSTNAME_LENGTH + 1];
           char          host_display_str[MAX_HOSTNAME_LENGTH + 1];
+          signed char   priority[2];
           char          file_name_in_use[MAX_FILENAME_LENGTH + 1];
           char          str_fs_use[5];        /* String file_size_in_use.*/
           char          str_fs_use_done[5];
@@ -278,6 +279,7 @@ struct job_data
           float         scale[3];
           unsigned int  bar_length[3];
           unsigned int  host_id;
+          unsigned int  job_id;
           int           job_no;
           int           fsa_no;
           int           rotate;
@@ -325,6 +327,7 @@ extern void        calc_but_coord(int),
                    draw_tv_chars(int, char, int, int),
                    draw_tv_dest_identifier(int, int, int),
                    draw_tv_job_number(int, int, int),
+                   draw_tv_priority(int, int, int),
                    draw_tv_label_line(void),
                    focus(Widget, XtPointer, XEvent *),
                    init_gcs(void),
@@ -343,7 +346,8 @@ extern void        calc_but_coord(int),
                    setup_window(char *, int),
                    short_input(Widget, XtPointer, XEvent *),
                    tv_locate_xy(int, int *, int *);
-extern int         get_long_pos(int, int),
+extern int         get_job_priority(unsigned int),
+                   get_long_pos(int, int),
                    get_short_pos(int, int);
 extern signed char resize_tv_window(void),
                    resize_window(void),

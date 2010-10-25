@@ -78,6 +78,7 @@
 # define SHOW_SMTPS                      512
 #endif
 #define SHOW_SFTP                        1024
+#define SHOW_NONE                        2048
 
 /* Definitions for all X programs of the AFD. */
 #define MAX_MESSAGE_LENGTH               80

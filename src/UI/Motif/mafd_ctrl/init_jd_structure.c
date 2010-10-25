@@ -1,7 +1,7 @@
 /*
  *  init_jd_structure.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   12.01.1998 H.Kiehl Created
+ **   05.03.2010 H.Kiehl Get priority so we can show it.
  **
  */
 DESCR__E_M3
@@ -64,6 +65,9 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
    p_jd->host_id = connect_data[select_no].host_id;
    (void)strcpy(p_jd->host_display_str,
                 connect_data[select_no].host_display_str);
+   p_jd->job_id = fsa[select_no].job_status[job_no].job_id;
+   p_jd->priority[0] = (char)get_job_priority(p_jd->job_id);
+   p_jd->priority[1] = '\0';
    p_jd->file_name_in_use[MAX_FILENAME_LENGTH] = '\0';
    if (fsa[select_no].job_status[job_no].file_name_in_use[0] == '\0')
    {

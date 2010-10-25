@@ -1,6 +1,6 @@
 /*
  *  check_delete_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ check_delete_line(char         *line,
       dcache[delete.current_file_no].pc++;
    }
    if ((dlog.delete_time >= prev_log_time) &&
-       ((start_time_end == 0) || (dlog.delete_time <= start_time_end)))
+       ((start_time_end == 0) || (dlog.delete_time < start_time_end)))
    {
       while (*ptr == ' ')
       {
@@ -324,7 +324,7 @@ check_delete_line(char         *line,
                                        dlog.job_creation_time = (time_t)str2timet(ptr, NULL, 16);
                                        if ((dlog.job_creation_time >= start_time_start) &&
                                            ((prev_log_time == 0) || (dlog.job_creation_time == prev_log_time)) &&
-                                           ((start_time_end == 0) || (dlog.job_creation_time <= start_time_end)))
+                                           ((start_time_end == 0) || (dlog.job_creation_time < start_time_end)))
                                        {
                                           ptr += i + 1;
 

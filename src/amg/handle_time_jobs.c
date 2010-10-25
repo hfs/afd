@@ -1,6 +1,6 @@
 /*
  *  handle_time_jobs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -298,9 +298,41 @@ handle_time_dir(int time_job_no)
                (void)strcpy(p_dest, p_dir->d_name);
                if (move_file(time_dir, dest_file_path) < 0)
                {
+                  char reason_str[23];
+
+                  if (errno == ENOENT)
+                  {
+                     int         tmp_errno = errno;
+                     char        tmp_char = *p_dest;
+                     struct stat tmp_stat_buf;
+
+                     *p_dest = '\0';
+                     if ((stat(time_dir, &tmp_stat_buf) == -1) &&
+                         (errno == ENOENT))
+                     {
+                        (void)strcpy(reason_str, "(source missing) ");
+                     }
+                     else if ((stat(dest_file_path, &tmp_stat_buf) == -1) &&
+                              (errno == ENOENT))
+                          {
+                             (void)strcpy(reason_str, "(destination missing) ");
+                          }
+                          else
+                          {
+                             reason_str[0] = '\0';
+                          }
+
+                     *p_dest = tmp_char;
+                     errno = tmp_errno;
+                  }
+                  else
+                  {
+                     reason_str[0] = '\0';
+                  }
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to move file %s to %s : %s",
-                             time_dir, dest_file_path, strerror(errno));
+                             "Failed to move file %s to %s %s: %s",
+                             time_dir, dest_file_path, reason_str,
+                             strerror(errno));
                }
                else
                {

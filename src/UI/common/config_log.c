@@ -1,6 +1,6 @@
 /*
  *  config_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -176,7 +176,10 @@ config_log(unsigned int event_class,
 
    pos2 = length;
    length += sprintf(&buf[length], " (%s)\n", user);
-   (void)write(sys_log_fd, buf, length);
+   if (sys_log_fd != STDOUT_FILENO)
+   {
+      (void)write(sys_log_fd, buf, length);
+   }
 
    buf[pos2 + (length - pos2 - 2)] = '\0';
    if (alias == NULL)

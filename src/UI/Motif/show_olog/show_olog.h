@@ -138,6 +138,7 @@ struct info_data
           char               *soptions;
           char               loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
 #endif
+          char               dir_config_file[MAX_PATH_LENGTH];
           char               dir_id_str[MAX_DIR_ALIAS_LENGTH + 1];
           char               recipient[MAX_RECIPIENT_LENGTH];
           char               user[MAX_RECIPIENT_LENGTH];

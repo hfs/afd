@@ -1,6 +1,6 @@
 /*
  *  permission.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -97,6 +97,12 @@
 #define SHOW_QUEUE_PERM          "show_queue"      /* Show + delete queue. */
 #define DELETE_QUEUE_PERM        "delete_queue"    /* Delete queue.        */
 #define XSHOW_STAT_PERM          "xshow_stat"      /* Show statistics.     */
+#define EDIT_AFD_INFO_PERM       "edit_afd_info"   /* Allow to edit the    */
+                                                   /* information about a  */
+                                                   /* host.                */
+#define EDIT_MON_INFO_PERM       "edit_mon_info"   /* Allow to edit the    */
+                                                   /* information about an */
+                                                   /* AFD.                 */
 
 #define MON_CTRL_PERM            "mon_ctrl"        /* mon_ctrl dialog.     */
 #define MON_CTRL_PERM_LENGTH     (sizeof(MON_CTRL_PERM) - 1)

@@ -1,6 +1,6 @@
 /*
  *  sf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -517,6 +517,7 @@ main(int argc, char *argv[])
                   }
 
                   /* Connect to remote FTP-server. */
+                  msg_str[0] = '\0';
                   if (((status = ftp_connect(db.hostname, db.port)) != SUCCESS) &&
                       (status != 230))
                   {
@@ -1093,7 +1094,7 @@ main(int argc, char *argv[])
                            *ol_unl = db.unl;
                            *ol_transfer_time = 0L;
                            *ol_archive_name_length = 0;
-                           *ol_output_type = '4';
+                           *ol_output_type = OT_OTHER_PROC_DELETE + '0';
                            ol_real_size = *ol_file_name_length + ol_size;
                            if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                            {
@@ -2224,9 +2225,15 @@ main(int argc, char *argv[])
                                    fsa->protocol_options & FTP_FAST_MOVE,
                                    (db.special_flag & CREATE_TARGET_DIR) ? YES : NO)) != SUCCESS)
             {
+#ifdef WITH_DUP_CHECK
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                         "Failed to move remote file `%s' to `%s' (%d (crc_id = %x))",
+                         initial_filename, remote_filename, status, db.crc_id);
+#else
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to move remote file `%s' to `%s' (%d)",
                          initial_filename, remote_filename, status);
+#endif
                (void)ftp_quit();
                exit(eval_timeout(MOVE_REMOTE_ERROR));
             }
@@ -2529,7 +2536,7 @@ main(int argc, char *argv[])
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = 0;
-                  *ol_output_type = '0';
+                  *ol_output_type = OT_NORMAL_DELIVERED + '0';
                   ol_real_size = *ol_file_name_length + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
@@ -2576,7 +2583,7 @@ main(int argc, char *argv[])
                   *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
-                  *ol_output_type = '0';
+                  *ol_output_type = OT_NORMAL_DELIVERED + '0';
                   ol_real_size = *ol_file_name_length +
                                  *ol_archive_name_length + 1 + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -2638,7 +2645,7 @@ try_again_unlink:
                *ol_unl = db.unl;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = 0;
-               *ol_output_type = '0';
+               *ol_output_type = OT_NORMAL_DELIVERED + '0';
                ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
@@ -2996,7 +3003,7 @@ sf_ftp_exit(void)
                  (void)strcat(buffer, tmp_buffer);
               }
 #endif
-         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
 
       if ((fsa->job_status[(int)db.job_no].file_name_in_use[0] != '\0') &&

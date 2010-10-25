@@ -85,6 +85,7 @@ DESCR__S_M3
  **                      the filename or part of it.
  **   11.02.2006 H.Kiehl Evaluate options for pexec command.
  **   23.01.2010 H.Kiehl Add support to mirror source.
+ **   13.10.2010 H.Kiehl Added %T time modifier for subject.
  **
  */
 DESCR__E_M3
@@ -1291,6 +1292,9 @@ eval_message(char *message_name, struct job *p_db)
                                             break;
                                       }
                                    }
+                                   /* The %T parameter does not cause any */
+                                   /* extra length, so we can ignore it   */
+                                   /* here.                               */
                                    else if (*search_ptr == 's')
                                         {
                                            if (p_db->filename_pos_subject == -1)
@@ -1321,11 +1325,14 @@ eval_message(char *message_name, struct job *p_db)
                              else
                              {
                                 int    number;
-                                time_t time_buf;
+                                time_t current_time,
+                                       time_buf,
+                                       time_modifier = 0;
                                 char   *read_ptr = p_db->subject,
+                                       time_mod_sign = '+',
                                        *write_ptr = tmp_buffer;
 
-                                time_buf = time(NULL);
+                                current_time = time(NULL);
                                 while (*read_ptr != '\0')
                                 {
                                    if (*read_ptr == '\\')
@@ -1341,6 +1348,29 @@ eval_message(char *message_name, struct job *p_db)
                                          read_ptr++;
                                          if (*read_ptr == 't')
                                          {
+                                            time_buf = current_time;
+                                            if (time_modifier > 0)
+                                            {
+                                               switch (time_mod_sign)
+                                               {
+                                                  case '-' :
+                                                     time_buf = time_buf - time_modifier;
+                                                     break;
+                                                  case '*' :
+                                                     time_buf = time_buf * time_modifier;
+                                                     break;
+                                                  case '/' :
+                                                     time_buf = time_buf / time_modifier;
+                                                     break;
+                                                  case '%' :
+                                                     time_buf = time_buf % time_modifier;
+                                                     break;
+                                                  case '+' :
+                                                  default  :
+                                                     time_buf = time_buf + time_modifier;
+                                                     break;
+                                               }
+                                            }
                                             read_ptr++;
                                             switch (*read_ptr)
                                             {
@@ -1410,11 +1440,81 @@ eval_message(char *message_name, struct job *p_db)
                                             write_ptr += number;
                                             read_ptr++;
                                          }
-                                         else
-                                         {
-                                            *write_ptr = '%';
-                                            write_ptr++;
-                                         }
+                                         else if (*read_ptr == 'T')
+                                              {
+                                                 int  j = 0,
+                                                      time_unit;
+                                                 char string[MAX_INT_LENGTH + 1];
+
+                                                 read_ptr++;
+                                                 switch (*read_ptr)
+                                                 {
+                                                    case '+' :
+                                                    case '-' :
+                                                    case '*' :
+                                                    case '/' :
+                                                    case '%' :
+                                                       time_mod_sign = *read_ptr;
+                                                       read_ptr++;
+                                                       break;
+                                                    default  :
+                                                       time_mod_sign = '+';
+                                                       break;
+                                                 }
+                                                 while ((isdigit((int)(*read_ptr))) &&
+                                                        (j < MAX_INT_LENGTH))
+                                                 {
+                                                    string[j++] = *read_ptr++;
+                                                 }
+                                                 if ((j > 0) &&
+                                                     (j < MAX_INT_LENGTH))
+                                                 {
+                                                    string[j] = '\0';
+                                                    time_modifier = atoi(string);
+                                                 }
+                                                 else
+                                                 {
+                                                    if (j == MAX_INT_LENGTH)
+                                                    {
+                                                       while (isdigit((int)(*read_ptr)))
+                                                       {
+                                                          read_ptr++;
+                                                       }
+                                                    }
+                                                    time_modifier = 0;
+                                                 }
+                                                 switch (*read_ptr)
+                                                 {
+                                                    case 'S' : /* Second. */
+                                                       time_unit = 1;
+                                                       read_ptr++;
+                                                       break;
+                                                    case 'M' : /* Minute. */
+                                                       time_unit = 60;
+                                                       read_ptr++;
+                                                       break;
+                                                    case 'H' : /* Hour. */
+                                                       time_unit = 3600;
+                                                       read_ptr++;
+                                                       break;
+                                                    case 'd' : /* Day. */
+                                                       time_unit = 86400;
+                                                       read_ptr++;
+                                                       break;
+                                                    default :
+                                                       time_unit = 1;
+                                                       break;
+                                                 }
+                                                 if (time_modifier > 0)
+                                                 {
+                                                    time_modifier = time_modifier * time_unit;
+                                                 }
+                                              }
+                                              else
+                                              {
+                                                 *write_ptr = '%';
+                                                 write_ptr++;
+                                              }
                                       }
                                       else
                                       {

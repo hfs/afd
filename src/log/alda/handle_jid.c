@@ -67,7 +67,7 @@ alloc_jid(char *alias)
    }
    else
    {
-      (void)sprintf(jidd.name, "%s%s%s.%s",
+      (void)sprintf(jidd.name, "%s%s%s%s",
                     p_work_dir, FIFO_DIR, AJL_FILE_NAME, alias);
    }
 #else

@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -340,7 +340,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
             diff_time = now - stat_buf.st_mtime;
          }
          if ((db.age_limit > 0) &&
-             ((fsa->host_status & DO_NOT_DELETE_DATA) == 0 ) &&
+             ((fsa->host_status & DO_NOT_DELETE_DATA) == 0) &&
              (diff_time > db.age_limit))
 #endif
          {
@@ -407,7 +407,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                   else
                   {
                      log_data(p_dir->d_name, stat_buf.st_size, diff_time,
-                              YES, '3');
+                              YES, OT_DUPLICATE_DELETE + '0');
                   }
 # endif
                }
@@ -429,7 +429,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                      else
                      {
                         log_data(p_dir->d_name, stat_buf.st_size, diff_time,
-                                 YES, '2');
+                                 YES, OT_DUPLICATE_STORED + '0');
                      }
 # endif
                   }
@@ -451,9 +451,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #if defined (_DELETE_LOG) || defined (_OUTPUT_LOG)
                   log_data(p_dir->d_name, stat_buf.st_size, diff_time,
 # ifdef WITH_DUP_CHECK
-                           is_duplicate, (is_duplicate == YES) ? '3' : '1');
+                           is_duplicate, (is_duplicate == YES) ? (OT_DUPLICATE_DELETE + '0') : (OT_AGE_LIMIT_DELETE + '0'));
 # else
-                           '1');
+                           OT_AGE_LIMIT_DELETE + '0');
 # endif
 #endif
 #ifndef _DELETE_LOG

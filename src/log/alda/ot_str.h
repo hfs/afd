@@ -20,7 +20,7 @@
 #ifndef __ot_str_h
 #define __ot_str_h
 
-#define MAX_OUTPUT_TYPES 6
+#define MAX_OUTPUT_TYPES 8
 static const char *otstr[] = /* Output type string. */
                   {
                      "Normal (delivered)",                   /*  0 */
@@ -29,7 +29,9 @@ static const char *otstr[] = /* Output type string. */
                      "Duplicate (del)",                      /*  3 */
                      "Other process (del)",                  /*  4 */
                      "Address rejected (del)",               /*  5 */
-                     "Unknown"                               /*  6 */
+                     "Host disabled (del)",                  /*  6 */
+                     "Duplicate",                            /*  7 */
+                     "Unknown"                               /*  8 */
                   };
 
 #endif /* __ot_str_h */

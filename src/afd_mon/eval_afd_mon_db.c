@@ -1,6 +1,6 @@
 /*
  *  eval_afd_mon_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -134,6 +134,7 @@ eval_afd_mon_db(struct mon_list **nml)
                           afd_mon_db_file, strerror(errno));
                exit(INCORRECT);
             }
+            afdbase[1 + stat_buf.st_size] = '\0';
          }
          else
          {
@@ -178,8 +179,7 @@ eval_afd_mon_db(struct mon_list **nml)
     */
    for (;;)
    {
-      if ((*ptr != '\n') && (*ptr != '#') &&
-          (*ptr != ' ') && (*ptr != '\t'))
+      if ((*ptr != '\n') && (*ptr != '#') && (*ptr != ' ') && (*ptr != '\t'))
       {
          break;
       }
@@ -262,6 +262,7 @@ eval_afd_mon_db(struct mon_list **nml)
       {
          (*nml)[no_of_afds].convert_username[i][0][0] = '\0';
       }
+
       /* Store AFD alias. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&

@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -184,7 +184,7 @@ main(int argc, char *argv[])
                       MAX_RECEIVE_LOG_FILES);
 
    /* Attach to the AFD Status Area and position pointers. */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to attach to AFD status area.");

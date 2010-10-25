@@ -1,6 +1,6 @@
 /*
  *  alda.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -661,21 +661,32 @@ search_afd(char *search_afd)
                      dlog.alias_name_length = 0;
                      dlog.user_process_length = AMG_LENGTH;
                      dlog.add_reason_length = sizeof("Host disabled") - 1;
-                     dlog.job_id = 0;
+                     dlog.job_id = ulog.job_id_list[dis_counter];
                      dlog.dir_id = ulog.dir_id;
                      dlog.deletion_type = DELETE_HOST_DISABLED;
                      dlog.unique_number = ulog.unique_number;
                      dlog.split_job_counter = 0;
+                     olog.output_type = OT_HOST_DISABLED_DELETE;
+                     olog.job_id = ulog.job_id_list[dis_counter];
+                     olog.output_time = ulog.distribution_time;
                      got_data |= SEARCH_DELETE_LOG;
 # endif
                   }
 # ifdef WITH_DUP_CHECK
-                  else if ((ulog.distribution_type == DUPCHECK_DIS_TYPE) ||
-                           (ulog.distribution_type == AGE_LIMIT_DELETE_DIS_TYPE))
-# else
-                  else if (ulog.distribution_type == AGE_LIMIT_DELETE_DIS_TYPE)
-# endif
+                  else if (ulog.distribution_type == DUPCHECK_DIS_TYPE)
                        {
+                          olog.output_type = OT_DUPLICATE;
+                          olog.job_id = ulog.job_id_list[dis_counter];
+                          olog.output_time = ulog.distribution_time;
+                          search_loop = SEARCH_DELETE_LOG;
+                       }
+                           
+# endif
+                  else if (ulog.distribution_type == AGE_LIMIT_DELETE_DIS_TYPE)
+                       {
+                          olog.output_type = OT_AGE_LIMIT_DELETE;
+                          olog.job_id = ulog.job_id_list[dis_counter];
+                          olog.output_time = ulog.distribution_time;
                           search_loop = SEARCH_DELETE_LOG;
                        }
                }
@@ -1317,7 +1328,25 @@ search_afd(char *search_afd)
          }
          else
          {
-            RESET_OLOG();
+            if ((ulog.distribution_type == DISABLED_DIS_TYPE) ||
+                (ulog.distribution_type == DUPCHECK_DIS_TYPE) ||
+                (ulog.distribution_type == AGE_LIMIT_DELETE_DIS_TYPE))
+            {
+               int          tmp_output_type = olog.output_type;
+               time_t       tmp_output_time = olog.output_time;
+               unsigned int tmp_job_id = olog.job_id;
+
+               RESET_OLOG();
+               olog.output_type = tmp_output_type;
+               olog.output_time = tmp_output_time;
+               olog.send_start_time = tmp_output_time;
+               olog.job_id = tmp_job_id;
+               (void)get_recipient_alias(olog.job_id);
+            }
+            else
+            {
+               RESET_OLOG();
+            }
             more_log_data &= ~SEARCH_OUTPUT_LOG;
          }
 #endif /* _OUTPUT_LOG */
@@ -2525,8 +2554,12 @@ check_distribution_log(char         *search_afd,
                         ucache[distribution.current_file_no].pc = i - 1;
                      }
                   }
-                  while (((ucache[distribution.current_file_no].pc - 1) > 0) &&
-                          (upl[distribution.current_file_no][ucache[distribution.current_file_no].pc - 1].time >= prev_log_time))
+                  if ((i == -2) && (ucache[distribution.current_file_no].pc > 0))
+                  {
+                     ucache[distribution.current_file_no].pc--;
+                  }
+                  while ((ucache[distribution.current_file_no].pc > 0) &&
+                         (upl[distribution.current_file_no][ucache[distribution.current_file_no].pc].time >= prev_log_time))
                   {
                      ucache[distribution.current_file_no].pc--;
                   }
@@ -2600,7 +2633,6 @@ check_distribution_log(char         *search_afd,
                      ucache[distribution.current_file_no].mpc = 0;
                      upl[distribution.current_file_no][0].pos = 0;
                      upl[distribution.current_file_no][0].gotcha = NO;
-                     ucache[distribution.current_file_no].cp = 0;
                   }
                   else
                   {
@@ -2623,7 +2655,6 @@ check_distribution_log(char         *search_afd,
                         }
                      }
                      upl[distribution.current_file_no][ucache[distribution.current_file_no].pc].pos = distribution.bytes_read;
-                     ucache[distribution.current_file_no].cp = distribution.bytes_read;
                   }
                }
 #ifdef HAVE_GETLINE
@@ -2983,7 +3014,8 @@ check_production_log(char         *search_afd,
                   {
                      if (errno != ENOENT)
                      {
-                        (void)fprintf(stderr, "Failed to fopen() `%s' : %s (%s %d)\n",
+                        (void)fprintf(stderr,
+                                      "Failed to fopen() `%s' : %s (%s %d)\n",
                                       production.log_dir, strerror(errno),
                                       __FILE__, __LINE__);
                         return(INCORRECT);
@@ -2996,7 +3028,8 @@ check_production_log(char         *search_afd,
                      production.fd = fileno(production.fp);
                      if (fstat(production.fd, &stat_buf) == -1)
                      {
-                        (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
+                        (void)fprintf(stderr,
+                                      "Failed to fstat() `%s' : %s (%s %d)\n",
                                       production.log_dir, strerror(errno),
                                       __FILE__, __LINE__);
                      }
@@ -3043,8 +3076,12 @@ check_production_log(char         *search_afd,
                         pcache[production.current_file_no].pc = i - 1;
                      }
                   }
+                  if ((i == -2) && (pcache[production.current_file_no].pc > 0))
+                  {
+                     pcache[production.current_file_no].pc--;
+                  }
                   while ((pcache[production.current_file_no].pc > 0) &&
-                          (ppl[production.current_file_no][pcache[production.current_file_no].pc].time >= prev_log_time))
+                         (ppl[production.current_file_no][pcache[production.current_file_no].pc].time >= prev_log_time))
                   {
                      pcache[production.current_file_no].pc--;
                   }
@@ -3118,7 +3155,6 @@ check_production_log(char         *search_afd,
                      pcache[production.current_file_no].mpc = 0;
                      ppl[production.current_file_no][0].pos = 0;
                      ppl[production.current_file_no][0].gotcha = NO;
-                     pcache[production.current_file_no].cp = 0;
                   }
                   else
                   {
@@ -3141,7 +3177,6 @@ check_production_log(char         *search_afd,
                         }
                      }
                      ppl[production.current_file_no][pcache[production.current_file_no].pc].pos = production.bytes_read;
-                     pcache[production.current_file_no].cp = production.bytes_read;
                   }
                }
 #ifdef HAVE_GETLINE
@@ -3604,8 +3639,12 @@ check_output_log(char         *search_afd,
                         ocache[output.current_file_no].pc = i - 1;
                      }
                   }
+                  if ((i == -2) && (ocache[output.current_file_no].pc > 0))
+                  {
+                     ocache[output.current_file_no].pc--;
+                  }
                   while ((ocache[output.current_file_no].pc > 0) &&
-                          (opl[output.current_file_no][ocache[output.current_file_no].pc].time >= prev_log_time))
+                         (opl[output.current_file_no][ocache[output.current_file_no].pc].time >= prev_log_time))
                   {
                      ocache[output.current_file_no].pc--;
                   }
@@ -3687,7 +3726,6 @@ check_output_log(char         *search_afd,
                      ocache[output.current_file_no].mpc = 0;
                      opl[output.current_file_no][0].pos = 0;
                      opl[output.current_file_no][0].gotcha = NO;
-                     ocache[output.current_file_no].cp = 0;
                   }
                   else
                   {
@@ -3710,7 +3748,6 @@ check_output_log(char         *search_afd,
                         }
                      }
                      opl[output.current_file_no][ocache[output.current_file_no].pc].pos = output.bytes_read;
-                     ocache[output.current_file_no].cp = output.bytes_read;
                   }
                }
 #ifdef HAVE_GETLINE
@@ -4122,8 +4159,12 @@ check_delete_log(char         *search_afd,
                         dcache[delete.current_file_no].pc = i - 1;
                      }
                   }
+                  if ((i == -2) && (dcache[delete.current_file_no].pc > 0))
+                  {
+                     dcache[delete.current_file_no].pc--;
+                  }
                   while ((dcache[delete.current_file_no].pc > 0) &&
-                          (dpl[delete.current_file_no][dcache[delete.current_file_no].pc].time >= prev_log_time))
+                         (dpl[delete.current_file_no][dcache[delete.current_file_no].pc].time >= prev_log_time))
                   {
                      dcache[delete.current_file_no].pc--;
                   }
@@ -4196,7 +4237,6 @@ check_delete_log(char         *search_afd,
                      dcache[delete.current_file_no].mpc = 0;
                      dpl[delete.current_file_no][0].pos = 0;
                      dpl[delete.current_file_no][0].gotcha = NO;
-                     dcache[delete.current_file_no].cp = 0;
                   }
                   else
                   {
@@ -4219,7 +4259,6 @@ check_delete_log(char         *search_afd,
                         }
                      }
                      dpl[delete.current_file_no][dcache[delete.current_file_no].pc].pos = delete.bytes_read;
-                     dcache[delete.current_file_no].cp = delete.bytes_read;
                   }
                }
 #ifdef HAVE_GETLINE

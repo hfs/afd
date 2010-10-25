@@ -35,6 +35,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   02.02.2008 H.Kiehl Created
+ **   09.03.2010 H.Kiehl Handle case when user wants to print a % sign.
  **
  */
 DESCR__E_M3
@@ -118,66 +119,52 @@ print_alda_data(void)
    format_orientation[0] = '%';
    do
    {
-      if ((*ptr == '\\') && (*(ptr + 1) != 'n') && (*(ptr + 1) != 't'))
+      if ((*ptr == '\\') && (*(ptr + 1) == '%'))
       {
-         ptr++;
+         ptr += 2;
+         output_line[i] = '%';
+         i++;
       }
-      p_start = ptr;
-      if (*ptr == '%')
+      else
       {
-         fo_pos = 1;
-         ptr++;
-         if (*ptr == '-')
+         if ((*ptr == '\\') && (*(ptr + 1) != 'n') && (*(ptr + 1) != 't'))
          {
-            format_orientation[fo_pos] = *ptr;
-            ptr++; fo_pos++;
-            right_side = NO;
-         }
-         else
-         {
-            right_side = YES;
-         }
-         j = 0;
-         while ((isdigit((int)(*(ptr + j)))) && (j < (1 + MAX_INT_LENGTH)))
-         {
-            format_orientation[fo_pos + j] = *(ptr + j);
-            str_number[j] = *(ptr + j);
-            j++;
-         }
-         if (j > 0)
-         {
-            str_number[j] = '\0';
-            max_length = atoi(str_number);
-            ptr += j;
-            fo_pos += j;
-         }
-         else
-         {
-            max_length = 0;
-         }
-         if (j == (1 + MAX_INT_LENGTH))
-         {
-            while (isdigit((int)(*ptr)))
-            {
-               ptr++;
-            }
-            (void)fprintf(stderr, "Length indicator to long. (%s %d)\n",
-                          __FILE__, __LINE__);
-         }
-         if (*ptr == '.')
-         {
-            format_orientation[fo_pos] = '.';
             ptr++;
-            fo_pos++;
+         }
+         if (*ptr == '%')
+         {
+            p_start = ptr;
+            fo_pos = 1;
+            ptr++;
+            if (*ptr == '-')
+            {
+               format_orientation[fo_pos] = *ptr;
+               ptr++; fo_pos++;
+               right_side = NO;
+            }
+            else
+            {
+               right_side = YES;
+            }
             j = 0;
-            while ((isdigit((int)(*(ptr + j)))) && (j < MAX_INT_LENGTH))
+            while ((isdigit((int)(*(ptr + j)))) && (j < (1 + MAX_INT_LENGTH)))
             {
                format_orientation[fo_pos + j] = *(ptr + j);
+               str_number[j] = *(ptr + j);
                j++;
             }
-            ptr += j;
-            fo_pos += j;
-            if (j == MAX_INT_LENGTH)
+            if (j > 0)
+            {
+               str_number[j] = '\0';
+               max_length = atoi(str_number);
+               ptr += j;
+               fo_pos += j;
+            }
+            else
+            {
+               max_length = 0;
+            }
+            if (j == (1 + MAX_INT_LENGTH))
             {
                while (isdigit((int)(*ptr)))
                {
@@ -186,762 +173,792 @@ print_alda_data(void)
                (void)fprintf(stderr, "Length indicator to long. (%s %d)\n",
                              __FILE__, __LINE__);
             }
-            if ((*ptr == 'd') || (*ptr == 'x') || (*ptr == 'o'))
+            if (*ptr == '.')
             {
+               format_orientation[fo_pos] = '.';
                ptr++;
-            }
-            base_char = 'f';
-         }
-         else
-         {
-            if ((*ptr == 'd') || (*ptr == 'x') || (*ptr == 'o'))
-            {
-               base_char = *ptr;
-               ptr++;
+               fo_pos++;
+               j = 0;
+               while ((isdigit((int)(*(ptr + j)))) && (j < MAX_INT_LENGTH))
+               {
+                  format_orientation[fo_pos + j] = *(ptr + j);
+                  j++;
+               }
+               ptr += j;
+               fo_pos += j;
+               if (j == MAX_INT_LENGTH)
+               {
+                  while (isdigit((int)(*ptr)))
+                  {
+                     ptr++;
+                  }
+                  (void)fprintf(stderr, "Length indicator to long. (%s %d)\n",
+                                __FILE__, __LINE__);
+               }
+               if ((*ptr == 'd') || (*ptr == 'x') || (*ptr == 'o'))
+               {
+                  ptr++;
+               }
+               base_char = 'f';
             }
             else
             {
-               base_char = DEFAULT_BASE_CHAR;
-            }
-         }
-         switch (*ptr)
-         {
-#ifdef _INPUT_LOG
-            case 'I' : /* Input data. */
-               switch (*(ptr + 1))
+               if ((*ptr == 'd') || (*ptr == 'x') || (*ptr == 'o'))
                {
-                  case 'T' : /* Input time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), ilog.input_time,
-                                       &ilog.bd_input_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
+                  base_char = *ptr;
+                  ptr++;
+               }
+               else
+               {
+                  base_char = DEFAULT_BASE_CHAR;
+               }
+            }
+            switch (*ptr)
+            {
+#ifdef _INPUT_LOG
+               case 'I' : /* Input data. */
+                  switch (*(ptr + 1))
+                  {
+                     case 'T' : /* Input time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), ilog.input_time,
+                                          &ilog.bd_input_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
 
-                  case 'F' : /* Input file name. */
-                     i += pri_string(right_side, max_length,
-                                     ilog.filename, ilog.filename_length, i);
-                     ptr++;
-                     break;
+                     case 'F' : /* Input file name. */
+                        i += pri_string(right_side, max_length,
+                                        ilog.filename, ilog.filename_length, i);
+                        ptr++;
+                        break;
 
-                  case 'S' : /* Input file size. */
-                     if ((j = pri_size(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       ilog.file_size, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
+                     case 'S' : /* Input file size. */
+                        if ((j = pri_size(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          ilog.file_size, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
 
-                  case 'I' : /* Input source ID. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, ilog.dir_id, i);
-                     ptr++;
-                     break;
+                     case 'I' : /* Input source ID. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, ilog.dir_id, i);
+                        ptr++;
+                        break;
 
 #if defined (_INPUT_LOG) || defined (_DISTRIBUTION_LOG)
-                  case 'N' : /* Full source name. */
+                     case 'N' : /* Full source name. */
 # ifdef _INPUT_LOG
-                     if (ilog.full_source[0] == '\0')
-                     {
-                        get_full_source(ilog.dir_id, ilog.full_source,
-                                        &ilog.full_source_length);
-                     }
-                     i += pri_string(right_side, max_length, ilog.full_source,
-                                     ilog.full_source_length, i);
+                        if (ilog.full_source[0] == '\0')
+                        {
+                           get_full_source(ilog.dir_id, ilog.full_source,
+                                           &ilog.full_source_length);
+                        }
+                        i += pri_string(right_side, max_length, ilog.full_source,
+                                        ilog.full_source_length, i);
 # else
-                     if (ulog.full_source[0] == '\0')
-                     {
-                        get_full_source(ulog.dir_id, ulog.full_source,
-                                        &ulog.full_source_length);
-                     }
-                     i += pri_string(right_side, max_length, ilog.full_source,
-                                     ulog.full_source_length, i);
+                        if (ulog.full_source[0] == '\0')
+                        {
+                           get_full_source(ulog.dir_id, ulog.full_source,
+                                           &ulog.full_source_length);
+                        }
+                        i += pri_string(right_side, max_length, ilog.full_source,
+                                        ulog.full_source_length, i);
 # endif
-                     ptr++;
-                     break;
+                        ptr++;
+                        break;
 #endif
 
-                  case 'U' : /* Unique number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, ilog.unique_number, i);
-                     ptr++;
-                     break;
+                     case 'U' : /* Unique number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, ilog.unique_number, i);
+                        ptr++;
+                        break;
 
-                  default  : /* Unknown, lets print this as supplied. */
-                     ptr++;
-                     j = ptr - p_start;
-                     (void)memcpy(&output_line[i], p_start, j);
-                     i += j;
-                     break;
-               }
-               break;
+                     default  : /* Unknown, lets print this as supplied. */
+                        ptr++;
+                        j = ptr - p_start;
+                        (void)memcpy(&output_line[i], p_start, j);
+                        i += j;
+                        break;
+                  }
+                  break;
 #endif
 #ifdef _DISTRIBUTION_LOG
-            case 'U' : /* Input data. */
-               switch (*(ptr + 1))
-               {
-                  case 'T' : /* Input time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), ulog.input_time,
-                                       &ulog.bd_input_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
+               case 'U' : /* Input data. */
+                  switch (*(ptr + 1))
+                  {
+                     case 'T' : /* Input time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), ulog.input_time,
+                                          &ulog.bd_input_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 't' : /* Distribution time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          ulog.distribution_time,
+                                          &ulog.bd_distribution_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'F' : /* Input file name. */
+                        i += pri_string(right_side, max_length,
+                                        ulog.filename, ulog.filename_length, i);
+                        ptr++;
+                        break;
+
+                     case 'S' : /* Input file size. */
+                        if ((j = pri_size(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          ulog.file_size, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'I' : /* Input source ID. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, ulog.dir_id, i);
+                        ptr++;
+                        break;
+
+                     case 'U' : /* Unique number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, ulog.unique_number, i);
+                        ptr++;
+                        break;
+
+                     case 'n' : /* Number of jobs distributed. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, ulog.no_of_dist_jobs, i);
+                        ptr++;
+                        break;
+
+                     case 'j' : /* List of job ID's distributed. */
+                        i += pri_int_array(format_orientation, fo_pos, max_length,
+                                           base_char, ulog.no_of_dist_jobs,
+                                           ulog.job_id_list, *(ptr + 2), i);
+                        ptr += 2;
+                        break;
+
+                     case 'c' : /* List of number of pre-processing. */
+                        i += pri_int_char_array(format_orientation, fo_pos,
+                                                max_length, base_char,
+                                                ulog.no_of_dist_jobs,
+                                                ulog.proc_cycles, *(ptr + 2), i);
+                        ptr += 2;
+                        break;
+
+                     case 'Y' : /* Distribution type. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, (int)ulog.distribution_type, i);
+                        ptr++;
+                        break;
+
+                     default  : /* Unknown, lets print this as supplied. */
+                        ptr++;
+                        j = ptr - p_start;
                         (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 't' : /* Distribution time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       ulog.distribution_time,
-                                       &ulog.bd_distribution_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'F' : /* Input file name. */
-                     i += pri_string(right_side, max_length,
-                                     ulog.filename, ulog.filename_length, i);
-                     ptr++;
-                     break;
-
-                  case 'S' : /* Input file size. */
-                     if ((j = pri_size(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       ulog.file_size, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'I' : /* Input source ID. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, ulog.dir_id, i);
-                     ptr++;
-                     break;
-
-                  case 'U' : /* Unique number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, ulog.unique_number, i);
-                     ptr++;
-                     break;
-
-                  case 'n' : /* Number of jobs distributed. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, ulog.no_of_dist_jobs, i);
-                     ptr++;
-                     break;
-
-                  case 'j' : /* List of job ID's distributed. */
-                     i += pri_int_array(format_orientation, fo_pos, max_length,
-                                        base_char, ulog.no_of_dist_jobs,
-                                        ulog.job_id_list, *(ptr + 2), i);
-                     ptr += 2;
-                     break;
-
-                  case 'c' : /* List of number of pre-processing. */
-                     i += pri_int_char_array(format_orientation, fo_pos,
-                                             max_length, base_char,
-                                             ulog.no_of_dist_jobs,
-                                             ulog.proc_cycles, *(ptr + 2), i);
-                     ptr += 2;
-                     break;
-
-                  case 'Y' : /* Distribution type. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, (int)ulog.distribution_type, i);
-                     ptr++;
-                     break;
-
-                  default  : /* Unknown, lets print this as supplied. */
-                     ptr++;
-                     j = ptr - p_start;
-                     (void)memcpy(&output_line[i], p_start, j);
-                     i += j;
-                     break;
-               }
-               break;
+                        i += j;
+                        break;
+                  }
+                  break;
 #endif
 #ifdef _PRODUCTION_LOG
-            case 'P' : /* Production data. */
-               switch (*(ptr + 1))
-               {
-                  case 't' : /* Time when production starts. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), plog.input_time,
-                                       &plog.bd_input_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
+               case 'P' : /* Production data. */
+                  switch (*(ptr + 1))
+                  {
+                     case 't' : /* Time when production starts. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), plog.input_time,
+                                          &plog.bd_input_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'T' : /* Time when production finished. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), plog.output_time,
+                                          &plog.bd_output_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'D' : /* Production time. */
+                        if ((j = pri_duration(format_orientation, fo_pos,
+                                              max_length, base_char, *(ptr + 2),
+                                              (double)(plog.output_time - plog.input_time),
+                                              i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'b' : /* Ratio relationship 1. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, plog.ratio_1, i);
+                        ptr++;
+                        break;
+
+                     case 'B' : /* Ratio relationship 2. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, plog.ratio_2, i);
+                        ptr++;
+                        break;
+
+                     case 'J' : /* Job ID. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, plog.job_id, i);
+                        ptr++;
+                        break;
+
+                     case 'Z' : /* Job creation time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), plog.input_time,
+                                          &plog.bd_input_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'U' : /* Unique number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, plog.unique_number, i);
+                        ptr++;
+                        break;
+
+                     case 'L' : /* Split job number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, plog.split_job_counter, i);
+                        ptr++;
+                        break;
+
+                     case 'f' : /* Input file name. */
+                        i += pri_string(right_side, max_length,
+                                        plog.original_filename,
+                                        plog.original_filename_length, i);
+                        ptr++;
+                        break;
+
+                     case 'F' : /* Produced file name. */
+                        i += pri_string(right_side, max_length, plog.new_filename,
+                                        plog.new_filename_length, i);
+                        ptr++;
+                        break;
+
+                     case 'S' : /* Produced file size. */
+                        if ((j = pri_size(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          plog.new_file_size, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'C' : /* Command execueted. */
+                        i += pri_string(right_side, max_length, plog.what_done,
+                                        plog.what_done_length, i);
+                        ptr++;
+                        break;
+
+                     case 'R' : /* Return code of command executed. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, plog.return_code, i);
+                        ptr++;
+                        break;
+
+                     default  : /* Unknown, lets print this as supplied. */
+                        ptr++;
+                        j = ptr - p_start;
                         (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'T' : /* Time when production finished. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), plog.output_time,
-                                       &plog.bd_output_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'D' : /* Production time. */
-                     if ((j = pri_duration(format_orientation, fo_pos,
-                                           max_length, base_char, *(ptr + 2),
-                                           (double)(plog.output_time - plog.input_time),
-                                           i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'b' : /* Ratio relationship 1. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, plog.ratio_1, i);
-                     ptr++;
-                     break;
-
-                  case 'B' : /* Ratio relationship 2. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, plog.ratio_2, i);
-                     ptr++;
-                     break;
-
-                  case 'J' : /* Job ID. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, plog.job_id, i);
-                     ptr++;
-                     break;
-
-                  case 'Z' : /* Job creation time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), plog.input_time,
-                                       &plog.bd_input_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'U' : /* Unique number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, plog.unique_number, i);
-                     ptr++;
-                     break;
-
-                  case 'L' : /* Split job number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, plog.split_job_counter, i);
-                     ptr++;
-                     break;
-
-                  case 'f' : /* Input file name. */
-                     i += pri_string(right_side, max_length,
-                                     plog.original_filename,
-                                     plog.original_filename_length, i);
-                     ptr++;
-                     break;
-
-                  case 'F' : /* Produced file name. */
-                     i += pri_string(right_side, max_length, plog.new_filename,
-                                     plog.new_filename_length, i);
-                     ptr++;
-                     break;
-
-                  case 'S' : /* Produced file size. */
-                     if ((j = pri_size(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       plog.new_file_size, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'C' : /* Command execueted. */
-                     i += pri_string(right_side, max_length, plog.what_done,
-                                     plog.what_done_length, i);
-                     ptr++;
-                     break;
-
-                  case 'R' : /* Return code of command executed. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, plog.return_code, i);
-                     ptr++;
-                     break;
-
-                  default  : /* Unknown, lets print this as supplied. */
-                     ptr++;
-                     j = ptr - p_start;
-                     (void)memcpy(&output_line[i], p_start, j);
-                     i += j;
-                     break;
-               }
-               break;
+                        i += j;
+                        break;
+                  }
+                  break;
 #endif
 #ifdef _OUTPUT_LOG
-            case 'O' : /* Output data. */
-               switch (*(ptr + 1))
-               {
-                  case 't' : /* Time when sending starts. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       olog.send_start_time,
-                                       &olog.bd_send_start_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
+               case 'O' : /* Output data. */
+                  switch (*(ptr + 1))
+                  {
+                     case 't' : /* Time when sending starts. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          olog.send_start_time,
+                                          &olog.bd_send_start_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
 
-                  case 'T' : /* Time when file is transmitted. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), olog.output_time,
-                                       &olog.bd_output_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
+                     case 'T' : /* Time when file is transmitted. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), olog.output_time,
+                                          &olog.bd_output_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
 
-                  case 'D' : /* Time taken to transmitt file. */
-                     if ((j = pri_duration(format_orientation, fo_pos,
-                                           max_length, base_char, *(ptr + 2),
-                                           olog.transmission_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
+                     case 'D' : /* Time taken to transmitt file. */
+                        if ((j = pri_duration(format_orientation, fo_pos,
+                                              max_length, base_char, *(ptr + 2),
+                                              olog.transmission_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
 
-                  case 'f' : /* Local output file name. */
-                     i += pri_string(right_side, max_length,
-                                     olog.local_filename,
-                                     olog.local_filename_length, i);
-                     ptr++;
-                     break;
-
-                  case 'F' : /* Remote output file name/directory. */
-                     i += pri_string(right_side, max_length, olog.remote_name,
-                                     olog.remote_name_length, i);
-                     ptr++;
-                     break;
-
-                  case 'E' : /* Final output file name/directory. */
-                     if (olog.remote_name[0] == '\0')
-                     {
+                     case 'f' : /* Local output file name. */
                         i += pri_string(right_side, max_length,
                                         olog.local_filename,
                                         olog.local_filename_length, i);
-                     }
-                     else
-                     {
-                        i += pri_string(right_side, max_length,
-                                        olog.remote_name,
+                        ptr++;
+                        break;
+
+                     case 'F' : /* Remote output file name/directory. */
+                        i += pri_string(right_side, max_length, olog.remote_name,
                                         olog.remote_name_length, i);
-                     }
-                     ptr++;
-                     break;
+                        ptr++;
+                        break;
 
-                  case 'P' : /* Protocol used for transmission. */
-                     if (olog.output_time == -1)
-                     {
-                        i += pri_string(right_side, max_length, "", 0, i);
-                     }
-                     else
-                     {
-                        switch (olog.protocol)
-                        {
-                           case ALDA_FTP_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_FTP_SHEME,
-                                              ALDA_FTP_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_LOC_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_LOC_SHEME,
-                                              ALDA_LOC_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_SMTP_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_SMTP_SHEME,
-                                              ALDA_SMTP_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_SFTP_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_SFTP_SHEME,
-                                              ALDA_SFTP_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_SCP_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_SCP_SHEME,
-                                              ALDA_SCP_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_HTTP_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_HTTP_SHEME,
-                                              ALDA_HTTP_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_HTTPS_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_HTTPS_SHEME,
-                                              ALDA_HTTPS_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_FTPS_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_FTPS_SHEME,
-                                              ALDA_FTPS_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_WMO_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_WMO_SHEME,
-                                              ALDA_WMO_SHEME_LENGTH, i);
-                              break;
-
-                           case ALDA_MAP_FLAG :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_MAP_SHEME,
-                                              ALDA_MAP_SHEME_LENGTH, i);
-                              break;
-
-                           default :
-                              i += pri_string(right_side, max_length,
-                                              ALDA_UNKNOWN_SHEME,
-                                              ALDA_UNKNOWN_SHEME_LENGTH, i);
-                              break;
-                        }
-                     }
-                     ptr++;
-                     break;
-
-                  case 'p' : /* Protocol ID used for transmission. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, (int)olog.protocol, i);
-                     ptr++;
-                     break;
-
-                  case 'S' : /* Output file size. */
-                     if ((j = pri_size(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       olog.file_size, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'J' : /* Job ID. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, olog.job_id, i);
-                     ptr++;
-                     break;
-
-                  case 'e' : /* Number of retries. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, (int)olog.retries, i);
-                     ptr++;
-                     break;
-
-                  case 'A' : /* Archive directory. */
-                     i += pri_string(right_side, max_length, olog.archive_dir,
-                                     olog.archive_dir_length, i);
-                     ptr++;
-                     break;
-
-                  case 'Z' : /* Job creation time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       olog.job_creation_time,
-                                       &olog.bd_job_creation_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'U' : /* Unique number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, olog.unique_number, i);
-                     ptr++;
-                     break;
-
-                  case 'L' : /* Split job number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, olog.split_job_counter, i);
-                     ptr++;
-                     break;
-
-                  case 'h' : /* Target real hostname/IP. */
-                     if (olog.real_hostname[0] == '\0')
-                     {
-                        (void)get_real_hostname(olog.alias_name,
-                                                olog.current_toggle,
-                                                olog.real_hostname);
-                     }
-                     i += pri_string(right_side, max_length, olog.real_hostname,
-                                     strlen(olog.real_hostname), i);
-                     ptr++;
-                     break;
-
-                  case 'H' : /* Target alias name. */
-                     i += pri_string(right_side, max_length, olog.alias_name,
-                                     olog.alias_name_length, i);
-                     ptr++;
-                     break;
-
-                  case 'o' : /* Output type ID. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, (int)olog.output_type, i);
-                     ptr++;
-                     break;
-
-                  case 'O' : /* Output type string. */
-                     if (olog.output_type <= MAX_OUTPUT_TYPES)
-                     {
-                        i += pri_string(right_side, max_length,
-                                        otstr[olog.output_type],
-                                        strlen(otstr[olog.output_type]),
-                                        i);
-                     }
-                     else
-                     {
-                        i += pri_string(right_side, max_length,
-                                        otstr[MAX_OUTPUT_TYPES],
-                                        strlen(otstr[MAX_OUTPUT_TYPES]),
-                                        i);
-                     }
-                     ptr++;
-                     break;
-
-                  default  : /* Unknown, lets print this as supplied. */
-                     ptr++;
-                     j = ptr - p_start;
-                     (void)memcpy(&output_line[i], p_start, j);
-                     i += j;
-                     break;
-               }
-               break;
-#endif
-#ifdef _DELETE_LOG
-            case 'D' : /* Delete data. */
-               switch (*(ptr + 1))
-               {
-                  case 't' : /* Job creation time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       dlog.job_creation_time,
-                                       &dlog.bd_job_creation_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'T' : /* Time when file was deleted. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2), dlog.delete_time,
-                                       &dlog.bd_delete_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'r' : /* Delete reason ID. */
-                     i += pri_int(format_orientation, fo_pos, max_length,
-                                  base_char, (int)dlog.deletion_type, i);
-                     ptr++;
-                     break;
-
-                  case 'R' : /* Delete reason string. */
-                     if (dlog.delete_time == -1)
-                     {
-                        i += pri_string(right_side, max_length, "", 0, i);
-                     }
-                     else
-                     {
-                        if (dlog.deletion_type <= MAX_DELETE_REASONS)
+                     case 'E' : /* Final output file name/directory. */
+                        if (olog.remote_name[0] == '\0')
                         {
                            i += pri_string(right_side, max_length,
-                                           drstr[dlog.deletion_type],
-                                           strlen(drstr[dlog.deletion_type]),
+                                           olog.local_filename,
+                                           olog.local_filename_length, i);
+                        }
+                        else
+                        {
+                           i += pri_string(right_side, max_length,
+                                           olog.remote_name,
+                                           olog.remote_name_length, i);
+                        }
+                        ptr++;
+                        break;
+
+                     case 'P' : /* Protocol used for transmission. */
+                        if (olog.output_time == -1)
+                        {
+                           i += pri_string(right_side, max_length, "", 0, i);
+                        }
+                        else
+                        {
+                           switch (olog.protocol)
+                           {
+                              case ALDA_FTP_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_FTP_SHEME,
+                                                 ALDA_FTP_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_LOC_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_LOC_SHEME,
+                                                 ALDA_LOC_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_SMTP_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_SMTP_SHEME,
+                                                 ALDA_SMTP_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_SFTP_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_SFTP_SHEME,
+                                                 ALDA_SFTP_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_SCP_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_SCP_SHEME,
+                                                 ALDA_SCP_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_HTTP_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_HTTP_SHEME,
+                                                 ALDA_HTTP_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_HTTPS_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_HTTPS_SHEME,
+                                                 ALDA_HTTPS_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_FTPS_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_FTPS_SHEME,
+                                                 ALDA_FTPS_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_WMO_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_WMO_SHEME,
+                                                 ALDA_WMO_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_MAP_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_MAP_SHEME,
+                                                 ALDA_MAP_SHEME_LENGTH, i);
+                                 break;
+
+                              default :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_UNKNOWN_SHEME,
+                                                 ALDA_UNKNOWN_SHEME_LENGTH, i);
+                                 break;
+                           }
+                        }
+                        ptr++;
+                        break;
+
+                     case 'p' : /* Protocol ID used for transmission. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, (int)olog.protocol, i);
+                        ptr++;
+                        break;
+
+                     case 'S' : /* Output file size. */
+                        if ((j = pri_size(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          olog.file_size, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'J' : /* Job ID. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, olog.job_id, i);
+                        ptr++;
+                        break;
+
+                     case 'e' : /* Number of retries. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, (int)olog.retries, i);
+                        ptr++;
+                        break;
+
+                     case 'A' : /* Archive directory. */
+                        i += pri_string(right_side, max_length, olog.archive_dir,
+                                        olog.archive_dir_length, i);
+                        ptr++;
+                        break;
+
+                     case 'Z' : /* Job creation time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          olog.job_creation_time,
+                                          &olog.bd_job_creation_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'U' : /* Unique number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, olog.unique_number, i);
+                        ptr++;
+                        break;
+
+                     case 'L' : /* Split job number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, olog.split_job_counter, i);
+                        ptr++;
+                        break;
+
+                     case 'h' : /* Target real hostname/IP. */
+                        if (olog.real_hostname[0] == '\0')
+                        {
+                           (void)get_real_hostname(olog.alias_name,
+                                                   olog.current_toggle,
+                                                   olog.real_hostname);
+                        }
+                        i += pri_string(right_side, max_length, olog.real_hostname,
+                                        strlen(olog.real_hostname), i);
+                        ptr++;
+                        break;
+
+                     case 'H' : /* Target alias name. */
+                        i += pri_string(right_side, max_length, olog.alias_name,
+                                        olog.alias_name_length, i);
+                        ptr++;
+                        break;
+
+                     case 'o' : /* Output type ID. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, (int)olog.output_type, i);
+                        ptr++;
+                        break;
+
+                     case 'O' : /* Output type string. */
+                        if (olog.output_type <= MAX_OUTPUT_TYPES)
+                        {
+                           i += pri_string(right_side, max_length,
+                                           otstr[olog.output_type],
+                                           strlen(otstr[olog.output_type]),
                                            i);
                         }
                         else
                         {
                            i += pri_string(right_side, max_length,
-                                           UKN_DEL_REASON_STR,
-                                           UKN_DEL_REASON_STR_LENGTH, i);
+                                           otstr[OT_UNKNOWN],
+                                           strlen(otstr[OT_UNKNOWN]),
+                                           i);
                         }
-                     }
-                     ptr++;
-                     break;
+                        ptr++;
+                        break;
 
-                  case 'W' : /* User/program causing deletion. */
-                     i += pri_string(right_side, max_length, dlog.user_process,
-                                     dlog.user_process_length, i);
-                     ptr++;
-                     break;
+                     case 'R' : /* Recipient of job. */
+                        i += pri_string(right_side, max_length,
+                                        olog.recipient,
+                                        strlen(olog.recipient), i);
+                        ptr++;
+                        break;
 
-                  case 'A' : /* Additional reason. */
-                     i += pri_string(right_side, max_length, dlog.add_reason,
-                                     dlog.add_reason_length, i);
-                     ptr++;
-                     break;
-
-                  case 'Z' : /* Job creation time. */
-                     if ((j = pri_time(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       dlog.job_creation_time,
-                                       &dlog.bd_job_creation_time, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
+                     default  : /* Unknown, lets print this as supplied. */
+                        ptr++;
+                        j = ptr - p_start;
                         (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'U' : /* Unique number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, dlog.unique_number, i);
-                     ptr++;
-                     break;
-
-                  case 'L' : /* Split job number. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, dlog.split_job_counter, i);
-                     ptr++;
-                     break;
-
-                  case 'F' : /* File name of deleted file. */
-                     i += pri_string(right_side, max_length, dlog.filename,
-                                     dlog.filename_length, i);
-                     ptr++;
-                     break;
-
-                  case 'S' : /* File size of deleted file. */
-                     if ((j = pri_size(format_orientation, fo_pos, max_length,
-                                       base_char, *(ptr + 2),
-                                       dlog.file_size, i)) == -1)
-                     {
-                        j = ptr + 2 - p_start;
-                        (void)memcpy(&output_line[i], p_start, j);
-                     }
-                     ptr += 2;
-                     i += j;
-                     break;
-
-                  case 'J' : /* Job ID of deleted file. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, dlog.job_id, i);
-                     ptr++;
-                     break;
-
-                  case 'I' : /* Input source ID. */
-                     i += pri_id(format_orientation, fo_pos, max_length,
-                                 base_char, dlog.dir_id, i);
-                     ptr++;
-                     break;
-
-                  case 'H' : /* Target alias name. */
-                     i += pri_string(right_side, max_length, dlog.alias_name,
-                                     dlog.alias_name_length, i);
-                     ptr++;
-                     break;
-
-                  default  : /* Unknown, lets print this as supplied. */
-                     ptr++;
-                     j = ptr - p_start;
-                     (void)memcpy(&output_line[i], p_start, j);
-                     i += j;
-                     break;
-               }
-               break;
+                        i += j;
+                        break;
+                  }
+                  break;
 #endif
-            default  : /* Unknown, lets print this as supplied. */
-               j = ptr - p_start;
-               (void)memcpy(&output_line[i], p_start, j);
-               i += j;
-               break;
+#ifdef _DELETE_LOG
+               case 'D' : /* Delete data. */
+                  switch (*(ptr + 1))
+                  {
+                     case 't' : /* Job creation time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          dlog.job_creation_time,
+                                          &dlog.bd_job_creation_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'T' : /* Time when file was deleted. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2), dlog.delete_time,
+                                          &dlog.bd_delete_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'r' : /* Delete reason ID. */
+                        i += pri_int(format_orientation, fo_pos, max_length,
+                                     base_char, (int)dlog.deletion_type, i);
+                        ptr++;
+                        break;
+
+                     case 'R' : /* Delete reason string. */
+                        if (dlog.delete_time == -1)
+                        {
+                           i += pri_string(right_side, max_length, "", 0, i);
+                        }
+                        else
+                        {
+                           if (dlog.deletion_type <= MAX_DELETE_REASONS)
+                           {
+                              i += pri_string(right_side, max_length,
+                                              drstr[dlog.deletion_type],
+                                              strlen(drstr[dlog.deletion_type]),
+                                              i);
+                           }
+                           else
+                           {
+                              i += pri_string(right_side, max_length,
+                                              UKN_DEL_REASON_STR,
+                                              UKN_DEL_REASON_STR_LENGTH, i);
+                           }
+                        }
+                        ptr++;
+                        break;
+
+                     case 'W' : /* User/program causing deletion. */
+                        i += pri_string(right_side, max_length, dlog.user_process,
+                                        dlog.user_process_length, i);
+                        ptr++;
+                        break;
+
+                     case 'A' : /* Additional reason. */
+                        i += pri_string(right_side, max_length, dlog.add_reason,
+                                        dlog.add_reason_length, i);
+                        ptr++;
+                        break;
+
+                     case 'Z' : /* Job creation time. */
+                        if ((j = pri_time(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          dlog.job_creation_time,
+                                          &dlog.bd_job_creation_time, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'U' : /* Unique number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, dlog.unique_number, i);
+                        ptr++;
+                        break;
+
+                     case 'L' : /* Split job number. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, dlog.split_job_counter, i);
+                        ptr++;
+                        break;
+
+                     case 'F' : /* File name of deleted file. */
+                        i += pri_string(right_side, max_length, dlog.filename,
+                                        dlog.filename_length, i);
+                        ptr++;
+                        break;
+
+                     case 'S' : /* File size of deleted file. */
+                        if ((j = pri_size(format_orientation, fo_pos, max_length,
+                                          base_char, *(ptr + 2),
+                                          dlog.file_size, i)) == -1)
+                        {
+                           j = ptr + 2 - p_start;
+                           (void)memcpy(&output_line[i], p_start, j);
+                        }
+                        ptr += 2;
+                        i += j;
+                        break;
+
+                     case 'J' : /* Job ID of deleted file. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, dlog.job_id, i);
+                        ptr++;
+                        break;
+
+                     case 'I' : /* Input source ID. */
+                        i += pri_id(format_orientation, fo_pos, max_length,
+                                    base_char, dlog.dir_id, i);
+                        ptr++;
+                        break;
+
+                     case 'H' : /* Target alias name. */
+                        i += pri_string(right_side, max_length, dlog.alias_name,
+                                        dlog.alias_name_length, i);
+                        ptr++;
+                        break;
+
+                     default  : /* Unknown, lets print this as supplied. */
+                        ptr++;
+                        j = ptr - p_start;
+                        (void)memcpy(&output_line[i], p_start, j);
+                        i += j;
+                        break;
+                  }
+                  break;
+#endif
+
+               default  : /* Unknown, lets print this as supplied. */
+                  j = ptr - p_start;
+                  (void)memcpy(&output_line[i], p_start, j);
+                  i += j;
+                  break;
+            }
          }
-      }
-      else if ((*ptr == '\\') &&
-               ((*(ptr + 1) == 'n') || (*(ptr + 1) == 't')))
-           {
-              ptr++;
-              if (*ptr == 'n')
+         else if ((*ptr == '\\') &&
+                  ((*(ptr + 1) == 'n') || (*(ptr + 1) == 't')))
               {
-                 output_line[i] = '\n';
+                 ptr++;
+                 if (*ptr == 'n')
+                 {
+                    output_line[i] = '\n';
+                 }
+                 else
+                 {
+                    output_line[i] = '\t';
+                 }
+                 i++;
               }
               else
               {
-                 output_line[i] = '\t';
+                 output_line[i] = *ptr;
+                 i++;
               }
-              i++;
-           }
-           else
-           {
-              output_line[i] = *ptr;
-              i++;
-           }
-      ptr++;
+         ptr++;
+      }
    } while (*ptr != '\0');
 
-   output_line[i] = '\n';
-   output_line[i + 1] = '\0';
-   log_data_written += (off_t)fprintf(output_fp, output_line);
+   output_line[i] = '\0';
+   log_data_written += (off_t)fprintf(output_fp, "%s\n", output_line);
    if ((output_filename[0] != '\0') &&
        ((mode & ALDA_CONTINUOUS_MODE) || (mode & ALDA_CONTINUOUS_DAEMON_MODE)))
    {

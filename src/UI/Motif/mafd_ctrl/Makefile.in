@@ -74,12 +74,13 @@ am_mafd_ctrl_OBJECTS = mafd_ctrl.$(OBJEXT) calc_but_coord.$(OBJEXT) \
 	draw_line.$(OBJEXT) draw_tv_line.$(OBJEXT) \
 	error_history.$(OBJEXT) event_reason.$(OBJEXT) \
 	expose_handler.$(OBJEXT) find_host_dialog.$(OBJEXT) \
-	get_line_pos.$(OBJEXT) init_jd_structure.$(OBJEXT) \
-	locate_xy_column.$(OBJEXT) locate_xy_short.$(OBJEXT) \
-	mouse_handler.$(OBJEXT) redraw_all.$(OBJEXT) \
-	resize_tv_window.$(OBJEXT) resize_window.$(OBJEXT) \
-	setup_tv_window.$(OBJEXT) setup_window.$(OBJEXT) \
-	tv_window_size.$(OBJEXT) window_size.$(OBJEXT)
+	get_job_priority.$(OBJEXT) get_line_pos.$(OBJEXT) \
+	init_jd_structure.$(OBJEXT) locate_xy_column.$(OBJEXT) \
+	locate_xy_short.$(OBJEXT) mouse_handler.$(OBJEXT) \
+	redraw_all.$(OBJEXT) resize_tv_window.$(OBJEXT) \
+	resize_window.$(OBJEXT) setup_tv_window.$(OBJEXT) \
+	setup_window.$(OBJEXT) tv_window_size.$(OBJEXT) \
+	window_size.$(OBJEXT)
 mafd_ctrl_OBJECTS = $(am_mafd_ctrl_OBJECTS)
 mafd_ctrl_DEPENDENCIES = ../common/libmotifafd.a \
 	../../common/libuiafd.a ../../../common/libafd.a
@@ -268,6 +269,7 @@ mafd_ctrl_SOURCES = mafd_ctrl.c\
                        event_reason.c\
                        expose_handler.c\
                        find_host_dialog.c\
+                       get_job_priority.c\
 		       get_line_pos.c\
                        init_jd_structure.c\
                        locate_xy_column.c\
@@ -377,6 +379,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/event_reason.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/expose_handler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/find_host_dialog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_job_priority.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_line_pos.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_jd_structure.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/locate_xy_column.Po@am__quote@

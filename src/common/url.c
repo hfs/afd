@@ -1281,7 +1281,7 @@ url_evaluate(char          *url,
                                              time_buf = time_buf % time_modifier;
                                              break;
                                           case '+' :
-                                          default :
+                                          default  :
                                              time_buf = time_buf + time_modifier;
                                              break;
                                        }

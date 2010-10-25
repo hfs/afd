@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -65,19 +65,21 @@ DESCR__E_M3
 #include "mafd_ctrl.h"
 
 /* External global variables. */
-extern int                 no_of_log_files;
-extern char                *p_work_dir;
-extern struct item_list    *il;
-extern struct info_data    id;
+extern int                    no_of_log_files;
+extern char                   *p_work_dir;
+extern struct item_list       *il;
+extern struct info_data       id;
 
 /* Local variables. */
-static int                 *no_of_job_ids;
-static struct job_id_data  *jd = NULL;
-static struct dir_name_buf *dnb = NULL;
+static int                    *no_of_dc_ids,
+                              *no_of_job_ids;
+static struct job_id_data     *jd = NULL;
+static struct dir_name_buf    *dnb = NULL;
+static struct dir_config_list *dcl = NULL;
 
 /* Local function prototypes. */
-static unsigned int        get_all(int);
-static void                get_job_data(struct job_id_data *);
+static unsigned int           get_all(int);
+static void                   get_job_data(struct job_id_data *);
 
 
 /*############################### get_info() ############################*/
@@ -184,6 +186,55 @@ get_info(int item)
       else
       {
          (void)xrec(ERROR_DIALOG, "Dirname database file is empty. (%s %d)",
+                    __FILE__, __LINE__);
+         (void)close(fd);
+         return;
+      }
+
+      /* Map to DIR_CONFIG name database. */
+      (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
+                    DC_LIST_FILE);
+      if ((fd = open(job_id_data_file, O_RDONLY)) == -1)
+      {
+         (void)xrec(ERROR_DIALOG, "Failed to open() `%s' : %s (%s %d)",
+                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+         return;
+      }
+      if (fstat(fd, &stat_buf) == -1)
+      {
+         (void)xrec(ERROR_DIALOG, "Failed to fstat() `%s' : %s (%s %d)",
+                    job_id_data_file, strerror(errno), __FILE__, __LINE__);
+         (void)close(fd);
+         return;
+      }
+      if (stat_buf.st_size > 0)
+      {
+         char *ptr;
+
+         if ((ptr = mmap(NULL, stat_buf.st_size, PROT_READ,
+                         MAP_SHARED, fd, 0)) == (caddr_t) -1)
+         {
+            (void)xrec(ERROR_DIALOG, "Failed to mmap() `%s' : %s (%s %d)",
+                       job_id_data_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(fd);
+            return;
+         }
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_DCID_VERSION)
+         {
+            (void)xrec(ERROR_DIALOG, "Incorrect DCID version (data=%d current=%d)!",
+                       *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_DCID_VERSION);
+            (void)close(fd);
+            return;
+         }
+         no_of_dc_ids = (int *)ptr;
+         ptr += AFD_WORD_OFFSET;
+         dcl = (struct dir_config_list *)ptr;
+         (void)close(fd);
+      }
+      else
+      {
+         (void)xrec(ERROR_DIALOG,
+                    "DIR_CONFIG ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(fd);
          return;
@@ -658,6 +709,17 @@ get_job_data(struct job_id_data *p_jd)
 {
    register int  i;
    register char *p_tmp;
+
+   /* Get DIR_CONFIG name. */
+   id.dir_config_file[0] = '\0';
+   for (i = 0; i < *no_of_dc_ids; i++)
+   {
+      if (p_jd->dir_config_id == dcl[i].dc_id)
+      {
+         (void)strcpy(id.dir_config_file, dcl[i].dir_config_file);
+         break;
+      }
+   }
 
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.dir_id = p_jd->dir_id;

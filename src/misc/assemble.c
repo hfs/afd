@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,14 +114,18 @@ assemble(char         *source_dir,
    int         have_sohetx;
 #endif
    char        *buffer = NULL,
+               *p_dest,
                *p_src,
-               temp_dest_file[1 + MAX_INT_HEX_LENGTH + 1];
+               temp_dest_file[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   p_src = source_dir + strlen(source_dir);
-   *p_src++ = '/';
+   (void)strcpy(temp_dest_file, source_dir);
+   i = strlen(source_dir);
+   p_src = source_dir + i;
+   p_dest = temp_dest_file + i;
+   *p_src++ = '/'; *p_dest++ = '/';
+   *p_dest = '\0';
    *file_size = 0;
-   temp_dest_file[0] = '\0';
 
    for (i = 0; i < file_counter; i++)
    {
@@ -180,9 +184,9 @@ assemble(char         *source_dir,
                   }
                   if (to_fd == -1)
                   {
-                     if (temp_dest_file[0] == '\0')
+                     if (*p_dest == '\0')
                      {
-                        (void)sprintf(temp_dest_file, ".%x", unique_number);
+                        (void)sprintf(p_dest, ".%x", unique_number);
                      }
                      if ((to_fd = open(temp_dest_file, O_CREAT | O_RDWR,
                                        FILE_MODE)) == -1)

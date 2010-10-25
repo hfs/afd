@@ -304,7 +304,7 @@ main(int argc, char *argv[])
       (void)strcat(afd_active_file, AFD_ACTIVE_FILE);
       (void)strcat(amg_cmd_fifo, AMG_CMD_FIFO);
 
-      if (attach_afd_status(NULL) < 0)
+      if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     _("Failed to attach to AFD status shared area."));

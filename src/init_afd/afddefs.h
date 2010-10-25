@@ -260,6 +260,23 @@ typedef unsigned long       u_long_64;
 #endif
 #define AFD_USER_NAME              "afd"
 
+#ifdef _OUTPUT_LOG
+/* Definitions for different output types. */
+# define OT_NORMAL_DELIVERED       0
+# define OT_AGE_LIMIT_DELETE       1
+# ifdef WITH_DUP_CHECK
+#  define OT_DUPLICATE_STORED      2
+#  define OT_DUPLICATE_DELETE      3
+# endif
+# define OT_OTHER_PROC_DELETE      4
+# define OT_ADRESS_REJ_DELETE      5
+# define OT_HOST_DISABLED_DELETE   6
+# ifdef WITH_DUP_CHECK
+#  define OT_DUPLICATE             7
+# endif
+# define OT_UNKNOWN                8
+#endif
+
 #ifdef _DELETE_LOG
 /* Definitions for different delete reasons. */
 # define AGE_OUTPUT                 0
@@ -306,6 +323,7 @@ typedef unsigned long       u_long_64;
 
 /* Exit status of afd program that starts the AFD. */
 #define AFD_IS_ACTIVE              5
+#define AFD_DISABLED_BY_SYSADM     6
 #define AFD_IS_NOT_ACTIVE          10 /* If changed, update scripts/afd.in */
 #define NOT_ON_CORRECT_HOST        11 /* If changed, update scripts/afd.in */
 #define AFD_MON_IS_NOT_ACTIVE      10
@@ -1103,6 +1121,7 @@ typedef unsigned long       u_long_64;
 #endif
 #define WD_ENV_NAME                "AFD_WORK_DIR"   /* The working dir-   */
                                                     /* ectory environment */
+#define WAIT_AFD_STATUS_ATTACH     80
 
 /* Different host status. */
 #define STOP_TRANSFER_STAT         1
@@ -1558,7 +1577,8 @@ typedef unsigned long       u_long_64;
 #define EA_EXEC_SUCCESS_ACTION_STOP     55
 #define EA_START_DIRECTORY              56
 #define EA_STOP_DIRECTORY               57
-#define EA_MAX_EVENT_ACTION             57
+#define EA_CHANGE_INFO                  58
+#define EA_MAX_EVENT_ACTION             58
 
 /* See ea_str.h for longest event string. */
 #define MAX_EVENT_ACTION_LENGTH     (sizeof("Disable create target dir") - 1)
@@ -2419,7 +2439,7 @@ struct job_id_data
           unsigned int host_id;         /* CRC-32 checksum of host_alias.*/
           unsigned int recipient_id;    /* CRC-32 checksum of recipient. */
           int          dir_id_pos;      /* Position of the directory     */
-                                        /* name int the structure        */
+                                        /* name in the structure         */
                                         /* dir_name_buf.                 */
           int          no_of_loptions;
           int          no_of_soptions;
@@ -2528,7 +2548,7 @@ struct crc_buf
 struct dir_options
        {
           int  no_of_dir_options;
-          char aoptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
+          char aoptions[MAX_NO_OPTIONS + 1][MAX_OPTION_LENGTH];
           char dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char url[MAX_PATH_LENGTH];
        };
@@ -3065,7 +3085,7 @@ extern unsigned int get_checksum(char *, int),
                                  time_t *, char *, unsigned char *, char *);
 extern int          assemble(char *, char *, int, char *, int, unsigned int,
                              int *, off_t *),
-                    attach_afd_status(int *),
+                    attach_afd_status(int *, int),
 #ifdef WITH_ERROR_QUEUE
                     attach_error_queue(void),
                     check_error_queue(unsigned int, int, time_t, int),

@@ -1,6 +1,6 @@
 /*
  *  aldad.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009, 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -371,13 +371,21 @@ zombie_check(void)
                  }
                  no_of_process--;
                  i--;
-                 if ((apl = realloc(apl,
-                                    (no_of_process * sizeof(struct aldad_proc_list)))) == NULL)
+                 if (no_of_process == 0)
                  {
-                    system_log(FATAL_SIGN, __FILE__, __LINE__,
-                               "Failed to realloc() memory : %s",
-                               strerror(errno));
-                    exit(INCORRECT);
+                    free(apl);
+                    apl = NULL;
+                 }
+                 else
+                 {
+                    if ((apl = realloc(apl,
+                                       (no_of_process * sizeof(struct aldad_proc_list)))) == NULL)
+                    {
+                       system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                  "Failed to realloc() memory : %s",
+                                  strerror(errno));
+                       exit(INCORRECT);
+                    }
                  }
               }
          else if (WIFSTOPPED(status))

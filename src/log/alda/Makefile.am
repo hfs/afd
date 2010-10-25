@@ -31,11 +31,11 @@ else
    EXTRA_CHECK_DISTRIBUTION_LINE = check_distribution_line.c
 endif
 if WITH_OUTPUT_LOG
-   AFD_CHECK_OUTPUT_LINE         = check_output_line.c
+   AFD_CHECK_OUTPUT_LINE         = check_output_line.c get_recipient.c
    EXTRA_CHECK_OUTPUT_LINE       =
 else
    AFD_CHECK_OUTPUT_LINE         =
-   EXTRA_CHECK_OUTPUT_LINE       = check_output_line.c
+   EXTRA_CHECK_OUTPUT_LINE       = check_output_line.c get_recipient.c
 endif
 if WITH_DELETE_LOG
    AFD_CHECK_DELETE_LINE         = check_delete_line.c
@@ -72,8 +72,6 @@ EXTRA_DIST                       = $(EXTRA_CHECK_INPUT_LINE)\
                                    $(EXTRA_HANDLE_AXL)\
                                    $(EXTRA_CHECK_PRODUCTION_LINE)\
                                    $(EXTRA_SEEK_ALDA_CACHE_POSITION)
-MAINTAINERCLEANFILES             = Makefile.in
-CLEANFILES                       = gmon.out core core.*
 noinst_HEADERS                   = aldadefs.h ot_str.h
 if WITH_AFD_MON
    INCLUDES                      = -I.. -I../.. -I../../init_afd -I../../afd_mon
@@ -81,6 +79,9 @@ else
    INCLUDES                      = -I.. -I../.. -I../../init_afd
 endif
 bin_PROGRAMS                     = alda aldad
+EXTRA_PROGRAMS                   = check_alda_cache
+MAINTAINERCLEANFILES             = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES                       = gmon.out core core.*
 alda_SOURCES                     = alda.c\
                                    $(AFD_CHECK_DELETE_LINE)\
                                    check_did.c\
@@ -101,3 +102,5 @@ alda_SOURCES                     = alda.c\
 alda_LDADD                       = ../../common/libafd.a
 aldad_SOURCES                    = aldad.c
 aldad_LDADD                      = ../../common/libafd.a
+check_alda_cache_SOURCES         = check_alda_cache.c
+check_alda_cache_LDADD           = ../../common/libafd.a

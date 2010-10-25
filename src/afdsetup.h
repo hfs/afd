@@ -325,7 +325,7 @@
  *                        Each file mask will be terminated by a new-
  *                        line.
  *-----------------------------------------------------------------------*/
-#define MAX_NO_OPTIONS       10
+#define MAX_NO_OPTIONS       15
 #define MAX_RECIPIENT_LENGTH 256
 #define MAX_OPTION_LENGTH    256
 #define MAX_FILE_MASK_BUFFER 4096
@@ -511,6 +511,12 @@
  * should be appended.
  *-----------------------------------------------------------------------*/
 #define MAX_SEND_BEFORE_APPEND 102400
+
+/*-----------------------------------------------------------------------*
+ * Define this if you still have an old SSH server that can fall back to
+ * RSH but you don't want this to happen.
+ *-----------------------------------------------------------------------*/
+/* #define _WITH_FALLBACK_TO_RSH_NO */
 
 
 /*************************************************************************/

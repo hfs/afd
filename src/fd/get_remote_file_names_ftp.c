@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names_ftp.c - Part of AFD, an automatic file distribution
  *                                program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -361,7 +361,7 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
          else if (status == 226)
               {
                  remove_ls_data(db.fra_pos);
-                 trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                 trans_log(INFO_SIGN, NULL, 0, NULL, msg_str,
                            "No files found (%d).", status);
                  return(0);
               }
@@ -390,7 +390,7 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
       if (nlist == NULL)
       {
          remove_ls_data(db.fra_pos);
-         trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+         trans_log(INFO_SIGN, NULL, 0, NULL, msg_str,
                    "No files found (%d).", status);
          return(files_to_retrieve);
       }

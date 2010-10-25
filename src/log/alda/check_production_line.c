@@ -1,7 +1,7 @@
 /*
  *  check_production_line.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -181,7 +181,7 @@ check_production_line(char         *line,
       plog.input_time = (time_t)str2timet(ptr, NULL, 16);
       if ((plog.input_time >= start_time_start) &&
           ((prev_log_time == 0) || (plog.input_time == prev_log_time)) &&
-          ((start_time_end == 0) || (plog.input_time <= start_time_end)))
+          ((start_time_end == 0) || (plog.input_time < start_time_end)))
       {
          ptr += i + 1;
          i = 0;

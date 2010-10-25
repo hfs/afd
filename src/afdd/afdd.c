@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -275,7 +275,7 @@ main(int argc, char *argv[])
    danger_no_of_jobs = danger_no_of_jobs / 2;
 
    /* Attach to the AFD Status Area. */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  _("Failed to map to AFD status area."));

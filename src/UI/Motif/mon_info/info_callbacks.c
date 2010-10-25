@@ -44,6 +44,20 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include "mon_info.h"
 
+/* Global variables. */
+extern Widget info_w;
+extern char   afd_name[];
+
+
+/*########################### save_button() #############################*/
+void
+save_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   write_info_file(info_w, afd_name, HOST_INFO_FILE);
+
+   return;
+}
+
 
 /*########################### close_button() ############################*/
 void

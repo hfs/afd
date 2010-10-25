@@ -1,6 +1,6 @@
 /*
  *  sftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -2611,8 +2611,16 @@ get_xfer_names(unsigned int no_of_names, char *msg)
             }
             ptr += ui_var + 4;
          }
-         ptr += store_attributes(ptr, &scd.nl[i].stat_flag,
-                                 &scd.nl[i].stat_buf);
+         if ((ui_var = (unsigned int)store_attributes(ptr,
+                                                      &scd.nl[i].stat_flag,
+                                                      &scd.nl[i].stat_buf)) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "get_xfer_names", NULL,
+                      _("Unable to evaluate the file attributes part."));
+            scd.nl_length = i;
+            return(INCORRECT);
+         }
+         ptr += ui_var;
       }
    }
 
@@ -2772,6 +2780,7 @@ store_attributes(char *msg, unsigned int *p_stat_flag, struct stat *p_stat_buf)
    {
       p_stat_buf->st_size = (off_t)get_xfer_uint64(&msg[pos]);
       pos += 8;
+      *p_stat_flag &= ~SSH_FILEXFER_ATTR_SIZE;
    }
    if (*p_stat_flag & SSH_FILEXFER_ATTR_UIDGID) /* Up to version 3. */
    {
@@ -2779,10 +2788,12 @@ store_attributes(char *msg, unsigned int *p_stat_flag, struct stat *p_stat_buf)
       pos += 4;
       p_stat_buf->st_gid = (gid_t)get_xfer_uint(&msg[pos]);
       pos += 4;
+      *p_stat_flag &= ~SSH_FILEXFER_ATTR_UIDGID;
    }
    if (*p_stat_flag & SSH_FILEXFER_ATTR_ALLOCATION_SIZE)
    {
       pos += 8;
+      *p_stat_flag &= ~SSH_FILEXFER_ATTR_ALLOCATION_SIZE;
    }
    if (*p_stat_flag & SSH_FILEXFER_ATTR_OWNERGROUP)
    {
@@ -2847,6 +2858,7 @@ store_attributes(char *msg, unsigned int *p_stat_flag, struct stat *p_stat_buf)
       }
       pos += (length + 4);
 #endif
+      *p_stat_flag &= ~SSH_FILEXFER_ATTR_OWNERGROUP;
    }
    if (*p_stat_flag & SSH_FILEXFER_ATTR_PERMISSIONS)
    {
@@ -2855,6 +2867,7 @@ store_attributes(char *msg, unsigned int *p_stat_flag, struct stat *p_stat_buf)
       ui_var = get_xfer_uint(&msg[pos]);
       p_stat_buf->st_mode |= ui_var;
       pos += 4;
+      *p_stat_flag &= ~SSH_FILEXFER_ATTR_PERMISSIONS;
    }
    if (scd.version < 4)
    {
@@ -2864,6 +2877,7 @@ store_attributes(char *msg, unsigned int *p_stat_flag, struct stat *p_stat_buf)
          pos += 4;
          p_stat_buf->st_mtime = (time_t)get_xfer_uint(&msg[pos]);
          pos += 4;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_ACMODTIME;
       }
    }
    else
@@ -2872,37 +2886,56 @@ store_attributes(char *msg, unsigned int *p_stat_flag, struct stat *p_stat_buf)
       {
          p_stat_buf->st_atime = (time_t)get_xfer_uint64(&msg[pos]);
          pos += 8;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_ACCESSTIME;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_SUBSECOND_TIMES)
       {
          pos += 4;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_SUBSECOND_TIMES;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_CREATETIME)
       {
          pos += 8;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_CREATETIME;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_SUBSECOND_TIMES)
       {
          pos += 4;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_SUBSECOND_TIMES;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_MODIFYTIME)
       {
          p_stat_buf->st_mtime = (time_t)get_xfer_uint64(&msg[pos]);
          pos += 8;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_MODIFYTIME;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_SUBSECOND_TIMES)
       {
          pos += 4;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_SUBSECOND_TIMES;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_CTIME)
       {
          p_stat_buf->st_ctime = (time_t)get_xfer_uint64(&msg[pos]);
          pos += 8;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_CTIME;
       }
       if (*p_stat_flag & SSH_FILEXFER_ATTR_SUBSECOND_TIMES)
       {
          pos += 4;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_SUBSECOND_TIMES;
       }
+      if (*p_stat_flag & SSH_FILEXFER_ATTR_BITS)
+      {
+         pos += 4;
+         *p_stat_flag &= ~SSH_FILEXFER_ATTR_BITS;
+      }
+   }
+   if (*p_stat_flag != 0)
+   {
+      trans_log(DEBUG_SIGN, __FILE__, __LINE__, "store_attributes", NULL,
+                _("Attribute flag still contains unaccounted flags : %u"),
+                *p_stat_flag);
    }
 
    return(pos);

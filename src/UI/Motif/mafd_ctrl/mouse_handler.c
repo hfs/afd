@@ -336,7 +336,7 @@ input(Widget w, XtPointer client_data, XEvent *event)
             }
             if (gotcha == NO)
             {
-               char *args[8],
+               char *args[10],
                     progname[AFD_INFO_LENGTH + 1];
 
                args[0] = progname;
@@ -346,7 +346,16 @@ input(Widget w, XtPointer client_data, XEvent *event)
                args[4] = font_name;
                args[5] = "-h";
                args[6] = fsa[pos].host_alias;
-               args[7] = NULL;
+               if (fake_user[0] != '\0')
+               {
+                  args[7] = "-u";
+                  args[8] = fake_user;
+                  args[9] = NULL;
+               }
+               else
+               {
+                  args[7] = NULL;
+               }
                (void)strcpy(progname, AFD_INFO);
 
                make_xprocess(progname, progname, args, select_no);
@@ -873,7 +882,7 @@ short_input(Widget w, XtPointer client_data, XEvent *event)
                }
                if (gotcha == NO)
                {
-                  char *args[6],
+                  char *args[8],
                        progname[AFD_INFO_LENGTH + 1];
 
                   args[0] = progname;
@@ -881,7 +890,16 @@ short_input(Widget w, XtPointer client_data, XEvent *event)
                   args[2] = font_name;
                   args[3] = "-h";
                   args[4] = fsa[pos].host_alias;
-                  args[5] = NULL;
+                  if (fake_user[0] != '\0')
+                  {
+                     args[5] = "-u";
+                     args[6] = fake_user;
+                     args[7] = NULL;
+                  }
+                  else
+                  {
+                     args[5] = NULL;
+                  }
                   (void)strcpy(progname, AFD_INFO);
 
                   make_xprocess(progname, progname, args, select_no);
@@ -1197,7 +1215,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[3] = "-f";
          args[4] = font_name;
          args[5] = "-h";
-         args[7] = NULL;
+         if (fake_user[0] != '\0')
+         {
+            args[7] = "-u";
+            args[8] = fake_user;
+            args[9] = NULL;
+         }
+         else
+         {
+            args[7] = NULL;
+         }
          (void)strcpy(progname, AFD_INFO);
          break;
 

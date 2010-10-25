@@ -1,6 +1,6 @@
 /*
  *  set_pw.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -506,80 +506,77 @@ main(int argc, char *argv[])
                              jd[i].recipient, error_msg);
                exit(INCORRECT);
             }
+         }
+      } /* for (i = 0; i < no_of_job_ids; i++) */
 
-            /* If not found in job list lets check URL directory entries. */
-            if ((uh_name[0] == '\0') && (dnb != NULL))
+      /* If not found in job list lets check URL directory entries. */
+      if ((uh_name[0] == '\0') && (dnb != NULL))
+      {
+         for (j = 0; j < no_of_dir_names; j++)
+         {
+            if ((dnb[j].orig_dir_name[0] != '/') &&
+                (dnb[j].orig_dir_name[0] != '~'))
             {
-               for (j = 0; j < no_of_dir_names; j++)
-               {
-                  if (dnb[j].dir_id == jd[i].dir_id)
-                  {
-                     if ((dnb[j].orig_dir_name[0] != '/') &&
-                         (dnb[j].orig_dir_name[0] != '~'))
-                     {
-                        if ((error_mask = url_evaluate(dnb[j].orig_dir_name,
-                                                       &scheme, uh_name,
-                                                       &smtp_auth, smtp_user,
+               if ((error_mask = url_evaluate(dnb[j].orig_dir_name,
+                                              &scheme, uh_name,
+                                              &smtp_auth, smtp_user,
 #ifdef WITH_SSH_FINGERPRINT
-                                                       NULL, NULL,
+                                              NULL, NULL,
 #endif
-                                                       NULL, NO, real_hostname, NULL, NULL,
-                                                       NULL, NULL, NULL,
-                                                       NULL, NULL)) == 0)
-                        {
-                           if ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))
-                           {
-                              (void)strcpy(uh_name, smtp_user);
-                           }
-                           if (((scheme & LOC_FLAG) == 0) &&
+                                              NULL, NO, real_hostname, NULL, NULL,
+                                              NULL, NULL, NULL,
+                                              NULL, NULL)) == 0)
+               {
+                  if ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))
+                  {
+                     (void)strcpy(uh_name, smtp_user);
+                  }
+                  if (((scheme & LOC_FLAG) == 0) &&
 #ifdef _WITH_WMO_SUPPORT
-                               ((scheme & WMO_FLAG) == 0) &&
+                      ((scheme & WMO_FLAG) == 0) &&
 #endif
 #ifdef _WITH_MAP_SUPPORT
-                               ((scheme & MAP_FLAG) == 0) &&
+                      ((scheme & MAP_FLAG) == 0) &&
 #endif
-                               (((scheme & SMTP_FLAG) == 0) || (smtp_auth != SMTP_AUTH_NONE)) &&
-                               (CHECK_STRCMP(uh_name, user) == 0))
-                           {
-                              if (CHECK_STRCMP(real_hostname, hostname) == 0)
-                              {
-                                 if (uh_name[0] != '\0')
-                                 {
-                                    (void)strcat(uh_name, real_hostname);
-                                 }
-                                 else
-                                 {
-                                    (void)strcpy(uh_name, real_hostname);
-                                 }
-                                 break;
-                              }
-                              else
-                              {
-                                 uh_name[0] = '\0';
-                              }
-                           }
-                           else
-                           {
-                              uh_name[0] = '\0';
-                           }
+                      (((scheme & SMTP_FLAG) == 0) || (smtp_auth != SMTP_AUTH_NONE)) &&
+                      (CHECK_STRCMP(uh_name, user) == 0))
+                  {
+                     if (CHECK_STRCMP(real_hostname, hostname) == 0)
+                     {
+                        if (uh_name[0] != '\0')
+                        {
+                           (void)strcat(uh_name, real_hostname);
                         }
                         else
                         {
-                           char error_msg[MAX_URL_ERROR_MSG];
-
-                           url_get_error(error_mask, error_msg,
-                                         MAX_URL_ERROR_MSG);
-                           (void)fprintf(stderr,
-                                         "The URL `%s' of this job is incorrect: %s.\n",
-                                         dnb[j].orig_dir_name, error_msg);
-                           exit(INCORRECT);
+                           (void)strcpy(uh_name, real_hostname);
                         }
+                        break;
+                     }
+                     else
+                     {
+                        uh_name[0] = '\0';
                      }
                   }
+                  else
+                  {
+                     uh_name[0] = '\0';
+                  }
+               }
+               else
+               {
+                  char error_msg[MAX_URL_ERROR_MSG];
+
+                  url_get_error(error_mask, error_msg,
+                                MAX_URL_ERROR_MSG);
+                  (void)fprintf(stderr,
+                                "The URL `%s' of this job is incorrect: %s.\n",
+                                dnb[j].orig_dir_name, error_msg);
+                  exit(INCORRECT);
                }
             }
          }
-      } /* for (i = 0; i < no_of_job_ids; i++) */
+      }
 
       if (dnb != NULL)
       {

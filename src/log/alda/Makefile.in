@@ -36,6 +36,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = alda$(EXEEXT) aldad$(EXEEXT)
+EXTRA_PROGRAMS = check_alda_cache$(EXEEXT)
 subdir = src/log/alda
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
@@ -70,15 +71,16 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__alda_SOURCES_DIST = alda.c check_delete_line.c check_did.c \
 	check_distribution_line.c check_dna.c check_host_alias.c \
-	check_input_line.c check_output_line.c check_production_line.c \
-	eval_input_alda.c get_full_source.c get_real_hostname.c \
-	handle_adl.c handle_ahl.c handle_jid.c print_alda_data.c \
-	seek_cache_position.c show_file_content.c
+	check_input_line.c check_output_line.c get_recipient.c \
+	check_production_line.c eval_input_alda.c get_full_source.c \
+	get_real_hostname.c handle_adl.c handle_ahl.c handle_jid.c \
+	print_alda_data.c seek_cache_position.c show_file_content.c
 @WITH_DELETE_LOG_TRUE@am__objects_1 = check_delete_line.$(OBJEXT)
 @WITH_DISTRIBUTION_LOG_TRUE@am__objects_2 =  \
 @WITH_DISTRIBUTION_LOG_TRUE@	check_distribution_line.$(OBJEXT)
 @WITH_INPUT_LOG_TRUE@am__objects_3 = check_input_line.$(OBJEXT)
-@WITH_OUTPUT_LOG_TRUE@am__objects_4 = check_output_line.$(OBJEXT)
+@WITH_OUTPUT_LOG_TRUE@am__objects_4 = check_output_line.$(OBJEXT) \
+@WITH_OUTPUT_LOG_TRUE@	get_recipient.$(OBJEXT)
 @WITH_PRODUCTION_LOG_TRUE@am__objects_5 =  \
 @WITH_PRODUCTION_LOG_TRUE@	check_production_line.$(OBJEXT)
 @WITH_AFD_MON_TRUE@am__objects_6 = handle_adl.$(OBJEXT) \
@@ -97,6 +99,9 @@ alda_DEPENDENCIES = ../../common/libafd.a
 am_aldad_OBJECTS = aldad.$(OBJEXT)
 aldad_OBJECTS = $(am_aldad_OBJECTS)
 aldad_DEPENDENCIES = ../../common/libafd.a
+am_check_alda_cache_OBJECTS = check_alda_cache.$(OBJEXT)
+check_alda_cache_OBJECTS = $(am_check_alda_cache_OBJECTS)
+check_alda_cache_DEPENDENCIES = ../../common/libafd.a
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/ac-tools/depcomp
 am__depfiles_maybe = depfiles
@@ -105,8 +110,9 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(alda_SOURCES) $(aldad_SOURCES)
-DIST_SOURCES = $(am__alda_SOURCES_DIST) $(aldad_SOURCES)
+SOURCES = $(alda_SOURCES) $(aldad_SOURCES) $(check_alda_cache_SOURCES)
+DIST_SOURCES = $(am__alda_SOURCES_DIST) $(aldad_SOURCES) \
+	$(check_alda_cache_SOURCES)
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -272,8 +278,8 @@ top_srcdir = @top_srcdir@
 @WITH_DISTRIBUTION_LOG_FALSE@EXTRA_CHECK_DISTRIBUTION_LINE = check_distribution_line.c
 @WITH_DISTRIBUTION_LOG_TRUE@EXTRA_CHECK_DISTRIBUTION_LINE = 
 @WITH_OUTPUT_LOG_FALSE@AFD_CHECK_OUTPUT_LINE = 
-@WITH_OUTPUT_LOG_TRUE@AFD_CHECK_OUTPUT_LINE = check_output_line.c
-@WITH_OUTPUT_LOG_FALSE@EXTRA_CHECK_OUTPUT_LINE = check_output_line.c
+@WITH_OUTPUT_LOG_TRUE@AFD_CHECK_OUTPUT_LINE = check_output_line.c get_recipient.c
+@WITH_OUTPUT_LOG_FALSE@EXTRA_CHECK_OUTPUT_LINE = check_output_line.c get_recipient.c
 @WITH_OUTPUT_LOG_TRUE@EXTRA_CHECK_OUTPUT_LINE = 
 @WITH_DELETE_LOG_FALSE@AFD_CHECK_DELETE_LINE = 
 @WITH_DELETE_LOG_TRUE@AFD_CHECK_DELETE_LINE = check_delete_line.c
@@ -299,11 +305,11 @@ EXTRA_DIST = $(EXTRA_CHECK_INPUT_LINE)\
                                    $(EXTRA_CHECK_PRODUCTION_LINE)\
                                    $(EXTRA_SEEK_ALDA_CACHE_POSITION)
 
-MAINTAINERCLEANFILES = Makefile.in
-CLEANFILES = gmon.out core core.*
 noinst_HEADERS = aldadefs.h ot_str.h
 @WITH_AFD_MON_FALSE@INCLUDES = -I.. -I../.. -I../../init_afd
 @WITH_AFD_MON_TRUE@INCLUDES = -I.. -I../.. -I../../init_afd -I../../afd_mon
+MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES = gmon.out core core.*
 alda_SOURCES = alda.c\
                                    $(AFD_CHECK_DELETE_LINE)\
                                    check_did.c\
@@ -325,6 +331,8 @@ alda_SOURCES = alda.c\
 alda_LDADD = ../../common/libafd.a
 aldad_SOURCES = aldad.c
 aldad_LDADD = ../../common/libafd.a
+check_alda_cache_SOURCES = check_alda_cache.c
+check_alda_cache_LDADD = ../../common/libafd.a
 all: all-am
 
 .SUFFIXES:
@@ -402,6 +410,9 @@ alda$(EXEEXT): $(alda_OBJECTS) $(alda_DEPENDENCIES)
 aldad$(EXEEXT): $(aldad_OBJECTS) $(aldad_DEPENDENCIES) 
 	@rm -f aldad$(EXEEXT)
 	$(LINK) $(aldad_OBJECTS) $(aldad_LDADD) $(LIBS)
+check_alda_cache$(EXEEXT): $(check_alda_cache_OBJECTS) $(check_alda_cache_DEPENDENCIES) 
+	@rm -f check_alda_cache$(EXEEXT)
+	$(LINK) $(check_alda_cache_OBJECTS) $(check_alda_cache_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -411,6 +422,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alda.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aldad.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_alda_cache.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_delete_line.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_did.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_distribution_line.Po@am__quote@
@@ -422,6 +434,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_input_alda.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_full_source.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_real_hostname.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_recipient.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_adl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_ahl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_jid.Po@am__quote@

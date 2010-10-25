@@ -1,6 +1,6 @@
 /*
  *  select_host_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,8 @@ DESCR__S_M3
  **   31.03.2001 H.Kiehl Created
  **   17.07.2009 H.Kiehl Added choise for protocol.
  **   24.08.2009 H.Kiehl Added choise to search in host information.
+ **   07.04.2010 H.Kiehl Fix bug with searching for SFTP and added
+ **                      toggle button for no protocol.
  **
  */
 DESCR__E_M3
@@ -429,6 +431,13 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       XtAddCallback(toggle_w, XmNvalueChangedCallback,
                     (XtCallbackProc)toggled, (XtPointer)SHOW_MAP);
 #endif
+      toggle_w = XtVaCreateManagedWidget("None",
+                                xmToggleButtonGadgetClass, proto_togglebox_w,
+                                XmNfontList,               p_fontlist,
+                                XmNset,                    True,
+                                NULL);
+      XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                    (XtCallbackProc)toggled, (XtPointer)SHOW_NONE);
       XtManageChild(proto_togglebox_w);
 
       toggles_set = SHOW_FTP |
@@ -449,7 +458,8 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                     SHOW_HTTPS |
                     SHOW_SMTPS |
 #endif
-                    SHOW_FILE;
+                    SHOW_FILE |
+                    SHOW_NONE;
 
       /*---------------------------------------------------------------*/
       /*                      Horizontal Separator                     */
@@ -675,6 +685,7 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
       for (i = 0; i < no_of_hosts; i++)
       {
          if (((fsa[i].protocol & FTP_FLAG) && (toggles_set & SHOW_FTP)) ||
+             ((fsa[i].protocol & SFTP_FLAG) && (toggles_set & SHOW_SFTP)) ||
 #ifdef WITH_SSL
              ((fsa[i].protocol & FTP_FLAG) && (fsa[i].protocol & SSL_FLAG) && (toggles_set & SHOW_FTPS)) ||
              ((fsa[i].protocol & HTTP_FLAG) && (fsa[i].protocol & SSL_FLAG) && (toggles_set & SHOW_HTTPS)) ||
@@ -690,7 +701,8 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
 #ifdef _WITH_MAP_SUPPORT
              ((fsa[i].protocol & MAP_FLAG) && (toggles_set & SHOW_MAP)) ||
 #endif
-             ((fsa[i].protocol & HTTP_FLAG) && (toggles_set & SHOW_HTTP)))
+             ((fsa[i].protocol & HTTP_FLAG) && (toggles_set & SHOW_HTTP)) ||
+             ((fsa[i].protocol == 0) && (toggles_set & SHOW_NONE)))
          {
             if (hostname_type == ALIAS_NAME)
             {

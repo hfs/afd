@@ -1,6 +1,6 @@
 /*
  *  attach_afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   attach_afd_status - attaches to the AFD status area
  **
  ** SYNOPSIS
- **   int attach_afd_status(int *fd)
+ **   int attach_afd_status(int *fd, int timeout)
  **
  ** DESCRIPTION
  **   The function attach_afd_status() reads the shared memory ID
@@ -60,6 +60,8 @@ DESCR__E_M3
 #endif
 #include <errno.h>
 
+#define AAS_SLEEP_INTERVAL 80000L
+
 /* External global variables. */
 extern char              *p_work_dir;
 extern struct afd_status *p_afd_status;
@@ -67,10 +69,11 @@ extern struct afd_status *p_afd_status;
 
 /*######################### attach_afd_status() #########################*/
 int
-attach_afd_status(int *fd)
+attach_afd_status(int *fd, int timeout)
 {
    int         local_fd,
                loop_counter,
+               max_loops,
                *ptr_fd;
    char        *ptr,
                afd_status_file[MAX_PATH_LENGTH];
@@ -89,11 +92,12 @@ attach_afd_status(int *fd)
    (void)strcat(afd_status_file, FIFO_DIR);
    (void)strcat(afd_status_file, STATUS_SHMID_FILE);
    loop_counter = 0;
+   max_loops = (timeout * 100) / (AAS_SLEEP_INTERVAL / 10000);
    while ((*ptr_fd = coe_open(afd_status_file, O_RDWR)) < 0)
    {
-      my_usleep(80000L);
+      my_usleep(AAS_SLEEP_INTERVAL);
       loop_counter++;
-      if (loop_counter > 1000) /* => 2 seconds */
+      if (loop_counter > max_loops)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     _("Failed to open() `%s' : %s"),
@@ -126,8 +130,8 @@ attach_afd_status(int *fd)
    if ((ptr = mmap(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    *ptr_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
-                       afd_status_file, 0)) == (caddr_t) -1)
+   if ((ptr = mmap_emu(NULL, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                       MAP_SHARED, afd_status_file, 0)) == (caddr_t) -1)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,

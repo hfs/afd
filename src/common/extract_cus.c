@@ -1,6 +1,6 @@
 /*
  *  extract_cus.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,6 +114,7 @@ extract_cus(char         *msg_name,
                if (((msg_name[i] == '\0') || (msg_name[i] == '_')) &&
                    (j > 0) && (j != MAX_INT_HEX_LENGTH))
                {
+                  str_number[j] = '\0';
                   *split_job_counter = (unsigned int)strtoul(str_number,
                                                              (char **)NULL, 16);
                   return;

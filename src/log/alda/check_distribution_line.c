@@ -1,7 +1,7 @@
 /*
  *  check_distribution_line.c - Part of AFD, an automatic file distribution
  *                              program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,7 +101,7 @@ check_distribution_line(char         *line,
          upl[distribution.current_file_no][ucache[distribution.current_file_no].pc].time = ulog.distribution_time;
          upl[distribution.current_file_no][ucache[distribution.current_file_no].pc].gotcha = NO;
 # ifdef CACHE_DEBUG
-         upl[output.current_file_no][ucache[distribution.current_file_no].pc].filename[0] = '\0';
+         upl[distribution.current_file_no][ucache[distribution.current_file_no].pc].filename[0] = '\0';
 # endif
          ucache[distribution.current_file_no].mpc++;
       }
@@ -109,7 +109,7 @@ check_distribution_line(char         *line,
    }
    if ((ulog.distribution_time >= start_time_start) &&
        (((prev_file_name != NULL) && (mode & ALDA_FORWARD_MODE)) ||
-        (start_time_end == 0) || (ulog.distribution_time <= start_time_end)))
+        (start_time_end == 0) || (ulog.distribution_time < start_time_end)))
    {
       /* Store distribution type. */
       if ((*ptr >= '0') && (*ptr <= '9'))
@@ -267,7 +267,7 @@ check_distribution_line(char         *line,
                          ((prev_log_time == 0) ||
                           (ulog.input_time == prev_log_time)) &&
                          ((start_time_end == 0) ||
-                          (ulog.input_time <= start_time_end)))
+                          (ulog.input_time < start_time_end)))
                      {
                         ptr += i + 1;
 

@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -152,7 +152,7 @@ main(int argc, char *argv[])
                       MAX_SYSTEM_LOG_FILES);
 
    /* Attach to the AFD Status Area. */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
    {
       (void)fprintf(stderr, "Failed to attach to AFD status area. (%s %d)\n",
                     __FILE__, __LINE__);

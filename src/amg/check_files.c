@@ -491,8 +491,10 @@ check_files(struct directory_entry *p_de,
                               {
                                  accumulate_size += stat_buf.st_size;
                               }
-                              if ((accumulate >= fra[p_de->fra_pos].accumulate) ||
-                                  (accumulate_size >= fra[p_de->fra_pos].accumulate_size))
+                              if (((fra[p_de->fra_pos].accumulate != 0) &&
+                                   (accumulate >= fra[p_de->fra_pos].accumulate)) ||
+                                  ((fra[p_de->fra_pos].accumulate_size != 0) &&
+                                   (accumulate_size >= fra[p_de->fra_pos].accumulate_size)))
                               {
                                  gotcha = YES;
                               }

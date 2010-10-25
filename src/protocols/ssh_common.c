@@ -281,8 +281,10 @@ ssh_exec(char          *host,
                }
                args[argcount] = "-x";
                argcount++;
+#ifdef _WITH_FALLBACK_TO_RSH_NO
                args[argcount] = "-oFallBackToRsh no";
                argcount++;
+#endif
                args[argcount] = "-p";
                argcount++;
                args[argcount] = str_port;

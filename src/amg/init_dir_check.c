@@ -295,7 +295,7 @@ init_dir_check(int    argc,
     * up running. If not we will very quickly fill up the
     * message fifo to the FD.
     */
-   if (attach_afd_status(&afd_status_fd) < 0)
+   if (attach_afd_status(&afd_status_fd, WAIT_AFD_STATUS_ATTACH) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to attach to AFD status area.");

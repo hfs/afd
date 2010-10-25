@@ -1,6 +1,6 @@
 /*
  *  handle_error_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2006 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -636,7 +636,11 @@ validate_error_queue(int                        no_of_current_jobs,
                }
             }
          }
-         if (prev_host_id == 0)
+         else
+         {
+            j = -1;
+         }
+         if ((prev_host_id == 0) || (j == -1))
          {
             system_log(DEBUG_SIGN, NULL, 0,
                        _("%u: Removed job %x from error queue, since it was removed from DIR_CONFIG."),

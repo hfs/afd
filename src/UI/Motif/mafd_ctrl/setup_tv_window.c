@@ -1,7 +1,7 @@
 /*
  *  setup_tv_window.c - Part of AFD, an automatic file distribution
  *                      program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,6 +68,7 @@ setup_tv_window(void)
    tv_line_length  = DEFAULT_FRAME_SPACE +
                      (hostname_display_length * glyph_width) +
                      glyph_width + glyph_width +  /* Job number */
+                     glyph_width + glyph_width +  /* Priority   */
                      DEFAULT_FRAME_SPACE +
                      (filename_display_length * glyph_width) +
                      DEFAULT_FRAME_SPACE + glyph_width +
@@ -84,7 +85,7 @@ setup_tv_window(void)
    }
 
    x_offset_tv_file_name = DEFAULT_FRAME_SPACE +
-                           ((hostname_display_length + 2) * glyph_width) +
+                           ((hostname_display_length + 4) * glyph_width) +
                            DEFAULT_FRAME_SPACE;
    offset = 0;
    if (line_style & SHOW_CHARACTERS)
@@ -96,8 +97,7 @@ setup_tv_window(void)
    }
    if (line_style & SHOW_BARS)
    {
-      x_offset_tv_bars = offset + (29 * glyph_width) +
-                         DEFAULT_FRAME_SPACE;
+      x_offset_tv_bars = offset + (29 * glyph_width) + DEFAULT_FRAME_SPACE;
    }
 
    return;

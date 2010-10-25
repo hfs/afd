@@ -1,6 +1,6 @@
 /*
  *  aldadefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -227,6 +227,7 @@
             olog.archive_dir[0] = '\0';           \
             olog.alias_name[0] = '\0';            \
             olog.real_hostname[0] = '\0';         \
+            olog.recipient[0] = '\0';             \
             olog.transmission_time = 0.0;         \
             olog.file_size = -1;                  \
             olog.job_creation_time = -1L;         \
@@ -236,7 +237,7 @@
             olog.remote_name_length = 0;          \
             olog.archive_dir_length = 0;          \
             olog.alias_name_length = 0;           \
-            olog.output_type = 0;                 \
+            olog.output_type = OT_UNKNOWN;        \
             olog.current_toggle = 0;              \
             olog.job_id = 0;                      \
             olog.dir_id = 0;                      \
@@ -417,7 +418,6 @@ struct alda_position_list
 
 struct alda_cache_data
        {
-          off_t  cp;          /* Current position.         */
           ino_t  inode;       /* Inode number.             */
           time_t first_entry; /* First log entry.          */
           time_t last_entry;  /* Last log entry.           */
@@ -517,6 +517,7 @@ struct alda_odata
           char          alias_name[MAX_REAL_HOSTNAME_LENGTH + 1]; /* Note: We us MAX_REAL_HOSTNAME_LENGTH since */
                                                                   /*       this can vary in future.             */
           char          real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char          recipient[MAX_RECIPIENT_LENGTH];
           double        transmission_time;
           off_t         file_size;
           time_t        job_creation_time;
@@ -599,7 +600,9 @@ extern int  check_production_line(char *, char *, off_t, time_t, unsigned int,
 #endif
 #ifdef _OUTPUT_LOG
 extern int  check_output_line(char *, char *, off_t, time_t, unsigned int,
-                              unsigned int *, unsigned int *);
+                              unsigned int *, unsigned int *),
+            get_recipient(unsigned int),
+            get_recipient_alias(unsigned int);
 #endif
 #ifdef _DELETE_LOG
 extern int  check_delete_line(char *, char *, off_t, time_t, unsigned int,

@@ -1,6 +1,6 @@
 /*
  *  info_callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,17 +25,20 @@ DESCR__S_M3
  **   info_callbacks - all callback functions for module afd_info
  **
  ** SYNOPSIS
- **   info_callbacks
+ **   void save_button(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void close_button(Widget w, XtPointer client_data, XtPointer call_data)
  **
  ** DESCRIPTION
  **
  ** RETURN VALUES
+ **   None.
  **
  ** AUTHOR
  **   H.Kiehl
  **
  ** HISTORY
  **   10.11.1996 H.Kiehl Created
+ **   20.09.2010 H.Kiehl Added save_button().
  **
  */
 DESCR__E_M3
@@ -44,6 +47,20 @@ DESCR__E_M3
 #include <stdlib.h>
 #include <Xm/Xm.h>
 #include "afd_info.h"
+
+/* Global variables. */
+extern Widget info_w;
+extern char   host_name[];
+
+
+/*########################### save_button() #############################*/
+void
+save_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   write_info_file(info_w, host_name, HOST_INFO_FILE);
+
+   return;
+}
 
 
 /*########################### close_button() ############################*/

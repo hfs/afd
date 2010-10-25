@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -190,6 +190,7 @@
 #define EXTRACT_ADD_CRC_CHECKSUM   2
 #define EXTRACT_ADD_UNIQUE_NUMBER  4
 #define EXTRACT_REPORTS            8
+#define EXTRACT_REMOVE_WMO_HEADER  16
 #define DEFAULT_EXTRACT_OPTIONS    (EXTRACT_ADD_SOH_ETX | EXTRACT_ADD_CRC_CHECKSUM)
 
 /* Definition of fifos for the AMG to communicate. */
@@ -291,7 +292,7 @@ struct recipient_group
 struct dest_group
        {
           char                   dest_group_name[MAX_GROUP_NAME_LENGTH];
-          char                   options[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
+          char                   options[MAX_NO_OPTIONS + 1][MAX_OPTION_LENGTH];
           struct recipient_group *rec;
           int                    rc;        /* Recipient counter. */
           int                    oc;        /* Option counter.    */

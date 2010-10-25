@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -2348,6 +2348,10 @@ handle_options(int          position,
                      {
                         extract_options |= EXTRACT_ADD_UNIQUE_NUMBER;
                      }
+                     break;
+
+                  case 'H' : /* Remove WMO header. */
+                     extract_options |= EXTRACT_REMOVE_WMO_HEADER;
                      break;
 
                   case 'N' : /* Do not add unique number. */

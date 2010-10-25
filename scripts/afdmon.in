@@ -6,6 +6,7 @@
 # description: AFD Monitor is a program to monitor and control other \
 #              AFD's.
 ### BEGIN INIT INFO
+# Provides: afdmon
 # Required-Start: $local_fs $network
 # Required-Stop: $local_fs $network
 # Default-Start: 2 3 5

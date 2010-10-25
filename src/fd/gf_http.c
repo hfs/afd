@@ -1,6 +1,6 @@
 /*
  *  gf_http.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -110,7 +110,8 @@ static void                gf_http_exit(void),
 int
 main(int argc, char *argv[])
 {
-   int              blocksize,
+   int              adjust_rl_size,
+                    blocksize,
                     chunksize,
                     fd,
                     files_retrieved = 0,
@@ -122,7 +123,8 @@ main(int argc, char *argv[])
    off_t            bytes_done,
                     content_length,
                     file_size_retrieved = 0,
-                    file_size_to_retrieve = 0;
+                    file_size_to_retrieve = 0,
+                    tmp_content_length;
    clock_t          clktck;
    char             *buffer,
                     *chunkbuffer = NULL,
@@ -404,7 +406,7 @@ main(int argc, char *argv[])
                }
                if (((status = http_get(db.hostname, db.target_dir,
                                        rl[i].file_name,
-                                       &content_length, offset)) != SUCCESS) &&
+                                       &tmp_content_length, offset)) != SUCCESS) &&
                    (status != CHUNKED) && (status != NOTHING_TO_FETCH) &&
                    (status != 301) && (status != 404))
                {
@@ -413,6 +415,15 @@ main(int argc, char *argv[])
                             rl[i].file_name, status);
                   (void)http_quit();
                   exit(eval_timeout(OPEN_REMOTE_ERROR));
+               }
+               if (tmp_content_length != content_length)
+               {
+                  content_length = tmp_content_length;
+                  adjust_rl_size = NO;
+               }
+               else
+               {
+                  adjust_rl_size = YES;
                }
                if ((status == 301) || /* Moved Permanently. */
                    (status == 404))   /* Not Found. */
@@ -752,15 +763,18 @@ main(int argc, char *argv[])
                      {
                         fsa->total_file_size += (content_length - rl[i].size);
                         fsa->job_status[(int)db.job_no].file_size += (content_length - rl[i].size);
-                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
+                        if (adjust_rl_size == YES)
+                        {
+                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 #if SIZEOF_OFF_T == 4
-                                  "content_length (%ld) != rl[i].size (%ld)",
+                                     "content_length (%ld) != rl[i].size (%ld)",
 #else
-                                  "content_length (%lld) != rl[i].size (%lld)",
+                                     "content_length (%lld) != rl[i].size (%lld)",
 #endif
-                                  (pri_off_t)content_length,
-                                  (pri_off_t)rl[i].size);
-                        rl[i].size = content_length;
+                                     (pri_off_t)content_length,
+                                     (pri_off_t)rl[i].size);
+                           rl[i].size = content_length;
+                        }
                      }
 
                      /* Total file size. */

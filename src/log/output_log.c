@@ -1,6 +1,6 @@
 /*
  *  output_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -454,6 +454,13 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
+#ifdef WITH_LOG_CACHE
+            if (close(log_cache_fd) == -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (max_output_log_files > 1)
             {
                reshuffel_log_files(log_number, log_file, p_end, 0, 0);
@@ -688,7 +695,8 @@ main(int argc, char *argv[])
                  {
                     reshuffel_log_files(log_number, log_file, p_end, 0, 0);
 #ifdef WITH_LOG_CACHE
-                    reshuffel_log_files(log_number, log_cache_file, p_cache_end, 0, 0);
+                    reshuffel_log_files(log_number, log_cache_file,
+                                        p_cache_end, 0, 0);
 #endif
                  }
                  else

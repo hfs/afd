@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -369,7 +369,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_fsa_id, "%d", fsa_id);
 
    /* Attach to the AFD Status Area. */
-   if (attach_afd_status(&afd_status_fd) < 0)
+   if (attach_afd_status(&afd_status_fd, WAIT_AFD_STATUS_ATTACH) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                 "Failed to map to AFD status area.");

@@ -1019,3 +1019,60 @@
              when time went back just one second. Before we only
              updated when time went back more then 10 seconds.
 ------------------------> Released: 22.02.2010 <---------------------------
+
+
+
+----------------------------> Version 1.4.2 <------------------------------
+                             ---------------
+01.03.2010 - Option extract would add an _ at the end of the file name
+             when WMO header has a space sign at the end. Fixed.
+04.03.2010 - When initializing AFD with 'afd -i' we now delete
+             all binary database files, that is everything in
+             files/crc, files/incoming/file_mask and
+             files/incoming/ls_data is deleted.
+12.03.2010 - The detailed information in show_ilog and show_olog
+             dialog now also show from which DIR_CONFIG a job comes.
+15.03.2010 - Option assemble wrongly puts temp files in $AFD_WORK_DIR.
+             Fixed.
+22.03.2010 - Process AMG would crash when we reach the maximum number
+             of options specified in DIR_CONFIG.
+           - Increase the number [options] from 10 to 15.
+07.04.2010 - In afd_ctrl dialog doing a search did never show
+             up any host which used protocol SFTP. Fixed.
+24.04.2010 - Added option -H to extract option, to remove the WMO
+             header.
+30.04.2010 - Fix two errors in accumulate directory options. One that
+             it was not initialized correctly when it set for the
+             first time with a new directory in DIR_CONFIG. The other
+             error was that if the source file is of zero length.
+19.05.2010 - set_pw did not always set the password if the passwd
+             for a source needed to be set. Fixed.
+20.05.2010 - When afdcmd starts, stops, enables or disables it should
+             do this in an atomic manner. It just toggled the flag, so
+             if the command was called twice at the same time the state
+             of the flag would not change. Fixed.
+26.05.2010 - In edit_hc dialog show correct Transfer Blocksize.
+10.06.2010 - Fix error extract_cus(), that caused delete logs with
+             incorrect information.
+30.06.2010 - Close output log cache files if process output_log is
+             not busy.
+05.07.2010 - If SSH server sets attribute bit, ignore it but take
+             into account that we have read 4 bytes. Otherwise further
+             communication with SSH server will fail because we are
+             off by 4 bytes. MySecureShell sets this and AFD fails
+             to communicate with it. Fixed.
+26.08.2010 - show_olog did not allow user to view data even when the
+             option view_data was set in $AFD_WORK_DIR/etc/afd.users.
+             Fixed.
+05.10.2010 - Added editing function to the afd_info dialog.
+12.10.2010 - Reset FTP server reply when we reconnect when changing
+             user.
+           - Remove SSH option FallBackToRsh it has been removed from
+             openssh for a long enough time. In case it is still
+             required one can enable it at compile time by setting
+             _WITH_FALLBACK_TO_RSH_NO in afdsetup.h.
+13.10.2010 - Added %T time modifier for option subject.
+           - If starting of AFD is blocked via 'afd -b', handle this
+             properly in afd init script.
+19.10.2010 - Make init scripts more LSB conform.
+------------------------> Released: 20.10.2010 <---------------------------

@@ -1,6 +1,6 @@
 /*
  *  afd_load.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -468,7 +468,7 @@ init_afd_load(int  *argc,
    else if (get_arg(argc, argv, SHOW_TRANSFER_LOAD, NULL, 0) == SUCCESS)
         {
            /* Attach to the AFD Status Area. */
-           if (attach_afd_status(NULL) < 0)
+           if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
            {
               (void)fprintf(stderr,
                             "Failed to map to AFD status area. (%s %d)\n",

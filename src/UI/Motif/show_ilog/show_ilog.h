@@ -90,6 +90,7 @@ struct db_entry
           char         user[MAX_RECIPIENT_LENGTH];
           char         dir_url_hostname[MAX_HOSTNAME_LENGTH + 2];
           char         dir_url_user[MAX_USER_NAME_LENGTH + 2];
+          char         dir_config_file[MAX_PATH_LENGTH];
           char         priority;
        };
 
