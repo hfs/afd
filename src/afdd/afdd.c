@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,8 @@ DESCR__S_M1
  **   22.08.1998 H.Kiehl Added some more exit handlers.
  **   26.01.2006 H.Kiehl Made MAX_AFDD_CONNECTIONS configurable in AFD_CONFIG.
  **   23.11.2008 H.Kiehl Added danger_no_of_jobs.
+ **   04.01.2011 H.Kiehl Ensure that we do not set a port that is in the
+ **                      dynamic port range.
  */
 DESCR__E_M1
 
@@ -103,6 +105,9 @@ static pid_t      *pid;
 static int        get_free_connection(void);
 static void       afdd_exit(void),
                   get_afdd_config_value(char *, int *),
+#ifdef LINUX
+                  get_ip_local_port_range(int *, int *),
+#endif
                   sig_bus(int),
                   sig_exit(int),
                   sig_segv(int),
@@ -573,14 +578,19 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
       if (get_definition(buffer, AFD_TCP_PORT_DEF,
                          port_no, MAX_INT_LENGTH) != NULL)
       {
-         int port;
+         int lower_limit = 49152,
+             port,
+             upper_limit = 65535;
 
          port = atoi(port_no);
-         if ((port < 1024) || (port > 10240))
+#ifdef LINUX
+         get_ip_local_port_range(&lower_limit, &upper_limit);
+#endif
+         if ((port >= lower_limit) && (port <= upper_limit))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       _("Invalid port number given (%d) in AFD_CONFIG, setting to default %s."),
-                       port, DEFAULT_AFD_PORT_NO);
+                       _("Invalid port number given %d (lower limit = %d, upper limit = %d) in AFD_CONFIG, setting to default %s."),
+                       port, lower_limit, upper_limit, DEFAULT_AFD_PORT_NO);
             (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
          }
       }
@@ -716,6 +726,88 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
 
    return;
 }
+
+
+#ifdef LINUX
+# define LOCAL_IP_RANGE_PROC_FILE "/proc/sys/net/ipv4/ip_local_port_range"
+
+/*---------------------- get_ip_local_port_range() ----------------------*/
+static void
+get_ip_local_port_range(int *lower_limit, int *upper_limit)
+{
+   int  fd,
+        i,
+        ret;
+   char buffer[MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1],
+        *ptr,
+        str_number[MAX_INT_LENGTH + 1];
+
+   if ((fd = open(LOCAL_IP_RANGE_PROC_FILE, O_RDONLY)) == -1)
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to open() %s : %s",
+                 LOCAL_IP_RANGE_PROC_FILE, strerror(errno));
+      return;
+   }
+   if ((ret = read(fd, buffer, MAX_INT_LENGTH + 1 + MAX_INT_LENGTH)) == -1)
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to read() %s : %s",
+                 LOCAL_IP_RANGE_PROC_FILE, strerror(errno));
+      return;
+   }
+   buffer[ret] = '\0';
+   if (close(fd) == -1)
+   {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Failed to close() %s : %s",
+                 LOCAL_IP_RANGE_PROC_FILE, strerror(errno));
+   }
+
+   ptr = buffer;
+   while ((*ptr == ' ') || (*ptr == '\t'))
+   {
+      ptr++;
+   }
+   i = 0;
+   while ((isdigit(*ptr)) && (i < MAX_INT_LENGTH) && (*ptr != '\0'))
+   {
+      str_number[i] = *ptr;
+      i++; ptr++;
+   }
+   if ((i > 0) && (i < MAX_INT_LENGTH))
+   {
+      str_number[i] = '\0';
+      *lower_limit = atoi(str_number);
+   }
+   else
+   {
+      return;
+   }
+
+   while ((*ptr == ' ') || (*ptr == '\t'))
+   {
+      ptr++;
+   }
+   i = 0;
+   while ((isdigit(*ptr)) && (i < MAX_INT_LENGTH) && (*ptr != '\0'))
+   {
+      str_number[i] = *ptr;
+      i++; ptr++;
+   }
+   if ((i > 0) && (i < MAX_INT_LENGTH))
+   {
+      str_number[i] = '\0';
+      *upper_limit = atoi(str_number);
+   }
+   else
+   {
+      return;
+   }
+
+   return;
+}
+#endif
 
 
 /*++++++++++++++++++++++++++++++ afdd_exit() ++++++++++++++++++++++++++++*/

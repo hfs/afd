@@ -251,7 +251,7 @@ typedef unsigned long       u_long_64;
 #define DIR_INFO                   "dir_info"
 #define DIR_CHECK                  "dir_check"
 #define HANDLE_EVENT               "handle_event"
-#define MAX_PROCNAME_LENGTH        16
+#define MAX_PROCNAME_LENGTH        17
 #define AFTP                       "aftp"
 #define ASMTP                      "asmtp"
 #define HEX_PRINT                  "afd_hex_print"
@@ -305,10 +305,11 @@ typedef unsigned long       u_long_64;
 # define RENAME_OVERWRITE           19
 # define RECIPIENT_REJECTED         20
 # define MIRROR_REMOVE              21
+# define MKDIR_QUEUE_ERROR          22
 # ifdef WITH_DUP_CHECK
-#  define MAX_DELETE_REASONS        21
+#  define MAX_DELETE_REASONS        22
 # else
-#  define MAX_DELETE_REASONS        19
+#  define MAX_DELETE_REASONS        20
 # endif
 # define UKN_DEL_REASON_STR         "Unknown delete reason"
 # define UKN_DEL_REASON_STR_LENGTH  (sizeof(UKN_DEL_REASON_STR) - 1)
@@ -555,6 +556,8 @@ typedef unsigned long       u_long_64;
 #define ERROR_NO                   4
 #define FATAL_NO                   5
 /* NOTE: Check UI/Motif/x_common_defs.h if the above are changed. */
+
+#define NOT_APPLICABLE_SIGN        'X'
 
 /* Separator to separate elements in log files. */
 #define SEPARATOR_CHAR             '|'
@@ -903,6 +906,7 @@ typedef unsigned long       u_long_64;
 #endif
 #define DEFAULT_HEARTBEAT_TIMEOUT        25L
 #define DEFAULT_TRANSFER_MODE            'I'
+#define DIR_ALIAS_OFFSET                 16
 
 /* Definitions to be read from the AFD_CONFIG file. */
 #define AFD_TCP_PORT_DEF                 "AFD_TCP_PORT"
@@ -1071,6 +1075,7 @@ typedef unsigned long       u_long_64;
 #define MAX_MSG_PER_SEC            65535  /* The maximum number of        */
                                           /* messages that may be         */
                                           /* generated in one second.     */
+#define MAX_WMO_COUNTER            999
 #define MAX_PRODUCTION_BUFFER_LENGTH 8192 /* Buffer size to hold job ID   */
                                           /* and new file names after a   */
                                           /* rename, exec, etc.           */
@@ -1776,8 +1781,7 @@ struct filetransfer_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 8    | Error job under  |*/
-                                            /*|      | process.NOT USED?|*/
+                                            /*| 8    | Not used.        |*/
                                             /*| 7    | Host is in       |*/
                                             /*|      | DIR_CONFIG file. |*/
                                             /*| 6    | Host disabled.   |*/
@@ -2330,16 +2334,18 @@ struct afd_status
                                          /*+------+---------------------+*/
                                          /*|Bit(s)|      Meaning        |*/
                                          /*+------+---------------------+*/
-                                         /*| 1    | dir_check() active  |*/
-                                         /*| 2    | Rereading DIR_CONFIG|*/
-                                         /*| 3    | FD waiting for AMG  |*/
+                                         /*|  1   | dir_check() active  |*/
+                                         /*|  2   | Rereading DIR_CONFIG|*/
+                                         /*|  3   | FD waiting for AMG  |*/
                                          /*|      | to finish DIR_CONFIG|*/
-                                         /*| 4 - 5| Not used.           |*/
-                                         /*| 6    | dir_check() has msg |*/
+                                         /*|  4   | Pause distribution  |*/
+                                         /*|      | at start.           |*/
+                                         /*|  5   | Not used.           |*/
+                                         /*|  6   | dir_check() has msg |*/
                                          /*|      | queued.             |*/
-                                         /*| 7    | AMG writting to     |*/
+                                         /*|  7   | AMG writting to     |*/
                                          /*|      | JID structure.      |*/
-                                         /*| 8    | Check file directory|*/
+                                         /*|  8   | Check file directory|*/
                                          /*|      | for jobs without a  |*/
                                          /*|      | message.            |*/
                                          /*+------+---------------------+*/
@@ -2432,6 +2438,15 @@ struct rule
 #define CURRENT_JID_VERSION 2
 struct job_id_data
        {
+#ifdef _NEW_JID
+          time_t       last_usage;      /* Last time this job was used.  */
+          time_t       creation_time;   /* Time when job was created.    */
+          unsigned int special_flag;    /*+------+----------------------+*/
+                                        /*|Bit(s)|      Meaning         |*/
+                                        /*+------+----------------------+*/
+                                        /*|1 - 32| Not used.            |*/
+                                        /*+------+----------------------+*/
+#endif
           unsigned int job_id;          /* CRC-32 checksum of the job.   */
           unsigned int dir_id;          /* CRC-32 checksum of the dir.   */
           unsigned int file_mask_id;    /* CRC-32 checksum of file masks.*/
@@ -3180,7 +3195,7 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                     msa_attach_passive(void),
                     msa_detach(void),
                     my_strncpy(char *, const char *, const size_t),
-                    next_counter(int, int *),
+                    next_counter(int, int *, int),
                     open_counter_file(char *, int **),
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                     open_fifo_rw(char *, int *, int *),
@@ -3204,6 +3219,7 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
 extern off_t        bin_file_convert(char *, off_t, int),
                     dwdtiff2gts(char *, char *),
                     gts2tiff(char *, char *),
+                    iso8859_2ascii(char *, char *, off_t),
                     read_file(char *, char **),
                     read_file_no_cr(char *, char **),
                     tiff2gts(char *, char *);
@@ -3239,6 +3255,7 @@ extern void         *attach_buf(char *, int *, size_t *, char *, mode_t, int),
                     extract_cus(char *, time_t *, unsigned int *,
                                 unsigned int *),
                     get_alias_names(void),
+                    get_dir_alias(unsigned, char *),
                     get_dir_options(unsigned int, struct dir_options *),
                     get_dc_result_str(char *, int, int, int *, int *),
                     get_file_mask_list(unsigned int, int *, char **),
@@ -3247,6 +3264,7 @@ extern void         *attach_buf(char *, int *, size_t *, char *, mode_t, int),
                     get_max_log_number(int *, char *, int),
                     get_rename_rules(char *, int),
                     get_user(char *, char *, int),
+                    ia_trans_log(char *, char *, int, int, char *, ...),
                     inform_fd_about_fsa_change(void),
                     init_fifos_afd(void),
 #ifdef LOCK_DEBUG
@@ -3257,7 +3275,7 @@ extern void         *attach_buf(char *, int *, size_t *, char *, mode_t, int),
                     *map_file(char *, int *, off_t *, struct stat *, int, ...),
                     *mmap_resize(int, void *, size_t),
                     my_usleep(unsigned long),
-                    next_counter_no_lock(int *),
+                    next_counter_no_lock(int *, int),
 #ifdef _PRODUCTION_LOG
                     production_log(time_t, unsigned int, unsigned int,
                                    unsigned int, unsigned int,

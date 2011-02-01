@@ -1,6 +1,6 @@
 /*
  *  create_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -111,7 +111,7 @@ create_name(char           *p_path,     /* Path where the new directory  */
 
    if (counter_fd != -1)
    {
-      if (next_counter(counter_fd, unique_number) < 0)
+      if (next_counter(counter_fd, unique_number, MAX_MSG_PER_SEC) < 0)
       {
          return(INCORRECT);
       }

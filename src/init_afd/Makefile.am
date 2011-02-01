@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2008 Holger Kiehl
+## Copyright (C) 2001 - 2010 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ init_afd_SOURCES     = init_afd.c\
                        check_afd_heartbeat.c\
                        check_permissions.c\
                        count_files.c\
+                       ia_trans_log.c\
                        init_fifos_afd.c
 init_afd_LDADD       = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 afd_SOURCES          = afd.c\

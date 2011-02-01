@@ -1,6 +1,6 @@
 /*
  *  display_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,7 +95,7 @@ display_data(void)
    }
 
    /* Initialise all pointer in line. */
-   p_file_name    = line + 16;
+   p_file_name    = line + 20;
    p_type         = p_file_name + file_name_length + 1;
    p_hostname     = p_type + 5;
 
@@ -106,21 +106,8 @@ display_data(void)
 
       /* Insert date and time. */
       p_ts = localtime(&qfl[lines_displayed].mtime);
-      line[0] = ((p_ts->tm_mon + 1) / 10) + '0';
-      line[1] = ((p_ts->tm_mon + 1) % 10) + '0';
-      line[2] = '.';
-      line[3] = (p_ts->tm_mday / 10) + '0';
-      line[4] = (p_ts->tm_mday % 10) + '0';
-      line[5] = '.';
-      line[7] = (p_ts->tm_hour / 10) + '0';
-      line[8] = (p_ts->tm_hour % 10) + '0';
-      line[9] = ':';
-      line[10] = (p_ts->tm_min / 10) + '0';
-      line[11] = (p_ts->tm_min % 10) + '0';
-      line[12] = ':';
-      line[13] = (p_ts->tm_sec / 10) + '0';
-      line[14] = (p_ts->tm_sec % 10) + '0';
-      line[15] = ' ';
+      CONVERT_TIME_YEAR();
+      line[19] = ' ';
 
       /* Insert the file name. */
       j = 0;
@@ -230,10 +217,10 @@ show_summary(unsigned int total_no_files, double file_size)
    char *ptr;
 
    (void)memset(summary_str, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
-   ptr = summary_str + 16 +
-         sprintf(&summary_str[16], "%u Files", total_no_files);
+   ptr = summary_str + 20 +
+         sprintf(&summary_str[20], "%u Files", total_no_files);
    *ptr = ' ';
-   ptr = summary_str + 16 + file_name_length + 1 + MAX_HOSTNAME_LENGTH + 1 + 4 + 2;
+   ptr = summary_str + 20 + file_name_length + 1 + MAX_HOSTNAME_LENGTH + 1 + 4 + 2;
 
    if (file_size < F_KILOBYTE)
    {

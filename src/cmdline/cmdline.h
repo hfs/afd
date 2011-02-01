@@ -1,6 +1,6 @@
 /*
  *  cmdline.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,9 +41,9 @@
 # define FATAL_SIGN                 "<F>"           /* donated by Paul M. */
 # define DEBUG_SIGN                 "<D>"
 
-/* Some default definitions */
+/* Some default definitions. */
 # define DEFAULT_TRANSFER_TIMEOUT   120L
-# define DEFAULT_TRANSFER_BLOCKSIZE 1024
+# define DEFAULT_TRANSFER_BLOCKSIZE 4096
 
 /* Definitions for maximum values. */
 # define MAX_HOSTNAME_LENGTH        8
@@ -53,7 +53,7 @@
 # define MAX_PATH_LENGTH            1024
 # define MAX_LINE_LENGTH            2048
 
-/* Definitions for different exit status for asmtp */
+/* Definitions for different exit status. */
 # define TRANSFER_SUCCESS           0
 # define CONNECT_ERROR              1
 # define USER_ERROR                 2
@@ -138,7 +138,10 @@ extern void my_usleep(unsigned long),
 extern int  rec(int, char *, char *, ...);
 #endif /* _STANDALONE_ */
 
-#define FILE_NAME_FILE_ERROR       40
+#define TRANSFER_MODE        1
+#define RETRIEVE_MODE        2
+#define TEST_MODE            3
+#define FILE_NAME_FILE_ERROR 40
 
 /* Structure holding all filenames that are to be retrieved. */
 struct filename_list
@@ -187,6 +190,7 @@ struct data
           char         ftp_mode;         /* How the ftp data mode is       */
                                          /* initiated, either active or    */
                                          /* passive. Default active.       */
+          char         acknowledge;      /* Acknowledge each message.[awmo]*/
 #ifdef WITH_SSL
           char         auth;             /* TLS/SSL authentification.      */
                                          /*  NO   - NO authentification.   */
@@ -201,7 +205,7 @@ struct data
           char         keepalive;        /* Send STAT during transfer to   */
                                          /* keep control connection alive. */
 #endif
-          char         aftp_mode;        /* In which mode aftp is to be    */
+          char         exec_mode;        /* In which mode axxx is to be    */
                                          /* run. Currently three modes     */
                                          /* have been implemented:         */
                                          /*  transfer - files are being    */
@@ -233,10 +237,13 @@ struct data
           char         remove;           /* Remove file flag.              */
           char         append;           /* Search for append file (only   */
                                          /* for retrieving).               */
-          char         flag;             /* Special flag to indicate the   */
+          char         special_flag;     /* Special flag to indicate the   */
                                          /* following: ATTACH_FILE         */
                                          /*            FILE_NAME_IS_SUBJECT*/
                                          /*            FILE_NAME_IS_USER   */
+                                         /*            FILE_NAME_IS_HEADER */
+                                         /*            WITH_SEQUENCE_NUMBER*/
+                                         /*            WMO_CHECK_ACKNOWLEDGE*/
           signed char  file_size_offset; /* When doing an ls on the remote */
                                          /* site, this is the position     */
                                          /* where to find the size of the  */

@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.59])
-AC_INIT([afd], [1.4.2-1], [Holger.Kiehl@dwd.de])
+AC_INIT([afd], [1.4.3-1], [Holger.Kiehl@dwd.de])
 AC_CONFIG_SRCDIR(src/init_afd/afd.c)
 AC_CONFIG_AUX_DIR(ac-tools)
 dnl# AC_PREFIX_DEFAULT("/usr/local/afd")
@@ -382,6 +382,15 @@ AC_ARG_ENABLE(compiler_profiling,
      *) AC_MSG_ERROR(bad value ${enableval} for --enable-compiler-profiling) ;;
    esac],[compiler_profiling=false])
 
+dnl **** check if user wants to use fortify option of glibc/gcc
+AC_ARG_ENABLE(use_fortify,
+   [  --enable-use_fortify            Enable glibc/gcc fortify option],
+   [case "$enableval" in
+     yes) use_fortify=true ;;
+     no)  use_fortify=false;;
+     *) AC_MSG_ERROR(bad value ${enableval} for --enable-use_fortify) ;;
+   esac],[use_fortify=false])
+
 dnl **** check if user wants to compile with 64-bit support
 AC_ARG_ENABLE(compile_64_bit,
    [  --enable-compile-64-bit         Enable compiling 64-bit binaries],
@@ -549,9 +558,19 @@ in
              fi ;;
    linux*)   if test "${compile_64_bit}" = "true"
              then
-                OS_FLAG="-m64 -DLINUX"
+                if test "${use_fortify}" = "true"
+                then
+                   OS_FLAG="-m64 -DLINUX -D_FORTIFY_SOURCE=2"
+                else
+                   OS_FLAG="-m64 -DLINUX"
+                fi
              else
-                OS_FLAG="-DLINUX"
+                if test "${use_fortify}" = "true"
+                then
+                   OS_FLAG="-DLINUX -D_FORTIFY_SOURCE=2"
+                else
+                   OS_FLAG="-DLINUX"
+                fi
              fi
              ;;
    netbsd*)  OS_FLAG="" ;;
@@ -879,6 +898,7 @@ then
    AC_CHECK_LIB(m, sin, [AFD_MATH_LIB="-lm"], [AFD_MATH_LIB=""],)
    AC_SUBST(AFD_MATH_LIB)
 else
+   AM_CONDITIONAL(WITH_XPM, false)
    compile_with_motif=false
    AC_MSG_RESULT(no)
 fi

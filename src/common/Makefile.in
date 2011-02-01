@@ -101,24 +101,25 @@ am__libafd_a_SOURCES_DIST = attach_afd_status.c attach_buf.c \
 	exec_cmd.c expand_path.c extract_cus.c fra_attach.c \
 	fra_detach.c fsa_attach.c fsa_detach.c get_afd_name.c \
 	get_afd_path.c get_arg.c get_checksum.c get_definition.c \
-	get_dir_number.c get_dir_options.c get_error_str.c \
-	get_file_mask_list.c get_log_number.c get_max_log_number.c \
-	get_mon_path.c get_permissions.c get_position.c get_pw.c \
-	get_rename_rules.c get_rule.c get_update_config_str.c \
-	get_user.c handle_counter.c convert_error_queue.c \
-	handle_error_queue.c inform_fd_about_fsa_change.c isdup.c \
-	eval_dupcheck_options.c is_msgname.c lock_file.c lock_proc.c \
-	lock_region.c lock_region_w.c make_fifo.c map_file.c \
-	mmap_emu.c msync_emu.c munmap_emu.c mmap_resize.c msa_attach.c \
-	msa_detach.c attach_afd_mon_status.c detach_afd_mon_status.c \
-	move_file.c my_strncpy.c my_usleep.c open_fifo_rw.c posi.c \
-	pmatch.c production_log.c read_file.c read_file_no_cr.c \
-	read_job_ids.c readn.c rec.c rec_rmdir.c remove_dir.c \
-	remove_files.c remove_job_files.c reshuffel_log_files.c \
-	rlock_region.c handle_alias_name.c send_cmd.c set_afd_euid.c \
-	set_fl.c show_fifo_data.c system_log.c t_hostname.c \
-	unlock_region.c unmap_data.c url.c write_host_config.c \
-	writen.c ../init_afd/afddefs.h ../afdsetup.h ../../config.h
+	get_dir_alias.c get_dir_number.c get_dir_options.c \
+	get_error_str.c get_file_mask_list.c get_log_number.c \
+	get_max_log_number.c get_mon_path.c get_permissions.c \
+	get_position.c get_pw.c get_rename_rules.c get_rule.c \
+	get_update_config_str.c get_user.c handle_counter.c \
+	convert_error_queue.c handle_error_queue.c \
+	inform_fd_about_fsa_change.c isdup.c eval_dupcheck_options.c \
+	is_msgname.c lock_file.c lock_proc.c lock_region.c \
+	lock_region_w.c make_fifo.c map_file.c mmap_emu.c msync_emu.c \
+	munmap_emu.c mmap_resize.c msa_attach.c msa_detach.c \
+	attach_afd_mon_status.c detach_afd_mon_status.c move_file.c \
+	my_strncpy.c my_usleep.c open_fifo_rw.c posi.c pmatch.c \
+	production_log.c read_file.c read_file_no_cr.c read_job_ids.c \
+	readn.c rec.c rec_rmdir.c remove_dir.c remove_files.c \
+	remove_job_files.c reshuffel_log_files.c rlock_region.c \
+	handle_alias_name.c send_cmd.c set_afd_euid.c set_fl.c \
+	show_fifo_data.c system_log.c t_hostname.c unlock_region.c \
+	unmap_data.c url.c write_host_config.c writen.c \
+	../init_afd/afddefs.h ../afdsetup.h ../../config.h
 @WITH_DELETE_LOG_TRUE@am__objects_1 = delete_log_ptrs.$(OBJEXT)
 @HAVE_EACCESS_FALSE@am__objects_2 = eaccess.$(OBJEXT)
 @ERROR_QUEUE_SUPPORT_TRUE@am__objects_3 =  \
@@ -153,12 +154,13 @@ am_libafd_a_OBJECTS = attach_afd_status.$(OBJEXT) attach_buf.$(OBJEXT) \
 	fra_detach.$(OBJEXT) fsa_attach.$(OBJEXT) fsa_detach.$(OBJEXT) \
 	get_afd_name.$(OBJEXT) get_afd_path.$(OBJEXT) \
 	get_arg.$(OBJEXT) get_checksum.$(OBJEXT) \
-	get_definition.$(OBJEXT) get_dir_number.$(OBJEXT) \
-	get_dir_options.$(OBJEXT) get_error_str.$(OBJEXT) \
-	get_file_mask_list.$(OBJEXT) get_log_number.$(OBJEXT) \
-	get_max_log_number.$(OBJEXT) get_mon_path.$(OBJEXT) \
-	get_permissions.$(OBJEXT) get_position.$(OBJEXT) \
-	get_pw.$(OBJEXT) get_rename_rules.$(OBJEXT) get_rule.$(OBJEXT) \
+	get_definition.$(OBJEXT) get_dir_alias.$(OBJEXT) \
+	get_dir_number.$(OBJEXT) get_dir_options.$(OBJEXT) \
+	get_error_str.$(OBJEXT) get_file_mask_list.$(OBJEXT) \
+	get_log_number.$(OBJEXT) get_max_log_number.$(OBJEXT) \
+	get_mon_path.$(OBJEXT) get_permissions.$(OBJEXT) \
+	get_position.$(OBJEXT) get_pw.$(OBJEXT) \
+	get_rename_rules.$(OBJEXT) get_rule.$(OBJEXT) \
 	get_update_config_str.$(OBJEXT) get_user.$(OBJEXT) \
 	handle_counter.$(OBJEXT) $(am__objects_3) \
 	inform_fd_about_fsa_change.$(OBJEXT) $(am__objects_4) \
@@ -263,11 +265,14 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSUB = @POSUB@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
@@ -432,6 +437,7 @@ libafd_a_SOURCES = attach_afd_status.c\
                        get_arg.c\
                        get_checksum.c\
                        get_definition.c\
+                       get_dir_alias.c\
                        get_dir_number.c\
                        get_dir_options.c\
                        get_error_str.c\
@@ -617,6 +623,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_arg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_checksum.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_definition.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_dir_alias.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_dir_number.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_dir_options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_error_str.Po@am__quote@

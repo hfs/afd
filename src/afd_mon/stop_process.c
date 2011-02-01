@@ -1,6 +1,6 @@
 /*
  *  stop_process.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,9 +96,13 @@ stop_process(int process, int shutdown)
                if (errno != ESRCH)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                              "Failed to kill %s process to %s (%d) : %s",
-                             MON_PROC, pl[i].afd_alias, pl[i].mon_pid,
-                             strerror(errno));
+#else
+                             "Failed to kill %s process to %s (%lld) : %s",
+#endif
+                             MON_PROC, pl[i].afd_alias,
+                             (pri_pid_t)pl[i].mon_pid, strerror(errno));
                }
             }
             else
@@ -144,9 +148,13 @@ stop_log_process(int process)
       if (errno != ESRCH)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                     "Failed to kill %s process to %s (%d) : %s",
-                    LOG_MON, pl[process].afd_alias, pl[process].log_pid,
-                    strerror(errno));
+#else
+                    "Failed to kill %s process to %s (%lld) : %s",
+#endif
+                    LOG_MON, pl[process].afd_alias,
+                    (pri_pid_t)pl[process].log_pid, strerror(errno));
       }
    }
    else

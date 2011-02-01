@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,8 @@ DESCR__S_M3
  **                      reverted above change.
  **   13.07.2003 H.Kiehl Don't link/copy files that are older then the value
  **                      specified in 'age-limit' option.
+ **   16.12.2010 H.Kiehl When we fail to create the target directory,
+ **                      log in DELETE_LOG the files we failed to save.
  **
  */
 DESCR__E_M3
@@ -135,11 +137,64 @@ save_files(char                   *src_path,
        */
       if (mkdir(dest_path, DIR_MODE) < 0)
       {
+#ifdef _DELETE_LOG
+         int tmp_errno = errno;
+
+#endif
          if (errno != EEXIST)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not mkdir() `%s' to save files : %s",
                        dest_path, strerror(errno));
+#ifdef _DELETE_LOG
+            for (i = 0; i < no_of_files; i++)
+            {
+               for (j = 0; j < p_de->fme[pos_in_fm].nfm; j++)
+               {
+                  if ((retstat = pmatch(p_de->fme[pos_in_fm].file_mask[j],
+                                        file_name_pool[i],
+                                        &file_mtime_pool[i])) == 0)
+                  {
+                     size_t dl_real_size;
+
+                     (void)memcpy(dl.file_name, file_name_pool[i],
+                                  (size_t)(file_length_pool[i] + 1));
+                     (void)sprintf(dl.host_name, "%-*s %03x",
+                                   MAX_HOSTNAME_LENGTH,
+                                   p_db->host_alias, MKDIR_QUEUE_ERROR);
+                     *dl.file_size = file_size_pool[i];
+                     *dl.dir_id = p_de->dir_id;
+                     *dl.job_id = p_db->job_id;
+                     *dl.input_time = 0L;
+                     *dl.split_job_counter = 0;
+                     *dl.unique_number = 0;
+                     *dl.file_name_length = file_length_pool[i];
+                     dl_real_size = *dl.file_name_length + dl.size +
+                                    sprintf((dl.file_name + *dl.file_name_length + 1),
+                                            "%s%c%s (%s %d)",
+                                            DIR_CHECK, SEPARATOR_CHAR,
+                                            strerror(tmp_errno),
+                                            __FILE__, __LINE__);
+                     if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "write() error : %s", strerror(errno));
+                     }
+
+                     /* No need to test any further filters. */
+                     break;
+                  }
+                  else if (retstat == 1)
+                       {
+                          /*
+                           * This file is definitely NOT wanted, no matter what the
+                           * following filters say.
+                           */
+                          break;
+                       }
+               }
+            }
+#endif
             errno = 0;
             return(INCORRECT);
          }
@@ -190,7 +245,7 @@ save_files(char                   *src_path,
                (void)memcpy(dl.file_name, file_name_pool[i],
                             (size_t)(file_length_pool[i] + 1));
                (void)sprintf(dl.host_name, "%-*s %03x",
-                             MAX_HOSTNAME_LENGTH, "-", AGE_INPUT);
+                             MAX_HOSTNAME_LENGTH, p_db->host_alias, AGE_INPUT);
                *dl.file_size = file_size_pool[i];
                *dl.dir_id = p_de->dir_id;
                *dl.job_id = p_db->job_id;

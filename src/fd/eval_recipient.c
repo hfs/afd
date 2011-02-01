@@ -78,11 +78,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                   /* NULL                             */
-#include <string.h>                  /* strcpy()                         */
-#include <stdlib.h>                  /* atoi(), getenv()                 */
-#include <ctype.h>                   /* isdigit(), tolower(), isxdigit() */
-#include <time.h>                    /* time(), strftime()               */
-#include <unistd.h>                  /* gethostname()                    */
+#include <string.h>                  /* strcpy(), strcat(), memmove()    */
 #include <errno.h>
 #include "fddefs.h"
 

@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>         /* S_ISDIR()                               */
 #include <dirent.h>           /* opendir(), readdir(), closedir()        */
-#include <unistd.h>           /* sleep()                                 */
+#include <unistd.h>           /* sleep(), pipe(), close()                */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -77,6 +77,7 @@ extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra,
                                   *p_fra;
+extern struct afd_status          *p_afd_status;
 
 /* Local variables. */
 static unsigned int               files_handled;
@@ -371,21 +372,51 @@ handle_time_dir(int time_job_no)
                 (fsa[db[time_job_list[time_job_no]].position].host_status < 2) &&
                 ((fsa[db[time_job_list[time_job_no]].position].special_flag & HOST_DISABLED) == 0))
             {
-               if ((dcpl[*no_of_process].pid = fork()) == -1)
+               int   pfd1[2],
+                     pfd2[2];
+               pid_t pid;
+
+               if ((pipe(pfd1) < 0) || (pipe(pfd2) < 0))
                {
-                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "pipe() error : %s", strerror(errno));
+               }
+
+               if ((pid = fork()) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to fork() : %s", strerror(errno));
+                  if ((close(pfd1[0]) == -1) || (close(pfd1[1]) == -1) ||
+                      (close(pfd2[0]) == -1) || (close(pfd2[1]) == -1))
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "close() error : %s", strerror(errno));
+                  }
                   send_message(outgoing_file_dir, unique_name, split_job_counter,
                                unique_number, creation_time,
                                time_job_list[time_job_no], 0,
                                files_moved, file_size_moved, YES);
                }
-               else if (dcpl[*no_of_process].pid == 0) /* Child process. */
+               else if (pid == 0) /* Child process. */
                     {
                        pid_t pid;
-#ifdef _FIFO_DEBUG
-                       char  cmd[2];
-#endif
+
+                       if (write(pfd2[1], "c", 1) != 1)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "write() error : %s", strerror(errno));
+                       }
+                       if (read(pfd1[0], &pid, 1) != 1)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "read() error : %s", strerror(errno));
+                       }
+                       if ((close(pfd1[0]) == -1) || (close(pfd1[1]) == -1) ||
+                           (close(pfd2[0]) == -1) || (close(pfd2[1]) == -1))
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "close() error : %s", strerror(errno));
+                       }
 
                        send_message(outgoing_file_dir, unique_name,
                                     split_job_counter, unique_number,
@@ -393,10 +424,6 @@ handle_time_dir(int time_job_no)
                                     0, files_moved, file_size_moved, YES);
 
                        /* Tell parent we completed our task. */
-#ifdef _FIFO_DEBUG
-                       cmd[0] = ACKN; cmd[1] = '\0';
-                       show_fifo_data('W', "ip_fin", cmd, 1, __FILE__, __LINE__);
-#endif
                        pid = getpid();
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                        if (write(fin_writefd, &pid, sizeof(pid_t)) != sizeof(pid_t))
@@ -412,10 +439,31 @@ handle_time_dir(int time_job_no)
                     }
                     else /* Parent process. */
                     {
-                       fra[db[time_job_list[time_job_no]].fra_pos].no_of_process++;
+                       char c;
+
+                       if (write(pfd1[1], "p", 1) != 1)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "write() error : %s", strerror(errno));
+                       }
+                       if (read(pfd2[0], &c, 1) != 1)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "read() error : %s", strerror(errno));
+                       }
+                       if ((close(pfd1[0]) == -1) || (close(pfd1[1]) == -1) ||
+                           (close(pfd2[0]) == -1) || (close(pfd2[1]) == -1))
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "close() error : %s", strerror(errno));
+                       }
+
+                       dcpl[*no_of_process].pid = pid;
                        dcpl[*no_of_process].fra_pos = db[time_job_list[time_job_no]].fra_pos;
                        dcpl[*no_of_process].job_id = db[time_job_list[time_job_no]].job_id;
+                       fra[db[time_job_list[time_job_no]].fra_pos].no_of_process++;
                        (*no_of_process)++;
+                       p_afd_status->amg_fork_counter++;
                     }
             }
             else

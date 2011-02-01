@@ -1,6 +1,6 @@
 /*
  *  afd_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1343,8 +1343,12 @@ afd_mon_exit(void)
             if (errno != ESRCH)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                           "Failed to kill monitor log process (%d) : %s",
-                          mon_log_pid, strerror(errno));
+#else
+                          "Failed to kill monitor log process (%lld) : %s",
+#endif
+                          (pri_pid_t)mon_log_pid, strerror(errno));
             }
          }
 

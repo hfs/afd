@@ -102,8 +102,8 @@ int                        event_log_fd = STDERR_FILENO,
                            *p_no_of_hosts = NULL,
                            fra_fd = -1,
                            fra_id,
-                           fsa_id,
                            fsa_fd = -1,
+                           fsa_id,
                            prev_no_of_files_done = 0,
                            move_flag,
                            rl_fd = -1,
@@ -1303,9 +1303,8 @@ try_again_unlink:
                   {
                      sign = INFO_SIGN;
                   }
-                  system_log(sign, __FILE__, __LINE__,
-                             "Starting input queue for %s that was stopped by init_afd.",
-                             fsa->host_alias);
+                  trans_log(sign, __FILE__, __LINE__, NULL, NULL,
+                            "Starting input queue that was stopped by init_afd.");
                   event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                             fsa->host_alias);
                }

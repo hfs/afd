@@ -1,6 +1,6 @@
 /*
- *  show_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  mshow_log.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,13 +25,13 @@ DESCR__S_M1
  **   show_log - displays log files from the AFD
  **
  ** SYNOPSIS
- **   show_log [--version]
+ **   mshow_log [--version]
  **                OR
- **   show_log [-w <AFD working directory>] 
- **            [-f <font name>]
- **            [-n <alias name>]
- **            -l System|Receive|Transfer|Debug|Monitor|Monsystem
- **            [hostname 1 hostname 2 ... hostname n]
+ **   mshow_log [-w <AFD working directory>] 
+ **             [-f <font name>]
+ **             [-n <alias name>]
+ **             -l System|Receive|Transfer|Debug|Monitor|Monsystem
+ **             [hostname 1 hostname 2 ... hostname n]
  **
  ** DESCRIPTION
  **
@@ -110,8 +110,8 @@ int            alias_name_length,
                log_type_flag,
                max_log_number,
                no_of_hosts,
-               sys_log_fd = STDERR_FILENO;
-unsigned int   toggles_set_parallel_jobs;
+               sys_log_fd = STDERR_FILENO,
+               toggles_set_parallel_jobs;
 XT_PTR_TYPE    toggles_set;
 off_t          total_length;
 ino_t          current_inode_no;
@@ -156,15 +156,25 @@ main(int argc, char *argv[])
    static String   fallback_res[] =
                    {
                       ".show_log*mwmDecorations : 110",
+                      ".mshow_log*mwmDecorations : 110",
                       ".show_log*mwmFunctions : 30",
+                      ".mshow_log*mwmFunctions : 30",
                       ".show_log.form.log_outputSW*XmText.fontList : fixed",
+                      ".mshow_log.form.log_outputSW*XmText.fontList : fixed",
                       ".show_log*background : NavajoWhite2",
+                      ".mshow_log*background : NavajoWhite2",
                       ".show_log.form.log_outputSW.log_output.background : NavajoWhite1",
+                      ".mshow_log.form.log_outputSW.log_output.background : NavajoWhite1",
                       ".show_log.form.counterbox*background : NavajoWhite1",
+                      ".mshow_log.form.counterbox*background : NavajoWhite1",
                       ".show_log.form.searchbox*background : NavajoWhite1",
+                      ".mshow_log.form.searchbox*background : NavajoWhite1",
                       ".show_log.form.buttonbox*background : PaleVioletRed2",
+                      ".mshow_log.form.buttonbox*background : PaleVioletRed2",
                       ".show_log.form.buttonbox*foreground : Black",
+                      ".mshow_log.form.buttonbox*foreground : Black",
                       ".show_log.form.buttonbox*highlightColor : Black",
+                      ".mshow_log.form.buttonbox*highlightColor : Black",
                       NULL
                    };
    Widget          form,
@@ -393,7 +403,7 @@ main(int argc, char *argv[])
                              XmNresizable,        False,
                              NULL);
 
-      (signed int)toggles_set_parallel_jobs = -1;
+      toggles_set_parallel_jobs = 0; /* Default to 'all'. */
       for (i = 0; i < MAX_NO_PARALLEL_JOBS; i++)
       {
          /* Create toggle button widget. */

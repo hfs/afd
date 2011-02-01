@@ -1,6 +1,6 @@
 /*
  *  init_aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -99,15 +99,15 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    (void)strcpy(name, ptr);
    if (name[0] == 'r')
    {
-      p_db->aftp_mode = RETRIEVE_MODE;
+      p_db->exec_mode = RETRIEVE_MODE;
    }
    else if (name[0] == 't')
         {
-           p_db->aftp_mode = TEST_MODE;
+           p_db->exec_mode = TEST_MODE;
         }
         else
         {
-           p_db->aftp_mode = TRANSFER_MODE;
+           p_db->exec_mode = TRANSFER_MODE;
         }
 
    /* First initialize all values with default values. */

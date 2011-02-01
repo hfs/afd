@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,6 +76,7 @@ extern Display                    *display;
 extern Widget                     fw[],
                                   rw[],
                                   tw[],
+                                  line_window_w,
                                   lsw[];
 extern Window                     line_window;
 extern Pixmap                     label_pixmap,
@@ -162,6 +163,11 @@ dir_input(Widget      w,
 {
    int        select_no;
    static int last_motion_pos = -1;
+
+   if (event->xany.type == EnterNotify)
+   {
+      XmProcessTraversal(line_window_w, XmTRAVERSE_CURRENT);
+   }
 
    /* Handle any motion event. */
    if ((event->xany.type == MotionNotify) && (in_window == YES))
@@ -325,6 +331,51 @@ dir_input(Widget      w,
          (void)fprintf(stderr, "input(): xbutton.y     = %d\n",
                        event->xbutton.y);
 #endif
+      }
+   }
+
+   if ((event->type == KeyPress) && (event->xkey.state & ControlMask))
+   {
+      int            bufsize = 10,
+                     count;
+      char           buffer[10];
+      KeySym         keysym;
+      XComposeStatus compose;
+
+      count = XLookupString((XKeyEvent *)event, buffer, bufsize,
+                            &keysym, &compose);
+      buffer[count] = '\0';
+      if ((keysym == XK_plus) || (keysym == XK_minus))
+      {
+         XT_PTR_TYPE new_font;
+
+         if (keysym == XK_plus)
+         {
+            for (new_font = current_font + 1; new_font < NO_OF_FONTS; new_font++)
+            {
+               if (fw[new_font] != NULL)
+               {
+                  break;
+               }
+            }
+         }
+         else
+         {
+            for (new_font = current_font - 1; new_font >= 0; new_font--)
+            {
+               if (fw[new_font] != NULL)
+               {
+                  break;
+               }
+            }
+         }
+         if ((new_font >= 0) && (new_font < NO_OF_FONTS) &&
+             (current_font != new_font))
+         {
+            change_dir_font_cb(w, (XtPointer)new_font, NULL);
+         }
+
+         return;
       }
    }
 

@@ -1,6 +1,6 @@
 /*
  *  mmap_emu.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1994 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1994 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,8 +79,12 @@ mmap_emu(caddr_t addr,
             strshmid[15],
             buf[BUFSIZE];
 
+#if SIZEOF_PID_T == 4
    (void)sprintf(fifoname, "%s%s/shmid.%d.fifo",
-                 p_work_dir, FIFO_DIR, getpid());
+#else
+   (void)sprintf(fifoname, "%s%s/shmid.%lld.fifo",
+#endif
+                 p_work_dir, FIFO_DIR, (pri_pid_t)getpid());
    (void)sprintf(request_fifo, "%s%s%s", p_work_dir, FIFO_DIR, REQUEST_FIFO);
    if (mkfifo(fifoname, FILE_MODE) < 0)
    {

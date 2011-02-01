@@ -140,13 +140,14 @@ static struct prod_log_db *pld = NULL;
 /* Local function prototypes. */
 static void               ascii_sohetx(char *, off_t, char *),
                           ascii_zczc_nnnn(char *, off_t, char *),
-                          two_byte_vax(char *, off_t),
-                          two_byte_vax_swap(char *, off_t),
+                          binary_sohetx(char *, off_t, char *),
                           four_byte(char *, off_t),
                           four_byte_swap(char *, off_t),
                           four_byte_mss(char *, off_t),
                           four_byte_mss_swap(char *, off_t),
                           show_unknown_report(char *, int, char *, char *, int),
+                          two_byte_vax(char *, off_t),
+                          two_byte_vax_swap(char *, off_t),
                           wmo_standard(char *, off_t);
 static int                check_report(char *, unsigned int, int *),
                           write_file(char *, unsigned int, int);
@@ -265,6 +266,10 @@ extract(char         *file_name,
    {
       case ASCII_STANDARD: /* No length indicator, just locate SOH + ETX. */
          ascii_sohetx(src_ptr, stat_buf.st_size, file_name);
+         break;
+
+      case BINARY_STANDARD: /* No length indicator, just cut away header. */
+         binary_sohetx(src_ptr, stat_buf.st_size, file_name);
          break;
 
       case ZCZC_NNNN: /* No length indicator, just locate ZCZC + NNNN. */
@@ -445,6 +450,46 @@ ascii_sohetx(char *src_ptr, off_t total_length, char *file_name)
          }
       }
    } while ((ptr - src_ptr) <= total_length);
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++++ binary_sohetx() ++++++++++++++++++++++++++*/
+static void
+binary_sohetx(char *src_ptr, off_t total_length, char *file_name)
+{
+   char *ptr = src_ptr,
+        *ptr_start;
+
+   while ((*ptr != 1) && ((ptr - src_ptr) <= total_length))
+   {
+      ptr++;
+   }
+   if (*ptr == 1)
+   {
+      ptr_start = ptr;
+      ptr += (total_length - 1);
+      if (*ptr == 3)
+      {
+         ptr++;
+         if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), YES) < 0)
+         {
+            return;
+         }
+         if ((ptr - src_ptr) >= total_length)
+         {
+            return;
+         }
+      }
+      else
+      {
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                     _("Failed to locate terminating ETX in %s."),
+                     file_name);
+         return;
+      }
+   }
 
    return;
 }
@@ -784,8 +829,8 @@ write_file(char *msg, unsigned int length, int soh_etx)
    if ((ptr + 3 - msg) >= length)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  _("Failed to read bulletin header. No header found in %s."),
-                  p_orig_name);
+                  _("Failed to read bulletin header. No header found in %s (%d >= %u)."),
+                  p_orig_name, (int)(ptr + 3 - msg), length);
       return(INCORRECT);
    }
    if (((ptr + 4 - msg) <= length) && (*ptr == 'Z') && (*(ptr + 1) == 'C') &&
@@ -990,12 +1035,12 @@ write_file(char *msg, unsigned int length, int soh_etx)
                  }
                  /* METAR, SPECI, TAF AMD, AAXX or BBXX (in a group) */
             else if (((ptr + 5 - msg) < length) &&
-                     ((isdigit((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
-                     ((isdigit((int)(*(ptr + 1)))) ||
+                     ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                     ((isupper((int)(*(ptr + 1)))) ||
                       (isdigit((int)(*(ptr + 1))))) &&
-                     ((isdigit((int)(*(ptr + 2)))) ||
+                     ((isupper((int)(*(ptr + 2)))) ||
                       (isdigit((int)(*(ptr + 2))))) &&
-                     ((isdigit((int)(*(ptr + 3)))) ||
+                     ((isupper((int)(*(ptr + 3)))) ||
                       (isdigit((int)(*(ptr + 3))))) &&
                      (*(ptr + 4) == ' '))
                  {
@@ -1206,7 +1251,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
                }
                if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
                {
-                  (void)next_counter(counter_fd, counter);
+                  (void)next_counter(counter_fd, counter, MAX_MSG_PER_SEC);
                   end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
                                         "-%04x", *counter);
                }
@@ -1293,7 +1338,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
       }
       if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
       {
-         (void)next_counter(counter_fd, counter);
+         (void)next_counter(counter_fd, counter, MAX_MSG_PER_SEC);
          i += sprintf(&p_file_name[i], "-%04x", *counter);
       }
       p_file_name[i] = '\0';

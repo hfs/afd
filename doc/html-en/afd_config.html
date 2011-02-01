@@ -24,8 +24,12 @@ the new value:
    <td>The TCP port number at which the process afdd will listen and
        wait for remote requests. If that port is currently in use
        by another program it will add one and see if that works
-       so long until it finds a free port. NOTE: If this option
-       is not set the afdd process will NOT start.</td>
+       so long until it finds a free port. Note you will only be able
+       to pick a port that is not in the dynamic port range. IANA
+       suggests this port range to be 49152 to 65535. On linux systems
+       this usually is 32768 to 61000.  On linux AFD will determine this
+       value by reading /proc/sys/net/ipv4/ip_local_port_range.
+       NOTE: If this option is not set the afdd process will NOT start.</td>
    <td valign=top>4444</td>
    <td valign=top>afdd</td>
 </tr>
@@ -473,7 +477,7 @@ restarted.
    <td width="90%"><small><address>
    Copyright &copy; 1999 - 2010 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 23.02.2010
+   Last updated: 05.01.2011
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -1,6 +1,6 @@
 /*
  *  aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,7 +43,7 @@ DESCR__S_M1
  **     -k                              - Keep control connection alive.
  **     -l <DOT | DOT_VMS | OFF | xyz.> - How to lock the file on the remote
  **                                       site.
- **     -m <A | I>                      - FTP transfer mode, ASCII, binary or
+ **     -m <A | I | D>                  - FTP transfer mode, ASCII, binary or
  **                                       dos. Default is binary.
  **     -p <port number>                - Remote port number of FTP-server.
  **     -P <proxy>                      - Use the given proxy procedure
@@ -63,7 +63,7 @@ DESCR__S_M1
  **     -?                              - Usage.
  **
  ** DESCRIPTION
- **   aftp sends the given files to the defined recipient via FTP
+ **   aftp sends the given files to the defined recipient via FTP.
  **   It does so by using it's own FTP-client.
  **
  ** RETURN VALUES
@@ -568,7 +568,7 @@ main(int argc, char *argv[])
       exit(ALLOC_ERROR);
    }
 
-   if (db.aftp_mode == RETRIEVE_MODE)
+   if (db.exec_mode == RETRIEVE_MODE)
    {
       if (get_remote_file_names(&file_size_to_retrieve) > 0)
       {
@@ -855,7 +855,7 @@ main(int argc, char *argv[])
       /* Send all files. */
       for (files_send = 0; files_send < db.no_of_files; files_send++)
       {
-         if (db.aftp_mode == TEST_MODE)
+         if (db.exec_mode == TEST_MODE)
          {
             (void)sprintf(final_filename, "%s%010d",
                           db.filename[0], files_send);
@@ -894,7 +894,7 @@ main(int argc, char *argv[])
             (void)strcpy(initial_filename, final_filename);
          }
 
-         if (db.aftp_mode == TEST_MODE)
+         if (db.exec_mode == TEST_MODE)
          {
             local_file_size = db.dummy_size;
          }
@@ -1163,7 +1163,7 @@ main(int argc, char *argv[])
             ascii_buffer[0] = 0;
          }
 
-         if (db.aftp_mode == TRANSFER_MODE)
+         if (db.exec_mode == TRANSFER_MODE)
          {
             for (;;)
             {
@@ -1701,7 +1701,7 @@ main(int argc, char *argv[])
 #endif
                    final_filename, (pri_off_t)stat_buf.st_size);
 
-         if ((db.remove == YES) && (db.aftp_mode == TRANSFER_MODE))
+         if ((db.remove == YES) && (db.exec_mode == TRANSFER_MODE))
          {
             /* Delete the file we just have send. */
             if (unlink(db.filename[files_send]) < 0)

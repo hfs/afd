@@ -35,7 +35,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = aftp$(EXEEXT) asmtp$(EXEEXT)
+bin_PROGRAMS = aftp$(EXEEXT) asmtp$(EXEEXT) awmo$(EXEEXT)
 subdir = src/cmdline
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
@@ -77,6 +77,10 @@ am_asmtp_OBJECTS = asmtp.$(OBJEXT) eval_files.$(OBJEXT) \
 	init_asmtp.$(OBJEXT) trans_log.$(OBJEXT)
 asmtp_OBJECTS = $(am_asmtp_OBJECTS)
 asmtp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
+am_awmo_OBJECTS = awmo.$(OBJEXT) eval_files.$(OBJEXT) \
+	init_awmo.$(OBJEXT) trans_log.$(OBJEXT)
+awmo_OBJECTS = $(am_awmo_OBJECTS)
+awmo_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/ac-tools/depcomp
 am__depfiles_maybe = depfiles
@@ -85,8 +89,8 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(aftp_SOURCES) $(asmtp_SOURCES)
-DIST_SOURCES = $(aftp_SOURCES) $(asmtp_SOURCES)
+SOURCES = $(aftp_SOURCES) $(asmtp_SOURCES) $(awmo_SOURCES)
+DIST_SOURCES = $(aftp_SOURCES) $(asmtp_SOURCES) $(awmo_SOURCES)
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -162,11 +166,14 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSUB = @POSUB@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
@@ -245,7 +252,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES = gmon.out core core.*
-noinst_HEADERS = aftpdefs.h asmtpdefs.h cmdline.h
+noinst_HEADERS = aftpdefs.h asmtpdefs.h awmodefs.h cmdline.h
 INCLUDES = -I.. -I../init_afd -I../protocols -I../fd
 aftp_SOURCES = aftp.c\
                        eval_files.c\
@@ -262,6 +269,14 @@ asmtp_SOURCES = asmtp.c\
                        trans_log.c
 
 asmtp_LDADD = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
+                       ../common/libafd.a
+
+awmo_SOURCES = awmo.c\
+                       eval_files.c\
+                       init_awmo.c\
+                       trans_log.c
+
+awmo_LDADD = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
                        ../common/libafd.a
 
 all: all-am
@@ -341,6 +356,9 @@ aftp$(EXEEXT): $(aftp_OBJECTS) $(aftp_DEPENDENCIES)
 asmtp$(EXEEXT): $(asmtp_OBJECTS) $(asmtp_DEPENDENCIES) 
 	@rm -f asmtp$(EXEEXT)
 	$(LINK) $(asmtp_OBJECTS) $(asmtp_LDADD) $(LIBS)
+awmo$(EXEEXT): $(awmo_OBJECTS) $(awmo_DEPENDENCIES) 
+	@rm -f awmo$(EXEEXT)
+	$(LINK) $(awmo_OBJECTS) $(awmo_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -350,10 +368,12 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/asmtp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/awmo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_files.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_remote_file_names.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_aftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_asmtp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_awmo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trans_log.Po@am__quote@
 
 .c.o:

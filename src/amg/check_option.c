@@ -1,6 +1,6 @@
 /*
  *  check_option.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -696,7 +696,8 @@ check_option(char *option)
 
            /*
             * sohetx, sohetxwmo, wmo, sohetx2wmo0, sohetx2wmo1
-            * mrz2wmo, unix2dos, dos2unix, lf2crcrlf and crcrlf2lf.
+            * mrz2wmo, iso8859_2ascii, unix2dos, dos2unix,
+            * lf2crcrlf and crcrlf2lf.
             */
            if (((*ptr == 's') && (*(ptr + 1) == 'o') && (*(ptr + 2) == 'h') &&
                 (*(ptr + 3) == 'e') && (*(ptr + 4) == 't') &&
@@ -725,6 +726,16 @@ check_option(char *option)
                 (*(ptr + 5) == 'm') && (*(ptr + 6) == 'o') &&
                 ((*(ptr + 7) == '\0') || (*(ptr + 7) == ' ') ||
                  (*(ptr + 7) == '\t'))) ||
+               /* iso8859_2ascii */
+               ((*ptr == 'i') && (*(ptr + 1) == 's') && (*(ptr + 2) == 'o') &&
+                (*(ptr + 3) == '8') && (*(ptr + 4) == '8') &&
+                (*(ptr + 5) == '5') && (*(ptr + 6) == '9') &&
+                (*(ptr + 7) == '_') && (*(ptr + 8) == '2') &&
+                (*(ptr + 9) == 'a') && (*(ptr + 10) == 's') &&
+                (*(ptr + 11) == 'c') && (*(ptr + 12) == 'i') &&
+                (*(ptr + 13) == 'i') &&
+                ((*(ptr + 14) == '\0') || (*(ptr + 14) == ' ') ||
+                 (*(ptr + 14) == '\t'))) ||
                ((*ptr == 'u') && (*(ptr + 1) == 'n') && (*(ptr + 2) == 'i') &&
                 (*(ptr + 3) == 'x') && (*(ptr + 4) == '2') &&
                 (*(ptr + 5) == 'd') && (*(ptr + 6) == 'o') &&
@@ -819,7 +830,7 @@ check_option(char *option)
               ptr++;
            }
 
-           /* VAX, LBF, HBF, MRZ, MSS, WMO, ASCII, ZCZC and GRIB. */
+           /* VAX, LBF, HBF, MRZ, MSS, WMO, ASCII, BINARY, ZCZC and GRIB. */
            if (((((*ptr == 'V') && (*(ptr + 1) == 'A') && (*(ptr + 2) == 'X')) ||
                  (((*ptr == 'L') || (*ptr == 'H')) && (*(ptr + 1) == 'B') && (*(ptr + 2) == 'F')) ||
                  ((*ptr == 'M') && (*(ptr + 1) == 'R') && (*(ptr + 2) == 'Z')) ||
@@ -829,6 +840,9 @@ check_option(char *option)
                ((*ptr == 'A') && (*(ptr + 1) == 'S') && (*(ptr + 2) == 'C') &&
                 (*(ptr + 3) == 'I') && (*(ptr + 4) == 'I') &&
                 ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\t') || (*(ptr + 5) == '\0'))) ||
+               ((*ptr == 'B') && (*(ptr + 1) == 'I') && (*(ptr + 2) == 'N') &&
+                (*(ptr + 3) == 'A') && (*(ptr + 4) == 'R') && (*(ptr + 5) == 'Y') &&
+                ((*(ptr + 6) == ' ') || (*(ptr + 6) == '\t') || (*(ptr + 6) == '\0'))) ||
                ((((*ptr == 'Z') && (*(ptr + 1) == 'C') && (*(ptr + 2) == 'Z') &&
                   (*(ptr + 3) == 'C')) ||
                  ((*ptr == 'G') && (*(ptr + 1) == 'R') && (*(ptr + 2) == 'I') &&
@@ -844,18 +858,18 @@ check_option(char *option)
               return(INCORRECT);
            }
         }
-   else if ((CHECK_STRNCMP(option, CHMOD_ID, CHMOD_ID_LENGTH) == 0) &&
-            ((*(option + CHMOD_ID_LENGTH) == ' ') ||
-             (*(option + CHMOD_ID_LENGTH) == '\t')))
+   else if ((CHECK_STRNCMP(option, LCHMOD_ID, LCHMOD_ID_LENGTH) == 0) &&
+            ((*(option + LCHMOD_ID_LENGTH) == ' ') ||
+             (*(option + LCHMOD_ID_LENGTH) == '\t')))
         {
-           ptr += CHMOD_ID_LENGTH + 1;
+           ptr += LCHMOD_ID_LENGTH + 1;
            while ((*ptr == ' ') || (*ptr == '\t'))
            {
               ptr++;
            }
            if (*ptr == '\0')
            {
-              system_log(WARN_SIGN, __FILE__, __LINE__, "No mode specified.");
+              system_log(WARN_SIGN, __FILE__, __LINE__, "No mode specified for option %s.", LCHMOD_ID);
               return(INCORRECT);
            }
            else
@@ -871,7 +885,41 @@ check_option(char *option)
               else
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Incorrect mode, only three or four octal numbers possible.");
+                            "Incorrect mode for option %s, only three or four octal numbers possible.",
+                            LCHMOD_ID);
+                 return(INCORRECT);
+              }
+           }
+        }
+   else if ((CHECK_STRNCMP(option, CHMOD_ID, CHMOD_ID_LENGTH) == 0) &&
+            ((*(option + CHMOD_ID_LENGTH) == ' ') ||
+             (*(option + CHMOD_ID_LENGTH) == '\t')))
+        {
+           ptr += CHMOD_ID_LENGTH + 1;
+           while ((*ptr == ' ') || (*ptr == '\t'))
+           {
+              ptr++;
+           }
+           if (*ptr == '\0')
+           {
+              system_log(WARN_SIGN, __FILE__, __LINE__, "No mode specified for option %s.", CHMOD_ID);
+              return(INCORRECT);
+           }
+           else
+           {
+              if (((*ptr >= '0') && (*ptr < '8')) &&
+                  ((*(ptr + 1) >= '0') && (*(ptr + 1) < '8')) &&
+                  ((*(ptr + 2) >= '0') && (*(ptr + 2) < '8')) &&
+                  (((*(ptr + 3) >= '0') && (*(ptr + 3) < '8') &&
+                   (*(ptr + 4) == '\0')) || (*(ptr + 3) == '\0')))
+              {
+                 /* OK */;
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Incorrect mode for option %s, only three or four octal numbers possible.",
+                            CHMOD_ID);
                  return(INCORRECT);
               }
            }

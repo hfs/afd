@@ -476,8 +476,8 @@ main(int argc, char *argv[])
                                          NULL);
       XtAddCallback(button_w, XmNactivateCallback,
                     (XtCallbackProc)close_button, (XtPointer)0);
-      XtManageChild(buttonbox_w);
    }
+   XtManageChild(buttonbox_w);
 
    /* Create log_text as a ScrolledText window. */
    argcount = 0;

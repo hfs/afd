@@ -1,6 +1,6 @@
 /*
  *  log_callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -92,34 +92,9 @@ toggled(Widget w, XtPointer client_data, XtPointer call_data)
 void
 toggled_jobs(Widget w, XtPointer client_data, XtPointer call_data)
 {
-#ifdef _TOGGLED_PROC_SELECTION
-# if SIZEOF_LONG == 4
-   unsigned int flag = 1 << (int)client_data;
-# else
-   union        intlong
-                {
-                   int  ival[2];
-                   long lval;
-                } il;
-   int          byte_order = 1;
-   unsigned int flag;
-
-   il.lval = (long)client_data;
-   if (*(char *)&byte_order == 1)
-   {
-      flag = 1 << il.ival[0];
-   }
-   else
-   {
-      flag = 1 << il.ival[1];
-   }
-# endif
-
-   toggles_set_parallel_jobs ^= flag;
-#else
-# if SIZEOF_LONG == 4
+#if SIZEOF_LONG == 4
    toggles_set_parallel_jobs = (int)client_data;
-# else
+#else
    union uintlong
          {
             unsigned int ival[2];
@@ -136,7 +111,6 @@ toggled_jobs(Widget w, XtPointer client_data, XtPointer call_data)
    {
       toggles_set_parallel_jobs = uil.ival[1];
    }
-# endif
 #endif
 
    return;

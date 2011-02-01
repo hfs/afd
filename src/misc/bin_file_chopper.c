@@ -461,7 +461,7 @@ bin_file_chopper(char         *bin_file,
              *        |    +------------------------> originator
              *        +-----------------------------> data type
              */
-            if (next_counter(counter_fd, counter) < 0)
+            if (next_counter(counter_fd, counter, MAX_MSG_PER_SEC) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "Failed to get the next number.");

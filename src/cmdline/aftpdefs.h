@@ -1,6 +1,6 @@
 /*
  *  aftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -70,10 +70,6 @@ extern int   get_remote_file_names(off_t *);
 
 #define DEFAULT_AFD_USER     "anonymous"
 #define DEFAULT_AFD_PASSWORD "afd@someplace"
-
-#define TRANSFER_MODE        1
-#define RETRIEVE_MODE        2
-#define TEST_MODE            3
 
 /* Function prototypes. */
 extern int init_aftp(int, char **, struct data *);

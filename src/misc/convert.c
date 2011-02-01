@@ -1,6 +1,6 @@
 /*
  *  convert.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                       /* snprintf(), rename()         */
-#include <stdlib.h>                      /* strtoul()                    */
+#include <stdlib.h>                      /* strtoul(), malloc(), free()  */
 #include <string.h>                      /* strerror()                   */
 #include <ctype.h>                       /* isdigit()                    */
 #include <unistd.h>                      /* close(), unlink()            */
@@ -178,7 +178,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
            if (stat_buf.st_size < 10)
            {
               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                          _("Got a file for extracting that is %ld bytes long!"),
+                          _("Got a file for converting that is %ld bytes long!"),
                           stat_buf.st_size);
               (void)close(from_fd);
               return(INCORRECT);
@@ -776,6 +776,45 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                 _("Failed to convert MRZ file `%s' to WMO-format."),
                                 file_name);
                     new_length = 0;
+                 }
+                 break;
+
+              case ISO8859_2ASCII :
+                 {
+                    char *dst;
+
+                    if ((dst = malloc((stat_buf.st_size * 3))) == NULL)
+                    {
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                   _("malloc() error : %s"),
+                                   strerror(errno));
+                       (void)close(from_fd);
+                       (void)close(to_fd);
+                       return(INCORRECT);
+                    }
+                    if ((new_length = iso8859_2ascii(src_ptr, dst,
+                                                     stat_buf.st_size)) < 0)
+                    {
+                       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Failed to convert ISO8859 file `%s' to ASCII."),
+                                   file_name);
+                       new_length = 0;
+                    }
+                    else
+                    {
+                       if (writen(to_fd, dst, new_length,
+                                  stat_buf.st_blksize) != new_length)
+                       {
+                          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Failed to writen() to `%s' : %s"),
+                                      new_name, strerror(errno));
+                          (void)close(from_fd);
+                          (void)close(to_fd);
+                          (void)free(dst);
+                          return(INCORRECT);
+                       }
+                    }
+                    (void)free(dst);
                  }
                  break;
 

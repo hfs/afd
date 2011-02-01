@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -2445,7 +2445,8 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
                      ASSEMBLE_ID_LENGTH,
                      WMO2ASCII_ID_LENGTH,
                      DELETE_ID_LENGTH,
-                     CONVERT_ID_LENGTH
+                     CONVERT_ID_LENGTH,
+                     LCHMOD_ID_LENGTH
                   };
    unsigned int   loptions_flag[LOCAL_OPTION_POOL_SIZE] =
                   {
@@ -2470,7 +2471,8 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
                      ASSEMBLE_ID_FLAG,
                      WMO2ASCII_ID_FLAG,
                      DELETE_ID_FLAG,
-                     CONVERT_ID_FLAG
+                     CONVERT_ID_FLAG,
+                     LCHMOD_ID_FLAG
                   },
                   options_flag;
    size_t         new_size;
@@ -2502,7 +2504,8 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
                      ASSEMBLE_ID,
                      WMO2ASCII_ID,
                      DELETE_ID,
-                     CONVERT_ID
+                     CONVERT_ID,
+                     LCHMOD_ID
                   };
    struct p_array *p_ptr;
 
@@ -3161,15 +3164,15 @@ optimise_dir(char *path)
       if (*read_ptr == '/')
       {
          if (read_ptr[1] == '/')
-         {      
+         {
             modified = YES;
             if (read_ptr == path)
             {
                *(write_ptr++) = *read_ptr;
             }
-         }      
+         }
          else if ((read_ptr[1] == '\0') || (read_ptr == path))
-              { 
+              {
                  *(write_ptr++) = *read_ptr;
               }
          read_ptr++;
@@ -3274,8 +3277,7 @@ posi_identifier(char *search_text, char *search_string, size_t string_length)
       }
       else
       {
-         if ((hit == 1) &&
-             (*(search_string - 2) == *(search_text - 1)))
+         if ((hit == 1) && (*(search_string - 2) == *(search_text - 1)))
          {
             search_string--;
          }

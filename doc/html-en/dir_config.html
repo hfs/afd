@@ -102,8 +102,10 @@ hostname with the following modifiers:
    b - short month "Jan",         B - long month "January",
    d - day of month [01,31],      m - month [01,12],
    j - day of the year [001,366], y - year [01,99],
-   Y - year 1997,                 H - hour [00,23],
-   M - minute [00,59],            S - second [00,60]
+   Y - year 1997,                 R - Sunday week number [00,53],
+   w - weekday [0=Sunday,6],      W - Monday week number [00,53],
+   H - hour [00,23],              M - minute [00,59],
+   S - second [00,60]
    U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
        </pre></td>
    <td><pre>ftp://daisy@ducktown/diary/%tY/%tm/%tH</pre></td>
@@ -527,8 +529,10 @@ follow some more additional options that one can insert into the file filter:
    b - short month "Jan",         B - long month "January",
    d - day of month [01,31],      m - month [01,12],
    j - day of the year [001,366], y - year [01,99],
-   Y - year 1997,                 H - hour [00,23],
-   M - minute [00,59],            S - second [00,60]
+   Y - year 1997,                 R - Sunday week number [00,53],
+   w - weekday [0=Sunday,6],      W - Monday week number [00,53],
+   H - hour [00,23],              M - minute [00,59],
+   S - second [00,60]
    U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
        </pre></td>
    <td><pre>cloud_%tH-*-%tY.png        </pre></td>
@@ -726,8 +730,10 @@ AFD is running. The modifiers are:
    b - short month "Jan",         B - long month "January",
    d - day of month [01,31],      m - month [01,12],
    j - day of the year [001,366], y - year [01,99],
-   Y - year 1997,                 H - hour [00,23],
-   M - minute [00,59],            S - second [00,60]
+   Y - year 1997,                 R - Sunday week number [00,53],
+   w - weekday [0=Sunday,6],      W - Monday week number [00,53],
+   H - hour [00,23],              M - minute [00,59],
+   S - second [00,60]
    U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
        </pre></td>
    <td><pre>ftp://daisy@ducktown/diary/%tY/%tm/%tH</pre></td>
@@ -995,6 +1001,24 @@ section. Valid options can be taken from the following table:
 <tr>
    <td><a name="tolower">tolower</a></td>
    <td>Convert all letters of the file name to lower case.</td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="lchmod">lchmod mode</a></td>
+   <td>Changes the permission of each file before being distributed. Only
+       a numeric mode from one to four octal digits (0-7) is accepted. The
+       first digit selects the set user ID (4), set group ID (2) or the
+       save text image (1) attributes. The second digit selects permissions
+       for the user who owns the file: read (4), write (2) and/or execute
+       (1). The third selects permissions for other users in the files
+       group. The fourth digit is for all other users (world).
+   </td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1312,8 +1336,10 @@ section. Valid options can be taken from the following table:
          b - short month "Jan",         B - long month "January",
          d - day of month [01,31],      m - month [01,12],
          j - day of the year [001,366], y - year [01,99],
-         Y - year 1997,                 H - hour [00,23],
-         M - minute [00,59],            S - second [00,60]
+         Y - year 1997,                 R - Sunday week number [00,53],
+         w - weekday [0=Sunday,6],      W - Monday week number [00,53],
+         H - hour [00,23],              M - minute [00,59],
+         S - second [00,60]
          U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
       </pre>
       If no file name is specified the default will be no_file_name.
@@ -1370,6 +1396,19 @@ section. Valid options can be taken from the following table:
              length and 2 bytes type indicator plus &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;
              at start and &lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt; to the
              end, for the individual fields.</td>
+      </tr>
+         <td><b>iso8859_2ascii</b></td>
+         <td>Converts ISO8859 to ASCII. Curently only the following
+             conversions have been implemented:
+             <pre>
+                &auml; (e4) -&gt; ae    &Auml; (c4) -&gt; Ae | AE | A E
+                &ouml; (f6) -&gt; oe    &Ouml; (d6) -&gt; Oe | OE | O E
+                &uuml; (fc) -&gt; ue    &Uuml; (dc) -&gt; Ue | UE | U E
+                &szlig; (df) -&gt; ss
+             </pre>
+             Please contact the author if more conversions are
+             required.</td>
+      <tr>
       </tr>
       <tr>
          <td><b>unix2dos</b></td>
@@ -1808,8 +1847,10 @@ section. Valid options can be taken from the following table:
             b - short month "Jan",         B - long month "January",
             d - day of month [01,31],      m - month [01,12],
             j - day of the year [001,366], y - year [01,99],
-            Y - year 1997,                 H - hour [00,23],
-            M - minute [00,59],            S - second [00,60]
+            Y - year 1997,                 R - Sunday week number [00,53],
+            w - weekday [0=Sunday,6],      W - Monday week number [00,53],
+            H - hour [00,23],              M - minute [00,59],
+            S - second [00,60]
             U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
        </pre>
        <p>
@@ -2369,9 +2410,9 @@ to 30 minutes, it needs to be done as follows:
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2010 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2011 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 13.10.2010
+   Last updated: 18.01.2011
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

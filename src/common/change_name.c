@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,8 +56,10 @@ DESCR__S_M3
  **             b - short month "Jan",         B - long month "January",
  **             d - day of month [01,31],      m - month [01,12],
  **             j - day of the year [001,366], y - year [01,99],
- **             Y - year 1997,                 H - hour [00,23],
- **             M - minute [00,59],            S - second [00,60],
+ **             Y - year 1997,                 R - Sunday week number [00,53],
+ **             w - weekday [0=Sunday,6],      W - Monday week number [00,53],
+ **             H - hour [00,23],              M - minute [00,59],
+ **             S - second [00,60],
  **             U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
  **     %T[+|-|*|/|%]xS|M|H|d - Time modifier
  **            |     |   |
@@ -88,6 +90,7 @@ DESCR__S_M3
  **   14.02.2008 H.Kiehl    Added decimal and hexadecimal alternating numbers.
  **   09.05.2008 H.Kiehl    For %o or %O check that the original file name
  **                         is long enough.
+ **   11.11.2010 H.Kiehl    Added R, w and W to %t parameter.
  **
  */
 DESCR__E_M3
@@ -444,7 +447,7 @@ change_name(char         *orig_file_name,
                         break;
                      }
                   }
-                  next_counter(*counter_fd, *counter);
+                  (void)next_counter(*counter_fd, *counter, MAX_MSG_PER_SEC);
                   (void)sprintf(ptr_newname, "%04x", **counter);
                   ptr_newname += 4;
                   break;
@@ -601,6 +604,18 @@ change_name(char         *orig_file_name,
                      case 'm' : /* Month [01,12]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%m", gmtime(&time_buf));
+                        break;
+                     case 'R' : /* Sunday week number [00,53]. */
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%U", gmtime(&time_buf));
+                        break;
+                     case 'w' : /* Weekday [0=Sunday,6]. */
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%w", gmtime(&time_buf));
+                        break;
+                     case 'W' : /* Monday week number [00,53]. */
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%W", gmtime(&time_buf));
                         break;
                      case 'y' : /* Year 2 chars [01,99]. */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,

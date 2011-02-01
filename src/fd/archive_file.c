@@ -1,6 +1,6 @@
 /*
  *  archive_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -192,8 +192,8 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                if (errno != EEXIST)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to create directory : %s",
-                             strerror(errno));
+                             "Failed to create directory `%s´ : %s",
+                             p_db->archive_dir, strerror(errno));
                   p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                   return(INCORRECT);
                }

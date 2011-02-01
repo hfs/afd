@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,8 @@ DESCR__S_M3
  **   22.06.2006 H.Kiehl Catch the case when *no_of_file_mask_ids is larger
  **                      then the actual number stored.
  **   22.04.2008 H.Kiehl Let function url_evaluate() handle the url.
+ **   25.11.2010 H.Kiehl If fd starts structure connection does not yet
+ **                      exists, handle this case.
  **
  */
 DESCR__E_M3
@@ -761,17 +763,28 @@ list_job_to_remove(int                cache_pos,
 
          if (qb[j].pid > 0)
          {
-            if (qb[j].connect_pos >= 0)
+            if (connection != NULL)
             {
-               system_log(DEBUG_SIGN, NULL, 0,
-                          "AND process %d is currently distributing files for host %s! Will terminate this process.",
-                          qb[j].pid, connection[qb[j].connect_pos].hostname);
-            }
-            else
-            {
-               system_log(DEBUG_SIGN, NULL, 0,
-                          "AND process %d is currently distributing files! Will terminate this process.",
-                          qb[j].pid);
+               if (qb[j].connect_pos >= 0)
+               {
+                  system_log(DEBUG_SIGN, NULL, 0,
+#if SIZEOF_PID_T == 4
+                             "AND process %d is currently distributing files for host %s! Will terminate this process.",
+#else
+                             "AND process %lld is currently distributing files for host %s! Will terminate this process.",
+#endif
+                             (pri_pid_t)qb[j].pid, connection[qb[j].connect_pos].hostname);
+               }
+               else
+               {
+                  system_log(DEBUG_SIGN, NULL, 0,
+#if SIZEOF_PID_T == 4
+                             "AND process %d is currently distributing files! Will terminate this process.",
+#else
+                             "AND process %lld is currently distributing files! Will terminate this process.",
+#endif
+                             (pri_pid_t)qb[j].pid);
+               }
             }
             if (kill(qb[j].pid, SIGKILL) < 0)
             {
@@ -788,8 +801,12 @@ list_job_to_remove(int                cache_pos,
                      p_host_alias = mdb[qb[j].pos].host_name;
                   }
                   system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                              "Failed to kill transfer job to `%s' (%d) : %s",
-                             p_host_alias, qb[j].pid, strerror(errno));
+#else
+                             "Failed to kill transfer job to `%s' (%lld) : %s",
+#endif
+                             p_host_alias, (pri_pid_t)qb[j].pid, strerror(errno));
                }
             }
             else
@@ -813,48 +830,51 @@ list_job_to_remove(int                cache_pos,
                                    "Huh?! Whats this trying to reduce number of transfers although its zero???");
                      }
 
-                     if (connection[qb[j].connect_pos].fsa_pos != -1)
+                     if (connection != NULL)
                      {
-                        if (fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers > fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers)
+                        if (connection[qb[j].connect_pos].fsa_pos != -1)
                         {
-                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                      "Active transfers > allowed transfers %d!? [%d]",
-                                      fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers,
-                                      fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers);
-                           fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers;
-                        }
-                        fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers -= 1;
-                        if (fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers < 0)
-                        {
-                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                      "Active transfers for FSA position %d < 0!? [%d]",
-                                      connection[qb[j].connect_pos].fsa_pos,
-                                      fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers);
-                           fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = 0;
-                        }
-                        calc_trl_per_process(connection[qb[j].connect_pos].fsa_pos);
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].proc_id = -1;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].connect_status = DISCONNECT;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].no_of_files_done = 0;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_done = 0;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].no_of_files = 0;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size = 0;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use = 0;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use_done = 0;
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[0] = '\0';
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[1] = 0;
+                           if (fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers > fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Active transfers > allowed transfers %d!? [%d]",
+                                         fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers,
+                                         fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers);
+                              fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers;
+                           }
+                           fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers -= 1;
+                           if (fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers < 0)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Active transfers for FSA position %d < 0!? [%d]",
+                                         connection[qb[j].connect_pos].fsa_pos,
+                                         fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers);
+                              fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = 0;
+                           }
+                           calc_trl_per_process(connection[qb[j].connect_pos].fsa_pos);
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].proc_id = -1;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].connect_status = DISCONNECT;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].no_of_files_done = 0;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_done = 0;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].no_of_files = 0;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size = 0;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use = 0;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_size_in_use_done = 0;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[0] = '\0';
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].file_name_in_use[1] = 0;
 #ifdef _WITH_BURST_2
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].unique_name[0] = '\0';
-                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].job_id = NO_ID;
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].unique_name[0] = '\0';
+                           fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].job_id = NO_ID;
 #endif
-                        connection[qb[j].connect_pos].fsa_pos = -1;
+                           connection[qb[j].connect_pos].fsa_pos = -1;
+                        }
+                        connection[qb[j].connect_pos].hostname[0] = '\0';
+                        connection[qb[j].connect_pos].host_id = 0;
+                        connection[qb[j].connect_pos].job_no = -1;
+                        connection[qb[j].connect_pos].fra_pos = -1;
+                        connection[qb[j].connect_pos].msg_name[0] = '\0';
+                        connection[qb[j].connect_pos].pid = 0;
                      }
-                     connection[qb[j].connect_pos].hostname[0] = '\0';
-                     connection[qb[j].connect_pos].host_id = 0;
-                     connection[qb[j].connect_pos].job_no = -1;
-                     connection[qb[j].connect_pos].fra_pos = -1;
-                     connection[qb[j].connect_pos].msg_name[0] = '\0';
-                     connection[qb[j].connect_pos].pid = 0;
                   }
                }
             }

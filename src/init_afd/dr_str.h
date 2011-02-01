@@ -45,7 +45,8 @@ static const char *drstr[] = /* Delete reason string. */
                      "Conversion failed",                    /* 18 */
                      "Rename overwrite",                     /* 19 */
                      "Mail recipient rejected",              /* 20 */
-                     "Mirror delete"                         /* 21 */
+                     "Mirror delete",                        /* 21 */
+                     "Mkdir queue error"                     /* 22 */
                   };
 
 /* NOTE: If the maximum length changes, don't forget to change */

@@ -1,6 +1,6 @@
 /*
  *  get_new_positions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,8 +87,12 @@ get_new_positions(void)
              * the user. We hide it from the user.
              */
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                        "Hmm. Failed to locate host <%s> for connection job %d [pid = %d] has been removed. Writing data to end of FSA 8-(",
-                       connection[i].hostname, i, connection[i].pid);
+#else
+                       "Hmm. Failed to locate host <%s> for connection job %d [pid = %lld] has been removed. Writing data to end of FSA 8-(",
+#endif
+                       connection[i].hostname, i, (pri_pid_t)connection[i].pid);
             connection[i].fsa_pos = no_of_hosts;
             fsa[connection[i].fsa_pos].keep_connected = 0;
 
@@ -113,8 +117,13 @@ get_new_positions(void)
                                                           no_of_dirs)) < 0)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                           "Hmm. Failed to locate dir_alias %s for connection job %d [pid = %d] has been removed. Writing data to end of FRA 8-(",
-                          connection[i].dir_alias, i, connection[i].pid);
+#else
+                          "Hmm. Failed to locate dir_alias %s for connection job %d [pid = %lld] has been removed. Writing data to end of FRA 8-(",
+#endif
+                          connection[i].dir_alias, i,
+                          (pri_pid_t)connection[i].pid);
                connection[i].fra_pos = no_of_dirs;
             }
          }

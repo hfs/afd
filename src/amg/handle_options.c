@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,24 +66,27 @@ DESCR__S_M3
  **   extract XXX    - Extracts WMO bulletins from a file and creates
  **                    a file for each bulletin it finds. The following
  **                    WMO files for XXX are recognised:
- **                    MRZ   - Special format used for the exchange
- **                            of bulletins between EZMW and EDZW.
- **                    VAX   - Bulletins with a two byte length indicator.
- **                            (Low Byte First)
- **                    LBF   - Bulletins with a four byte length indicator
- **                            and low byte first.
- **                    HBF   - Bulletins with a four byte length indicator
- **                            and high byte first.
- **                    MSS   - Bulletins with a special four byte length
- **                            indicator used in conjunction with the MSS.
- **                    WMO   - Bulletins with 8 byte ASCII length indicator
- **                            and 2 byte type indicator.
- **                    ASCII - Normal ASCII bulletins where SOH and ETX
- **                            are start and end of one bulletin.
- **                    GRIB  - Standard GRIB files, however since there
- **                            are so many different GRIB types and
- **                            limited namespace for WMO header, many
- **                            GRIB's will overwrite each other.
+ **                    MRZ    - Special format used for the exchange
+ **                             of bulletins between EZMW and EDZW.
+ **                    VAX    - Bulletins with a two byte length indicator.
+ **                             (Low Byte First)
+ **                    LBF    - Bulletins with a four byte length indicator
+ **                             and low byte first.
+ **                    HBF    - Bulletins with a four byte length indicator
+ **                             and high byte first.
+ **                    MSS    - Bulletins with a special four byte length
+ **                             indicator used in conjunction with the MSS.
+ **                    WMO    - Bulletins with 8 byte ASCII length indicator
+ **                             and 2 byte type indicator.
+ **                    ASCII  - Normal ASCII bulletins where SOH and ETX
+ **                             are start and end of one bulletin.
+ **                    BINARY - Normal binary bulletin, where just the
+ **                             binary data is cut out. Note only one
+ **                             bulletin will be extracted.
+ **                    GRIB   - Standard GRIB files, however since there
+ **                             are so many different GRIB types and
+ **                             limited namespace for WMO header, many
+ **                             GRIB's will overwrite each other.
  **   assemble XXX   - Assembles WMO bulletins that are stored as 'one file
  **                    per bulletin' into one large file. The original files
  **                    will be deleted. It can create the same file
@@ -149,6 +152,7 @@ DESCR__S_M3
  **   11.02.2007 H.Kiehl Added locking option to exec.
  **   30.04.2007 H.Kiehl Recount files when we rename and overwrite files.
  **   08.03.2008 H.Kiehl Added -s to exec option.
+ **   18.01.2011 H.Kiehl Added lchmod option, to do local chmod.
  **
  */
 DESCR__E_M3
@@ -1629,6 +1633,246 @@ handle_options(int          position,
          continue;
       }
 
+      /* Check if we have to do a local chmod. */
+      if ((db[position].loptions_flag & LCHMOD_ID_FLAG) &&
+          (CHECK_STRNCMP(options, LCHMOD_ID, LCHMOD_ID_LENGTH) == 0))
+      {
+         int  n = 0;
+         char chmod_str[5];
+
+         /* Get the mode. */
+         ptr = options + LCHMOD_ID_LENGTH;
+         while ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            ptr++;
+         }
+         while ((*(ptr + n) != '\n') && (*(ptr + n) != '\0') &&
+                (*(ptr + n) != ' ') && (*(ptr + n) != '\t') && (n < 5))
+         {
+            chmod_str[n] = *(ptr + n);
+            n++;
+         }
+         if ((n == 3) || (n == 4))
+         {
+            int    error_flag = NO,
+#ifdef _WITH_PTHREAD
+                   file_counter = 0;
+#else
+                   file_counter = *files_to_send;
+#endif
+            mode_t mode = 0;
+
+            chmod_str[n] = '\0';
+            if (n == 4)
+            {
+               switch (*ptr)
+               {
+                  case '7' :
+                     mode |= S_ISUID | S_ISGID | S_ISVTX;
+                     break;
+                  case '6' :
+                     mode |= S_ISUID | S_ISGID;
+                     break;
+                  case '5' :
+                     mode |= S_ISUID | S_ISVTX;
+                     break;
+                  case '4' :
+                     mode |= S_ISUID;
+                     break;
+                  case '3' :
+                     mode |= S_ISGID | S_ISVTX;
+                     break;
+                  case '2' :
+                     mode |= S_ISGID;
+                     break;
+                  case '1' :
+                     mode |= S_ISVTX;
+                     break;
+                  case '0' : /* Nothing to be done here. */
+                     break;
+                  default :
+                     error_flag = YES;
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c%c",
+                                LCHMOD_ID, ptr, ptr + 1, ptr + 2, ptr + 3);
+                     break;
+               }
+               ptr++;
+            }
+            switch (*ptr)
+            {
+               case '7' :
+                  mode |= S_IRUSR | S_IWUSR | S_IXUSR;
+                  break;
+               case '6' :
+                  mode |= S_IRUSR | S_IWUSR;
+                  break;
+               case '5' :
+                  mode |= S_IRUSR | S_IXUSR;
+                  break;
+               case '4' :
+                  mode |= S_IRUSR;
+                  break;
+               case '3' :
+                  mode |= S_IWUSR | S_IXUSR;
+                  break;
+               case '2' :
+                  mode |= S_IWUSR;
+                  break;
+               case '1' :
+                  mode |= S_IXUSR;
+                  break;
+               case '0' : /* Nothing to be done here. */
+                  break;
+               default :
+                  error_flag = YES;
+                  if (n == 4)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c%c",
+                                LCHMOD_ID, ptr - 1, ptr, ptr + 1, ptr + 2);
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c",
+                                LCHMOD_ID, ptr, ptr + 1, ptr + 2);
+                  }
+                  break;
+            }
+            ptr++;
+            switch (*ptr)
+            {
+               case '7' :
+                  mode |= S_IRGRP | S_IWGRP | S_IXGRP;
+                  break;
+               case '6' :
+                  mode |= S_IRGRP | S_IWGRP;
+                  break;
+               case '5' :
+                  mode |= S_IRGRP | S_IXGRP;
+                  break;
+               case '4' :
+                  mode |= S_IRGRP;
+                  break;
+               case '3' :
+                  mode |= S_IWGRP | S_IXGRP;
+                  break;
+               case '2' :
+                  mode |= S_IWGRP;
+                  break;
+               case '1' :
+                  mode |= S_IXGRP;
+                  break;
+               case '0' : /* Nothing to be done here. */
+                  break;
+               default :
+                  error_flag = YES;
+                  if (n == 4)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c%c",
+                                LCHMOD_ID, ptr - 2, ptr - 1, ptr, ptr + 1);
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c",
+                                LCHMOD_ID, ptr - 1, ptr, ptr + 1);
+                  }
+                  break;
+            }
+            ptr++;
+            switch (*ptr)
+            {
+               case '7' :
+                  mode |= S_IROTH | S_IWOTH | S_IXOTH;
+                  break;
+               case '6' :
+                  mode |= S_IROTH | S_IWOTH;
+                  break;
+               case '5' :
+                  mode |= S_IROTH | S_IXOTH;
+                  break;
+               case '4' :
+                  mode |= S_IROTH;
+                  break;
+               case '3' :
+                  mode |= S_IWOTH | S_IXOTH;
+                  break;
+               case '2' :
+                  mode |= S_IWOTH;
+                  break;
+               case '1' :
+                  mode |= S_IXOTH;
+                  break;
+               case '0' : /* Nothing to be done here. */
+                  break;
+               default :
+                  error_flag = YES;
+                  if (n == 4)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c%c",
+                                LCHMOD_ID, ptr - 3, ptr - 2, ptr - 1, ptr);
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Incorrect parameter for %s option %c%c%c",
+                                LCHMOD_ID, ptr - 2, ptr - 1, ptr);
+                  }
+                  break;
+            }
+
+            if (error_flag == NO)
+            {
+               (void)strcpy(fullname, file_path);
+               ptr = fullname + strlen(fullname);
+               *ptr++ = '/';
+
+#ifdef _WITH_PTHREAD
+               if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                                  &p_file_name)) > 0)
+               {
+#endif
+                  for (j = 0; j < file_counter; j++)
+                  {
+                     (void)strcpy(ptr, p_file_name);
+                     if (chmod(fullname, mode) == -1)
+                     {
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                    "Failed to chmod() %s to %s : %s",
+                                    p_file_name, chmod_str, strerror(errno));
+                     }
+
+                     p_file_name += MAX_FILENAME_LENGTH;
+                  }
+#ifdef _WITH_PTHREAD
+               }
+               free(file_name_buffer);
+#endif
+            }
+         }
+         else
+         {
+            if (n < 3)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Mode specified for %s option to short, must be 3 or 4 digits long (n=%d).",
+                          LCHMOD_ID, n);
+            }
+            else
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Mode specified for %s option to long, may only be 3 or 4 digits.",
+                          LCHMOD_ID);
+            }
+         }
+         NEXT(options);
+         continue;
+      }
+
       /* Check if it's the toupper option. */
       if ((db[position].loptions_flag & TOUPPER_ID_FLAG) &&
           (CHECK_STRNCMP(options, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0))
@@ -2446,6 +2690,16 @@ handle_options(int          position,
                  extract_typ = ASCII_STANDARD;
                  p_extract_id += 5;
               }
+         else if ((*p_extract_id == 'B') && (*(p_extract_id + 1) == 'I') &&
+                  (*(p_extract_id + 2) == 'N') &&
+                  (*(p_extract_id + 3) == 'A') &&
+                  (*(p_extract_id + 4) == 'R') &&
+                  (*(p_extract_id + 5) == 'Y') &&
+                  ((*(p_extract_id + 6) == ' ') || (*(p_extract_id + 6) == '\0')))
+              {
+                 extract_typ = BINARY_STANDARD;
+                 p_extract_id += 6;
+              }
          else if ((*p_extract_id == 'Z') && (*(p_extract_id + 1) == 'C') &&
                   (*(p_extract_id + 2) == 'Z') &&
                   (*(p_extract_id + 3) == 'C') &&
@@ -2835,6 +3089,22 @@ handle_options(int          position,
                      (*(p_convert_id + 6) == 'o'))
                  {
                     convert_type = MRZ2WMO;
+                 }
+            else if ((*p_convert_id == 'i') && (*(p_convert_id + 1) == 's') &&
+                     (*(p_convert_id + 2) == 'o') &&
+                     (*(p_convert_id + 3) == '8') &&
+                     (*(p_convert_id + 4) == '8') &&
+                     (*(p_convert_id + 5) == '5') &&
+                     (*(p_convert_id + 6) == '9') &&
+                     (*(p_convert_id + 7) == '_') &&
+                     (*(p_convert_id + 8) == '2') &&
+                     (*(p_convert_id + 9) == 'a') &&
+                     (*(p_convert_id + 10) == 's') &&
+                     (*(p_convert_id + 11) == 'c') &&
+                     (*(p_convert_id + 12) == 'i') &&
+                     (*(p_convert_id + 13) == 'i'))
+                 {
+                    convert_type = ISO8859_2ASCII;
                  }
             else if ((*p_convert_id == 'd') && (*(p_convert_id + 1) == 'o') &&
                      (*(p_convert_id + 2) == 's') &&
@@ -4119,7 +4389,7 @@ create_assembled_name(char *name, char *rule)
                      break;
                   }
                }
-               next_counter(counter_fd, unique_counter);
+               next_counter(counter_fd, unique_counter, MAX_MSG_PER_SEC);
                (void)sprintf(p_name, "%04x", *unique_counter);
                p_name += 4;
                p_rule++;
@@ -4185,6 +4455,21 @@ create_assembled_name(char *name, char *rule)
 
                      case 'm' : /* Month (01 - 12). */
                         n = strftime(p_name, MAX_FILENAME_LENGTH, "%m",
+                                     gmtime(&current_time));
+                        break;
+
+                     case 'R' : /* Sunday week number [00,53]. */
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%R",
+                                     gmtime(&current_time));
+                        break;
+
+                     case 'w' : /* Weekday [0=Sunday,6]. */
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%w",
+                                     gmtime(&current_time));
+                        break;
+
+                     case 'W' : /* Monday week number [00,53]. */
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%W",
                                      gmtime(&current_time));
                         break;
 

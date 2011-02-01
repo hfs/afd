@@ -90,6 +90,7 @@ DESCR__E_M1
 #include <ctype.h>                       /* isdigit()                    */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <signal.h>                      /* kill()                       */
 #include <fcntl.h>                       /* open()                       */
 #include <time.h>                        /* time()                       */
 #include <unistd.h>                      /* STDERR_FILENO                */
@@ -1321,6 +1322,25 @@ main(int argc, char *argv[])
 #else
                   unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS));
 #endif
+                  if (fsa[position].active_transfers > 0)
+                  {
+                     int m;
+
+                     for (m = 0; m < fsa[position].allowed_transfers; m++)
+                     {
+                        if (fsa[position].job_status[m].proc_id > 0)
+                        {
+                           if ((kill(fsa[position].job_status[m].proc_id, SIGINT) == -1) &&
+                               (errno != ESRCH))
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to kill process %d : %s",
+                                         fsa[position].job_status[m].proc_id,
+                                         strerror(errno));
+                           }
+                        }
+                     }
+                  }
                   hl[position].host_status |= STOP_TRANSFER_STAT;
                   change_host_config = YES;
                }
@@ -1390,6 +1410,11 @@ main(int argc, char *argv[])
                   {
                      fsa[position].host_status &= ~EVENT_STATUS_FLAGS;
                   }
+                  fsa[position].host_status &= ~HOST_ERROR_ACKNOWLEDGED;
+                  fsa[position].host_status &= ~HOST_ERROR_OFFLINE;           
+                  fsa[position].host_status &= ~HOST_ERROR_ACKNOWLEDGED_T;    
+                  fsa[position].host_status &= ~HOST_ERROR_OFFLINE_T;         
+                  fsa[position].host_status &= ~PENDING_ERRORS;
 #ifdef LOCK_DEBUG
                   unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
 #else
@@ -1532,6 +1557,11 @@ main(int argc, char *argv[])
                   {
                      fsa[position].host_status &= ~EVENT_STATUS_FLAGS;
                   }
+                  fsa[position].host_status &= ~HOST_ERROR_ACKNOWLEDGED;
+                  fsa[position].host_status &= ~HOST_ERROR_OFFLINE;           
+                  fsa[position].host_status &= ~HOST_ERROR_ACKNOWLEDGED_T;    
+                  fsa[position].host_status &= ~HOST_ERROR_OFFLINE_T;         
+                  fsa[position].host_status &= ~PENDING_ERRORS;
 #ifdef LOCK_DEBUG
                   unlock_region(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
 #else

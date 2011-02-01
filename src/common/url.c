@@ -1318,6 +1318,21 @@ url_evaluate(char          *url,
                                                             MAX_PATH_LENGTH - i,
                                                             "%m", localtime(&time_buf));
                                           break;
+                                       case 'R': /* Sunday week number [00,53]. */
+                                          number = strftime(&path[i],
+                                                            MAX_PATH_LENGTH - i,
+                                                            "%U", localtime(&time_buf));
+                                          break;
+                                       case 'w': /* Weekday [0=Sunday,6]. */
+                                          number = strftime(&path[i],
+                                                            MAX_PATH_LENGTH - i,
+                                                            "%w", localtime(&time_buf));
+                                          break;
+                                       case 'W': /* Monday week number [00,53]. */
+                                          number = strftime(&path[i],
+                                                            MAX_PATH_LENGTH - i,
+                                                            "%W", localtime(&time_buf));
+                                          break;
                                        case 'y': /* year 2 chars [01,99] */
                                           number = strftime(&path[i],
                                                             MAX_PATH_LENGTH - i,

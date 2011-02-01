@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2010 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -18,9 +18,9 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
-noinst_HEADERS       = aftpdefs.h asmtpdefs.h cmdline.h
+noinst_HEADERS       = aftpdefs.h asmtpdefs.h awmodefs.h cmdline.h
 INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd
-bin_PROGRAMS         = aftp asmtp
+bin_PROGRAMS         = aftp asmtp awmo
 aftp_SOURCES         = aftp.c\
                        eval_files.c\
                        get_remote_file_names.c\
@@ -33,6 +33,12 @@ asmtp_SOURCES        = asmtp.c\
                        init_asmtp.c\
                        trans_log.c
 asmtp_LDADD          = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
+                       ../common/libafd.a
+awmo_SOURCES         = awmo.c\
+                       eval_files.c\
+                       init_awmo.c\
+                       trans_log.c
+awmo_LDADD           = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
                        ../common/libafd.a
 
 install-exec-local:

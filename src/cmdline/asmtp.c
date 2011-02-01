@@ -1,6 +1,6 @@
 /*
  *  asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -226,7 +226,7 @@ main(int argc, char *argv[])
       (void)sprintf(local_user, "%s@%s", AFD_USER_NAME, host_name);
    }
 
-   if ((db.flag & FILE_NAME_IS_USER) == 0)
+   if ((db.special_flag & FILE_NAME_IS_USER) == 0)
    {
       (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
    }
@@ -239,7 +239,7 @@ main(int argc, char *argv[])
       exit(ALLOC_ERROR);
    }
 
-   if (db.flag & ATTACH_FILE)
+   if (db.special_flag & ATTACH_FILE)
    {
       if ((encode_buffer = malloc((2 * (blocksize + 1)) + 1)) == NULL)
       {
@@ -471,7 +471,7 @@ main(int argc, char *argv[])
          }
          no_of_bytes += length;
       }
-      else if (db.flag & FILE_NAME_IS_SUBJECT)
+      else if (db.special_flag & FILE_NAME_IS_SUBJECT)
            {
               length = sprintf(buffer, "Subject: %s\r\n", final_filename);
               if (smtp_write(buffer, NULL, length) < 0)
@@ -483,10 +483,10 @@ main(int argc, char *argv[])
                  exit(eval_timeout(WRITE_REMOTE_ERROR));
               }
               no_of_bytes += length;
-           } /* if (db.flag & FILE_NAME_IS_SUBJECT) */
+           } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
 
       /* Send MIME information. */
-      if (db.flag & ATTACH_FILE)
+      if (db.special_flag & ATTACH_FILE)
       {
          size_t length;
 
@@ -514,7 +514,7 @@ main(int argc, char *argv[])
             exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
          no_of_bytes += length;
-      } /* if (db.flag & ATTACH_FILE) */
+      } /* if (db.special_flag & ATTACH_FILE) */
       else
       {
          if (smtp_buffer != NULL)
@@ -546,7 +546,7 @@ main(int argc, char *argv[])
                (void)smtp_quit();
                exit(READ_LOCAL_ERROR);
             }
-            if (db.flag & ATTACH_FILE)
+            if (db.special_flag & ATTACH_FILE)
             {
                write_size = encode_base64((unsigned char *)buffer, blocksize,
                                           (unsigned char *)encode_buffer);
@@ -587,7 +587,7 @@ main(int argc, char *argv[])
                (void)smtp_quit();
                exit(READ_LOCAL_ERROR);
             }
-            if (db.flag & ATTACH_FILE)
+            if (db.special_flag & ATTACH_FILE)
             {
                write_size = encode_base64((unsigned char *)buffer, rest,
                                           (unsigned char *)encode_buffer);
@@ -653,7 +653,7 @@ main(int argc, char *argv[])
       } /* for (;;) */
 
       /* Write boundary end if neccessary. */
-      if (db.flag & ATTACH_FILE)
+      if (db.special_flag & ATTACH_FILE)
       {
          size_t length;
 
@@ -737,7 +737,7 @@ main(int argc, char *argv[])
    }
 
    /* Don't need the ASCII buffer. */
-   if (db.flag == ATTACH_FILE)
+   if (db.special_flag == ATTACH_FILE)
    {
       free(encode_buffer);
    }

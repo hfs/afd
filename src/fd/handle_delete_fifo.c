@@ -1,6 +1,6 @@
 /*
  *  handle_delete_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -189,18 +189,36 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                       */
                      if (qb[i].pid > 0)
                      {
-                        if (kill(qb[i].pid, SIGKILL) < 0)
+                        if (kill(qb[i].pid, SIGINT) < 0)
                         {
                            if (errno != ESRCH)
                            {
                               system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                                          "Failed to kill transfer job to %s (%d) : %s",
+#else
+                                         "Failed to kill transfer job to %s (%lld) : %s",
+#endif
                                          p_host_stored,
-                                         qb[i].pid, strerror(errno));
+                                         (pri_pid_t)qb[i].pid, strerror(errno));
                            }
                         }
                         else
                         {
+                           if (qb[i].pid > 0)
+                           {
+                              if (waitpid(qb[i].pid, NULL, 0) == -1)
+                              {
+                                 system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                                            "waitpid() error for %d : %s",
+#else
+                                            "waitpid() error for %lld : %s",
+#endif
+                                            (pri_pid_t)qb[i].pid,
+                                            strerror(errno));
+                              }
+                           }
                            remove_connection(&connection[qb[i].connect_pos],
                                              NO, now);
                         }
@@ -301,18 +319,37 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                            */
                           if (qb[i].pid > 0)
                           {
-                             if (kill(qb[i].pid, SIGKILL) < 0)
+                             if (kill(qb[i].pid, SIGINT) < 0)
                              {
                                 if (errno != ESRCH)
                                 {
                                    system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                                               "Failed to kill transfer job to %s (%d) : %s",
+#else
+                                              "Failed to kill transfer job to %s (%lld) : %s",
+#endif
                                               mdb[qb[i].pos].host_name,
-                                              qb[i].pid, strerror(errno));
+                                              (pri_pid_t)qb[i].pid,
+                                              strerror(errno));
                                 }
                              }
                              else
                              {
+                                if (qb[i].pid > 0)
+                                {
+                                   if (waitpid(qb[i].pid, NULL, 0) == -1)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                                                 "waitpid() error for %d : %s",
+#else
+                                                 "waitpid() error for %lld : %s",
+#endif
+                                                 (pri_pid_t)qb[i].pid,
+                                                 strerror(errno));
+                                   }
+                                }
                                 remove_connection(&connection[qb[i].connect_pos],
                                                   NO, now);
                              }
@@ -744,14 +781,18 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
     */
    if (qb[pos].pid > 0)
    {
-      if (kill(qb[pos].pid, SIGKILL) < 0)
+      if (kill(qb[pos].pid, SIGINT) < 0)
       {
          if (errno != ESRCH)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                        "Failed to kill transfer job to %s (%d) : %s",
+#else
+                       "Failed to kill transfer job to %s (%lld) : %s",
+#endif
                        mdb[qb[pos].pos].host_name,
-                       qb[pos].pid, strerror(errno));
+                       (pri_pid_t)qb[pos].pid, strerror(errno));
          }
       }
       else
@@ -813,6 +854,19 @@ remove_retrieve_job(int pos, int fra_pos, time_t now)
          fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_size_in_use_done = 0;
          fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_name_in_use[0] = '\0';
          fsa[connection[qb[pos].connect_pos].fsa_pos].job_status[connection[qb[pos].connect_pos].job_no].file_name_in_use[1] = 0;
+         if (qb[pos].pid > 0)
+         {
+            if (waitpid(qb[pos].pid, NULL, 0) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                          "waitpid() error for %d : %s",
+#else
+                          "waitpid() error for %lld : %s",
+#endif
+                          (pri_pid_t)qb[pos].pid, strerror(errno));
+            }
+         }
          remove_connection(&connection[qb[pos].connect_pos], NO, now);
       }
    }

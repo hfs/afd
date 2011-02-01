@@ -461,9 +461,9 @@ main(int argc, char *argv[])
                         {
                            tmp_val = 0;
                         }
-                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                   "Total file counter for host <%s> less then zero. Correcting to %d.",
-                                   fsa->host_dsp_name, tmp_val);
+                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                  "Total file counter less then zero. Correcting to %d.",
+                                  tmp_val);
                         fsa->total_file_counter = tmp_val;
                      }
 #endif
@@ -482,26 +482,24 @@ main(int argc, char *argv[])
                               new_size = 0;
                            }
                            fsa->total_file_size = new_size;
-                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 # if SIZEOF_OFF_T == 4
-                                      "Total file size for host <%s> overflowed. Correcting to %ld.",
+                                     "Total file size overflowed. Correcting to %ld.",
 # else
-                                      "Total file size for host <%s> overflowed. Correcting to %lld.",
+                                     "Total file size overflowed. Correcting to %lld.",
 # endif
-                                      fsa->host_dsp_name,
-                                      (pri_off_t)fsa->total_file_size);
+                                     (pri_off_t)fsa->total_file_size);
                         }
                         else if ((fsa->total_file_counter == 0) &&
                                  (fsa->total_file_size > 0))
                              {
-                                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 # if SIZEOF_OFF_T == 4
-                                           "fc for host <%s> is zero but fs is not zero (%ld). Correcting.",
+                                             "fc is zero but fs is not zero (%ld). Correcting.",
 # else
-                                           "fc for host <%s> is zero but fs is not zero (%lld). Correcting.",
+                                             "fc is zero but fs is not zero (%lld). Correcting.",
 # endif
-                                           fsa->host_dsp_name,
-                                           (pri_off_t)fsa->total_file_size);
+                                             (pri_off_t)fsa->total_file_size);
                                 fsa->total_file_size = 0;
                              }
 #endif
@@ -523,13 +521,26 @@ main(int argc, char *argv[])
                                   rl[i].file_name);
                   }
 
-                  if ((offset > 0) && (content_length > 0))
+                  if (offset > 0)
                   {
+                     if (content_length > 0)
+                     {
 #ifdef O_LARGEFILE
-                     fd = open(local_tmp_file, O_WRONLY | O_APPEND | O_LARGEFILE);
+                        fd = open(local_tmp_file, O_WRONLY | O_APPEND |
+                                  O_LARGEFILE);
 #else
-                     fd = open(local_tmp_file, O_WRONLY | O_APPEND);
+                        fd = open(local_tmp_file, O_WRONLY | O_APPEND);
 #endif
+                     }
+                     else
+                     {
+#ifdef O_LARGEFILE
+                        fd = open(local_tmp_file, O_WRONLY | O_CREAT |
+                                  O_LARGEFILE, FILE_MODE);
+#else
+                        fd = open(local_tmp_file, O_WRONLY | O_CREAT, FILE_MODE);
+#endif
+                     }
                   }
                   else
                   {
@@ -580,7 +591,7 @@ main(int argc, char *argv[])
                                   rl[i].file_name);
                   }
 
-                  if (status != NOTHING_TO_FETCH)
+                  if ((status != NOTHING_TO_FETCH) && (content_length > 0))
                   {
                      bytes_done = 0;
                      if (fsa->trl_per_process > 0)
@@ -752,9 +763,9 @@ main(int argc, char *argv[])
                         {
                            tmp_val = 0;
                         }
-                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                   "Total file counter for host <%s> less then zero. Correcting to %d.",
-                                   fsa->host_dsp_name, tmp_val);
+                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                  "Total file counter less then zero. Correcting to %d.",
+                                  tmp_val);
                         fsa->total_file_counter = tmp_val;
                      }
 #endif
@@ -791,26 +802,24 @@ main(int argc, char *argv[])
                               new_size = 0;
                            }
                            fsa->total_file_size = new_size;
-                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 # if SIZEOF_OFF_T == 4
-                                      "Total file size for host <%s> overflowed. Correcting to %ld.",
+                                     "Total file size overflowed. Correcting to %ld.",
 # else
-                                      "Total file size for host <%s> overflowed. Correcting to %lld.",
+                                     "Total file size overflowed. Correcting to %lld.",
 # endif
-                                      fsa->host_dsp_name,
-                                      (pri_off_t)fsa->total_file_size);
+                                     (pri_off_t)fsa->total_file_size);
                         }
                         else if ((fsa->total_file_counter == 0) &&
                                  (fsa->total_file_size > 0))
                              {
-                                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 # if SIZEOF_OFF_T == 4
-                                           "fc for host <%s> is zero but fs is not zero (%ld). Correcting.",
+                                             "fc is zero but fs is not zero (%ld). Correcting.",
 # else
-                                           "fc for host <%s> is zero but fs is not zero (%lld). Correcting.",
+                                             "fc is zero but fs is not zero (%lld). Correcting.",
 # endif
-                                           fsa->host_dsp_name,
-                                           (pri_off_t)fsa->total_file_size);
+                                             (pri_off_t)fsa->total_file_size);
                                 fsa->total_file_size = 0;
                              }
 #endif
@@ -976,9 +985,8 @@ main(int argc, char *argv[])
                            {
                               sign = INFO_SIGN;
                            }
-                           system_log(sign, __FILE__, __LINE__,
-                                      "Starting input queue for <%s> that was stopped by init_afd.",
-                                      fsa->host_alias);
+                           trans_log(sign, __FILE__, __LINE__, NULL, NULL,
+                                     "Starting input queue that was stopped by init_afd.");
                            event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                                      fsa->host_alias);
                         }
@@ -1164,9 +1172,8 @@ main(int argc, char *argv[])
                   {
                      sign = INFO_SIGN;
                   }
-                  system_log(sign, __FILE__, __LINE__,
-                             "Starting input queue for <%s> that was stopped by init_afd.",
-                             fsa->host_alias);
+                  trans_log(sign, __FILE__, __LINE__, NULL, NULL,
+                            "Starting input queue that was stopped by init_afd.");
                   event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                             fsa->host_alias);
                }
@@ -1269,38 +1276,45 @@ http_timeup(void)
          timeup = fra[db.fra_pos].next_check_time;
       }
    }
-   if (fsa->protocol_options & STAT_KEEPALIVE)
+   if (gsf_check_fsa() != NEITHER)
    {
-      sleeptime = fsa->transfer_timeout - 5;
-   }
-   if (sleeptime < 1)
-   {
-      sleeptime = DEFAULT_NOOP_INTERVAL;
-   }
-   if ((now + sleeptime) > timeup)
-   {
-      sleeptime = timeup - now;
-   }
-   fsa->job_status[(int)db.job_no].unique_name[2] = 5;
-   do
-   {
-      (void)sleep(sleeptime);
-      (void)gsf_check_fra();
-      if (db.fra_pos == INCORRECT)
+      if (fsa->protocol_options & STAT_KEEPALIVE)
       {
-         return(INCORRECT);
+         sleeptime = fsa->transfer_timeout - 5;
       }
-      if (fsa->job_status[(int)db.job_no].unique_name[2] == 6)
+      if (sleeptime < 1)
       {
-         fsa->job_status[(int)db.job_no].unique_name[2] = '\0';
-         return(INCORRECT);
+         sleeptime = DEFAULT_NOOP_INTERVAL;
       }
-      now = time(NULL);
       if ((now + sleeptime) > timeup)
       {
          sleeptime = timeup - now;
       }
-   } while (timeup > now);
+      fsa->job_status[(int)db.job_no].unique_name[2] = 5;
+      do
+      {
+         (void)sleep(sleeptime);
+         (void)gsf_check_fra();
+         if (db.fra_pos == INCORRECT)
+         {
+            return(INCORRECT);
+         }
+         if (gsf_check_fsa() == NEITHER)
+         {
+            break;
+         }
+         if (fsa->job_status[(int)db.job_no].unique_name[2] == 6)
+         {
+            fsa->job_status[(int)db.job_no].unique_name[2] = '\0';
+            return(INCORRECT);
+         }
+         now = time(NULL);
+         if ((now + sleeptime) > timeup)
+         {
+            sleeptime = timeup - now;
+         }
+      } while (timeup > now);
+   }
 
    return(SUCCESS);
 }

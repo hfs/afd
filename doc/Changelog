@@ -1076,3 +1076,56 @@
              properly in afd init script.
 19.10.2010 - Make init scripts more LSB conform.
 ------------------------> Released: 20.10.2010 <---------------------------
+
+
+
+----------------------------> Version 1.4.3 <------------------------------
+                             ---------------
+21.10.2010 - Added option BINARY to extract option to extract single
+             binary data from a bulletin.
+           - Fix configure error where it complains about WITH_XPM
+             when setting option --with-gui=none.
+27.10.2010 - Added convert option iso8859_2ascii to convert german
+             Umlaute.
+10.11.2010 - Synchronize parent and child when dir_check executes
+             something. This kills the bug that you could suddenly
+             have two or more dir_checks running doing the same
+             thing.
+11.11.2010 - Added parameter R, w and W to the %t parameter. See
+             documentation for more details.
+18.11.2010 - If keep connected is set the fetching process need to
+             check if their position in the FSA changes.
+25.11.2010 - In function init_msg_buffer() handle the case that the
+             structure connection is not yet setup. Otherwise process
+             fd will under certain conditions always crash at startup.
+26.11.2010 - Do not go into an endless loop when we hit an unknown
+             pexec option.
+27.11.2010 - When a host is disabled process fd must collect the
+             zombies of the process that distributed data.
+02.12.2010 - When function check_files() fails to move/copy files
+             be more verbose why it failed.
+           - Initialize variable correctly in gf_http. Otherwise
+             it can sometimes fail with an unknown error.
+03.12.2010 - Fix an error where some reports where not extracted
+             from a bulletin.
+           - Added flag to the HTTP command set to store commands
+             that do not work. This helps for example if some
+             systems are not able to handle the HEAD command.
+14.12.2010 - Fix an important buffer overflow in init_afd. Thanks
+             to the brazilian met office (INMET) for helping me
+             to fix this!
+16.12.2010 - When we fail to create the directory to queue files
+             we not to log the files we fail to move in DELETE_LOG.
+20.12.2010 - Transfer some log output from system log to transfer
+             and receive log.
+04.01.2011 - AFD now checks if the port picked for afdd process is
+             not in the dynamic port range of the system. On linux
+             it will lookup this value in the proc filesystem.
+             Thanks to Hermann Schwarting from EBP for the hint.
+06.01.2011 - Added search button when viewing DIR_CONFIG data.
+18.01.2011 - Added lchmod option to do a local chmod.
+20.01.2011 - In dialogs that shows event log and the queue, show the
+             year as well.
+25.01.2011 - In dialogs afd_ctrl, dir_ctrl and mon_ctrl one can now
+             quickly change the font by pressing ctrl and +/-.
+------------------------> Released: 28.01.2011 <---------------------------

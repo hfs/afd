@@ -110,10 +110,13 @@ DESCR__E_M1
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete, /* NOT USED. */
+                           no_of_dirs,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
-                           fsa_id,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
+                           fsa_id,
                            line_length = 0, /* encode_base64()           */
                            *p_no_of_hosts = NULL,
                            prev_no_of_files_done = 0,
@@ -149,7 +152,8 @@ clock_t                    *ol_transfer_time;
 unsigned int               burst_2_counter = 0;
 #endif
 #ifdef HAVE_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
 off_t                      *file_size_buffer = NULL;
 time_t                     *file_mtime_buffer = NULL;
@@ -160,6 +164,7 @@ char                       *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            *del_file_name_buffer = NULL, /* NOT USED. */
                            *file_name_buffer = NULL;
+struct fileretrieve_status *fra = NULL;
 struct filetransfer_status *fsa = NULL;
 struct job                 db;
 struct rule                *rule;
@@ -1766,12 +1771,12 @@ main(int argc, char *argv[])
                   *p_file_size_buffer = stat_buf.st_size;
 
                   /*
-                   * Give a warning in the system log, so some action
+                   * Give a warning in the receive log, so some action
                    * can be taken against the originator.
                    */
-                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "File %s for host %s was DEFINITELY send without any locking.",
-                             final_filename, fsa->host_dsp_name);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L, db.job_id,
+                              "File %s for host %s was DEFINITELY send without any locking.",
+                              final_filename, fsa->host_dsp_name);
                }
                else
                {
@@ -2156,9 +2161,8 @@ try_again_unlink:
                {
                   sign = INFO_SIGN;
                }
-               system_log(sign, __FILE__, __LINE__,
-                          "Starting input queue for %s that was stopped by init_afd.",
-                          fsa->host_alias);
+               trans_log(sign, __FILE__, __LINE__, NULL, NULL,
+                         "Starting input queue that was stopped by init_afd.");
                event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                          fsa->host_alias);
             }

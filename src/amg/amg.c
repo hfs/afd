@@ -1800,8 +1800,12 @@ amg_exit(void)
          if (errno != ESRCH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                        _("Failed to kill process %s with pid %d : %s"),
-                       DC_PROC_NAME, dc_pid, strerror(errno));
+#else
+                       _("Failed to kill process %s with pid %lld : %s"),
+#endif
+                       DC_PROC_NAME, (pri_pid_t)dc_pid, strerror(errno));
          }
       }
    }

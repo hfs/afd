@@ -1,6 +1,6 @@
 /*
  *  open_counter_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,8 +26,8 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int  open_counter_file(char *file_name, int **counter)
- **   int  next_counter(int counter_fd, int *counter)
- **   void next_counter_no_lock(int *counter)
+ **   int  next_counter(int counter_fd, int *counter, int max_counter)
+ **   void next_counter_no_lock(int *counter, int max_counter)
  **   void close_counter_file(int counter_fd, int **counter)
  **
  ** DESCRIPTION
@@ -36,8 +36,8 @@ DESCR__S_M3
  **
  **   The function next_counter() reads and returns the current counter.
  **   It then increments the counter by one and writes this value back
- **   to the counter file. When the value is larger then MAX_MSG_PER_SEC
- **   (9999) it resets the counter to zero.
+ **   to the counter file. When the value is larger then max_counter
+ **   it resets the counter to zero.
  **
  ** RETURN VALUES
  **   open_counter_file() returns the file descriptor of the open file
@@ -56,6 +56,9 @@ DESCR__S_M3
  **   28.03.2009 H.Kiehl Instead of always doing a read(), write() and
  **                      lseek(), lets just map to the counter file.
  **   30.03.2009 H.Kiehl Added function close_counter_file().
+ **   02.12.2010 H.Kiehl Function next_counter() now has the additional
+ **                      parameter max_counter. So we can remove
+ **                      function next_wmo_counter().
  **
  */
 DESCR__E_M3
@@ -184,7 +187,7 @@ open_counter_file(char *file_name, int **counter)
 
 /*############################# next_counter() ##########################*/
 int
-next_counter(int counter_fd, int *counter)
+next_counter(int counter_fd, int *counter, int max_counter)
 {
    struct flock wulock = {F_WRLCK, SEEK_CUR, 0, 1};
 
@@ -196,8 +199,8 @@ next_counter(int counter_fd, int *counter)
       return(INCORRECT);
    }
 
-   /* Ensure that counter does not become larger then MAX_MSG_PER_SEC. */
-   if (((*counter)++ >= MAX_MSG_PER_SEC) || (*counter < 0))
+   /* Ensure that counter does not become larger then max_counter. */
+   if (((*counter)++ >= max_counter) || (*counter < 0))
    {
       *counter = 0;
    }
@@ -217,10 +220,10 @@ next_counter(int counter_fd, int *counter)
 
 /*######################### next_counter_no_lock() ######################*/
 void
-next_counter_no_lock(int *counter)
+next_counter_no_lock(int *counter, int max_counter)
 {
-   /* Ensure that counter does not become larger then MAX_MSG_PER_SEC. */
-   if (((*counter)++ >= MAX_MSG_PER_SEC) || (*counter < 0))
+   /* Ensure that counter does not become larger then max_counter. */
+   if (((*counter)++ >= max_counter) || (*counter < 0))
    {
       *counter = 0;
    }

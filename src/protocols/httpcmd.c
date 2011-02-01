@@ -295,6 +295,7 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
 #ifdef WITH_TRACE
    hmr.http_options = 0;
 #endif
+   hmr.http_options_not_working = 0;
    hmr.bytes_buffered = 0;
    hmr.bytes_read = 0;
 
@@ -452,7 +453,8 @@ http_get(char  *host,
    hmr.bytes_read = 0;
    hmr.retries = 0;
    hmr.date = -1;
-   if ((*content_length == 0) && (filename[0] != '\0'))
+   if ((*content_length == 0) && (filename[0] != '\0') &&
+       ((hmr.http_options_not_working & HTTP_OPTION_HEAD) == 0))
    {
       off_t end;
 
@@ -463,7 +465,16 @@ http_get(char  *host,
       }
       else
       {
-         return(reply);
+         if ((reply == 405) || /* Method Not Allowed */
+             (reply == 501))   /* Not Implemented */
+         {
+            *content_length = end;
+            hmr.retries = 0;
+         }
+         else
+         {
+            return(reply);
+         }
       }
    }
    if ((offset) && (*content_length == offset))
@@ -505,7 +516,8 @@ retry_get:
                         host)) == SUCCESS)
    {
       hmr.content_length = 0;
-      if ((reply = get_http_reply(&hmr.bytes_buffered)) == 200)
+      if (((reply = get_http_reply(&hmr.bytes_buffered)) == 200) ||
+          (reply == 204)) /* No content. */
       {
          if (hmr.chunked == YES)
          {
@@ -766,6 +778,12 @@ http_head(char   *host,
 {
    int reply;
 
+   if (hmr.http_options_not_working & HTTP_OPTION_HEAD)
+   {
+      hmr.date = 0;
+      hmr.content_length = 0;
+      return(SUCCESS);
+   }
    hmr.retries = 0;
    hmr.date = 0;
 retry_head:
@@ -804,6 +822,10 @@ retry_head:
                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_head", NULL,
                                 _("Digest authentication not yet implemented."));
                    }
+           }
+      else if ((reply == 405) || (reply == 501))
+           {
+              hmr.http_options_not_working |= HTTP_OPTION_HEAD;
            }
       else if (reply == CONNECTION_REOPENED)
            {

@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -67,6 +67,7 @@ DESCR__S_M1
  **                      AFD is still active and we do a a shutdown, take
  **                      the existing open file descriptor to AFD_ACTIVE
  **                      file instead of trying to open it again.
+ **   20.12.2010 H.Kiehl Log some data to transfer log not system log.
  **
  */
 DESCR__E_M1
@@ -98,6 +99,11 @@ DESCR__E_M1
 /* Global definitions. */
 int                        sys_log_fd = STDERR_FILENO,
                            event_log_fd = STDERR_FILENO,
+                           trans_db_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+#endif
+                           transfer_log_fd = STDERR_FILENO,
                            afd_cmd_fd,
                            afd_resp_fd,
                            amg_cmd_fd,
@@ -1096,9 +1102,8 @@ main(int argc, char *argv[])
                                   fsa[i].host_alias);
                         error_action(fsa[i].host_alias, "start", HOST_ERROR_ACTION);
                      }
-                     system_log(sign, __FILE__, __LINE__,
-                                _("Stopped input queue for host <%s>, since there are to many errors."),
-                                fsa[i].host_alias);
+                     ia_trans_log(sign, __FILE__, __LINE__, i,
+                                  _("Stopped input queue, since there are to many errors."));
                      event_log(0L, EC_HOST, ET_AUTO, EA_STOP_QUEUE,
                                "%s%cErrors %d >= max errors %d",
                                fsa[i].host_alias, SEPARATOR_CHAR,
@@ -1130,9 +1135,8 @@ main(int argc, char *argv[])
                                   fsa[i].host_alias);
                         error_action(fsa[i].host_alias, "stop", HOST_ERROR_ACTION);
                      }
-                     system_log(sign, __FILE__, __LINE__,
-                                _("Started input queue for host <%s> that has been stopped due to too many errors."),
-                                fsa[i].host_alias);
+                     ia_trans_log(sign, __FILE__, __LINE__, i,
+                                  _("Started input queue that has been stopped due to too many errors."));
                      event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                                fsa[i].host_alias);
                   }
@@ -1206,9 +1210,8 @@ main(int argc, char *argv[])
                      lock_set = YES;
                   }
                   fsa[i].host_status |= DANGER_PAUSE_QUEUE_STAT;
-                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                             _("Stopped input queue for host <%s>, since there are to many jobs in the input queue."),
-                             fsa[i].host_alias);
+                  ia_trans_log(WARN_SIGN, __FILE__, __LINE__, i,
+                               _("Stopped input queue, since there are to many jobs in the input queue."));
                   event_log(0L, EC_HOST, ET_AUTO, EA_STOP_QUEUE,
                             _("%s%cNumber of files %d > file threshold %d"),
                             fsa[i].host_alias, SEPARATOR_CHAR,
@@ -1228,9 +1231,8 @@ main(int argc, char *argv[])
                           lock_set = YES;
                        }
                        fsa[i].host_status &= ~DANGER_PAUSE_QUEUE_STAT;
-                       system_log(INFO_SIGN, __FILE__, __LINE__,
-                                  _("Started input queue for host <%s>, that was stopped due to too many jobs in the input queue."),
-                                  fsa[i].host_alias);
+                       ia_trans_log(INFO_SIGN, __FILE__, __LINE__, i,
+                                    _("Started input queue, that was stopped due to too many jobs in the input queue."));
                        event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                                  fsa[i].host_alias);
                     }

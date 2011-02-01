@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -442,7 +442,7 @@ main(int argc, char *argv[])
    if (no_input == False)
    {
       XtAddEventHandler(line_window_w,
-                        ButtonPressMask | Button1MotionMask,
+                        EnterWindowMask | KeyPressMask | ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)mon_input, NULL);
 
       /* Set toggle button for font|row. */
@@ -1855,6 +1855,10 @@ create_pullright_font(Widget pullright_font)
          XmFontListFree(tmp_fontlist);
          XmStringFree(x_string);
          XFreeFont(display, p_font_struct);
+      }
+      else
+      {
+         fw[i] = NULL;
       }
    }
 

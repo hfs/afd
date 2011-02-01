@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -261,8 +261,12 @@ check_fra_fd(void)
                               if (errno != ESRCH)
                               {
                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                                             "Failed to kill transfer job with pid %d : %s",
-                                            qb[rql[j].qb_pos].pid,
+#else
+                                            "Failed to kill transfer job with pid %lld : %s",
+#endif
+                                            (pri_pid_t)qb[rql[j].qb_pos].pid,
                                             strerror(errno));
                               }
                            }
@@ -311,8 +315,12 @@ check_fra_fd(void)
                               else if (ret == -1)
                                    {
                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                                                  "waitpid() error [%d] : %s",
-                                                 qb[rql[j].qb_pos].pid,
+#else
+                                                 "waitpid() error [%lld] : %s",
+#endif
+                                                 (pri_pid_t)qb[rql[j].qb_pos].pid,
                                                  strerror(errno));
                                    }
                            }

@@ -1,6 +1,6 @@
 /*
  *  init_asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2010 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -87,7 +87,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
    p_db->subject          = NULL;
    p_db->from             = NULL;
    p_db->reply_to         = NULL;
-   p_db->flag             = 0;
+   p_db->special_flag     = 0;
    p_db->filename         = NULL;
    p_db->realname         = NULL;
 
@@ -97,7 +97,6 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
       switch (*(argv[0] + 1))
       {
          case 'a' : /* Adress, where to send the mail, that is user@host. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -175,7 +174,6 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'b' : /* Transfer block size. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -211,7 +209,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
          case 'e' : /* Encode file using BASE64. */
 
-            p_db->flag |= ATTACH_FILE;
+            p_db->special_flag |= ATTACH_FILE;
             break;
 
          case 'f' : /* Configuration file for filenames. */
@@ -283,7 +281,6 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'm' : /* Mail server that will send this mail. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -299,12 +296,10 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'n' : /* Filename is subject. */
-
-            p_db->flag |= FILE_NAME_IS_SUBJECT;
+            p_db->special_flag |= FILE_NAME_IS_SUBJECT;
             break;
 
          case 'o' : /* Reply-To. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -333,7 +328,6 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'p' : /* Remote TCP port number. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -349,12 +343,10 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'r' : /* Remove file that was transmitted. */
-
             p_db->remove = YES;
             break;
 
          case 's' : /* Subject. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -384,7 +376,6 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 
 
          case 't' : /* Transfer timeout. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -400,7 +391,6 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'u' : /* User name. */
-
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
                (void)fprintf(stderr,
@@ -416,22 +406,18 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'v' : /* Verbose mode. */
-
             p_db->verbose = YES;
             break;
 
          case 'y' : /* Filename is user. */
-
-            p_db->flag |= FILE_NAME_IS_USER;
+            p_db->special_flag |= FILE_NAME_IS_USER;
             break;
 
          case '?' : /* Help */
-
             usage();
             exit(0);
 
          default : /* Unknown parameter. */
-
             (void)fprintf(stderr,
                           _("ERROR   : Unknown parameter <%c>. (%s %d)\n"),
                           *(argv[0] + 1), __FILE__, __LINE__);

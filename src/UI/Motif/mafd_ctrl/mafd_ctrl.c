@@ -528,7 +528,7 @@ main(int argc, char *argv[])
 
    if (no_input == False)
    {
-      XtAddEventHandler(line_window_w, ButtonPressMask | Button1MotionMask,
+      XtAddEventHandler(line_window_w, EnterWindowMask | KeyPressMask | ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)input, NULL);
       XtAddEventHandler(short_line_window_w,
                         ButtonPressMask | ButtonReleaseMask | Button1MotionMask,
@@ -2300,6 +2300,10 @@ create_pullright_font(Widget pullright_font)
          XmFontListFree(tmp_fontlist);
          XmStringFree(x_string);
          XFreeFont(display, p_font_struct);
+      }
+      else
+      {
+         fw[i] = NULL;
       }
    }
 

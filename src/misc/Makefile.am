@@ -30,6 +30,7 @@ libmisc_a_SOURCES            = afw2wmo.c\
                                extract.c\
                                fax2gts.c\
                                gts2tiff.c\
+                               iso8859_2ascii.c\
                                tiff2gts.c\
                                wmo2ascii.c\
                                wmoheader_from_grib.c

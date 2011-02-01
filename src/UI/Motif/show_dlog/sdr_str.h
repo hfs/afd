@@ -46,6 +46,7 @@ static const char *sdrstr[] = /*Short delete reason string. */
                      "Rename overwr",   /* 19 */
                      "Mail recp rej",   /* 20 */
                      "Mirror delete"    /* 21 */
+                     "Queue error  "    /* 22 */
                   };
 
 #endif /* __sdr_str_h */

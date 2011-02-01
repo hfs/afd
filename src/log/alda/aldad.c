@@ -418,8 +418,12 @@ aldad_exit(void)
          if (errno != ESRCH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                        "Failed to kill process alda with pid %d : %s",
-                       apl[i].pid, strerror(errno));
+#else
+                       "Failed to kill process alda with pid %lld : %s",
+#endif
+                       (pri_pid_t)apl[i].pid, strerror(errno));
          }
       }
    }

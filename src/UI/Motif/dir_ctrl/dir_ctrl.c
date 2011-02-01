@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -376,7 +376,7 @@ main(int argc, char *argv[])
    if (no_input == False)
    {
       XtAddEventHandler(line_window_w,
-                        ButtonPressMask | Button1MotionMask,
+                        EnterWindowMask | KeyPressMask | ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)dir_input, NULL);
 
       /* Set toggle button for font|row. */

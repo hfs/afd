@@ -74,7 +74,7 @@ afd_OBJECTS = $(am_afd_OBJECTS)
 afd_DEPENDENCIES = ../common/libafd.a
 am_init_afd_OBJECTS = init_afd.$(OBJEXT) check_afd_heartbeat.$(OBJEXT) \
 	check_permissions.$(OBJEXT) count_files.$(OBJEXT) \
-	init_fifos_afd.$(OBJEXT)
+	ia_trans_log.$(OBJEXT) init_fifos_afd.$(OBJEXT)
 init_afd_OBJECTS = $(am_init_afd_OBJECTS)
 init_afd_DEPENDENCIES = ../common/libafd.a
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -162,11 +162,14 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSUB = @POSUB@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
@@ -253,6 +256,7 @@ init_afd_SOURCES = init_afd.c\
                        check_afd_heartbeat.c\
                        check_permissions.c\
                        count_files.c\
+                       ia_trans_log.c\
                        init_fifos_afd.c
 
 init_afd_LDADD = ../common/libafd.a @EXTRA_SOCKET_LIBS@
@@ -350,6 +354,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_afd_heartbeat.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_permissions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/count_files.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ia_trans_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_afd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_fifos_afd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shutdown_afd.Po@am__quote@

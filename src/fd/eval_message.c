@@ -86,6 +86,8 @@ DESCR__S_M3
  **   11.02.2006 H.Kiehl Evaluate options for pexec command.
  **   23.01.2010 H.Kiehl Add support to mirror source.
  **   13.10.2010 H.Kiehl Added %T time modifier for subject.
+ **   26.11.2010 H.Kiehl Do not go into an endless loop when we hit an
+ **                      unknown pexec option.
  **
  */
 DESCR__E_M3
@@ -1398,6 +1400,18 @@ eval_message(char *message_name, struct job *p_db)
                                                   number = strftime(write_ptr, 3,
                                                                     "%m", localtime(&time_buf));
                                                   break;
+                                               case 'R': /* Sunday week number [00,53]. */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%U", localtime(&time_buf));
+                                                  break;
+                                               case 'w': /* Weekday [0=Sunday,6]. */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%w", localtime(&time_buf));
+                                                  break;
+                                               case 'W': /* Monday week number [00,53]. */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%W", localtime(&time_buf));
+                                                  break;
                                                case 'y': /* year 2 chars [01,99] */
                                                   number = strftime(write_ptr, 3,
                                                                     "%y", localtime(&time_buf));
@@ -2321,9 +2335,6 @@ eval_message(char *message_name, struct job *p_db)
                     {
                        ptr++;
                     }
-                    end_ptr = ptr; /* NOTE: end_ptr needs to be set here */
-                                   /*       because we MIGHT need it in  */
-                                   /*       the following while loop.    */
 
                     while (*ptr == '-')
                     {
@@ -2387,7 +2398,11 @@ eval_message(char *message_name, struct job *p_db)
 
                           default: /* Unknown, lets ignore this. Do as if we */
                                    /* did not know about any options.        */
-                             ptr = end_ptr;
+                             ptr++;
+                             while ((*ptr == ' ') || (*ptr == '\t'))
+                             {
+                                ptr++;
+                             }
                              break;
                        }
                     }

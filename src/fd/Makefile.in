@@ -167,8 +167,8 @@ am__sf_ftp_SOURCES_DIST = append.c archive_file.c check_burst_2.c \
 	fsa_attach_pos.c get_file_names.c get_group_list.c \
 	gsf_check_fsa.c handle_proxy.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_ftp.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_ftp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_ftp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 @WITH_OUTPUT_LOG_TRUE@am__objects_4 = output_log_fd.$(OBJEXT) \
 @WITH_OUTPUT_LOG_TRUE@	output_log_ptrs.$(OBJEXT)
 am_sf_ftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
@@ -179,7 +179,8 @@ am_sf_ftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	handle_proxy.$(OBJEXT) init_sf.$(OBJEXT) \
 	init_sf_burst2.$(OBJEXT) limit_transfer_rate.$(OBJEXT) \
 	noop_wrapper_ftp.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_ftp.$(OBJEXT) \
+	receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_ftp.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_ftp_OBJECTS = $(am_sf_ftp_OBJECTS)
@@ -191,9 +192,9 @@ am__sf_ftp_trace_SOURCES_DIST = append.c archive_file.c \
 	eval_recipient.c fsa_attach_pos.c get_file_names.c \
 	get_group_list.c gsf_check_fsa.c handle_proxy.c init_sf.c \
 	init_sf_burst2.c limit_transfer_rate.c noop_wrapper_ftp.c \
-	output_log_fd.c output_log_ptrs.c reset_fsa.c send_proc_fin.c \
-	sf_ftp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
-	trace_log.c
+	output_log_fd.c output_log_ptrs.c receive_log.c reset_fsa.c \
+	send_proc_fin.c sf_ftp.c trans_db_log.c trans_exec.c \
+	trans_log.c update_tfc.c trace_log.c
 am__objects_5 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
@@ -202,7 +203,8 @@ am__objects_5 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	handle_proxy.$(OBJEXT) init_sf.$(OBJEXT) \
 	init_sf_burst2.$(OBJEXT) limit_transfer_rate.$(OBJEXT) \
 	noop_wrapper_ftp.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_ftp.$(OBJEXT) \
+	receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_ftp.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 am_sf_ftp_trace_OBJECTS = $(am__objects_5) trace_log.$(OBJEXT)
@@ -213,8 +215,8 @@ am__sf_http_SOURCES_DIST = append.c archive_file.c check_burst_2.c \
 	eval_input_sf.c eval_message.c eval_recipient.c \
 	fsa_attach_pos.c get_file_names.c get_group_list.c \
 	gsf_check_fsa.c init_sf.c init_sf_burst2.c \
-	limit_transfer_rate.c next_wmo_counter.c noop_wrapper_dummy.c \
-	output_log_fd.c output_log_ptrs.c reset_fsa.c send_proc_fin.c \
+	limit_transfer_rate.c noop_wrapper_dummy.c output_log_fd.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
 	sf_http.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 am_sf_http_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
@@ -222,9 +224,9 @@ am_sf_http_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) next_wmo_counter.$(OBJEXT) \
-	noop_wrapper_dummy.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_http.$(OBJEXT) \
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_http.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_http_OBJECTS = $(am_sf_http_OBJECTS)
@@ -234,32 +236,49 @@ am__sf_http_trace_SOURCES_DIST = append.c archive_file.c \
 	check_burst_2.c eval_input_sf.c eval_message.c \
 	eval_recipient.c fsa_attach_pos.c get_file_names.c \
 	get_group_list.c gsf_check_fsa.c init_sf.c init_sf_burst2.c \
-	limit_transfer_rate.c next_wmo_counter.c noop_wrapper_dummy.c \
-	output_log_fd.c output_log_ptrs.c reset_fsa.c send_proc_fin.c \
+	limit_transfer_rate.c noop_wrapper_dummy.c output_log_fd.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
 	sf_http.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
 	trace_log.c
-am__objects_6 = append.$(OBJEXT) archive_file.$(OBJEXT) \
-	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
-	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
-	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
-	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
-	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) next_wmo_counter.$(OBJEXT) \
-	noop_wrapper_dummy.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_http.$(OBJEXT) \
-	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
-	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
-am_sf_http_trace_OBJECTS = $(am__objects_6) trace_log.$(OBJEXT)
+@WITH_OUTPUT_LOG_TRUE@am__objects_6 =  \
+@WITH_OUTPUT_LOG_TRUE@	sf_http_trace-output_log_fd.$(OBJEXT) \
+@WITH_OUTPUT_LOG_TRUE@	sf_http_trace-output_log_ptrs.$(OBJEXT)
+am__objects_7 = sf_http_trace-append.$(OBJEXT) \
+	sf_http_trace-archive_file.$(OBJEXT) \
+	sf_http_trace-check_burst_2.$(OBJEXT) \
+	sf_http_trace-eval_input_sf.$(OBJEXT) \
+	sf_http_trace-eval_message.$(OBJEXT) \
+	sf_http_trace-eval_recipient.$(OBJEXT) \
+	sf_http_trace-fsa_attach_pos.$(OBJEXT) \
+	sf_http_trace-get_file_names.$(OBJEXT) \
+	sf_http_trace-get_group_list.$(OBJEXT) \
+	sf_http_trace-gsf_check_fsa.$(OBJEXT) \
+	sf_http_trace-init_sf.$(OBJEXT) \
+	sf_http_trace-init_sf_burst2.$(OBJEXT) \
+	sf_http_trace-limit_transfer_rate.$(OBJEXT) \
+	sf_http_trace-noop_wrapper_dummy.$(OBJEXT) $(am__objects_6) \
+	sf_http_trace-receive_log.$(OBJEXT) \
+	sf_http_trace-reset_fsa.$(OBJEXT) \
+	sf_http_trace-send_proc_fin.$(OBJEXT) \
+	sf_http_trace-sf_http.$(OBJEXT) \
+	sf_http_trace-trans_db_log.$(OBJEXT) \
+	sf_http_trace-trans_exec.$(OBJEXT) \
+	sf_http_trace-trans_log.$(OBJEXT) \
+	sf_http_trace-update_tfc.$(OBJEXT)
+am_sf_http_trace_OBJECTS = $(am__objects_7) \
+	sf_http_trace-trace_log.$(OBJEXT)
 sf_http_trace_OBJECTS = $(am_sf_http_trace_OBJECTS)
 sf_http_trace_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	../protocols/libtraceprotocols.a ../common/libafd.a
+sf_http_trace_LINK = $(CCLD) $(sf_http_trace_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 am__sf_loc_SOURCES_DIST = append.c archive_file.c attach_ls_data.c \
 	check_burst_2.c compare_dir_local.c eval_input_sf.c \
 	eval_message.c eval_recipient.c fsa_attach_pos.c \
 	get_file_names.c get_group_list.c gsf_check_fsa.c init_sf.c \
 	init_sf_burst2.c noop_wrapper_dummy.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_loc.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_loc.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 am_sf_loc_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	attach_ls_data.$(OBJEXT) check_burst_2.$(OBJEXT) \
 	compare_dir_local.$(OBJEXT) eval_input_sf.$(OBJEXT) \
@@ -268,7 +287,8 @@ am_sf_loc_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	noop_wrapper_dummy.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_loc.$(OBJEXT) \
+	receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_loc.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_loc_OBJECTS = $(am_sf_loc_OBJECTS)
@@ -277,15 +297,16 @@ am__sf_map_SOURCES_DIST = append.c archive_file.c eval_input_sf.c \
 	eval_message.c eval_recipient.c fsa_attach_pos.c \
 	get_file_names.c get_group_list.c gsf_check_fsa.c init_sf.c \
 	noop_wrapper_dummy.c output_log_fd.c output_log_ptrs.c \
-	reset_fsa.c send_proc_fin.c sf_map.c trans_db_log.c \
-	trans_log.c update_tfc.c
+	receive_log.c reset_fsa.c send_proc_fin.c sf_map.c \
+	trans_db_log.c trans_log.c update_tfc.c
 am_sf_map_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	eval_input_sf.$(OBJEXT) eval_message.$(OBJEXT) \
 	eval_recipient.$(OBJEXT) fsa_attach_pos.$(OBJEXT) \
 	get_file_names.$(OBJEXT) get_group_list.$(OBJEXT) \
 	gsf_check_fsa.$(OBJEXT) init_sf.$(OBJEXT) \
 	noop_wrapper_dummy.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_map.$(OBJEXT) \
+	receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_map.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_log.$(OBJEXT) \
 	update_tfc.$(OBJEXT)
 sf_map_OBJECTS = $(am_sf_map_OBJECTS)
@@ -295,8 +316,8 @@ am__sf_scp_SOURCES_DIST = append.c archive_file.c check_burst_2.c \
 	fsa_attach_pos.c get_file_names.c get_group_list.c \
 	gsf_check_fsa.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_dummy.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_scp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_scp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 am_sf_scp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
@@ -304,8 +325,9 @@ am_sf_scp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
-	$(am__objects_4) reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) \
-	sf_scp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_scp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_scp_OBJECTS = $(am_sf_scp_OBJECTS)
 sf_scp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
@@ -314,20 +336,21 @@ am__sf_scp_trace_SOURCES_DIST = append.c archive_file.c \
 	eval_recipient.c fsa_attach_pos.c get_file_names.c \
 	get_group_list.c gsf_check_fsa.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_dummy.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_scp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_scp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
 	trace_log.c
-am__objects_7 = append.$(OBJEXT) archive_file.$(OBJEXT) \
+am__objects_8 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
-	$(am__objects_4) reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) \
-	sf_scp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_scp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
-am_sf_scp_trace_OBJECTS = $(am__objects_7) trace_log.$(OBJEXT)
+am_sf_scp_trace_OBJECTS = $(am__objects_8) trace_log.$(OBJEXT)
 sf_scp_trace_OBJECTS = $(am_sf_scp_trace_OBJECTS)
 sf_scp_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
 	../common/libafd.a
@@ -336,8 +359,8 @@ am__sf_sftp_SOURCES_DIST = append.c archive_file.c check_burst_2.c \
 	fsa_attach_pos.c get_file_names.c get_group_list.c \
 	gsf_check_fsa.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_sftp.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_sftp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_sftp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 am_sf_sftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
@@ -345,8 +368,9 @@ am_sf_sftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) noop_wrapper_sftp.$(OBJEXT) \
-	$(am__objects_4) reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) \
-	sf_sftp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_sftp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_sftp_OBJECTS = $(am_sf_sftp_OBJECTS)
 sf_sftp_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -356,20 +380,21 @@ am__sf_sftp_trace_SOURCES_DIST = append.c archive_file.c \
 	eval_recipient.c fsa_attach_pos.c get_file_names.c \
 	get_group_list.c gsf_check_fsa.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_sftp.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_sftp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_sftp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
 	trace_log.c
-am__objects_8 = append.$(OBJEXT) archive_file.$(OBJEXT) \
+am__objects_9 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) noop_wrapper_sftp.$(OBJEXT) \
-	$(am__objects_4) reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) \
-	sf_sftp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_sftp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
-am_sf_sftp_trace_OBJECTS = $(am__objects_8) trace_log.$(OBJEXT)
+am_sf_sftp_trace_OBJECTS = $(am__objects_9) trace_log.$(OBJEXT)
 sf_sftp_trace_OBJECTS = $(am_sf_sftp_trace_OBJECTS)
 sf_sftp_trace_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	../protocols/libtraceprotocols.a ../common/libafd.a
@@ -378,8 +403,8 @@ am__sf_smtp_SOURCES_DIST = append.c archive_file.c check_burst_2.c \
 	fsa_attach_pos.c get_file_names.c get_group_list.c \
 	gsf_check_fsa.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_smtp.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_smtp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_smtp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 am_sf_smtp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
@@ -387,8 +412,9 @@ am_sf_smtp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) noop_wrapper_smtp.$(OBJEXT) \
-	$(am__objects_4) reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) \
-	sf_smtp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_smtp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_smtp_OBJECTS = $(am_sf_smtp_OBJECTS)
 sf_smtp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
@@ -397,20 +423,21 @@ am__sf_smtp_trace_SOURCES_DIST = append.c archive_file.c \
 	eval_recipient.c fsa_attach_pos.c get_file_names.c \
 	get_group_list.c gsf_check_fsa.c init_sf.c init_sf_burst2.c \
 	limit_transfer_rate.c noop_wrapper_smtp.c output_log_fd.c \
-	output_log_ptrs.c reset_fsa.c send_proc_fin.c sf_smtp.c \
-	trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
+	sf_smtp.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
 	trace_log.c
-am__objects_9 = append.$(OBJEXT) archive_file.$(OBJEXT) \
+am__objects_10 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) noop_wrapper_smtp.$(OBJEXT) \
-	$(am__objects_4) reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) \
-	sf_smtp.$(OBJEXT) trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_smtp.$(OBJEXT) \
+	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
-am_sf_smtp_trace_OBJECTS = $(am__objects_9) trace_log.$(OBJEXT)
+am_sf_smtp_trace_OBJECTS = $(am__objects_10) trace_log.$(OBJEXT)
 sf_smtp_trace_OBJECTS = $(am_sf_smtp_trace_OBJECTS)
 sf_smtp_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
 	../common/libafd.a
@@ -418,8 +445,8 @@ am__sf_wmo_SOURCES_DIST = append.c archive_file.c check_burst_2.c \
 	eval_input_sf.c eval_message.c eval_recipient.c \
 	fsa_attach_pos.c get_file_names.c get_group_list.c \
 	gsf_check_fsa.c init_sf.c init_sf_burst2.c \
-	limit_transfer_rate.c next_wmo_counter.c noop_wrapper_dummy.c \
-	output_log_fd.c output_log_ptrs.c reset_fsa.c send_proc_fin.c \
+	limit_transfer_rate.c noop_wrapper_dummy.c output_log_fd.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
 	sf_wmo.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c
 am_sf_wmo_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
@@ -427,9 +454,9 @@ am_sf_wmo_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) next_wmo_counter.$(OBJEXT) \
-	noop_wrapper_dummy.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_wmo.$(OBJEXT) \
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_wmo.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
 sf_wmo_OBJECTS = $(am_sf_wmo_OBJECTS)
@@ -438,22 +465,22 @@ am__sf_wmo_trace_SOURCES_DIST = append.c archive_file.c \
 	check_burst_2.c eval_input_sf.c eval_message.c \
 	eval_recipient.c fsa_attach_pos.c get_file_names.c \
 	get_group_list.c gsf_check_fsa.c init_sf.c init_sf_burst2.c \
-	limit_transfer_rate.c next_wmo_counter.c noop_wrapper_dummy.c \
-	output_log_fd.c output_log_ptrs.c reset_fsa.c send_proc_fin.c \
+	limit_transfer_rate.c noop_wrapper_dummy.c output_log_fd.c \
+	output_log_ptrs.c receive_log.c reset_fsa.c send_proc_fin.c \
 	sf_wmo.c trans_db_log.c trans_exec.c trans_log.c update_tfc.c \
 	trace_log.c
-am__objects_10 = append.$(OBJEXT) archive_file.$(OBJEXT) \
+am__objects_11 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
 	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
-	limit_transfer_rate.$(OBJEXT) next_wmo_counter.$(OBJEXT) \
-	noop_wrapper_dummy.$(OBJEXT) $(am__objects_4) \
-	reset_fsa.$(OBJEXT) send_proc_fin.$(OBJEXT) sf_wmo.$(OBJEXT) \
+	limit_transfer_rate.$(OBJEXT) noop_wrapper_dummy.$(OBJEXT) \
+	$(am__objects_4) receive_log.$(OBJEXT) reset_fsa.$(OBJEXT) \
+	send_proc_fin.$(OBJEXT) sf_wmo.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_exec.$(OBJEXT) \
 	trans_log.$(OBJEXT) update_tfc.$(OBJEXT)
-am_sf_wmo_trace_OBJECTS = $(am__objects_10) trace_log.$(OBJEXT)
+am_sf_wmo_trace_OBJECTS = $(am__objects_11) trace_log.$(OBJEXT)
 sf_wmo_trace_OBJECTS = $(am_sf_wmo_trace_OBJECTS)
 sf_wmo_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
 	../common/libafd.a
@@ -559,11 +586,14 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSUB = @POSUB@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
@@ -697,6 +727,7 @@ sf_ftp_SOURCES = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_ftp.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_ftp.c\
@@ -727,9 +758,9 @@ sf_http_SOURCES = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
-                        next_wmo_counter.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_http.c\
@@ -743,6 +774,7 @@ sf_http_LDADD = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
                         ../common/libafd.a @AFD_SSL_LIBS@
 
 sf_http_trace_SOURCES = $(sf_http_SOURCES) trace_log.c
+sf_http_trace_CFLAGS = -DWITH_TRACE
 sf_http_trace_LDADD = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
                         ../protocols/libtraceprotocols.a\
                         ../common/libafd.a @AFD_SSL_LIBS@
@@ -762,6 +794,7 @@ sf_sftp_SOURCES = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_sftp.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_sftp.c\
@@ -794,6 +827,7 @@ sf_smtp_SOURCES = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_smtp.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_smtp.c\
@@ -824,6 +858,7 @@ sf_scp_SOURCES = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_scp.c\
@@ -852,9 +887,9 @@ sf_wmo_SOURCES = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
-                        next_wmo_counter.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_wmo.c\
@@ -882,6 +917,7 @@ sf_map_SOURCES = append.c\
                         init_sf.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_map.c\
@@ -906,6 +942,7 @@ sf_loc_SOURCES = append.c\
                         init_sf_burst2.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_loc.c\
@@ -1096,7 +1133,7 @@ sf_http$(EXEEXT): $(sf_http_OBJECTS) $(sf_http_DEPENDENCIES)
 	$(LINK) $(sf_http_OBJECTS) $(sf_http_LDADD) $(LIBS)
 sf_http_trace$(EXEEXT): $(sf_http_trace_OBJECTS) $(sf_http_trace_DEPENDENCIES) 
 	@rm -f sf_http_trace$(EXEEXT)
-	$(LINK) $(sf_http_trace_OBJECTS) $(sf_http_trace_LDADD) $(LIBS)
+	$(sf_http_trace_LINK) $(sf_http_trace_OBJECTS) $(sf_http_trace_LDADD) $(LIBS)
 sf_loc$(EXEEXT): $(sf_loc_OBJECTS) $(sf_loc_DEPENDENCIES) 
 	@rm -f sf_loc$(EXEEXT)
 	$(LINK) $(sf_loc_OBJECTS) $(sf_loc_LDADD) $(LIBS)
@@ -1174,7 +1211,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/limit_transfer_rate.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_job_id.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/manage_trl_process.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/next_wmo_counter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/noop_wrapper_dummy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/noop_wrapper_ftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/noop_wrapper_sftp.Po@am__quote@
@@ -1183,6 +1219,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/output_log_ptrs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/read_current_msg_list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/read_file_mask.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/receive_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/recount_jobs_queued.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/recreate_msg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remove_connection.Po@am__quote@
@@ -1193,6 +1230,31 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/send_proc_fin.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_ftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-append.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-archive_file.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-check_burst_2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-eval_input_sf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-eval_message.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-eval_recipient.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-fsa_attach_pos.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-get_file_names.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-get_group_list.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-gsf_check_fsa.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-init_sf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-init_sf_burst2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-limit_transfer_rate.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-output_log_fd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-output_log_ptrs.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-receive_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-reset_fsa.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-send_proc_fin.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-sf_http.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-trace_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-trans_db_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-trans_exec.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-trans_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_http_trace-update_tfc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_loc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_map.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sf_scp.Po@am__quote@
@@ -1218,6 +1280,356 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+sf_http_trace-append.o: append.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-append.o -MD -MP -MF $(DEPDIR)/sf_http_trace-append.Tpo -c -o sf_http_trace-append.o `test -f 'append.c' || echo '$(srcdir)/'`append.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-append.Tpo $(DEPDIR)/sf_http_trace-append.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='append.c' object='sf_http_trace-append.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-append.o `test -f 'append.c' || echo '$(srcdir)/'`append.c
+
+sf_http_trace-append.obj: append.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-append.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-append.Tpo -c -o sf_http_trace-append.obj `if test -f 'append.c'; then $(CYGPATH_W) 'append.c'; else $(CYGPATH_W) '$(srcdir)/append.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-append.Tpo $(DEPDIR)/sf_http_trace-append.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='append.c' object='sf_http_trace-append.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-append.obj `if test -f 'append.c'; then $(CYGPATH_W) 'append.c'; else $(CYGPATH_W) '$(srcdir)/append.c'; fi`
+
+sf_http_trace-archive_file.o: archive_file.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-archive_file.o -MD -MP -MF $(DEPDIR)/sf_http_trace-archive_file.Tpo -c -o sf_http_trace-archive_file.o `test -f 'archive_file.c' || echo '$(srcdir)/'`archive_file.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-archive_file.Tpo $(DEPDIR)/sf_http_trace-archive_file.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='archive_file.c' object='sf_http_trace-archive_file.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-archive_file.o `test -f 'archive_file.c' || echo '$(srcdir)/'`archive_file.c
+
+sf_http_trace-archive_file.obj: archive_file.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-archive_file.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-archive_file.Tpo -c -o sf_http_trace-archive_file.obj `if test -f 'archive_file.c'; then $(CYGPATH_W) 'archive_file.c'; else $(CYGPATH_W) '$(srcdir)/archive_file.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-archive_file.Tpo $(DEPDIR)/sf_http_trace-archive_file.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='archive_file.c' object='sf_http_trace-archive_file.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-archive_file.obj `if test -f 'archive_file.c'; then $(CYGPATH_W) 'archive_file.c'; else $(CYGPATH_W) '$(srcdir)/archive_file.c'; fi`
+
+sf_http_trace-check_burst_2.o: check_burst_2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-check_burst_2.o -MD -MP -MF $(DEPDIR)/sf_http_trace-check_burst_2.Tpo -c -o sf_http_trace-check_burst_2.o `test -f 'check_burst_2.c' || echo '$(srcdir)/'`check_burst_2.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-check_burst_2.Tpo $(DEPDIR)/sf_http_trace-check_burst_2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='check_burst_2.c' object='sf_http_trace-check_burst_2.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-check_burst_2.o `test -f 'check_burst_2.c' || echo '$(srcdir)/'`check_burst_2.c
+
+sf_http_trace-check_burst_2.obj: check_burst_2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-check_burst_2.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-check_burst_2.Tpo -c -o sf_http_trace-check_burst_2.obj `if test -f 'check_burst_2.c'; then $(CYGPATH_W) 'check_burst_2.c'; else $(CYGPATH_W) '$(srcdir)/check_burst_2.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-check_burst_2.Tpo $(DEPDIR)/sf_http_trace-check_burst_2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='check_burst_2.c' object='sf_http_trace-check_burst_2.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-check_burst_2.obj `if test -f 'check_burst_2.c'; then $(CYGPATH_W) 'check_burst_2.c'; else $(CYGPATH_W) '$(srcdir)/check_burst_2.c'; fi`
+
+sf_http_trace-eval_input_sf.o: eval_input_sf.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-eval_input_sf.o -MD -MP -MF $(DEPDIR)/sf_http_trace-eval_input_sf.Tpo -c -o sf_http_trace-eval_input_sf.o `test -f 'eval_input_sf.c' || echo '$(srcdir)/'`eval_input_sf.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-eval_input_sf.Tpo $(DEPDIR)/sf_http_trace-eval_input_sf.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='eval_input_sf.c' object='sf_http_trace-eval_input_sf.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-eval_input_sf.o `test -f 'eval_input_sf.c' || echo '$(srcdir)/'`eval_input_sf.c
+
+sf_http_trace-eval_input_sf.obj: eval_input_sf.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-eval_input_sf.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-eval_input_sf.Tpo -c -o sf_http_trace-eval_input_sf.obj `if test -f 'eval_input_sf.c'; then $(CYGPATH_W) 'eval_input_sf.c'; else $(CYGPATH_W) '$(srcdir)/eval_input_sf.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-eval_input_sf.Tpo $(DEPDIR)/sf_http_trace-eval_input_sf.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='eval_input_sf.c' object='sf_http_trace-eval_input_sf.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-eval_input_sf.obj `if test -f 'eval_input_sf.c'; then $(CYGPATH_W) 'eval_input_sf.c'; else $(CYGPATH_W) '$(srcdir)/eval_input_sf.c'; fi`
+
+sf_http_trace-eval_message.o: eval_message.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-eval_message.o -MD -MP -MF $(DEPDIR)/sf_http_trace-eval_message.Tpo -c -o sf_http_trace-eval_message.o `test -f 'eval_message.c' || echo '$(srcdir)/'`eval_message.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-eval_message.Tpo $(DEPDIR)/sf_http_trace-eval_message.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='eval_message.c' object='sf_http_trace-eval_message.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-eval_message.o `test -f 'eval_message.c' || echo '$(srcdir)/'`eval_message.c
+
+sf_http_trace-eval_message.obj: eval_message.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-eval_message.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-eval_message.Tpo -c -o sf_http_trace-eval_message.obj `if test -f 'eval_message.c'; then $(CYGPATH_W) 'eval_message.c'; else $(CYGPATH_W) '$(srcdir)/eval_message.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-eval_message.Tpo $(DEPDIR)/sf_http_trace-eval_message.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='eval_message.c' object='sf_http_trace-eval_message.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-eval_message.obj `if test -f 'eval_message.c'; then $(CYGPATH_W) 'eval_message.c'; else $(CYGPATH_W) '$(srcdir)/eval_message.c'; fi`
+
+sf_http_trace-eval_recipient.o: eval_recipient.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-eval_recipient.o -MD -MP -MF $(DEPDIR)/sf_http_trace-eval_recipient.Tpo -c -o sf_http_trace-eval_recipient.o `test -f 'eval_recipient.c' || echo '$(srcdir)/'`eval_recipient.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-eval_recipient.Tpo $(DEPDIR)/sf_http_trace-eval_recipient.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='eval_recipient.c' object='sf_http_trace-eval_recipient.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-eval_recipient.o `test -f 'eval_recipient.c' || echo '$(srcdir)/'`eval_recipient.c
+
+sf_http_trace-eval_recipient.obj: eval_recipient.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-eval_recipient.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-eval_recipient.Tpo -c -o sf_http_trace-eval_recipient.obj `if test -f 'eval_recipient.c'; then $(CYGPATH_W) 'eval_recipient.c'; else $(CYGPATH_W) '$(srcdir)/eval_recipient.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-eval_recipient.Tpo $(DEPDIR)/sf_http_trace-eval_recipient.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='eval_recipient.c' object='sf_http_trace-eval_recipient.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-eval_recipient.obj `if test -f 'eval_recipient.c'; then $(CYGPATH_W) 'eval_recipient.c'; else $(CYGPATH_W) '$(srcdir)/eval_recipient.c'; fi`
+
+sf_http_trace-fsa_attach_pos.o: fsa_attach_pos.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-fsa_attach_pos.o -MD -MP -MF $(DEPDIR)/sf_http_trace-fsa_attach_pos.Tpo -c -o sf_http_trace-fsa_attach_pos.o `test -f 'fsa_attach_pos.c' || echo '$(srcdir)/'`fsa_attach_pos.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-fsa_attach_pos.Tpo $(DEPDIR)/sf_http_trace-fsa_attach_pos.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fsa_attach_pos.c' object='sf_http_trace-fsa_attach_pos.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-fsa_attach_pos.o `test -f 'fsa_attach_pos.c' || echo '$(srcdir)/'`fsa_attach_pos.c
+
+sf_http_trace-fsa_attach_pos.obj: fsa_attach_pos.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-fsa_attach_pos.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-fsa_attach_pos.Tpo -c -o sf_http_trace-fsa_attach_pos.obj `if test -f 'fsa_attach_pos.c'; then $(CYGPATH_W) 'fsa_attach_pos.c'; else $(CYGPATH_W) '$(srcdir)/fsa_attach_pos.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-fsa_attach_pos.Tpo $(DEPDIR)/sf_http_trace-fsa_attach_pos.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fsa_attach_pos.c' object='sf_http_trace-fsa_attach_pos.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-fsa_attach_pos.obj `if test -f 'fsa_attach_pos.c'; then $(CYGPATH_W) 'fsa_attach_pos.c'; else $(CYGPATH_W) '$(srcdir)/fsa_attach_pos.c'; fi`
+
+sf_http_trace-get_file_names.o: get_file_names.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-get_file_names.o -MD -MP -MF $(DEPDIR)/sf_http_trace-get_file_names.Tpo -c -o sf_http_trace-get_file_names.o `test -f 'get_file_names.c' || echo '$(srcdir)/'`get_file_names.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-get_file_names.Tpo $(DEPDIR)/sf_http_trace-get_file_names.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='get_file_names.c' object='sf_http_trace-get_file_names.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-get_file_names.o `test -f 'get_file_names.c' || echo '$(srcdir)/'`get_file_names.c
+
+sf_http_trace-get_file_names.obj: get_file_names.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-get_file_names.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-get_file_names.Tpo -c -o sf_http_trace-get_file_names.obj `if test -f 'get_file_names.c'; then $(CYGPATH_W) 'get_file_names.c'; else $(CYGPATH_W) '$(srcdir)/get_file_names.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-get_file_names.Tpo $(DEPDIR)/sf_http_trace-get_file_names.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='get_file_names.c' object='sf_http_trace-get_file_names.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-get_file_names.obj `if test -f 'get_file_names.c'; then $(CYGPATH_W) 'get_file_names.c'; else $(CYGPATH_W) '$(srcdir)/get_file_names.c'; fi`
+
+sf_http_trace-get_group_list.o: get_group_list.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-get_group_list.o -MD -MP -MF $(DEPDIR)/sf_http_trace-get_group_list.Tpo -c -o sf_http_trace-get_group_list.o `test -f 'get_group_list.c' || echo '$(srcdir)/'`get_group_list.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-get_group_list.Tpo $(DEPDIR)/sf_http_trace-get_group_list.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='get_group_list.c' object='sf_http_trace-get_group_list.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-get_group_list.o `test -f 'get_group_list.c' || echo '$(srcdir)/'`get_group_list.c
+
+sf_http_trace-get_group_list.obj: get_group_list.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-get_group_list.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-get_group_list.Tpo -c -o sf_http_trace-get_group_list.obj `if test -f 'get_group_list.c'; then $(CYGPATH_W) 'get_group_list.c'; else $(CYGPATH_W) '$(srcdir)/get_group_list.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-get_group_list.Tpo $(DEPDIR)/sf_http_trace-get_group_list.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='get_group_list.c' object='sf_http_trace-get_group_list.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-get_group_list.obj `if test -f 'get_group_list.c'; then $(CYGPATH_W) 'get_group_list.c'; else $(CYGPATH_W) '$(srcdir)/get_group_list.c'; fi`
+
+sf_http_trace-gsf_check_fsa.o: gsf_check_fsa.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-gsf_check_fsa.o -MD -MP -MF $(DEPDIR)/sf_http_trace-gsf_check_fsa.Tpo -c -o sf_http_trace-gsf_check_fsa.o `test -f 'gsf_check_fsa.c' || echo '$(srcdir)/'`gsf_check_fsa.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-gsf_check_fsa.Tpo $(DEPDIR)/sf_http_trace-gsf_check_fsa.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='gsf_check_fsa.c' object='sf_http_trace-gsf_check_fsa.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-gsf_check_fsa.o `test -f 'gsf_check_fsa.c' || echo '$(srcdir)/'`gsf_check_fsa.c
+
+sf_http_trace-gsf_check_fsa.obj: gsf_check_fsa.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-gsf_check_fsa.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-gsf_check_fsa.Tpo -c -o sf_http_trace-gsf_check_fsa.obj `if test -f 'gsf_check_fsa.c'; then $(CYGPATH_W) 'gsf_check_fsa.c'; else $(CYGPATH_W) '$(srcdir)/gsf_check_fsa.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-gsf_check_fsa.Tpo $(DEPDIR)/sf_http_trace-gsf_check_fsa.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='gsf_check_fsa.c' object='sf_http_trace-gsf_check_fsa.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-gsf_check_fsa.obj `if test -f 'gsf_check_fsa.c'; then $(CYGPATH_W) 'gsf_check_fsa.c'; else $(CYGPATH_W) '$(srcdir)/gsf_check_fsa.c'; fi`
+
+sf_http_trace-init_sf.o: init_sf.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-init_sf.o -MD -MP -MF $(DEPDIR)/sf_http_trace-init_sf.Tpo -c -o sf_http_trace-init_sf.o `test -f 'init_sf.c' || echo '$(srcdir)/'`init_sf.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-init_sf.Tpo $(DEPDIR)/sf_http_trace-init_sf.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='init_sf.c' object='sf_http_trace-init_sf.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-init_sf.o `test -f 'init_sf.c' || echo '$(srcdir)/'`init_sf.c
+
+sf_http_trace-init_sf.obj: init_sf.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-init_sf.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-init_sf.Tpo -c -o sf_http_trace-init_sf.obj `if test -f 'init_sf.c'; then $(CYGPATH_W) 'init_sf.c'; else $(CYGPATH_W) '$(srcdir)/init_sf.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-init_sf.Tpo $(DEPDIR)/sf_http_trace-init_sf.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='init_sf.c' object='sf_http_trace-init_sf.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-init_sf.obj `if test -f 'init_sf.c'; then $(CYGPATH_W) 'init_sf.c'; else $(CYGPATH_W) '$(srcdir)/init_sf.c'; fi`
+
+sf_http_trace-init_sf_burst2.o: init_sf_burst2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-init_sf_burst2.o -MD -MP -MF $(DEPDIR)/sf_http_trace-init_sf_burst2.Tpo -c -o sf_http_trace-init_sf_burst2.o `test -f 'init_sf_burst2.c' || echo '$(srcdir)/'`init_sf_burst2.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-init_sf_burst2.Tpo $(DEPDIR)/sf_http_trace-init_sf_burst2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='init_sf_burst2.c' object='sf_http_trace-init_sf_burst2.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-init_sf_burst2.o `test -f 'init_sf_burst2.c' || echo '$(srcdir)/'`init_sf_burst2.c
+
+sf_http_trace-init_sf_burst2.obj: init_sf_burst2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-init_sf_burst2.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-init_sf_burst2.Tpo -c -o sf_http_trace-init_sf_burst2.obj `if test -f 'init_sf_burst2.c'; then $(CYGPATH_W) 'init_sf_burst2.c'; else $(CYGPATH_W) '$(srcdir)/init_sf_burst2.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-init_sf_burst2.Tpo $(DEPDIR)/sf_http_trace-init_sf_burst2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='init_sf_burst2.c' object='sf_http_trace-init_sf_burst2.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-init_sf_burst2.obj `if test -f 'init_sf_burst2.c'; then $(CYGPATH_W) 'init_sf_burst2.c'; else $(CYGPATH_W) '$(srcdir)/init_sf_burst2.c'; fi`
+
+sf_http_trace-limit_transfer_rate.o: limit_transfer_rate.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-limit_transfer_rate.o -MD -MP -MF $(DEPDIR)/sf_http_trace-limit_transfer_rate.Tpo -c -o sf_http_trace-limit_transfer_rate.o `test -f 'limit_transfer_rate.c' || echo '$(srcdir)/'`limit_transfer_rate.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-limit_transfer_rate.Tpo $(DEPDIR)/sf_http_trace-limit_transfer_rate.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='limit_transfer_rate.c' object='sf_http_trace-limit_transfer_rate.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-limit_transfer_rate.o `test -f 'limit_transfer_rate.c' || echo '$(srcdir)/'`limit_transfer_rate.c
+
+sf_http_trace-limit_transfer_rate.obj: limit_transfer_rate.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-limit_transfer_rate.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-limit_transfer_rate.Tpo -c -o sf_http_trace-limit_transfer_rate.obj `if test -f 'limit_transfer_rate.c'; then $(CYGPATH_W) 'limit_transfer_rate.c'; else $(CYGPATH_W) '$(srcdir)/limit_transfer_rate.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-limit_transfer_rate.Tpo $(DEPDIR)/sf_http_trace-limit_transfer_rate.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='limit_transfer_rate.c' object='sf_http_trace-limit_transfer_rate.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-limit_transfer_rate.obj `if test -f 'limit_transfer_rate.c'; then $(CYGPATH_W) 'limit_transfer_rate.c'; else $(CYGPATH_W) '$(srcdir)/limit_transfer_rate.c'; fi`
+
+sf_http_trace-noop_wrapper_dummy.o: noop_wrapper_dummy.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-noop_wrapper_dummy.o -MD -MP -MF $(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Tpo -c -o sf_http_trace-noop_wrapper_dummy.o `test -f 'noop_wrapper_dummy.c' || echo '$(srcdir)/'`noop_wrapper_dummy.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Tpo $(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='noop_wrapper_dummy.c' object='sf_http_trace-noop_wrapper_dummy.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-noop_wrapper_dummy.o `test -f 'noop_wrapper_dummy.c' || echo '$(srcdir)/'`noop_wrapper_dummy.c
+
+sf_http_trace-noop_wrapper_dummy.obj: noop_wrapper_dummy.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-noop_wrapper_dummy.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Tpo -c -o sf_http_trace-noop_wrapper_dummy.obj `if test -f 'noop_wrapper_dummy.c'; then $(CYGPATH_W) 'noop_wrapper_dummy.c'; else $(CYGPATH_W) '$(srcdir)/noop_wrapper_dummy.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Tpo $(DEPDIR)/sf_http_trace-noop_wrapper_dummy.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='noop_wrapper_dummy.c' object='sf_http_trace-noop_wrapper_dummy.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-noop_wrapper_dummy.obj `if test -f 'noop_wrapper_dummy.c'; then $(CYGPATH_W) 'noop_wrapper_dummy.c'; else $(CYGPATH_W) '$(srcdir)/noop_wrapper_dummy.c'; fi`
+
+sf_http_trace-output_log_fd.o: output_log_fd.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-output_log_fd.o -MD -MP -MF $(DEPDIR)/sf_http_trace-output_log_fd.Tpo -c -o sf_http_trace-output_log_fd.o `test -f 'output_log_fd.c' || echo '$(srcdir)/'`output_log_fd.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-output_log_fd.Tpo $(DEPDIR)/sf_http_trace-output_log_fd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='output_log_fd.c' object='sf_http_trace-output_log_fd.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-output_log_fd.o `test -f 'output_log_fd.c' || echo '$(srcdir)/'`output_log_fd.c
+
+sf_http_trace-output_log_fd.obj: output_log_fd.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-output_log_fd.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-output_log_fd.Tpo -c -o sf_http_trace-output_log_fd.obj `if test -f 'output_log_fd.c'; then $(CYGPATH_W) 'output_log_fd.c'; else $(CYGPATH_W) '$(srcdir)/output_log_fd.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-output_log_fd.Tpo $(DEPDIR)/sf_http_trace-output_log_fd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='output_log_fd.c' object='sf_http_trace-output_log_fd.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-output_log_fd.obj `if test -f 'output_log_fd.c'; then $(CYGPATH_W) 'output_log_fd.c'; else $(CYGPATH_W) '$(srcdir)/output_log_fd.c'; fi`
+
+sf_http_trace-output_log_ptrs.o: output_log_ptrs.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-output_log_ptrs.o -MD -MP -MF $(DEPDIR)/sf_http_trace-output_log_ptrs.Tpo -c -o sf_http_trace-output_log_ptrs.o `test -f 'output_log_ptrs.c' || echo '$(srcdir)/'`output_log_ptrs.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-output_log_ptrs.Tpo $(DEPDIR)/sf_http_trace-output_log_ptrs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='output_log_ptrs.c' object='sf_http_trace-output_log_ptrs.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-output_log_ptrs.o `test -f 'output_log_ptrs.c' || echo '$(srcdir)/'`output_log_ptrs.c
+
+sf_http_trace-output_log_ptrs.obj: output_log_ptrs.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-output_log_ptrs.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-output_log_ptrs.Tpo -c -o sf_http_trace-output_log_ptrs.obj `if test -f 'output_log_ptrs.c'; then $(CYGPATH_W) 'output_log_ptrs.c'; else $(CYGPATH_W) '$(srcdir)/output_log_ptrs.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-output_log_ptrs.Tpo $(DEPDIR)/sf_http_trace-output_log_ptrs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='output_log_ptrs.c' object='sf_http_trace-output_log_ptrs.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-output_log_ptrs.obj `if test -f 'output_log_ptrs.c'; then $(CYGPATH_W) 'output_log_ptrs.c'; else $(CYGPATH_W) '$(srcdir)/output_log_ptrs.c'; fi`
+
+sf_http_trace-receive_log.o: receive_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-receive_log.o -MD -MP -MF $(DEPDIR)/sf_http_trace-receive_log.Tpo -c -o sf_http_trace-receive_log.o `test -f 'receive_log.c' || echo '$(srcdir)/'`receive_log.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-receive_log.Tpo $(DEPDIR)/sf_http_trace-receive_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='receive_log.c' object='sf_http_trace-receive_log.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-receive_log.o `test -f 'receive_log.c' || echo '$(srcdir)/'`receive_log.c
+
+sf_http_trace-receive_log.obj: receive_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-receive_log.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-receive_log.Tpo -c -o sf_http_trace-receive_log.obj `if test -f 'receive_log.c'; then $(CYGPATH_W) 'receive_log.c'; else $(CYGPATH_W) '$(srcdir)/receive_log.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-receive_log.Tpo $(DEPDIR)/sf_http_trace-receive_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='receive_log.c' object='sf_http_trace-receive_log.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-receive_log.obj `if test -f 'receive_log.c'; then $(CYGPATH_W) 'receive_log.c'; else $(CYGPATH_W) '$(srcdir)/receive_log.c'; fi`
+
+sf_http_trace-reset_fsa.o: reset_fsa.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-reset_fsa.o -MD -MP -MF $(DEPDIR)/sf_http_trace-reset_fsa.Tpo -c -o sf_http_trace-reset_fsa.o `test -f 'reset_fsa.c' || echo '$(srcdir)/'`reset_fsa.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-reset_fsa.Tpo $(DEPDIR)/sf_http_trace-reset_fsa.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='reset_fsa.c' object='sf_http_trace-reset_fsa.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-reset_fsa.o `test -f 'reset_fsa.c' || echo '$(srcdir)/'`reset_fsa.c
+
+sf_http_trace-reset_fsa.obj: reset_fsa.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-reset_fsa.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-reset_fsa.Tpo -c -o sf_http_trace-reset_fsa.obj `if test -f 'reset_fsa.c'; then $(CYGPATH_W) 'reset_fsa.c'; else $(CYGPATH_W) '$(srcdir)/reset_fsa.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-reset_fsa.Tpo $(DEPDIR)/sf_http_trace-reset_fsa.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='reset_fsa.c' object='sf_http_trace-reset_fsa.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-reset_fsa.obj `if test -f 'reset_fsa.c'; then $(CYGPATH_W) 'reset_fsa.c'; else $(CYGPATH_W) '$(srcdir)/reset_fsa.c'; fi`
+
+sf_http_trace-send_proc_fin.o: send_proc_fin.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-send_proc_fin.o -MD -MP -MF $(DEPDIR)/sf_http_trace-send_proc_fin.Tpo -c -o sf_http_trace-send_proc_fin.o `test -f 'send_proc_fin.c' || echo '$(srcdir)/'`send_proc_fin.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-send_proc_fin.Tpo $(DEPDIR)/sf_http_trace-send_proc_fin.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='send_proc_fin.c' object='sf_http_trace-send_proc_fin.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-send_proc_fin.o `test -f 'send_proc_fin.c' || echo '$(srcdir)/'`send_proc_fin.c
+
+sf_http_trace-send_proc_fin.obj: send_proc_fin.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-send_proc_fin.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-send_proc_fin.Tpo -c -o sf_http_trace-send_proc_fin.obj `if test -f 'send_proc_fin.c'; then $(CYGPATH_W) 'send_proc_fin.c'; else $(CYGPATH_W) '$(srcdir)/send_proc_fin.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-send_proc_fin.Tpo $(DEPDIR)/sf_http_trace-send_proc_fin.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='send_proc_fin.c' object='sf_http_trace-send_proc_fin.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-send_proc_fin.obj `if test -f 'send_proc_fin.c'; then $(CYGPATH_W) 'send_proc_fin.c'; else $(CYGPATH_W) '$(srcdir)/send_proc_fin.c'; fi`
+
+sf_http_trace-sf_http.o: sf_http.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-sf_http.o -MD -MP -MF $(DEPDIR)/sf_http_trace-sf_http.Tpo -c -o sf_http_trace-sf_http.o `test -f 'sf_http.c' || echo '$(srcdir)/'`sf_http.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-sf_http.Tpo $(DEPDIR)/sf_http_trace-sf_http.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sf_http.c' object='sf_http_trace-sf_http.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-sf_http.o `test -f 'sf_http.c' || echo '$(srcdir)/'`sf_http.c
+
+sf_http_trace-sf_http.obj: sf_http.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-sf_http.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-sf_http.Tpo -c -o sf_http_trace-sf_http.obj `if test -f 'sf_http.c'; then $(CYGPATH_W) 'sf_http.c'; else $(CYGPATH_W) '$(srcdir)/sf_http.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-sf_http.Tpo $(DEPDIR)/sf_http_trace-sf_http.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sf_http.c' object='sf_http_trace-sf_http.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-sf_http.obj `if test -f 'sf_http.c'; then $(CYGPATH_W) 'sf_http.c'; else $(CYGPATH_W) '$(srcdir)/sf_http.c'; fi`
+
+sf_http_trace-trans_db_log.o: trans_db_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trans_db_log.o -MD -MP -MF $(DEPDIR)/sf_http_trace-trans_db_log.Tpo -c -o sf_http_trace-trans_db_log.o `test -f 'trans_db_log.c' || echo '$(srcdir)/'`trans_db_log.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trans_db_log.Tpo $(DEPDIR)/sf_http_trace-trans_db_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trans_db_log.c' object='sf_http_trace-trans_db_log.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trans_db_log.o `test -f 'trans_db_log.c' || echo '$(srcdir)/'`trans_db_log.c
+
+sf_http_trace-trans_db_log.obj: trans_db_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trans_db_log.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-trans_db_log.Tpo -c -o sf_http_trace-trans_db_log.obj `if test -f 'trans_db_log.c'; then $(CYGPATH_W) 'trans_db_log.c'; else $(CYGPATH_W) '$(srcdir)/trans_db_log.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trans_db_log.Tpo $(DEPDIR)/sf_http_trace-trans_db_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trans_db_log.c' object='sf_http_trace-trans_db_log.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trans_db_log.obj `if test -f 'trans_db_log.c'; then $(CYGPATH_W) 'trans_db_log.c'; else $(CYGPATH_W) '$(srcdir)/trans_db_log.c'; fi`
+
+sf_http_trace-trans_exec.o: trans_exec.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trans_exec.o -MD -MP -MF $(DEPDIR)/sf_http_trace-trans_exec.Tpo -c -o sf_http_trace-trans_exec.o `test -f 'trans_exec.c' || echo '$(srcdir)/'`trans_exec.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trans_exec.Tpo $(DEPDIR)/sf_http_trace-trans_exec.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trans_exec.c' object='sf_http_trace-trans_exec.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trans_exec.o `test -f 'trans_exec.c' || echo '$(srcdir)/'`trans_exec.c
+
+sf_http_trace-trans_exec.obj: trans_exec.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trans_exec.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-trans_exec.Tpo -c -o sf_http_trace-trans_exec.obj `if test -f 'trans_exec.c'; then $(CYGPATH_W) 'trans_exec.c'; else $(CYGPATH_W) '$(srcdir)/trans_exec.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trans_exec.Tpo $(DEPDIR)/sf_http_trace-trans_exec.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trans_exec.c' object='sf_http_trace-trans_exec.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trans_exec.obj `if test -f 'trans_exec.c'; then $(CYGPATH_W) 'trans_exec.c'; else $(CYGPATH_W) '$(srcdir)/trans_exec.c'; fi`
+
+sf_http_trace-trans_log.o: trans_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trans_log.o -MD -MP -MF $(DEPDIR)/sf_http_trace-trans_log.Tpo -c -o sf_http_trace-trans_log.o `test -f 'trans_log.c' || echo '$(srcdir)/'`trans_log.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trans_log.Tpo $(DEPDIR)/sf_http_trace-trans_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trans_log.c' object='sf_http_trace-trans_log.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trans_log.o `test -f 'trans_log.c' || echo '$(srcdir)/'`trans_log.c
+
+sf_http_trace-trans_log.obj: trans_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trans_log.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-trans_log.Tpo -c -o sf_http_trace-trans_log.obj `if test -f 'trans_log.c'; then $(CYGPATH_W) 'trans_log.c'; else $(CYGPATH_W) '$(srcdir)/trans_log.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trans_log.Tpo $(DEPDIR)/sf_http_trace-trans_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trans_log.c' object='sf_http_trace-trans_log.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trans_log.obj `if test -f 'trans_log.c'; then $(CYGPATH_W) 'trans_log.c'; else $(CYGPATH_W) '$(srcdir)/trans_log.c'; fi`
+
+sf_http_trace-update_tfc.o: update_tfc.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-update_tfc.o -MD -MP -MF $(DEPDIR)/sf_http_trace-update_tfc.Tpo -c -o sf_http_trace-update_tfc.o `test -f 'update_tfc.c' || echo '$(srcdir)/'`update_tfc.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-update_tfc.Tpo $(DEPDIR)/sf_http_trace-update_tfc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='update_tfc.c' object='sf_http_trace-update_tfc.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-update_tfc.o `test -f 'update_tfc.c' || echo '$(srcdir)/'`update_tfc.c
+
+sf_http_trace-update_tfc.obj: update_tfc.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-update_tfc.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-update_tfc.Tpo -c -o sf_http_trace-update_tfc.obj `if test -f 'update_tfc.c'; then $(CYGPATH_W) 'update_tfc.c'; else $(CYGPATH_W) '$(srcdir)/update_tfc.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-update_tfc.Tpo $(DEPDIR)/sf_http_trace-update_tfc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='update_tfc.c' object='sf_http_trace-update_tfc.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-update_tfc.obj `if test -f 'update_tfc.c'; then $(CYGPATH_W) 'update_tfc.c'; else $(CYGPATH_W) '$(srcdir)/update_tfc.c'; fi`
+
+sf_http_trace-trace_log.o: trace_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trace_log.o -MD -MP -MF $(DEPDIR)/sf_http_trace-trace_log.Tpo -c -o sf_http_trace-trace_log.o `test -f 'trace_log.c' || echo '$(srcdir)/'`trace_log.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trace_log.Tpo $(DEPDIR)/sf_http_trace-trace_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trace_log.c' object='sf_http_trace-trace_log.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trace_log.o `test -f 'trace_log.c' || echo '$(srcdir)/'`trace_log.c
+
+sf_http_trace-trace_log.obj: trace_log.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -MT sf_http_trace-trace_log.obj -MD -MP -MF $(DEPDIR)/sf_http_trace-trace_log.Tpo -c -o sf_http_trace-trace_log.obj `if test -f 'trace_log.c'; then $(CYGPATH_W) 'trace_log.c'; else $(CYGPATH_W) '$(srcdir)/trace_log.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/sf_http_trace-trace_log.Tpo $(DEPDIR)/sf_http_trace-trace_log.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='trace_log.c' object='sf_http_trace-trace_log.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sf_http_trace_CFLAGS) $(CFLAGS) -c -o sf_http_trace-trace_log.obj `if test -f 'trace_log.c'; then $(CYGPATH_W) 'trace_log.c'; else $(CYGPATH_W) '$(srcdir)/trace_log.c'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

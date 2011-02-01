@@ -120,6 +120,9 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
+#define DATA_MOVED  1
+#define DATA_COPIED 2
+
 extern int                        afd_file_dir_length,
                                   amg_counter_fd,
                                   fra_fd; /* Needed by ABS_REDUCE_QUEUE()*/
@@ -197,9 +200,10 @@ check_files(struct directory_entry *p_de,
                  i,
                  ret,
                  rl_pos,
-                 set_error_counter = NO; /* Indicator to tell that we */
+                 set_error_counter = NO, /* Indicator to tell that we */
                                          /* set the fra error_counter */
                                          /* when we are called.       */
+                 what_done;
    unsigned int  split_job_counter = 0;
    off_t         bytes_in_dir = 0;
    time_t        diff_time,
@@ -691,7 +695,7 @@ check_files(struct directory_entry *p_de,
                            *ptr = '\0';
 
                            /* Create a unique name. */
-                           next_counter_no_lock(unique_number);
+                           next_counter_no_lock(unique_number, MAX_MSG_PER_SEC);
                            if (create_name(tmp_file_dir, NO_PRIORITY,
                                            current_time, p_de->dir_id,
                                            &split_job_counter, unique_number,
@@ -707,7 +711,7 @@ check_files(struct directory_entry *p_de,
                                  {
                                     (void)sleep(DISK_FULL_RESCAN_TIME);
                                     errno = 0;
-                                    next_counter_no_lock(unique_number);
+                                    next_counter_no_lock(unique_number, MAX_MSG_PER_SEC);
                                     if (create_name(tmp_file_dir, NO_PRIORITY,
                                                     current_time, p_de->dir_id,
                                                     &split_job_counter,
@@ -759,12 +763,14 @@ check_files(struct directory_entry *p_de,
                            if (p_de->flag & IN_SAME_FILESYSTEM)
                            {
                               ret = move_file(fullname, tmp_file_dir);
+                              what_done = DATA_MOVED;
                            }
                            else
                            {
                               if ((ret = copy_file(fullname, tmp_file_dir,
                                                    &stat_buf)) == SUCCESS)
                               {
+                                 what_done = DATA_COPIED;
                                  if ((ret = unlink(fullname)) == -1)
                                  {
                                     system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -791,12 +797,43 @@ check_files(struct directory_entry *p_de,
                         {
                            /* Leave original files in place. */
                            ret = copy_file(fullname, tmp_file_dir, &stat_buf);
+                           what_done = DATA_COPIED;
                         }
                         if (ret != SUCCESS)
                         {
+                           char reason_str[23];
+
+                           if (errno == ENOENT)
+                           {
+                              int         tmp_errno = errno;
+                              char        tmp_char = *ptr;
+                              struct stat tmp_stat_buf;
+
+                              *ptr = '\0';
+                              if ((stat(fullname, &tmp_stat_buf) == -1) &&
+                                  (errno == ENOENT))
+                              {
+                                 (void)strcpy(reason_str, "(source missing) ");
+                              }
+                              else if ((stat(tmp_file_dir, &tmp_stat_buf) == -1) &&
+                                       (errno == ENOENT))
+                                   {
+                                      (void)strcpy(reason_str,
+                                                   "(destination missing) ");
+                                   }
+                                   else
+                                   {
+                                      reason_str[0] = '\0';
+                                   }
+                              *ptr = tmp_char;
+                              errno = tmp_errno;
+                           }
                            receive_log(ERROR_SIGN, __FILE__, __LINE__, current_time,
-                                       _("Failed to move/copy file `%s' to `%s' : %s"),
-                                       fullname, tmp_file_dir, strerror(errno));
+                                       _("Failed (%d) to %s file `%s' to `%s' %s: %s"),
+                                       ret,
+                                       (what_done == DATA_MOVED) ? "move" : "copy",
+                                       fullname, tmp_file_dir, reason_str,
+                                       strerror(errno));
                            lock_region_w(fra_fd,
 #ifdef LOCK_DEBUG
                                          (char *)&fra[p_de->fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
@@ -1322,7 +1359,7 @@ check_files(struct directory_entry *p_de,
                                     *ptr = '\0';
 
                                     /* Create a unique name. */
-                                    next_counter_no_lock(unique_number);
+                                    next_counter_no_lock(unique_number, MAX_MSG_PER_SEC);
                                     if (create_name(tmp_file_dir, NO_PRIORITY,
                                                     current_time, p_de->dir_id,
                                                     &split_job_counter,
@@ -1338,7 +1375,7 @@ check_files(struct directory_entry *p_de,
                                           {
                                              (void)sleep(DISK_FULL_RESCAN_TIME);
                                              errno = 0;
-                                             next_counter_no_lock(unique_number);
+                                             next_counter_no_lock(unique_number, MAX_MSG_PER_SEC);
                                              if (create_name(tmp_file_dir,
                                                              NO_PRIORITY,
                                                              current_time,
@@ -1393,6 +1430,7 @@ check_files(struct directory_entry *p_de,
                                     if (p_de->flag & IN_SAME_FILESYSTEM)
                                     {
                                        ret = move_file(fullname, tmp_file_dir);
+                                       what_done = DATA_MOVED;
                                     }
                                     else
                                     {
@@ -1400,6 +1438,7 @@ check_files(struct directory_entry *p_de,
                                                             tmp_file_dir,
                                                             &stat_buf)) == SUCCESS)
                                        {
+                                          what_done = DATA_COPIED;
                                           if (unlink(fullname) == -1)
                                           {
                                              system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1427,13 +1466,43 @@ check_files(struct directory_entry *p_de,
                                  {
                                     /* Leave original files in place. */
                                     ret = copy_file(fullname, tmp_file_dir, &stat_buf);
+                                    what_done = DATA_COPIED;
                                  }
                                  if (ret != SUCCESS)
                                  {
+                                    char reason_str[23];
+
+                                    if (errno == ENOENT)
+                                    {
+                                       int         tmp_errno = errno;
+                                       char        tmp_char = *ptr;
+                                       struct stat tmp_stat_buf;
+
+                                       *ptr = '\0';
+                                       if ((stat(fullname, &tmp_stat_buf) == -1) &&
+                                           (errno == ENOENT))
+                                       {
+                                          (void)strcpy(reason_str, "(source missing) ");
+                                       }
+                                       else if ((stat(tmp_file_dir, &tmp_stat_buf) == -1) &&
+                                                (errno == ENOENT))
+                                            {
+                                               (void)strcpy(reason_str,
+                                                            "(destination missing) ");
+                                            }
+                                            else
+                                            {
+                                               reason_str[0] = '\0';
+                                            }
+                                       *ptr = tmp_char;
+                                       errno = tmp_errno;
+                                    }
                                     receive_log(ERROR_SIGN, __FILE__, __LINE__, current_time,
-                                                _("Failed to move/copy file `%s' to `%s' (%d) : %s"),
-                                                fullname, tmp_file_dir, ret,
-                                                strerror(errno));
+                                                _("Failed (%d) to %s file `%s' to `%s' %s: %s"),
+                                                ret,
+                                                (what_done == DATA_MOVED) ? "move" : "copy",
+                                                fullname, tmp_file_dir,
+                                                reason_str, strerror(errno));
                                     lock_region_w(fra_fd,
 #ifdef LOCK_DEBUG
                                                   (char *)&fra[p_de->fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);

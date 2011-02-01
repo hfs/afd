@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@
 
 #define LINES_BUFFERED          1000
 #define MAX_DISPLAYED_FILE_SIZE 12
-#define MAX_OUTPUT_LINE_LENGTH  16 + MAX_HOSTNAME_LENGTH + 1 + 4 + 1 + MAX_DISPLAYED_FILE_SIZE + 1
+#define MAX_OUTPUT_LINE_LENGTH  20 + MAX_HOSTNAME_LENGTH + 1 + 4 + 1 + MAX_DISPLAYED_FILE_SIZE + 1
 
 #define FILE_SIZE_FORMAT        "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT             "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
@@ -69,12 +69,12 @@
 #define SHOW_SHORT_FORMAT       32
 #define SHOW_MEDIUM_FORMAT      46
 #define SHOW_LONG_FORMAT        95
-#define HEADING_LINE_SHORT      "Date   Time     File name                        Type Hostname    File size"
-#define SUM_SEP_LINE_SHORT      "==========================================================================="
-#define HEADING_LINE_MEDIUM     "Date   Time     File name                                      Type Hostname    File size"
-#define SUM_SEP_LINE_MEDIUM     "========================================================================================="
-#define HEADING_LINE_LONG       "Date   Time     File name                                                                                       Type Hostname    File size"
-#define SUM_SEP_LINE_LONG       "=========================================================================================================================================="
+#define HEADING_LINE_SHORT      "Date       Time     File name                        Type Hostname    File size"
+#define SUM_SEP_LINE_SHORT      "==============================================================================="
+#define HEADING_LINE_MEDIUM     "Date       Time     File name                                      Type Hostname    File size"
+#define SUM_SEP_LINE_MEDIUM     "============================================================================================="
+#define HEADING_LINE_LONG       "Date       Time     File name                                                                                       Type Hostname    File size"
+#define SUM_SEP_LINE_LONG       "=============================================================================================================================================="
 
 /* Structure that holds a list of files that where found. */
 struct queued_file_list

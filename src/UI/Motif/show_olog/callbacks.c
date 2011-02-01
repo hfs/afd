@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -500,7 +500,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          format_info(&text);
 
          /* Show the information. */
-         show_info(text);
+         show_info(text, NO);
 
          /* Free all memory that was allocated in get_info(). */
          free(text);

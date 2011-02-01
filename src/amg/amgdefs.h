@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -143,13 +143,16 @@
 #define CONVERT_ID                 "convert"
 #define CONVERT_ID_LENGTH          (sizeof(CONVERT_ID) - 1)
 #define CONVERT_ID_FLAG            262144
+#define LCHMOD_ID                  "lchmod"
+#define LCHMOD_ID_LENGTH           (sizeof(LCHMOD_ID) - 1)
+#define LCHMOD_ID_FLAG             524288
 #ifdef _WITH_AFW2WMO
 # define AFW2WMO_ID                "afw2wmo"
 # define AFW2WMO_ID_LENGTH         (sizeof(AFW2WMO_ID) - 1)
-# define AFW2WMO_ID_FLAG           524288
-# define LOCAL_OPTION_POOL_SIZE    20
+# define AFW2WMO_ID_FLAG           1048576
+# define LOCAL_OPTION_POOL_SIZE    21
 #else
-# define LOCAL_OPTION_POOL_SIZE    19
+# define LOCAL_OPTION_POOL_SIZE    20
 #endif
 
 /* Definitions for types of time options. */
@@ -172,18 +175,20 @@
 #define FOUR_BYTE_GRIB             6
 #define WMO_STANDARD               7
 #define ASCII_STANDARD             8
-#define FOUR_BYTE_DWD              9
-#define SOHETX2WMO0                10
-#define SOHETX2WMO1                11
-#define SOHETX                     12
-#define ONLY_WMO                   13
-#define SOHETXWMO                  14
-#define MRZ2WMO                    15
-#define ZCZC_NNNN                  16
-#define DOS2UNIX                   17
-#define UNIX2DOS                   18
-#define LF2CRCRLF                  19
-#define CRCRLF2LF                  20
+#define BINARY_STANDARD            9
+#define FOUR_BYTE_DWD              10
+#define SOHETX2WMO0                11
+#define SOHETX2WMO1                12
+#define SOHETX                     13
+#define ONLY_WMO                   14
+#define SOHETXWMO                  15
+#define MRZ2WMO                    16
+#define ZCZC_NNNN                  17
+#define DOS2UNIX                   18
+#define UNIX2DOS                   19
+#define LF2CRCRLF                  20
+#define CRCRLF2LF                  21
+#define ISO8859_2ASCII             22
 
 /* Definitions for the different extract options. */
 #define EXTRACT_ADD_SOH_ETX        1
@@ -493,6 +498,7 @@ struct dir_data
 #define SPLIT_FILE_LIST     16
 #define DO_NOT_LINK_FILES   32
 #define DELETE_ALL_FILES    64
+#define EXPAND_DIR          128
 
 /* Structure that holds a single job for process dir_check. */
 struct instant_db
@@ -513,7 +519,7 @@ struct instant_db
           char          *dir;          /* Directory that has to be       */
                                        /* monitored.                     */
           unsigned int  dir_id;        /* Contains the directory ID!!!   */
-          unsigned char lfs;           /* Flag to indicate if this       */
+          unsigned int  lfs;           /* Flag to indicate if this       */
                                        /* directory belongs to the same  */
                                        /* filesystem as the working      */
                                        /* directory of the AFD, i.e if   */
@@ -593,7 +599,7 @@ struct directory_entry
           int                    *no_of_listed_files;
           struct retrieve_list   *rl;
           struct file_mask_entry *fme;
-          char                   flag;       /* Flag to if all files in  */
+          unsigned int           flag;       /* Flag to if all files in  */
                                              /* this directory are to be */
                                              /* distributed (ALL_FILES)  */
                                              /* or if this directory is  */

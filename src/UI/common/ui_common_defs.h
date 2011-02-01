@@ -1,6 +1,6 @@
 /*
  *  ui_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -450,6 +450,27 @@ struct view_process_list
            line[12] = ':';                           \
            line[13] = (p_ts->tm_sec / 10) + '0';     \
            line[14] = (p_ts->tm_sec % 10) + '0';     \
+        }
+#define CONVERT_TIME_YEAR()                               \
+        {                                            \
+           line[0] = (p_ts->tm_mday / 10) + '0';     \
+           line[1] = (p_ts->tm_mday % 10) + '0';     \
+           line[2] = '.';                            \
+           line[3] = ((p_ts->tm_mon + 1) / 10) + '0';\
+           line[4] = ((p_ts->tm_mon + 1) % 10) + '0';\
+           line[5] = '.';                            \
+           line[6] = (((p_ts->tm_year + 1900) / 1000) % 10) + '0';\
+           line[7] = (((p_ts->tm_year + 1900) / 100) % 10) + '0';\
+           line[8] = (((p_ts->tm_year + 1900) / 10) % 10) + '0';\
+           line[9] = ((p_ts->tm_year + 1900) % 10) + '0';\
+           line[11] = (p_ts->tm_hour / 10) + '0';     \
+           line[12] = (p_ts->tm_hour % 10) + '0';     \
+           line[13] = ':';                            \
+           line[14] = (p_ts->tm_min / 10) + '0';     \
+           line[15] = (p_ts->tm_min % 10) + '0';     \
+           line[16] = ':';                           \
+           line[17] = (p_ts->tm_sec / 10) + '0';     \
+           line[18] = (p_ts->tm_sec % 10) + '0';     \
         }
 #define CREATE_LFC_STRING(str, value)              \
         {                                          \

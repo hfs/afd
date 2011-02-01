@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -229,7 +229,7 @@ get_data(void)
    /* Initialise line and its pointers. */
    (void)memset(line, ' ', MAX_TEXT_LINE_LENGTH - 1);
    line[MAX_TEXT_LINE_LENGTH] = '\0';
-   p_event_class  = line + 16;
+   p_event_class  = line + 20;
    p_event_type   = p_event_class + 2;
    p_alias_name   = p_event_type + 2;
    p_event_action = p_alias_name + MAX_ALIAS_LENGTH + 1;
@@ -624,7 +624,7 @@ search_data(register char *ptr,
             {
                time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
                p_ts = localtime(&time_when_transmitted);
-               CONVERT_TIME();
+               CONVERT_TIME_YEAR();
                *p_event_class = 'H';
             }
             else
@@ -638,7 +638,7 @@ search_data(register char *ptr,
                  {
                     time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
                     p_ts = localtime(&time_when_transmitted);
-                    CONVERT_TIME();
+                    CONVERT_TIME_YEAR();
                     *p_event_class = 'G';
                  }
                  else
@@ -652,7 +652,7 @@ search_data(register char *ptr,
                  {
                     time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
                     p_ts = localtime(&time_when_transmitted);
-                    CONVERT_TIME();
+                    CONVERT_TIME_YEAR();
                     *p_event_class = 'P';
                  }
                  else
@@ -666,7 +666,7 @@ search_data(register char *ptr,
                  {
                     time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
                     p_ts = localtime(&time_when_transmitted);
-                    CONVERT_TIME();
+                    CONVERT_TIME_YEAR();
                     *p_event_class = 'D';
                  }
                  else
@@ -678,7 +678,7 @@ search_data(register char *ptr,
               {
                  time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
                  p_ts = localtime(&time_when_transmitted);
-                 CONVERT_TIME();
+                 CONVERT_TIME_YEAR();
                  *p_event_class = '?';
               }
 

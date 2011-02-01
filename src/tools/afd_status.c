@@ -101,7 +101,7 @@ main(int argc, char *argv[])
 #endif
    }
    (void)fprintf(stdout, "AMG                  : %d\n", p_afd_status->amg);
-   (void)fprintf(stdout, "AMG jobs             : %d\n", p_afd_status->amg_jobs);
+   (void)fprintf(stdout, "AMG jobs status flag : %d\n", p_afd_status->amg_jobs);
    (void)fprintf(stdout, "FD                   : %d\n", p_afd_status->fd);
    (void)fprintf(stdout, "System log           : %d\n", p_afd_status->sys_log);
    (void)fprintf(stdout, "Event log            : %d\n", p_afd_status->event_log);

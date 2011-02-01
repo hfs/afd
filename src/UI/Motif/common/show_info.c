@@ -1,6 +1,6 @@
 /*
  *  show_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@ DESCR__S_M3
  **               log entry
  **
  ** SYNOPSIS
- **   void show_info(char *text)
+ **   void show_info(char *text, int with_search_function)
  **
  ** DESCRIPTION
  **
@@ -39,6 +39,7 @@ DESCR__S_M3
  ** HISTORY
  **   16.04.1997 H.Kiehl Created
  **   16.01.1999 H.Kiehl Add scrollbars when list gets too long.
+ **   05.01.2011 H.Kiehl Added optional search button.
  **
  */
 DESCR__E_M3
@@ -69,18 +70,21 @@ extern Dimension button_height;
 static int       glyph_height,
                  glyph_width;
 static Widget    infoshell = (Widget)NULL,
+                 searchbox_w,
                  text_w;
 
 /* Local function prototypes. */
-static void      close_info_button(Widget, XtPointer, XtPointer);
+static void      close_info_button(Widget, XtPointer, XtPointer),
+                 search_button(Widget, XtPointer, XtPointer);
 
 
 /*############################## show_info() ############################*/
 void
-show_info(char *text)
+show_info(char *text, int with_search_function)
 {
    static Window win = (Window)NULL;
-   static int    max_vertical_lines;
+   static int    button_lines,
+                 max_vertical_lines;
 
    /*
     * First, see if the window has already been created. If
@@ -91,7 +95,8 @@ show_info(char *text)
    {
       Widget          form_w,
                       buttonbox_w,
-                      button_w;
+                      button_w,
+                      h_separator_w;
       Arg             args[MAXARGS];
       Cardinal        argcount;
       XmFontList      i_fontlist;
@@ -106,11 +111,14 @@ show_info(char *text)
       form_w = XmCreateForm(infoshell, "infoform", NULL, 0);
 
       /* Prepare font. */
-      if ((entry = XmFontListEntryLoad(XtDisplay(form_w), font_name, XmFONT_IS_FONT, "TAG1")) == NULL)
+      if ((entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
+                                       XmFONT_IS_FONT, "TAG1")) == NULL)
       {
-         if ((entry = XmFontListEntryLoad(XtDisplay(form_w), "fixed", XmFONT_IS_FONT, "TAG1")) == NULL)
+         if ((entry = XmFontListEntryLoad(XtDisplay(form_w), "fixed",
+                                          XmFONT_IS_FONT, "TAG1")) == NULL)
          {
-            (void)fprintf(stderr, "Failed to load font with XmFontListEntryLoad() : %s (%s %d)\n",
+            (void)fprintf(stderr,
+                          "Failed to load font with XmFontListEntryLoad() : %s (%s %d)\n",
                           strerror(errno), __FILE__, __LINE__);
             exit(INCORRECT);
          }
@@ -121,6 +129,87 @@ show_info(char *text)
       i_fontlist = XmFontListAppendEntry(NULL, entry);
       XmFontListEntryFree(&entry);
 
+      if (with_search_function == YES)
+      {
+         argcount = 0;
+         XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+         argcount++;
+         XtSetArg(args[argcount], XmNtopOffset,        1);
+         argcount++;
+         XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
+         argcount++;
+         XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+         argcount++;
+         XtSetArg(args[argcount], XmNfractionBase,     31);
+         argcount++;
+         buttonbox_w = XmCreateForm(form_w, "buttonbox2", args, argcount);
+
+         searchbox_w = XtVaCreateWidget("searchbox",
+                                        xmTextWidgetClass,        buttonbox_w,
+                                        XmNtopAttachment,         XmATTACH_POSITION,
+                                        XmNtopPosition,           5,
+                                        XmNbottomAttachment,      XmATTACH_POSITION,
+                                        XmNbottomPosition,        26,
+                                        XmNleftAttachment,        XmATTACH_POSITION,
+                                        XmNleftPosition,          1,
+                                        XmNrightAttachment,       XmATTACH_POSITION,
+                                        XmNrightPosition,         20,
+                                        XmNfontList,              i_fontlist,
+                                        XmNrows,                  1,
+                                        XmNeditable,              True,
+                                        XmNcursorPositionVisible, True,
+                                        XmNmarginHeight,          1,
+                                        XmNmarginWidth,           1,
+                                        XmNshadowThickness,       1,
+                                        XmNhighlightThickness,    0,
+                                        NULL);
+         XtManageChild(searchbox_w);
+         button_w = XtVaCreateManagedWidget("Search",
+                                            xmPushButtonWidgetClass, buttonbox_w,
+                                            XmNleftAttachment,       XmATTACH_POSITION,
+                                            XmNleftPosition,         22,
+                                            XmNrightAttachment,      XmATTACH_POSITION,
+                                            XmNrightPosition,        28,
+                                            XmNtopAttachment,        XmATTACH_FORM,
+                                            XmNfontList,             i_fontlist,
+                                            NULL);
+         XtAddCallback(button_w, XmNactivateCallback,
+                       (XtCallbackProc)search_button, (XtPointer)0);
+         XtManageChild(buttonbox_w);
+
+         /* Create a horizontal separator. */
+         argcount = 0;
+         XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
+         argcount++;
+         XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
+         argcount++;
+         XtSetArg(args[argcount], XmNtopWidget,       buttonbox_w);
+         argcount++;
+         XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
+         argcount++;
+         XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
+         argcount++;
+         h_separator_w = XmCreateSeparator(form_w, "h_separator",
+                                           args, argcount);
+         XtManageChild(h_separator_w);
+
+         argcount = 0;
+         XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
+         argcount++;
+         XtSetArg(args[argcount], XmNtopWidget,       h_separator_w);
+         argcount++;
+         XtSetArg(args[argcount], XmNtopOffset,       1);
+
+         button_lines = 2;
+      }
+      else
+      {
+         argcount = 0;
+         XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_FORM);
+
+         button_lines = 1;
+      }
+
       /*
        * Lets determine the maximum number of lines that we can
        * display on this screen.
@@ -128,7 +217,7 @@ show_info(char *text)
       max_vertical_lines = (8 * (DisplayHeight(display, DefaultScreen(display)) / glyph_height)) / 10;
 
       /* A small text box. */
-      argcount = 0;
+      argcount++;
       XtSetArg(args[argcount], XmNcursorPositionVisible, False);
       argcount++;
       XtSetArg(args[argcount], XmNhighlightThickness,    0);
@@ -154,8 +243,6 @@ show_info(char *text)
       argcount++;
       XtSetArg(args[argcount], XmNfontList,              i_fontlist);
       argcount++;
-      XtSetArg(args[argcount], XmNtopAttachment,         XmATTACH_FORM);
-      argcount++;
       XtSetArg(args[argcount], XmNleftAttachment,        XmATTACH_FORM);
       argcount++;
       XtSetArg(args[argcount], XmNrightAttachment,       XmATTACH_FORM);
@@ -164,6 +251,10 @@ show_info(char *text)
       XtManageChild(text_w);
 
       argcount = 0;
+      XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+      argcount++;
+      XtSetArg(args[argcount], XmNtopWidget,        text_w);
+      argcount++;
       XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
       argcount++;
       XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
@@ -203,7 +294,8 @@ show_info(char *text)
    {
       XResizeWindow(display, win,
                     glyph_width * (max_x + 3 + 2),
-                    (glyph_height * (max_vertical_lines + 1)) + button_height);
+                    (glyph_height * (max_vertical_lines + 1)) +
+                    (button_lines * button_height));
       XtVaSetValues(text_w,
                     XmNcolumns, max_x + 2,
                     XmNrows,    max_vertical_lines,
@@ -213,7 +305,8 @@ show_info(char *text)
    {
       XResizeWindow(display, win,
                     glyph_width * (max_x + 3 + 2),
-                    (glyph_height * (max_y + 1)) + button_height);
+                    (glyph_height * (max_y + 1)) +
+                    (button_lines * button_height));
       XtVaSetValues(text_w,
                     XmNcolumns, max_x,
                     XmNrows,    max_y,
@@ -232,6 +325,91 @@ static void
 close_info_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    XtPopdown(infoshell);
+
+   return;
+}
+
+
+/*+++++++++++++++++++++++++++ search_button() +++++++++++++++++++++++++++*/
+static void
+search_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   char                  *ptr,
+                         *search_str,
+                         *text_str;
+   static char           *last_search_str = NULL;
+   static XmTextPosition last_pos = 0;
+
+   if (last_pos != 0)
+   {
+      XmTextClearSelection(text_w, 0);
+   }
+   if (!(search_str = XmTextGetString(searchbox_w)) || (!*search_str))
+   {
+      XtFree(search_str);
+      return;
+   }
+   else
+   {
+      if (last_search_str == NULL)
+      {
+         size_t length;
+
+         length = strlen(search_str) + 1;
+         if ((last_search_str = malloc(length)) == NULL)
+         {
+            (void)xrec(FATAL_DIALOG,
+                       "Could not malloc() %d Bytes : %s (%s %d)",
+                       length, strerror(errno), __FILE__, __LINE__);
+            return;
+         }
+         (void)memcpy(last_search_str, search_str, length);
+      }
+      else
+      {
+         if (strcmp(last_search_str, search_str) != 0)
+         {
+            size_t length;
+
+            length = strlen(search_str) + 1;
+            last_pos = 0;
+            free(last_search_str);
+            if ((last_search_str = malloc(length)) == NULL)
+            {
+               (void)xrec(FATAL_DIALOG,
+                          "Could not malloc() %d Bytes : %s (%s %d)",
+                          length, strerror(errno), __FILE__, __LINE__);
+               return;
+            }
+            (void)memcpy(last_search_str, search_str, length);
+         }
+      }
+   }
+   if (!(text_str = XmTextGetString(text_w)) || (!*text_str))
+   {
+      XtFree(text_str);
+      XtFree(search_str);
+      return;
+   }
+   if ((ptr = posi(text_str + last_pos, search_str)) != NULL)
+   {
+      size_t         length;
+      XmTextPosition pos;
+
+      length = strlen(search_str);
+      pos = (XmTextPosition)(ptr - text_str - length - 1);
+      XmTextShowPosition(text_w, pos);
+      XmTextSetSelection(text_w, pos, pos + length, 0);
+      last_pos = pos + length;
+   }
+   else
+   {
+      if (last_pos != 0)
+      {
+         XmTextClearSelection(text_w, 0);
+         last_pos = 0;
+      }
+   }
 
    return;
 }

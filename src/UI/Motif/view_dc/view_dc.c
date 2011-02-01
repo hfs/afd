@@ -1,6 +1,6 @@
 /*
  *  view_dc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,7 @@ DESCR__S_M1
  **   06.08.2004 H.Kiehl Write window ID to a common file.
  **   19.05.2006 H.Kiehl Use program get_dc_data from the tools section
  **                      to get the DIR_CONFIG data.
+ **   05.01.2011 H.Kiehl Added search button.
  **
  */
 DESCR__E_M1
@@ -83,6 +84,7 @@ DESCR__E_M1
 Display      *display;
 XtAppContext app;
 Widget       appshell,
+             searchbox_w,
              text_w;
 int          sys_log_fd = STDERR_FILENO;
 char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
@@ -116,6 +118,7 @@ main(int argc, char *argv[])
                       "*mwmDecorations : 42",
                       "*mwmFunctions : 12",
                       ".view_dc.form*background : NavajoWhite2",
+                      ".view_dc.form.buttonbox2.searchbox*background : NavajoWhite1",
                       ".view_dc.form.dc_textSW.dc_text.background : NavajoWhite1",
                       ".view_dc.form.buttonbox*background : PaleVioletRed2",
                       ".view_dc.form.buttonbox*foreground : Black",
@@ -191,8 +194,18 @@ main(int argc, char *argv[])
    /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
 
-   entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
-                               XmFONT_IS_FONT, "TAG1");
+   if ((entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
+                                    XmFONT_IS_FONT, "TAG1")) == NULL)
+   {
+      if ((entry = XmFontListEntryLoad(XtDisplay(form_w), "fixed",
+                                       XmFONT_IS_FONT, "TAG1")) == NULL)
+      {
+         (void)fprintf(stderr,
+                       "Failed to load font with XmFontListEntryLoad() : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+   }
    font_struct = (XFontStruct *)XmFontListEntryGetFont(entry, &dummy);
    glyph_height = font_struct->ascent + font_struct->descent;
    fontlist = XmFontListAppendEntry(NULL, entry);
@@ -264,10 +277,6 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNautoShowCursorPosition, False);
    argcount++;
-   XtSetArg(args[argcount], XmNtopAttachment,          XmATTACH_FORM);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopOffset,              3);
-   argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,         XmATTACH_FORM);
    argcount++;
    XtSetArg(args[argcount], XmNleftOffset,             3);
@@ -290,6 +299,73 @@ main(int argc, char *argv[])
    argcount++;
    text_w = XmCreateScrolledText(form_w, "dc_text", args, argcount);
    XtManageChild(text_w);
+
+   /* Create a horizontal separator. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment,      XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,          text_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,        XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,       XmATTACH_FORM);
+   argcount++;
+   h_separator_w = XmCreateSeparator(form_w, "h_separator", args, argcount);
+   XtManageChild(h_separator_w);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,          XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopOffset,              1);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,         XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,        XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment,       XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,           h_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomOffset,           1);
+   argcount++;
+   XtSetArg(args[argcount], XmNfractionBase,           31);
+   argcount++;
+   buttonbox_w = XmCreateForm(form_w, "buttonbox2", args, argcount);
+
+   searchbox_w = XtVaCreateWidget("searchbox",
+                                  xmTextWidgetClass,        buttonbox_w,
+                                  XmNtopAttachment,         XmATTACH_POSITION,
+                                  XmNtopPosition,           5,
+                                  XmNbottomAttachment,      XmATTACH_POSITION,
+                                  XmNbottomPosition,        26,
+                                  XmNleftAttachment,        XmATTACH_POSITION,
+                                  XmNleftPosition,          1,
+                                  XmNrightAttachment,       XmATTACH_POSITION,
+                                  XmNrightPosition,         20,
+                                  XmNfontList,              fontlist,
+                                  XmNrows,                  1,
+                                  XmNeditable,              True,
+                                  XmNcursorPositionVisible, True,
+                                  XmNmarginHeight,          1,
+                                  XmNmarginWidth,           1,
+                                  XmNshadowThickness,       1,
+                                  XmNhighlightThickness,    0,
+                                  NULL);
+   XtManageChild(searchbox_w);
+   button_w = XtVaCreateManagedWidget("Search",
+                                      xmPushButtonWidgetClass, buttonbox_w,
+                                      XmNleftAttachment,       XmATTACH_POSITION,
+                                      XmNleftPosition,         22,
+                                      XmNrightAttachment,      XmATTACH_POSITION,
+                                      XmNrightPosition,        28,
+                                      XmNtopAttachment,        XmATTACH_FORM,
+                                      XmNfontList,             fontlist,
+                                      NULL);
+   XtAddCallback(button_w, XmNactivateCallback,
+                 (XtCallbackProc)search_button, (XtPointer)0);
+   XtManageChild(buttonbox_w);
    XtManageChild(form_w);
 
    /* Free font list. */

@@ -1,6 +1,6 @@
 /*
  *  pmatch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -279,6 +279,21 @@ expand_filter(char *orig_filter, char *tmp_filter, time_t check_time)
                   wptr += strftime(wptr,
                                    (tmp_filter + MAX_FILENAME_LENGTH - wptr),
                                    "%m", localtime(&time_buf));
+                  break;
+               case 'R': /* Sunday week number [00,53]. */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%U", localtime(&time_buf));
+                  break;
+               case 'w': /* Weekday [0=Sunday,6]. */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%w", localtime(&time_buf));
+                  break;
+               case 'W': /* Monday week number [00,53]. */
+                  wptr += strftime(wptr,
+                                   (tmp_filter + MAX_FILENAME_LENGTH - wptr),
+                                   "%W", localtime(&time_buf));
                   break;
                case 'y': /* Year 2 chars [01,99]. */
                   wptr += strftime(wptr,

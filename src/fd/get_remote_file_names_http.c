@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names_http.c - Part of AFD, an automatic file distribution
  *                                 program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -285,7 +285,7 @@ get_remote_file_names_http(off_t *file_size_to_retrieve, int *more_files_in_list
                      {
                         trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                                   __FILE__, __LINE__, NULL, msg_str,
-                                  "Failed to get date and size of file %s (%d).",
+                                  "Failed to get date and size of data %s (%d).",
                                   rl[i].file_name, status);
                         if (timeout_flag == ON)
                         {
@@ -359,22 +359,25 @@ get_remote_file_names_http(off_t *file_size_to_retrieve, int *more_files_in_list
       struct tm *p_tm;
 
       /* Get all file masks for this directory. */
-      if ((j == read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml)) == SUCCESS)
+      if ((j = read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml)) != SUCCESS)
       {
          if (j == LOCKFILE_NOT_THERE)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to set lock in file masks, because the file is not there.");
+                       "Failed to set lock in file masks for %s, because the file is not there.",
+                       fra[db.fra_pos].dir_alias);
          }
          else if (j == LOCK_IS_SET)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to get the file masks, because lock is already set");
+                            "Failed to get the file masks for %s, because lock is already set.",
+                            fra[db.fra_pos].dir_alias);
               }
               else
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to get the file masks. (%d)", j);
+                            "Failed to get the file masks for %s. (%d)",
+                            fra[db.fra_pos].dir_alias, j);
               }
          if (fml != NULL)
          {

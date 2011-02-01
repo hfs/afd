@@ -1,6 +1,6 @@
 /*
  *  ssh_common.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -818,8 +818,12 @@ retry_read:
                   if (kill(ssh_data_pid, SIGKILL) == -1)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
+#if SIZEOF_PID_T == 4
                                _("Failed to kill() data ssh process %d : %s"),
-                               ssh_data_pid, strerror(errno));
+#else
+                               _("Failed to kill() data ssh process %lld : %s"),
+#endif
+                               (pri_pid_t)ssh_data_pid, strerror(errno));
                   }
                   else
                   {

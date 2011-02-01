@@ -1,6 +1,6 @@
 /*
  *  show_elog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1147,7 +1147,7 @@ init_show_elog(int *argc, char *argv[])
    /* to zero.                                             */
    umask(0);
 
-   (void)sprintf(heading_line, "Date   Time     C T %-*s %-*s %-*s",
+   (void)sprintf(heading_line, "Date       Time     C T %-*s %-*s %-*s",
                  MAX_ALIAS_LENGTH, "Alias",
                  (int)MAX_EVENT_ACTION_LENGTH, "Action",
                  ADDITIONAL_INFO_LENGTH,

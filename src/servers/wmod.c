@@ -1,6 +1,6 @@
 /*
  *  wmod.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -546,8 +546,12 @@ wmod_exit(void)
                if (errno != ESRCH)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                              "Failed to kill() %d : %s",
-                             pl[i].pid, strerror(errno));
+#else
+                             "Failed to kill() %lld : %s",
+#endif
+                             (pri_pid_t)pl[i].pid, strerror(errno));
                }
             }
             else

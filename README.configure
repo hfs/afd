@@ -181,6 +181,10 @@
                                   [Default: disabled]
 --enable-compiler-profiling     - Turns on compiler profiling support.
                                   [Default: disabled]
+--enable-use_fortify            - Turns on fortify option of glibc/gcc.
+                                  Note this does not work with
+                                  --enable-compiler-debug
+                                  [Default: disabled]
 --enable-compile-64-bit         - This forces AFD be compiled as 64 bit
                                   application on system that support both
                                   32 and 64 bit applications. On 64 bit only

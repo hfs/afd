@@ -6,7 +6,11 @@
 #                                                                    
  
 ##########################################################################
-# The port at which the TCP daemon of the AFD will listen.               #
+# The port at which the TCP daemon of the AFD will listen. Note you will #
+# only be able to pick a port that is not in the dynamic port range.     #
+# IANA suggests this port range to be 49152 to 65535. On linux systems   #
+# this usually is 32768 to 61000. On linux AFD will determine this value #
+# by reading /proc/sys/net/ipv4/ip_local_port_range.                     #
 # Default: Disabled                                                      #
 ##########################################################################
 #AFD_TCP_PORT                     4444

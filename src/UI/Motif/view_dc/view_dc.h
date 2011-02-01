@@ -1,6 +1,6 @@
 /*
  *  view_dc.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #define MAXARGS                  20
 
 /* Function prototypes. */
-extern void close_button(Widget, XtPointer, XtPointer);
+extern void close_button(Widget, XtPointer, XtPointer),
+            search_button(Widget, XtPointer, XtPointer);
 
 #endif /* __view_dc_h */

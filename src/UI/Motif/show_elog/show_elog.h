@@ -1,6 +1,6 @@
 /*
  *  show_elog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@
 #else
 # define MAX_ALIAS_LENGTH        MAX_HOSTNAME_LENGTH
 #endif
-#define LENGTH_TO_ADD_INFO      (20 + MAX_ALIAS_LENGTH + 1 + MAX_EVENT_ACTION_LENGTH + 1)
+#define LENGTH_TO_ADD_INFO      (24 + MAX_ALIAS_LENGTH + 1 + MAX_EVENT_ACTION_LENGTH + 1)
 #define MAX_OUTPUT_LINE_LENGTH  (LENGTH_TO_ADD_INFO + ADDITIONAL_INFO_LENGTH)
 #define MAX_TEXT_LINE_LENGTH    (LENGTH_TO_ADD_INFO + MAX_EVENT_REASON_LENGTH)
 

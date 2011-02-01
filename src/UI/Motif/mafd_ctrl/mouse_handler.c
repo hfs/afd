@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,6 +96,7 @@ extern Widget                     fw[],
                                   rw[],
                                   lsw[],
                                   appshell,
+                                  line_window_w,
                                   transviewshell;
 extern Window                     detailed_window,
                                   line_window,
@@ -223,6 +224,11 @@ input(Widget w, XtPointer client_data, XEvent *event)
 {
    int        select_no;
    static int last_motion_pos = -1;
+
+   if (event->xany.type == EnterNotify)
+   {
+      XmProcessTraversal(line_window_w, XmTRAVERSE_CURRENT);
+   }
 
    /* Handle any motion event. */
    if ((event->xany.type == MotionNotify) && (in_window == YES))
@@ -513,6 +519,51 @@ input(Widget w, XtPointer client_data, XEvent *event)
          (void)fprintf(stderr, "input(): xbutton.y     = %d\n",
                        event->xbutton.y);
 #endif
+      }
+   }
+
+   if ((event->type == KeyPress) && (event->xkey.state & ControlMask))
+   {
+      int            bufsize = 10,
+                     count;
+      char           buffer[10];
+      KeySym         keysym;
+      XComposeStatus compose;
+
+      count = XLookupString((XKeyEvent *)event, buffer, bufsize,
+                            &keysym, &compose);
+      buffer[count] = '\0';
+      if ((keysym == XK_plus) || (keysym == XK_minus))
+      {
+         XT_PTR_TYPE new_font;
+
+         if (keysym == XK_plus)
+         {
+            for (new_font = current_font + 1; new_font < NO_OF_FONTS; new_font++)
+            {
+               if (fw[new_font] != NULL)
+               {
+                  break;
+               }
+            }
+         }
+         else
+         {
+            for (new_font = current_font - 1; new_font >= 0; new_font--)
+            {
+               if (fw[new_font] != NULL)
+               {
+                  break;
+               }
+            }
+         }
+         if ((new_font >= 0) && (new_font < NO_OF_FONTS) &&
+             (current_font != new_font))
+         {
+            change_font_cb(w, (XtPointer)new_font, NULL);
+         }
+
+         return;
       }
    }
 
@@ -2082,6 +2133,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
 #else
                            lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
 #endif
+                           if (fsa[i].host_status & HOST_ERROR_EA_STATIC)
+                           {
+                              fsa[i].host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+                           }
+                           else
+                           {
+                              fsa[i].host_status &= ~EVENT_STATUS_FLAGS;
+                           }
                            fsa[i].host_status &= ~HOST_ERROR_ACKNOWLEDGED;
                            fsa[i].host_status &= ~HOST_ERROR_OFFLINE;
                            fsa[i].host_status &= ~HOST_ERROR_ACKNOWLEDGED_T;

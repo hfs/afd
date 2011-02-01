@@ -1,6 +1,6 @@
 /*
  *  httpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,6 +52,7 @@ struct http_message_reply
 #ifdef WITH_TRACE
           unsigned int http_options;
 #endif
+          unsigned int http_options_not_working;
           int          port;
           int          header_length;
           int          http_version;

@@ -1889,7 +1889,15 @@ handle_dir(int    dir_pos,
                            if ((db[de[dir_pos].fme[j].pos[k]].lfs & GO_PARALLEL) &&
                                (*no_of_process < max_process))
                            {
+                              int   pfd1[2],
+                                    pfd2[2];
                               pid_t pid;
+
+                              if ((pipe(pfd1) < 0) || (pipe(pfd2) < 0))
+                              {
+                                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                            "pipe() error : %s", strerror(errno));
+                              }
 
                               switch (pid = fork())
                               {
@@ -1898,6 +1906,12 @@ handle_dir(int    dir_pos,
                                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                                "Could not fork() : %s",
                                                strerror(errno));
+                                    if ((close(pfd1[0]) == -1) || (close(pfd1[1]) == -1) ||
+                                        (close(pfd2[0]) == -1) || (close(pfd2[1]) == -1))
+                                    {
+                                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                  "close() error : %s", strerror(errno));
+                                    }
 
                                     /*
                                      * Exiting is not the right thing to do here!
@@ -1932,6 +1946,22 @@ handle_dir(int    dir_pos,
                                        muntrace();
 # endif
                                        in_child = YES;
+                                       if (write(pfd2[1], "c", 1) != 1)
+                                       {
+                                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                     "write() error : %s", strerror(errno));
+                                       }
+                                       if (read(pfd1[0], &pid, 1) != 1)
+                                       {
+                                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                     "read() error : %s", strerror(errno));
+                                       }
+                                       if ((close(pfd1[0]) == -1) || (close(pfd1[1]) == -1) ||
+                                           (close(pfd2[0]) == -1) || (close(pfd2[1]) == -1))
+                                       {
+                                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                     "close() error : %s", strerror(errno));
+                                       }
                                        if ((db[de[dir_pos].fme[j].pos[k]].lfs & SPLIT_FILE_LIST) &&
                                            (files_linked > MAX_FILES_TO_PROCESS))
                                        {
@@ -2138,12 +2168,33 @@ handle_dir(int    dir_pos,
                                     exit(SUCCESS);
 
                                  default : /* Parent process. */
-                                    dcpl[*no_of_process].pid = pid;
-                                    dcpl[*no_of_process].fra_pos = de[dir_pos].fra_pos;
-                                    dcpl[*no_of_process].job_id = db[de[dir_pos].fme[j].pos[k]].job_id;
-                                    fra[de[dir_pos].fra_pos].no_of_process++;
-                                    (*no_of_process)++;
-                                    p_afd_status->amg_fork_counter++;
+                                    {
+                                       char c;
+
+                                       if (write(pfd1[1], "p", 1) != 1)
+                                       {
+                                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                     "write() error : %s", strerror(errno));
+                                       }
+                                       if (read(pfd2[0], &c, 1) != 1)
+                                       {
+                                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                     "read() error : %s", strerror(errno));
+                                       }
+                                       if ((close(pfd1[0]) == -1) || (close(pfd1[1]) == -1) ||
+                                           (close(pfd2[0]) == -1) || (close(pfd2[1]) == -1))
+                                       {
+                                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                     "close() error : %s", strerror(errno));
+                                       }
+
+                                       dcpl[*no_of_process].pid = pid;
+                                       dcpl[*no_of_process].fra_pos = de[dir_pos].fra_pos;
+                                       dcpl[*no_of_process].job_id = db[de[dir_pos].fme[j].pos[k]].job_id;
+                                       fra[de[dir_pos].fra_pos].no_of_process++;
+                                       (*no_of_process)++;
+                                       p_afd_status->amg_fork_counter++;
+                                    }
                                     break;
                               } /* switch () */
                            }

@@ -99,8 +99,8 @@ am_libmisc_a_OBJECTS = afw2wmo.$(OBJEXT) assemble.$(OBJEXT) \
 	bin_file_chopper.$(OBJEXT) convert.$(OBJEXT) \
 	convert_grib2wmo.$(OBJEXT) create_eumetsat_header.$(OBJEXT) \
 	extract.$(OBJEXT) fax2gts.$(OBJEXT) gts2tiff.$(OBJEXT) \
-	tiff2gts.$(OBJEXT) wmo2ascii.$(OBJEXT) \
-	wmoheader_from_grib.$(OBJEXT)
+	iso8859_2ascii.$(OBJEXT) tiff2gts.$(OBJEXT) \
+	wmo2ascii.$(OBJEXT) wmoheader_from_grib.$(OBJEXT)
 libmisc_a_OBJECTS = $(am_libmisc_a_OBJECTS)
 PROGRAMS = $(bin_PROGRAMS)
 am_create_eumetsat_name_OBJECTS = create_eumetsat_name.$(OBJEXT)
@@ -200,11 +200,14 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSUB = @POSUB@
 PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
@@ -295,6 +298,7 @@ libmisc_a_SOURCES = afw2wmo.c\
                                extract.c\
                                fax2gts.c\
                                gts2tiff.c\
+                               iso8859_2ascii.c\
                                tiff2gts.c\
                                wmo2ascii.c\
                                wmoheader_from_grib.c
@@ -437,6 +441,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/extract.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fax2gts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gts2tiff.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iso8859_2ascii.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tiff2gts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/todos.Po@am__quote@

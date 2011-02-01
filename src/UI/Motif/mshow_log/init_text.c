@@ -1,6 +1,6 @@
 /*
  *  init_text.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -244,16 +244,8 @@ read_text(void)
                     (((toggles_set & SHOW_OFFLINE) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'O')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'D')) ||
                     (((toggles_set & SHOW_TRACE) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'T')) ||
-#ifdef _TOGGLED_PROC_SELECTION
-                    (((toggles_set_parallel_jobs & 1) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '0')) ||
-                    (((toggles_set_parallel_jobs & 2) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '1')) ||
-                    (((toggles_set_parallel_jobs & 4) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '2')) ||
-                    (((toggles_set_parallel_jobs & 8) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '3')) ||
-                    (((toggles_set_parallel_jobs & 16) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '4'))))
-#else
                     (((toggles_set_parallel_jobs - 1) != (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) - 48)) &&
                     (toggles_set_parallel_jobs != 0))))
-#endif
                {
                   if (last == HIT)
                   {
@@ -373,16 +365,8 @@ read_text(void)
                     (((toggles_set & SHOW_OFFLINE) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'O')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'D')) ||
                     (((toggles_set & SHOW_TRACE) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'T')) ||
-#ifdef _TOGGLED_PROC_SELECTION
-                    (((toggles_set_parallel_jobs & 1) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '0')) ||
-                    (((toggles_set_parallel_jobs & 2) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '1')) ||
-                    (((toggles_set_parallel_jobs & 4) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '2')) ||
-                    (((toggles_set_parallel_jobs & 8) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '3')) ||
-                    (((toggles_set_parallel_jobs & 16) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '4'))))
-#else
                     (((toggles_set_parallel_jobs - 1) != (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) - 48)) &&
                     (toggles_set_parallel_jobs != 0))))
-#endif
                {
                   if (last == HIT)
                   {

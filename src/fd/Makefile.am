@@ -87,6 +87,7 @@ sf_ftp_SOURCES        = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_ftp.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_ftp.c\
@@ -114,9 +115,9 @@ sf_http_SOURCES       = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
-                        next_wmo_counter.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_http.c\
@@ -128,6 +129,7 @@ sf_http_LDADD         = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
                         ../protocols/libprotocols.a\
                         ../common/libafd.a @AFD_SSL_LIBS@
 sf_http_trace_SOURCES = $(sf_http_SOURCES) trace_log.c
+sf_http_trace_CFLAGS  = -DWITH_TRACE
 sf_http_trace_LDADD   = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
                         ../protocols/libtraceprotocols.a\
                         ../common/libafd.a @AFD_SSL_LIBS@
@@ -146,6 +148,7 @@ sf_sftp_SOURCES       = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_sftp.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_sftp.c\
@@ -175,6 +178,7 @@ sf_smtp_SOURCES       = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_smtp.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_smtp.c\
@@ -202,6 +206,7 @@ sf_scp_SOURCES        = append.c\
                         limit_transfer_rate.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_scp.c\
@@ -227,9 +232,9 @@ sf_wmo_SOURCES        = append.c\
                         init_sf.c\
                         init_sf_burst2.c\
                         limit_transfer_rate.c\
-                        next_wmo_counter.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_wmo.c\
@@ -254,6 +259,7 @@ sf_map_SOURCES        = append.c\
                         init_sf.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_map.c\
@@ -277,6 +283,7 @@ sf_loc_SOURCES        = append.c\
                         init_sf_burst2.c\
                         noop_wrapper_dummy.c\
                         $(OUTPUT_LOG_PTRS)\
+                        receive_log.c\
                         reset_fsa.c\
                         send_proc_fin.c\
                         sf_loc.c\

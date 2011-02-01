@@ -131,6 +131,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        get_arg.c\
                        get_checksum.c\
                        get_definition.c\
+                       get_dir_alias.c\
                        get_dir_number.c\
                        get_dir_options.c\
                        get_error_str.c\

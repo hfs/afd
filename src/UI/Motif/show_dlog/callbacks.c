@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -303,7 +303,8 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
       XtVaGetValues(w, XmNitemCount, &max_pos, NULL);
       if ((max_pos > 0) && (pos <= max_pos))
       {
-         int  i;
+         int  i,
+              with_search_function;
          char *text = NULL;
 
          /* Initialize text an data area. */
@@ -320,14 +321,16 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          if (id.job_id == 0)
          {
             format_input_info(&text);
+            with_search_function = YES;
          }
          else
          {
             format_output_info(&text);
+            with_search_function = NO;
          }
 
          /* Show the information. */
-         show_info(text);
+         show_info(text, with_search_function);
 
          /* Free all memory that was allocated in get_info(). */
          free(text);

@@ -109,10 +109,13 @@ DESCR__E_M1
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
+                           no_of_dirs,
                            no_of_hosts,
                            *p_no_of_hosts = NULL,
-                           fsa_id,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
+                           fsa_id,
                            prev_no_of_files_done = 0,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
@@ -147,7 +150,8 @@ unsigned int               burst_2_counter = 0,
                            total_append_count = 0;
 #endif
 #ifdef HAVE_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
 off_t                      append_offset = 0,
                            *file_size_buffer = NULL;
@@ -160,6 +164,7 @@ char                       *del_file_name_buffer = NULL,
                            msg_str[MAX_RET_MSG_LENGTH],
                            *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+struct fileretrieve_status *fra = NULL;
 struct filetransfer_status *fsa = NULL;
 struct job                 db;
 struct rule                *rule;
@@ -1993,15 +1998,15 @@ main(int argc, char *argv[])
                 * Give a warning in the system log, so some action
                 * can be taken against the originator.
                 */
-               system_log(WARN_SIGN, __FILE__, __LINE__,
+               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L, db.job_id,
 #if SIZEOF_OFF_T == 4
-                          "File `%s' for host %s was DEFINITELY send without any locking. Size changed from %ld to %ld.",
+                           "File `%s' for host %s was DEFINITELY send without any locking. Size changed from %ld to %ld.",
 #else
-                          "File `%s' for host %s was DEFINITELY send without any locking. Size changed from %lld to %lld.",
+                           "File `%s' for host %s was DEFINITELY send without any locking. Size changed from %lld to %lld.",
 #endif
-                          p_final_filename, fsa->host_dsp_name,
-                          (pri_off_t)*p_file_size_buffer,
-                          (pri_off_t)(no_of_bytes + append_offset));
+                           p_final_filename, fsa->host_dsp_name,
+                           (pri_off_t)*p_file_size_buffer,
+                           (pri_off_t)(no_of_bytes + append_offset));
             }
 
             /* Close local file. */
@@ -2776,9 +2781,8 @@ try_again_unlink:
                {
                   sign = INFO_SIGN;
                }
-               system_log(sign, __FILE__, __LINE__,
-                          "Starting input queue for %s that was stopped by init_afd.",
-                          fsa->host_alias);
+               trans_log(sign, __FILE__, __LINE__, NULL, NULL,
+                         "Starting input queue that was stopped by init_afd.");
                event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
                          fsa->host_alias);
             }
