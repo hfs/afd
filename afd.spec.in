@@ -142,7 +142,7 @@ then
    then
       for afduser in $AFD_USERS
       do
-         AFD_WORK_DIR_LIST=`su - $afduser -c 'echo \$MULTI_AFD_DIRS'`
+         AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:\$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
          if [ "$AFD_WORK_DIR_LIST" = "" ]
          then
             su - $afduser -c "afd -c" > /dev/null 2>&1
@@ -263,6 +263,9 @@ exit 0
 %{INITDIR}/afdmon
 
 %changelog
+*Mon Feb 07 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+- Handle case when users write some data to stdout or stderr.
+
 *Wed Nov 05 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
 - Let autotools handle doc and man directories.
 

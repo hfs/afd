@@ -43,10 +43,7 @@ case "$1" in
 	RETVAL=1
 	for afduser in $AFD_USERS
 	do
-	   TMP_MULTI_DIR_FILE="/tmp/afd_multi_dirs.$$"
-	   su - $afduser -c "echo \$MULTI_AFD_DIRS > $TMP_MULTI_DIR_FILE"
-	   AFD_WORK_DIR_LIST="`cat $TMP_MULTI_DIR_FILE`"
-	   rm -f $TMP_MULTI_DIR_FILE
+	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	   if [ "$AFD_WORK_DIR_LIST" = "" ]
 	   then
 	      echo -n "Starting AFD for $afduser : "
@@ -97,10 +94,7 @@ case "$1" in
 	RETVAL=1
 	for afduser in $AFD_USERS
 	do
-	   TMP_MULTI_DIR_FILE="/tmp/afd_multi_dirs.$$"
-	   su - $afduser -c "echo \$MULTI_AFD_DIRS > $TMP_MULTI_DIR_FILE"
-	   AFD_WORK_DIR_LIST="`cat $TMP_MULTI_DIR_FILE`"
-	   rm -f $TMP_MULTI_DIR_FILE
+	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	   if [ "$AFD_WORK_DIR_LIST" = "" ]
 	   then
 	      echo -n "Stopping AFD for $afduser : "
@@ -167,10 +161,7 @@ case "$1" in
 	RETVAL=1
 	for afduser in $AFD_USERS
 	do
-	   TMP_MULTI_DIR_FILE="/tmp/afd_multi_dirs.$$"
-	   su - $afduser -c "echo \$MULTI_AFD_DIRS > $TMP_MULTI_DIR_FILE"
-	   AFD_WORK_DIR_LIST="`cat $TMP_MULTI_DIR_FILE`"
-	   rm -f $TMP_MULTI_DIR_FILE
+	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	   if [ "$AFD_WORK_DIR_LIST" = "" ]
 	   then
 	      if [ -f /var/lock/subsys/restart_afd.$afduser ]
@@ -277,10 +268,7 @@ case "$1" in
 	   fi
 	   for afduser in $AFD_HA_USERS
 	   do
-	      TMP_MULTI_DIR_FILE="/tmp/afd_multi_dirs.$$"
-	      su - $afduser -c "echo \$MULTI_AFD_DIRS > $TMP_MULTI_DIR_FILE"
-	      AFD_WORK_DIR_LIST="`cat $TMP_MULTI_DIR_FILE`"
-	      rm -f $TMP_MULTI_DIR_FILE
+	      AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	      if [ "$AFD_WORK_DIR_LIST" = "" ]
 	      then
 	         if [ -f /var/lock/subsys/restart_afd.$afduser ]
@@ -328,10 +316,7 @@ case "$1" in
 	IS_DISABLED=""
 	for afduser in $AFD_USERS
 	do
-	   TMP_MULTI_DIR_FILE="/tmp/afd_multi_dirs.$$"
-	   su - $afduser -c "echo \$MULTI_AFD_DIRS > $TMP_MULTI_DIR_FILE"
-	   AFD_WORK_DIR_LIST="`cat $TMP_MULTI_DIR_FILE`"
-	   rm -f $TMP_MULTI_DIR_FILE
+	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	   if [ "$AFD_WORK_DIR_LIST" = "" ]
 	   then
 	      su - $afduser -c "afd -c"
@@ -373,13 +358,13 @@ case "$1" in
 	then
 	   if [ "$IS_DISABLED" = "" ]
 	   then
-	      echo "AFD for${IS_RUNNING} is running."
+	      echo "AFD for ${IS_RUNNING} is running."
 	   else
-	      echo "AFD for${IS_RUNNING} is running and for${IS_DISABLED} it is disabled."
+	      echo "AFD for ${IS_RUNNING} is running and for ${IS_DISABLED} it is disabled."
 	   fi
 	   RETVAL=0
 	else
-	   echo "AFD for${NOT_RUNNING} is NOT active."
+	   echo "AFD for ${NOT_RUNNING} is NOT active."
 	   RETVAL=1
 	fi
 	;;

@@ -1649,14 +1649,6 @@ get_afd_config_value(int          *afdd_port,
                          value, MAX_INT_LENGTH) != NULL)
       {
          *afdd_port = atoi(value);
-         if ((*afdd_port < 1024) ||
-             (*afdd_port > 8192))
-         {
-            (void)fprintf(stderr,
-                          _("Port number for %s in %s out of range (>1024 and < 8192).\n"),
-                          AFD_TCP_PORT_DEF, config_file);
-            *afdd_port = -1;
-         }
       }
       else
       {
