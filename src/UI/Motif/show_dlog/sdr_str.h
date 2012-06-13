@@ -1,6 +1,6 @@
 /*
  *  sdr_str.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,31 +22,29 @@
 
 static const char *sdrstr[] = /*Short delete reason string. */
                   {
-                     "Age-limit(O) ",   /*  0 */
-                     "Age-limit(I) ",   /*  1 */
-                     "User delete  ",   /*  2 */
-                     "Exec delete  ",   /*  3 */
-                     "Missing msg  ",   /*  4 */
-#ifdef WITH_DUP_CHECK
-                     "Duplicate(I) ",   /*  5 */
-                     "Duplicate(O) ",   /*  6 */
-#endif
-                     "Unknown file ",   /*  7 */
-                     "Job ID error ",   /*  8 */
-                     "Old lock file",   /*  9 */
-                     "Queued file  ",   /* 10 */
-                     "Delete option",   /* 11 */
-                     "Del stale job",   /* 12 */
-                     "Update DB del",   /* 13 */
-                     "Other proc   ",   /* 14 */
-                     "Del pool dir ",   /* 15 */
-                     "Exec stored  ",   /* 16 */
-                     "Host disabled",   /* 17 */
-                     "Convert fail ",   /* 18 */
-                     "Rename overwr",   /* 19 */
-                     "Mail recp rej",   /* 20 */
-                     "Mirror delete"    /* 21 */
-                     "Queue error  "    /* 22 */
+                     "Age-limit(O) ",  /*  0 */
+                     "Age-limit(I) ",  /*  1 */
+                     "User delete  ",  /*  2 */
+                     "Exec delete  ",  /*  3 */
+                     "Missing msg  ",  /*  4 */
+                     "Duplicate(I) ",  /*  5 NOTE: Do not use WITH_DUP_CHECK! */ 
+                     "Duplicate(O) ",  /*  6 NOTE: Do not use WITH_DUP_CHECK! */
+                     "Unknown file ",  /*  7 */
+                     "Job ID error ",  /*  8 */
+                     "Old lock file",  /*  9 */
+                     "Queued file  ",  /* 10 */
+                     "Delete option",  /* 11 */
+                     "Del stale job",  /* 12 */
+                     "Update DB del",  /* 13 */
+                     "Other proc   ",  /* 14 */
+                     "Del pool dir ",  /* 15 */
+                     "Exec stored  ",  /* 16 */
+                     "Host disabled",  /* 17 */
+                     "Convert fail ",  /* 18 */
+                     "Rename overwr",  /* 19 */
+                     "Mail recp rej",  /* 20 */
+                     "Mirror delete",  /* 21 */
+                     "Queue error  "   /* 22 */
                   };
 
 #endif /* __sdr_str_h */

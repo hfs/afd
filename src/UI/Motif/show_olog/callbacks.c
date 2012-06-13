@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,6 +33,7 @@ DESCR__S_M3
  **   void item_selection(Widget w, XtPointer client_data, XtPointer call_data)
  **   void info_click(Widget w, XtPointer client_data, XEvent *event)
  **   void search_button(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void select_all_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void resend_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void send_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void close_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -94,13 +95,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <ctype.h>          /* isdigit()                                 */
-#include <stdlib.h>         /* atoi(), atol(), free()                    */
-#include <ctype.h>          /* isdigit()                                 */
-#include <time.h>           /* time(), localtime(), mktime(), strftime() */
-#ifdef TM_IN_SYS_TIME
-# include <sys/time.h>
-#endif
-#include <unistd.h>         /* close()                                   */
+#include <stdlib.h>         /* atol(), malloc(), free(), exit()          */
 #include <Xm/Xm.h>
 #include <Xm/List.h>
 #include <Xm/Text.h>
@@ -123,8 +118,11 @@ extern Widget           appshell,
                         print_button_w,
                         recipient_w,
                         resend_button_w,
+                        scrollbar_w,
+                        select_all_button_w,
                         selectionbox_w,
                         send_button_w,
+                        special_button_w,
                         start_time_w,
                         statusbox_w,
                         summarybox_w,
@@ -138,10 +136,13 @@ extern int              continues_toggle_set,
                         no_of_search_dirids,
                         no_of_search_hosts,
                         file_name_length,
+                        *search_dir_length,
                         special_button_flag,
                         sum_line_length,
                         no_of_log_files,
                         char_width;
+extern unsigned int     all_list_items,
+                        *search_dirid;
 extern XT_PTR_TYPE      toggles_set;
 extern time_t           start_time_val,
                         end_time_val;
@@ -149,7 +150,7 @@ extern size_t           search_file_size;
 extern char             header_line[],
                         search_file_name[],
                         **search_dir,
-                        **search_dirid,
+                        *search_dir_filter,
                         **search_recipient,
                         **search_user;
 extern struct item_list *il;
@@ -166,9 +167,6 @@ struct info_data        id;
 
 /* Local global variables. */
 static int              scrollbar_moved_flag;
-
-/* Local function prototypes. */
-static int              eval_time(char *, Widget, time_t *);
 
 
 /*############################## toggled() ##############################*/
@@ -511,10 +509,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
             FREE_RT_ARRAY(id.loptions);
          }
 #else
-         if (id.soptions != NULL)
-         {
-            free((void *)id.soptions);
-         }
+         free((void *)id.soptions);
 #endif
       }
    }
@@ -548,6 +543,7 @@ search_button(Widget w, XtPointer client_data, XtPointer call_data)
       XtSetSensitive(directory_w, False);
       XtSetSensitive(file_length_w, False);
       XtSetSensitive(recipient_w, False);
+      XtSetSensitive(select_all_button_w, False);
       if (perm.resend_limit != NO_PERMISSION)
       {
          XtSetSensitive(resend_button_w, False);
@@ -559,8 +555,10 @@ search_button(Widget w, XtPointer client_data, XtPointer call_data)
       XtSetSensitive(print_button_w, False);
 
       scrollbar_moved_flag = NO;
+      XtUnmanageChild(listbox_w);
       XmListDeleteAllItems(listbox_w);
       get_data();
+      XtManageChild(listbox_w);
 
       /* Only position to last item when scrollbar was NOT moved! */
       if (scrollbar_moved_flag == NO)
@@ -573,6 +571,33 @@ search_button(Widget w, XtPointer client_data, XtPointer call_data)
       set_sensitive();
       special_button_flag = STOP_BUTTON_PRESSED;
    }
+
+   return;
+}
+
+
+/*######################## select_all_button() ##########################*/
+void
+select_all_button(Widget nw, XtPointer client_data, XtPointer call_data)
+{
+#ifdef VERY_SLOW_ALWAYS_WORKING_WRITE
+   register int i;
+
+   XtVaSetValues(listbox_w, XmNselectionPolicy, XmMULTIPLE_SELECT, NULL);
+   for (i = 1; i <= all_list_items; i++)
+   {
+      if (XmListPosSelected(listbox_w, i) == False)
+      {
+         XmListSelectPos(listbox_w, i, False);
+      }
+   }
+   XtVaSetValues(listbox_w, XmNselectionPolicy, XmEXTENDED_SELECT, NULL);
+#else
+   XtCallActionProc(listbox_w, "ListKbdSelectAll", NULL, NULL, 0);
+#endif
+   (void)strcpy(summary_str, total_summary_str);
+   SHOW_SUMMARY_DATA();
+   items_selected = YES;
 
    return;
 }
@@ -591,6 +616,7 @@ set_sensitive(void)
    XtSetSensitive(directory_w, True);
    XtSetSensitive(file_length_w, True);
    XtSetSensitive(recipient_w, True);
+   XtSetSensitive(select_all_button_w, True);
    if (perm.resend_limit != NO_PERMISSION)
    {
       XtSetSensitive(resend_button_w, True);
@@ -828,7 +854,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          {
             start_time_val = -1;
          }
-         else if (eval_time(value, w, &start_time_val) < 0)
+         else if (eval_time(value, w, &start_time_val, START_TIME) < 0)
               {
                  show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
@@ -838,7 +864,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       case START_TIME :
-         if (eval_time(value, w, &start_time_val) < 0)
+         if (eval_time(value, w, &start_time_val, START_TIME) < 0)
          {
             show_message(statusbox_w, TIME_FORMAT);
          }
@@ -854,7 +880,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          {
             end_time_val = -1;
          }
-         else if (eval_time(value, w, &end_time_val) < 0)
+         else if (eval_time(value, w, &end_time_val, END_TIME) < 0)
               {
                  show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
@@ -864,7 +890,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       case END_TIME :
-         if (eval_time(value, w, &end_time_val) < 0)
+         if (eval_time(value, w, &end_time_val, END_TIME) < 0)
          {
             show_message(statusbox_w, TIME_FORMAT);
          }
@@ -896,11 +922,16 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             if (no_of_search_dirs != 0)
             {
                FREE_RT_ARRAY(search_dir);
+               free(search_dir_length);
+               search_dir_length = NULL;
+               free(search_dir_filter);
+               search_dir_filter = NULL;
                no_of_search_dirs = 0;
             }
             if (no_of_search_dirids != 0)
             {
-               FREE_RT_ARRAY(search_dirid);
+               free(search_dirid);
+               search_dirid = NULL;
                no_of_search_dirids = 0;
             }
             ptr = value;
@@ -956,6 +987,14 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                   {
                      max_dir_length = length;
                   }
+                  if ((search_dir_length = realloc(search_dir_length,
+                                                   (no_of_search_dirs * sizeof(int)))) == NULL)
+                  {
+                     (void)fprintf(stderr, "realloc() error : %s (%s %d)\n",
+                                   strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
+                  search_dir_length[(no_of_search_dirs - 1)] = length;
                }
                if (*ptr == '\0')
                {
@@ -971,19 +1010,35 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
             {
                int  ii_dirs = 0,
-                    ii_dirids = 0,
-                    *p_ii;
-               char *p_dir;
+                    ii_dirids = 0;
+               char *p_dir,
+                    *str_search_dirid = NULL;
 
                if (no_of_search_dirs > 0)
                {
                   RT_ARRAY(search_dir, no_of_search_dirs,
                            (max_dir_length + 2), char);
+                  if ((search_dir_filter = malloc(no_of_search_dirs)) == NULL)
+                  {
+                     (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                   strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
                }
                if (no_of_search_dirids > 0)
                {
-                  RT_ARRAY(search_dirid, no_of_search_dirids,
-                           (max_dirid_length + 1), char);
+                  if ((search_dirid = malloc((no_of_search_dirids * sizeof(int)))) == NULL)
+                  {
+                     (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                   strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
+                  if ((str_search_dirid = malloc((max_dirid_length + 1))) == NULL)
+                  {
+                     (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                   strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
                }
 
                ptr = value;
@@ -999,35 +1054,60 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   if (*ptr == '#')
                   {
-                     p_ii =  &ii_dirids;
-                     p_dir = search_dirid[ii_dirids];
+                     p_dir = str_search_dirid;
                      ptr++;
-                  }
-                  else
-                  {
-                     p_ii =  &ii_dirs;
-                     p_dir = search_dir[ii_dirs];
-                  }
-                  while ((*ptr != '\0') && (*ptr != ','))
-                  {
-                     if (*ptr == '\\')
+
+                     while ((*ptr != '\0') && (*ptr != ','))
+                     {
+                        *p_dir = *ptr;
+                        ptr++; p_dir++;
+                     }
+                     *p_dir = '\0';
+                     search_dirid[ii_dirids] = (unsigned int)strtoul(str_search_dirid, NULL, 16);
+                     if (*ptr == ',')
                      {
                         ptr++;
+                        ii_dirids++;
                      }
-                     *p_dir = *ptr;
-                     ptr++; p_dir++;
-                  }
-                  *p_dir = '\0';
-                  if (*ptr == ',')
-                  {
-                     ptr++;
-                     (*p_ii)++;
+                     else
+                     {
+                        break;
+                     }
                   }
                   else
                   {
-                     break;
+                     p_dir = search_dir[ii_dirs];
+
+                     search_dir_filter[ii_dirs] = NO;
+                     while ((*ptr != '\0') && (*ptr != ','))
+                     {
+                        if (*ptr == '\\')
+                        {
+                           ptr++;
+                        }
+                        else
+                        {
+                           if ((*ptr == '?') || (*ptr == '*') || (*ptr == '['))
+                           {
+                              search_dir_filter[ii_dirs] = YES;
+                           }
+                        }
+                        *p_dir = *ptr;
+                        ptr++; p_dir++;
+                     }
+                     *p_dir = '\0';
+                     if (*ptr == ',')
+                     {
+                        ptr++;
+                        ii_dirs++;
+                     }
+                     else
+                     {
+                        break;
+                     }
                   }
                } /* for (;;) */
+               free(str_search_dirid);
             }
          }
          reset_message(statusbox_w);
@@ -1208,249 +1288,4 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
    XtFree(value);
 
    return;
-}
-
-
-/*++++++++++++++++++++++++++++ eval_time() ++++++++++++++++++++++++++++++*/
-static int
-eval_time(char *numeric_str, Widget w, time_t *value)
-{
-   int    length = strlen(numeric_str),
-          min,
-          hour;
-   time_t time_val;
-   char   str[3];
-
-   time_val = time(NULL);
-   switch (length)
-   {
-      case 0 : /* Assume user means current time. */
-               {
-                  char time_str[9];
-
-                  (void)strftime(time_str, 9, "%m%d%H%M", localtime(&time_val));
-                  XmTextSetString(w, time_str);
-               }
-               return(time_val);
-      case 3 :
-      case 4 :
-      case 5 :
-      case 6 :
-      case 7 :
-      case 8 : break;
-      default: return(INCORRECT);
-   }
-
-   if (numeric_str[0] == '-')
-   {
-      if ((!isdigit((int)numeric_str[1])) || (!isdigit((int)numeric_str[2])))
-      {
-         return(INCORRECT);
-      }
-
-      if (length == 3) /* -mm */
-      {
-         str[0] = numeric_str[1];
-         str[1] = numeric_str[2];
-         str[2] = '\0';
-         min = atoi(str);
-         if ((min < 0) || (min > 59))
-         {
-            return(INCORRECT);
-         }
-
-         *value = time_val - (min * 60);
-      }
-      else if (length == 5) /* -hhmm */
-           {
-              if ((!isdigit((int)numeric_str[3])) ||
-                  (!isdigit((int)numeric_str[4])))
-              {
-                 return(INCORRECT);
-              }
-
-              str[0] = numeric_str[1];
-              str[1] = numeric_str[2];
-              str[2] = '\0';
-              hour = atoi(str);
-              if ((hour < 0) || (hour > 23))
-              {
-                 return(INCORRECT);
-              }
-              str[0] = numeric_str[3];
-              str[1] = numeric_str[4];
-              min = atoi(str);
-              if ((min < 0) || (min > 59))
-              {
-                 return(INCORRECT);
-              }
-
-              *value = time_val - (min * 60) - (hour * 3600);
-           }
-      else if (length == 7) /* -DDhhmm */
-           {
-              int days;
-
-              if ((!isdigit((int)numeric_str[3])) ||
-                  (!isdigit((int)numeric_str[4])) ||
-                  (!isdigit((int)numeric_str[5])) ||
-                  (!isdigit((int)numeric_str[6])))
-              {
-                 return(INCORRECT);
-              }
-
-              str[0] = numeric_str[1];
-              str[1] = numeric_str[2];
-              str[2] = '\0';
-              days = atoi(str);
-              str[0] = numeric_str[3];
-              str[1] = numeric_str[4];
-              str[2] = '\0';
-              hour = atoi(str);
-              if ((hour < 0) || (hour > 23))
-              {
-                 return(INCORRECT);
-              }
-              str[0] = numeric_str[5];
-              str[1] = numeric_str[6];
-              min = atoi(str);
-              if ((min < 0) || (min > 59))
-              {
-                 return(INCORRECT);
-              }
-
-              *value = time_val - (min * 60) - (hour * 3600) - (days * 86400);
-           }
-           else
-           {
-              return(INCORRECT);
-           }
-
-      return(SUCCESS);
-   }
-
-   if ((!isdigit((int)numeric_str[0])) || (!isdigit((int)numeric_str[1])) ||
-       (!isdigit((int)numeric_str[2])) || (!isdigit((int)numeric_str[3])))
-   {
-      return(INCORRECT);
-   }
-
-   str[0] = numeric_str[0];
-   str[1] = numeric_str[1];
-   str[2] = '\0';
-
-   if (length == 4) /* hhmm */
-   {
-      struct tm *bd_time;     /* Broken-down time. */
-
-      hour = atoi(str);
-      if ((hour < 0) || (hour > 23))
-      {
-         return(INCORRECT);
-      }
-      str[0] = numeric_str[2];
-      str[1] = numeric_str[3];
-      min = atoi(str);
-      if ((min < 0) || (min > 59))
-      {
-         return(INCORRECT);
-      }
-      bd_time = localtime(&time_val);
-      bd_time->tm_sec  = 0;
-      bd_time->tm_min  = min;
-      bd_time->tm_hour = hour;
-
-      *value = mktime(bd_time);
-   }
-   else if (length == 6) /* DDhhmm */
-        {
-           int       day;
-           struct tm *bd_time;     /* Broken-down time. */
-
-           if ((!isdigit((int)numeric_str[4])) ||
-               (!isdigit((int)numeric_str[5])))
-           {
-              return(INCORRECT);
-           }
-           day = atoi(str);
-           if ((day < 0) || (day > 31))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[2];
-           str[1] = numeric_str[3];
-           hour = atoi(str);
-           if ((hour < 0) || (hour > 23))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[4];
-           str[1] = numeric_str[5];
-           min = atoi(str);
-           if ((min < 0) || (min > 59))
-           {
-              return(INCORRECT);
-           }
-           bd_time = localtime(&time_val);
-           bd_time->tm_sec  = 0;
-           bd_time->tm_min  = min;
-           bd_time->tm_hour = hour;
-           bd_time->tm_mday = day;
-
-           *value = mktime(bd_time);
-        }
-        else /* MMDDhhmm */
-        {
-           int       month,
-                     day;
-           struct tm *bd_time;     /* Broken-down time. */
-
-           if ((!isdigit((int)numeric_str[4])) ||
-               (!isdigit((int)numeric_str[5])) ||
-               (!isdigit((int)numeric_str[6])) ||
-               (!isdigit((int)numeric_str[7])))
-           {
-              return(INCORRECT);
-           }
-           month = atoi(str);
-           if ((month < 0) || (month > 12))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[2];
-           str[1] = numeric_str[3];
-           day = atoi(str);
-           if ((day < 0) || (day > 31))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[4];
-           str[1] = numeric_str[5];
-           hour = atoi(str);
-           if ((hour < 0) || (hour > 23))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[6];
-           str[1] = numeric_str[7];
-           min = atoi(str);
-           if ((min < 0) || (min > 59))
-           {
-              return(INCORRECT);
-           }
-           bd_time = localtime(&time_val);
-           bd_time->tm_sec  = 0;
-           bd_time->tm_min  = min;
-           bd_time->tm_hour = hour;
-           bd_time->tm_mday = day;
-           if ((bd_time->tm_mon == 0) && (month == 12))
-           {
-              bd_time->tm_year -= 1;
-           }
-           bd_time->tm_mon  = month - 1;
-
-           *value = mktime(bd_time);
-        }
-
-   return(SUCCESS);
 }

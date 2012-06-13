@@ -224,6 +224,24 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
+   <td width="30%">create source dir</td>
+   <td>When set and the directory does not exist, it will be created. This
+       will override option <a href="afd_config.html#create_source_dir">
+       CREATE_SOURCE_DIR</a> in AFD_CONFIG.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td width="30%">do not create source dir</td>
+   <td>When set the source directory will not be created if it does not exist.
+       This will override option <a href="afd_config.html#create_source_dir">
+       CREATE_SOURCE_DIR</a> in AFD_CONFIG.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
    <td width="30%">important dir</td>
    <td>This marks the directory as important. This is useful when you
        have lots of directories that are to be monitored by the AMG
@@ -496,6 +514,16 @@ defaults is shown in the table below:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td width="30%">keep connected &lt;time in seconds&gt;</td>
+   <td>The number of seconds that the connection should be kept open
+       after retrieving all files. Note this can also be set via
+       <a href="edit_hc.html#keep_connected">Keep connected</a>
+       in edit_hc dialog.</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>X</td>
+   <td align=center>0 (disabled)</td>
 </tr>
 </table></center>
 <h3 align=center><u><a name="files_entry">The files entry [files]</a></u></h3>
@@ -789,7 +817,13 @@ There are currently seven schemes supported:
 <tr>
    <td>file</td>
    <td>Copies files to another directory.</td>
-   <td>file://@local/directory</td>
+   <td>file://local/directory</td>
+</tr>
+<tr>
+   <td>exec</td>
+   <td>Calls an external program to transmit the file to another
+       destination.</td>
+   <td>exec://printer/lpr -Pmy_printer %s</td>
 </tr>
 <tr>
    <td>wmo</td>
@@ -830,6 +864,7 @@ section. Valid options can be taken from the following table:
    <th>wmo</th>
    <th>sftp</th>
    <th>scp</th>
+   <th>exec</th>
 </tr>
 <tr>
    <td><a name="priority">priority x</a></td>
@@ -842,11 +877,13 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
+   <td align=center>X</td>
 </tr>
 <tr>
    <td><a name="delete">delete</a></td>
    <td>Deletes all files.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -918,6 +955,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="time_no_collect">time no collect &lt;min hour dom month dow&gt;</a></td>
@@ -925,6 +963,7 @@ section. Valid options can be taken from the following table:
        will be collected (these will be deleted) outside the given time
        frames. The number of time no collect option is not limited.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -947,6 +986,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="extension">extension[ overwrite]</a></td>
@@ -963,11 +1003,13 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="prefix_add">prefix add xx</td>
    <td>Adds a prefix to the file name.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -986,6 +1028,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="toupper">toupper</a></td>
@@ -997,11 +1040,13 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="tolower">tolower</a></td>
    <td>Convert all letters of the file name to lower case.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1026,11 +1071,13 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="mirror_source">mirror source</a></td>
    <td>Deletes all files from destination not found in source.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1049,6 +1096,7 @@ section. Valid options can be taken from the following table:
        characters long.
    </td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1075,6 +1123,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="force_copy">force copy</a></td>
@@ -1085,6 +1134,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1106,6 +1156,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="chmod">chmod mode</a></td>
@@ -1122,6 +1173,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
 </tr>
@@ -1141,13 +1193,21 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="create_target_dir">create target dir</a></td>
+   <td><a name="create_target_dir">create target dir[ mode]</a></td>
    <td>Creates the target directory recursively if it does not exist.
        This will not work when the option <a href="edit_hc.html#fast_cd">
        Fast cd</a> is set, since the directory will be created during
-       the cd command. If the option
+       the cd command. The optional mode can be used to set the
+       permission of created directory. Only a numeric mode from one
+       to four octal digits (0-7) is accepted. The first digit selects
+       the set user ID (4), set group ID (2) or the save text image (1)
+       attributes. The second digit selects permissions for the user who
+       owns the file: read (4), write (2) and/or execute (1). The third
+       selects permissions for other users in the files group. The fourth
+       digit is for all other users (world). If the option
        <a href="afd_config.html#create_target_dir">CREATE_TARGET_DIR</a>
        is set to YES in AFD_CONFIG, then this option does not need to be
        set since then it is the default.
@@ -1158,6 +1218,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
@@ -1173,6 +1234,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="tiff2gts">tiff2gts</a></td>
@@ -1184,11 +1246,13 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="gts2tiff">gts2tiff</a></td>
    <td>Converts T4-GTS files to TIFF-files.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1240,6 +1304,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="grib2wmo">grib2wmo[ CCCC]</a></td>
@@ -1248,6 +1313,7 @@ section. Valid options can be taken from the following table:
        type indicator. You can optionally supply the CCCC if you
        do wish to overrule the one from the GRIB.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1276,12 +1342,14 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td>afw2wmo</td>
    <td>afw2wmo will convert the old AFW format used at DWD to WMO
        bulletin format.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1342,9 +1410,19 @@ section. Valid options can be taken from the following table:
          S - second [00,60]
          U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
       </pre>
+      <p>
+      With the help of the %T[+|-|*|/|%]xS|M|H|d time modifier it is
+      possible to modify the current time. It adds (+), subtracts (-),
+      multiplies (*), divides (/) or computes the modulo (%) with the
+      value x to the current unix time. The default unit for the time
+      modifier is seconds this can be changed to minute (M), hour (H)
+      or day (d). Once set the modifier is used for all subsequent
+      %t until it changed by the next modifier.
+      </p>
       If no file name is specified the default will be no_file_name.
    </td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1437,9 +1515,10 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="extract">extract [-b|-B|-c|-C|-H|-n|-N|-s|-S] &lt;type&gt; [&lt;pattern&gt;]</a></td>
+   <td><a name="extract">extract [-b|-B|-c|-C|-d|-D|-f|-F|-H|-n|-N|-r|-R|-s|-S|-t|-T] &lt;type&gt; [&lt;pattern&gt;]</a></td>
    <td>This options extracts files with WMO bulletins into one file per
        bulletin and will delete the original file. Since it is not possible
        to automatically detect the file type and its length encoding, you
@@ -1474,13 +1553,21 @@ section. Valid options can be taken from the following table:
           SOH (binary 1) and end is ETX (binary 3).</td>
    </tr>
    <tr>
+      <td><b>BINARY</b></td>
+      <td>This option is only useful together with the -H option to
+          cut away SOH (binary 1), WMO header and the end ETX (binary 3).
+          This only works if there is only one data set.</td>
+   </tr>
+   <tr>
       <td><b>ZCZC</b></td>
       <td>No length indicator. The start of a bulletin is marked by
           ZCZC and end is NNNN.</td>
    </tr>
    <tr>
       <td><b>MRZ</b></td>
-      <td>Special four byte length indicator used in the DWD.</td>
+      <td>Special four byte length indicator used in the DWD. The
+          resulting file name will have the following name:
+          &lt;data type&gt;_&lt;originator&gt;_YYYYMMDDhhmmss_&lt;hexadecimal counter&gt;</td>
    </tr>
    <tr>
       <td><b>GRIB</b></td>
@@ -1491,7 +1578,10 @@ section. Valid options can be taken from the following table:
    </table>
    <p>
    The file name of the new file will always be the WMO-header, that is:
-   TTAAii_CCCC_YYGGgg[_BBB][_&lt;station indicator&gt;]-&lt;CRC checksum&gt;
+   TTAAii_CCCC_[&lt;year&gt;&lt;month&gt;]YYGGgg[_BBB][_&lt;station indicator&gt;]-&lt;CRC checksum&gt;
+   The year will be shown with centry and month will always be shown
+   as a two digit number. So March will be shown as 03. The year and
+   month will only be added when the -d parameter is supplied.
    </p>
    The optional options have the following meaning:<br>
    <pre>
@@ -1499,17 +1589,28 @@ section. Valid options can be taken from the following table:
       -B     do not extract individual reports [default]
       -c     adds a CRC checksum to end of filename [default]
       -C     do not add a CRC checksum to end of filename
+      -d     add full date to bulletin header in filename
+      -D     do not add full date to bulletin header in filename
+      -f     add the full bulletin name and the original filename
+             where this bulletin was extracted from as the first
+             line of the bulletin/report
+      -F     the opposite of the above option
       -H     remove WMO header line including SOH and ETX
       -n     adds a four digit unique number to end of filename
       -N     do not add a four digit unique number to end of filename [default]
+      -r     generate file name with report type
+      -R     generate file name without report type [default]
       -s     add SOH and ETX if not there [default]
       -S     remove SOH and ETX
+      -t     in report add additional header showing report type
+      -T     in report do not show the additional header with report type [default]
    </pre>
    <p>
    If a pattern is supplied, only those files will be extracted that match
    the given pattern.
    </p></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1554,12 +1655,14 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td>execd &lt;command&gt;</td>
    <td>Same as the exec option above, but deletes the original file
        after executing the command.</td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1580,6 +1683,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="pexec">pexec [-l|-L|-t] &lt;command&gt;</a></td>
@@ -1590,6 +1694,7 @@ section. Valid options can be taken from the following table:
        The optional options have the same meaning as those above in the
        exec option.</td>
    <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
@@ -1644,6 +1749,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="lockp">lockp .zz</a></td>
@@ -1656,6 +1762,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
@@ -1675,6 +1782,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
@@ -1711,11 +1819,13 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
+   <td align=center>X</td>
 </tr>
 <tr>
    <td><a name="age-limit">age-limit x</a></td>
    <td>Files older then x seconds will not get send. They will be removed.</td>
    <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
@@ -1734,6 +1844,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
+   <td align=center>X</td>
 </tr>
 <tr>
    <td><a name="file_name_is_subject">file name is subject</a></td>
@@ -1746,16 +1857,19 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="file_name_is_user">file name is user[ rename rule]</a></td>
-   <td>The user name of the mail is the file name. This can only be used
-       when sending mails. The optional rename rule allows to filter or
-       create the user name from the file name. For a detailed description
-       of the renaming procedure see <a href="rename_rules.html">rename rule</a>.</td>
+   <td>The user name of the mail address (the first part up to the @ sign)
+       is the file name. This can only be used when sending mails. The
+       optional rename rule allows to filter or create the user name from
+       the file name. For a detailed description of the renaming procedure
+       see <a href="rename_rules.html">rename rule</a>.</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1763,8 +1877,9 @@ section. Valid options can be taken from the following table:
 </tr>
 <tr>
    <td><a name="file_name_is_target">file name is target[ rename rule]</a></td>
-   <td>The full recipient of the mail is the file name. This can only be used
-       when sending mails. The optional rename rule allows to filter or
+   <td>The full recipient of the mail address is the file name. So the
+       file name must be a fully qualified mail address. This can only be
+       used when sending mails. The optional rename rule allows to filter or
        create the user name from the file name. For a detailed description
        of the renaming procedure see <a href="rename_rules.html">rename rule</a>.</td>
    <td><pre>&nbsp;</pre></td>
@@ -1774,16 +1889,23 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="mail_header">mail header[ full path to mail header file]</a></td>
+   <td><a name="mail_header">mail header[ &lt;full path to mail header file&gt;|rename rule]</a></td>
    <td>Is used to insert some default information at the top of the
        main body of the mail. If the option is used without the optional
        mail header file, it will take the file MAIL-host_alias in the
-       etc directory as the header file.</td>
+       $AFD_WORK_DIR/etc directory as the header file. If the optional mail
+       header fail does not start with a / it take this as a rename rule
+       identifier. For a detailed description of the renaming procedure see
+       <a href="rename_rules.html">rename rule</a>. Note that in this case
+       if the resulting file name does not start with a / it will search
+       for this file in $AFD_WORK_DIR/etc/mail_header.</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1804,6 +1926,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="attach_all_files">attach all files[ rename rule]</a></td>
@@ -1820,6 +1943,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="subject_file">subject &lt;full path to subject file&gt; [rename rule]</a></td>
@@ -1830,6 +1954,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1879,6 +2004,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="from">from &lt;mail address&gt;</a></td>
@@ -1888,6 +2014,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1902,6 +2029,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1933,6 +2061,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="encode_ansi">encode ansi</a></td>
@@ -1942,6 +2071,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1959,6 +2089,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
+   <td align=center>X</td>
 </tr>
 <tr>
    <td><a name="sequence_numbering">sequence numbering</a></td>
@@ -1968,6 +2099,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
 </tr>
@@ -1986,6 +2118,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="mode">mode &lt;active | passive&gt;</a></td>
@@ -2002,12 +2135,14 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="login_site">login site &lt;command&gt;</a></td>
    <td>This option is used to execute the command once after login.</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -2025,6 +2160,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="file_busy_rename">file busy rename &lt;character&gt;</a></td>
@@ -2033,6 +2169,7 @@ section. Valid options can be taken from the following table:
        because a hanging child still has this file open.</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -2130,6 +2267,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
+   <td align=center>X</td>
 </tr>
 <tr>
    <td><a name="socket_send_buffer">socket send buffer &lt;buffer size&gt;</a></td>
@@ -2141,6 +2279,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="socket_receive_buffer">socket receive buffer &lt;buffer size&gt;</a></td>
@@ -2151,6 +2290,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
@@ -2169,6 +2309,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="restart">restart &lt;file&gt;</a></td>
@@ -2179,6 +2320,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
@@ -2191,6 +2333,7 @@ section. Valid options can be taken from the following table:
    <th>wmo</th>
    <th>sftp</th>
    <th>scp</th>
+   <th>exec</th>
 </tr>
 </table>
 <h3 align=center><u><a name="example1">Example 1</a></u></h3>
@@ -2410,9 +2553,9 @@ to 30 minutes, it needs to be done as follows:
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2011 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 18.01.2011
+   Last updated: 04.06.2012
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

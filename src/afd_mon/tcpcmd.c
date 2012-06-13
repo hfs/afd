@@ -1,6 +1,6 @@
 /*
  *  tcpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,8 +78,7 @@ DESCR__E_M3
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>       /* inet_addr()                             */
 #endif
-#include <unistd.h>           /* select(), exit(), write(), read(),      */
-                              /* close()                                 */
+#include <unistd.h>           /* select(), write(), read(), close()      */
 #include <errno.h>
 #include "mondefs.h"
 
@@ -206,6 +205,12 @@ tcp_connect(char *hostname, int port, int sending_logdata)
 #else
    if (connect(sock_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
+#ifdef ETIMEDOUT
+      if (errno == ETIMEDOUT)
+      {
+         timeout_flag = ON;
+      }
+#endif
       mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
               "Failed to connect() to %s : %s", hostname, strerror(errno));
       (void)close(sock_fd);
@@ -282,8 +287,6 @@ tcp_quit(void)
 {
    if (p_control != NULL)
    {
-      int reply;
-
       /*
        * If timeout_flag is ON, lets NOT check the reply from
        * the QUIT command. Else we are again waiting 'tcp_timeout'
@@ -291,6 +294,8 @@ tcp_quit(void)
        */
       if (timeout_flag == OFF)
       {
+         int reply;
+
          (void)fprintf(p_control, "QUIT\r\n");
          if (fflush(p_control) == EOF)
          {

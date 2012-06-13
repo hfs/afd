@@ -27,6 +27,7 @@ used for this task. The program can take the following parameters:
        -r                        removes blocking startup of AFD
        -s                        shutdown AFD
        -S                        silent AFD shutdown
+       -T                        check if data types match current binary
        -z                        set shutdown bit
        --help                    prints out this syntax
        -v                        just print version number
@@ -59,10 +60,12 @@ running after issuing the command (check with ps command):
     7611 ?        S      0:00 output_log -w /home/afd
     7612 ?        S      0:00 delete_log -w /home/afd
     7613 ?        S      0:00 production_log -w /home/afd
-    7614 ?        S      0:00 amg -w /home/afd
-    7615 ?        S      0:00 afd_stat -w /home/afd
-    7616 ?        S      0:00 fd -w /home/afd
-    7617 ?        S      0:00 dir_check /home/afd 5 20 40
+    7614 ?        S      0:00 distribution_log -w /home/afd/oper
+    7615 ?        S      0:00 amg -w /home/afd
+    7616 ?        S      0:00 afd_stat -w /home/afd
+    7617 ?        S      0:00 fd -w /home/afd
+    7618 ?        S      0:00 dir_check /home/afd 5 20 40
+    7619 ?        S      0:00 aldad -w /home/afd/oper
 </pre>
 <p>
 The first process init_afd is the most important one, since it starts
@@ -93,9 +96,9 @@ by init_afd.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 2005 - 2008 by H.Kiehl<br>
+   Copyright &copy; 2005 - 2011 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 23.12.2008
+   Last updated: 23.10.2011
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

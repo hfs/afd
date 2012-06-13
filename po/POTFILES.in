@@ -53,7 +53,7 @@ src/common/get_dir_number.c
 src/common/get_dir_options.c
 src/common/get_error_str.c
 src/common/get_log_number.c
-src/common/get_max_log_number.c
+src/common/get_max_log_values.c
 src/common/get_mon_path.c
 src/common/get_permissions.c
 src/common/get_pw.c

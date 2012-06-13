@@ -1,6 +1,6 @@
 /*
  *  store_passwd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,7 +68,7 @@ store_passwd(char *user, char *hostname, char *passwd)
    int           i;
    char          *ptr,
                  uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1]; /* User Host name. */
-   unsigned char uh_passwd[MAX_USER_NAME_LENGTH + 1];
+   unsigned char uh_passwd[MAX_USER_NAME_LENGTH];
 
    (void)strcpy(uh_name, user);
    if (user[0] != '\0')

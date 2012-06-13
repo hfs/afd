@@ -1,6 +1,6 @@
 /*
  *  eval_time_str.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1334,7 +1334,6 @@ check_time_str(char *time_str)
 {
    int  continuous = YES,
         first_number = -1,
-        number,
         step_size = 0;
    char *ptr = time_str,
         str_number[3];
@@ -1370,11 +1369,7 @@ check_time_str(char *time_str)
             }
             else
             {
-               if (str_number[1] == '\0')
-               {
-                  number = str_number[0] - '0';
-               }
-               else
+               if (str_number[1] != '\0')
                {
                   if (str_number[0] > '5')
                   {
@@ -1382,7 +1377,6 @@ check_time_str(char *time_str)
                                 _("Possible values for minute field : 0-59."));
                      return(INCORRECT);
                   }
-                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
                }
                if (first_number != -1)
                {
@@ -1437,11 +1431,7 @@ check_time_str(char *time_str)
                  }
                  else
                  {
-                    if (str_number[1] == '\0')
-                    {
-                       number = str_number[0] - '0';
-                    }
-                    else
+                    if (str_number[1] != '\0')
                     {
                        if (str_number[0] > '5')
                        {
@@ -1449,8 +1439,6 @@ check_time_str(char *time_str)
                                      _("Possible values for minute field : 0-59."));
                           return(INCORRECT);
                        }
-                       number = ((str_number[0] - '0') * 10) +
-                                str_number[1] - '0';
                     }
                     if (first_number != -1)
                     {
@@ -1559,11 +1547,7 @@ check_time_str(char *time_str)
             }
             else
             {
-               if (str_number[1] == '\0')
-               {
-                  number = str_number[0] - '0';
-               }
-               else
+               if (str_number[1] != '\0')
                {
                   if ((str_number[0] > '2') ||
                       ((str_number[0] == '2') && (str_number[1] > '3')))
@@ -1572,7 +1556,6 @@ check_time_str(char *time_str)
                                 _("Possible values for hour field : 0-23."));
                      return(INCORRECT);
                   }
-                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
                }
                if (first_number != -1)
                {
@@ -1619,11 +1602,7 @@ check_time_str(char *time_str)
                  }
                  else
                  {
-                    if (str_number[1] == '\0')
-                    {
-                       number = str_number[0] - '0';
-                    }
-                    else
+                    if (str_number[1] != '\0')
                     {
                        if ((str_number[0] > '2') ||
                            ((str_number[0] == '2') && (str_number[1] > '3')))
@@ -1632,8 +1611,6 @@ check_time_str(char *time_str)
                                      _("Possible values for hour field : 0-23."));
                           return(INCORRECT);
                        }
-                       number = ((str_number[0] - '0') * 10) +
-                                str_number[1] - '0';
                     }
                     if (first_number != -1)
                     {
@@ -1737,7 +1714,6 @@ check_time_str(char *time_str)
                                 _("Possible values for day of month field : 1-31."));
                      return(INCORRECT);
                   }
-                  number = str_number[0] - '0';
                }
                else
                {
@@ -1748,7 +1724,6 @@ check_time_str(char *time_str)
                                 _("Possible values for day of month field : 1-31."));
                      return(INCORRECT);
                   }
-                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
                }
                if (first_number != -1)
                {
@@ -1809,7 +1784,6 @@ check_time_str(char *time_str)
                                      _("Possible values for day of month field : 1-31."));
                           return(INCORRECT);
                        }
-                       number = str_number[0] - '0';
                     }
                     else
                     {
@@ -1820,8 +1794,6 @@ check_time_str(char *time_str)
                                      _("Possible values for day of month field : 1-31."));
                           return(INCORRECT);
                        }
-                       number = ((str_number[0] - '0') * 10) +
-                                str_number[1] - '0';
                     }
                     if (first_number != -1)
                     {
@@ -1925,7 +1897,6 @@ check_time_str(char *time_str)
                                 _("Possible values for month field : 1-12."));
                      return(INCORRECT);
                   }
-                  number = str_number[0] - '0';
                }
                else
                {
@@ -1935,7 +1906,6 @@ check_time_str(char *time_str)
                                 _("Possible values for month field : 1-12."));
                      return(INCORRECT);
                   }
-                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
                }
                if (first_number != -1)
                {
@@ -1995,7 +1965,6 @@ check_time_str(char *time_str)
                                      _("Possible values for month field : 1-12."));
                           return(INCORRECT);
                        }
-                       number = str_number[0] - '0';
                     }
                     else
                     {
@@ -2005,8 +1974,6 @@ check_time_str(char *time_str)
                                      _("Possible values for month field : 1-12."));
                           return(INCORRECT);
                        }
-                       number = ((str_number[0] - '0') * 10) +
-                                str_number[1] - '0';
                     }
                     if (first_number != -1)
                     {
@@ -2110,7 +2077,6 @@ check_time_str(char *time_str)
                                 _("Possible values for day of week field : 1-7."));
                      return(INCORRECT);
                   }
-                  number = str_number[0] - '0';
                }
                else
                {
@@ -2171,7 +2137,6 @@ check_time_str(char *time_str)
                                      _("Possible values for day of week field : 1-7."));
                           return(INCORRECT);
                        }
-                       number = str_number[0] - '0';
                     }
                     else
                     {

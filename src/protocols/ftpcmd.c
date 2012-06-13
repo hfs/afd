@@ -1,6 +1,6 @@
 /*
  *  ftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,29 +25,39 @@ DESCR__S_M3
  **   ftpcmd - commands to send files via FTP
  **
  ** SYNOPSIS
- **   int  ftp_connect(char *hostname, int port)
- **   int  ftp_ssl_auth(void)
- **   int  ftp_idle(int timeout)
- **   int  ftp_user(char *user)
- **   int  ftp_pass(char *password)
- **   int  ftp_ssl_init(char type)
- **   int  ftp_type(char type)
- **   int  ftp_cd(char *directory)
- **   int  ftp_pwd(void)
+ **   int  ftp_account(char *user)
+ **   int  ftp_block_write(char *block, unsigned short size, char descriptor)
+ **   int  ftp_mode(char mode)
+ **   int  ftp_open(char *filename, int seek)
+ **   int  ftp_cd(char *directory, int create_dir, char *dir_mode,
+ **               char *created_path)
  **   int  ftp_chmod(char *filename, char *mode)
- **   int  ftp_move(char *from, char *to)
- **   int  ftp_dele(char *filename)
- **   int  ftp_list(int mode, int type, ...)
- **   int  ftp_exec(char *cmd, char *filename)
- **   int  ftp_data(char *filename, off_t seek, int mode, int type)
  **   int  ftp_close_data(void)
- **   int  ftp_write(char *block, char *buffer, int size)
- **   int  ftp_keepalive(void)
- **   int  ftp_read(char *block, int blocksize)
- **   int  ftp_quit(void)
- **   int  ftp_get_reply(void)
- **   int  ftp_size(char *filename, off_t *remote_size)
+ **   int  ftp_connect(char *hostname, int port)
+ **   int  ftp_auth_data(void)
+ **   int  ftp_ssl_auth(void)
+ **   int  ftp_ssl_init(char type)
+ **   int  ftp_data(char *filename, off_t seek, int mode, int type)
  **   int  ftp_date(char *filenname, time_t *file_mtime)
+ **   int  ftp_dele(char *filename)
+ **   int  ftp_exec(char *cmd, char *filename)
+ **   int  ftp_get_reply(void)
+ **   int  ftp_idle(int timeout)
+ **   int  ftp_keepalive(void)
+ **   int  ftp_list(int mode, int type, ...)
+ **   int  ftp_move(char *from, char *to, int fast_move, int create_dir,
+ **                 char *dir_mode, char *created_path)
+ **   int  ftp_noop(void)
+ **   int  ftp_pass(char *password)
+ **   int  ftp_pwd(void)
+ **   int  ftp_quit(void)
+ **   int  ftp_read(char *block, int blocksize)
+ **   int  ftp_sendfile(int source_fd, off_t *offset, int size)
+ **   int  ftp_set_date(char *filename, time_t file_mtime)
+ **   int  ftp_size(char *filename, off_t *remote_size)
+ **   int  ftp_type(char type)
+ **   int  ftp_user(char *user)
+ **   int  ftp_write(char *block, char *buffer, int size)
  **
  ** DESCRIPTION
  **   ftpcmd provides a set of commands to communicate with an FTP
@@ -190,6 +200,8 @@ DESCR__S_M3
  **   12.08.2006 H.Kiehl Added extended mode (EPRT, EPSV).
  **   29.09.2009 H.Kiehl Added function ftp_set_date() to set date of
  **                      a file.
+ **   17.08.2011 H.Kiehl Did not insert the remote IP in EPSV mode,
+ **                      in function ftp_list() and ftp_data().
  */
 DESCR__E_M3
 
@@ -371,6 +383,25 @@ ftp_connect(char *hostname, int port)
 
    if (connect(control_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
+#ifdef ETIMEDOUT
+      if (errno == ETIMEDOUT)
+      {
+         timeout_flag = ON;
+      }
+# ifdef ECONNREFUSED
+      else if (errno == ECONNREFUSED)
+           {
+              timeout_flag = CON_REFUSED;
+           }
+# endif
+#else
+# ifdef ECONNREFUSED
+      if (errno == ECONNREFUSED)
+      {
+         timeout_flag = CON_REFUSED;
+      }
+# endif
+#endif
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
                 _("Failed to connect() to %s : %s"), hostname, strerror(errno));
       (void)close(control_fd);
@@ -746,7 +777,7 @@ ftp_type(char type)
 
 /*############################### ftp_cd() ##############################*/
 int
-ftp_cd(char *directory, int create_dir)
+ftp_cd(char *directory, int create_dir, char *dir_mode, char *created_path)
 {
    int reply;
 
@@ -778,7 +809,7 @@ ftp_cd(char *directory, int create_dir)
                * offset, otherwise we will create the remote path
                * as relative.
                */
-              while (*ptr == '/')
+              if (*ptr == '/')
               {
                  ptr++;
                  offset = 1;
@@ -816,8 +847,29 @@ ftp_cd(char *directory, int create_dir)
                           if ((reply == SUCCESS) &&
                               ((reply = get_reply()) != INCORRECT))
                           {
-                             if (reply == 257)
+                             if (reply == 257) /* Directory created. */
                              {
+                                if (created_path != NULL)
+                                {
+                                   if (created_path[0] != '\0')
+                                   {
+                                      (void)strcat(created_path, "/");
+                                   }
+                                   (void)strcat(created_path, p_start);
+                                }
+                                if ((dir_mode[0] != '\0') && (p_start != NULL))
+                                {
+                                   int tmp_reply;
+
+                                   if ((tmp_reply = ftp_chmod(p_start,
+                                                              dir_mode)) != SUCCESS)
+                                   {
+                                      trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_cd", msg_str,
+                                                "Failed to chmod remote directory `%s' to %s (%d).",
+                                                p_start, dir_mode, tmp_reply);
+                                   }
+                                }
+
                                 reply = command(control_fd, "CWD %s", p_start);
                                 if ((reply == SUCCESS) &&
                                     ((reply = get_reply()) != INCORRECT))
@@ -876,7 +928,12 @@ ftp_chmod(char *filename, char *mode)
 
 /*############################## ftp_move() #############################*/
 int
-ftp_move(char *from, char *to, int fast_move, int create_dir)
+ftp_move(char *from,
+         char *to,
+         int  fast_move,
+         int  create_dir,
+         char *dir_mode,
+         char *created_path)
 {
    int reply;
 #ifdef WITH_MS_ERROR_WORKAROUND
@@ -1013,9 +1070,9 @@ retry_command:
                     (void)strcpy(current_dir, msg_str);
 
                     /* The following will actually create the directory. */
-                    if (ftp_cd(to_dir, YES) == SUCCESS)
+                    if (ftp_cd(to_dir, YES, dir_mode, created_path) == SUCCESS)
                     {
-                       if (ftp_cd(current_dir, NO) == SUCCESS)
+                       if (ftp_cd(current_dir, NO, "", NULL) == SUCCESS)
                        {
                           reply = command(control_fd, "RNFR %s", from);
                           if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
@@ -1148,6 +1205,10 @@ ftp_keepalive(void)
 #endif
               if ((reply = write(control_fd, telnet_cmd, 2)) != 2)
               {
+                 if ((errno == ECONNRESET) || (errno == EBADF))
+                 {
+                    timeout_flag = CON_RESET;
+                 }
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_keepalive", NULL,
                            _("write() error (%d) : %s"),
                            reply, strerror(errno));
@@ -1199,8 +1260,12 @@ ftp_keepalive(void)
            telnet_cmd[1] = DM;
            if ((reply = send(control_fd, telnet_cmd, 2, MSG_OOB)) != 2)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_keepalive", NULL,
-                        _("write() error (%d) : %s"), reply, strerror(errno));
+                        _("send() error (%d) : %s"), reply, strerror(errno));
               return(errno);
            }
 #ifdef WITH_TRACE
@@ -1259,7 +1324,15 @@ ftp_size(char *filename, off_t *remote_size)
             {
                ptr++;
             }
+#ifdef HAVE_STRTOULL
+# if SIZEOF_OFF_T == 4
             if ((*remote_size = (off_t)strtoul(ptr, NULL, 10)) != ULONG_MAX)
+# else
+            if ((*remote_size = (off_t)strtoull(ptr, NULL, 10)) != ULLONG_MAX)
+# endif                                                             
+#else
+            if ((*remote_size = (off_t)strtoul(ptr, NULL, 10)) != ULONG_MAX)
+#endif
             {
                reply = SUCCESS;
             }
@@ -1303,11 +1376,11 @@ ftp_date(char *filename, time_t *file_mtime)
                date[i] = *ptr;
                ptr++; i++;
             }
-            date[i] = '\0';
             if (i == (MAX_FTP_DATE_LENGTH - 1))
             {
                struct tm bd_time;
 
+               date[i] = '\0';
                bd_time.tm_sec  = atoi(&date[i - 2]);
                date[i - 2] = '\0';
                bd_time.tm_min  = atoi(&date[i - 4]);
@@ -1456,11 +1529,11 @@ ftp_list(int mode, int type, ...)
       } while ((*ptr != '(') && (*ptr != '\0'));
       if (*ptr == '(')
       {
-         int number;
-
          data = ctrl;
          if ((mode & EXTENDED_MODE) == 0)
          {
+            int number;
+
             if ((number = get_number(&ptr, ',')) != INCORRECT)
             {
                if (mode & ALLOW_DATA_REDIRECT)
@@ -1528,6 +1601,10 @@ ftp_list(int mode, int type, ...)
                          _("Failed to retrieve remote address %s"), msg_str);
                return(INCORRECT);
             }
+            *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
+            *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
+            *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
+            *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
          }
 
          if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
@@ -1547,6 +1624,25 @@ ftp_list(int mode, int type, ...)
          }
          if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
          {
+#ifdef ETIMEDOUT
+             if (errno == ETIMEDOUT)
+             {
+                timeout_flag = ON;
+             }
+# ifdef ECONNREFUSED
+            else if (errno == ECONNREFUSED)
+                 {
+                    timeout_flag = CON_REFUSED;
+                 }
+# endif
+#else
+# ifdef ECONNREFUSED
+            if (errno == ECONNREFUSED)
+            {
+               timeout_flag = CON_REFUSED;
+            }
+# endif
+#endif
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
                       _("connect() error : %s"), strerror(errno));
             (void)close(new_sock_fd);
@@ -1868,12 +1964,12 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
       } while ((*ptr != '(') && (*ptr != '\0'));
       if (*ptr == '(')
       {
-         int number;
-
          data = ctrl;
          data.sin_family = AF_INET;
          if ((mode & EXTENDED_MODE) == 0)
          {
+            int number;
+
             if ((number = get_number(&ptr, ',')) != INCORRECT)
             {
                if (mode & ALLOW_DATA_REDIRECT)
@@ -1941,6 +2037,10 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
                          _("Failed to retrieve remote address %s"), msg_str);
                return(INCORRECT);
             }
+            *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
+            *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
+            *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
+            *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
          }
 
          if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
@@ -2636,8 +2736,6 @@ ftp_open(char *filename, int seek)
 int
 ftp_close_data(void)
 {
-   int reply;
-
 #ifdef WITH_SSL
    if (ssl_data != NULL)
    {
@@ -2663,6 +2761,8 @@ ftp_close_data(void)
 
    if (timeout_flag == OFF)
    {
+      int reply;
+
       long tmp_ftp_timeout = transfer_timeout;
 
       /*
@@ -2760,6 +2860,10 @@ ftp_write(char *block, char *buffer, int size)
 #endif
               if ((status = write(data_fd, ptr, size)) != size)
               {
+                 if ((errno == ECONNRESET) || (errno == EBADF))
+                 {
+                    timeout_flag = CON_RESET;
+                 }
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_write", NULL,
                            _("write() error (%d) : %s"),
                            status, strerror(errno));
@@ -2886,6 +2990,10 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
            /* Write descriptor of block header. */
            if (write(data_fd, &descriptor, 1) != 1)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_block_write", NULL,
                         _("Failed to write() descriptor of block header : %s"),
                         strerror(errno));
@@ -2895,6 +3003,10 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
            /* Write byte counter of block header. */
            if (write(data_fd, &size, 2) != 2)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_block_write", NULL,
                         _("Failed to write() byte counter of block header : %s"),
                         strerror(errno));
@@ -2904,6 +3016,10 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
            /* Now write the data. */
            if (write(data_fd, block, size) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_block_write", NULL,
                         _("write() error : %s"), strerror(errno));
               return(INCORRECT);
@@ -2952,14 +3068,15 @@ ftp_mode(char mode)
 int
 ftp_read(char *block, int blocksize)
 {
-   int bytes_read,
-       status;
+   int bytes_read;
 
 #ifdef WITH_SSL
    if ((ssl_data != NULL) && (SSL_pending(ssl_data)))
    {
       if ((bytes_read = SSL_read(ssl_data, block, blocksize)) == INCORRECT)
       {
+         int status;
+
          if ((status = SSL_get_error(ssl_data,
                                      bytes_read)) == SSL_ERROR_SYSCALL)
          {
@@ -2984,6 +3101,7 @@ ftp_read(char *block, int blocksize)
    else
 #endif
    {
+      int    status;
       fd_set rset;
 
       /* Initialise descriptor set. */
@@ -3069,8 +3187,6 @@ ftp_read(char *block, int blocksize)
 int
 ftp_quit(void)
 {
-   int reply;
-
    (void)command(control_fd, "QUIT");
    if (data_fd != -1)
    {
@@ -3105,6 +3221,8 @@ ftp_quit(void)
     */
    if (timeout_flag == OFF)
    {
+      int reply;
+
       if ((reply = get_reply()) < 0)
       {
          (void)close(control_fd);
@@ -3458,14 +3576,19 @@ read_data_to_buffer(int read_fd, char ***buffer)
               }
               else
               {
-                 if ((**buffer = realloc(**buffer,
-                                         bytes_buffered + bytes_read + 1)) == NULL)
+                 char *tmp_buffer;
+
+                 if ((tmp_buffer = realloc(**buffer,
+                                           bytes_buffered + bytes_read + 1)) == NULL)
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_to_buffer", NULL,
                               _("realloc() error (after reading %d bytes) : %s"),
                               bytes_buffered, strerror(errno));
+                    free(**buffer);
+                    **buffer = NULL;
                     return(INCORRECT);
                  }
+                 **buffer = tmp_buffer;
               }
               (void)memcpy(**buffer + bytes_buffered, tmp_buffer, bytes_read);
               bytes_buffered += bytes_read;

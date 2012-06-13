@@ -1,6 +1,6 @@
 /*
  *  afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -297,6 +297,10 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "AMG fork() counter   : %u\n", p_afd_status->amg_fork_counter);
    (void)fprintf(stdout, "FD fork() counter    : %u\n", p_afd_status->fd_fork_counter);
    (void)fprintf(stdout, "Burst2 counter       : %u\n", p_afd_status->burst2_counter);
+   (void)fprintf(stdout, "AMG child user time  : %ld.%ld\n", p_afd_status->amg_child_utime.tv_sec, p_afd_status->amg_child_utime.tv_usec);
+   (void)fprintf(stdout, "AMG child system time: %ld.%ld\n", p_afd_status->amg_child_stime.tv_sec, p_afd_status->amg_child_stime.tv_usec);
+   (void)fprintf(stdout, "FD child user time   : %ld.%ld\n", p_afd_status->fd_child_utime.tv_sec, p_afd_status->fd_child_utime.tv_usec);
+   (void)fprintf(stdout, "FD child system time : %ld.%ld\n", p_afd_status->fd_child_stime.tv_sec, p_afd_status->fd_child_stime.tv_usec);
    (void)fprintf(stdout, "Max. FD queue length : %u\n", p_afd_status->max_queue_length);
    (void)fprintf(stdout, "Directories scanned  : %u\n", p_afd_status->dir_scans);
    (void)fprintf(stdout, "AFD start time       : %s", ctime(&p_afd_status->start_time));

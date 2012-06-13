@@ -1,6 +1,6 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -364,8 +364,6 @@ check_jobs(void)
                                                    {
                                                       if (message_in_queue(ptr) == NO)
                                                       {
-                                                         int           file_counter = 0;
-                                                         off_t         size_counter = 0;
                                                          char          *p_file;
                                                          DIR           *file_dp;
                                                          struct dirent *file_dirp;
@@ -381,6 +379,9 @@ check_jobs(void)
                                                          }
                                                          else
                                                          {
+                                                            int   file_counter = 0;
+                                                            off_t size_counter = 0;
+
                                                             p_file = file_dir + strlen(file_dir);
                                                             *p_file = '/';
                                                             p_file++;

@@ -1,6 +1,6 @@
 /*
  *  get_mon_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -78,7 +78,7 @@ get_mon_path(int *argc, char *argv[], char *work_dir)
       /* Check if the environment variable is set. */
       if ((ptr = getenv(MON_WD_ENV_NAME)) != NULL)
       {
-         if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
+         if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH) != SUCCESS)
          {
             (void)fprintf(stderr,
                           _("ERROR   : Buffer for storing working directory is to short!\n"));
@@ -87,7 +87,7 @@ get_mon_path(int *argc, char *argv[], char *work_dir)
       }
       else if ((ptr = getenv(WD_ENV_NAME)) != NULL)
            {
-              if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
+              if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH) != SUCCESS)
               {
                  (void)fprintf(stderr,
                                _("ERROR   : Buffer for storing working directory is to short!\n"));

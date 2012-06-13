@@ -1,7 +1,7 @@
 /*
  *  gts2tiff.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ main(int argc, char *argv[])
 
    if (argc == 2)
    {
-      (void)strcpy(path, argv[1]);
+      (void)my_strncpy(path, argv[1], MAX_PATH_LENGTH);
       ptr = path + strlen(path);
       while (path != ptr)
       {

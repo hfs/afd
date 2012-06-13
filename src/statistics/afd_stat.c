@@ -1,6 +1,6 @@
 /*
  *  afd_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,6 +56,9 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>       /* struct timeval                            */
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>  /* setpriority()                             */
+#endif
 #include <sys/mman.h>       /* msync(), munmap()                         */
 #include <unistd.h>         /* STDERR_FILENO                             */
 #include <stdlib.h>         /* getenv()                                  */
@@ -96,6 +99,9 @@ struct fileretrieve_status *fra;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local functions prototypes. */
+#ifdef HAVE_SETPRIORITY
+static void                get_afd_config_value(void);
+#endif
 static void                sig_exit(int),
                            sig_segv(int),
                            sig_bus(int),
@@ -137,6 +143,9 @@ main(int argc, char *argv[])
    }
    eval_input_as(argc, argv, work_dir, statistic_file_name,
                  istatistic_file_name);
+#ifdef HAVE_SETPRIORITY
+   get_afd_config_value();
+#endif
 
    /* Initialize variables */
    now = time(NULL);
@@ -647,6 +656,39 @@ main(int argc, char *argv[])
 
    exit(SUCCESS);
 }
+
+
+#ifdef HAVE_SETPRIORITY
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(void)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(config_file, F_OK) == 0) &&
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, AFD_STAT_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+      free(buffer);
+   }
+
+   return;
+}
+#endif
 
 
 /*+++++++++++++++++++++++++++++ stat_exit() +++++++++++++++++++++++++++++*/

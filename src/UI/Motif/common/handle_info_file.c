@@ -1,6 +1,6 @@
 /*
  *  handle_info_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -111,7 +111,6 @@ write_info_file(Widget w, char *alias_name, char *central_info_filename)
       }
       else
       {
-         char        *buffer = NULL;
          struct stat stat_buf;
 
          if (fstat(fd, &stat_buf) == -1)
@@ -125,16 +124,18 @@ write_info_file(Widget w, char *alias_name, char *central_info_filename)
             if (stat_buf.st_size > 0)
             {
                size_t length;
-               char   *p_end,
+               char   *buffer = NULL,
+                      *p_end,
                       *p_start,
-                      search_str_end[MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 5],
-                      search_str_start[MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 3];
+                      *search_str_end,
+                      *search_str_start;
 
                if ((buffer = malloc(stat_buf.st_size + 1)) == NULL)
                {
                   (void)xrec(ERROR_DIALOG,
                              "Failed to allocate memory : %s (%s %d)",
                              strerror(errno), __FILE__, __LINE__);
+                  (void)close(fd);
                   return;
                }
                if (readn(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
@@ -142,36 +143,44 @@ write_info_file(Widget w, char *alias_name, char *central_info_filename)
                   (void)xrec(ERROR_DIALOG,
                              "Failed to read file to memory : %s (%s %d)",
                              strerror(errno), __FILE__, __LINE__);
+                  free(buffer);
+                  (void)close(fd);
                   return;
                }
                buffer[stat_buf.st_size] = '\0';
 
+               length = strlen(alias_name);
+               if ((search_str_end = malloc((3 + length + 2))) == NULL)
+               {
+                  (void)xrec(ERROR_DIALOG,
+                             "Failed to allocate memory : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  free(buffer);
+                  (void)close(fd);
+                  return;
+               }
                search_str_end[0] = '\n';
                search_str_end[1] = '<';
                search_str_end[2] = '/';
-               length = strlen(alias_name);
-               if (length >= (MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 4))
-               {
-                  (void)xrec(ERROR_DIALOG,
-                             "Hmmm, this should not be! Alias name lenght %d > %d. (%s %d)",
-                              (int)length, (MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 4),
-                              __FILE__, __LINE__);
-                  exit(INCORRECT);
-               }
                (void)strcpy(&search_str_end[3], alias_name);
                search_str_end[3 + length] = '>';
                search_str_end[3 + length + 1] = '\0';
+               if ((search_str_start = malloc((1 + length + 2))) == NULL)
+               {
+                  (void)xrec(ERROR_DIALOG,
+                             "Failed to allocate memory : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  free(buffer);
+                  free(search_str_end);
+                  (void)close(fd);
+                  return;
+               }
                search_str_start[0] = '<';
                (void)strcpy(&search_str_start[1], &search_str_end[3]);
                if (((p_start = posi(buffer, search_str_start)) != NULL) &&
                    ((p_end = posi(p_start, search_str_end)) != NULL))
                {
-                  if (info_data != NULL)
-                  {
-                     /* Free previous memory chunk. */
-                     free(info_data);
-                     info_data = NULL;
-                  }
+                  free(info_data);
                   if ((info_data = XmTextGetString(w)))
                   {
                      size_t data_length;
@@ -305,6 +314,9 @@ write_info_file(Widget w, char *alias_name, char *central_info_filename)
                           data_changed = YES;
                        }
                     }
+               free(buffer);
+               free(search_str_end);
+               free(search_str_start);
             }
          }
          if (close(fd) == -1)
@@ -327,12 +339,7 @@ write_info_file(Widget w, char *alias_name, char *central_info_filename)
       }
       else
       {
-         if (info_data != NULL)
-         {
-            /* Free previous memory chunk. */
-            free(info_data);
-            info_data = NULL;
-         }
+         free(info_data);
          if ((info_data = XmTextGetString(w)))
          {
             size_t data_length;
@@ -410,44 +417,16 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
                size_t length;
                char   *p_end,
                       *p_start,
-                      search_str_end[MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 5],
-                      search_str_start[MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 3];
+                      *search_str_end,
+                      *search_str_start;
 
-               search_str_end[0] = '\n';
-               search_str_end[1] = '<';
-               search_str_end[2] = '/';
                length = strlen(alias_name);
-               if (length >= (MAX_HOSTNAME_LENGTH + MAX_HOSTNAME_LENGTH + 4))
+               if ((search_str_end = malloc((3 + length + 2))) == NULL)
                {
-                  (void)fprintf(stderr, "Hmmm, this should not be! (%s %d)\n",
-                                __FILE__, __LINE__);
-                  exit(INCORRECT);
-               }
-               (void)strcpy(&search_str_end[3], alias_name);
-               search_str_end[3 + length] = '>';
-               search_str_end[3 + length + 1] = '\0';
-               search_str_start[0] = '<';
-               (void)strcpy(&search_str_start[1], &search_str_end[3]);
-               if (((p_start = posi(ptr, search_str_start)) != NULL) &&
-                   ((p_end = posi(p_start, search_str_end)) != NULL))
-               {
-                  length = p_end - p_start - (length + 4);
-
-                  if (info_data != NULL)
-                  {
-                     /* Free previous memory chunk. */
-                     free(info_data);
-                  }
-                  if ((info_data = malloc(length + 1)) == NULL)
-                  {
-                     (void)xrec(ERROR_DIALOG,
-                                "Failed to allocate memory : %s (%s %d)",
-                                strerror(errno), __FILE__, __LINE__);
-                     return(NO);
-                  }
-                  (void)memcpy(info_data, p_start, length);
+                  (void)xrec(ERROR_DIALOG,
+                             "Failed to allocate memory : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
                   (void)close(src_fd);
-                  info_data[length] = '\0';
 #ifdef HAVE_MMAP
                   if (munmap(ptr, stat_buf.st_size) == -1)
 #else
@@ -457,11 +436,72 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
                      (void)xrec(WARN_DIALOG, "Failed to munmap() from %s : %s",
                                 central_info_file, strerror(errno));
                   }
-
-                  first_time = YES;
-                  data_from_central_info_file = YES;
-                  return(YES);
+                  return(NO);
                }
+               search_str_end[0] = '\n';
+               search_str_end[1] = '<';
+               search_str_end[2] = '/';
+               (void)strcpy(&search_str_end[3], alias_name);
+               search_str_end[3 + length] = '>';
+               search_str_end[3 + length + 1] = '\0';
+               if ((search_str_start = malloc((1 + length + 2))) == NULL)
+               {
+                  (void)xrec(ERROR_DIALOG,
+                             "Failed to allocate memory : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  free(search_str_end);
+                  (void)close(src_fd);
+#ifdef HAVE_MMAP
+                  if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+                  if (munmap_emu(ptr) == -1)
+#endif
+                  {
+                     (void)xrec(WARN_DIALOG, "Failed to munmap() from %s : %s",
+                                central_info_file, strerror(errno));
+                  }
+                  return(NO);
+               }
+               search_str_start[0] = '<';
+               (void)strcpy(&search_str_start[1], &search_str_end[3]);
+               if (((p_start = posi(ptr, search_str_start)) != NULL) &&
+                   ((p_end = posi(p_start, search_str_end)) != NULL))
+               {
+                  length = p_end - p_start - (length + 4);
+
+                  free(info_data);
+                  if ((info_data = malloc(length + 1)) == NULL)
+                  {
+                     (void)xrec(ERROR_DIALOG,
+                                "Failed to allocate memory : %s (%s %d)",
+                                strerror(errno), __FILE__, __LINE__);
+                     ret = NO;
+                  }
+                  else
+                  {
+                     (void)memcpy(info_data, p_start, length);
+                     info_data[length] = '\0';
+                     first_time = YES;
+                     data_from_central_info_file = YES;
+                     ret = YES;
+                  }
+                  (void)close(src_fd);
+#ifdef HAVE_MMAP
+                  if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+                  if (munmap_emu(ptr) == -1)
+#endif
+                  {
+                     (void)xrec(WARN_DIALOG, "Failed to munmap() from %s : %s",
+                                central_info_file, strerror(errno));
+                  }
+                  free(search_str_end);
+                  free(search_str_start);
+
+                  return(ret);
+               }
+               free(search_str_end);
+               free(search_str_start);
             }
          }
       }
@@ -505,15 +545,12 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
                        alias_info_file, strerror(errno), __FILE__, __LINE__);
             return(file_changed);
          }
-         if (info_data != NULL)
-         {
-            /* Free previous memory chunk. */
-            free(info_data);
-         }
+         free(info_data);
          if ((info_data = malloc(stat_buf.st_size + 1)) == NULL)
          {
             (void)xrec(ERROR_DIALOG, "Failed to allocate memory : %s (%s %d)",
                        strerror(errno), __FILE__, __LINE__);
+            (void)close(src_fd);
             return(NO);
          }
 
@@ -523,6 +560,7 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
             (void)xrec(ERROR_DIALOG,
                        "read() error when reading from %s : %s (%s %d)",
                        alias_info_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(src_fd);
             return(NO);
          }
          (void)close(src_fd);
@@ -547,7 +585,7 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
          fill_default_info();
          first_time = NO;
          file_changed = YES;
-         if (errno == ENOENT)
+         if (tmp_errno == ENOENT)
          {
             data_from_central_info_file = NEITHER;
          }
@@ -556,10 +594,10 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
             data_from_central_info_file = NO;
          }
       }
-      if ((ret == -1) && (errno != ENOENT))
+      if ((ret == -1) && (tmp_errno != ENOENT))
       {
          (void)xrec(WARN_DIALOG, "Failed to stat() %s : %s (%s %d)",
-                    alias_info_file, strerror(errno), __FILE__, __LINE__);
+                    alias_info_file, strerror(tmp_errno), __FILE__, __LINE__);
       }
    }
 
@@ -571,11 +609,9 @@ check_info_file(char *alias_name, char *central_info_filename, int check_mtime)
 static void
 fill_default_info(void)
 {
-   if (info_data != NULL)
-   {
-      /* Free previous memory chunk. */
-      free(info_data);
-   }
+   /* Free previous memory chunk. */
+   free(info_data);
+
    if ((info_data = malloc(384)) == NULL)
    {
       (void)xrec(ERROR_DIALOG, "Failed to allocate memory : %s (%s %d)",

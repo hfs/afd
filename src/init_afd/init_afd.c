@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -68,6 +68,8 @@ DESCR__S_M1
  **                      the existing open file descriptor to AFD_ACTIVE
  **                      file instead of trying to open it again.
  **   20.12.2010 H.Kiehl Log some data to transfer log not system log.
+ **   13.05.2012 H.Kiehl Do not exit() if we fail to stat() the files
+ **                      directory.
  **
  */
 DESCR__E_M1
@@ -82,6 +84,9 @@ DESCR__E_M1
 #endif
 #include <sys/stat.h>
 #include <sys/time.h>            /* struct timeval                       */
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>       /* setpriority()                        */
+#endif
 #include <sys/wait.h>            /* waitpid()                            */
 #include <signal.h>              /* signal()                             */
 #include <unistd.h>              /* select(), unlink(), lseek(), sleep() */
@@ -97,7 +102,8 @@ DESCR__E_M1
 #define ACTION_DIR_CHECK_INTERVAL 60
 
 /* Global definitions. */
-int                        sys_log_fd = STDERR_FILENO,
+int                        *disable_list = NULL,
+                           sys_log_fd = STDERR_FILENO,
                            event_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -183,13 +189,9 @@ main(int argc, char *argv[])
                   char_value;
    char           afd_action_dir[MAX_PATH_LENGTH],
                   afd_file_dir[MAX_PATH_LENGTH],
-                  hostname[64],
                   *p_afd_action_dir,
                   *ptr = NULL,
                   *shared_shutdown,
-#ifdef _FIFO_DEBUG
-                  cmd[2],
-#endif
                   work_dir[MAX_PATH_LENGTH];
    struct timeval timeout;
    struct tm      *bd_time;
@@ -271,10 +273,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, afd_active_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, afd_active_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, afd_active_fd, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap_emu(0, afd_active_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap_emu(NULL, afd_active_size, (PROT_READ | PROT_WRITE),
                        MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1)
 #endif
    {
@@ -349,14 +351,15 @@ main(int argc, char *argv[])
       old_afd_stat = YES;
    }
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, sizeof(struct afd_status), (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(NULL, sizeof(struct afd_status), (PROT_READ | PROT_WRITE),
                    MAP_SHARED, afd_status_fd, 0)) == (caddr_t) -1)
 #else
    /* Start mapper process that emulates mmap(). */
    proc_table[MAPPER_NO].pid = make_process(MAPPER, work_dir, NULL);
    *(pid_t *)(pid_list + ((MAPPER_NO + 1) * sizeof(pid_t))) = proc_table[MAPPER_NO].pid;
 
-   if ((ptr = mmap_emu(0, sizeof(struct afd_status), (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap_emu(NULL, sizeof(struct afd_status),
+                       (PROT_READ | PROT_WRITE),
                        MAP_SHARED, afd_status_file, 0)) == (caddr_t) -1)
 #endif
    {
@@ -641,7 +644,7 @@ main(int argc, char *argv[])
    *(pid_t *)(pid_list) = getpid();
    system_log(CONFIG_SIGN, NULL, 0,
               "=================> STARTUP <=================");
-   if (gethostname(hostname, 64) == 0)
+   if (p_afd_status->hostname[0] != '\0')
    {
       char      dstr[26];
       struct tm *p_ts;
@@ -649,7 +652,7 @@ main(int argc, char *argv[])
       p_ts = localtime(&now);
       strftime(dstr, 26, "%a %h %d %H:%M:%S %Y", p_ts);
       system_log(CONFIG_SIGN, NULL, 0, _("Starting on <%s> %s"),
-                 hostname, dstr);
+                 p_afd_status->hostname, dstr);
    }
    system_log(INFO_SIGN, NULL, 0, _("Starting %s (%s)"), AFD, PACKAGE_VERSION);
    system_log(DEBUG_SIGN, NULL, 0,
@@ -708,10 +711,10 @@ main(int argc, char *argv[])
    }
    else
    {
+      int j;
+
       for (i = 0; i < no_of_hosts; i++)
       {
-         int j;
-
          fsa[i].active_transfers = 0;
          for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
          {
@@ -816,6 +819,28 @@ main(int argc, char *argv[])
                     p_afd_status->fd_fork_counter);
          p_afd_status->amg_fork_counter = 0;
          p_afd_status->fd_fork_counter = 0;
+#ifdef HAVE_WAIT4
+         system_log(DEBUG_SIGN, NULL, 0,
+                    _("child CPU user time AMG   : %ld.%09ld FD : %ld.%09ld"),
+                    p_afd_status->amg_child_utime.tv_sec,
+                    p_afd_status->amg_child_utime.tv_usec,
+                    p_afd_status->fd_child_utime.tv_sec,
+                    p_afd_status->fd_child_utime.tv_usec);
+         p_afd_status->amg_child_utime.tv_sec = 0L;
+         p_afd_status->amg_child_utime.tv_usec = 0L;
+         p_afd_status->fd_child_utime.tv_sec = 0L;
+         p_afd_status->fd_child_utime.tv_usec = 0L;
+         system_log(DEBUG_SIGN, NULL, 0,
+                    _("child CPU system time AMG : %ld.09%ld FD : %ld.09%ld"),
+                    p_afd_status->amg_child_stime.tv_sec,
+                    p_afd_status->amg_child_stime.tv_usec,
+                    p_afd_status->fd_child_stime.tv_sec,
+                    p_afd_status->fd_child_stime.tv_usec);
+         p_afd_status->amg_child_stime.tv_sec = 0L;
+         p_afd_status->amg_child_stime.tv_usec = 0L;
+         p_afd_status->fd_child_stime.tv_sec = 0L;
+         p_afd_status->fd_child_stime.tv_usec = 0L;
+#endif
          system_log(DEBUG_SIGN, NULL, 0,
                     "Burst2 counter      : %u",
                     p_afd_status->burst2_counter);
@@ -976,55 +1001,61 @@ main(int argc, char *argv[])
           */
          if (stat(afd_file_dir, &stat_buf) < 0)
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
                        _("Failed to stat() %s : %s"),
                        afd_file_dir, strerror(errno));
-            exit(INCORRECT);
-         }
 
-         /*
-          * If there are more then LINK_MAX directories stop the AMG.
-          * Or else files will be lost!
-          */
-         if ((stat_buf.st_nlink > (link_max - STOP_AMG_THRESHOLD - DIRS_IN_FILE_DIR)) && (proc_table[AMG_NO].pid != 0))
-         {
-            /* Tell user that AMG is stopped. */
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("Have stopped AMG, due to to many jobs in system!"));
-            system_log(INFO_SIGN, NULL, 0,
-                       _("Will start AMG again when job counter is less then %d"),
-                       (link_max - START_AMG_THRESHOLD + 1));
-            event_log(0L, EC_GLOB, ET_AUTO, EA_AMG_STOP,
-#if SIZEOF_NLINK_T == 4
-                      _("To many jobs (%d) in system."),
-#else
-                      _("To many jobs (%lld) in system."),
-#endif
-                      (pri_nlink_t)stat_buf.st_nlink);
-            auto_amg_stop = YES;
-
-            if (send_cmd(STOP, amg_cmd_fd) < 0)
-            {
-               system_log(WARN_SIGN, __FILE__, __LINE__,
-                          _("Was not able to stop %s."), AMG);
-            }
+            /*
+             * Do not exit here. With network attached storage this
+             * might be a temporary status.
+             */
          }
          else
          {
-            if ((auto_amg_stop == YES) &&
-                (stat_buf.st_nlink < (link_max - START_AMG_THRESHOLD)))
+            /*
+             * If there are more then LINK_MAX directories stop the AMG.
+             * Or else files will be lost!
+             */
+            if ((stat_buf.st_nlink > (link_max - STOP_AMG_THRESHOLD - DIRS_IN_FILE_DIR)) && (proc_table[AMG_NO].pid != 0))
             {
-               if (proc_table[AMG_NO].pid < 1)
+               /* Tell user that AMG is stopped. */
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          _("Have stopped AMG, due to to many jobs in system!"));
+               system_log(INFO_SIGN, NULL, 0,
+                          _("Will start AMG again when job counter is less then %d"),
+                          (link_max - START_AMG_THRESHOLD + 1));
+               event_log(0L, EC_GLOB, ET_AUTO, EA_AMG_STOP,
+#if SIZEOF_NLINK_T == 4
+                         _("To many jobs (%d) in system."),
+#else
+                         _("To many jobs (%lld) in system."),
+#endif
+                         (pri_nlink_t)stat_buf.st_nlink);
+               auto_amg_stop = YES;
+
+               if (send_cmd(STOP, amg_cmd_fd) < 0)
                {
-                  /* Restart the AMG */
-                  proc_table[AMG_NO].pid = make_process(AMG, work_dir, NULL);
-                  *(pid_t *)(pid_list + ((AMG_NO + 1) * sizeof(pid_t))) = proc_table[AMG_NO].pid;
-                  *proc_table[AMG_NO].status = ON;
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             _("Have started AMG, that was stopped due to too many jobs in the system!"));
-                  event_log(0L, EC_GLOB, ET_AUTO, EA_AMG_STOP, NULL);
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             _("Was not able to stop %s."), AMG);
                }
-               auto_amg_stop = NO;
+            }
+            else
+            {
+               if ((auto_amg_stop == YES) &&
+                   (stat_buf.st_nlink < (link_max - START_AMG_THRESHOLD)))
+               {
+                  if (proc_table[AMG_NO].pid < 1)
+                  {
+                     /* Restart the AMG */
+                     proc_table[AMG_NO].pid = make_process(AMG, work_dir, NULL);
+                     *(pid_t *)(pid_list + ((AMG_NO + 1) * sizeof(pid_t))) = proc_table[AMG_NO].pid;
+                     *proc_table[AMG_NO].status = ON;
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                _("Have started AMG, that was stopped due to too many jobs in the system!"));
+                     event_log(0L, EC_GLOB, ET_AUTO, EA_AMG_STOP, NULL);
+                  }
+                  auto_amg_stop = NO;
+               }
             }
          }
 
@@ -1034,7 +1065,8 @@ main(int argc, char *argv[])
           */
          if (fsa != NULL)
          {
-            int jobs_in_queue = 0,
+            int host_disabled,
+                jobs_in_queue = 0,
                 lock_set = NO;
 
             (*heartbeat)++;
@@ -1066,6 +1098,7 @@ main(int argc, char *argv[])
             }
             p_afd_status->jobs_in_queue = jobs_in_queue;
 
+            host_disabled = 0;
             for (i = 0; i < no_of_hosts; i++)
             {
                (*heartbeat)++;
@@ -1246,7 +1279,17 @@ main(int argc, char *argv[])
 #endif
                   lock_set = NO;
                }
+               if ((fsa[i].special_flag & HOST_DISABLED) &&
+                   (disable_list != NULL))
+               {
+                  disable_list[host_disabled] = i;
+                  host_disabled++;
+               }
             } /* for (i = 0; i < no_of_hosts; i++) */
+
+            if ((host_disabled > 0) && (disable_list != NULL))
+            {
+            }
          } /* if (fsa != NULL) */
       }
            /* Did we get a message from the process */
@@ -1566,6 +1609,12 @@ main(int argc, char *argv[])
                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                                _("Failed to attach to FSA."));
                                   }
+                                  if ((disable_list = malloc(no_of_hosts * sizeof(int))) == NULL)
+                                  {
+                                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                _("malloc() error : %s"),
+                                                strerror(errno));
+                                  }
 
                                   /* Start the FD */
                                   proc_table[FD_NO].pid  = make_process(FD,
@@ -1645,10 +1694,24 @@ get_afd_config_value(int          *afdd_port,
    {
       char value[MAX_INT_LENGTH];
 
+#ifdef HAVE_SETPRIORITY
+      if (get_definition(buffer, INIT_AFD_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+#endif
       if (get_definition(buffer, AFD_TCP_PORT_DEF,
                          value, MAX_INT_LENGTH) != NULL)
       {
          *afdd_port = atoi(value);
+
+         /* Note: Port range is checked by afdd process. */
       }
       else
       {
@@ -1726,6 +1789,9 @@ static void
 check_dirs(char *work_dir)
 {
    char        new_dir[MAX_PATH_LENGTH],
+#ifdef WITH_ONETIME
+               *ptr2,
+#endif
                *ptr;
    struct stat stat_buf;
 
@@ -1746,30 +1812,86 @@ check_dirs(char *work_dir)
 
    /* Now lets check if the fifo directory is there. */
    (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, FIFO_DIR);
+   ptr = new_dir + strlen(new_dir);
+   (void)strcpy(ptr, FIFO_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
    }
 
    /* Is messages directory there? */
-   (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, AFD_MSG_DIR);
+   (void)strcpy(ptr, AFD_MSG_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
    }
 
+   /* Is log directory there? */
+   (void)strcpy(ptr, LOG_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is archive directory there? */
+   (void)strcpy(ptr, AFD_ARCHIVE_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+#ifdef WITH_ONETIME
+   /* Is messages directory there? */
+   (void)strcpy(ptr, AFD_ONETIME_DIR);
+   ptr2 = ptr;
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is onetime/log directory there? */
+   ptr += AFD_ONETIME_DIR_LENGTH;
+   (void)strcpy(ptr, LOG_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is onetime/etc directory there? */
+   (void)strcpy(ptr, ETC_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is onetime/etc/list directory there? */
+   ptr += ETC_DIR_LENGTH;
+   (void)strcpy(ptr, AFD_LIST_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is onetime/etc/config directory there? */
+   (void)strcpy(ptr, AFD_CONFIG_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+#endif
+
    /* Is file directory there? */
-   (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, AFD_FILE_DIR);
+#ifdef WITH_ONETIME
+   ptr = ptr2;
+#endif
+   (void)strcpy(ptr, AFD_FILE_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
    }
 
    /* Is outgoing file directory there? */
-   ptr = new_dir + strlen(new_dir);
+   ptr += AFD_FILE_DIR_LENGTH;
    (void)strcpy(ptr, OUTGOING_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
@@ -1814,7 +1936,7 @@ check_dirs(char *work_dir)
    }
 
    /* Is the file mask directory there? */
-   ptr = new_dir + strlen(new_dir);
+   ptr += INCOMING_DIR_LENGTH;
    (void)strcpy(ptr, FILE_MASK_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
@@ -1823,22 +1945,6 @@ check_dirs(char *work_dir)
 
    /* Is the ls data from remote hosts directory there? */
    (void)strcpy(ptr, LS_DATA_DIR);
-   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
-   {
-      exit(INCORRECT);
-   }
-
-   /* Is log directory there? */
-   (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, LOG_DIR);
-   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
-   {
-      exit(INCORRECT);
-   }
-
-   /* Is archive directory there? */
-   (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, AFD_ARCHIVE_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
@@ -2117,6 +2223,12 @@ init_afd_check_fsa(void)
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        _("Failed to attach to FSA."));
          }
+         free(disable_list);
+         if ((disable_list = malloc(no_of_hosts * sizeof(int))) == NULL)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("malloc() error : %s"), strerror(errno));
+         }
       }
    }
 
@@ -2128,22 +2240,22 @@ init_afd_check_fsa(void)
 static void
 afd_exit(void)
 {
-   int         i,
-               read_fd;
-   pid_t       syslog = 0;
    char        *buffer,
                *ptr;
    struct stat stat_buf;
 
    if (probe_only != 1)
    {
-      char hostname[64];
+      int   i;
+      pid_t syslog = 0;
 
       system_log(INFO_SIGN, NULL, 0,
                  _("Stopped %s. (%s)"), AFD, PACKAGE_VERSION);
 
       if (afd_active_fd == -1)
       {
+         int read_fd;
+
          if ((read_fd = open(afd_active_file, O_RDONLY)) == -1)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -2247,6 +2359,19 @@ afd_exit(void)
       }
       *proc_table[SLOG_NO].status = STOPPED;
 
+      if (p_afd_status->hostname[0] != '\0')
+      {
+         char      date_str[26];
+         time_t    now;
+         struct tm *p_ts;
+
+         now = time(NULL);
+         p_ts = localtime(&now);
+         strftime(date_str, 26, "%a %h %d %H:%M:%S %Y", p_ts);
+         system_log(CONFIG_SIGN, NULL, 0,
+                    _("Shutdown on <%s> %s"), p_afd_status->hostname, date_str);
+      }
+
       /* Unset hostname so no one thinks AFD is still up. */
       p_afd_status->hostname[0] = '\0';
 
@@ -2264,18 +2389,6 @@ afd_exit(void)
       p_afd_status = NULL;
 #endif
 
-      if (gethostname(hostname, 64) == 0)
-      {
-         char      date_str[26];
-         time_t    now;
-         struct tm *p_ts;
-
-         now = time(NULL);
-         p_ts = localtime(&now);
-         strftime(date_str, 26, "%a %h %d %H:%M:%S %Y", p_ts);
-         system_log(CONFIG_SIGN, NULL, 0,
-                    _("Shutdown on <%s> %s"), hostname, date_str);
-      }
       system_log(CONFIG_SIGN, NULL, 0,
                  "=================> SHUTDOWN <=================");
 

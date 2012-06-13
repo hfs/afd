@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -152,7 +152,8 @@ check_host_status(Widget w)
       int         nll = 0,    /* Number of long lines. */
                   nsl = 0;    /* Number of short lines. */
       size_t      new_size = (no_of_hosts + 1) * sizeof(struct line);
-      struct line *new_connect_data;
+      struct line *new_connect_data,
+                  *tmp_connect_data;
 
       p_feature_flag = (unsigned char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
       if ((new_connect_data = calloc((no_of_hosts + 1),
@@ -401,12 +402,16 @@ check_host_status(Widget w)
          }
       }
 
-      if ((connect_data = realloc(connect_data, new_size)) == NULL)
+      if ((tmp_connect_data = realloc(connect_data, new_size)) == NULL)
       {
+         int tmp_errno = errno;
+
+         free(connect_data);
          (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
-                    strerror(errno), __FILE__, __LINE__);
+                    strerror(tmp_errno), __FILE__, __LINE__);
          return;
       }
+      connect_data = tmp_connect_data;
 
       /* Activate the new connect_data structure. */
       (void)memcpy(&connect_data[0], &new_connect_data[0],
@@ -471,16 +476,22 @@ check_host_status(Widget w)
 
                           if (new_current_jd_size < new_size)
                           {
+                             struct job_data *tmp_new_jd;
+
                              new_current_jd_size = new_size;
-                             if ((new_jd = realloc(new_jd, new_size)) == NULL)
+                             if ((tmp_new_jd = realloc(new_jd, new_size)) == NULL)
                              {
+                                int tmp_errno = errno;
+
+                                free(new_jd);
                                 (void)xrec(FATAL_DIALOG,
                                            "realloc() error [%d] : %s [%d] (%s %d)",
-                                           new_size, strerror(errno), errno,
-                                           __FILE__, __LINE__);
+                                           new_size, strerror(tmp_errno),
+                                           tmp_errno, __FILE__, __LINE__);
                                 no_of_jobs_selected = 0;
                                 return;
                              }
+                             new_jd = tmp_new_jd;
                           }
                        }
                   init_jd_structure(&new_jd[new_no_of_jobs_selected - 1], i, j);
@@ -498,14 +509,20 @@ check_host_status(Widget w)
 
                if (new_current_jd_size > current_jd_size)
                {
+                  struct job_data *tmp_jd;
+
                   current_jd_size = new_current_jd_size;
-                  if ((jd = realloc(jd, new_size)) == NULL)
+                  if ((tmp_jd = realloc(jd, new_size)) == NULL)
                   {
+                     int tmp_errno = errno;
+
+                     free(jd);
                      (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
-                                strerror(errno), __FILE__, __LINE__);
+                                strerror(tmp_errno), __FILE__, __LINE__);
                      no_of_jobs_selected = 0;
                      return;
                   }
+                  jd = tmp_jd;
                }
 
                (void)resize_tv_window();

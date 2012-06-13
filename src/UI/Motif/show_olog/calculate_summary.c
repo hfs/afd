@@ -1,7 +1,7 @@
 /*
  *  calculate_summary.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -80,8 +80,7 @@ calculate_summary(char         *summary_str,
                   double       file_size,
                   double       trans_time)
 {
-   int          days,
-                hours,
+   int          hours,
                 min,
                 length;
    time_t       total_time;
@@ -94,6 +93,8 @@ calculate_summary(char         *summary_str,
    if ((first_date_found != -1) &&
        ((total_time = last_date_found - first_date_found) > 0L))
    {
+      int days;
+
       file_rate = (double)(total_no_files / (double)total_time);
       if (file_rate < 1.0)
       {

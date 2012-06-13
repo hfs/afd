@@ -1,6 +1,6 @@
 /*
  *  input_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -222,8 +222,8 @@ main(int argc, char *argv[])
    }
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_input_log_files, MAX_INPUT_LOG_FILES_DEF,
-                      MAX_INPUT_LOG_FILES);
+   get_max_log_values(&max_input_log_files, MAX_INPUT_LOG_FILES_DEF,
+                      MAX_INPUT_LOG_FILES, NULL, NULL, 0);
 
    /*
     * Set umask so that all log files have the permission 644.

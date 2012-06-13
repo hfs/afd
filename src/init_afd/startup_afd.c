@@ -1,6 +1,6 @@
 /*
  *  startup_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   31.03.2007 H.Kiehl Created
+ **   23.10.2011 H.Kiehl Automatically initialize database if binary do
+ **                      not match.
  **
  */
 DESCR__E_M3
@@ -74,6 +76,18 @@ startup_afd(void)
                   probe_only_fifo[MAX_PATH_LENGTH];
    struct timeval timeout;
    struct stat    stat_buf_fifo;
+
+   /*
+    * Before we start AFD lets check if the current binary matches
+    * the current saved database data. If not lets initialize
+    * everything.
+    */
+   if ((status = check_typesize_data()) > 0)
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Initialize database due to %d change(s).", status);
+      initialize_db(NO);
+   }
 
    (void)strcpy(probe_only_fifo, p_work_dir);
    (void)strcat(probe_only_fifo, FIFO_DIR);

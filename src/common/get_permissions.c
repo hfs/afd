@@ -1,6 +1,6 @@
 /*
  *  get_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -77,7 +77,7 @@ get_permissions(char **perm_buffer, char *fake_user)
 {
    int         fd,
                ret = SUCCESS;
-   char        *buffer,
+   char        *buffer = NULL,
                user[256],
                afd_user_file[MAX_PATH_LENGTH];
    struct stat stat_buf;
@@ -131,7 +131,7 @@ get_permissions(char **perm_buffer, char *fake_user)
                              _("Failed to read() `%s'. Permission control deactivated!!! : %s"),
                              afd_user_file, strerror(errno));
                   free(buffer); free(*perm_buffer);
-                  ret = INCORRECT;
+                  return(INCORRECT);
                }
                bytes_buffered = 0;
                read_ptr = buffer + 1;
@@ -160,6 +160,13 @@ get_permissions(char **perm_buffer, char *fake_user)
                   bytes_buffered += n;
                }
                buffer[bytes_buffered] = '\0';
+
+               if (fclose(fp) == EOF)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             _("Failed to fclose() `%s' : %s"),
+                             afd_user_file, strerror(errno));
+               }
             }
             else
             {
@@ -167,6 +174,13 @@ get_permissions(char **perm_buffer, char *fake_user)
                           _("Failed to allocate memory. Permission control deactivated!!! : %s"),
                           strerror(errno));
                ret = INCORRECT;
+               free(buffer);
+
+               if (close(fd) == -1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             _("close() error : %s"), strerror(errno));
+               }
             }
          }
          else
@@ -174,6 +188,12 @@ get_permissions(char **perm_buffer, char *fake_user)
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        _("The function get_permissions() was not made to handle large file."));
             ret = NONE;
+
+            if (close(fd) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          _("close() error : %s"), strerror(errno));
+            }
          }
       }
       else
@@ -200,12 +220,12 @@ get_permissions(char **perm_buffer, char *fake_user)
                ret = NONE;
             }
          }
-      }
 
-      if (close(fd) == -1)
-      {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    _("close() error : %s"), strerror(errno));
+         if (close(fd) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       _("close() error : %s"), strerror(errno));
+         }
       }
    }
    else

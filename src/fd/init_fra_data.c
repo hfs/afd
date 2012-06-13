@@ -1,6 +1,6 @@
 /*
  *  init_fra_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,16 +76,20 @@ init_fra_data(void)
          if ((no_of_retrieves % 10) == 0)
          {
             size_t new_size = ((no_of_retrieves / 10) + 1) * 10 * sizeof(int);
+            int    *tmp_retrieve_list;
 
-            if ((retrieve_list = realloc(retrieve_list, new_size)) == (int *)NULL)
+            if ((tmp_retrieve_list = realloc(retrieve_list, new_size)) == (int *)NULL)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "realloc() error [%d bytes] : %s",
                           new_size, strerror(errno));
 
+               free(retrieve_list);
+               retrieve_list = NULL;
                no_of_retrieves = 0;
                return;
             }
+            retrieve_list = tmp_retrieve_list;
          }
          retrieve_list[no_of_retrieves] = i;
          no_of_retrieves++;

@@ -1,6 +1,6 @@
 /*
  *  create_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -611,6 +611,7 @@ create_msa(void)
             }
          }
       } /* for (i = 0; i < no_of_afds; i++) */
+      free(gotcha);
    }
 
    /* Reposition msa pointer after no_of_afds. */
@@ -725,10 +726,7 @@ create_msa(void)
    }
 
    /* Free structure mon_list, it's no longer needed. */
-   if (ml != NULL)
-   {
-      free(ml);
-   }
+   free(ml);
 
    return;
 }

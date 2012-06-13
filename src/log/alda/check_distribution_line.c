@@ -1,7 +1,7 @@
 /*
  *  check_distribution_line.c - Part of AFD, an automatic file distribution
  *                              program.
- *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,6 @@ check_distribution_line(char         *line,
                         unsigned int prev_dir_id,
                         unsigned int *prev_unique_number)
 {
-   register int  i = 0;
    register char *ptr = line + LOG_DATE_LENGTH + 1;
 
    if ((trace_mode == ON) && (mode & ALDA_FORWARD_MODE))
@@ -111,6 +110,8 @@ check_distribution_line(char         *line,
        (((prev_file_name != NULL) && (mode & ALDA_FORWARD_MODE)) ||
         (start_time_end == 0) || (ulog.distribution_time < start_time_end)))
    {
+      register int i = 0;
+
       /* Store distribution type. */
       if ((*ptr >= '0') && (*ptr <= '9'))
       {

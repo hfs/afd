@@ -1,7 +1,7 @@
 /*
  *  write_host_config.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,6 +59,7 @@ DESCR__S_M3
  **   28.02.2006 H.Kiehl Added keep connected parameter.
  **   08.03.2006 H.Kiehl Added dupcheck on a per host basis.
  **   03.01.2008 H.Kiehl Added warn time.
+ **   12.04.2012 H.Kiehl Added check size.
  **
  */
 DESCR__E_M3
@@ -266,6 +267,8 @@ DESCR__E_M3
 #                          13(4096)- Enable compression.\n\
 #                          14(8192)- Keep time stamp of source file.\n\
 #                          15(16384)- Sort file names.\n\
+#                          16(32768)- No ageing jobs.\n\
+#                          17(65536)- Check if local and remote size match.\n\
 #                          DEFAULT: 0\n\
 # Transfer rate limit    - The maximum number of kilobytes that may be\n\
 #                          transfered per second.\n\

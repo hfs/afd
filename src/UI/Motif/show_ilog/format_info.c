@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -454,6 +454,7 @@ format_info(char **text, int with_alda_data)
                        }
                        gotcha = YES;
                     }
+#ifdef _DISTRIBUTION_LOG
                else if ((acd[k].distribution_type == DISABLED_DIS_TYPE) &&
                         (acd[k].delete_time != 0))
                     {
@@ -492,6 +493,7 @@ format_info(char **text, int with_alda_data)
                           }
                        }
                     }
+#endif
 
             }
             if (gotcha == NO)
@@ -768,6 +770,7 @@ format_info(char **text, int with_alda_data)
                        }
                        gotcha = YES;
                     }
+#ifdef _DISTRIBUTION_LOG
                else if ((acd[k].distribution_type == DISABLED_DIS_TYPE) &&
                         (acd[k].delete_time != 0))
                     {
@@ -794,6 +797,7 @@ format_info(char **text, int with_alda_data)
                           }
                        }
                     }
+#endif
             }
             if (gotcha == NO)
             {

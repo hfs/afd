@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -826,6 +826,10 @@ log_data(char   *d_name,
                  {
                     protocol = LOC;
                  }
+            else if (db.protocol & EXEC_FLAG)
+                 {
+                    protocol = EXEC;
+                 }
             else if (db.protocol & HTTP_FLAG)
                  {
 #  ifdef WITH_SSL
@@ -997,6 +1001,13 @@ log_data(char   *d_name,
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                       "%s%s",
                                       SEND_FILE_LOC,
+                                      str_diff_time);
+        }
+   else if (db.protocol & EXEC_FLAG)
+        {
+           prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+                                      "%s%s",
+                                      SEND_FILE_EXEC,
                                       str_diff_time);
         }
    else if (db.protocol & HTTP_FLAG)

@@ -1,6 +1,6 @@
 /*
  *  select_host_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -397,6 +397,13 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                                 NULL);
       XtAddCallback(toggle_w, XmNvalueChangedCallback,
                     (XtCallbackProc)toggled, (XtPointer)SHOW_FILE);
+      toggle_w = XtVaCreateManagedWidget("EXEC",
+                                xmToggleButtonGadgetClass, proto_togglebox_w,
+                                XmNfontList,               p_fontlist,
+                                XmNset,                    True,
+                                NULL);
+      XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                    (XtCallbackProc)toggled, (XtPointer)SHOW_EXEC);
       toggle_w = XtVaCreateManagedWidget("SFTP",
                                 xmToggleButtonGadgetClass, proto_togglebox_w,
                                 XmNfontList,               p_fontlist,
@@ -459,6 +466,7 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                     SHOW_SMTPS |
 #endif
                     SHOW_FILE |
+                    SHOW_EXEC |
                     SHOW_NONE;
 
       /*---------------------------------------------------------------*/
@@ -677,11 +685,12 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
 {
    char *text = XmTextGetString(find_text_w);
    int  draw_selection,
-        i,
-        match;
+        i;
 
    if (search_type == SEARCH_HOSTNAME)
    {
+      int match;
+
       for (i = 0; i < no_of_hosts; i++)
       {
          if (((fsa[i].protocol & FTP_FLAG) && (toggles_set & SHOW_FTP)) ||
@@ -691,6 +700,7 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
              ((fsa[i].protocol & HTTP_FLAG) && (fsa[i].protocol & SSL_FLAG) && (toggles_set & SHOW_HTTPS)) ||
 #endif
              ((fsa[i].protocol & LOC_FLAG) && (toggles_set & SHOW_FILE)) ||
+             ((fsa[i].protocol & EXEC_FLAG) && (toggles_set & SHOW_EXEC)) ||
              ((fsa[i].protocol & SMTP_FLAG) && (toggles_set & SHOW_SMTP)) ||
 #ifdef _WITH_SCP_SUPPORT
              ((fsa[i].protocol & SCP_FLAG) && (toggles_set & SHOW_SCP)) ||
@@ -794,6 +804,7 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
    else
    {
 #ifndef WITH_EXACT_MATCH
+      int    match;
       size_t length;
       char   *real_text;
 

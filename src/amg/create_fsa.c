@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1248,6 +1248,8 @@ create_fsa(void)
                     "close() error : %s", strerror(errno));
       }
    }
+
+   (void)write_typesize_data();
 
    return;
 }

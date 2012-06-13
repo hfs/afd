@@ -1,6 +1,6 @@
 /*
  *  fra_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@ DESCR__S_M1
  **   09.02.2005 H.Kiehl Added additional time entry structure.
  **   07.06.2005 H.Kiehl Added dupcheck entries.
  **   05.10.2005 H.Kiehl Added in_dc_flag entry.
+ **   28.05.2012 H.Kiehl Added dir_mode and 'create source dir' support.
  **
  */
 DESCR__E_M1
@@ -110,6 +111,16 @@ main(int argc, char *argv[])
    if (get_arg(&argc, argv, "-d", NULL, 0) == SUCCESS)
    {
       mode |= SHOW_DISABLED_DIRS;
+   }
+
+   /* Do not start if binary dataset matches the one stort on disk. */
+   if (check_typesize_data() > 0)
+   {
+      (void)fprintf(stderr,
+                    "The compiled binary does not match stored database.\n");
+      (void)fprintf(stderr,
+                    "Initialize database with the command : afd -i\n");
+      exit(INCORRECT);
    }
 
    if (argc == 2)
@@ -220,6 +231,9 @@ main(int argc, char *argv[])
 #endif
          (void)fprintf(stdout, "Accumulate           : %u\n", fra[i].accumulate);
          (void)fprintf(stdout, "gt_lt_sign           : %u\n", fra[i].gt_lt_sign);
+#ifdef NEW_FRA
+         (void)fprintf(stdout, "Create Dir Mode      : %o\n", fra[i].dir_mode);
+#endif
          (void)fprintf(stdout, "Max errors           : %d\n", fra[i].max_errors);
          (void)fprintf(stdout, "Error counter        : %u\n", fra[i].error_counter);
 #if SIZEOF_TIME_T == 4
@@ -308,9 +322,14 @@ main(int argc, char *argv[])
                        (pri_off_t)fra[i].max_copied_file_size);
          if (fra[i].dir_status == NORMAL_STATUS)
          {
-            (void)fprintf(stdout, "Directory status(%3d): NORMAL_STATUS\n",
+            (void)fprintf(stdout, "Directory status(%3d): NORMAL STATUS\n",
                           fra[i].dir_status);
          }
+         else if (fra[i].dir_status == DIRECTORY_ACTIVE)
+              {
+                 (void)fprintf(stdout, "Directory status(%3d): DIRECTORY ACTIVE\n",
+                               fra[i].dir_status);
+              }
          else if (fra[i].dir_status == WARNING_ID)
               {
                  (void)fprintf(stdout, "Directory status(%3d): WARN TIME REACHED\n",
@@ -384,6 +403,10 @@ main(int argc, char *argv[])
             if (fra[i].dir_flag & DIR_ERROR_SET)
             {
                (void)fprintf(stdout, "DIR_ERROR_SET ");
+            }
+            if (fra[i].dir_flag & CREATE_R_SRC_DIR)
+            {
+               (void)fprintf(stdout, "CREATE_R_SRC_DIR ");
             }
             if (fra[i].dir_flag & WARN_TIME_REACHED)
             {
@@ -478,7 +501,7 @@ main(int argc, char *argv[])
                  }
             else if (fra[i].dup_check_flag & DC_FILE_CONT_NAME)
                  {
-                    (void)fprintf(stdout, "FILE_CONT_NAME ");
+                    (void)fprintf(stdout, "FILE_NAME_CONT ");
                  }
                  else
                  {
@@ -492,6 +515,7 @@ main(int argc, char *argv[])
             {
                (void)fprintf(stdout, "UNKNOWN_CRC");
             }
+            (void)fprintf(stdout, "\n");
          }
 #endif
          if (fra[i].force_reread == NO)
@@ -502,14 +526,7 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stdout, "Force reread         : YES\n");
          }
-         if (fra[i].queued == NO)
-         {
-            (void)fprintf(stdout, "Queued               : NO\n");
-         }
-         else
-         {
-            (void)fprintf(stdout, "Queued               : YES\n");
-         }
+         (void)fprintf(stdout, "Queued               : %d\n", (int)fra[i].queued);
          if (fra[i].remove == NO)
          {
             (void)fprintf(stdout, "Remove files         : NO\n");

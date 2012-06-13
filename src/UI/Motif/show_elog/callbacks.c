@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,14 +63,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <ctype.h>          /* isdigit()                                 */
-#include <stdlib.h>         /* atoi(), atol(), free(), strtoul()         */
-#include <ctype.h>          /* isdigit()                                 */
-#include <time.h>           /* time(), localtime(), mktime(), strftime() */
-#ifdef TM_IN_SYS_TIME
-# include <sys/time.h>
-#endif
-#include <unistd.h>         /* close()                                   */
+#include <stdlib.h>         /* exit()                                    */
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <errno.h>
@@ -83,9 +76,11 @@ extern Widget         appshell,
                       class_togglebox_w,
                       cont_togglebox_w,
                       dir_alias_w,
+                      dir_label_w,
                       end_time_w,
                       headingbox_w,
                       host_alias_w,
+                      host_label_w,
                       outputbox_w,
                       print_button_w,
                       start_time_w,
@@ -111,15 +106,32 @@ extern char           search_add_info[],
 /* Local global variables. */
 static int            scrollbar_moved_flag;
 
-/* Local function prototypes. */
-static int            eval_time(char *, Widget, time_t *);
-
 
 /*############################## toggled() ##############################*/
 void
 toggled(Widget w, XtPointer client_data, XtPointer call_data)
 {
    toggles_set ^= (XT_PTR_TYPE)client_data;
+   if (toggles_set & SHOW_CLASS_DIRECTORY)
+   {
+      XtSetSensitive(dir_label_w, True);
+      XtSetSensitive(dir_alias_w, True);
+   }
+   else
+   {
+      XtSetSensitive(dir_label_w, False);
+      XtSetSensitive(dir_alias_w, False);
+   }
+   if (toggles_set & SHOW_CLASS_HOST)
+   {
+      XtSetSensitive(host_label_w, True);
+      XtSetSensitive(host_alias_w, True);
+   }
+   else
+   {
+      XtSetSensitive(host_label_w, False);
+      XtSetSensitive(host_alias_w, False);
+   }
 
    return;
 }
@@ -251,7 +263,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          {
             start_time_val = -1;
          }
-         else if (eval_time(value, w, &start_time_val) < 0)
+         else if (eval_time(value, w, &start_time_val, START_TIME) < 0)
               {
                  show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
@@ -261,7 +273,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       case START_TIME :
-         if (eval_time(value, w, &start_time_val) < 0)
+         if (eval_time(value, w, &start_time_val, START_TIME) < 0)
          {
             show_message(statusbox_w, TIME_FORMAT);
          }
@@ -277,7 +289,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          {
             end_time_val = -1;
          }
-         else if (eval_time(value, w, &end_time_val) < 0)
+         else if (eval_time(value, w, &end_time_val, END_TIME) < 0)
               {
                  show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
@@ -287,7 +299,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       case END_TIME :
-         if (eval_time(value, w, &end_time_val) < 0)
+         if (eval_time(value, w, &end_time_val, END_TIME) < 0)
          {
             show_message(statusbox_w, TIME_FORMAT);
          }
@@ -489,236 +501,4 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
    XtFree(value);
 
    return;
-}
-
-
-/*++++++++++++++++++++++++++++ eval_time() ++++++++++++++++++++++++++++++*/
-static int
-eval_time(char *numeric_str, Widget w, time_t *value)
-{
-   int    length = strlen(numeric_str),
-          min,
-          hour;
-   time_t time_val;
-   char   str[3];
-
-   time_val = time(NULL);
-
-   switch (length)
-   {
-      case 0 : /* Assume user means current time. */
-               {
-                  char time_str[9];
-
-                  (void)strftime(time_str, 9, "%m%d%H%M", localtime(&time_val));
-                  XmTextSetString(w, time_str);
-               }
-               return(time_val);
-      case 3 :
-      case 4 :
-      case 5 :
-      case 6 :
-      case 7 :
-      case 8 : break;
-      default: return(INCORRECT);
-   }
-
-   if (numeric_str[0] == '-')
-   {
-      if ((!isdigit((int)numeric_str[1])) || (!isdigit((int)numeric_str[2])))
-      {
-         return(INCORRECT);
-      }
-
-      if (length == 3)
-      {
-         str[0] = numeric_str[1];
-         str[1] = numeric_str[2];
-         str[2] = '\0';
-         min = atoi(str);
-         if ((min < 0) || (min > 59))
-         {
-            return(INCORRECT);
-         }
-
-         *value = time_val - (min * 60);
-      }
-      else if (length == 5)
-           {
-              if ((!isdigit((int)numeric_str[3])) ||
-                  (!isdigit((int)numeric_str[4])))
-              {
-                 return(INCORRECT);
-              }
-
-              str[0] = numeric_str[1];
-              str[1] = numeric_str[2];
-              str[2] = '\0';
-              hour = atoi(str);
-              if ((hour < 0) || (hour > 23))
-              {
-                 return(INCORRECT);
-              }
-              str[0] = numeric_str[3];
-              str[1] = numeric_str[4];
-              min = atoi(str);
-              if ((min < 0) || (min > 59))
-              {
-                 return(INCORRECT);
-              }
-
-              *value = time_val - (min * 60) - (hour * 3600);
-           }
-      else if (length == 7)
-           {
-              int days;
-
-              if ((!isdigit((int)numeric_str[3])) ||
-                  (!isdigit((int)numeric_str[4])) ||
-                  (!isdigit((int)numeric_str[5])) ||
-                  (!isdigit((int)numeric_str[6])))
-              {
-                 return(INCORRECT);
-              }
-
-              str[0] = numeric_str[1];
-              str[1] = numeric_str[2];
-              str[2] = '\0';
-              days = atoi(str);
-              str[0] = numeric_str[3];
-              str[1] = numeric_str[4];
-              str[2] = '\0';
-              hour = atoi(str);
-              if ((hour < 0) || (hour > 23))
-              {
-                 return(INCORRECT);
-              }
-              str[0] = numeric_str[5];
-              str[1] = numeric_str[6];
-              min = atoi(str);
-              if ((min < 0) || (min > 59))
-              {
-                 return(INCORRECT);
-              }
-
-              *value = time_val - (min * 60) - (hour * 3600) - (days * 86400);
-           }
-           else
-           {
-              return(INCORRECT);
-           }
-
-      return(SUCCESS);
-   }
-
-   if ((!isdigit((int)numeric_str[0])) || (!isdigit((int)numeric_str[1])) ||
-       (!isdigit((int)numeric_str[2])) || (!isdigit((int)numeric_str[3])))
-   {
-      return(INCORRECT);
-   }
-
-   str[0] = numeric_str[0];
-   str[1] = numeric_str[1];
-   str[2] = '\0';
-
-   if (length == 4) /* hhmm */
-   {
-      struct tm *bd_time;     /* Broken-down time. */
-
-      hour = atoi(str);
-      if ((hour < 0) || (hour > 23))
-      {
-         return(INCORRECT);
-      }
-      str[0] = numeric_str[2];
-      str[1] = numeric_str[3];
-      min = atoi(str);
-      if ((min < 0) || (min > 59))
-      {
-         return(INCORRECT);
-      }
-      bd_time = localtime(&time_val);
-      bd_time->tm_sec  = 0;
-      bd_time->tm_min  = min;
-      bd_time->tm_hour = hour;
-
-      *value = mktime(bd_time);
-   }
-   else if (length == 6) /* DDhhmm */
-        {
-           int       day = atoi(str);
-           struct tm *bd_time;     /* Broken-down time. */
-
-           if ((day < 0) || (day > 31))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[2];
-           str[1] = numeric_str[3];
-           hour = atoi(str);
-           if ((hour < 0) || (hour > 23))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[4];
-           str[1] = numeric_str[5];
-           min = atoi(str);
-           if ((min < 0) || (min > 59))
-           {
-              return(INCORRECT);
-           }
-           bd_time = localtime(&time_val);
-           bd_time->tm_sec  = 0;
-           bd_time->tm_min  = min;
-           bd_time->tm_hour = hour;
-           bd_time->tm_mday = day;
-
-           *value = mktime(bd_time);
-        }
-        else /* MMDDhhmm */
-        {
-           int       month = atoi(str),
-                     day;
-           struct tm *bd_time;     /* Broken-down time. */
-
-           if ((month < 0) || (month > 12))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[2];
-           str[1] = numeric_str[3];
-           day = atoi(str);
-           if ((day < 0) || (day > 31))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[4];
-           str[1] = numeric_str[5];
-           hour = atoi(str);
-           if ((hour < 0) || (hour > 23))
-           {
-              return(INCORRECT);
-           }
-           str[0] = numeric_str[6];
-           str[1] = numeric_str[7];
-           min = atoi(str);
-           if ((min < 0) || (min > 59))
-           {
-              return(INCORRECT);
-           }
-           bd_time = localtime(&time_val);
-           bd_time->tm_sec  = 0;
-           bd_time->tm_min  = min;
-           bd_time->tm_hour = hour;
-           bd_time->tm_mday = day;
-           if ((bd_time->tm_mon == 0) && (month == 12))
-           {
-              bd_time->tm_year -= 1;
-           }
-           bd_time->tm_mon  = month - 1;
-
-           *value = mktime(bd_time);
-        }
-
-   return(SUCCESS);
 }

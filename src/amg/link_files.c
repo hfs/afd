@@ -1,6 +1,6 @@
 /*
  *  link_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -321,8 +321,7 @@ link_files(char                   *src_file_path,
                {
                   if ((retstat = rename(src_file_path, dest_file_path)) == -1)
                   {
-                     int gotcha = NO,
-                         k;
+                     int gotcha = NO;
 
                      /*
                       * It can happen that when we copied/renamed the file
@@ -335,6 +334,8 @@ link_files(char                   *src_file_path,
                       */
                      if (i > 0)
                      {
+                        int k;
+
                         for (k = 0; k < i; k++)
                         {
                            if (CHECK_STRCMP(file_name_pool[i],

@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -70,6 +70,7 @@ DESCR__S_M1
  **   17.03.2003 H.Kiehl Support for reading multiple DIR_CONFIG files.
  **   16.07.2005 H.Kiehl Made old_file_time and delete_files_flag
  **                      configurable via AFD_CONFIG.
+ **   14.02.2011 H.Kiehl Added onetime support.
  **
  */
 DESCR__E_M1
@@ -81,6 +82,9 @@ DESCR__E_M1
 #include <sys/types.h>                /* fdset                           */
 #include <sys/stat.h>
 #include <sys/time.h>                 /* struct timeval                  */
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>            /* setpriority()                   */
+#endif
 #include <sys/wait.h>                 /* waitpid()                       */
 #ifdef HAVE_MMAP
 # include <sys/mman.h>                /* mmap(), munmap()                */
@@ -102,6 +106,7 @@ DESCR__E_M1
 FILE                       *p_debug_file;
 #endif
 int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
+                           create_source_dir_disabled = NO,
                            dnb_fd,
                            data_length, /* The size of data for one job. */
                            default_delete_files_flag = 0,
@@ -118,6 +123,9 @@ int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
                                              /* directories found in the */
                                              /* DIR_CONFIG file.         */
                            no_of_dir_configs,
+#ifdef WITH_ONETIME
+                           no_of_ot_dir_configs = 0,
+#endif
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -144,7 +152,10 @@ struct fileretrieve_status *fra;
 struct filetransfer_status *fsa = NULL;
 struct afd_status          *p_afd_status;
 struct dir_name_buf        *dnb = NULL;
-struct dir_config_buf      *dcl;
+struct dir_config_buf      *dc_dcl;
+#ifdef WITH_ONETIME
+struct dir_config_buf      *ot_dcl = NULL;
+#endif
 #ifdef _DELETE_LOG
 struct delete_log          dl;
 #endif
@@ -276,7 +287,7 @@ main(int argc, char *argv[])
             counter_file[MAX_PATH_LENGTH],
             db_update_fifo[MAX_PATH_LENGTH],
             dc_cmd_fifo[MAX_PATH_LENGTH],
-            dc_resp_fifo[MAX_FILENAME_LENGTH];
+            dc_resp_fifo[MAX_PATH_LENGTH];
 
       if ((host_config_file = malloc((strlen(work_dir) + strlen(ETC_DIR) +
                                       strlen(DEFAULT_HOST_CONFIG_FILE) + 1))) == NULL)
@@ -459,6 +470,7 @@ main(int argc, char *argv[])
                     db_update_fifo, strerror(errno));
          exit(INCORRECT);
       }
+
       get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir,
                            &create_source_dir_mode, &max_copied_files,
                            &max_copied_file_size, &default_delete_files_flag,
@@ -467,6 +479,35 @@ main(int argc, char *argv[])
                            &default_inotify_flag,
 #endif
                            &default_warn_time, &create_source_dir);
+
+      /* Lets check and see if create_source_dir was set via afdcfg. */
+      if (fsa_attach_passive(YES) != INCORRECT)
+      {
+         if (*(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_CREATE_SOURCE_DIR)
+         {
+            if ((create_source_dir != DEFAULT_CREATE_SOURCE_DIR_DEF) &&
+                (DEFAULT_CREATE_SOURCE_DIR_DEF == NO))
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Overriding AFD_CONFIG value %s, setting it to NO due to afdcfg setting.",
+                          CREATE_SOURCE_DIR_DEF);
+            }
+            create_source_dir = NO;
+            create_source_dir_disabled = YES;
+         }
+         else
+         {
+            if ((create_source_dir != DEFAULT_CREATE_SOURCE_DIR_DEF) &&
+                (DEFAULT_CREATE_SOURCE_DIR_DEF == YES))
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Overriding AFD_CONFIG value %s, setting it to YES due to afdcfg setting.",
+                          CREATE_SOURCE_DIR_DEF);
+            }
+            create_source_dir = YES;
+         }
+         (void)fsa_detach(NO);
+      }
 
       /* Determine the size of the fifo buffer and allocate buffer. */
       if ((i = (int)fpathconf(db_update_fd, _PC_PIPE_BUF)) < 0)
@@ -483,6 +524,7 @@ main(int argc, char *argv[])
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     _("malloc() error [%d bytes] : %s"),
                     fifo_size, strerror(errno));
+         exit(INCORRECT);
       }
 
       /* Find largest file descriptor. */
@@ -504,7 +546,7 @@ main(int argc, char *argv[])
          /*
           * Try get the host information from the current FSA.
           */
-         if (fsa_attach() != INCORRECT)
+         if (fsa_attach_passive(YES) != INCORRECT)
          {
             size_t new_size = ((no_of_hosts / HOST_BUF_SIZE) + 1) *
                               HOST_BUF_SIZE * sizeof(struct host_list);
@@ -582,19 +624,19 @@ main(int argc, char *argv[])
       for (i = 0; i < no_of_dir_configs; i++)
       {
          /* Get the size of the database file. */
-         if (stat(dcl[i].dir_config_file, &stat_buf) == -1)
+         if (stat(dc_dcl[i].dir_config_file, &stat_buf) == -1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        _("Could not get size of database file `%s' : %s"),
-                       dcl[i].dir_config_file, strerror(errno));
-            dcl[i].dc_old_time = 0L;
+                       dc_dcl[i].dir_config_file, strerror(errno));
+            dc_dcl[i].dc_old_time = 0L;
          }
          else
          {
-            /* Since this is the first time round and this */
-            /* is the time of the actual database, we      */
-            /* store its value here in dcl[i].dc_old_time. */
-            dcl[i].dc_old_time = stat_buf.st_mtime;
+            /* Since this is the first time round and this    */
+            /* is the time of the actual database, we         */
+            /* store its value here in dc_dcl[i].dc_old_time. */
+            dc_dcl[i].dc_old_time = stat_buf.st_mtime;
             db_size += stat_buf.st_size;
          }
       }
@@ -605,7 +647,7 @@ main(int argc, char *argv[])
                     (no_of_dir_configs > 1) ? "files" : "file");
          exit(INCORRECT);
       }
-      lookup_dc_id(&dcl, no_of_dir_configs);
+      lookup_dc_id(&dc_dcl, no_of_dir_configs);
 
       /*
        * If necessary inform FD that AMG is (possibly) about to change
@@ -615,7 +657,11 @@ main(int argc, char *argv[])
       inform_fd_about_fsa_change();
 
       /* Evaluate database. */
+#ifdef WITH_ONETIME
+      if (eval_dir_config(db_size, NULL, NO) != SUCCESS)
+#else
       if (eval_dir_config(db_size, NULL) != SUCCESS)
+#endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     _("Could not find any valid entries in database %s"),
@@ -823,11 +869,12 @@ main(int argc, char *argv[])
            /* edit_dc dialog?                              */
       else if ((status > 0) && (FD_ISSET(db_update_fd, &rset)))
            {
-              int n,
-                  count = 0;
+              int n;
 
               if ((n = read(db_update_fd, fifo_buffer, fifo_size)) > 0)
               {
+                 int count = 0;
+
 #ifdef _FIFO_DEBUG
                  show_fifo_data('R', DB_UPDATE_FIFO, fifo_buffer, n, __FILE__, __LINE__);
 #endif
@@ -1109,19 +1156,19 @@ main(int argc, char *argv[])
                                 stat_error_set = NO;
                                 for (i = 0; i < no_of_dir_configs; i++)
                                 {
-                                   if (stat(dcl[i].dir_config_file, &stat_buf) < 0)
+                                   if (stat(dc_dcl[i].dir_config_file, &stat_buf) < 0)
                                    {
                                       system_log(WARN_SIGN, __FILE__, __LINE__,
                                                  _("Failed to stat() `%s' : %s"),
-                                                 dcl[i].dir_config_file,
+                                                 dc_dcl[i].dir_config_file,
                                                  strerror(errno));
                                       stat_error_set = YES;
                                    }
                                    else
                                    {
-                                      if (dcl[i].dc_old_time != stat_buf.st_mtime)
+                                      if (dc_dcl[i].dc_old_time != stat_buf.st_mtime)
                                       {
-                                         dcl[i].dc_old_time = stat_buf.st_mtime;
+                                         dc_dcl[i].dc_old_time = stat_buf.st_mtime;
                                          dc_changed = YES;
                                       }
                                       db_size += stat_buf.st_size;
@@ -1270,6 +1317,9 @@ main(int argc, char *argv[])
                     exit(INCORRECT);
                  }
               }
+#ifdef WITH_ONETIME
+              check_onetime_config();
+#endif
            }
            else 
            {
@@ -1340,6 +1390,18 @@ get_afd_config_value(int          *rescan_time,
       char   *ptr,
              value[MAX_LONG_LENGTH];
 
+#ifdef HAVE_SETPRIORITY
+      if (get_definition(buffer, AMG_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+#endif
       if (get_definition(buffer, AMG_DIR_RESCAN_TIME_DEF,
                          value, MAX_INT_LENGTH) != NULL)
       {
@@ -1615,7 +1677,7 @@ get_afd_config_value(int          *rescan_time,
       {
          int i;
 
-         if ((dcl = malloc(no_of_dir_configs * sizeof(struct dir_config_buf))) == NULL)
+         if ((dc_dcl = malloc(no_of_dir_configs * sizeof(struct dir_config_buf))) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        _("Failed to malloc() %d bytes : %s"),
@@ -1660,31 +1722,31 @@ get_afd_config_value(int          *rescan_time,
                      }
                      user[j] = '\0';
                   }
+                  (void)expand_path(user, p_path);
+                  length = strlen(p_path) + 1;
+                  (void)memmove(config_file, p_path, length);
                }
                else
                {
-                  p_path = config_file;
-                  user[0] = '\0';
-               }
-               (void)expand_path(user, p_path);
-               length = strlen(p_path) + 1;
-               if (p_path != config_file)
-               {
-                  (void)memmove(config_file, p_path, length);
+                  char tmp_config_file[MAX_PATH_LENGTH];
+
+                  (void)strcpy(tmp_config_file, config_file);
+                  length = sprintf(config_file, "%s%s/%s",
+                                   p_work_dir, ETC_DIR, tmp_config_file) + 1;
                }
             }
             else
             {
                length = strlen(config_file) + 1;
             }
-            if ((dcl[i].dir_config_file = malloc(length)) == NULL)
+            if ((dc_dcl[i].dir_config_file = malloc(length)) == NULL)
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           _("Failed to malloc() %d bytes : %s"),
                           length, strerror(errno));
                exit(INCORRECT);
             }
-            (void)memcpy(dcl[i].dir_config_file, config_file, length);
+            (void)memcpy(dc_dcl[i].dir_config_file, config_file, length);
          }
       }
       else
@@ -1692,21 +1754,21 @@ get_afd_config_value(int          *rescan_time,
          length = sprintf(config_file, "%s%s%s",
                           p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE) + 1;
          no_of_dir_configs = 1;
-         if ((dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
+         if ((dc_dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        _("Failed to malloc() %d bytes : %s"),
                        sizeof(struct dir_config_buf), strerror(errno));
             exit(INCORRECT);
          }
-         if ((dcl[0].dir_config_file = malloc(length)) == NULL)
+         if ((dc_dcl[0].dir_config_file = malloc(length)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        _("Failed to malloc() %d bytes : %s"),
                        length, strerror(errno));
             exit(INCORRECT);
          }
-         (void)strcpy(dcl[0].dir_config_file, config_file);
+         (void)strcpy(dc_dcl[0].dir_config_file, config_file);
       }
       free(buffer);
    }
@@ -1717,21 +1779,21 @@ get_afd_config_value(int          *rescan_time,
       length = sprintf(config_file, "%s%s%s",
                        p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE) + 1;
       no_of_dir_configs = 1;
-      if ((dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
+      if ((dc_dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     _("Failed to malloc() %d bytes : %s"),
                     sizeof(struct dir_config_buf), strerror(errno));
          exit(INCORRECT);
       }
-      if ((dcl[0].dir_config_file = malloc(length)) == NULL)
+      if ((dc_dcl[0].dir_config_file = malloc(length)) == NULL)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     _("Failed to malloc() %d bytes : %s"),
                     length, strerror(errno));
          exit(INCORRECT);
       }
-      (void)strcpy(dcl[0].dir_config_file, config_file);
+      (void)strcpy(dc_dcl[0].dir_config_file, config_file);
    }
 
    return;

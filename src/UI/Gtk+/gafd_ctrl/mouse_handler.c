@@ -643,15 +643,21 @@ input(Widget w, XtPointer client_data, XEvent *event)
 
                            if (current_jd_size < new_size)
                            {
+                              struct job_data *tmp_jd;
+
                               current_jd_size = new_size;
-                              if ((jd = realloc(jd, new_size)) == NULL)
+                              if ((tmp_jd = realloc(jd, new_size)) == NULL)
                               {
+                                 int tmp_errno = errno;
+
+                                 free(jd);
                                  (void)xrec(FATAL_DIALOG,
                                             "realloc() error [%d] : %s [%d] (%s %d)",
-                                            new_size, strerror(errno),
-                                            errno, __FILE__, __LINE__);
+                                            new_size, strerror(tmp_errno),
+                                            tmp_errno, __FILE__, __LINE__);
                                  return;
                               }
+                              jd = tmp_jd;
                            }
                         }
 

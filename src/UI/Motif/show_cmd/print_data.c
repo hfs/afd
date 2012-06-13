@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,7 +68,6 @@ void
 print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    int  fd,
-        length,
         prepare_status;
    char message[MAX_MESSAGE_LENGTH],
         *p_buffer;
@@ -88,6 +87,8 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
    }
    if (prepare_status == SUCCESS)
    {
+      int length;
+
       if (range_type == SELECTION_TOGGLE)
       {
          if ((p_buffer = XmTextGetSelection(cmd_output)) != NULL)

@@ -1,6 +1,6 @@
 /*
  *  convert_ls_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -100,12 +100,12 @@ convert_ls_data(int           old_rl_fd,
                 unsigned char old_version,
                 unsigned char new_version)
 {
-   int    i;
-   size_t new_size;
-   char   *ptr;
+   char *ptr;
 
    if ((old_version == 0) && (new_version == 1))
    {
+      int                    i;
+      size_t                 new_size;
       struct retrieve_list_0 *old_rl;
       struct retrieve_list_1 *new_rl;
 

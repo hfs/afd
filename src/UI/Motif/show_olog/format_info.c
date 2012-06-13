@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -92,7 +92,6 @@ void
 format_info(char **text)
 {
    int buffer_length = 8192,
-       i,
        count,
        length;
 
@@ -189,6 +188,8 @@ format_info(char **text)
       }
       if (id.d_o.no_of_dir_options > 0)
       {
+         int i;
+
          count = sprintf(*text + length, "DIR-options: %s\n",
                          id.d_o.aoptions[0]);
          length += count;
@@ -211,6 +212,8 @@ format_info(char **text)
       }
       if (id.files != NULL)
       {
+         int i;
+
          count = sprintf(*text + length, "Filter     : %s\n", id.files);
          length += count;
          p_file = id.files;
@@ -266,6 +269,8 @@ format_info(char **text)
       max_y++;
       if (id.no_of_loptions > 0)
       {
+         int i;
+
          count = sprintf(*text + length, "AMG-options: %s\n", id.loptions[0]);
          length += count;
          if (count > max_x)

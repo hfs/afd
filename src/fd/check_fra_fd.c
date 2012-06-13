@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -444,7 +444,7 @@ check_fra_fd(void)
                         break;
                      }
                   }
-                  if (gotcha == YES)
+                  if (gotcha == NO)
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                 "Queued flag for `%s' is set but there is no job in the queue. Correcting.",

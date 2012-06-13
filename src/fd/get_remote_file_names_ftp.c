@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names_ftp.c - Part of AFD, an automatic file distribution
  *                                program.
- *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,10 +38,12 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   20.08.2000 H.Kiehl Created
- **   15.07.2002 H.Kiehl Option to ignore files which have a certain size.
- **   10.04.2005 H.Kiehl Detect older version 1.2.x ls data types and try
- **                      to convert them.
+ **   20.08.2000 H.Kiehl   Created
+ **   15.07.2002 H.Kiehl   Option to ignore files which have a certain size.
+ **   10.04.2005 H.Kiehl   Detect older version 1.2.x ls data types and try
+ **                        to convert them.
+ **   24.04.2012 S.Knudsen Ignore ./ that some FTP Servers return after
+ **                        a NLST command.
  **
  */
 DESCR__E_M3
@@ -81,7 +83,7 @@ static int                        check_date = YES,
 static time_t                     current_time;
 
 /* Local function prototypes. */
-static int                        check_list(char *, int *, off_t *);
+static int                        check_list(char *, int *, off_t *, int *);
 
 
 /*##################### get_remote_file_names_ftp() #####################*/
@@ -158,7 +160,7 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
                                              __FILE__, __LINE__, NULL, msg_str,
                                              "Failed to get date of file %s.",
                                              rl[i].file_name);
-                                   if (timeout_flag == ON)
+                                   if (timeout_flag != OFF)
                                    {
 #ifdef LOCK_DEBUG
                                       unlock_region(rl_fd, (off_t)i, __FILE__, __LINE__);
@@ -210,7 +212,7 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
                                           __FILE__, __LINE__, NULL, msg_str,
                                           "Failed to get date of file %s.",
                                           rl[i].file_name);
-                                if (timeout_flag == ON)
+                                if (timeout_flag != OFF)
                                 {
 #ifdef LOCK_DEBUG
                                    unlock_region(rl_fd, (off_t)i, __FILE__, __LINE__);
@@ -257,7 +259,7 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
                                        __FILE__, __LINE__, NULL, msg_str,
                                        "Failed to get size of file %s.",
                                        rl[i].file_name);
-                             if (timeout_flag == ON)
+                             if (timeout_flag != OFF)
                              {
 #ifdef LOCK_DEBUG
                                 unlock_region(rl_fd, (off_t)i, __FILE__, __LINE__);
@@ -413,10 +415,7 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to get the file masks. (%d)", j);
               }
-         if (fml != NULL)
-         {
-            free(fml);
-         }
+         free(fml);
          (void)ftp_quit();
          exit(INCORRECT);
       }
@@ -440,35 +439,57 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
          }
          if (*p_end != '\0')
          {
+            /* Some FTP Servers (WARDFTP) return ./filename in responce */
+            /* to a NLST command. Lets ignore the ./.                   */
+            if ((*p_list == '.') && (*(p_list + 1) == '/'))
+            {
+               p_list += 2;
+            }
             if ((*p_list != '.') ||
                 (fra[db.fra_pos].dir_flag & ACCEPT_DOT_FILES))
             {
                *p_end = '\0';
-               gotcha = NO;
-               for (i = 0; i < nfg; i++)
+
+               /* Check that the file name is not to long! */
+               if ((p_end - p_list) >= (MAX_FILENAME_LENGTH - 1))
                {
-                  p_mask = fml[i].file_list;
-                  for (j = 0; j < fml[i].fc; j++)
+                  /* File name to long! */
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Remote file name `%s' is to long, it may only be %d bytes long.",
+                            p_list, (MAX_FILENAME_LENGTH - 1));
+               }
+               else
+               {
+                  gotcha = NO;
+                  for (i = 0; i < nfg; i++)
                   {
-                     if (((status = pmatch(p_mask, p_list, NULL)) == 0) &&
-                         (check_list(p_list, &files_to_retrieve,
-                                     file_size_to_retrieve) == 0))
+                     p_mask = fml[i].file_list;
+                     for (j = 0; j < fml[i].fc; j++)
                      {
-                        gotcha = YES;
-                        files_to_retrieve++;
+                        if (((status = pmatch(p_mask, p_list, NULL)) == 0) &&
+                            (check_list(p_list, &files_to_retrieve,
+                                        file_size_to_retrieve,
+                                        more_files_in_list) == 0))
+                        {
+                           gotcha = YES;
+                           if (*more_files_in_list == NO)
+                           {
+                              files_to_retrieve++;
+                           }
+                           break;
+                        }
+                        else if (status == 1)
+                             {
+                                /* This file is definitly NOT wanted! */
+                                /* Lets skip the rest of this group.  */
+                                break;
+                             }
+                        NEXT(p_mask);
+                     }
+                     if (gotcha == YES)
+                     {
                         break;
                      }
-                     else if (status == 1)
-                          {
-                             /* This file is definitly NOT wanted! */
-                             /* Lets skip the rest of this group.  */
-                             break;
-                          }
-                     NEXT(p_mask);
-                  }
-                  if (gotcha == YES)
-                  {
-                     break;
                   }
                }
             }
@@ -491,16 +512,6 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
          free(fml[i].file_list);
       }
       free(fml);
-
-      if (files_to_retrieve >= fra[db.fra_pos].max_copied_files)
-      {
-         files_to_retrieve = fra[db.fra_pos].max_copied_files;
-         *more_files_in_list = YES;
-      }
-      else if (*file_size_to_retrieve >= fra[db.fra_pos].max_copied_file_size)
-           {
-              *more_files_in_list = YES;
-           }
 
       /*
        * Remove all files from the remote_list structure that are not
@@ -594,7 +605,10 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
 
 /*+++++++++++++++++++++++++++++ check_list() ++++++++++++++++++++++++++++*/
 static int
-check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
+check_list(char  *file,
+           int   *files_to_retrieve,
+           off_t *file_size_to_retrieve,
+           int   *more_files_in_list)
 {
    int i,
        status;
@@ -618,8 +632,6 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
          {
             rl[i].in_list = YES;
             if ((rl[i].retrieved == NO) && (rl[i].assigned == 0) &&
-                (*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
-                (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size) &
                 (((db.special_flag & OLD_ERROR_JOB) == 0) ||
 #ifdef LOCK_DEBUG
                    (lock_region(rl_fd, (off_t)i, __FILE__, __LINE__) == LOCK_IS_NOT_SET)
@@ -660,7 +672,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                           trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                                     __FILE__, __LINE__, NULL, msg_str,
                                     "Failed to get date of file %s.", file);
-                          if (timeout_flag == ON)
+                          if (timeout_flag != OFF)
                           {
                              (void)ftp_quit();
                              exit(DATE_ERROR);
@@ -697,7 +709,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                           trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                                     __FILE__, __LINE__, NULL, msg_str,
                                     "Failed to get size of file %s.", file);
-                          if (timeout_flag == ON)
+                          if (timeout_flag != OFF)
                           {
                              (void)ftp_quit();
                              exit(SIZE_ERROR);
@@ -705,20 +717,29 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                        }
                }
 
-               if ((rl[i].size > 0) &&
-                   ((fra[db.fra_pos].ignore_size == 0) ||
-                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
-                     (fra[db.fra_pos].ignore_size == rl[i].size)) ||
-                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
-                     (fra[db.fra_pos].ignore_size < rl[i].size)) ||
-                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
-                     (fra[db.fra_pos].ignore_size > rl[i].size))))
+               if ((fra[db.fra_pos].ignore_size == 0) ||
+                   ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
+                    (fra[db.fra_pos].ignore_size == rl[i].size)) ||
+                   ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
+                    (fra[db.fra_pos].ignore_size < rl[i].size)) ||
+                   ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
+                    (fra[db.fra_pos].ignore_size > rl[i].size)))
                {
                   if ((rl[i].got_date == NO) ||
                       (fra[db.fra_pos].ignore_file_time == 0))
                   {
                      *file_size_to_retrieve += rl[i].size;
-                     rl[i].assigned = (unsigned char)db.job_no + 1;
+                     if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                         (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                     {
+                        rl[i].assigned = (unsigned char)db.job_no + 1;
+                     }
+                     else
+                     {
+                        *more_files_in_list = YES;
+                        *file_size_to_retrieve -= rl[i].size;
+                        rl[i].assigned = 0;
+                     }
                      status = 0;
                   }
                   else
@@ -734,7 +755,17 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                           (fra[db.fra_pos].ignore_file_time > diff_time)))
                      {
                         *file_size_to_retrieve += rl[i].size;
-                        rl[i].assigned = (unsigned char)db.job_no + 1;
+                        if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                            (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                        {
+                           rl[i].assigned = (unsigned char)db.job_no + 1;
+                        }
+                        else
+                        {
+                           *more_files_in_list = YES;
+                           *file_size_to_retrieve -= rl[i].size;
+                           rl[i].assigned = 0;
+                        }
                         status = 0;
                      }
                      else
@@ -771,10 +802,8 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
          if (CHECK_STRCMP(rl[i].file_name, file) == 0)
          {
             rl[i].in_list = YES;
-            if (((*files_to_retrieve >= fra[db.fra_pos].max_copied_files) ||
-                 (*file_size_to_retrieve >= fra[db.fra_pos].max_copied_file_size)) ||
-                ((fra[db.fra_pos].stupid_mode == GET_ONCE_ONLY) &&
-                 (rl[i].retrieved == YES)))
+            if ((fra[db.fra_pos].stupid_mode == GET_ONCE_ONLY) &&
+                (rl[i].retrieved == YES))
             {
                return(1);
             }
@@ -798,6 +827,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                      {
                         rl[i].file_mtime = file_mtime;
                         rl[i].retrieved = NO;
+                        rl[i].assigned = 0;
                      }
                      if (fsa->debug > NORMAL_MODE)
                      {
@@ -821,7 +851,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                           trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                                     __FILE__, __LINE__, NULL, msg_str,
                                     "Failed to get date of file %s.", file);
-                          if (timeout_flag == ON)
+                          if (timeout_flag != OFF)
                           {
                              (void)ftp_quit();
                              exit(DATE_ERROR);
@@ -841,6 +871,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                      {
                         rl[i].size = size;
                         rl[i].retrieved = NO;
+                        rl[i].assigned = 0;
                      }
                      if (fsa->debug > NORMAL_MODE)
                      {
@@ -863,7 +894,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                           trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                                     __FILE__, __LINE__, NULL, msg_str,
                                     "Failed to get size of file %s.", file);
-                          if (timeout_flag == ON)
+                          if (timeout_flag != OFF)
                           {
                              (void)ftp_quit();
                              exit(SIZE_ERROR);
@@ -874,20 +905,29 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
 
                if (rl[i].retrieved == NO)
                {
-                  if ((rl[i].size > 0) &&
-                      ((fra[db.fra_pos].ignore_size == 0) ||
-                       ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
-                        (fra[db.fra_pos].ignore_size == rl[i].size)) ||
-                       ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
-                        (fra[db.fra_pos].ignore_size < rl[i].size)) ||
-                       ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
-                        (fra[db.fra_pos].ignore_size > rl[i].size))))
+                  if ((fra[db.fra_pos].ignore_size == 0) ||
+                      ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
+                       (fra[db.fra_pos].ignore_size == rl[i].size)) ||
+                      ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
+                       (fra[db.fra_pos].ignore_size < rl[i].size)) ||
+                      ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
+                       (fra[db.fra_pos].ignore_size > rl[i].size)))
                   {
                      if ((rl[i].got_date == NO) ||
                          (fra[db.fra_pos].ignore_file_time == 0))
                      {
                         *file_size_to_retrieve += rl[i].size;
-                        rl[i].assigned = (unsigned char)db.job_no + 1;
+                        if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                            (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                        {
+                           rl[i].assigned = (unsigned char)db.job_no + 1;
+                        }
+                        else
+                        {
+                           *file_size_to_retrieve -= rl[i].size;
+                           *more_files_in_list = YES;
+                           rl[i].assigned = 0;
+                        }
                         status = 0;
                      }
                      else
@@ -903,7 +943,17 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                              (fra[db.fra_pos].ignore_file_time > diff_time)))
                         {
                            *file_size_to_retrieve += rl[i].size;
-                           rl[i].assigned = (unsigned char)db.job_no + 1;
+                           if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                               (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                           {
+                              rl[i].assigned = (unsigned char)db.job_no + 1;
+                           }
+                           else
+                           {
+                              *file_size_to_retrieve -= rl[i].size;
+                              *more_files_in_list = YES;
+                              rl[i].assigned = 0;
+                           }
                            status = 0;
                         }
                         else
@@ -970,58 +1020,12 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
    rl[*no_of_listed_files].retrieved = NO;
    rl[*no_of_listed_files].in_list = YES;
 
-   if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
-       (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+   if (check_date == YES)
    {
-      if (check_date == YES)
+      if ((fra[db.fra_pos].stupid_mode == YES) ||
+          (fra[db.fra_pos].remove == YES))
       {
-         if ((fra[db.fra_pos].stupid_mode == YES) ||
-             (fra[db.fra_pos].remove == YES))
-         {
-            if (fra[db.fra_pos].ignore_file_time != 0)
-            {
-               time_t file_mtime;
-
-               if ((status = ftp_date(file, &file_mtime)) == SUCCESS)
-               {
-                  rl[*no_of_listed_files].file_mtime = file_mtime;
-                  rl[*no_of_listed_files].got_date = YES;
-                  if (fsa->debug > NORMAL_MODE)
-                  {
-                     trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                  "Date for %s is %ld.", file, file_mtime);
-                  }
-               }
-               else if ((status == 500) || (status == 502))
-                    {
-                       check_date = NO;
-                       rl[*no_of_listed_files].got_date = NO;
-                       if (fsa->debug > NORMAL_MODE)
-                       {
-                          trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                       "Date command MDTM not supported [%d]",
-                                       status);
-                       }
-                    }
-                    else
-                    {
-                       trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
-                                 __FILE__, __LINE__, NULL, msg_str,
-                                 "Failed to get date of file %s.", file);
-                       if (timeout_flag == ON)
-                       {
-                          (void)ftp_quit();
-                          exit(DATE_ERROR);
-                       }
-                       rl[*no_of_listed_files].got_date = NO;
-                    }
-            }
-            else
-            {
-               rl[*no_of_listed_files].got_date = NO;
-            }
-         }
-         else
+         if (fra[db.fra_pos].ignore_file_time != 0)
          {
             time_t file_mtime;
 
@@ -1051,7 +1055,7 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                     trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                               __FILE__, __LINE__, NULL, msg_str,
                               "Failed to get date of file %s.", file);
-                    if (timeout_flag == ON)
+                    if (timeout_flag != OFF)
                     {
                        (void)ftp_quit();
                        exit(DATE_ERROR);
@@ -1059,103 +1063,146 @@ check_list(char *file, int *files_to_retrieve, off_t *file_size_to_retrieve)
                     rl[*no_of_listed_files].got_date = NO;
                  }
          }
+         else
+         {
+            rl[*no_of_listed_files].got_date = NO;
+         }
       }
       else
       {
-         rl[*no_of_listed_files].got_date = NO;
-      }
+         time_t file_mtime;
 
-      if (check_size == YES)
-      {
-         off_t size;
-
-         if ((status = ftp_size(file, &size)) == SUCCESS)
+         if ((status = ftp_date(file, &file_mtime)) == SUCCESS)
          {
-            rl[*no_of_listed_files].size = size;
-            *file_size_to_retrieve += size;
+            rl[*no_of_listed_files].file_mtime = file_mtime;
+            rl[*no_of_listed_files].got_date = YES;
             if (fsa->debug > NORMAL_MODE)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                            "Size for %s is %d.", file, size);
+                            "Date for %s is %ld.", file, file_mtime);
             }
          }
          else if ((status == 500) || (status == 502))
               {
-                 check_size = NO;
-                 rl[*no_of_listed_files].size = -1;
+                 check_date = NO;
+                 rl[*no_of_listed_files].got_date = NO;
                  if (fsa->debug > NORMAL_MODE)
                  {
                     trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                 "Size command SIZE not supported [%d]", status);
+                                 "Date command MDTM not supported [%d]",
+                                 status);
                  }
               }
               else
               {
                  trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
                            __FILE__, __LINE__, NULL, msg_str,
-                           "Failed to get size of file %s.", file);
-                 if (timeout_flag == ON)
+                           "Failed to get date of file %s.", file);
+                 if (timeout_flag != OFF)
                  {
                     (void)ftp_quit();
                     exit(DATE_ERROR);
                  }
-                 rl[*no_of_listed_files].size = -1;
+                 rl[*no_of_listed_files].got_date = NO;
               }
+      }
+   }
+   else
+   {
+      rl[*no_of_listed_files].got_date = NO;
+   }
+
+   if (check_size == YES)
+   {
+      off_t size;
+
+      if ((status = ftp_size(file, &size)) == SUCCESS)
+      {
+         rl[*no_of_listed_files].size = size;
+         *file_size_to_retrieve += size;
+         if (fsa->debug > NORMAL_MODE)
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                         "Size for %s is %d.", file, size);
+         }
+      }
+      else if ((status == 500) || (status == 502))
+           {
+              check_size = NO;
+              rl[*no_of_listed_files].size = -1;
+              if (fsa->debug > NORMAL_MODE)
+              {
+                 trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                              "Size command SIZE not supported [%d]", status);
+              }
+           }
+           else
+           {
+              trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
+                        __FILE__, __LINE__, NULL, msg_str,
+                        "Failed to get size of file %s.", file);
+              if (timeout_flag != OFF)
+              {
+                 (void)ftp_quit();
+                 exit(DATE_ERROR);
+              }
+              rl[*no_of_listed_files].size = -1;
+           }
+   }
+   else
+   {
+      rl[*no_of_listed_files].size = -1;
+   }
+
+   if ((fra[db.fra_pos].ignore_size == 0) ||
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
+        (fra[db.fra_pos].ignore_size == rl[*no_of_listed_files].size)) ||
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
+        (fra[db.fra_pos].ignore_size < rl[*no_of_listed_files].size)) ||
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
+        (fra[db.fra_pos].ignore_size > rl[*no_of_listed_files].size)))
+   {
+      if ((rl[*no_of_listed_files].got_date == NO) ||
+          (fra[db.fra_pos].ignore_file_time == 0))
+      {
+         (*no_of_listed_files)++;
       }
       else
       {
-         rl[*no_of_listed_files].size = -1;
-      }
+         time_t diff_time;
 
-      if ((fra[db.fra_pos].ignore_size == 0) ||
-          ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
-           (fra[db.fra_pos].ignore_size == rl[*no_of_listed_files].size)) ||
-          ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
-           (fra[db.fra_pos].ignore_size < rl[*no_of_listed_files].size)) ||
-          ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
-           (fra[db.fra_pos].ignore_size > rl[*no_of_listed_files].size)))
-      {
-         if ((rl[*no_of_listed_files].got_date == NO) ||
-             (fra[db.fra_pos].ignore_file_time == 0))
+         diff_time = current_time - rl[*no_of_listed_files].file_mtime;
+         if (((fra[db.fra_pos].gt_lt_sign & IFTIME_EQUAL) &&
+              (fra[db.fra_pos].ignore_file_time == diff_time)) ||
+             ((fra[db.fra_pos].gt_lt_sign & IFTIME_LESS_THEN) &&
+              (fra[db.fra_pos].ignore_file_time < diff_time)) ||
+             ((fra[db.fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) &&
+              (fra[db.fra_pos].ignore_file_time > diff_time)))
          {
             (*no_of_listed_files)++;
          }
          else
          {
-            time_t diff_time;
-
-            diff_time = current_time - rl[*no_of_listed_files].file_mtime;
-            if (((fra[db.fra_pos].gt_lt_sign & IFTIME_EQUAL) &&
-                 (fra[db.fra_pos].ignore_file_time == diff_time)) ||
-                ((fra[db.fra_pos].gt_lt_sign & IFTIME_LESS_THEN) &&
-                 (fra[db.fra_pos].ignore_file_time < diff_time)) ||
-                ((fra[db.fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) &&
-                 (fra[db.fra_pos].ignore_file_time > diff_time)))
-            {
-               (*no_of_listed_files)++;
-            }
-            else
-            {
-               *file_size_to_retrieve -= rl[*no_of_listed_files].size;
-               return(1);
-            }
+            *file_size_to_retrieve -= rl[*no_of_listed_files].size;
+            return(1);
          }
+      }
+      if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+          (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+      {
          rl[(*no_of_listed_files) - 1].assigned = (unsigned char)db.job_no + 1;
-         return(0);
       }
       else
       {
-         *file_size_to_retrieve -= rl[*no_of_listed_files].size;
-         return(1);
+         rl[(*no_of_listed_files) - 1].assigned = 0;
+         *file_size_to_retrieve -= rl[(*no_of_listed_files) - 1].size;
+         *more_files_in_list = YES;
       }
+      return(0);
    }
    else
    {
-      rl[*no_of_listed_files].size = -1;
-      rl[*no_of_listed_files].got_date = NO;
-      rl[*no_of_listed_files].assigned = 0;
-      (*no_of_listed_files)++;
-
-      return(0);
+      *file_size_to_retrieve -= rl[*no_of_listed_files].size;
+      return(1);
    }
 }

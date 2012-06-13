@@ -1,6 +1,6 @@
 /*
  *  handle_alias_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -113,7 +113,6 @@ get_alias_names(void)
    {
       if (stat_buf.st_mtime != last_read)
       {
-         int   data;
          off_t file_size;
          char  *last_ptr,
                *ptr,
@@ -141,6 +140,8 @@ get_alias_names(void)
                                            &buffer)) != INCORRECT) &&
              (file_size > 0))
          {
+            int data;
+
             /*
              * Now that we have the contents in the buffer lets first see
              * how many alias names there are in the buffer so we can allocate

@@ -1,6 +1,6 @@
 /*
  *  print_alda_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,11 +101,8 @@ print_alda_data(void)
 {
    int  fo_pos,
         i = 0,
-        j,
-        max_length,
-        right_side;
-   char base_char,
-        format_orientation[MAX_FORMAT_ORIENTATION_LENGTH],
+        j;
+   char format_orientation[MAX_FORMAT_ORIENTATION_LENGTH],
         *p_start,
         *ptr = format_str,
         str_number[MAX_INT_LENGTH + 1];
@@ -133,6 +130,10 @@ print_alda_data(void)
          }
          if (*ptr == '%')
          {
+            int  max_length,
+                 right_side;
+            char base_char;
+
             p_start = ptr;
             fo_pos = 1;
             ptr++;
@@ -255,9 +256,9 @@ print_alda_data(void)
                         ptr++;
                         break;
 
-#if defined (_INPUT_LOG) || defined (_DISTRIBUTION_LOG)
+# if defined (_INPUT_LOG) || defined (_DISTRIBUTION_LOG)
                      case 'N' : /* Full source name. */
-# ifdef _INPUT_LOG
+#  ifdef _INPUT_LOG
                         if (ilog.full_source[0] == '\0')
                         {
                            get_full_source(ilog.dir_id, ilog.full_source,
@@ -265,7 +266,7 @@ print_alda_data(void)
                         }
                         i += pri_string(right_side, max_length, ilog.full_source,
                                         ilog.full_source_length, i);
-# else
+#  else
                         if (ulog.full_source[0] == '\0')
                         {
                            get_full_source(ulog.dir_id, ulog.full_source,
@@ -273,10 +274,10 @@ print_alda_data(void)
                         }
                         i += pri_string(right_side, max_length, ilog.full_source,
                                         ulog.full_source_length, i);
-# endif
+#  endif
                         ptr++;
                         break;
-#endif
+# endif
 
                      case 'U' : /* Unique number. */
                         i += pri_id(format_orientation, fo_pos, max_length,
@@ -292,9 +293,9 @@ print_alda_data(void)
                         break;
                   }
                   break;
-#endif
+#endif /* _INPUT_LOG */
 #ifdef _DISTRIBUTION_LOG
-               case 'U' : /* Input data. */
+               case 'U' : /* Distribution data. */
                   switch (*(ptr + 1))
                   {
                      case 'T' : /* Input time. */
@@ -359,8 +360,9 @@ print_alda_data(void)
                         break;
 
                      case 'j' : /* List of job ID's distributed. */
-                        i += pri_int_array(format_orientation, fo_pos, max_length,
-                                           base_char, ulog.no_of_dist_jobs,
+                        i += pri_int_array(format_orientation, fo_pos,
+                                           max_length, base_char,
+                                           ulog.no_of_dist_jobs,
                                            ulog.job_id_list, *(ptr + 2), i);
                         ptr += 2;
                         break;
@@ -387,7 +389,7 @@ print_alda_data(void)
                         break;
                   }
                   break;
-#endif
+#endif /* _DISTRIBUTION_LOG */
 #ifdef _PRODUCTION_LOG
                case 'P' : /* Production data. */
                   switch (*(ptr + 1))
@@ -516,7 +518,7 @@ print_alda_data(void)
                         break;
                   }
                   break;
-#endif
+#endif /* _PRODUCTION_LOG */
 #ifdef _OUTPUT_LOG
                case 'O' : /* Output data. */
                   switch (*(ptr + 1))
@@ -546,7 +548,7 @@ print_alda_data(void)
                         i += j;
                         break;
 
-                     case 'D' : /* Time taken to transmitt file. */
+                     case 'D' : /* Time taken to transmit file. */
                         if ((j = pri_duration(format_orientation, fo_pos,
                                               max_length, base_char, *(ptr + 2),
                                               olog.transmission_time, i)) == -1)
@@ -606,6 +608,12 @@ print_alda_data(void)
                                  i += pri_string(right_side, max_length,
                                                  ALDA_LOC_SHEME,
                                                  ALDA_LOC_SHEME_LENGTH, i);
+                                 break;
+
+                              case ALDA_EXEC_FLAG :
+                                 i += pri_string(right_side, max_length,
+                                                 ALDA_EXEC_SHEME,
+                                                 ALDA_EXEC_SHEME_LENGTH, i);
                                  break;
 
                               case ALDA_SMTP_FLAG :
@@ -784,7 +792,7 @@ print_alda_data(void)
                         break;
                   }
                   break;
-#endif
+#endif /* _OUTPUT_LOG */
 #ifdef _DELETE_LOG
                case 'D' : /* Delete data. */
                   switch (*(ptr + 1))
@@ -925,7 +933,7 @@ print_alda_data(void)
                         break;
                   }
                   break;
-#endif
+#endif /* _DELETE_LOG */
 
                default  : /* Unknown, lets print this as supplied. */
                   j = ptr - p_start;
@@ -1531,9 +1539,6 @@ pri_int_array(char         *format_orientation,
               char         separator_char,
               int          pos)
 {
-   int  i;
-   char new_format_orientation[MAX_FORMAT_ORIENTATION_LENGTH];
-
    if (base_char == 'd')
    {
       format_orientation[fo_pos] = 'u';
@@ -1544,29 +1549,41 @@ pri_int_array(char         *format_orientation,
    }
    format_orientation[fo_pos + 1] = '\0';
 
-   i = sprintf(&output_line[pos], format_orientation, value[0]);
-   if ((max_length > 0) && (i > max_length))
+   if (value == NULL)
    {
-      output_line[pos + max_length] = '\0';
-      output_line[pos + max_length - 1] = '>';
-
-      return(max_length);
+      output_line[pos] = '?';
+      output_line[pos + 1] = '\0';
+      fo_pos = 1;
    }
-   new_format_orientation[0] = '%';
-   new_format_orientation[1] = 'c';
-   (void)strcpy(&new_format_orientation[2], format_orientation);
-   fo_pos = i;
-   for (i = 1; i < no_of_elements; i++)
+   else
    {
-      fo_pos += sprintf(&output_line[pos + fo_pos], new_format_orientation,
-                        separator_char, value[i]);
+      int  i;
+      char new_format_orientation[MAX_FORMAT_ORIENTATION_LENGTH];
 
-      if ((max_length > 0) && (fo_pos > max_length))
+      i = sprintf(&output_line[pos], format_orientation, value[0]);
+      if ((max_length > 0) && (i > max_length))
       {
          output_line[pos + max_length] = '\0';
          output_line[pos + max_length - 1] = '>';
-         fo_pos = max_length;
-         break;
+
+         return(max_length);
+      }
+      new_format_orientation[0] = '%';
+      new_format_orientation[1] = 'c';
+      (void)strcpy(&new_format_orientation[2], format_orientation);
+      fo_pos = i;
+      for (i = 1; i < no_of_elements; i++)
+      {
+         fo_pos += sprintf(&output_line[pos + fo_pos], new_format_orientation,
+                           separator_char, value[i]);
+
+         if ((max_length > 0) && (fo_pos > max_length))
+         {
+            output_line[pos + max_length] = '\0';
+            output_line[pos + max_length - 1] = '>';
+            fo_pos = max_length;
+            break;
+         }
       }
    }
 

@@ -74,7 +74,6 @@ attach_ls_data(void)
 {
    if (rl_fd == -1)
    {
-      int         i;
       off_t       rl_size;
       char        list_file[MAX_PATH_LENGTH],
                   *ptr;
@@ -157,6 +156,7 @@ attach_ls_data(void)
          }
          else
          {
+            int   i;
             off_t must_have_size;
 
             if (((rl_size - AFD_WORD_OFFSET) % sizeof(struct retrieve_list)) != 0)
@@ -209,6 +209,7 @@ attach_ls_data(void)
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 "Failed to lseek() in `%s' : %s",
                                 new_list_file, strerror(errno));
+                     (void)close(new_rl_fd);
                      return(INCORRECT);
                   }
                   if (write(new_rl_fd, "", 1) != 1)
@@ -216,6 +217,7 @@ attach_ls_data(void)
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 "Failed to write() to `%s' : %s",
                                 new_list_file, strerror(errno));
+                     (void)close(new_rl_fd);
                      return(INCORRECT);
                   }
 #ifdef HAVE_MMAP
@@ -231,6 +233,7 @@ attach_ls_data(void)
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 "Failed to mmap() to `%s' : %s",
                                 new_list_file, strerror(errno));
+                     (void)close(new_rl_fd);
                      return(INCORRECT);
                   }
                   no_of_new_listed_files = (int *)new_ptr;

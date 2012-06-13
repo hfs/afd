@@ -1,6 +1,6 @@
 /*
  *  check_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -78,24 +78,25 @@ static void kill_jobs(void);
 int
 check_mon(long wait_time)
 {
-   int            readfd,
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-                  writefd,
-                  mon_cmd_readfd,
-#endif
-                  mon_cmd_fd,
-                  n,
-                  status;
-   char           buffer[2];
-#ifdef _FIFO_DEBUG
-   char           cmd[2];
-#endif
-   fd_set         rset;
-   struct timeval timeout;
-   struct stat    stat_buf_fifo;
+   struct stat stat_buf_fifo;
 
    if (stat(mon_active_file, &stat_buf) == 0)
    {
+      int            readfd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     writefd,
+                     mon_cmd_readfd,
+#endif
+                     mon_cmd_fd,
+                     n,
+                     status;
+      char           buffer[2];
+#ifdef _FIFO_DEBUG
+      char           cmd[2];
+#endif
+      fd_set         rset;
+      struct timeval timeout;
+
       /*
        * Uups. Seems like another mafd process is running.
        * Make sure that this is really the case. It could be that
@@ -362,11 +363,7 @@ kill_jobs(void)
       }
       ptr += sizeof(pid_t);
    }
-
-   if (buffer != NULL)
-   {
-      free(buffer);
-   }
+   free(buffer);
 
    return;
 }

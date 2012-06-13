@@ -44,8 +44,7 @@ DESCR__E_M1
 
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* memcpy()                                */
-#include <unistd.h>           /* exit()                                  */
-#include <stdlib.h>           /* malloc(), free()                        */
+#include <stdlib.h>           /* malloc(), free(), exit()                */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP

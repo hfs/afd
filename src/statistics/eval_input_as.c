@@ -1,6 +1,6 @@
 /*
  *  eval_input_as.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -104,8 +104,10 @@ eval_input_as(int  argc,
                  }
                  else
                  {
-                    (void)strcpy(istatistic_file_name, argv[1]);
-                    (void)strcpy(statistic_file_name, argv[2]);
+                    (void)my_strncpy(istatistic_file_name, argv[1],
+                                     MAX_FILENAME_LENGTH + 1);
+                    (void)my_strncpy(statistic_file_name, argv[2],
+                                     MAX_FILENAME_LENGTH + 1);
                     other_file = YES;
                     argv++;
                     argv++;
@@ -126,7 +128,7 @@ eval_input_as(int  argc,
             {
                while ((--argc > 0) && ((*++argv)[0] != '-'))
                {
-                  (void)strcpy(work_dir, argv[0]);
+                  (void)my_strncpy(work_dir, argv[0], MAX_PATH_LENGTH);
                }
                argv--;
                argc++;

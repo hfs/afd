@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>        /* sprintf()                                   */
-#include <string.h>       /* strerror()                                  */
+#include <string.h>       /* strcmp(), strerror()                        */
 #include <stdlib.h>       /* malloc(), realloc(), free(), strtoul(), abs()*/
 #include <time.h>         /* time()                                      */
 #ifdef TM_IN_SYS_TIME
@@ -99,9 +99,12 @@ extern int              continues_toggle_set,
                         no_of_search_dirs,
                         no_of_search_dirids,
                         no_of_search_hosts,
+                        *search_dir_length,
                         special_button_flag,
                         file_name_length,
                         no_of_log_files;
+extern unsigned int     all_list_items,
+                        *search_dirid;
 extern XT_PTR_TYPE      toggles_set;
 extern size_t           search_file_size;
 extern time_t           start_time_val,
@@ -109,7 +112,7 @@ extern time_t           start_time_val,
 extern char             *p_work_dir,
                         search_file_name[],
                         **search_dir,
-                        **search_dirid,
+                        *search_dir_filter,
                         **search_recipient,
                         **search_user,
                         summary_str[],
@@ -225,205 +228,222 @@ static void   check_log_updates(Widget),
            CONVERT_TIME();                                 \
            (void)memcpy(p_type, (protocol), 5);            \
         }
-#define COMMON_BLOCK()         \
-        {                      \
-           ptr++;              \
+#define COMMON_BLOCK()\
+        {\
+           ptr++;\
            while (*ptr != SEPARATOR_CHAR)\
-           {                   \
-              ptr++;           \
-           }                   \
-           tmp_ptr = ptr - 1;  \
-           j = 0;              \
+           {\
+              ptr++;\
+           }\
+           tmp_ptr = ptr - 1;\
+           j = 0;\
            while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_TRANSFER_TIME))\
-           {                   \
+           {\
               *(p_tt - j) = *tmp_ptr;\
-              tmp_ptr--; j++;  \
-           }                   \
+              tmp_ptr--; j++;\
+           }\
            if (j == MAX_DISPLAYED_TRANSFER_TIME)\
-           {                   \
+           {\
               tmp_ptr = ptr - 4;\
-              j = 0;           \
+              j = 0;\
               while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_TRANSFER_TIME))\
-              {                \
+              {\
                  *(p_tt - j) = *tmp_ptr;\
                  tmp_ptr--; j++;\
-              }                \
+              }\
               if ((j == MAX_DISPLAYED_TRANSFER_TIME) && (*tmp_ptr != SEPARATOR_CHAR))\
-              {                \
+              {\
                  *(p_tt - j) = '>';\
                  while (*tmp_ptr != SEPARATOR_CHAR)\
-                 {             \
+                 {\
                     tmp_ptr--; \
-                 }             \
-              }                \
-              else             \
-              {                \
+                 }\
+              }\
+              else\
+              {\
                  while (j < MAX_DISPLAYED_TRANSFER_TIME)\
-                 {             \
+                 {\
                     *(p_tt - j) = ' ';\
-                    j++;       \
-                 }             \
-              }                \
-           }                   \
-           tmp_ptr++;          \
-           ptr++;              \
+                    j++;\
+                 }\
+              }\
+           }\
+           tmp_ptr++;\
+           ptr++;\
            if (type_offset > 1)\
-           {                   \
+           {\
               while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
-              {                \
-                 ptr++;        \
-              }                \
+              {\
+                 ptr++;\
+              }\
               if (*ptr == SEPARATOR_CHAR)\
-              {                \
-                 ptr++;        \
-              }                \
-           }                   \
+              {\
+                 ptr++;\
+              }\
+           }\
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);\
            if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||\
                ((current_search_host != -1) &&\
                 (search_user[current_search_host][0] != '\0')))\
-           {                   \
-              int  count = 0;  \
-              char job_id_str[15];\
-                               \
+           {\
+              int  count = 0;\
+              char job_id_str[15 + 1];\
+\
               while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))\
-              {                \
+              {\
                  job_id_str[count] = *ptr;\
                  count++; ptr++;\
-              }                \
+              }\
               job_id_str[count] = '\0';\
               id.job_no = (unsigned int)strtoul(job_id_str, NULL, 16);\
               if ((current_search_host != -1) &&\
                   (search_user[current_search_host][0] != '\0'))\
-              {                \
+              {\
                  char *at_ptr = search_user[current_search_host];\
-                               \
-                 id.user[0] = '\0'; \
+\
+                 id.user[0] = '\0';\
                  id.mail_destination[0] = '\0';\
                  get_info(GOT_JOB_ID_USER_ONLY);\
                  while ((*at_ptr != ' ') && (*at_ptr != '@') && (*at_ptr != '\0'))\
-                 {             \
-                    at_ptr++;  \
-                 }             \
+                 {\
+                    at_ptr++;\
+                 }\
                  if ((*at_ptr == '@') && (id.mail_destination[0] != '\0'))\
-                 {             \
+                 {\
                     if (sfilter(search_user[current_search_host],\
                                 id.mail_destination, ' ') != 0)\
-                    {          \
+                    {\
                        IGNORE_ENTRY();\
-                    }          \
-                 }             \
-                 else          \
-                 {             \
+                    }\
+                 }\
+                 else\
+                 {\
                     if (sfilter(search_user[current_search_host], id.user, ' ') != 0)\
-                    {          \
+                    {\
                        IGNORE_ENTRY();\
-                    }          \
-                 }             \
-              }                \
+                    }\
+                 }\
+              }\
               if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))\
-              {                \
+              {\
                  int gotcha = NO,\
-                     kk;       \
-                               \
+                     kk;\
+\
                  id.dir[0] = '\0';\
-                 get_info(GOT_JOB_ID_DIR_ONLY);\
-                 count = strlen(id.dir);\
-                 id.dir[count] = SEPARATOR_CHAR;\
-                 id.dir[count + 1] = '\0';\
+                 if (no_of_search_dirs > 0)\
+                 {\
+                    get_info(GOT_JOB_ID_DIR_ONLY);\
+                    count = strlen(id.dir);\
+                    id.dir[count] = SEPARATOR_CHAR;\
+                    id.dir[count + 1] = '\0';\
+                 }\
                  for (kk = 0; kk < no_of_search_dirids; kk++)\
-                 {             \
-                    if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)\
-                    {          \
+                 {\
+                    if (search_dirid[kk] == id.dir_id)\
+                    {\
                        gotcha = YES;\
-                       break;  \
-                    }          \
-                 }             \
+                       break;\
+                    }\
+                 }\
                  if (gotcha == NO)\
-                 {             \
+                 {\
                     for (kk = 0; kk < no_of_search_dirs; kk++)\
-                    {          \
-                       if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
-                       {       \
-                          gotcha = YES;\
-                          break;\
-                       }       \
-                    }          \
-                 }             \
+                    {\
+                       if (search_dir_filter[kk] == YES)\
+                       {\
+                          if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                          {\
+                             gotcha = YES;\
+                             break;\
+                          }\
+                       }\
+                       else\
+                       {\
+                          if (search_dir_length[kk] == count)\
+                          {\
+                             if (strncmp(search_dir[kk], id.dir, count) == 0)\
+                             {\
+                                gotcha = YES;\
+                                break;\
+                             }\
+                          }\
+                       }\
+                    }\
+                 }\
                  if (gotcha == NO)\
-                 {             \
+                 {\
                     IGNORE_ENTRY();\
-                 }             \
-              }                \
-           }                   \
-           else                \
-           {                   \
+                 }\
+              }\
+           }\
+           else\
+           {\
               while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
-              {                \
-                 ptr++;        \
-              }                \
-           }                   \
+              {\
+                 ptr++;\
+              }\
+           }\
            trans_time += strtod(tmp_ptr, NULL);\
-           ptr++;              \
+           ptr++;\
            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
-           {                   \
-              ptr++;           \
-           }                   \
+           {\
+              ptr++;\
+           }\
            if (*ptr == SEPARATOR_CHAR)\
-           {                   \
+           {\
               int  sub_dir_counter = 0;\
               char archive_status = 'Y';\
-                               \
-              ptr++;           \
+\
+              ptr++;\
               while (*ptr != '\n')\
-              {                \
+              {\
                  if ((*ptr == '/') && (*(ptr - 1) != '\\'))\
-                 {             \
+                 {\
                     sub_dir_counter++;\
                     if (sub_dir_counter == 3)\
-                    {          \
+                    {\
                        int  cc = 0;\
                        char long_no[MAX_INT_LENGTH];\
-                               \
+\
                        ptr += 1;\
                        while ((*ptr != '_') && (*ptr != '\n') && (cc < MAX_INT_LENGTH))\
-                       {       \
+                       {\
                           long_no[cc] = *ptr;\
                           cc++; ptr++;\
-                       }       \
+                       }\
                        if ((*ptr != '\n') && (cc > 0) && (cc < MAX_INT_LENGTH))\
-                       {       \
+                       {\
                           time_t delete_time;\
-                               \
+\
                           long_no[cc] = '\0';\
                           delete_time = (time_t)str2timet(long_no, (char **)NULL, 16);\
                           if (now > (delete_time + ARCHIVE_STEP_TIME))\
-                          {    \
+                          {\
                              archive_status = 'D';\
-                          }    \
+                          }\
                           else if (now > (delete_time - 5))\
                                {\
                                   archive_status = '?';\
                                }\
-                       }       \
-                    }          \
-                 }             \
-                 ptr++;        \
-              }                \
+                       }\
+                    }\
+                 }\
+                 ptr++;\
+              }\
               while (*ptr != '\n')\
-              {                \
-                 ptr++;        \
-              }                \
+              {\
+                 ptr++;\
+              }\
               *p_archive_flag = archive_status;\
               il[file_no].archived[item_counter] = 1;\
-           }                   \
-           else                \
-           {                   \
+           }\
+           else\
+           {\
               *p_archive_flag = 'N';\
-           }                   \
-           item_counter++;     \
+           }\
+           item_counter++;\
            str_list[i] = XmStringCreateLocalized(line);\
-           ptr++;              \
+           ptr++;\
         }
 
 #define CHECK_LIST_LIMIT()                                          \
@@ -990,8 +1010,6 @@ get_data(void)
                start_file_no = -1,
                end_file_no = -1;
    time_t      end;
-   double      total_file_size,
-               total_trans_time;
    char        status_message[MAX_MESSAGE_LENGTH];
    struct stat stat_buf;
    XmString    xstr;
@@ -1139,8 +1157,6 @@ get_data(void)
    {
       (void)sprintf(p_log_file, "%d", i);
       (void)extract_data(log_file, j, i);
-      total_file_size += file_size;
-      total_trans_time += trans_time;
       if ((perm.list_limit > 0) && (total_no_files >= perm.list_limit))
       {
          break;
@@ -1810,140 +1826,159 @@ no_criteria(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
-               INSERT_TIME_TYPE(FTP_ID_STR);
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
-         }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    INSERT_TIME_TYPE(FILE_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    INSERT_TIME_TYPE(HTTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    INSERT_TIME_TYPE(SMTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    INSERT_TIME_TYPE(SFTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  INSERT_TIME_TYPE(FTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  INSERT_TIME_TYPE(FILE_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  INSERT_TIME_TYPE(EXEC_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  INSERT_TIME_TYPE(HTTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  INSERT_TIME_TYPE(SMTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  INSERT_TIME_TYPE(SFTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    INSERT_TIME_TYPE(SCP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  INSERT_TIME_TYPE(SCP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    INSERT_TIME_TYPE(WMO_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  INSERT_TIME_TYPE(WMO_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    INSERT_TIME_TYPE(MAP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case MAP:
+               if (toggles_set & SHOW_MAP)
+               {
+                  INSERT_TIME_TYPE(MAP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    INSERT_TIME_TYPE(FTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    INSERT_TIME_TYPE(HTTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    INSERT_TIME_TYPE(SMTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  INSERT_TIME_TYPE(FTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  INSERT_TIME_TYPE(HTTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  INSERT_TIME_TYPE(SMTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
 #endif
-              else
-              {
-                 /* This some unknown type! */
-                 INSERT_TIME_TYPE(UNKNOWN_ID_STR);
-              }
+            default :
+               /* This some unknown type! */
+               INSERT_TIME_TYPE(UNKNOWN_ID_STR);
+               break;
+         }
 
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
          SET_FILE_NAME_POINTER();
@@ -2083,7 +2118,7 @@ no_criteria(register char *ptr,
               (search_user[current_search_host][0] != '\0')))
          {
             int  count = 0;
-            char job_id_str[15];
+            char job_id_str[15 + 1];
 
             while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
             {
@@ -2128,14 +2163,17 @@ no_criteria(register char *ptr,
                    kk;
 
                id.dir[0] = '\0';
-               get_info(GOT_JOB_ID_DIR_ONLY);
-               count = strlen(id.dir);
-               id.dir[count] = SEPARATOR_CHAR;
-               id.dir[count + 1] = '\0';
+               if (no_of_search_dirs > 0)
+               {
+                  get_info(GOT_JOB_ID_DIR_ONLY);
+                  count = strlen(id.dir);
+                  id.dir[count] = SEPARATOR_CHAR;
+                  id.dir[count + 1] = '\0';
+               }
 
                for (kk = 0; kk < no_of_search_dirids; kk++)
                {
-                  if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)
+                  if (search_dirid[kk] == id.dir_id)
                   {
                      gotcha = YES;
                      break;
@@ -2145,10 +2183,24 @@ no_criteria(register char *ptr,
                {
                   for (kk = 0; kk < no_of_search_dirs; kk++)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (search_dir_filter[kk] == YES)
                      {
-                        gotcha = YES;
-                        break;
+                        if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
+                     else
+                     {
+                        if (search_dir_length[kk] == count)
+                        {
+                           if (strncmp(search_dir[kk], id.dir, count) == 0)
+                           {
+                              gotcha = YES;
+                              break;
+                           }
+                        }
                      }
                   }
                }
@@ -2360,15 +2412,352 @@ file_name_only(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(FTP_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(FILE_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(EXEC_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(HTTP_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(SMTP_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(SFTP_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SCP_SUPPORT
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(SCP_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_WMO_SUPPORT
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(WMO_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                   ptr += j;
+                    }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_MAP_SUPPORT
+            case WMO:
+               if (toggles_set & SHOW_MAP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(MAP_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef WITH_SSL
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(FTPS_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(HTTPS_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                  {
+                     il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                     INSERT_TIME_TYPE(SMTPS_ID_STR);
+                     j = 0;
+                     while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                     {
+                        *(p_file_name + j) = *(ptr + j);
+                        j++;
+                     }
+                     ptr += j;
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+#endif
+            default :
                SET_FILE_NAME_POINTER();
                if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                {
                   il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                  INSERT_TIME_TYPE(FTP_ID_STR);
+                  INSERT_TIME_TYPE(UNKNOWN_ID_STR);
                   j = 0;
                   while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                   {
@@ -2381,310 +2770,8 @@ file_name_only(register char *ptr,
                {
                   IGNORE_ENTRY();
                }
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+               break;
          }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(FILE_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(HTTP_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(SMTP_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(SFTP_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(SCP_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-#ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(WMO_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-#ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(MAP_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-#ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(FTPS_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(HTTPS_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(SMTPS_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-              else
-              {
-                 SET_FILE_NAME_POINTER();
-                 if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                 {
-                    il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                    INSERT_TIME_TYPE(UNKNOWN_ID_STR);
-                    j = 0;
-                    while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                    {
-                       *(p_file_name + j) = *(ptr + j);
-                       j++;
-                    }
-                    ptr += j;
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -2881,139 +2968,158 @@ file_size_only(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
-               FILE_SIZE_ONLY(FTP_ID_STR);
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
-         }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    FILE_SIZE_ONLY(FILE_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    FILE_SIZE_ONLY(HTTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    FILE_SIZE_ONLY(SMTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    FILE_SIZE_ONLY(SFTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  FILE_SIZE_ONLY(FTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  FILE_SIZE_ONLY(FILE_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  FILE_SIZE_ONLY(EXEC_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  FILE_SIZE_ONLY(HTTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  FILE_SIZE_ONLY(SMTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  FILE_SIZE_ONLY(SFTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    FILE_SIZE_ONLY(SCP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  FILE_SIZE_ONLY(SCP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    FILE_SIZE_ONLY(WMO_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  FILE_SIZE_ONLY(WMO_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    FILE_SIZE_ONLY(MAP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case MAP:
+               if (toggles_set & SHOW_MAP)
+               {
+                  FILE_SIZE_ONLY(MAP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    FILE_SIZE_ONLY(FTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    FILE_SIZE_ONLY(HTTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    FILE_SIZE_ONLY(SMTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  FILE_SIZE_ONLY(FTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  FILE_SIZE_ONLY(HTTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  FILE_SIZE_ONLY(SMTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
 #endif
-              else
-              {
-                 FILE_SIZE_ONLY(UNKNOWN_ID_STR);
-              }
+            default :
+               FILE_SIZE_ONLY(UNKNOWN_ID_STR);
+               break;
+         }
 
          ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
@@ -3210,187 +3316,210 @@ file_name_and_size(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SCP_SUPPORT
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_WMO_SUPPORT
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_MAP_SUPPORT
+            case MAP:
+               if (toggles_set & SHOW_MAP)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef WITH_SSL
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  SET_FILE_NAME_POINTER();
+                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+#endif
+            default :
                SET_FILE_NAME_POINTER();
                if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                {
                   IGNORE_ENTRY();
                }
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
+               break;
          }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-#ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-#ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-#ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-#endif
-              else
-              {
-                 SET_FILE_NAME_POINTER();
-                 if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
 
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
 
@@ -3477,48 +3606,57 @@ file_name_and_size(register char *ptr,
          }
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
-         if (type == FTP)
+         switch (type)
          {
-            (void)memcpy(p_type, FTP_ID_STR, 5);
-         }
-         else if (type == LOC)
-              {
-                 (void)memcpy(p_type, FILE_ID_STR, 5);
-              }
-         else if (type == HTTP)
-              {
-                 (void)memcpy(p_type, HTTP_ID_STR, 5);
-              }
-         else if (type == SMTP)
-              {
-                 (void)memcpy(p_type, SMTP_ID_STR, 5);
-              }
-         else if (type == SFTP)
-              {
-                 (void)memcpy(p_type, SFTP_ID_STR, 5);
-              }
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               (void)memcpy(p_type, FTP_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               (void)memcpy(p_type, FILE_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               (void)memcpy(p_type, EXEC_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               (void)memcpy(p_type, HTTP_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+              (void)memcpy(p_type, SMTP_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               (void)memcpy(p_type, SFTP_ID_STR, 5);
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 (void)memcpy(p_type, SCP_ID_STR, 5);
-              }
+            case SCP:
+               (void)memcpy(p_type, SCP_ID_STR, 5);
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 (void)memcpy(p_type, WMO_ID_STR, 5);
-              }
+            case WMO:
+               (void)memcpy(p_type, WMO_ID_STR, 5);
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 (void)memcpy(p_type, MAP_ID_STR, 5);
-              }
+            case MAP:
+               (void)memcpy(p_type, MAP_ID_STR, 5);
+               break;
 #endif
-              else
-              {
-                 (void)memcpy(p_type, UNKNOWN_ID_STR, 5);
-              }
+            default :
+               (void)memcpy(p_type, UNKNOWN_ID_STR, 5);
+               break;
+         }
          j = 0;
          if (file_name_toggle_set == REMOTE_FILENAME)
          {
@@ -3702,343 +3840,381 @@ recipient_only(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
-               int ii;
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  int ii;
 
-               for (ii = 0; ii < no_of_search_hosts; ii++)
-               {
-                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
                   {
-                     current_search_host = ii;
-                     break;
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
                   }
-               }
-               if (current_search_host != -1)
-               {
-                  INSERT_TIME_TYPE(FTP_ID_STR);
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(FTP_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
                }
                else
                {
                   IGNORE_ENTRY();
                }
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
-         }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    int ii;
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(FILE_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(FILE_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(HTTP_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(EXEC_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(SMTP_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(HTTP_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(SFTP_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(SMTP_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  int ii;
+
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(SFTP_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    int ii;
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(SCP_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(SCP_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    int ii;
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(WMO_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(WMO_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    int ii;
+            case MAP:
+               if (toggles_set & SHOW_MAP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(MAP_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(MAP_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    int ii;
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(FTPS_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(FTPS_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(HTTPS_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(HTTPS_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       INSERT_TIME_TYPE(SMTPS_ID_STR);
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(SMTPS_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
 #endif
-              else
-              {
-                 int ii;
+            default :
+               {
+                  int ii;
 
-                 for (ii = 0; ii < no_of_search_hosts; ii++)
-                 {
-                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                    {
-                       current_search_host = ii;
-                       break;
-                    }
-                 }
-                 if (current_search_host != -1)
-                 {
-                    INSERT_TIME_TYPE(UNKNOWN_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     INSERT_TIME_TYPE(UNKNOWN_ID_STR);
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               break;
+         }
 
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
          SET_FILE_NAME_POINTER();
@@ -4178,7 +4354,7 @@ recipient_only(register char *ptr,
               (search_user[current_search_host][0] != '\0')))
          {
             int  count = 0;
-            char job_id_str[15];
+            char job_id_str[15 + 1];
 
             while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
             {
@@ -4223,14 +4399,17 @@ recipient_only(register char *ptr,
                    kk;
 
                id.dir[0] = '\0';
-               get_info(GOT_JOB_ID_DIR_ONLY);
-               count = strlen(id.dir);
-               id.dir[count] = SEPARATOR_CHAR;
-               id.dir[count + 1] = '\0';
+               if (no_of_search_dirs > 0)
+               {
+                  get_info(GOT_JOB_ID_DIR_ONLY);
+                  count = strlen(id.dir);
+                  id.dir[count] = SEPARATOR_CHAR;
+                  id.dir[count + 1] = '\0';
+               }
 
                for (kk = 0; kk < no_of_search_dirids; kk++)
                {
-                  if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)
+                  if (search_dirid[kk] == id.dir_id)
                   {
                      gotcha = YES;
                      break;
@@ -4240,10 +4419,24 @@ recipient_only(register char *ptr,
                {
                   for (kk = 0; kk < no_of_search_dirs; kk++)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (search_dir_filter[kk] == YES)
                      {
-                        gotcha = YES;
-                        break;
+                        if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
+                     else
+                     {
+                        if (search_dir_length[kk] == count)
+                        {
+                           if (strncmp(search_dir[kk], id.dir, count) == 0)
+                           {
+                              gotcha = YES;
+                              break;
+                           }
+                        }
                      }
                   }
                }
@@ -4451,95 +4644,109 @@ file_name_and_recipient(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            FILE_NAME_AND_RECIPIENT(SHOW_FTP, FTP_ID_STR);
-         }
-         else if (type == LOC)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_FILE, FILE_ID_STR);
-              }
-         else if (type == HTTP)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_HTTP, HTTP_ID_STR);
-              }
-         else if (type == SMTP)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_SMTP, SMTP_ID_STR);
-              }
-         else if (type == SFTP)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_SFTP, SFTP_ID_STR);
-              }
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               FILE_NAME_AND_RECIPIENT(SHOW_FTP, FTP_ID_STR);
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               FILE_NAME_AND_RECIPIENT(SHOW_FILE, FILE_ID_STR);
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               FILE_NAME_AND_RECIPIENT(SHOW_EXEC, EXEC_ID_STR);
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               FILE_NAME_AND_RECIPIENT(SHOW_HTTP, HTTP_ID_STR);
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               FILE_NAME_AND_RECIPIENT(SHOW_SMTP, SMTP_ID_STR);
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               FILE_NAME_AND_RECIPIENT(SHOW_SFTP, SFTP_ID_STR);
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_SCP, SCP_ID_STR);
-              }
+            case SCP:
+               FILE_NAME_AND_RECIPIENT(SHOW_SCP, SCP_ID_STR);
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_WMO, WMO_ID_STR);
-              }
+            case WMO:
+               FILE_NAME_AND_RECIPIENT(SHOW_WMO, WMO_ID_STR);
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_MAP, MAP_ID_STR);
-              }
+            case MAP:
+               FILE_NAME_AND_RECIPIENT(SHOW_MAP, MAP_ID_STR);
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_FTPS, FTPS_ID_STR);
-              }
-         else if (type == HTTPS)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_HTTPS, HTTPS_ID_STR);
-              }
-         else if (type == SMTPS)
-              {
-                 FILE_NAME_AND_RECIPIENT(SHOW_SMTPS, SMTPS_ID_STR);
-              }
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               FILE_NAME_AND_RECIPIENT(SHOW_FTPS, FTPS_ID_STR);
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               FILE_NAME_AND_RECIPIENT(SHOW_HTTPS, HTTPS_ID_STR);
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               FILE_NAME_AND_RECIPIENT(SHOW_SMTPS, SMTPS_ID_STR);
+               break;
+# endif
 #endif
-              else
-              {
-                 int ii;
+            default :
+               {
+                  int ii;
 
-                 for (ii = 0; ii < no_of_search_hosts; ii++)
-                 {
-                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                    {
-                       current_search_host = ii;
-                       break;
-                    }
-                 }
-                 if (current_search_host != -1)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
-                    {
-                       il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-                       INSERT_TIME_TYPE(UNKNOWN_ID_STR);
-                       j = 0;
-                       while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
-                       {
-                          *(p_file_name + j) = *(ptr + j);
-                          j++;
-                       }
-                       ptr += j;
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                     {
+                        il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
+                        INSERT_TIME_TYPE(UNKNOWN_ID_STR);
+                        j = 0;
+                        while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
+                        {
+                           *(p_file_name + j) = *(ptr + j);
+                           j++;
+                        }
+                        ptr += j;
+                     }
+                     else
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               break;
+         }
 
          (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
@@ -4732,139 +4939,158 @@ file_size_and_recipient(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
-               FILE_SIZE_AND_RECIPIENT(FTP_ID_STR);
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
-         }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(FILE_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(HTTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(SMTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(SFTP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  FILE_SIZE_AND_RECIPIENT(FTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  FILE_SIZE_AND_RECIPIENT(FILE_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  FILE_SIZE_AND_RECIPIENT(EXEC_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  FILE_SIZE_AND_RECIPIENT(HTTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  FILE_SIZE_AND_RECIPIENT(SMTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  FILE_SIZE_AND_RECIPIENT(SFTP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(SCP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  FILE_SIZE_AND_RECIPIENT(SCP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(WMO_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  FILE_SIZE_AND_RECIPIENT(WMO_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(MAP_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+            case MAP:
+               if (toggles_set & SHOW_MAP)
+               {
+                  FILE_SIZE_AND_RECIPIENT(MAP_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(FTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(HTTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    FILE_SIZE_AND_RECIPIENT(SMTPS_ID_STR);
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  FILE_SIZE_AND_RECIPIENT(FTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  FILE_SIZE_AND_RECIPIENT(HTTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  FILE_SIZE_AND_RECIPIENT(SMTPS_ID_STR);
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
 #endif
-              else
-              {
-                 FILE_SIZE_AND_RECIPIENT(UNKNOWN_ID_STR);
-              }
+            default :
+               FILE_SIZE_AND_RECIPIENT(UNKNOWN_ID_STR);
+               break;
+         }
 
          ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2;
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
@@ -5056,24 +5282,31 @@ file_name_size_recipient(register char *ptr,
             type_offset = 1;
          }
          HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset)))
-         if (type == FTP)
+         switch (type)
          {
-            if (toggles_set & SHOW_FTP)
-            {
-               int ii;
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               if (toggles_set & SHOW_FTP)
+               {
+                  int ii;
 
-               for (ii = 0; ii < no_of_search_hosts; ii++)
-               {
-                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
                   {
-                     current_search_host = ii;
-                     break;
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
                   }
-               }
-               if (current_search_host != -1)
-               {
-                  SET_FILE_NAME_POINTER();
-                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
                   {
                      IGNORE_ENTRY();
                   }
@@ -5082,365 +5315,400 @@ file_name_size_recipient(register char *ptr,
                {
                   IGNORE_ENTRY();
                }
-            }
-            else
-            {
-               IGNORE_ENTRY();
-            }
-         }
-         else if (type == LOC)
-              {
-                 if (toggles_set & SHOW_FILE)
-                 {
-                    int ii;
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               if (toggles_set & SHOW_FILE)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTP)
-              {
-                 if (toggles_set & SHOW_HTTP)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               if (toggles_set & SHOW_EXEC)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTP)
-              {
-                 if (toggles_set & SHOW_SMTP)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               if (toggles_set & SHOW_HTTP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SFTP)
-              {
-                 if (toggles_set & SHOW_SFTP)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               if (toggles_set & SHOW_SMTP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               if (toggles_set & SHOW_SFTP)
+               {
+                  int ii;
+
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 if (toggles_set & SHOW_SCP)
-                 {
-                    int ii;
+            case SCP:
+               if (toggles_set & SHOW_SCP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 if (toggles_set & SHOW_WMO)
-                 {
-                    int ii;
+            case WMO:
+               if (toggles_set & SHOW_WMO)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 if (toggles_set & SHOW_MAP)
-                 {
-                    int ii;
+            case MAP:
+               if (toggles_set & SHOW_MAP)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 if (toggles_set & SHOW_FTPS)
-                 {
-                    int ii;
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               if (toggles_set & SHOW_FTPS)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == HTTPS)
-              {
-                 if (toggles_set & SHOW_HTTPS)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               if (toggles_set & SHOW_HTTPS)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
-         else if (type == SMTPS)
-              {
-                 if (toggles_set & SHOW_SMTPS)
-                 {
-                    int ii;
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               if (toggles_set & SHOW_SMTPS)
+               {
+                  int ii;
 
-                    for (ii = 0; ii < no_of_search_hosts; ii++)
-                    {
-                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                       {
-                          current_search_host = ii;
-                          break;
-                       }
-                    }
-                    if (current_search_host != -1)
-                    {
-                       SET_FILE_NAME_POINTER();
-                       if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                       {
-                          IGNORE_ENTRY();
-                       }
-                    }
-                    else
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  IGNORE_ENTRY();
+               }
+               break;
+# endif
 #endif
-              else
-              {
-                 int ii;
+            default :
+               {
+                  int ii;
 
-                 for (ii = 0; ii < no_of_search_hosts; ii++)
-                 {
-                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
-                    {
-                       current_search_host = ii;
-                       break;
-                    }
-                 }
-                 if (current_search_host != -1)
-                 {
-                    SET_FILE_NAME_POINTER();
-                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
-                    {
-                       IGNORE_ENTRY();
-                    }
-                 }
-                 else
-                 {
-                    IGNORE_ENTRY();
-                 }
-              }
+                  for (ii = 0; ii < no_of_search_hosts; ii++)
+                  {
+                     if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
+                     {
+                        current_search_host = ii;
+                        break;
+                     }
+                  }
+                  if (current_search_host != -1)
+                  {
+                     SET_FILE_NAME_POINTER();
+                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+                     {
+                        IGNORE_ENTRY();
+                     }
+                  }
+                  else
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               break;
+         }
 
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
 
@@ -5528,62 +5796,74 @@ file_name_size_recipient(register char *ptr,
          }
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
-         if (type == FTP)
+         switch (type)
          {
-            (void)memcpy(p_type, FTP_ID_STR, 5);
-         }
-         else if (type == LOC)
-              {
-                 (void)memcpy(p_type, FILE_ID_STR, 5);
-              }
-         else if (type == HTTP)
-              {
-                 (void)memcpy(p_type, HTTP_ID_STR, 5);
-              }
-         else if (type == SMTP)
-              {
-                 (void)memcpy(p_type, SMTP_ID_STR, 5);
-              }
-         else if (type == SFTP)
-              {
-                 (void)memcpy(p_type, SFTP_ID_STR, 5);
-              }
+#ifdef _WITH_FTP_SUPPORT
+            case FTP:
+               (void)memcpy(p_type, FTP_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+            case LOC:
+               (void)memcpy(p_type, FILE_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+            case EXEC:
+               (void)memcpy(p_type, EXEC_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+            case HTTP:
+               (void)memcpy(p_type, HTTP_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+            case SMTP:
+               (void)memcpy(p_type, SMTP_ID_STR, 5);
+               break;
+#endif
+#ifdef _WITH_SFTP_SUPPORT
+            case SFTP:
+               (void)memcpy(p_type, SFTP_ID_STR, 5);
+               break;
+#endif
 #ifdef _WITH_SCP_SUPPORT
-         else if (type == SCP)
-              {
-                 (void)memcpy(p_type, SCP_ID_STR, 5);
-              }
+            case SCP:
+               (void)memcpy(p_type, SCP_ID_STR, 5);
+               break;
 #endif
 #ifdef _WITH_WMO_SUPPORT
-         else if (type == WMO)
-              {
-                 (void)memcpy(p_type, WMO_ID_STR, 5);
-              }
+            case WMO:
+               (void)memcpy(p_type, WMO_ID_STR, 5);
+               break;
 #endif
 #ifdef _WITH_MAP_SUPPORT
-         else if (type == MAP)
-              {
-                 (void)memcpy(p_type, MAP_ID_STR, 5);
-              }
+            case MAP:
+               (void)memcpy(p_type, MAP_ID_STR, 5);
+               break;
 #endif
 #ifdef WITH_SSL
-         else if (type == FTPS)
-              {
-                 (void)memcpy(p_type, FTPS_ID_STR, 5);
-              }
-         else if (type == HTTPS)
-              {
-                 (void)memcpy(p_type, HTTPS_ID_STR, 5);
-              }
-         else if (type == SMTPS)
-              {
-                 (void)memcpy(p_type, SMTPS_ID_STR, 5);
-              }
+# ifdef _WITH_FTP_SUPPORT
+            case FTPS:
+               (void)memcpy(p_type, FTPS_ID_STR, 5);
+               break;
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+            case HTTPS:
+               (void)memcpy(p_type, HTTPS_ID_STR, 5);
+               break;
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+            case SMTPS:
+               (void)memcpy(p_type, SMTPS_ID_STR, 5);
+               break;
+# endif
 #endif
-              else
-              {
-                 (void)memcpy(p_type, UNKNOWN_ID_STR, 5);
-              }
+            default :
+               (void)memcpy(p_type, UNKNOWN_ID_STR, 5);
+               break;
+         }
          if (file_name_toggle_set == REMOTE_FILENAME)
          {
             tmp_ptr = ptr;
@@ -5708,6 +5988,7 @@ display_data(int    i,
    calculate_summary(summary_str, first_date_found, time_when_transmitted,
                      total_no_files, file_size, trans_time);
    (void)strcpy(total_summary_str, summary_str);
+   all_list_items = total_no_files;
 
    xeev.type = Expose;
    xeev.display = display;

@@ -1,6 +1,6 @@
 /*
  *  dc_id_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,6 @@ int
 main(int argc, char *argv[])
 {
    int                    fd,
-                          i,
                           *no_of_dc_ids;
    char                   file[MAX_PATH_LENGTH],
                           *ptr,
@@ -120,6 +119,8 @@ main(int argc, char *argv[])
 
    if (*no_of_dc_ids > 0)
    {
+      int i;
+
       (void)fprintf(stdout, _("No of DIR_CONFIG ID's : %d\n"), *no_of_dc_ids);
       (void)fprintf(stdout, _("Id         DIR_CONFIG\n"));
       for (i = 0; i < *no_of_dc_ids; i++)

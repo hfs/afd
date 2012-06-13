@@ -1,6 +1,6 @@
 /*
  *  init_asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -71,7 +71,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
 {
    int  correct = YES;                /* Was input/syntax correct?      */
 
-   (void)strcpy(name, argv[0]);
+   (void)my_strncpy(name, argv[0], 30);
 
    /* First initialize all values with default values. */
    p_db->blocksize        = DEFAULT_TRANSFER_BLOCKSIZE;
@@ -200,7 +200,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                char config_file[MAX_PATH_LENGTH];
 
                argv++;
-               (void)strcpy(config_file, argv[0]);
+               (void)my_strncpy(config_file, argv[0], MAX_PATH_LENGTH);
                argc--;
 
                eval_config_file(config_file, p_db);
@@ -225,7 +225,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                char filename_file[MAX_PATH_LENGTH];
 
                argv++;
-               (void)strcpy(filename_file, argv[0]);
+               (void)my_strncpy(filename_file, argv[0], MAX_PATH_LENGTH);
                argc--;
 
                if (eval_filename_file(filename_file, p_db) == INCORRECT)
@@ -246,7 +246,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->hostname, argv[0]);
+               (void)my_strncpy(p_db->hostname, argv[0], MAX_FILENAME_LENGTH);
                argc--;
             }
             break;
@@ -290,7 +290,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->smtp_server, argv[0]);
+               (void)my_strncpy(p_db->smtp_server, argv[0],
+                                MAX_USER_NAME_LENGTH);
                argc--;
             }
             break;
@@ -400,7 +401,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->user, argv[0]);
+               (void)my_strncpy(p_db->user, argv[0], MAX_USER_NAME_LENGTH);
                argc--;
             }
             break;
@@ -459,7 +460,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
            p_db->no_of_files += argc - 1;
            while ((--argc > 0) && ((*++argv)[0] != '-'))
            {
-              (void)strcpy(p_db->filename[i], argv[0]);
+              (void)my_strncpy(p_db->filename[i], argv[0], MAX_PATH_LENGTH);
               i++;
            }
         }

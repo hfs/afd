@@ -506,7 +506,12 @@ init_view_dc(int *argc, char *argv[])
            length += sprintf(&cmd[length], " -d \"%s\"", dir_alias);
         }
    data_buffer = NULL;
-   if (exec_cmd(cmd, &data_buffer, -1, NULL, 0, "", 0L, NO, NO) != 0)
+   if ((exec_cmd(cmd, &data_buffer, -1, NULL, 0,
+#ifdef HAVE_SETPRIORITY
+                 NO_PRIORITY,
+#endif
+                 "", 0L, NO, NO) != 0) ||
+       (data_buffer == NULL))
    {
       (void)fprintf(stderr, "Failed to execute command: %s\n", cmd);
       (void)fprintf(stderr, "See SYSTEM_LOG for more information.\n");

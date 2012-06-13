@@ -1,6 +1,6 @@
 /*
  *  sf_wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -159,21 +159,18 @@ static int                 files_send,
 static off_t               local_file_size,
                            *p_file_size_buffer;
 
-#ifdef _WITH_WMO_SUPPORT
 /* Local function prototypes. */
 static void                sf_wmo_exit(void),
                            sig_bus(int),
                            sig_segv(int),
                            sig_kill(int),
                            sig_exit(int);
-#endif
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-#ifdef _WITH_WMO_SUPPORT
 #ifdef _WITH_BURST_2
    int              cb2_ret;
 #endif
@@ -323,7 +320,7 @@ main(int argc, char *argv[])
 
    /* Inform FSA that we have finished connecting and */
    /* will now start to transfer data.                */
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa(p_db) != NEITHER)
    {
 #ifdef LOCK_DEBUG
       lock_region_w(fsa_fd, db.lock_offset + LOCK_CON, __FILE__, __LINE__);
@@ -387,7 +384,7 @@ main(int argc, char *argv[])
                 header_length = 0,
                 length_type_indicator = 10;
 
-            if (gsf_check_fsa() != NEITHER)
+            if (gsf_check_fsa(p_db) != NEITHER)
             {
                fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
                (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -583,7 +580,7 @@ main(int argc, char *argv[])
 
                   no_of_bytes += blocksize;
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa(p_db) != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                      fsa->job_status[(int)db.job_no].file_size_done += blocksize;
@@ -631,7 +628,7 @@ main(int argc, char *argv[])
 
                   no_of_bytes += rest + end_length;
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa(p_db) != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                      fsa->job_status[(int)db.job_no].file_size_done += rest;
@@ -727,7 +724,7 @@ main(int argc, char *argv[])
          }
 
          /* Update FSA, one file transmitted. */
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
             fsa->job_status[(int)db.job_no].no_of_files_done++;
@@ -1072,7 +1069,7 @@ try_again_unlink:
 
       if (local_file_counter)
       {
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -1137,27 +1134,24 @@ try_again_unlink:
    {
       close_counter_file(wmo_counter_fd, &wmo_counter);
    }
-#endif /* _WITH_WMO_SUPPORT */
 
    exitflag = 0;
    exit(exit_status);
 }
 
 
-#ifdef _WITH_WMO_SUPPORT
 /*+++++++++++++++++++++++++++++ sf_wmo_exit() +++++++++++++++++++++++++++*/
 static void
 sf_wmo_exit(void)
 {
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      int     diff_no_of_files_done,
-              length;
+      int     diff_no_of_files_done;
       u_off_t diff_file_size_done;
 
       if (local_file_counter)
       {
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa((struct job *)&db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -1170,6 +1164,7 @@ sf_wmo_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
+         int  length;
 #ifdef _WITH_BURST_2
          char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
 #else
@@ -1191,17 +1186,11 @@ sf_wmo_exit(void)
 #endif /* _WITH_BURST_2 */
          trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
-      reset_fsa((struct job *)&db, exitflag);
+      reset_fsa((struct job *)&db, exitflag, 0, 0);
    }
 
-   if (file_name_buffer != NULL)
-   {
-      free(file_name_buffer);
-   }
-   if (file_size_buffer != NULL)
-   {
-      free(file_size_buffer);
-   }
+   free(file_name_buffer);
+   free(file_size_buffer);
 
    send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
@@ -1217,7 +1206,7 @@ sf_wmo_exit(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
              "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -1228,7 +1217,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }
@@ -1256,4 +1245,3 @@ sig_exit(int signo)
 {
    exit(INCORRECT);
 }
-#endif /* _WITH_WMO_SUPPORT */

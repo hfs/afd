@@ -1,6 +1,6 @@
 /*
  *  output_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -161,7 +161,7 @@ main(int argc, char *argv[])
                   *work_dir,
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH],
-                  unique_string[9 + 1 + 9 + 1 + 9 + 2];
+                  unique_string[MAX_ADD_FNL + 1];
    unsigned short *archive_name_length,
                   *file_name_length,
                   *unl;
@@ -308,8 +308,8 @@ main(int argc, char *argv[])
    }
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_output_log_files, MAX_OUTPUT_LOG_FILES_DEF,
-                      MAX_OUTPUT_LOG_FILES);
+   get_max_log_values(&max_output_log_files, MAX_OUTPUT_LOG_FILES_DEF,
+                      MAX_OUTPUT_LOG_FILES, NULL, NULL, 0);
 
    /*
     * Set umask so that all log files have the permission 644.

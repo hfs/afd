@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,11 +47,13 @@ DESCR__S_M3
  **        important dir
  **        time * * * * *
  **        keep connected <value in seconds>
+ **        create source dir[ <mode>]
+ **        do not create source dir
  **        do not get dir list
  **        do not remove
  **        store retrieve list [once]
  **        priority <value>                      [DEFAULT 9]
- **        force rereads
+ **        force reread
  **        max process <value>                   [DEFAULT 10]
  **        max files <value>                     [DEFAULT ?]
  **        max size <value>                      [DEFAULT ?]
@@ -98,6 +100,7 @@ DESCR__S_M3
  **   10.11.2006 H.Kiehl Added "warn time" option.
  **   13.11.2006 H.Kiehl Added "keep connected" option.
  **   24.02.2007 H.Kiehl Added inotify support.
+ **   28.05.2012 H.Kiehl Added "create source dir" option.
  **
  */
 DESCR__E_M3
@@ -158,6 +161,8 @@ extern struct dir_data *dd;
 #ifdef WITH_INOTIFY
 # define INOTIFY_FLAG                    67108864
 #endif
+#define CREATE_SOURCE_DIR_FLAG           134217728
+#define DONT_CREATE_SOURCE_DIR_FLAG      268435456
 
 
 /*########################## eval_dir_options() #########################*/
@@ -212,12 +217,16 @@ eval_dir_options(int  dir_pos,
 #endif
    dd[dir_pos].accept_dot_files = NO;
    dd[dir_pos].do_not_get_dir_list = NO;
+   dd[dir_pos].create_source_dir = NO;
    dd[dir_pos].max_errors = 10;
    dd[dir_pos].warn_time = default_warn_time;
    dd[dir_pos].keep_connected = DEFAULT_KEEP_CONNECTED_TIME;
 #ifdef WITH_INOTIFY
    dd[dir_pos].inotify_flag = default_inotify_flag;
 #endif
+   dd[dir_pos].dont_create_source_dir = NO;
+   dd[dir_pos].create_source_dir = NO;
+   dd[dir_pos].dir_mode = 0;
 
    /*
     * First evaluate the old directory option so we
@@ -257,8 +266,8 @@ eval_dir_options(int  dir_pos,
               if ((dd[dir_pos].delete_files_flag & UNKNOWN_FILES) == 0)
               {
                  dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
-                 dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
               }
+              dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
               break;
 
            case 'i' :
@@ -360,8 +369,8 @@ eval_dir_options(int  dir_pos,
          if ((dd[dir_pos].delete_files_flag & UNKNOWN_FILES) == 0)
          {
             dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
-            dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
          }
+         dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
       }
 #ifdef WITH_INOTIFY
       else if (((used & INOTIFY_FLAG) == 0) &&
@@ -680,8 +689,8 @@ eval_dir_options(int  dir_pos,
               if ((dd[dir_pos].delete_files_flag & QUEUED_FILES) == 0)
               {
                  dd[dir_pos].delete_files_flag |= QUEUED_FILES;
-                 dd[dir_pos].in_dc_flag |= QUEUED_FILES_IDC;
               }
+              dd[dir_pos].in_dc_flag |= QUEUED_FILES_IDC;
            }
       else if (((used & DEL_OLD_LOCKED_FILES_FLAG) == 0) &&
                (strncmp(ptr, DEL_OLD_LOCKED_FILES_ID, DEL_OLD_LOCKED_FILES_ID_LENGTH) == 0))
@@ -710,8 +719,8 @@ eval_dir_options(int  dir_pos,
                  if ((dd[dir_pos].delete_files_flag & OLD_LOCKED_FILES) == 0)
                  {
                     dd[dir_pos].delete_files_flag |= OLD_LOCKED_FILES;
-                    dd[dir_pos].in_dc_flag |= OLD_LOCKED_FILES_IDC;
                  }
+                 dd[dir_pos].in_dc_flag |= OLD_LOCKED_FILES_IDC;
               }
               else
               {
@@ -781,6 +790,210 @@ eval_dir_options(int  dir_pos,
                  ptr++;
               }
               dd[dir_pos].do_not_get_dir_list = YES;
+           }
+      else if (((used & DONT_CREATE_SOURCE_DIR_FLAG) == 0) &&
+               (strncmp(ptr, DONT_CREATE_SOURCE_DIR_ID, DONT_CREATE_SOURCE_DIR_ID_LENGTH) == 0))
+           {
+              used |= DONT_CREATE_SOURCE_DIR_FLAG;
+              ptr += DONT_CREATE_SOURCE_DIR_ID_LENGTH;
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+              dd[dir_pos].dont_create_source_dir = YES;
+           }
+      else if (((used & CREATE_SOURCE_DIR_FLAG) == 0) &&
+               (strncmp(ptr, CREATE_SOURCE_DIR_ID, CREATE_SOURCE_DIR_ID_LENGTH) == 0))
+           {
+              int n;
+
+              used |= CREATE_SOURCE_DIR_FLAG;
+              ptr += CREATE_SOURCE_DIR_ID_LENGTH;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              end_ptr = ptr;
+              while ((*end_ptr != '\n') && (*end_ptr != '\0') &&
+                     (*end_ptr != ' ') && (*end_ptr != '\t'))
+              {
+                 end_ptr++;
+              }
+              n = end_ptr - ptr;
+              if ((n == 3) || (n == 4))
+              {
+                 dd[dir_pos].dir_mode = 0;
+                 if (n == 4)
+                 {
+                    switch (*ptr)
+                    {
+                       case '7' :
+                          dd[dir_pos].dir_mode |= S_ISUID | S_ISGID | S_ISVTX;
+                          break;
+                       case '6' :
+                          dd[dir_pos].dir_mode |= S_ISUID | S_ISGID;
+                          break;
+                       case '5' :
+                          dd[dir_pos].dir_mode |= S_ISUID | S_ISVTX;
+                          break;
+                       case '4' :
+                          dd[dir_pos].dir_mode |= S_ISUID;
+                          break;
+                       case '3' :
+                          dd[dir_pos].dir_mode |= S_ISGID | S_ISVTX;
+                          break;
+                       case '2' :
+                          dd[dir_pos].dir_mode |= S_ISGID;
+                          break;
+                       case '1' :
+                          dd[dir_pos].dir_mode |= S_ISVTX;
+                          break;
+                       case '0' : /* Nothing to be done here. */
+                          break;
+                       default :
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr,
+                                     ptr + 1, ptr + 2, ptr + 3);
+                          break;
+                    }
+                    ptr++;
+                 }
+                 switch (*ptr)
+                 {
+                    case '7' :
+                       dd[dir_pos].dir_mode |= S_IRUSR | S_IWUSR | S_IXUSR;
+                       break;
+                    case '6' :
+                       dd[dir_pos].dir_mode |= S_IRUSR | S_IWUSR;
+                       break;
+                    case '5' :
+                       dd[dir_pos].dir_mode |= S_IRUSR | S_IXUSR;
+                       break;
+                    case '4' :
+                       dd[dir_pos].dir_mode |= S_IRUSR;
+                       break;
+                    case '3' :
+                       dd[dir_pos].dir_mode |= S_IWUSR | S_IXUSR;
+                       break;
+                    case '2' :
+                       dd[dir_pos].dir_mode |= S_IWUSR;
+                       break;
+                    case '1' :
+                       dd[dir_pos].dir_mode |= S_IXUSR;
+                       break;
+                    case '0' : /* Nothing to be done here. */
+                       break;
+                    default :
+                       if (n == 4)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr - 1, ptr,
+                                     ptr + 1, ptr + 2);
+                       }
+                       else
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr, ptr + 1,
+                                     ptr + 2);
+                       }
+                       break;
+                 }
+                 ptr++;
+                 switch (*ptr)
+                 {
+                    case '7' :
+                       dd[dir_pos].dir_mode |= S_IRGRP | S_IWGRP | S_IXGRP;
+                       break;
+                    case '6' :
+                       dd[dir_pos].dir_mode |= S_IRGRP | S_IWGRP;
+                       break;
+                    case '5' :
+                       dd[dir_pos].dir_mode |= S_IRGRP | S_IXGRP;
+                       break;
+                    case '4' :
+                       dd[dir_pos].dir_mode |= S_IRGRP;
+                       break;
+                    case '3' :
+                       dd[dir_pos].dir_mode |= S_IWGRP | S_IXGRP;
+                       break;
+                    case '2' :
+                       dd[dir_pos].dir_mode |= S_IWGRP;
+                       break;
+                    case '1' :
+                       dd[dir_pos].dir_mode |= S_IXGRP;
+                       break;
+                    case '0' : /* Nothing to be done here. */
+                       break;
+                    default :
+                       if (n == 4)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr - 2, ptr - 1,
+                                     ptr, ptr + 1);
+                       }
+                       else
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr - 1, ptr,
+                                     ptr + 1);
+                       }
+                       break;
+                 }
+                 ptr++;
+                 switch (*ptr)
+                 {
+                    case '7' :
+                       dd[dir_pos].dir_mode |= S_IROTH | S_IWOTH | S_IXOTH;
+                       break;
+                    case '6' :
+                       dd[dir_pos].dir_mode |= S_IROTH | S_IWOTH;
+                       break;
+                    case '5' :
+                       dd[dir_pos].dir_mode |= S_IROTH | S_IXOTH;
+                       break;
+                    case '4' :
+                       dd[dir_pos].dir_mode |= S_IROTH;
+                       break;
+                    case '3' :
+                       dd[dir_pos].dir_mode |= S_IWOTH | S_IXOTH;
+                       break;
+                    case '2' :
+                       dd[dir_pos].dir_mode |= S_IWOTH;
+                       break;
+                    case '1' :
+                       dd[dir_pos].dir_mode |= S_IXOTH;
+                       break;
+                    case '0' : /* Nothing to be done here. */
+                       break;
+                    default :
+                       if (n == 4)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr - 3, ptr - 2,
+                                     ptr - 1, ptr);
+                       }
+                       else
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Incorrect parameter for directory option `%s' %c%c%c",
+                                     CREATE_SOURCE_DIR_ID, ptr - 2, ptr - 1,
+                                     ptr);
+                       }
+                       break;
+                 }
+              }
+              ptr = end_ptr;
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+              dd[dir_pos].create_source_dir = YES;
            }
       else if (((used & DIR_WARN_TIME_FLAG) == 0) &&
                (strncmp(ptr, DIR_WARN_TIME_ID, DIR_WARN_TIME_ID_LENGTH) == 0))

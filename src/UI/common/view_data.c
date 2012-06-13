@@ -1,6 +1,6 @@
 /*
  *  view_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -379,6 +379,11 @@ view_data(char *fullname, char *file_name)
          vdpl[no_of_vdp].args[6] = p_arg;
          vdpl[no_of_vdp].args[7] = NULL;
          no_of_vdp++;
+      }
+      if (close(fd) == -1)
+      {
+         (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
       }
    }
 

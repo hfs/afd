@@ -1,6 +1,6 @@
 /*
  *  gts2tiff.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,14 +58,15 @@ DESCR__E_M3
 
 #include <stdio.h>             /* sprintf()                              */
 #include <string.h>            /* strcat(), memcpy()                     */
-#include <unistd.h>            /* lseek(), exit(), unlink()              */
+#include <stdlib.h>            /* exit()                                 */
+#include <unistd.h>            /* lseek(), unlink()                      */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>          /* mmap(), munmap()                       */
+# include <sys/mman.h>         /* mmap(), munmap()                       */
 #endif
 #if defined (_TIFF_CONVERSION_TIME_TEST) || defined (_EOL_TIME_TEST)
-#include <sys/times.h>
+# include <sys/times.h>
 #endif
 #include <fcntl.h>
 #include <errno.h>
@@ -77,8 +78,8 @@ DESCR__E_M3
 #define TIFF_LONG     4
 #define TIFF_RATIONAL 5
 
-#ifndef MAP_FILE    /* Required for BSD          */
-#define MAP_FILE 0  /* All others do not need it */
+#ifndef MAP_FILE    /* Required for BSD.          */
+# define MAP_FILE 0 /* All others do not need it. */
 #endif
 
 /* Global local variables. */
@@ -625,6 +626,8 @@ gts2tiff(char *path, char *filename)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   _("munmap() error : %s"), strerror(errno));
+      (void)close(fdin);
+      (void)close(fdout);
       return(INCORRECT);
    }
 #ifdef HAVE_MMAP

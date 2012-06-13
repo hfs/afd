@@ -1,6 +1,6 @@
 /*
  *  common.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,6 +60,7 @@ DESCR__E_M3
 
 
 /* External global variables. */
+extern int  timeout_flag;
 #ifdef WITH_SSL
 extern SSL  *ssl_con;
 #endif
@@ -72,10 +73,8 @@ command(int fd, char *fmt, ...)
    int     length;
    char    buf[MAX_LINE_LENGTH];
    va_list ap;
-#ifdef WITH_TRACE
    char    *ptr,
            *ptr_start;
-#endif
 
    va_start(ap, fmt);
    length = vsprintf(buf, fmt, ap);
@@ -89,8 +88,32 @@ command(int fd, char *fmt, ...)
 #endif
       if (write(fd, buf, length) != length)
       {
+         if ((errno == ECONNRESET) || (errno == EBADF))
+         {
+            timeout_flag = CON_RESET;
+         }
          trans_log(ERROR_SIGN, __FILE__, __LINE__, "command", NULL,
                    _("write() error : %s"), strerror(errno));
+         ptr = buf;
+         do
+         {
+            ptr_start = ptr;
+            while ((*ptr != '\r') && (*ptr != '\n') && (ptr < &buf[length - 1]))
+            {
+               ptr++;
+            }
+            if ((*ptr == '\r') || (*ptr == '\n'))
+            {
+               *ptr = '\0';
+               ptr++;
+               while (((*ptr == '\n') || (*ptr == '\r')) && (ptr < &buf[length - 1]))
+               {
+                  ptr++;
+               }
+            }
+            trans_log(DEBUG_SIGN, NULL, 0, "command", NULL, "%s", ptr_start);
+         } while (ptr < &buf[length - 1]);
+
          return(INCORRECT);
       }
 #ifdef WITH_SSL
@@ -176,6 +199,10 @@ ssl_write(SSL *ssl, const char *buf, size_t count)
                break;
 
             case SSL_ERROR_SYSCALL :
+               if ((errno == ECONNRESET) || (errno == EBADF))
+               {
+                  timeout_flag = CON_RESET;
+               }
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssl_write", NULL,
                          _("SSL_write() error (%d) : %s"),
                          ret, strerror(errno));

@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -86,6 +86,7 @@ main(int argc, char *argv[])
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    int         writefd;
 #endif
+   off_t       max_sys_logfile_size = MAX_SYS_LOGFILE_SIZE;
    char        *p_end = NULL,
                *work_dir,
                log_file[MAX_PATH_LENGTH],
@@ -148,8 +149,9 @@ main(int argc, char *argv[])
    }
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_system_log_files, MAX_SYSTEM_LOG_FILES_DEF,
-                      MAX_SYSTEM_LOG_FILES);
+   get_max_log_values(&max_system_log_files, MAX_SYSTEM_LOG_FILES_DEF,
+                      MAX_SYSTEM_LOG_FILES, &max_sys_logfile_size,
+                      MAX_SYS_LOGFILE_SIZE_DEF, MAX_SYS_LOGFILE_SIZE);
 
    /* Attach to the AFD Status Area. */
    if (attach_afd_status(NULL, WAIT_AFD_STATUS_ATTACH) < 0)
@@ -191,7 +193,7 @@ main(int argc, char *argv[])
       {
          /* Check if we have to start a new log file */
          /* because the current one is large enough. */
-         if (stat_buf.st_size > MAX_SYS_LOGFILE_SIZE)
+         if (stat_buf.st_size > max_sys_logfile_size)
          {
             if (log_number < (max_system_log_files - 1))
             {
@@ -227,7 +229,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      log_stat = logger(p_log_file, MAX_SYS_LOGFILE_SIZE,
+      log_stat = logger(p_log_file, max_sys_logfile_size,
                         sys_log_fd,  SYSTEM_LOG_RESCAN_TIME);
 
       if (fclose(p_log_file) == EOF)

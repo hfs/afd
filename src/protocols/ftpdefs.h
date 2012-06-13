@@ -1,6 +1,6 @@
 /*
  *  ftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,41 +62,41 @@
 #endif
 
 /* Function prototypes. */
-extern int  ftp_auth_data(void),
+extern int  ftp_account(char *),
+#ifdef _BLOCK_MODE
+            ftp_block_write(char *, unsigned short, char),
+            ftp_mode(char),
+            ftp_open(char *, int),
+#endif
+            ftp_cd(char *, int, char *, char *),
+            ftp_chmod(char *, char *),
+            ftp_close_data(void),
             ftp_connect(char *, int),
 #ifdef WITH_SSL
+            ftp_auth_data(void),
             ftp_ssl_auth(void),
             ftp_ssl_init(char),
 #endif
             ftp_data(char *, off_t, int, int, int),
-            ftp_close_data(void),
+            ftp_date(char *, time_t *),
+            ftp_dele(char *),
+            ftp_exec(char *, char *),
+            ftp_get_reply(void),
+            ftp_idle(int),
+            ftp_keepalive(void),
+            ftp_list(int, int, ...),
+            ftp_move(char *, char *, int, int, char *, char *),
+            ftp_noop(void),
+            ftp_pass(char *),
+            ftp_pwd(void),
+            ftp_quit(void),
+            ftp_read(char *, int),
 #ifdef WITH_SENDFILE
             ftp_sendfile(int, off_t *, int),
 #endif
-            ftp_write(char *, char *, int),
-            ftp_read(char *, int),
-            ftp_user(char *),
-            ftp_account(char *),
-#ifdef _BLOCK_MODE
-            ftp_mode(char),
-            ftp_open(char *, int),
-            ftp_block_write(char *, unsigned short, char),
-#endif
-            ftp_pass(char *),
-            ftp_idle(int),
-            ftp_type(char),
-            ftp_cd(char *, int),
-            ftp_pwd(void),
-            ftp_chmod(char *, char *),
-            ftp_move(char *, char *, int, int),
-            ftp_noop(void),
-            ftp_keepalive(void),
-            ftp_list(int, int, ...),
-            ftp_dele(char *),
-            ftp_exec(char *, char *),
-            ftp_quit(void),
-            ftp_get_reply(void),
+            ftp_set_date(char *, time_t),
             ftp_size(char *, off_t *),
-            ftp_date(char *, time_t *),
-            ftp_set_date(char *, time_t);
+            ftp_type(char),
+            ftp_user(char *),
+            ftp_write(char *, char *, int);
 #endif /* __ftpdefs_h */

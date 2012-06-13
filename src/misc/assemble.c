@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -173,10 +173,6 @@ assemble(char         *source_dir,
                }
                else
                {
-#ifdef _WITH_SOH_ETX_CHECK
-                  int additional_length = 0;
-#endif
-
                   if (close(fd) == -1)
                   {
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
@@ -214,6 +210,8 @@ assemble(char         *source_dir,
 #ifdef _WITH_SOH_ETX_CHECK
                   if (type != ASCII_STANDARD)
                   {
+                     int additional_length = 0;
+
                      if (buffer[0] != 1)
                      {
                         additional_length += 4;
@@ -366,10 +364,7 @@ assemble(char         *source_dir,
    }
 
    *(p_src - 1) = '\0';
-   if (buffer != NULL)
-   {
-      free(buffer);
-   }
+   free(buffer);
    *files_to_send = 1;
 
    return(SUCCESS);

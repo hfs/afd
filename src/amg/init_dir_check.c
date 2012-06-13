@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,6 @@ DESCR__S_M1
  ** SYNOPSIS
  **   void init_dir_check(int    argc,
  **                       char   *argv[],
- **                       char   *rule_file,
  **                       time_t *rescan_time,
  **                       int    *read_fd,
  **                       int    *write_fd,
@@ -38,8 +37,8 @@ DESCR__S_M1
  ** DESCRIPTION
  **
  ** RETURN VALUES
- **   On succcess it returns the rule_file, rescan_time and the file
- **   descriptors read_fd, write_fd and fin_fd.
+ **   On succcess it returns the rescan_time and the file descriptors
+ **   read_fd, write_fd and fin_fd.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -60,6 +59,10 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>                /* kill()                             */
+#ifdef HAVE_SETPRIORITY
+# include <sys/time.h>
+# include <sys/resource.h>         /* getpriority()                      */
+#endif
 #ifdef WITH_INOTIFY
 # include <sys/inotify.h>          /* inotify_init()                     */
 #endif
@@ -78,6 +81,13 @@ DESCR__E_M1
 extern int                        afd_file_dir_length,
                                   afd_status_fd,
                                   dcpl_fd,
+#ifdef HAVE_SETPRIORITY
+                                  add_afd_priority,
+                                  current_priority,
+                                  exec_base_priority,
+                                  max_sched_priority,
+                                  min_sched_priority,
+#endif
                                   max_process,
                                   *no_of_process,
 #ifndef _WITH_PTHREAD
@@ -162,8 +172,13 @@ static void                       get_afd_config_value(void),
 void
 init_dir_check(int    argc,
                char   *argv[],
-               char   *rule_file,
                time_t *rescan_time,
+#ifdef WITH_ONETIME
+               int    *ot_job_fd,
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+               int    *ot_job_readfd,
+# endif
+#endif
                int    *read_fd,
                int    *write_fd,
                int    *del_time_job_fd)
@@ -183,6 +198,9 @@ init_dir_check(int    argc,
                dcpl_data_file[MAX_PATH_LENGTH],
                dc_resp_fifo[MAX_PATH_LENGTH],
                fin_fifo[MAX_PATH_LENGTH],
+#ifdef WITH_ONETIME
+               ot_job_fifo[MAX_PATH_LENGTH],
+#endif
                other_fifo[MAX_PATH_LENGTH],
                *p_other_fifo,
                *ptr,
@@ -196,7 +214,7 @@ init_dir_check(int    argc,
    }
    else
    {
-      (void)strcpy(p_work_dir, argv[1]);
+      (void)my_strncpy(p_work_dir, argv[1], MAX_PATH_LENGTH);
       *rescan_time = atoi(argv[2]);
       max_process = atoi(argv[3]);
       no_of_local_dirs = atoi(argv[4]);
@@ -235,9 +253,24 @@ init_dir_check(int    argc,
    }
 #endif
 
+#ifdef HAVE_SETPRIORITY
+   errno = 0;
+   if (((current_priority = getpriority(PRIO_PROCESS, 0)) == -1) &&
+       (errno != 0))
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to getpriority() : %s", strerror(errno));
+      current_priority = 0;
+   }
+#endif
+
    /* Allocate memory for the array containing all file names to  */
    /* be send for every directory section in the DIR_CONFIG file. */
+#ifdef WITH_ONETIME
+   if ((de = malloc((no_of_local_dirs + MAX_NO_OF_ONETIME_DIRS) * sizeof(struct directory_entry))) == NULL)
+#else
    if ((de = malloc(no_of_local_dirs * sizeof(struct directory_entry))) == NULL)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "malloc() error [%d bytes] : %s",
@@ -283,6 +316,10 @@ init_dir_check(int    argc,
    (void)strcat(receive_log_fifo, RECEIVE_LOG_FIFO);
    (void)strcpy(dcpl_data_file, dc_cmd_fifo);
    (void)strcat(dcpl_data_file, DCPL_FILE_NAME);
+#ifdef WITH_ONETIME
+   (void)strcpy(ot_job_fifo, dc_cmd_fifo);
+   (void)strcat(ot_job_fifo, OT_JOB_FIFO);
+#endif
    (void)strcat(dc_cmd_fifo, DC_CMD_FIFO);
    init_msg_buffer();
 
@@ -326,7 +363,11 @@ init_dir_check(int    argc,
       de[i].rl    = NULL;
    }
 #else
+# ifdef WITH_ONETIME
+   for (i = 0; i < (no_of_local_dirs + MAX_NO_OF_ONETIME_DIRS); i++)
+# else
    for (i = 0; i < no_of_local_dirs; i++)
+# endif
    {
       de[i].fme   = NULL;
       de[i].rl_fd = -1;
@@ -405,6 +446,31 @@ init_dir_check(int    argc,
                  receive_log_fifo, strerror(errno));
       exit(INCORRECT);
    }
+
+#ifdef WITH_ONETIME
+   /* Open onetime command fifo. */
+   if ((stat(ot_job_fifo, &stat_buf) < 0) ||
+       (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(ot_job_fifo) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to create fifo %s.", ot_job_fifo);
+         exit(INCORRECT);
+      }
+   }
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(ot_job_fifo, &ot_job_readfd, &ot_job_fd) == -1)
+# else
+   if ((ot_job_fd = coe_open(ot_job_fifo, O_RDWR)) == -1)
+# endif
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s",
+                 ot_job_fifo, strerror(errno));
+      exit(INCORRECT);
+   }
+#endif
 
    /* Check if the queue list fifos exist, if not create them. */
    (void)strcpy(p_other_fifo, QUEUE_LIST_READY_FIFO);
@@ -554,8 +620,8 @@ init_dir_check(int    argc,
       }
 # ifdef _DISTRIBUTION_LOG
 #  ifdef RT_ARRAY_STRUCT_WORKING
-      RT_ARRAY(p_data[i].file_dist_pool, fra[i].max_copied_files, NO_OF_DISTRIBUTION_TYPES,
-               (struct file_dist_list));
+      RT_ARRAY(p_data[i].file_dist_pool, fra[i].max_copied_files,
+               NO_OF_DISTRIBUTION_TYPES, (struct file_dist_list));
 #  else
       if ((p_data[i].file_dist_pool = (struct file_dist_list **)malloc(fra[i].max_copied_files * sizeof(struct file_dist_list *))) == NULL)
       {
@@ -626,60 +692,87 @@ init_dir_check(int    argc,
             }
             else
             {
-               int gotcha,
-                   j;
-
                /*
                 * The process still exists. We now need to check if
                 * the job still exist and if fsa_pos is still correct.
                 */
-               gotcha = NO;
-               for (j = 0; j < no_of_jobs; j++)
+#ifdef WITH_ONETIME
+               if (dcpl[i].job_id == ONETIME_JOB_ID)
                {
-                  if (db[j].job_id == dcpl[i].job_id)
+                  dcpl[i].fra_pos = 
+                  if ((no_of_orphaned_procs % ORPHANED_PROC_STEP_SIZE) == 0)
                   {
-                     if (db[j].fra_pos != dcpl[i].fra_pos)
-                     {
-                        dcpl[i].fra_pos = db[j].fra_pos;
-                     }
-                     if ((no_of_orphaned_procs % ORPHANED_PROC_STEP_SIZE) == 0)
-                     {
-                        size = ((no_of_orphaned_procs / ORPHANED_PROC_STEP_SIZE) + 1) *
-                               ORPHANED_PROC_STEP_SIZE * sizeof(pid_t);
+                     size = ((no_of_orphaned_procs / ORPHANED_PROC_STEP_SIZE) + 1) *
+                            ORPHANED_PROC_STEP_SIZE * sizeof(pid_t);
 
-                        if ((opl = realloc(opl, size)) == NULL)
-                        {
-                           system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                      "Failed to realloc() %d bytes : %s",
-                                      size, strerror(errno));
-                           exit(INCORRECT);
-                        }
+                     if ((opl = realloc(opl, size)) == NULL)
+                     {
+                        system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                   "Failed to realloc() %d bytes : %s",
+                                   size, strerror(errno));
+                        exit(INCORRECT);
                      }
-                     fra[db[j].fra_pos].no_of_process++;
-                     opl[no_of_orphaned_procs] = dcpl[i].pid;
-                     no_of_orphaned_procs++;
-                     gotcha = YES;
-                     break;
                   }
+                  fra[dcpl[i].fra_pos].no_of_process++;
+                  opl[no_of_orphaned_procs] = dcpl[i].pid;
+                  no_of_orphaned_procs++;
                }
-               if (gotcha == NO)
+               else
                {
-                  /*
-                   * The process is no longer in the current job list.
-                   * We may not kill this process, since we do NOT
-                   * know if this is one of our process that we
-                   * started. But lets remove it from our job list.
-                   */
-                  (*no_of_process)--;
-                  if (i < *no_of_process)
+#endif
+                  int gotcha,
+                      j;
+
+                  gotcha = NO;
+                  for (j = 0; j < no_of_jobs; j++)
                   {
-                     (void)memmove(&dcpl[i], &dcpl[i + 1],
-                                   ((*no_of_process - i) * sizeof(struct dc_proc_list)));
+                     if (db[j].job_id == dcpl[i].job_id)
+                     {
+                        if (db[j].fra_pos != dcpl[i].fra_pos)
+                        {
+                           dcpl[i].fra_pos = db[j].fra_pos;
+                        }
+                        if ((no_of_orphaned_procs % ORPHANED_PROC_STEP_SIZE) == 0)
+                        {
+                           size = ((no_of_orphaned_procs / ORPHANED_PROC_STEP_SIZE) + 1) *
+                                  ORPHANED_PROC_STEP_SIZE * sizeof(pid_t);
+
+                           if ((opl = realloc(opl, size)) == NULL)
+                           {
+                              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                         "Failed to realloc() %d bytes : %s",
+                                         size, strerror(errno));
+                              exit(INCORRECT);
+                           }
+                        }
+                        fra[db[j].fra_pos].no_of_process++;
+                        opl[no_of_orphaned_procs] = dcpl[i].pid;
+                        no_of_orphaned_procs++;
+                        gotcha = YES;
+                        break;
+                     }
                   }
-                  dcpl[*no_of_process].pid = -1;
-                  dcpl[*no_of_process].fra_pos = -1;
-                  i--;
+                  if (gotcha == NO)
+                  {
+                     /*
+                      * The process is no longer in the current job list.
+                      * We may not kill this process, since we do NOT
+                      * know if this is one of our process that we
+                      * started. But lets remove it from our job list.
+                      */
+                     (*no_of_process)--;
+                     if (i < *no_of_process)
+                     {
+                        (void)memmove(&dcpl[i], &dcpl[i + 1],
+                                      ((*no_of_process - i) * sizeof(struct dc_proc_list)));
+                     }
+                     dcpl[*no_of_process].pid = -1;
+                     dcpl[*no_of_process].fra_pos = -1;
+                     i--;
+                  }
+#ifdef WITH_ONETIME
                }
+#endif
             }
          }
          else
@@ -721,10 +814,7 @@ init_dir_check(int    argc,
    }
 #endif
 
-   (void)strcpy(rule_file, p_work_dir);
-   (void)strcat(rule_file, ETC_DIR);
-   (void)strcat(rule_file, RENAME_RULE_FILE);
-   get_rename_rules(rule_file, YES);
+   get_rename_rules(YES);
 
 #ifdef WITH_ERROR_QUEUE
    if (attach_error_queue() == INCORRECT)
@@ -919,6 +1009,47 @@ get_afd_config_value(void)
       {
          default_exec_timeout = DEFAULT_EXEC_TIMEOUT;
       }
+#ifdef HAVE_SETPRIORITY
+      if (get_definition(buffer, EXEC_BASE_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         exec_base_priority = atoi(value);
+      }
+      if (get_definition(buffer, ADD_AFD_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (((value[0] == 'n') || (value[0] == 'N')) &&
+             ((value[1] == 'o') || (value[1] == 'O')) &&
+             ((value[2] == '\0') || (value[2] == ' ') || (value[2] == '\t')))
+         {
+            add_afd_priority = NO;
+         }
+         else if (((value[0] == 'y') || (value[0] == 'Y')) &&
+                  ((value[1] == 'e') || (value[1] == 'E')) &&
+                  ((value[2] == 's') || (value[2] == 'S')) &&
+                  ((value[3] == '\0') || (value[3] == ' ') || (value[3] == '\t')))
+              {
+                 add_afd_priority = YES;
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Only YES or NO (and not `%s') are possible for %s in AFD_CONFIG. Setting to default: %s",
+                            value, ADD_AFD_PRIORITY_DEF,
+                            (add_afd_priority == YES) ? "YES" : "NO");
+              }
+      }
+      if (get_definition(buffer, MAX_NICE_VALUE_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         max_sched_priority = atoi(value);
+      }
+      if (get_definition(buffer, MIN_NICE_VALUE_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         min_sched_priority = atoi(value);
+      }
+#endif
       free(buffer);
    }
    else

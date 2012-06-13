@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -380,7 +380,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
       int  i = 0;
       char *ptr,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
-           str_hex_number[23];
+           str_hex_number[23 + 1];
 
       /* Go to beginning of line to read complete line. */
       if (fseek(il[file_no].fp,
@@ -525,7 +525,7 @@ get_all(int item)
       char *ptr,
            *p_tmp,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
-           str_hex_number[23];
+           str_hex_number[23 + 1];
 
       if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos], SEEK_SET) == -1)
       {

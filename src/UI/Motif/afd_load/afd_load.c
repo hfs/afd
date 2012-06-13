@@ -1,6 +1,6 @@
 /*
  *  afd_load.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -427,7 +427,7 @@ init_afd_load(int  *argc,
    }
 
    /* Attach to FSA to get values for chart. */
-   if ((i = fsa_attach_passive()) < 0)
+   if ((i = fsa_attach_passive(NO)) < 0)
    {
       if (i == INCORRECT_VERSION)
       {

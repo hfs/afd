@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -546,11 +546,24 @@ send_print_cmd(char *message)
         cmd[MAX_PATH_LENGTH];
 
    (void)sprintf(cmd, "%s%s %s", printer_cmd, printer_name, file_name);
-   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES, YES)) != 0)
+   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0,
+#ifdef HAVE_SETPRIORITY
+                       NO_PRIORITY,
+#endif
+                       "", 0L, YES, YES)) != 0)
    {
-      (void)xrec(ERROR_DIALOG,
-                 "Failed to send printer command `%s' [%d] : %s (%s %d)",
-                 cmd, ret, buffer, __FILE__, __LINE__);
+      if (buffer == NULL)
+      {
+         (void)xrec(ERROR_DIALOG,
+                    "Failed to send printer command `%s' [%d] (%s %d)",
+                    cmd, ret, __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)xrec(ERROR_DIALOG,
+                    "Failed to send printer command `%s' [%d] : %s (%s %d)",
+                    cmd, ret, buffer, __FILE__, __LINE__);
+      }
       XtPopdown(printshell);
       if (message != NULL)
       {
@@ -565,10 +578,7 @@ send_print_cmd(char *message)
       }
    }
    (void)unlink(file_name);
-   if (buffer != NULL)
-   {
-      free(buffer);
-   }
+   free(buffer);
 
    return;
 }
@@ -584,11 +594,24 @@ send_mail_cmd(char *message)
 
    (void)sprintf(cmd, "%s -a %s -s \"AFD log data\" -t 20 %s",
                  ASMTP, mailto, file_name);
-   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, "", 0L, YES, YES)) != 0)
+   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0,
+#ifdef HAVE_SETPRIORITY
+                       NO_PRIORITY,
+#endif
+                       "", 0L, YES, YES)) != 0)
    {
-      (void)xrec(ERROR_DIALOG,
-                 "Failed to send mail command `%s' [%d] : %s (%s %d)",
-                 cmd, ret, buffer, __FILE__, __LINE__);
+      if (buffer == NULL)
+      {
+         (void)xrec(ERROR_DIALOG,
+                    "Failed to send mail command `%s' [%d] (%s %d)",
+                    cmd, ret, __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)xrec(ERROR_DIALOG,
+                    "Failed to send mail command `%s' [%d] : %s (%s %d)",
+                    cmd, ret, buffer, __FILE__, __LINE__);
+      }
       XtPopdown(printshell);
       if (message != NULL)
       {
@@ -603,10 +626,7 @@ send_mail_cmd(char *message)
       }
    }
    (void)unlink(file_name);
-   if (buffer != NULL)
-   {
-      free(buffer);
-   }
+   free(buffer);
 
    return;
 }

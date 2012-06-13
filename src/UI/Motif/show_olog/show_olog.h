@@ -1,6 +1,6 @@
 /*
  *  show_olog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,10 +30,21 @@
 #define GOT_JOB_ID_USER_ONLY     -4
 #define GOT_JOB_ID_PRIORITY_ONLY -5
 
-#define FTP_ID_STR               "FTP  "
-#define FILE_ID_STR              "FILE "
-#define SMTP_ID_STR              "SMTP "
-#define HTTP_ID_STR              "HTTP "
+#ifdef _WITH_FTP_SUPPORT
+# define FTP_ID_STR              "FTP  "
+#endif
+#ifdef _WITH_LOC_SUPPORT
+# define FILE_ID_STR             "FILE "
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+# define EXEC_ID_STR             "EXEC "
+#endif
+#ifdef _WITH_SMTP_SUPPORT
+# define SMTP_ID_STR             "SMTP "
+#endif
+#ifdef _WITH_HTTP_SUPPORT
+# define HTTP_ID_STR             "HTTP "
+#endif
 #ifdef _WITH_SCP_SUPPORT
 # define SCP_ID_STR              "SCP  "
 #endif
@@ -44,11 +55,19 @@
 # define MAP_ID_STR              "MAP  "
 #endif
 #ifdef WITH_SSL
-# define FTPS_ID_STR             "FTPS "
-# define HTTPS_ID_STR            "HTTPS"
-# define SMTPS_ID_STR            "SMTPS"
+# ifdef _WITH_FTP_SUPPORT
+#  define FTPS_ID_STR            "FTPS "
+# endif
+# ifdef _WITH_HTTP_SUPPORT
+#  define HTTPS_ID_STR           "HTTPS"
+# endif
+# ifdef _WITH_SMTP_SUPPORT
+#  define SMTPS_ID_STR           "SMTPS"
+# endif
 #endif
-#define SFTP_ID_STR              "SFTP "
+#ifdef _WITH_SFTP_SUPPORT
+# define SFTP_ID_STR             "SFTP "
+#endif
 #define UNKNOWN_ID_STR           "?    "
 
 #define SEARCH_BUTTON            1
@@ -65,10 +84,6 @@
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
-#define START_TIME_NO_ENTER      1
-#define START_TIME               2
-#define END_TIME_NO_ENTER        3
-#define END_TIME                 4
 #define FILE_NAME_NO_ENTER       5
 #define FILE_NAME                6
 #define DIRECTORY_NAME_NO_ENTER  7
@@ -79,7 +94,6 @@
 #define RECIPIENT_NAME           12
 
 #define NO_OF_VISIBLE_LINES      20
-#define MAXARGS                  20
 
 #define LINES_BUFFERED           1000
 #define MAX_DISPLAYED_FILE_SIZE  10
@@ -91,8 +105,8 @@
 
 /* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT        26
-#define SHOW_MEDIUM_FORMAT       40
-#define SHOW_LONG_FORMAT         95
+#define SHOW_MEDIUM_FORMAT       45
+#define SHOW_LONG_FORMAT         115
 #define DATE_TIME_HEADER         "Date   Time     "
 #define FILE_NAME_HEADER         "File name"
 #define HOST_NAME_HEADER         "Hostname"
@@ -256,6 +270,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             set_sensitive(void),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
+            select_all_button(Widget, XtPointer, XtPointer),
             toggled(Widget, XtPointer, XtPointer),
             view_button(Widget, XtPointer, XtPointer),
             view_files(int, int *);

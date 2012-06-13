@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -388,8 +388,6 @@ stat_again:
          {
             if (cml[i] == mdb[j].job_id)
             {
-               int pos;
-
                /*
                 * The position of this job might have changed
                 * within the FSA, but the contents of the job is
@@ -404,6 +402,8 @@ stat_again:
                }
                else
                {
+                  int pos;
+
                   if ((pos = get_host_position(fsa, mdb[j].host_name,
                                                no_of_hosts)) != -1)
                   {
@@ -1396,7 +1396,8 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
 #ifdef _WITH_MAP_SUPPORT
                 (scheme & MAP_FLAG) ||
 #endif
-                (scheme & LOC_FLAG))
+                (scheme & LOC_FLAG) ||
+                (scheme & EXEC_FLAG))
             {
                /* These do not have passwords. */;
             }
@@ -1525,7 +1526,8 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
 #ifdef _WITH_MAP_SUPPORT
                 (scheme & MAP_FLAG) ||
 #endif
-                (scheme & LOC_FLAG))
+                (scheme & LOC_FLAG) ||
+                (scheme & EXEC_FLAG))
             {
                /* These do not have passwords. */;
             }

@@ -1,6 +1,6 @@
 /*
  *  get_afd_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,6 +55,7 @@ DESCR__S_M3
  **                      and the command line option -w.
  **   31.08.2002 H.Kiehl Fix buffer overflow vulnerably when storing
  **                      AFD_WORK_DIR environment variable for work_dir.
+ **   04.02.2011 H.Kiehl Added ARGV_DEBUG to see how we are called.
  **
  */
 DESCR__E_M3
@@ -63,6 +64,8 @@ DESCR__E_M3
 #include <string.h>            /* strcpy()                               */
 #include <stdlib.h>            /* getenv()                               */
 #include <unistd.h>            /* R_OK, X_OK                             */
+
+#define ARGV_DEBUG
 
 
 /*########################### get_afd_path() ############################*/
@@ -77,7 +80,7 @@ get_afd_path(int *argc, char *argv[], char *work_dir)
       /* Check if the environment variable is set. */
       if ((ptr = getenv(WD_ENV_NAME)) != NULL)
       {
-         if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
+         if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH) != SUCCESS)
          {
             (void)fprintf(stderr,
                           _("ERROR   : Buffer for storing working directory is to short!\n"));
@@ -86,11 +89,23 @@ get_afd_path(int *argc, char *argv[], char *work_dir)
       }
       else
       {
+#ifdef ARGV_DEBUG
+         int i;
+#endif
+
          (void)fprintf(stderr,
                        _("ERROR   : Failed to determine AFD working directory!\n"));
          (void)fprintf(stderr,
                        _("          No option %s or environment variable %s set.\n"),
                        WORK_DIR_ID, WD_ENV_NAME);
+#ifdef ARGV_DEBUG
+         (void)fprintf(stderr, "DEBUG   : ");
+         for (i = 0; i < *argc; i++)
+         {
+            (void)fprintf(stderr, "%s ", argv[i]);
+         }
+         (void)fprintf(stderr, "\n");
+#endif
          return(INCORRECT);
       }
    }

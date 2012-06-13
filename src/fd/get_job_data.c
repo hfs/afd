@@ -1,6 +1,6 @@
 /*
  *  get_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -225,6 +225,10 @@ retry:
    else if (scheme & HTTP_FLAG)
         {
            protocol = HTTP;
+        }
+   else if (scheme & EXEC_FLAG)
+        {
+           protocol = EXEC;
         }
 #ifdef _WITH_SCP_SUPPORT
    else if (scheme & SCP_FLAG)

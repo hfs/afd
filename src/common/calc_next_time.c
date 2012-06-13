@@ -1,6 +1,6 @@
 /*
  *  calc_next_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -271,12 +271,12 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
 static int
 check_month(struct bd_time_entry *te, struct tm *bd_time)
 {
-   int gotcha,
-       i;
-
    /* Evaluate month (1-12) [0-11] */
    if ((ALL_MONTH & te->month) != ALL_MONTH)
    {
+      int gotcha,
+          i;
+
       gotcha = NO;
       for (i = bd_time->tm_mon; i < 12; i++)
       {
@@ -335,7 +335,8 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
        (te->day_of_month != ALL_DAY_OF_MONTH))
    {
       int dow = bd_time->tm_wday,
-          greatest_dom;
+          greatest_dom,
+          years_searched = bd_time->tm_year;
 
       gotcha = NO;
       do
@@ -357,6 +358,14 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
          }
          if (gotcha == NO)
          {
+            /* Ensure that we do not go into an endless loop! */
+            if ((bd_time->tm_year - years_searched) >= 2000)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          _("Searched 2000 years, giving up."));
+               return(INCORRECT);
+            }
+
             bd_time->tm_mon++;
             if (bd_time->tm_mon == 12)
             {

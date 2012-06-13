@@ -1,6 +1,6 @@
 /*
  *  extract.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -90,6 +90,8 @@ DESCR__S_M3
  **                      we really nead.
  **   08.04.2008 H.Kiehl Added ZCZC_NNNN option.
  **   07.12.2008 H.Kiehl Added option to extract reports.
+ **   15.02.2011 H.Kiehl Added option to add additional header in report
+ **                      indicating the report type.
  **
  */
 DESCR__E_M3
@@ -103,6 +105,10 @@ DESCR__E_M3
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
 # include <sys/mman.h>                   /* mmap(), munmap()             */
+#endif
+#include <time.h>
+#ifdef TM_IN_SYS_TIME
+# include <sys/time.h>
 #endif
 #include <fcntl.h>                       /* open()                       */
 #include <errno.h>
@@ -121,6 +127,10 @@ struct prod_log_db
        };
 #endif
 
+/* External global variables. */
+extern int                no_of_brc_entries;
+extern struct wmo_bul_rep *brcdb; /* Bulletin Report Configuration Database */
+
 /* Local global variables. */
 static int                *counter,
                           counter_fd,
@@ -138,19 +148,21 @@ static struct prod_log_db *pld = NULL;
 #endif
 
 /* Local function prototypes. */
-static void               ascii_sohetx(char *, off_t, char *),
-                          ascii_zczc_nnnn(char *, off_t, char *),
-                          binary_sohetx(char *, off_t, char *),
-                          four_byte(char *, off_t),
-                          four_byte_swap(char *, off_t),
-                          four_byte_mss(char *, off_t),
-                          four_byte_mss_swap(char *, off_t),
+static void               ascii_sohetx(char *, off_t, time_t, char *),
+                          ascii_zczc_nnnn(char *, off_t, time_t, char *),
+                          binary_sohetx(char *, off_t, time_t, char *),
+                          find_offset(int, char *, int, int *),
+                          four_byte(char *, off_t, time_t),
+                          four_byte_swap(char *, off_t, time_t),
+                          four_byte_mss(char *, off_t, time_t),
+                          four_byte_mss_swap(char *, off_t, time_t),
+                          find_station_id(void),
                           show_unknown_report(char *, int, char *, char *, int),
-                          two_byte_vax(char *, off_t),
-                          two_byte_vax_swap(char *, off_t),
-                          wmo_standard(char *, off_t);
+                          two_byte_vax(char *, off_t, time_t),
+                          two_byte_vax_swap(char *, off_t, time_t),
+                          wmo_standard(char *, off_t, time_t);
 static int                check_report(char *, unsigned int, int *),
-                          write_file(char *, unsigned int, int);
+                          write_file(char *, unsigned int, time_t, int);
 
 /* Local definitions. */
 #define MAX_WMO_HEADER_LENGTH  25
@@ -265,27 +277,27 @@ extract(char         *file_name,
    switch (type)
    {
       case ASCII_STANDARD: /* No length indicator, just locate SOH + ETX. */
-         ascii_sohetx(src_ptr, stat_buf.st_size, file_name);
+         ascii_sohetx(src_ptr, stat_buf.st_size, stat_buf.st_mtime, file_name);
          break;
 
       case BINARY_STANDARD: /* No length indicator, just cut away header. */
-         binary_sohetx(src_ptr, stat_buf.st_size, file_name);
+         binary_sohetx(src_ptr, stat_buf.st_size, stat_buf.st_mtime, file_name);
          break;
 
       case ZCZC_NNNN: /* No length indicator, just locate ZCZC + NNNN. */
-         ascii_zczc_nnnn(src_ptr, stat_buf.st_size, file_name);
+         ascii_zczc_nnnn(src_ptr, stat_buf.st_size, stat_buf.st_mtime, file_name);
          break;
 
       case TWO_BYTE      : /* Vax Standard */
          if (*(char *)&byte_order == 1)
          {
             /* little-endian */
-            two_byte_vax(src_ptr, stat_buf.st_size);
+            two_byte_vax(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          else
          {
             /* big-endian */
-            two_byte_vax_swap(src_ptr, stat_buf.st_size);
+            two_byte_vax_swap(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          break;
 
@@ -293,12 +305,12 @@ extract(char         *file_name,
          if (*(char *)&byte_order == 1)
          {
             /* little-endian */
-            four_byte(src_ptr, stat_buf.st_size);
+            four_byte(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          else
          {
             /* big-endian */
-            four_byte_swap(src_ptr, stat_buf.st_size);
+            four_byte_swap(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          break;
 
@@ -306,12 +318,12 @@ extract(char         *file_name,
          if (*(char *)&byte_order == 1)
          {
             /* little-endian */
-            four_byte_swap(src_ptr, stat_buf.st_size);
+            four_byte_swap(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          else
          {
             /* big-endian */
-            four_byte(src_ptr, stat_buf.st_size);
+            four_byte(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          break;
 
@@ -319,17 +331,17 @@ extract(char         *file_name,
          if (*(char *)&byte_order == 1)
          {
             /* little-endian */
-            four_byte_mss_swap(src_ptr, stat_buf.st_size);
+            four_byte_mss_swap(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          else
          {
             /* big-endian */
-            four_byte_mss(src_ptr, stat_buf.st_size);
+            four_byte_mss(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          }
          break;
 
       case WMO_STANDARD  : /* WMO Standard */
-         wmo_standard(src_ptr, stat_buf.st_size);
+         wmo_standard(src_ptr, stat_buf.st_size, stat_buf.st_mtime);
          break;
 
       default            : /* Impossible! */
@@ -411,7 +423,7 @@ extract(char         *file_name,
 
 /*+++++++++++++++++++++++++++++ ascii_sohetx() ++++++++++++++++++++++++++*/
 static void
-ascii_sohetx(char *src_ptr, off_t total_length, char *file_name)
+ascii_sohetx(char *src_ptr, off_t total_length, time_t mtime, char *file_name)
 {
    char *ptr = src_ptr,
         *ptr_start;
@@ -432,7 +444,8 @@ ascii_sohetx(char *src_ptr, off_t total_length, char *file_name)
          if (*ptr == 3)
          {
             ptr++;
-            if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), YES) < 0)
+            if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), mtime,
+                           YES) < 0)
             {
                return;
             }
@@ -457,7 +470,7 @@ ascii_sohetx(char *src_ptr, off_t total_length, char *file_name)
 
 /*++++++++++++++++++++++++++++ binary_sohetx() ++++++++++++++++++++++++++*/
 static void
-binary_sohetx(char *src_ptr, off_t total_length, char *file_name)
+binary_sohetx(char *src_ptr, off_t total_length, time_t mtime, char *file_name)
 {
    char *ptr = src_ptr,
         *ptr_start;
@@ -473,7 +486,8 @@ binary_sohetx(char *src_ptr, off_t total_length, char *file_name)
       if (*ptr == 3)
       {
          ptr++;
-         if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), YES) < 0)
+         if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), mtime,
+                        YES) < 0)
          {
             return;
          }
@@ -497,7 +511,7 @@ binary_sohetx(char *src_ptr, off_t total_length, char *file_name)
 
 /*+++++++++++++++++++++++++++ ascii_zczc_nnnn() +++++++++++++++++++++++++*/
 static void
-ascii_zczc_nnnn(char *src_ptr, off_t total_length, char *file_name)
+ascii_zczc_nnnn(char *src_ptr, off_t total_length, time_t mtime, char *file_name)
 {
    char *ptr = src_ptr,
         *ptr_start;
@@ -527,7 +541,8 @@ ascii_zczc_nnnn(char *src_ptr, off_t total_length, char *file_name)
              (*(ptr + 3) == 'N') && (*(ptr + 4) == 'N'))
          {
             ptr += 5;
-            if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), NEITHER) < 0)
+            if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), mtime,
+                           NEITHER) < 0)
             {
                return;
             }
@@ -552,7 +567,7 @@ ascii_zczc_nnnn(char *src_ptr, off_t total_length, char *file_name)
 
 /*+++++++++++++++++++++++++++++ two_byte_vax() ++++++++++++++++++++++++++*/
 static void
-two_byte_vax(char *src_ptr, off_t total_length)
+two_byte_vax(char *src_ptr, off_t total_length, time_t mtime)
 {
    unsigned short length;
    char           *ptr = src_ptr;
@@ -563,7 +578,7 @@ two_byte_vax(char *src_ptr, off_t total_length)
    {
       for (;;)
       {
-         if (write_file(ptr + 2, (unsigned int)length, YES) < 0)
+         if (write_file(ptr + 2, (unsigned int)length, mtime, YES) < 0)
          {
             return;
          }
@@ -583,7 +598,7 @@ two_byte_vax(char *src_ptr, off_t total_length)
 
 /*++++++++++++++++++++++++++ two_byte_vax_swap() ++++++++++++++++++++++++*/
 static void
-two_byte_vax_swap(char *src_ptr, off_t total_length)
+two_byte_vax_swap(char *src_ptr, off_t total_length, time_t mtime)
 {
    unsigned short length;
    char           *ptr = src_ptr;
@@ -594,7 +609,7 @@ two_byte_vax_swap(char *src_ptr, off_t total_length)
    {
       for (;;)
       {
-         if (write_file(ptr + 2, (unsigned int)length, YES) < 0)
+         if (write_file(ptr + 2, (unsigned int)length, mtime, YES) < 0)
          {
             return;
          }
@@ -614,7 +629,7 @@ two_byte_vax_swap(char *src_ptr, off_t total_length)
 
 /*++++++++++++++++++++++++++++++ four_byte() ++++++++++++++++++++++++++++*/
 static void
-four_byte(char *src_ptr, off_t total_length)
+four_byte(char *src_ptr, off_t total_length, time_t mtime)
 {
    unsigned int length;
    char         *ptr = src_ptr;
@@ -627,7 +642,7 @@ four_byte(char *src_ptr, off_t total_length)
    {
       for (;;)
       {
-         if (write_file(ptr + 4, length, YES) < 0)
+         if (write_file(ptr + 4, length, mtime, YES) < 0)
          {
             return;
          }
@@ -649,7 +664,7 @@ four_byte(char *src_ptr, off_t total_length)
 
 /*+++++++++++++++++++++++++++ four_byte_swap() ++++++++++++++++++++++++++*/
 static void
-four_byte_swap(char *src_ptr, off_t total_length)
+four_byte_swap(char *src_ptr, off_t total_length, time_t mtime)
 {
    unsigned int length;
    char         *ptr = src_ptr;
@@ -662,7 +677,7 @@ four_byte_swap(char *src_ptr, off_t total_length)
    {
       for (;;)
       {
-         if (write_file(ptr + 4, length, YES) < 0)
+         if (write_file(ptr + 4, length, mtime, YES) < 0)
          {
             return;
          }
@@ -684,7 +699,7 @@ four_byte_swap(char *src_ptr, off_t total_length)
 
 /*++++++++++++++++++++++++++++ four_byte_mss() ++++++++++++++++++++++++++*/
 static void
-four_byte_mss(char *src_ptr, off_t total_length)
+four_byte_mss(char *src_ptr, off_t total_length, time_t mtime)
 {
    unsigned int length;
    char         *ptr = src_ptr;
@@ -697,7 +712,7 @@ four_byte_mss(char *src_ptr, off_t total_length)
    {
       for (;;)
       {
-         if (write_file(ptr + 4, length, YES) < 0)
+         if (write_file(ptr + 4, length, mtime, YES) < 0)
          {
             return;
          }
@@ -718,7 +733,7 @@ four_byte_mss(char *src_ptr, off_t total_length)
 
 /*+++++++++++++++++++++++++ four_byte_mss_swap() ++++++++++++++++++++++++*/
 static void
-four_byte_mss_swap(char *src_ptr, off_t total_length)
+four_byte_mss_swap(char *src_ptr, off_t total_length, time_t mtime)
 {
    unsigned int length;
    char         *ptr = src_ptr;
@@ -731,7 +746,7 @@ four_byte_mss_swap(char *src_ptr, off_t total_length)
    {
       for (;;)
       {
-         if (write_file(ptr + 4, length, YES) < 0)
+         if (write_file(ptr + 4, length, mtime, YES) < 0)
          {
             return;
          }
@@ -752,7 +767,7 @@ four_byte_mss_swap(char *src_ptr, off_t total_length)
 
 /*+++++++++++++++++++++++++++ wmo_standard() ++++++++++++++++++++++++++++*/
 static void
-wmo_standard(char *src_ptr, off_t total_length)
+wmo_standard(char *src_ptr, off_t total_length, time_t mtime)
 {
    int          soh_etx;
    unsigned int length;
@@ -781,7 +796,7 @@ wmo_standard(char *src_ptr, off_t total_length)
          {
             soh_etx = YES;
          }
-         if (write_file(ptr + 10, length, soh_etx) < 0)
+         if (write_file(ptr + 10, length, mtime, soh_etx) < 0)
          {
             return;
          }
@@ -795,11 +810,11 @@ wmo_standard(char *src_ptr, off_t total_length)
 
 /*------------------------------ write_file() ---------------------------*/
 static int
-write_file(char *msg, unsigned int length, int soh_etx)
+write_file(char *msg, unsigned int length, time_t mtime, int soh_etx)
 {
-   int   i,
+   int   brcdb_pos = -1,
          fd,
-         offset;
+         i;
    off_t size;
    char  *ptr,
          *p_start;
@@ -855,23 +870,85 @@ write_file(char *msg, unsigned int length, int soh_etx)
    {
       ptr += 3;
    }
-   while (((*ptr == 13) || (*ptr == 10)) && ((ptr - msg) < length))
+   while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+          ((ptr - msg) < length))
    {
       ptr++;
    }
    p_start = ptr;
    i = 0;
-   while ((*ptr > 31) && (i < MAX_WMO_HEADER_LENGTH) && ((ptr - msg) < length))
+   if (extract_options & EXTRACT_ADD_FULL_DATE)
    {
-      if ((*ptr == ' ') || (*ptr == '/') || (*ptr < ' ') || (*ptr > 'z'))
+      int space_counter = 0;
+
+      while ((*ptr > 31) && (i < (MAX_WMO_HEADER_LENGTH + 6)) &&
+             ((ptr - msg) < length))
       {
-         p_file_name[i] = '_';
+         if ((*ptr == ' ') || (*ptr == '/') || (*ptr < ' ') || (*ptr > 'z'))
+         {
+            p_file_name[i] = '_';
+            space_counter++;
+            if ((space_counter == 2) && ((ptr + 2 - msg) < length) &&
+                (isdigit(*(ptr + 1))) && (isdigit(*(ptr + 2))))
+            {
+               int       day_of_month,
+                         diff_mday;
+               struct tm *bd_time;     /* Broken-down time. */
+
+               if (*(ptr + 1) == '0')
+               {
+                  day_of_month = *(ptr + 2) - '0';
+               }
+               else
+               {
+                  day_of_month = ((*(ptr + 1) - '0') * 10) + (*(ptr + 2) - '0');
+               }
+
+               bd_time = gmtime(&mtime);
+               diff_mday = day_of_month - bd_time->tm_mday;
+               if (diff_mday != 0)
+               {
+                  if (diff_mday > 26)
+                  {
+                     bd_time->tm_mday = day_of_month;
+                     bd_time->tm_mon--;
+                     mtime = mktime(bd_time);
+                     bd_time = gmtime(&mtime);
+                  }
+                  else if (diff_mday < -26)
+                       {
+                          bd_time->tm_mday = day_of_month;
+                          bd_time->tm_mon++;
+                          mtime = mktime(bd_time);
+                          bd_time = gmtime(&mtime);
+                       }
+               }
+               i += sprintf(&p_file_name[i + 1], "%04d%02d",
+                            (bd_time->tm_year + 1900), (bd_time->tm_mon + 1));
+            }
+         }
+         else
+         {
+            p_file_name[i] = *ptr;
+         }
+         ptr++; i++;
       }
-      else
+   }
+   else
+   {
+      while ((*ptr > 31) && (i < MAX_WMO_HEADER_LENGTH) &&
+             ((ptr - msg) < length))
       {
-         p_file_name[i] = *ptr;
+         if ((*ptr == ' ') || (*ptr == '/') || (*ptr < ' ') || (*ptr > 'z'))
+         {
+            p_file_name[i] = '_';
+         }
+         else
+         {
+            p_file_name[i] = *ptr;
+         }
+         ptr++; i++;
       }
-      ptr++; i++;
    }
    if (i == 0)
    {
@@ -893,432 +970,1076 @@ write_file(char *msg, unsigned int length, int soh_etx)
       }
    }
 
+   if (extract_options & USE_EXTERNAL_MSG_RULES)
+   {
+      register int j;
+
+      for (j = 0; j < no_of_brc_entries; j++)
+      {
+         if (((brcdb[j].TTAAii[0] == '/') ||
+              (brcdb[j].TTAAii[0] == p_file_name[0])) &&
+             ((brcdb[j].TTAAii[1] == '/') ||
+              (brcdb[j].TTAAii[1] == p_file_name[1])) &&
+             ((brcdb[j].TTAAii[2] == '/') ||
+              (brcdb[j].TTAAii[2] == p_file_name[2])) &&
+             ((brcdb[j].TTAAii[3] == '/') ||
+              (brcdb[j].TTAAii[3] == p_file_name[3])) &&
+             (((brcdb[j].TTAAii[4] == '\0') && (p_file_name[4] == '_') &&
+               ((brcdb[j].CCCC[0] == '/') ||
+                (brcdb[j].CCCC[0] == p_file_name[5])) &&
+               ((brcdb[j].CCCC[1] == '/') ||
+                (brcdb[j].CCCC[1] == p_file_name[6])) &&
+               ((brcdb[j].CCCC[2] == '/') ||
+                (brcdb[j].CCCC[2] == p_file_name[7])) &&
+               ((brcdb[j].CCCC[3] == '/') ||
+                (brcdb[j].CCCC[3] == p_file_name[8]))) ||
+              (((brcdb[j].TTAAii[4] == '/') ||
+                (brcdb[j].TTAAii[4] == p_file_name[4])) &&
+               ((brcdb[j].TTAAii[5] == '/') ||
+                (brcdb[j].TTAAii[5] == p_file_name[5])) &&
+               (brcdb[j].TTAAii[6] == '\0') && (p_file_name[6] == '_') &&
+               ((brcdb[j].CCCC[0] == '/') ||
+                (brcdb[j].CCCC[0] == p_file_name[7])) &&
+               ((brcdb[j].CCCC[1] == '/') ||
+                (brcdb[j].CCCC[1] == p_file_name[8])) &&
+               ((brcdb[j].CCCC[2] == '/') ||
+                (brcdb[j].CCCC[2] == p_file_name[9])) &&
+               ((brcdb[j].CCCC[3] == '/') ||
+                (brcdb[j].CCCC[3] == p_file_name[10])))))
+         {
+            if (brcdb[j].type == BUL_TYPE_IGN)
+            {
+               /* Ignore this bulletin. */
+               *p_file_name = '\0';
+               return(SUCCESS);
+            }
+            else
+            {
+               brcdb_pos = j;
+            }
+            break;
+         }
+      }
+   }
+
    if (extract_options & EXTRACT_REPORTS)
    {
-      while (((*ptr == 13) || (*ptr == 10)) && ((ptr - msg) < length))
+      int offset = 0;
+
+      while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+             ((ptr - msg) < length))
       {
          ptr++;
       }
-   }
-   if (extract_options & EXTRACT_REPORTS)
-   {
-      if ((((p_file_name[0] == 'F') &&
-            ((p_file_name[1] == 'T') || (p_file_name[1] == 'C'))) ||
-           ((p_file_name[0] == 'S') &&
-            ((p_file_name[1] == 'A') || (p_file_name[1] == 'H') ||
-             (p_file_name[1] == 'I') || (p_file_name[1] == 'M') ||
-             (p_file_name[1] == 'N') || (p_file_name[1] == 'P') ||
-             (p_file_name[1] == 'X'))) ||
-           ((p_file_name[0] == 'U') &&
-            ((p_file_name[1] == 'S') || (p_file_name[1] == 'K') ||
-             (p_file_name[1] == 'L') || (p_file_name[1] == 'E') ||
-             (p_file_name[1] == 'P') || (p_file_name[1] == 'G') ||
-             (p_file_name[1] == 'H') || (p_file_name[1] == 'Q')))) &&
-          (check_report(ptr, length - (ptr - msg), &offset) == SUCCESS))
+
+      if (extract_options & USE_EXTERNAL_MSG_RULES)
       {
-         int end_offset,
-             file_name_offset = i,
-             not_wanted = NO;
-
-         p_file_name[file_name_offset] = '_';
-         file_name_offset++;
-         ptr += offset;
-
-         do
+         if ((brcdb_pos != -1) && (brcdb[brcdb_pos].rss != -1))
          {
-            p_start = ptr;
+            int  end_offset,
+                 file_name_offset = i,
+                 not_wanted = NO;
+            char *p_extra_heading = NULL;
 
-            /* Ignore any spaces at start. */
-            while ((*ptr == ' ') && ((ptr - msg) < length))
-            {
-               ptr++;
-            }
+            find_offset(brcdb_pos, ptr, length - (ptr - msg), &offset);
 
-            /* TAF */
-            if (((ptr + 9 - msg) < length) && (*ptr == 'T') &&
-                (*(ptr + 1) == 'A') && (*(ptr + 2) == 'F') &&
-                (*(ptr + 3) == ' ') &&
-                (isupper((int)(*(ptr + 4)))) && (isupper((int)(*(ptr + 5)))) &&
-                (isupper((int)(*(ptr + 6)))) && (isupper((int)(*(ptr + 7)))) &&
-                (*(ptr + 8) == ' '))
+            if ((extract_options & EXTRACT_SHOW_REPORT_TYPE) && (offset > 0))
             {
-               p_file_name[file_name_offset] = *(ptr + 4);
-               p_file_name[file_name_offset + 1] = *(ptr + 5);
-               p_file_name[file_name_offset + 2] = *(ptr + 6);
-               p_file_name[file_name_offset + 3] = *(ptr + 7);
-               end_offset = 4;
-               ptr += 9;
+               char *tmp_ptr = ptr;
+
+               p_file_name[file_name_offset] = '-';
+               file_name_offset++;
+               while ((tmp_ptr < (ptr + offset)) &&
+                      (*tmp_ptr != 13) && (*tmp_ptr != 10))
+               {
+                  if (*tmp_ptr == ' ')
+                  {
+                     p_file_name[file_name_offset] = '_';
+                  }
+                  else
+                  {
+                     p_file_name[file_name_offset] = *tmp_ptr;
+                  }
+                  file_name_offset++;
+                  tmp_ptr++;
+               }
             }
-                 /* TAF AMD or COR */
-            else if (((ptr + 13 - msg) < length) && (isupper((int)(*ptr))) &&
-                     (isupper((int)(*(ptr + 1)))) &&
-                     (isupper((int)(*(ptr + 2)))) && (*(ptr + 3) == ' ') &&
-                     (isupper((int)(*(ptr + 4)))) &&
-                     (isupper((int)(*(ptr + 5)))) &&
-                     (isupper((int)(*(ptr + 6)))) && (*(ptr + 7) == ' ') &&
-                     (isupper((int)(*(ptr + 8)))) &&
-                     (isupper((int)(*(ptr + 9)))) &&
-                     (isupper((int)(*(ptr + 10)))) &&
-                     (isupper((int)(*(ptr + 11)))) && (*(ptr + 12) == ' '))
-                 {
-                    p_file_name[file_name_offset] = *(ptr + 8);
-                    p_file_name[file_name_offset + 1] = *(ptr + 9);
-                    p_file_name[file_name_offset + 2] = *(ptr + 10);
-                    p_file_name[file_name_offset + 3] = *(ptr + 11);
-                    end_offset = 4;
-                    ptr += 13;
-                 }
-                 /* METAR or SPECI */
-            else if (((ptr + 6 - msg) < length) &&
-                     (((*ptr == 'M') && (*(ptr + 1) == 'E') &&
-                       (*(ptr + 2) == 'T') && (*(ptr + 3) == 'A') &&
-                       (*(ptr + 4) == 'R')) || 
-                      ((*ptr == 'S') && (*(ptr + 1) == 'P') &&
-                       (*(ptr + 2) == 'E') && (*(ptr + 3) == 'C') &&
-                       (*(ptr + 4) == 'I'))) && 
-                     (*(ptr + 5) == ' '))
-                 {
-                    while (((ptr + 6 - msg) < length) && (*(ptr + 6) == ' '))
+            p_file_name[file_name_offset] = '-';
+            file_name_offset++;
+            if ((extract_options & EXTRACT_EXTRA_REPORT_HEADING) && (offset > 0))
+            {
+               p_extra_heading = ptr;
+            }
+            ptr += offset;
+
+            do
+            {
+               p_start = ptr;
+
+               /* Ignore any spaces at start. */
+               while ((*ptr == ' ') && ((ptr - msg) < length))
+               {
+                  ptr++;
+               }
+
+               find_station_id();
+
+               /* TAF */
+               if (((ptr + 9 - msg) < length) && (*ptr == 'T') &&
+                   (*(ptr + 1) == 'A') && (*(ptr + 2) == 'F') &&
+                   (*(ptr + 3) == ' ') &&
+                   (isupper((int)(*(ptr + 4)))) && (isupper((int)(*(ptr + 5)))) &&
+                   (isupper((int)(*(ptr + 6)))) && (isupper((int)(*(ptr + 7)))) &&
+                   (*(ptr + 8) == ' '))
+               {
+                  p_file_name[file_name_offset] = *(ptr + 4);
+                  p_file_name[file_name_offset + 1] = *(ptr + 5);
+                  p_file_name[file_name_offset + 2] = *(ptr + 6);
+                  p_file_name[file_name_offset + 3] = *(ptr + 7);
+                  end_offset = 4;
+                  ptr += 9;
+               }
+                    /* TAF AMD or COR */
+               else if (((ptr + 13 - msg) < length) && (isupper((int)(*ptr))) &&
+                        (isupper((int)(*(ptr + 1)))) &&
+                        (isupper((int)(*(ptr + 2)))) && (*(ptr + 3) == ' ') &&
+                        (isupper((int)(*(ptr + 4)))) &&
+                        (isupper((int)(*(ptr + 5)))) &&
+                        (isupper((int)(*(ptr + 6)))) && (*(ptr + 7) == ' ') &&
+                        (isupper((int)(*(ptr + 8)))) &&
+                        (isupper((int)(*(ptr + 9)))) &&
+                        (isupper((int)(*(ptr + 10)))) &&
+                        (isupper((int)(*(ptr + 11)))) && (*(ptr + 12) == ' '))
                     {
-                       ptr++;
+                       p_file_name[file_name_offset] = *(ptr + 8);
+                       p_file_name[file_name_offset + 1] = *(ptr + 9);
+                       p_file_name[file_name_offset + 2] = *(ptr + 10);
+                       p_file_name[file_name_offset + 3] = *(ptr + 11);
+                       end_offset = 4;
+                       ptr += 13;
                     }
-                    if (((ptr + 4 - msg) < length) &&
-                        (*(ptr + 6) == 'C') && (*(ptr + 7) == 'O') &&
-                        (*(ptr + 8) == 'R') && (*(ptr + 9) == ' '))
+                    /* METAR or SPECI */
+               else if (((ptr + 6 - msg) < length) &&
+                        (((*ptr == 'M') && (*(ptr + 1) == 'E') &&
+                          (*(ptr + 2) == 'T') && (*(ptr + 3) == 'A') &&
+                          (*(ptr + 4) == 'R')) || 
+                         ((*ptr == 'S') && (*(ptr + 1) == 'P') &&
+                          (*(ptr + 2) == 'E') && (*(ptr + 3) == 'C') &&
+                          (*(ptr + 4) == 'I'))) && 
+                        (*(ptr + 5) == ' '))
                     {
-                       ptr += 4;
+                       while (((ptr + 6 - msg) < length) && (*(ptr + 6) == ' '))
+                       {
+                          ptr++;
+                       }
+                       if (((ptr + 4 - msg) < length) &&
+                           (*(ptr + 6) == 'C') && (*(ptr + 7) == 'O') &&
+                           (*(ptr + 8) == 'R') && (*(ptr + 9) == ' '))
+                       {
+                          ptr += 4;
+                       }
+                       if (((ptr + 5 - msg) < length) &&
+                           ((isupper((int)(*(ptr + 6)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           ((isupper((int)(*(ptr + 7)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           ((isupper((int)(*(ptr + 8)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           ((isupper((int)(*(ptr + 9)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           (*(ptr + 10) == ' '))
+                       {
+                          p_file_name[file_name_offset] = *(ptr + 6);
+                          p_file_name[file_name_offset + 1] = *(ptr + 7);
+                          p_file_name[file_name_offset + 2] = *(ptr + 8);
+                          p_file_name[file_name_offset + 3] = *(ptr + 9);
+                          end_offset = 4;
+                          ptr += 11;
+                       }
+                       else if (((ptr + 6 - msg) < length) &&
+                                ((isupper((int)(*(ptr + 6)))) ||
+                                 (isdigit((int)(*(ptr + 6))))) &&
+                                ((isupper((int)(*(ptr + 7)))) ||
+                                 (isdigit((int)(*(ptr + 7))))) &&
+                                ((isupper((int)(*(ptr + 8)))) ||
+                                 (isdigit((int)(*(ptr + 8))))) &&
+                                ((isupper((int)(*(ptr + 9)))) ||
+                                 (isdigit((int)(*(ptr + 9))))) &&
+                                ((isupper((int)(*(ptr + 10)))) ||
+                                 (isdigit((int)(*(ptr + 10))))) &&
+                                (*(ptr + 11) == ' '))
+                            {
+                               p_file_name[file_name_offset] = *(ptr + 6);
+                               p_file_name[file_name_offset + 1] = *(ptr + 7);
+                               p_file_name[file_name_offset + 2] = *(ptr + 8);
+                               p_file_name[file_name_offset + 3] = *(ptr + 9);
+                               p_file_name[file_name_offset + 4] = *(ptr + 10);
+                               end_offset = 5;
+                               ptr += 12;
+                            }
+                            else
+                            {
+                               show_unknown_report(ptr, length, msg, __FILE__, __LINE__);
+                               break;
+                            }
                     }
-                    if (((ptr + 5 - msg) < length) &&
+                    /* METAR, SPECI, TAF AMD, AAXX or BBXX (in a group) */
+               else if (((ptr + 5 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        (*(ptr + 4) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       end_offset = 4;
+                       ptr += 5;
+                    }
+                    /* German METAR */
+               else if (((ptr + 13 - p_start) < length) &&
+                        (isupper((int)(*ptr))) && (isupper((int)(*(ptr + 1)))) &&
+                        (isupper((int)(*(ptr + 2)))) && (isupper((int)(*(ptr + 3)))) &&
+                        (*(ptr + 4) == ' ') && (isdigit((int)(*(ptr + 5)))) &&
+                        (isdigit((int)(*(ptr + 6)))) && (isdigit((int)(*(ptr + 7)))) &&
+                        (isdigit((int)(*(ptr + 8)))) && (isdigit((int)(*(ptr + 9)))) &&
+                        (isdigit((int)(*(ptr + 10)))) && (*(ptr + 11) == 'Z') &&
+                        (*(ptr + 12) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       end_offset = 4;
+                       ptr += 13;
+                    }
+                    /* AAXX or BBXX (in a group) */
+               else if (((ptr + 7 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        ((isupper((int)(*(ptr + 4)))) ||
+                         (isdigit((int)(*(ptr + 4))))) &&
+                        ((isupper((int)(*(ptr + 5)))) ||
+                         (isdigit((int)(*(ptr + 5))))) &&
+                        (*(ptr + 6) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       p_file_name[file_name_offset + 5] = *(ptr + 5);
+                       end_offset = 6;
+                       ptr += 7;
+                    }
+                    /* AAXX or BBXX (in a group) */
+               else if (((ptr + 8 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        ((isupper((int)(*(ptr + 4)))) ||
+                         (isdigit((int)(*(ptr + 4))))) &&
+                        ((isupper((int)(*(ptr + 5)))) ||
+                         (isdigit((int)(*(ptr + 5))))) &&
                         ((isupper((int)(*(ptr + 6)))) ||
                          (isdigit((int)(*(ptr + 6))))) &&
-                        ((isupper((int)(*(ptr + 7)))) ||
-                         (isdigit((int)(*(ptr + 6))))) &&
-                        ((isupper((int)(*(ptr + 8)))) ||
-                         (isdigit((int)(*(ptr + 6))))) &&
-                        ((isupper((int)(*(ptr + 9)))) ||
-                         (isdigit((int)(*(ptr + 6))))) &&
-                        (*(ptr + 10) == ' '))
+                        (*(ptr + 7) == ' '))
                     {
-                       p_file_name[file_name_offset] = *(ptr + 6);
-                       p_file_name[file_name_offset + 1] = *(ptr + 7);
-                       p_file_name[file_name_offset + 2] = *(ptr + 8);
-                       p_file_name[file_name_offset + 3] = *(ptr + 9);
-                       end_offset = 4;
-                       ptr += 11;
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       p_file_name[file_name_offset + 5] = *(ptr + 5);
+                       p_file_name[file_name_offset + 6] = *(ptr + 6);
+                       end_offset = 7;
+                       ptr += 8;
                     }
-                    else if (((ptr + 6 - msg) < length) &&
-                             ((isupper((int)(*(ptr + 6)))) ||
-                              (isdigit((int)(*(ptr + 6))))) &&
-                             ((isupper((int)(*(ptr + 7)))) ||
-                              (isdigit((int)(*(ptr + 7))))) &&
-                             ((isupper((int)(*(ptr + 8)))) ||
-                              (isdigit((int)(*(ptr + 8))))) &&
-                             ((isupper((int)(*(ptr + 9)))) ||
-                              (isdigit((int)(*(ptr + 9))))) &&
-                             ((isupper((int)(*(ptr + 10)))) ||
-                              (isdigit((int)(*(ptr + 10))))) &&
-                             (*(ptr + 11) == ' '))
-                         {
-                            p_file_name[file_name_offset] = *(ptr + 6);
-                            p_file_name[file_name_offset + 1] = *(ptr + 7);
-                            p_file_name[file_name_offset + 2] = *(ptr + 8);
-                            p_file_name[file_name_offset + 3] = *(ptr + 9);
-                            p_file_name[file_name_offset + 4] = *(ptr + 10);
-                            end_offset = 5;
-                            ptr += 12;
-                         }
-                         else
-                         {
-                            show_unknown_report(ptr, length, msg, __FILE__, __LINE__);
-                            break;
-                         }
-                 }
-                 /* METAR, SPECI, TAF AMD, AAXX or BBXX (in a group) */
-            else if (((ptr + 5 - msg) < length) &&
-                     ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
-                     ((isupper((int)(*(ptr + 1)))) ||
-                      (isdigit((int)(*(ptr + 1))))) &&
-                     ((isupper((int)(*(ptr + 2)))) ||
-                      (isdigit((int)(*(ptr + 2))))) &&
-                     ((isupper((int)(*(ptr + 3)))) ||
-                      (isdigit((int)(*(ptr + 3))))) &&
-                     (*(ptr + 4) == ' '))
-                 {
-                    p_file_name[file_name_offset] = *ptr;
-                    p_file_name[file_name_offset + 1] = *(ptr + 1);
-                    p_file_name[file_name_offset + 2] = *(ptr + 2);
-                    p_file_name[file_name_offset + 3] = *(ptr + 3);
-                    end_offset = 4;
-                    ptr += 5;
-                 }
-                 /* German METAR */
-            else if (((ptr + 13 - p_start) < length) &&
-                     (isupper((int)(*ptr))) && (isupper((int)(*(ptr + 1)))) &&
-                     (isupper((int)(*(ptr + 2)))) && (isupper((int)(*(ptr + 3)))) &&
-                     (*(ptr + 4) == ' ') && (isdigit((int)(*(ptr + 5)))) &&
-                     (isdigit((int)(*(ptr + 6)))) && (isdigit((int)(*(ptr + 7)))) &&
-                     (isdigit((int)(*(ptr + 8)))) && (isdigit((int)(*(ptr + 9)))) &&
-                     (isdigit((int)(*(ptr + 10)))) && (*(ptr + 11) == 'Z') &&
-                     (*(ptr + 12) == ' '))
-                 {
-                    p_file_name[file_name_offset] = *ptr;
-                    p_file_name[file_name_offset + 1] = *(ptr + 1);
-                    p_file_name[file_name_offset + 2] = *(ptr + 2);
-                    p_file_name[file_name_offset + 3] = *(ptr + 3);
-                    end_offset = 4;
-                    ptr += 13;
-                 }
-                 /* AAXX or BBXX (in a group) */
-            else if (((ptr + 7 - msg) < length) &&
-                     ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
-                     ((isupper((int)(*(ptr + 1)))) ||
-                      (isdigit((int)(*(ptr + 1))))) &&
-                     ((isupper((int)(*(ptr + 2)))) ||
-                      (isdigit((int)(*(ptr + 2))))) &&
-                     ((isupper((int)(*(ptr + 3)))) ||
-                      (isdigit((int)(*(ptr + 3))))) &&
-                     ((isupper((int)(*(ptr + 4)))) ||
-                      (isdigit((int)(*(ptr + 4))))) &&
-                     ((isupper((int)(*(ptr + 5)))) ||
-                      (isdigit((int)(*(ptr + 5))))) &&
-                     (*(ptr + 6) == ' '))
-                 {
-                    p_file_name[file_name_offset] = *ptr;
-                    p_file_name[file_name_offset + 1] = *(ptr + 1);
-                    p_file_name[file_name_offset + 2] = *(ptr + 2);
-                    p_file_name[file_name_offset + 3] = *(ptr + 3);
-                    p_file_name[file_name_offset + 4] = *(ptr + 4);
-                    p_file_name[file_name_offset + 5] = *(ptr + 5);
-                    end_offset = 6;
-                    ptr += 7;
-                 }
-                 /* AAXX or BBXX (in a group) */
-            else if (((ptr + 8 - msg) < length) &&
-                     ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
-                     ((isupper((int)(*(ptr + 1)))) ||
-                      (isdigit((int)(*(ptr + 1))))) &&
-                     ((isupper((int)(*(ptr + 2)))) ||
-                      (isdigit((int)(*(ptr + 2))))) &&
-                     ((isupper((int)(*(ptr + 3)))) ||
-                      (isdigit((int)(*(ptr + 3))))) &&
-                     ((isupper((int)(*(ptr + 4)))) ||
-                      (isdigit((int)(*(ptr + 4))))) &&
-                     ((isupper((int)(*(ptr + 5)))) ||
-                      (isdigit((int)(*(ptr + 5))))) &&
-                     ((isupper((int)(*(ptr + 6)))) ||
-                      (isdigit((int)(*(ptr + 6))))) &&
-                     (*(ptr + 7) == ' '))
-                 {
-                    p_file_name[file_name_offset] = *ptr;
-                    p_file_name[file_name_offset + 1] = *(ptr + 1);
-                    p_file_name[file_name_offset + 2] = *(ptr + 2);
-                    p_file_name[file_name_offset + 3] = *(ptr + 3);
-                    p_file_name[file_name_offset + 4] = *(ptr + 4);
-                    p_file_name[file_name_offset + 5] = *(ptr + 5);
-                    p_file_name[file_name_offset + 6] = *(ptr + 6);
-                    end_offset = 7;
-                    ptr += 8;
-                 }
-                 /* SYNOP, AAXX or BBXX (in a group) */
-            else if (((ptr + 6 - msg) < length) &&
-                     ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
-                     ((isupper((int)(*(ptr + 1)))) ||
-                      (isdigit((int)(*(ptr + 1))))) &&
-                     ((isupper((int)(*(ptr + 2)))) ||
-                      (isdigit((int)(*(ptr + 2))))) &&
-                     ((isupper((int)(*(ptr + 3)))) ||
-                      (isdigit((int)(*(ptr + 3))))) &&
-                     ((isupper((int)(*(ptr + 4)))) ||
-                      (isdigit((int)(*(ptr + 4))))) &&
-                     (*(ptr + 5) == ' '))
-                 {
-                    p_file_name[file_name_offset] = *ptr;
-                    p_file_name[file_name_offset + 1] = *(ptr + 1);
-                    p_file_name[file_name_offset + 2] = *(ptr + 2);
-                    p_file_name[file_name_offset + 3] = *(ptr + 3);
-                    p_file_name[file_name_offset + 4] = *(ptr + 4);
-                    end_offset = 5;
-                    ptr += 6;
-                 }
-                 /* SHDL */
-            else if (((ptr + 12 - msg) < length) &&
-                     (isupper((int)(*ptr))) && (isupper((int)(*(ptr + 1)))) &&
-                     (isupper((int)(*(ptr + 2)))) &&
-                     (isupper((int)(*(ptr + 3)))) && (*(ptr + 4) == ' ') &&
-                     (isdigit((int)(*(ptr + 5)))) &&
-                     (isdigit((int)(*(ptr + 6)))) &&
-                     (isdigit((int)(*(ptr + 7)))) &&
-                     (isdigit((int)(*(ptr + 8)))) &&
-                     (isdigit((int)(*(ptr + 9)))) &&
-                     (isdigit((int)(*(ptr + 10)))) &&
-                     (isdigit((int)(*(ptr + 11)))))
-                 {
-                    ptr += 12;
-                    while (((*ptr == 13) || (*ptr == 10)) &&
-                           ((ptr - msg) < length))
+                    /* SYNOP, AAXX or BBXX (in a group) */
+               else if (((ptr + 6 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        ((isupper((int)(*(ptr + 4)))) ||
+                         (isdigit((int)(*(ptr + 4))))) &&
+                        (*(ptr + 5) == ' '))
                     {
-                       ptr++;
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       end_offset = 5;
+                       ptr += 6;
                     }
-                    p_start = ptr;
-                    p_file_name[file_name_offset] = *ptr;
-                    p_file_name[file_name_offset + 1] = *(ptr + 1);
-                    p_file_name[file_name_offset + 2] = *(ptr + 2);
-                    p_file_name[file_name_offset + 3] = *(ptr + 3);
-                    p_file_name[file_name_offset + 4] = *(ptr + 4);
-                    end_offset = 5;
-                 }
-                 /* NIL */
-            else if (((ptr + 4 - msg) < length) && (*ptr == 'N') &&
-                     (*(ptr + 1) == 'I') && (*(ptr + 2) == 'L') &&
-                     ((*(ptr + 3) == 13) || (*(ptr + 3) == 10)))
-                 {
-                    ptr += 4;
-                    while (((*ptr == 13) || (*ptr == 10)) &&
-                           ((ptr - msg) < length))
+                    /* SHDL */
+               else if (((ptr + 12 - msg) < length) &&
+                        (isupper((int)(*ptr))) && (isupper((int)(*(ptr + 1)))) &&
+                        (isupper((int)(*(ptr + 2)))) &&
+                        (isupper((int)(*(ptr + 3)))) && (*(ptr + 4) == ' ') &&
+                        (isdigit((int)(*(ptr + 5)))) &&
+                        (isdigit((int)(*(ptr + 6)))) &&
+                        (isdigit((int)(*(ptr + 7)))) &&
+                        (isdigit((int)(*(ptr + 8)))) &&
+                        (isdigit((int)(*(ptr + 9)))) &&
+                        (isdigit((int)(*(ptr + 10)))) &&
+                        (isdigit((int)(*(ptr + 11)))))
                     {
-                       ptr++;
+                       ptr += 12;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       p_start = ptr;
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       end_offset = 5;
                     }
-                    continue;
-                 }
-                 /* NIL= */
-            else if (((ptr + 5 - msg) < length) && (*ptr == 'N') &&
-                     (*(ptr + 1) == 'I') && (*(ptr + 2) == 'L') &&
-                     (*(ptr + 3) == '=') &&
-                     ((*(ptr + 4) == 13) || (*(ptr + 4) == 10)))
-                 {
-                    ptr += 5;
-                    while (((*ptr == 13) || (*ptr == 10)) &&
-                           ((ptr - msg) < length))
+                    /* NIL */
+               else if (((ptr + 4 - msg) < length) && (*ptr == 'N') &&
+                        (*(ptr + 1) == 'I') && (*(ptr + 2) == 'L') &&
+                        ((*(ptr + 3) == 13) || (*(ptr + 3) == 10)))
                     {
-                       ptr++;
+                       ptr += 4;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       continue;
                     }
-                    continue;
-                 }
-                 /* TAF NIL= */
-            else if (((ptr + 9 - msg) < length) && (*ptr == 'T') &&
-                     (*(ptr + 1) == 'A') && (*(ptr + 2) == 'F') &&
-                     (*(ptr + 3) == ' ') && (*(ptr + 4) == 'N') &&
-                     (*(ptr + 5) == 'I') && (*(ptr + 6) == 'L') &&
-                     (*(ptr + 7) == '=') &&
-                     ((*(ptr + 8) == 13) || (*(ptr + 8) == 10)))
-                 {
-                    ptr += 9;
-                    while (((*ptr == 13) || (*ptr == 10)) &&
-                           ((ptr - msg) < length))
+                    /* NIL= */
+               else if (((ptr + 5 - msg) < length) && (*ptr == 'N') &&
+                        (*(ptr + 1) == 'I') && (*(ptr + 2) == 'L') &&
+                        (*(ptr + 3) == '=') &&
+                        ((*(ptr + 4) == 13) || (*(ptr + 4) == 10)))
                     {
-                       ptr++;
+                       ptr += 5;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       continue;
                     }
-                    continue;
+                    /* TAF NIL= */
+               else if (((ptr + 9 - msg) < length) && (*ptr == 'T') &&
+                        (*(ptr + 1) == 'A') && (*(ptr + 2) == 'F') &&
+                        (*(ptr + 3) == ' ') && (*(ptr + 4) == 'N') &&
+                        (*(ptr + 5) == 'I') && (*(ptr + 6) == 'L') &&
+                        (*(ptr + 7) == '=') &&
+                        ((*(ptr + 8) == 13) || (*(ptr + 8) == 10)))
+                    {
+                       ptr += 9;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       continue;
+                    }
+                    else
+                    {
+                       show_unknown_report(ptr, length, msg, __FILE__, __LINE__);
+                       break;
                  }
-                 else
-                 {
-                    show_unknown_report(ptr, length, msg, __FILE__, __LINE__);
-                    break;
-                 }
-   
-            if (extract_p_filter != NULL)
-            {
-               p_file_name[file_name_offset + end_offset] = '\0';
-               if (pmatch(extract_p_filter, p_file_name, NULL) != 0)
-               {
-                  /* Ignore this report. */
-                  not_wanted = YES;
-               }
-               else
-               {
-                  not_wanted = NO;
-               }
-            }
-            while ((*ptr != '=') && ((ptr - msg) < length))
-            {
-               ptr++;
-            }
-            while (*ptr == '=')
-            {
-               ptr++;
-            }
-            while (((*ptr == 13) || (*ptr == 10)) && ((ptr - msg) < length))
-            {
-               ptr++;
-            }
-            if (not_wanted == NO)
-            {
-               size = ptr - p_start;
-               if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
-               {
-                  end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
-                                        "-%x", get_checksum(p_start, (int)size));
-               }
-               if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
-               {
-                  (void)next_counter(counter_fd, counter, MAX_MSG_PER_SEC);
-                  end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
-                                        "-%04x", *counter);
-               }
-               p_file_name[file_name_offset + end_offset] = '\0';
 
-               if ((fd = open(p_full_file_name, (O_RDWR | O_CREAT | O_TRUNC),
-                              file_mode)) < 0)
+               if (extract_p_filter != NULL)
                {
-                  receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              _("Failed to open() `%s' while extracting reports : %s"),
-                              p_full_file_name, strerror(errno));
-                  *p_file_name = '\0';
-                  return(INCORRECT);
-               }
-               if (writen(fd, p_start, (size_t)size, 0) != (ssize_t)size)
-               {
-                  receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                              _("Failed to writen() report : %s"), strerror(errno));
-                  (void)close(fd);
-                  return(INCORRECT);
-               }
-               (*p_files_to_send)++;
-               *p_file_size += size;
-
-               if (close(fd) == -1)
-               {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                              _("close() error : %s"), strerror(errno));
-               }
-#ifdef _PRODUCTION_LOG
-               if (no_of_log_entries == 0)
-               {
-                  if ((pld = malloc((LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db)))) == NULL)
+                  p_file_name[file_name_offset + end_offset] = '\0';
+                  if (pmatch(extract_p_filter, p_file_name, NULL) != 0)
                   {
-                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                _("malloc() error : %s"), strerror(errno));
+                     /* Ignore this report. */
+                     not_wanted = YES;
+                  }
+                  else
+                  {
+                     not_wanted = NO;
                   }
                }
-               else
+               while ((*ptr != '=') && ((ptr - msg) < length))
                {
-                  if ((no_of_log_entries % LOG_ENTRY_STEP_SIZE) == 0)
+                  ptr++;
+               }
+               while (*ptr == '=')
+               {
+                  ptr++;
+               }
+               while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                      ((ptr - msg) < length))
+               {
+                  ptr++;
+               }
+               if (not_wanted == NO)
+               {
+                  size = ptr - p_start;
+                  if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
                   {
-                     size_t new_size;
+                     end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
+                                           "-%x", get_checksum(p_start, (int)size));
+                  }
+                  if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
+                  {
+                     (void)next_counter(counter_fd, counter, MAX_MSG_PER_SEC);
+                     end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
+                                           "-%04x", *counter);
+                  }
+                  p_file_name[file_name_offset + end_offset] = '\0';
 
-                     new_size = ((no_of_log_entries / LOG_ENTRY_STEP_SIZE) + 1) *
-                                LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db);
-                     if ((pld = realloc(pld, new_size)) == NULL)
+                  if ((fd = open(p_full_file_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                 file_mode)) < 0)
+                  {
+                     receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                 _("Failed to open() `%s' while extracting reports : %s"),
+                                 p_full_file_name, strerror(errno));
+                     *p_file_name = '\0';
+                     return(INCORRECT);
+                  }
+                  if (extract_options & EXTRACT_ADD_BUL_ORIG_FILE)
+                  {
+                     size_t length;
+
+                     length = strlen(p_file_name);
+                     if (writen(fd, p_file_name, length, 0) != (ssize_t)length)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() file name : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += length;
+                     if (writen(fd, " ", (size_t)1, 0) != (ssize_t)1)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() space after file name : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += 1;
+                     length = strlen(p_orig_name);
+                     if (writen(fd, p_orig_name, length, 0) != (ssize_t)length)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() extract file name : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += length;
+                     if (writen(fd, "\r\r\n", 3, 0) != 3)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() carriage return, carriage return + line feed : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += 2;
+                  }
+                  if (p_extra_heading != NULL)
+                  {
+                     if (writen(fd, p_extra_heading, (size_t)offset, 0) != (ssize_t)offset)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() extra header in report : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += offset;
+                  }
+                  if (writen(fd, p_start, (size_t)size, 0) != (ssize_t)size)
+                  {
+                     receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                 _("Failed to writen() report : %s"), strerror(errno));
+                     (void)close(fd);
+                     if (p_extra_heading != NULL)
+                     {
+                        *p_file_size -= offset;
+                     }
+                     return(INCORRECT);
+                  }
+                  (*p_files_to_send)++;
+                  *p_file_size += size;
+
+                  if (close(fd) == -1)
+                  {
+                     receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                 _("close() error : %s"), strerror(errno));
+                  }
+#ifdef _PRODUCTION_LOG
+                  if (no_of_log_entries == 0)
+                  {
+                     if ((pld = malloc((LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db)))) == NULL)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                   _("realloc() error : %s"), strerror(errno));
+                                   _("malloc() error : %s"), strerror(errno));
                      }
                   }
-               }
-               if (pld != NULL)
-               {
-                  pld[no_of_log_entries].size = size;
-                  (void)strcpy(pld[no_of_log_entries].file_name, p_file_name);
-                  no_of_log_entries++;
-               }
+                  else
+                  {
+                     if ((no_of_log_entries % LOG_ENTRY_STEP_SIZE) == 0)
+                     {
+                        size_t             new_size;
+                        struct prod_log_db *tmp_pld;
+
+                        new_size = ((no_of_log_entries / LOG_ENTRY_STEP_SIZE) + 1) *
+                                   LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db);
+                        if ((tmp_pld = realloc(pld, new_size)) == NULL)
+                        {
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      _("realloc() error : %s"), strerror(errno));
+                           free(pld);
+                           no_of_log_entries = 0;
+                        }
+                        pld = tmp_pld;
+                     }
+                  }
+                  if (pld != NULL)
+                  {
+                     pld[no_of_log_entries].size = size;
+                     (void)strcpy(pld[no_of_log_entries].file_name, p_file_name);
+                     no_of_log_entries++;
+                  }
 #endif
-            }
-         } while ((ptr + 6 - msg) < length);
+               }
+            } while ((ptr + 6 - msg) < length);
+         }
       }
       else
       {
-         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     _("%s not marked as a report"), p_file_name);
+         if ((((p_file_name[0] == 'F') &&
+               ((p_file_name[1] == 'T') || (p_file_name[1] == 'C'))) ||
+              ((p_file_name[0] == 'S') &&
+               ((p_file_name[1] == 'A') || (p_file_name[1] == 'H') ||
+                (p_file_name[1] == 'I') || (p_file_name[1] == 'M') ||
+                (p_file_name[1] == 'N') || (p_file_name[1] == 'P') ||
+                (p_file_name[1] == 'X'))) ||
+              ((p_file_name[0] == 'U') &&
+               ((p_file_name[1] == 'S') || (p_file_name[1] == 'K') ||
+                (p_file_name[1] == 'L') || (p_file_name[1] == 'E') ||
+                (p_file_name[1] == 'P') || (p_file_name[1] == 'G') ||
+                (p_file_name[1] == 'H') || (p_file_name[1] == 'Q')))) &&
+             (check_report(ptr, length - (ptr - msg), &offset) == SUCCESS))
+         {
+            int  end_offset,
+                 file_name_offset = i,
+                 not_wanted = NO;
+            char *p_extra_heading = NULL;
+
+            if ((extract_options & EXTRACT_SHOW_REPORT_TYPE) && (offset > 0))
+            {
+               char *tmp_ptr = ptr;
+
+               p_file_name[file_name_offset] = '-';
+               file_name_offset++;
+               while ((tmp_ptr < (ptr + offset)) &&
+                      (*tmp_ptr != 13) && (*tmp_ptr != 10))
+               {
+                  if (*tmp_ptr == ' ')
+                  {
+                     p_file_name[file_name_offset] = '_';
+                  }
+                  else
+                  {
+                     p_file_name[file_name_offset] = *tmp_ptr;
+                  }
+                  file_name_offset++;
+                  tmp_ptr++;
+               }
+            }
+            p_file_name[file_name_offset] = '-';
+            file_name_offset++;
+            if ((extract_options & EXTRACT_EXTRA_REPORT_HEADING) && (offset > 0))
+            {
+               p_extra_heading = ptr;
+            }
+            ptr += offset;
+
+            do
+            {
+               p_start = ptr;
+
+               /* Ignore any spaces at start. */
+               while ((*ptr == ' ') && ((ptr - msg) < length))
+               {
+                  ptr++;
+               }
+
+               /* TAF */
+               if (((ptr + 9 - msg) < length) && (*ptr == 'T') &&
+                   (*(ptr + 1) == 'A') && (*(ptr + 2) == 'F') &&
+                   (*(ptr + 3) == ' ') &&
+                   (isupper((int)(*(ptr + 4)))) && (isupper((int)(*(ptr + 5)))) &&
+                   (isupper((int)(*(ptr + 6)))) && (isupper((int)(*(ptr + 7)))) &&
+                   (*(ptr + 8) == ' '))
+               {
+                  p_file_name[file_name_offset] = *(ptr + 4);
+                  p_file_name[file_name_offset + 1] = *(ptr + 5);
+                  p_file_name[file_name_offset + 2] = *(ptr + 6);
+                  p_file_name[file_name_offset + 3] = *(ptr + 7);
+                  end_offset = 4;
+                  ptr += 9;
+               }
+                    /* TAF AMD or COR */
+               else if (((ptr + 13 - msg) < length) && (isupper((int)(*ptr))) &&
+                        (isupper((int)(*(ptr + 1)))) &&
+                        (isupper((int)(*(ptr + 2)))) && (*(ptr + 3) == ' ') &&
+                        (isupper((int)(*(ptr + 4)))) &&
+                        (isupper((int)(*(ptr + 5)))) &&
+                        (isupper((int)(*(ptr + 6)))) && (*(ptr + 7) == ' ') &&
+                        (isupper((int)(*(ptr + 8)))) &&
+                        (isupper((int)(*(ptr + 9)))) &&
+                        (isupper((int)(*(ptr + 10)))) &&
+                        (isupper((int)(*(ptr + 11)))) && (*(ptr + 12) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *(ptr + 8);
+                       p_file_name[file_name_offset + 1] = *(ptr + 9);
+                       p_file_name[file_name_offset + 2] = *(ptr + 10);
+                       p_file_name[file_name_offset + 3] = *(ptr + 11);
+                       end_offset = 4;
+                       ptr += 13;
+                    }
+                    /* METAR or SPECI */
+               else if (((ptr + 6 - msg) < length) &&
+                        (((*ptr == 'M') && (*(ptr + 1) == 'E') &&
+                          (*(ptr + 2) == 'T') && (*(ptr + 3) == 'A') &&
+                          (*(ptr + 4) == 'R')) || 
+                         ((*ptr == 'S') && (*(ptr + 1) == 'P') &&
+                          (*(ptr + 2) == 'E') && (*(ptr + 3) == 'C') &&
+                          (*(ptr + 4) == 'I'))) && 
+                        (*(ptr + 5) == ' '))
+                    {
+                       while (((ptr + 6 - msg) < length) && (*(ptr + 6) == ' '))
+                       {
+                          ptr++;
+                       }
+                       if (((ptr + 4 - msg) < length) &&
+                           (*(ptr + 6) == 'C') && (*(ptr + 7) == 'O') &&
+                           (*(ptr + 8) == 'R') && (*(ptr + 9) == ' '))
+                       {
+                          ptr += 4;
+                       }
+                       if (((ptr + 5 - msg) < length) &&
+                           ((isupper((int)(*(ptr + 6)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           ((isupper((int)(*(ptr + 7)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           ((isupper((int)(*(ptr + 8)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           ((isupper((int)(*(ptr + 9)))) ||
+                            (isdigit((int)(*(ptr + 6))))) &&
+                           (*(ptr + 10) == ' '))
+                       {
+                          p_file_name[file_name_offset] = *(ptr + 6);
+                          p_file_name[file_name_offset + 1] = *(ptr + 7);
+                          p_file_name[file_name_offset + 2] = *(ptr + 8);
+                          p_file_name[file_name_offset + 3] = *(ptr + 9);
+                          end_offset = 4;
+                          ptr += 11;
+                       }
+                       else if (((ptr + 6 - msg) < length) &&
+                                ((isupper((int)(*(ptr + 6)))) ||
+                                 (isdigit((int)(*(ptr + 6))))) &&
+                                ((isupper((int)(*(ptr + 7)))) ||
+                                 (isdigit((int)(*(ptr + 7))))) &&
+                                ((isupper((int)(*(ptr + 8)))) ||
+                                 (isdigit((int)(*(ptr + 8))))) &&
+                                ((isupper((int)(*(ptr + 9)))) ||
+                                 (isdigit((int)(*(ptr + 9))))) &&
+                                ((isupper((int)(*(ptr + 10)))) ||
+                                 (isdigit((int)(*(ptr + 10))))) &&
+                                (*(ptr + 11) == ' '))
+                            {
+                               p_file_name[file_name_offset] = *(ptr + 6);
+                               p_file_name[file_name_offset + 1] = *(ptr + 7);
+                               p_file_name[file_name_offset + 2] = *(ptr + 8);
+                               p_file_name[file_name_offset + 3] = *(ptr + 9);
+                               p_file_name[file_name_offset + 4] = *(ptr + 10);
+                               end_offset = 5;
+                               ptr += 12;
+                            }
+                            else
+                            {
+                               show_unknown_report(ptr, length, msg, __FILE__, __LINE__);
+                               break;
+                            }
+                    }
+                    /* METAR, SPECI, TAF AMD, AAXX or BBXX (in a group) */
+               else if (((ptr + 5 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        (*(ptr + 4) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       end_offset = 4;
+                       ptr += 5;
+                    }
+                    /* German METAR */
+               else if (((ptr + 13 - p_start) < length) &&
+                        (isupper((int)(*ptr))) && (isupper((int)(*(ptr + 1)))) &&
+                        (isupper((int)(*(ptr + 2)))) && (isupper((int)(*(ptr + 3)))) &&
+                        (*(ptr + 4) == ' ') && (isdigit((int)(*(ptr + 5)))) &&
+                        (isdigit((int)(*(ptr + 6)))) && (isdigit((int)(*(ptr + 7)))) &&
+                        (isdigit((int)(*(ptr + 8)))) && (isdigit((int)(*(ptr + 9)))) &&
+                        (isdigit((int)(*(ptr + 10)))) && (*(ptr + 11) == 'Z') &&
+                        (*(ptr + 12) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       end_offset = 4;
+                       ptr += 13;
+                    }
+                    /* AAXX or BBXX (in a group) */
+               else if (((ptr + 7 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        ((isupper((int)(*(ptr + 4)))) ||
+                         (isdigit((int)(*(ptr + 4))))) &&
+                        ((isupper((int)(*(ptr + 5)))) ||
+                         (isdigit((int)(*(ptr + 5))))) &&
+                        (*(ptr + 6) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       p_file_name[file_name_offset + 5] = *(ptr + 5);
+                       end_offset = 6;
+                       ptr += 7;
+                    }
+                    /* AAXX or BBXX (in a group) */
+               else if (((ptr + 8 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        ((isupper((int)(*(ptr + 4)))) ||
+                         (isdigit((int)(*(ptr + 4))))) &&
+                        ((isupper((int)(*(ptr + 5)))) ||
+                         (isdigit((int)(*(ptr + 5))))) &&
+                        ((isupper((int)(*(ptr + 6)))) ||
+                         (isdigit((int)(*(ptr + 6))))) &&
+                        (*(ptr + 7) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       p_file_name[file_name_offset + 5] = *(ptr + 5);
+                       p_file_name[file_name_offset + 6] = *(ptr + 6);
+                       end_offset = 7;
+                       ptr += 8;
+                    }
+                    /* SYNOP, AAXX or BBXX (in a group) */
+               else if (((ptr + 6 - msg) < length) &&
+                        ((isupper((int)(*ptr))) || (isdigit((int)(*ptr)))) &&
+                        ((isupper((int)(*(ptr + 1)))) ||
+                         (isdigit((int)(*(ptr + 1))))) &&
+                        ((isupper((int)(*(ptr + 2)))) ||
+                         (isdigit((int)(*(ptr + 2))))) &&
+                        ((isupper((int)(*(ptr + 3)))) ||
+                         (isdigit((int)(*(ptr + 3))))) &&
+                        ((isupper((int)(*(ptr + 4)))) ||
+                         (isdigit((int)(*(ptr + 4))))) &&
+                        (*(ptr + 5) == ' '))
+                    {
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       end_offset = 5;
+                       ptr += 6;
+                    }
+                    /* SHDL */
+               else if (((ptr + 12 - msg) < length) &&
+                        (isupper((int)(*ptr))) && (isupper((int)(*(ptr + 1)))) &&
+                        (isupper((int)(*(ptr + 2)))) &&
+                        (isupper((int)(*(ptr + 3)))) && (*(ptr + 4) == ' ') &&
+                        (isdigit((int)(*(ptr + 5)))) &&
+                        (isdigit((int)(*(ptr + 6)))) &&
+                        (isdigit((int)(*(ptr + 7)))) &&
+                        (isdigit((int)(*(ptr + 8)))) &&
+                        (isdigit((int)(*(ptr + 9)))) &&
+                        (isdigit((int)(*(ptr + 10)))) &&
+                        (isdigit((int)(*(ptr + 11)))))
+                    {
+                       ptr += 12;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       p_start = ptr;
+                       p_file_name[file_name_offset] = *ptr;
+                       p_file_name[file_name_offset + 1] = *(ptr + 1);
+                       p_file_name[file_name_offset + 2] = *(ptr + 2);
+                       p_file_name[file_name_offset + 3] = *(ptr + 3);
+                       p_file_name[file_name_offset + 4] = *(ptr + 4);
+                       end_offset = 5;
+                    }
+                    /* NIL */
+               else if (((ptr + 4 - msg) < length) && (*ptr == 'N') &&
+                        (*(ptr + 1) == 'I') && (*(ptr + 2) == 'L') &&
+                        ((*(ptr + 3) == 13) || (*(ptr + 3) == 10)))
+                    {
+                       ptr += 4;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       continue;
+                    }
+                    /* NIL= */
+               else if (((ptr + 5 - msg) < length) && (*ptr == 'N') &&
+                        (*(ptr + 1) == 'I') && (*(ptr + 2) == 'L') &&
+                        (*(ptr + 3) == '=') &&
+                        ((*(ptr + 4) == 13) || (*(ptr + 4) == 10)))
+                    {
+                       ptr += 5;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       continue;
+                    }
+                    /* TAF NIL= */
+               else if (((ptr + 9 - msg) < length) && (*ptr == 'T') &&
+                        (*(ptr + 1) == 'A') && (*(ptr + 2) == 'F') &&
+                        (*(ptr + 3) == ' ') && (*(ptr + 4) == 'N') &&
+                        (*(ptr + 5) == 'I') && (*(ptr + 6) == 'L') &&
+                        (*(ptr + 7) == '=') &&
+                        ((*(ptr + 8) == 13) || (*(ptr + 8) == 10)))
+                    {
+                       ptr += 9;
+                       while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                              ((ptr - msg) < length))
+                       {
+                          ptr++;
+                       }
+                       continue;
+                    }
+                    else
+                    {
+                       show_unknown_report(ptr, length, msg, __FILE__, __LINE__);
+                       break;
+                 }
+
+               if (extract_p_filter != NULL)
+               {
+                  p_file_name[file_name_offset + end_offset] = '\0';
+                  if (pmatch(extract_p_filter, p_file_name, NULL) != 0)
+                  {
+                     /* Ignore this report. */
+                     not_wanted = YES;
+                  }
+                  else
+                  {
+                     not_wanted = NO;
+                  }
+               }
+               while ((*ptr != '=') && ((ptr - msg) < length))
+               {
+                  ptr++;
+               }
+               while (*ptr == '=')
+               {
+                  ptr++;
+               }
+               while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                      ((ptr - msg) < length))
+               {
+                  ptr++;
+               }
+               if (not_wanted == NO)
+               {
+                  size = ptr - p_start;
+                  if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
+                  {
+                     end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
+                                           "-%x", get_checksum(p_start, (int)size));
+                  }
+                  if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
+                  {
+                     (void)next_counter(counter_fd, counter, MAX_MSG_PER_SEC);
+                     end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
+                                           "-%04x", *counter);
+                  }
+                  p_file_name[file_name_offset + end_offset] = '\0';
+
+                  if ((fd = open(p_full_file_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                 file_mode)) < 0)
+                  {
+                     receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                 _("Failed to open() `%s' while extracting reports : %s"),
+                                 p_full_file_name, strerror(errno));
+                     *p_file_name = '\0';
+                     return(INCORRECT);
+                  }
+                  if (extract_options & EXTRACT_ADD_BUL_ORIG_FILE)
+                  {
+                     size_t length;
+
+                     length = strlen(p_file_name);
+                     if (writen(fd, p_file_name, length, 0) != (ssize_t)length)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() file name : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += length;
+                     if (writen(fd, " ", (size_t)1, 0) != (ssize_t)1)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() space after file name : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += 1;
+                     length = strlen(p_orig_name);
+                     if (writen(fd, p_orig_name, length, 0) != (ssize_t)length)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() extract file name : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += length;
+                     if (writen(fd, "\r\r\n", 3, 0) != 3)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() carriage return, carriage return + line feed : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += 2;
+                  }
+                  if (p_extra_heading != NULL)
+                  {
+                     if (writen(fd, p_extra_heading, (size_t)offset, 0) != (ssize_t)offset)
+                     {
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                    _("Failed to writen() extra header in report : %s"),
+                                    strerror(errno));
+                        (void)close(fd);
+                        return(INCORRECT);
+                     }
+                     *p_file_size += offset;
+                  }
+                  if (writen(fd, p_start, (size_t)size, 0) != (ssize_t)size)
+                  {
+                     receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                 _("Failed to writen() report : %s"), strerror(errno));
+                     (void)close(fd);
+                     if (p_extra_heading != NULL)
+                     {
+                        *p_file_size -= offset;
+                     }
+                     return(INCORRECT);
+                  }
+                  (*p_files_to_send)++;
+                  *p_file_size += size;
+
+                  if (close(fd) == -1)
+                  {
+                     receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                                 _("close() error : %s"), strerror(errno));
+                  }
+#ifdef _PRODUCTION_LOG
+                  if (no_of_log_entries == 0)
+                  {
+                     if ((pld = malloc((LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db)))) == NULL)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   _("malloc() error : %s"), strerror(errno));
+                     }
+                  }
+                  else
+                  {
+                     if ((no_of_log_entries % LOG_ENTRY_STEP_SIZE) == 0)
+                     {
+                        size_t             new_size;
+                        struct prod_log_db *tmp_pld;
+
+                        new_size = ((no_of_log_entries / LOG_ENTRY_STEP_SIZE) + 1) *
+                                   LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db);
+                        if ((tmp_pld = realloc(pld, new_size)) == NULL)
+                        {
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      _("realloc() error : %s"), strerror(errno));
+                           free(pld);
+                           no_of_log_entries = 0;
+                        }
+                        pld = tmp_pld;
+                     }
+                  }
+                  if (pld != NULL)
+                  {
+                     pld[no_of_log_entries].size = size;
+                     (void)strcpy(pld[no_of_log_entries].file_name, p_file_name);
+                     no_of_log_entries++;
+                  }
+#endif
+               }
+            } while ((ptr + 6 - msg) < length);
+         }
+         else
+         {
+            receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                        _("%s not marked as a report"), p_file_name);
+         }
       }
    }
    else
@@ -1440,15 +2161,19 @@ write_file(char *msg, unsigned int length, int soh_etx)
       {
          if ((no_of_log_entries % LOG_ENTRY_STEP_SIZE) == 0)
          {
-            size_t new_size;
+            size_t             new_size;
+            struct prod_log_db *tmp_pld;
 
             new_size = ((no_of_log_entries / LOG_ENTRY_STEP_SIZE) + 1) *
                        LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db);
-            if ((pld = realloc(pld, new_size)) == NULL)
+            if ((tmp_pld = realloc(pld, new_size)) == NULL)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           _("realloc() error : %s"), strerror(errno));
+               free(pld);
+               no_of_log_entries = 0;
             }
+            pld = tmp_pld;
          }
       }
       if (pld != NULL)
@@ -1462,6 +2187,22 @@ write_file(char *msg, unsigned int length, int soh_etx)
    *p_file_name = '\0';
 
    return(SUCCESS);
+}
+
+
+/*---------------------------- find_offset() ----------------------------*/
+static void
+find_offset(int brcdb_pos, char *ptr, int length, int *offset)
+{
+   return;
+}
+
+
+/*-------------------------- find_station_id() --------------------------*/
+static void
+find_station_id(void)
+{
+   return;
 }
 
 
@@ -1491,7 +2232,8 @@ check_report(char *ptr, unsigned int length, int *offset)
        ((*(ptr + 10) == 13) || (*(ptr + 10) == 10)))
    {
       ptr += 11;
-      while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+      while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+             ((ptr - p_start) < length))
       {
          ptr++;
       }
@@ -1506,7 +2248,8 @@ check_report(char *ptr, unsigned int length, int *offset)
               (*(ptr + 3) == 'A') && (*(ptr + 4) == 'R'))))
         {
            ptr += 6;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }
@@ -1523,7 +2266,8 @@ check_report(char *ptr, unsigned int length, int *offset)
             ((*(ptr + 13) == 13) || (*(ptr + 13) == 10)))
         {
            ptr += 14;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }
@@ -1538,7 +2282,44 @@ check_report(char *ptr, unsigned int length, int *offset)
             ((*(ptr + 9) == 13) || (*(ptr + 9) == 10)))
         {
            ptr += 10;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
+           {
+              ptr++;
+           }
+           *offset = ptr - p_start;
+        }
+        /* SWIS */
+   else if (((ptr + 13 - p_start) < length) && (*ptr == 'S') &&
+            (*(ptr + 1) == 'W') && (*(ptr + 2) == 'I') &&
+            (*(ptr + 3) == 'S') && (*(ptr + 4) == ' ') &&
+            (isdigit((int)(*(ptr + 5)))) && (isdigit((int)(*(ptr + 6)))) &&
+            (isdigit((int)(*(ptr + 7)))) && (isdigit((int)(*(ptr + 8)))) &&
+            (isdigit((int)(*(ptr + 9)))) && (isdigit((int)(*(ptr + 10)))) &&
+            (isdigit((int)(*(ptr + 11)))) &&
+            ((*(ptr + 12) == 13) || (*(ptr + 12) == 10)))
+        {
+           ptr += 13;
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
+           {
+              ptr++;
+           }
+           *offset = ptr - p_start;
+        }
+        /* CLIMAT */
+   else if (((ptr + 13 - p_start) < length) && (*ptr == 'C') &&
+            (*(ptr + 1) == 'L') && (*(ptr + 2) == 'I') &&
+            (*(ptr + 3) == 'M') && (*(ptr + 4) == 'A') &&
+            (*(ptr + 5) == 'T') && (*(ptr + 6) == ' ') &&
+            (isdigit((int)(*(ptr + 7)))) && (isdigit((int)(*(ptr + 8)))) &&
+            (isdigit((int)(*(ptr + 9)))) && (isdigit((int)(*(ptr + 10)))) &&
+            (isdigit((int)(*(ptr + 11)))) &&
+            ((*(ptr + 12) == 13) || (*(ptr + 12) == 10)))
+        {
+           ptr += 13;
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }
@@ -1553,7 +2334,8 @@ check_report(char *ptr, unsigned int length, int *offset)
             ((*(ptr + 9) == 13) || (*(ptr + 9) == 10)))
         {
            ptr += 10;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }
@@ -1567,7 +2349,8 @@ check_report(char *ptr, unsigned int length, int *offset)
             ((*(ptr + 4) == 13) || (*(ptr + 4) == 10)))
         {
            ptr += 5;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }
@@ -1580,7 +2363,8 @@ check_report(char *ptr, unsigned int length, int *offset)
             ((*(ptr + 3) == 13) || (*(ptr + 3) == 10)))
         {
            ptr += 4;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }
@@ -1597,7 +2381,8 @@ check_report(char *ptr, unsigned int length, int *offset)
             ((*(ptr + 7) == 13) || (*(ptr + 7) == 10)))
         {
            ptr += 8;
-           while (((*ptr == 13) || (*ptr == 10)) && ((ptr - p_start) < length))
+           while (((*ptr == 13) || (*ptr == 10) || (*ptr == ' ')) &&
+                  ((ptr - p_start) < length))
            {
               ptr++;
            }

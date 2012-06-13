@@ -1,6 +1,6 @@
 /*
  *  mon_info.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@
 #include "motif_common_defs.h"
 #include "mondefs.h"
 
-#define MAXARGS                  20
 #define MAX_INFO_STRING_LENGTH   40
 #define NO_OF_MSA_ROWS           6
 #define MSA_INFO_TEXT_WIDTH_L    15

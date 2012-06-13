@@ -1,6 +1,6 @@
 /*
  *  wmocmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -186,7 +186,19 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
    {
       loop_counter++;
 
+#ifdef ETIMEDOUT
+# ifdef ECONNREFUSED
+      if ((loop_counter <= 8) && (errno != ETIMEDOUT) && (errno != ECONNREFUSED))
+# else
+      if ((loop_counter <= 8) && (errno != ETIMEDOUT))
+# endif
+#else
+# ifdef ECONNREFUSED
+      if ((loop_counter <= 8) && (errno != ECONNREFUSED))
+# else
       if (loop_counter <= 8)
+# endif
+#endif
       {
          /*
           * Lets not give up to early. When we just have closed
@@ -197,6 +209,25 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       }
       else
       {
+#ifdef ETIMEDOUT
+         if (errno == ETIMEDOUT)
+         {
+            timeout_flag = ON;
+         }
+# ifdef ECONNREFUSED
+         else if (errno == ECONNREFUSED)
+              {
+                 timeout_flag = CON_REFUSED;
+              }
+# endif
+#else
+# ifdef ECONNREFUSED
+         if (errno == ECONNREFUSED)
+         {
+            timeout_flag = CON_REFUSED;
+         }
+# endif
+#endif
          trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                    _("Failed to connect() to %s, have tried %d times : %s"),
                    hostname, loop_counter, strerror(errno));
@@ -272,6 +303,10 @@ wmo_write(char *block, int size)
 #ifdef _WITH_SEND
            if ((status = send(sock_fd, block, size, 0)) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_write", NULL,
                         _("send() error (%d) : %s"), status, strerror(errno));
               return(errno);
@@ -279,6 +314,10 @@ wmo_write(char *block, int size)
 #else
            if ((status = write(sock_fd, block, size)) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_write", NULL,
                         _("write() error (%d) : %s"), status, strerror(errno));
               return(errno);

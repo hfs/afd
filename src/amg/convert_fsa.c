@@ -1,6 +1,6 @@
 /*
  *  convert_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -994,10 +994,10 @@ convert_fsa(int           old_fsa_fd,
             */
            for (i = 0; i < old_no_of_hosts; i++)
            {
-              (void)my_strncpy(new_fsa[i].host_alias, old_fsa[i].host_alias, MAX_HOSTNAME_LENGTH_2);
+              (void)my_strncpy(new_fsa[i].host_alias, old_fsa[i].host_alias, MAX_HOSTNAME_LENGTH_2 + 1);
               (void)strcpy(new_fsa[i].real_hostname[0], old_fsa[i].real_hostname[0]);
               (void)strcpy(new_fsa[i].real_hostname[1], old_fsa[i].real_hostname[1]);
-              (void)my_strncpy(new_fsa[i].host_dsp_name, old_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH_2);
+              (void)my_strncpy(new_fsa[i].host_dsp_name, old_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH_2 + 1);
               (void)strcpy(new_fsa[i].proxy_name, old_fsa[i].proxy_name);
               (void)strcpy(new_fsa[i].host_toggle_str, old_fsa[i].host_toggle_str);
               new_fsa[i].toggle_pos             = old_fsa[i].toggle_pos;
@@ -1436,10 +1436,10 @@ convert_fsa(int           old_fsa_fd,
             */
            for (i = 0; i < old_no_of_hosts; i++)
            {
-              (void)my_strncpy(new_fsa[i].host_alias, old_fsa[i].host_alias, MAX_HOSTNAME_LENGTH_3);
+              (void)my_strncpy(new_fsa[i].host_alias, old_fsa[i].host_alias, MAX_HOSTNAME_LENGTH_3 + 1);
               (void)strcpy(new_fsa[i].real_hostname[0], old_fsa[i].real_hostname[0]);
               (void)strcpy(new_fsa[i].real_hostname[1], old_fsa[i].real_hostname[1]);
-              (void)my_strncpy(new_fsa[i].host_dsp_name, old_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH_3);
+              (void)my_strncpy(new_fsa[i].host_dsp_name, old_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH_3 + 1);
               new_fsa[i].host_dsp_name[MAX_HOSTNAME_LENGTH_3 + 1] = '\0';
               (void)strcpy(new_fsa[i].proxy_name, old_fsa[i].proxy_name);
               (void)strcpy(new_fsa[i].host_toggle_str, old_fsa[i].host_toggle_str);
@@ -1626,10 +1626,10 @@ convert_fsa(int           old_fsa_fd,
             */
            for (i = 0; i < old_no_of_hosts; i++)
            {
-              (void)my_strncpy(new_fsa[i].host_alias, old_fsa[i].host_alias, MAX_HOSTNAME_LENGTH_3);
+              (void)my_strncpy(new_fsa[i].host_alias, old_fsa[i].host_alias, MAX_HOSTNAME_LENGTH_3 + 1);
               (void)strcpy(new_fsa[i].real_hostname[0], old_fsa[i].real_hostname[0]);
               (void)strcpy(new_fsa[i].real_hostname[1], old_fsa[i].real_hostname[1]);
-              (void)my_strncpy(new_fsa[i].host_dsp_name, old_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH_3);
+              (void)my_strncpy(new_fsa[i].host_dsp_name, old_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH_3 + 1);
               new_fsa[i].host_dsp_name[MAX_HOSTNAME_LENGTH_3 + 1] = '\0';
               (void)strcpy(new_fsa[i].proxy_name, old_fsa[i].proxy_name);
               (void)strcpy(new_fsa[i].host_toggle_str, old_fsa[i].host_toggle_str);

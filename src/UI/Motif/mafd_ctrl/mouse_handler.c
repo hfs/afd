@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -192,7 +192,9 @@ static size_t                     jid_size = 0;
 static struct job_id_data         *jid = NULL;
 
 /* Local function prototypes. */
-static int                        to_long(int, int, int),
+static int                        in_ec_area(int, XEvent *),
+                                  in_host_area(int, XEvent *),
+                                  to_long(int, int, int),
                                   to_short(int, int, int);
 static void                       cleanup_did_data(void),
                                   insert_dir_ids(int),
@@ -392,6 +394,79 @@ input(Widget w, XtPointer client_data, XEvent *event)
                  }
                  else if (event->xkey.state & ShiftMask)
                       {
+                         if (connect_data[pos].inverse == OFF)
+                         {
+                            int i;
+
+                            if (pos > 0)
+                            {
+                               for (i = pos - 1; i > 0; i--)
+                               {
+                                  if (connect_data[i].inverse != OFF)
+                                  {
+                                     break;
+                                  }
+                               }
+                            }
+                            else
+                            {
+                               i = 0;
+                            }
+                            if (connect_data[i].inverse != OFF)
+                            {
+                               int j;
+
+                               for (j = i + 1; j <= pos; j++)
+                               {
+                                  connect_data[j].inverse = connect_data[i].inverse;
+                                  draw_line_status(j, 1);
+                               }
+                            }
+                            else
+                            {
+                               connect_data[pos].inverse = ON;
+                               no_selected++;
+                               draw_line_status(pos, 1);
+                            }
+                         }
+                         else
+                         {
+                            if (connect_data[pos].inverse == ON)
+                            {
+                               connect_data[pos].inverse = OFF;
+                               no_selected--;
+                            }
+                            else
+                            {
+                               connect_data[pos].inverse = OFF;
+                               no_selected_static--;
+                            }
+                            draw_line_status(pos, 1);
+                         }
+                         XFlush(display);
+                      }
+                 else if (((fsa[select_no].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                           (fsa[select_no].host_status & HOST_ERROR_OFFLINE) ||
+                           (fsa[select_no].host_status & HOST_ERROR_ACKNOWLEDGED_T) ||
+                           (fsa[select_no].host_status & HOST_ERROR_OFFLINE_T) ||
+                           ((fsa[select_no].host_status & HOST_ERROR_OFFLINE_STATIC) &&
+                            (fsa[select_no].error_counter > fsa[select_no].max_errors))) &&
+                           (in_host_area(column, event)))
+                      {
+                         popup_event_reason(event->xbutton.x_root,
+                                            event->xbutton.y_root, select_no);
+                      }
+                 else if ((line_style & SHOW_CHARACTERS) &&
+                          (fsa[select_no].error_counter > 0) &&
+                          (in_ec_area(column, event)))
+                      {
+                         popup_error_history(event->xbutton.x_root,
+                                             event->xbutton.y_root, select_no);
+                      }
+                      else
+                      {
+                         destroy_event_reason();
+                         destroy_error_history();
                          if (connect_data[pos].inverse == ON)
                          {
                             connect_data[pos].inverse = OFF;
@@ -410,99 +485,6 @@ input(Widget w, XtPointer client_data, XEvent *event)
 
                          draw_line_status(pos, 1);
                          XFlush(display);
-                      }
-                      else
-                      {
-                         if ((fsa[select_no].host_status & HOST_ERROR_ACKNOWLEDGED) ||
-                             (fsa[select_no].host_status & HOST_ERROR_OFFLINE) ||
-                             (fsa[select_no].host_status & HOST_ERROR_ACKNOWLEDGED_T) ||
-                             (fsa[select_no].host_status & HOST_ERROR_OFFLINE_T) ||
-                             ((fsa[select_no].host_status & HOST_ERROR_OFFLINE_STATIC) &&
-                              (fsa[select_no].error_counter > fsa[select_no].max_errors)))
-                         {
-                            int i,
-                                x_offset,
-                                y_offset;
-
-                            dummy_length = 0;
-                            for (i = 0; i < column; i++)
-                            {
-                               dummy_length += line_length[i];
-                            }
-                            x_offset = event->xbutton.x - dummy_length;
-                            y_offset = event->xbutton.y -
-                                       ((event->xbutton.y / line_height) *
-                                       line_height);
-                            if (((x_offset > DEFAULT_FRAME_SPACE) &&
-                                 (x_offset < (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width)))) &&
-                                ((y_offset > SPACE_ABOVE_LINE) &&
-                                 (y_offset < (line_height - SPACE_BELOW_LINE))))
-                            {
-                               popup_event_reason(event->xbutton.x_root,
-                                                  event->xbutton.y_root,
-                                                  select_no);
-                            }
-                            else
-                            {
-                               destroy_event_reason();
-                            }
-                         }
-                         else if ((line_style & SHOW_CHARACTERS) &&
-                                  (fsa[select_no].error_counter > 0))
-                              {
-                                 int i,
-                                     x_offset,
-                                     x_offset_ec,
-                                     y_offset;
-
-                                  dummy_length = 0;
-                                  for (i = 0; i < column; i++)
-                                  {
-                                     dummy_length += line_length[i];
-                                  }
-                                  if (line_style & SHOW_BARS)
-                                  {
-                                     x_offset_ec = line_length[column] -
-                                                   ((3 * glyph_width) +
-                                                    (int)max_bar_length);
-                                  }
-                                  else
-                                  {
-                                     x_offset_ec = line_length[column] -
-                                                   ((3 * glyph_width) + DEFAULT_FRAME_SPACE);
-                                  }
-                                  x_offset = event->xbutton.x - dummy_length;
-                                  y_offset = event->xbutton.y -
-                                             ((event->xbutton.y / line_height) *
-                                             line_height);
-
-#ifdef _DEBUG
-                                 (void)fprintf(stderr,
-                                               "x_offset=%d y_offset=%d EC:%d-%d Y:%d-%d\n",
-                                               x_offset, y_offset, x_offset_ec,
-                                               (x_offset_ec + (2 * glyph_width)),
-                                               SPACE_ABOVE_LINE,
-                                               (line_height - SPACE_BELOW_LINE));
-#endif
-                                 if (((x_offset > x_offset_ec) &&
-                                      (x_offset < (x_offset_ec + (2 * glyph_width)))) &&
-                                     ((y_offset > SPACE_ABOVE_LINE) &&
-                                      (y_offset < (line_height - SPACE_BELOW_LINE))))
-                                 {
-                                    popup_error_history(event->xbutton.x_root,
-                                                        event->xbutton.y_root,
-                                                        select_no);
-                                 }
-                                 else
-                                 {
-                                    destroy_error_history();
-                                 }
-                              }
-                              else
-                              {
-                                 destroy_event_reason();
-                                 destroy_error_history();
-                              }
                       }
 
                  last_motion_pos = select_no;
@@ -720,15 +702,21 @@ input(Widget w, XtPointer client_data, XEvent *event)
 
                            if (current_jd_size < new_size)
                            {
+                              struct job_data *tmp_jd;
+
                               current_jd_size = new_size;
-                              if ((jd = realloc(jd, new_size)) == NULL)
+                              if ((tmp_jd = realloc(jd, new_size)) == NULL)
                               {
+                                 int tmp_errno = errno;
+
+                                 free(jd);
                                  (void)xrec(FATAL_DIALOG,
                                             "realloc() error [%d] : %s [%d] (%s %d)",
-                                            new_size, strerror(errno),
-                                            errno, __FILE__, __LINE__);
+                                            new_size, strerror(tmp_errno),
+                                            tmp_errno, __FILE__, __LINE__);
                                  return;
                               }
+                              jd = tmp_jd;
                            }
                         }
 
@@ -982,6 +970,71 @@ short_input(Widget w, XtPointer client_data, XEvent *event)
                     }
                     else if (event->xkey.state & ShiftMask)
                          {
+                            if (connect_data[pos].inverse == OFF)
+                            {
+                               int i;
+
+                               if (pos > 0)
+                               {
+                                  for (i = pos - 1; i > 0; i--)
+                                  {
+                                     if (connect_data[i].inverse != OFF)
+                                     {
+                                        break;
+                                     }
+                                  }
+                               }
+                               else
+                               {
+                                  i = 0;
+                               }
+                               if (connect_data[i].inverse != OFF)
+                               {
+                                  int j;
+
+                                  for (j = i + 1; j <= pos; j++)
+                                  {
+                                     connect_data[j].inverse = connect_data[i].inverse;
+                                     draw_line_status(j, 1);
+                                  }
+                               }
+                               else
+                               {
+                                  connect_data[pos].inverse = ON;
+                                  no_selected++;
+                                  draw_line_status(pos, 1);
+                               }
+                            }
+                            else
+                            {
+                               if (connect_data[pos].inverse == ON)
+                               {
+                                  connect_data[pos].inverse = OFF;
+                                  no_selected--;
+                               }
+                               else
+                               {
+                                  connect_data[pos].inverse = OFF;
+                                  no_selected_static--;
+                               }
+                               draw_line_status(pos, 1);
+                            }
+                            XFlush(display);
+                         }
+                    else if (((fsa[pos].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                              (fsa[pos].host_status & HOST_ERROR_OFFLINE) ||
+                              (fsa[pos].host_status & HOST_ERROR_ACKNOWLEDGED_T) ||
+                              (fsa[pos].host_status & HOST_ERROR_OFFLINE_T) ||
+                              ((fsa[pos].host_status & HOST_ERROR_OFFLINE_STATIC) &&
+                               (fsa[pos].error_counter > fsa[pos].max_errors))) &&
+                              (in_host_area(-1, event)))
+                         {
+                            popup_event_reason(event->xbutton.x_root,
+                                               event->xbutton.y_root, pos);
+                         }
+                         else
+                         {
+                            destroy_event_reason();
                             if (connect_data[pos].inverse == ON)
                             {
                                connect_data[pos].inverse = OFF;
@@ -1000,43 +1053,6 @@ short_input(Widget w, XtPointer client_data, XEvent *event)
 
                             draw_line_status(pos, 1);
                             XFlush(display);
-                         }
-                         else
-                         {
-                            if ((fsa[pos].host_status & HOST_ERROR_ACKNOWLEDGED) ||
-                                (fsa[pos].host_status & HOST_ERROR_OFFLINE) ||
-                                (fsa[pos].host_status & HOST_ERROR_ACKNOWLEDGED_T) ||
-                                (fsa[pos].host_status & HOST_ERROR_OFFLINE_T) ||
-                                ((fsa[pos].host_status & HOST_ERROR_OFFLINE_STATIC) &&
-                                 (fsa[pos].error_counter > fsa[pos].max_errors)))
-                            {
-                               int x_offset,
-                                   y_offset;
-
-                               x_offset = event->xbutton.x -
-                                          ((event->xbutton.x / (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width))) *
-                                           (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width)));
-                               y_offset = event->xbutton.y -
-                                          ((event->xbutton.y / line_height) *
-                                          line_height);
-                               if (((x_offset > DEFAULT_FRAME_SPACE) &&
-                                    (x_offset < (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width)))) &&
-                                   ((y_offset > SPACE_ABOVE_LINE) &&
-                                    (y_offset < (line_height - SPACE_BELOW_LINE))))
-                               {
-                                  popup_event_reason(event->xbutton.x_root,
-                                                     event->xbutton.y_root,
-                                                     pos);
-                               }
-                               else
-                               {
-                                  destroy_event_reason();
-                               }
-                            }
-                            else
-                            {
-                               destroy_event_reason();
-                            }
                          }
 
                     last_motion_pos = select_no;
@@ -1175,6 +1191,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
    {
       (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
+      FREE_RT_ARRAY(hosts);
       return;
    }
 
@@ -1291,6 +1308,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, SHOW_LOG);
          (void)strcpy(log_typ, SYSTEM_STR);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case E_LOG_SEL : /* Event Log. */
@@ -1441,6 +1460,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_FILE_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case VIEW_KBYTE_LOAD_SEL : /* KByte Load. */
@@ -1454,6 +1475,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_KBYTE_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case VIEW_CONNECTION_LOAD_SEL : /* Connection Load. */
@@ -1467,6 +1490,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_CONNECTION_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case VIEW_TRANSFER_LOAD_SEL : /* Active Transfers Load. */
@@ -1480,6 +1505,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_TRANSFER_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case VIEW_DC_SEL : /* View DIR_CONFIG entries. */
@@ -1527,6 +1554,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                             "No job marked. Mark with CTRL + Mouse button 2 or 3.",
                             sel_typ);
               }
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case EDIT_HC_SEL : /* Edit host configuration data. */
@@ -1584,6 +1613,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             make_xprocess(progname, progname, args, -1);
          }
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case DIR_CTRL_SEL : /* Directory Control. */
@@ -1616,6 +1647,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          }
          (void)strcpy(progname, DIR_CTRL);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case EXIT_SEL  : /* Exit. */
@@ -2256,7 +2289,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   if ((fsa[i].toggle_pos > 0) &&
                       (fsa[i].host_toggle_str[0] != '\0'))
                   {
-                     char tmp_host_alias[MAX_HOSTNAME_LENGTH + 1];
+                     char tmp_host_alias[MAX_HOSTNAME_LENGTH + 2];
 
                      if (fsa[i].host_toggle == HOST_ONE)
                      {
@@ -2522,6 +2555,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      XRaiseWindow(display, window_id);
                      XSetInputFocus(display, window_id, RevertToParent,
                                     CurrentTime);
+                     free(args);
+                     FREE_RT_ARRAY(hosts)
                      return;
                   }
                }
@@ -2687,6 +2722,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
               {
                  (void)xrec(FATAL_DIALOG, "realloc() error : %s [%d] (%s %d)",
                             strerror(errno), errno, __FILE__, __LINE__);
+                 FREE_RT_ARRAY(hosts)
+                 cleanup_did_data();
                  return;
               }
            }
@@ -2736,10 +2773,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             (ehc == NO) && (change_host_config == YES))
         {
            (void)write_host_config(no_of_hosts, host_config_file, hl);
-           if (hl != NULL)
-           {
-              free(hl);
-           }
+           free(hl);
         }
    else if (sel_typ == LONG_SHORT_SEL)
         {
@@ -3349,8 +3383,7 @@ read_reply(XtPointer client_data, int *fd, XtInputId *id)
 void
 change_font_cb(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
+   int         redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
    XGCValues   gc_values;
 
@@ -3445,6 +3478,8 @@ change_font_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
       if (resize_tv_window() == YES)
       {
+         int i;
+
          XClearWindow(display, detailed_window);
          draw_tv_label_line();
          for (i = 0; i < no_of_jobs_selected; i++)
@@ -3475,8 +3510,7 @@ change_font_cb(Widget w, XtPointer client_data, XtPointer call_data)
 void
 change_rows_cb(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
+   int         redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_row != item_no)
@@ -3573,6 +3607,8 @@ change_rows_cb(Widget w, XtPointer client_data, XtPointer call_data)
    /* Redraw detailed transfer view window. */
    if ((no_of_jobs_selected > 0) && (resize_tv_window() == YES))
    {
+      int i;
+
       XClearWindow(display, detailed_window);
 
       draw_tv_label_line();
@@ -3603,8 +3639,7 @@ change_rows_cb(Widget w, XtPointer client_data, XtPointer call_data)
 void
 change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int         i,
-               redraw = NO;
+   int         redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    switch (item_no)
@@ -3730,6 +3765,8 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
       setup_tv_window();
       if (resize_tv_window() == YES)
       {
+         int i;
+
          XClearWindow(display, detailed_window);
          draw_tv_label_line();
          for (i = 0; i < no_of_jobs_selected; i++)
@@ -3754,6 +3791,93 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
    }
 
    return;
+}
+
+
+/*++++++++++++++++++++++++++ in_host_area() +++++++++++++++++++++++++++++*/
+static int
+in_host_area(int column, XEvent *event)
+{
+   int x_offset,
+       y_offset;
+
+   if (column == -1)
+   {
+      x_offset = event->xbutton.x -
+                 ((event->xbutton.x / (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width))) *
+                  (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width)));
+   }
+   else
+   {
+      int dummy_length = 0,
+          i;
+
+      for (i = 0; i < column; i++)
+      {
+         dummy_length += line_length[i];
+      }
+      x_offset = event->xbutton.x - dummy_length;
+   }
+   y_offset = event->xbutton.y - ((event->xbutton.y / line_height) *
+              line_height);
+   if (((x_offset > DEFAULT_FRAME_SPACE) &&
+        (x_offset < (DEFAULT_FRAME_SPACE + (hostname_display_length * glyph_width)))) &&
+       ((y_offset > SPACE_ABOVE_LINE) &&
+        (y_offset < (line_height - SPACE_BELOW_LINE))))
+   {
+      return(YES);
+   }
+
+   return(NO);
+}
+
+
+/*+++++++++++++++++++++++++++ in_ec_area() ++++++++++++++++++++++++++++++*/
+static int
+in_ec_area(int column, XEvent *event)
+{
+   int dummy_length,
+       i,
+       x_offset,
+       x_offset_ec,
+       y_offset;
+
+    dummy_length = 0;
+    for (i = 0; i < column; i++)
+    {
+       dummy_length += line_length[i];
+    }
+    if (line_style & SHOW_BARS)
+    {
+       x_offset_ec = line_length[column] - ((3 * glyph_width) +
+                      (int)max_bar_length);
+    }
+    else
+    {
+       x_offset_ec = line_length[column] -
+                     ((3 * glyph_width) + DEFAULT_FRAME_SPACE);
+    }
+    x_offset = event->xbutton.x - dummy_length;
+    y_offset = event->xbutton.y - ((event->xbutton.y / line_height) *
+               line_height);
+
+#ifdef _DEBUG
+   (void)fprintf(stderr,
+                 "x_offset=%d y_offset=%d EC:%d-%d Y:%d-%d\n",
+                 x_offset, y_offset, x_offset_ec,
+                 (x_offset_ec + (2 * glyph_width)),
+                 SPACE_ABOVE_LINE,
+                 (line_height - SPACE_BELOW_LINE));
+#endif
+   if (((x_offset > x_offset_ec) &&
+        (x_offset < (x_offset_ec + (2 * glyph_width)))) &&
+       ((y_offset > SPACE_ABOVE_LINE) &&
+        (y_offset < (line_height - SPACE_BELOW_LINE))))
+   {
+      return(YES);
+   }
+
+   return(NO);
 }
 
 
@@ -3868,8 +3992,6 @@ to_short(int pos, int select_no, int apply)
 static void
 redraw_long(int pos)
 {
-   int i;
-
    if ((no_of_short_lines == 0) &&
        ((pos == -1) || (connect_data[pos].inverse > OFF)))
    {
@@ -3881,6 +4003,8 @@ redraw_long(int pos)
    }
    else
    {
+      int i;
+
       if (no_of_short_lines == 0)
       {
          draw_label_line();
@@ -3915,14 +4039,14 @@ redraw_long(int pos)
 static void
 redraw_short(void)
 {
-   int i;
-
    if (resize_window() == YES)
    {
       redraw_all();
    }
    else
    {
+      int i;
+
       if (no_of_long_lines == 0)
       {
          draw_label_line();
@@ -4021,10 +4145,7 @@ insert_dir_ids(int fsa_pos)
       }
       else
       {
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
    }
@@ -4063,17 +4184,22 @@ insert_dir_ids(int fsa_pos)
                   }
                   else if ((no_of_dids_found % DID_STEP_SIZE) == 0)
                        {
-                          int new_size = (((no_of_dids_found / DID_STEP_SIZE) + 1) *
-                                         DID_STEP_SIZE * sizeof(int));
+                          int          new_size = (((no_of_dids_found / DID_STEP_SIZE) + 1) *
+                                                  DID_STEP_SIZE * sizeof(int));
+                          unsigned int *tmp_dids;
 
-                          if ((dids = realloc(dids, new_size)) == NULL)
+                          if ((tmp_dids = realloc(dids, new_size)) == NULL)
                           {
+                             int tmp_errno = errno;
+
+                             free(dids);
                              (void)xrec(FATAL_DIALOG,
                                         "realloc() error [%d] : %s [%d] (%s %d)",
-                                        new_size, strerror(errno),
-                                        errno, __FILE__, __LINE__);
+                                        new_size, strerror(tmp_errno),
+                                        tmp_errno, __FILE__, __LINE__);
                              return;
                           }
+                          dids = tmp_dids;
                        }
 
                   dids[no_of_dids_found] = jid[i].dir_id;

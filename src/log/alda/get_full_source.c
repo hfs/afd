@@ -1,6 +1,6 @@
 /*
  *  get_full_source.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,10 +63,10 @@ extern struct afd_dir_list  *adl;
 void                                                                     
 get_full_source(unsigned int dir_id, char *full_source, int *full_source_length)
 {
-   int i, k;
-
    if (mode & ALDA_LOCAL_MODE)
    {
+      int i, k;
+
       check_dna();
 
       for (i = 0; i < *dna.no_of_dir_names; i++)
@@ -91,6 +91,8 @@ get_full_source(unsigned int dir_id, char *full_source, int *full_source_length)
    {
       if (adl != NULL)
       {
+         int i, k;
+
          for (i = 0; i < adl_entries; i++)
          {
             if (adl[i].dir_id == dir_id)

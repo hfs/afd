@@ -1,6 +1,6 @@
 /*
  *  show_elog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,10 +50,6 @@
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
-#define START_TIME_NO_ENTER      1
-#define START_TIME               2
-#define END_TIME_NO_ENTER        3
-#define END_TIME                 4
 #define HOST_ALIAS_NO_ENTER      5
 #define HOST_ALIAS               6
 #define DIR_ALIAS_NO_ENTER       7

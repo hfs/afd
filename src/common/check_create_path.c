@@ -1,6 +1,6 @@
 /*
  *  check_create_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,7 +29,8 @@ DESCR__S_M3
  **                         mode_t permissions,
  **                         char   **error_ptr,
  **                         int    create_dir,
- **                         int    check_write_access)
+ **                         int    check_write_access,
+ **                         char   *created_path)
  **
  ** DESCRIPTION
  **   The function check_create_path() checks if the given path exists
@@ -76,7 +77,8 @@ check_create_path(char   *path,
                   mode_t permissions,
                   char   **error_ptr,
                   int    create_dir,
-                  int    check_write_access)
+                  int    check_write_access,
+                  char   *created_path)
 {
    int mode,
        ret = SUCCESS;
@@ -103,17 +105,21 @@ check_create_path(char   *path,
                error_condition = 0;
          uid_t owner;
          gid_t group;
-         char  **dir_ptr = NULL;
+         char  **dir_ptr = NULL,
+               **tmp_ptr;
 
          do
          {
             if ((ii % 10) == 0)
             {
                new_size = ((ii / 10) + 1) * 10 * sizeof(char *);
-               if ((dir_ptr = realloc(dir_ptr, new_size)) == NULL)
+               tmp_ptr = dir_ptr;
+               if ((tmp_ptr = realloc(dir_ptr, new_size)) == NULL)
                {
+                  free(dir_ptr);
                   return(ALLOC_ERROR);
                }
+               dir_ptr = tmp_ptr;
             }
             dir_length = strlen(path);
             dir_ptr[ii] = path + dir_length;
@@ -146,10 +152,7 @@ check_create_path(char   *path,
                   *dir_ptr[i] = '/';
                }
             }
-            if (dir_ptr != NULL)
-            {
-               free(dir_ptr);
-            }
+            free(dir_ptr);
             return(NO_ACCESS);
          }
 
@@ -169,10 +172,7 @@ check_create_path(char   *path,
                      *dir_ptr[i] = '/';
                   }
                }
-               if (dir_ptr != NULL)
-               {
-                  free(dir_ptr);
-               }
+               free(dir_ptr);
                return(STAT_ERROR);
             }
             permissions = stat_buf.st_mode;
@@ -216,18 +216,19 @@ check_create_path(char   *path,
                }
             }
          }
-         if (dir_ptr != NULL)
-         {
-            free(dir_ptr);
-         }
          if (failed_to_create_dir == NO)
          {
             ret = CREATED_DIR;
+            if (created_path != NULL)
+            {
+               (void)strcpy(created_path, dir_ptr[0] + 1);
+            }
          }
          else
          {
             ret = MKDIR_ERROR;
          }
+         free(dir_ptr);
       }
       else
       {

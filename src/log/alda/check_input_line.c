@@ -1,6 +1,6 @@
 /*
  *  check_input_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,13 +71,14 @@ check_input_line(char         *line,
                  time_t       prev_log_time,
                  unsigned int prev_dir_id)
 {
-   register int  i = 0;
    register char *ptr = line + LOG_DATE_LENGTH + 1;
 
    ilog.input_time = (time_t)str2timet(line, NULL, 16);
    if ((ilog.input_time >= start_time_start) &&
        ((start_time_end == 0) || (ilog.input_time < start_time_end)))
    {
+      register int i = 0;
+
       while ((*(ptr + i) != SEPARATOR_CHAR) && (i < MAX_FILENAME_LENGTH) &&
              (*(ptr + i) != '\0'))
       {

@@ -1,7 +1,7 @@
 /*
  *  setup_dir_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -105,8 +105,7 @@ extern struct dir_control_perm  dcp;
 void
 setup_dir_window(char *font_name)
 {
-   int             i,
-                   new_max_bar_length;
+   int             new_max_bar_length;
    XmFontListEntry entry;
 
    /* Get width and height of font and fid for the GC. */
@@ -274,6 +273,7 @@ setup_dir_window(char *font_name)
    /* bars because a font change might have occurred. */
    if (new_max_bar_length != max_bar_length)
    {
+      int          i;
       unsigned int new_bar_length;
 
       max_bar_length = new_max_bar_length;

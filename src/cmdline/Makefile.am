@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2010 Holger Kiehl
+## Copyright (C) 2001 - 2012 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,11 +16,34 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
+if WITH_WMO_SUPPORT
+   WMO_PROG          = awmo
+   EXTRA_WMO_PROG    =
+else
+   WMO_PROG          =
+   EXTRA_WMO_PROG    = awmo
+endif
+if WITH_FTP_SUPPORT
+   FTP_PROG          = aftp
+   EXTRA_FTP_PROG    =
+else
+   FTP_PROG          =
+   EXTRA_FTP_PROG    = aftp
+endif
+if WITH_SMTP_SUPPORT
+   SMTP_PROG         = asmtp
+   EXTRA_SMTP_PROG   =
+else
+   SMTP_PROG         =
+   EXTRA_SMTP_PROG   = asmtp
+endif
+
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = aftpdefs.h asmtpdefs.h awmodefs.h cmdline.h
 INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd
-bin_PROGRAMS         = aftp asmtp awmo
+bin_PROGRAMS         = $(WMO_PROG) $(FTP_PROG) $(SMTP_PROG)
+EXTRA_PROGRAMS       = $(EXTRA_WMO_PROG) $(EXTRA_FTP_PROG) $(EXTRA_SMTP_PROG)
 aftp_SOURCES         = aftp.c\
                        eval_files.c\
                        get_remote_file_names.c\

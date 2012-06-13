@@ -11,7 +11,7 @@ not been well tested so if you do not want to take any risk perform the
 following steps:
 
    1) Stop AMG and wait until FD has distributed all files. If FD cannot
-      transmitt the files because the remote host is for example not
+      transmit the files because the remote host is for example not
       reachable, you either have to wait or loose those files.
 
    2) Stop AFD with the following command:

@@ -1,6 +1,6 @@
 /*
  *  afdcfg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,8 @@ DESCR__S_M1
  **   afdcfg [-w <working directory>] [-u[ <user>]] option
  **                  -a      enable archive
  **                  -A      disable archive
+ **                  -b      enable create source dir
+ **                  -B      disable create source dir
  **                  -c      enable create target dir
  **                  -C      disable create target dir
  **                  -d      enable directory warn time
@@ -56,6 +58,7 @@ DESCR__S_M1
  **                      time.
  **   03.01.2008 H.Kiehl Added host warn time.
  **   08.05.2008 H.Kiehl Added enable + update directory warn time (-du).
+ **   09.05.2011 H.Kiehl Added enable + disable source dir
  **
  */
 DESCR__E_M1
@@ -104,7 +107,9 @@ static void                usage(char *);
 #define DISABLE_HOST_WARN_TIME_SEL      9
 #define ENABLE_CREATE_TARGET_DIR_SEL    10
 #define DISABLE_CREATE_TARGET_DIR_SEL   11
-#define STATUS_SEL                      12
+#define ENABLE_CREATE_SOURCE_DIR_SEL    12
+#define DISABLE_CREATE_SOURCE_DIR_SEL   13
+#define STATUS_SEL                      14
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ afdcfg() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -146,77 +151,91 @@ main(int argc, char *argv[])
    {
       if (get_arg(&argc, argv, "-A", NULL, 0) != SUCCESS)
       {
-         if (get_arg(&argc, argv, "-c", NULL, 0) != SUCCESS)
+         if (get_arg(&argc, argv, "-b", NULL, 0) != SUCCESS)
          {
-            if (get_arg(&argc, argv, "-C", NULL, 0) != SUCCESS)
+            if (get_arg(&argc, argv, "-B", NULL, 0) != SUCCESS)
             {
-               if (get_arg(&argc, argv, "-d", NULL, 0) != SUCCESS)
+               if (get_arg(&argc, argv, "-c", NULL, 0) != SUCCESS)
                {
-                  if (get_arg(&argc, argv, "-du", NULL, 0) != SUCCESS)
+                  if (get_arg(&argc, argv, "-C", NULL, 0) != SUCCESS)
                   {
-                     if (get_arg(&argc, argv, "-D", NULL, 0) != SUCCESS)
+                     if (get_arg(&argc, argv, "-d", NULL, 0) != SUCCESS)
                      {
-                        if (get_arg(&argc, argv, "-h", NULL, 0) != SUCCESS)
+                        if (get_arg(&argc, argv, "-du", NULL, 0) != SUCCESS)
                         {
-                           if (get_arg(&argc, argv, "-H", NULL, 0) != SUCCESS)
+                           if (get_arg(&argc, argv, "-D", NULL, 0) != SUCCESS)
                            {
-                              if (get_arg(&argc, argv, "-r", NULL, 0) != SUCCESS)
+                              if (get_arg(&argc, argv, "-h", NULL, 0) != SUCCESS)
                               {
-                                 if (get_arg(&argc, argv, "-R", NULL, 0) != SUCCESS)
+                                 if (get_arg(&argc, argv, "-H", NULL, 0) != SUCCESS)
                                  {
-                                    if (get_arg(&argc, argv, "-s", NULL, 0) != SUCCESS)
+                                    if (get_arg(&argc, argv, "-r", NULL, 0) != SUCCESS)
                                     {
-                                       usage(argv[0]);
-                                       exit(INCORRECT);
+                                       if (get_arg(&argc, argv, "-R", NULL, 0) != SUCCESS)
+                                       {
+                                          if (get_arg(&argc, argv, "-s", NULL, 0) != SUCCESS)
+                                          {
+                                             usage(argv[0]);
+                                             exit(INCORRECT);
+                                          }
+                                          else
+                                          {
+                                             action = STATUS_SEL;
+                                          }
+                                       }
+                                       else
+                                       {
+                                          action = DISABLE_RETRIEVE_SEL;
+                                       }
                                     }
                                     else
                                     {
-                                       action = STATUS_SEL;
+                                       action = ENABLE_RETRIEVE_SEL;
                                     }
                                  }
                                  else
                                  {
-                                    action = DISABLE_RETRIEVE_SEL;
+                                    action = DISABLE_HOST_WARN_TIME_SEL;
                                  }
                               }
                               else
                               {
-                                 action = ENABLE_RETRIEVE_SEL;
+                                 action = ENABLE_HOST_WARN_TIME_SEL;
                               }
                            }
                            else
                            {
-                              action = DISABLE_HOST_WARN_TIME_SEL;
+                              action = DISABLE_DIR_WARN_TIME_SEL;
                            }
                         }
                         else
                         {
-                           action = ENABLE_HOST_WARN_TIME_SEL;
+                           action = ENABLE_UPDATE_DIR_WARN_TIME_SEL;
                         }
                      }
                      else
                      {
-                        action = DISABLE_DIR_WARN_TIME_SEL;
+                        action = ENABLE_DIR_WARN_TIME_SEL;
                      }
                   }
                   else
                   {
-                     action = ENABLE_UPDATE_DIR_WARN_TIME_SEL;
+                     action = DISABLE_CREATE_TARGET_DIR_SEL;
                   }
                }
                else
                {
-                  action = ENABLE_DIR_WARN_TIME_SEL;
+                  action = ENABLE_CREATE_TARGET_DIR_SEL;
                }
             }
             else
             {
-               action = DISABLE_CREATE_TARGET_DIR_SEL;
+               action = DISABLE_CREATE_SOURCE_DIR_SEL;
             }
          }
          else
          {
-            action = ENABLE_CREATE_TARGET_DIR_SEL;
+            action = ENABLE_CREATE_SOURCE_DIR_SEL;
          }
       }
       else
@@ -297,58 +316,9 @@ main(int argc, char *argv[])
          exit(INCORRECT);
    }
 
-   if ((action == ENABLE_ARCHIVE_SEL) || (action == DISABLE_ARCHIVE_SEL) ||
-       (action == ENABLE_CREATE_TARGET_DIR_SEL) ||
-       (action == DISABLE_CREATE_TARGET_DIR_SEL) ||
-       (action == ENABLE_HOST_WARN_TIME_SEL) ||
-       (action == DISABLE_HOST_WARN_TIME_SEL) ||
-       (action == ENABLE_RETRIEVE_SEL) || (action == DISABLE_RETRIEVE_SEL))
-   {
-      if ((ret = fsa_attach()) < 0)
-      {
-         if (ret == INCORRECT_VERSION)
-         {
-            (void)fprintf(stderr,
-                          _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
-                          __FILE__, __LINE__);
-         }
-         else
-         {
-            (void)fprintf(stderr,
-                          _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
-                          __FILE__, __LINE__);
-         }
-         exit(INCORRECT);
-      }
-      ptr_fsa = (char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
-   }
-
-   if ((action == ENABLE_DIR_WARN_TIME_SEL) ||
-       (action == ENABLE_UPDATE_DIR_WARN_TIME_SEL) ||
-       (action == DISABLE_DIR_WARN_TIME_SEL))
-   {
-      if ((ret = fra_attach()) < 0)
-      {
-         if (ret == INCORRECT_VERSION)
-         {
-            (void)fprintf(stderr,
-                          _("ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n"),
-                          __FILE__, __LINE__);
-         }
-         else
-         {
-            (void)fprintf(stderr,
-                          _("ERROR   : Failed to attach to FRA. (%s %d)\n"),
-                          __FILE__, __LINE__);
-         }
-         exit(INCORRECT);
-      }
-      ptr_fra = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
-   }
-
    if (action == STATUS_SEL)
    {
-      if ((ret = fsa_attach_passive()) < 0)
+      if ((ret = fsa_attach_passive(NO)) < 0)
       {
          if (ret == INCORRECT_VERSION)
          {
@@ -384,6 +354,59 @@ main(int argc, char *argv[])
       }
       ptr_fra = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
    }
+   else
+   {
+      if ((action == ENABLE_ARCHIVE_SEL) || (action == DISABLE_ARCHIVE_SEL) ||
+          (action == ENABLE_CREATE_SOURCE_DIR_SEL) ||
+          (action == DISABLE_CREATE_SOURCE_DIR_SEL) ||
+          (action == ENABLE_CREATE_TARGET_DIR_SEL) ||
+          (action == DISABLE_CREATE_TARGET_DIR_SEL) ||
+          (action == ENABLE_HOST_WARN_TIME_SEL) ||
+          (action == DISABLE_HOST_WARN_TIME_SEL) ||
+          (action == ENABLE_RETRIEVE_SEL) || (action == DISABLE_RETRIEVE_SEL))
+      {
+         if ((ret = fsa_attach()) < 0)
+         {
+            if (ret == INCORRECT_VERSION)
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : This program is not able to attach to the FSA due to incorrect version. (%s %d)\n"),
+                             __FILE__, __LINE__);
+            }
+            else
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : Failed to attach to FSA. (%s %d)\n"),
+                             __FILE__, __LINE__);
+            }
+            exit(INCORRECT);
+         }
+         ptr_fsa = (char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
+      }
+
+      if ((action == ENABLE_DIR_WARN_TIME_SEL) ||
+          (action == ENABLE_UPDATE_DIR_WARN_TIME_SEL) ||
+          (action == DISABLE_DIR_WARN_TIME_SEL))
+      {
+         if ((ret = fra_attach()) < 0)
+         {
+            if (ret == INCORRECT_VERSION)
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : This program is not able to attach to the FRA due to incorrect version. (%s %d)\n"),
+                             __FILE__, __LINE__);
+            }
+            else
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : Failed to attach to FRA. (%s %d)\n"),
+                             __FILE__, __LINE__);
+            }
+            exit(INCORRECT);
+         }
+         ptr_fra = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
+      }
+   }
 
    switch (action)
    {
@@ -414,6 +437,36 @@ main(int argc, char *argv[])
                        _("Archiving disabled by %s"), user);
             event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_ARCHIVE, "%s",
                       user);
+         }
+         break;
+
+      case ENABLE_CREATE_SOURCE_DIR_SEL :
+         if (*ptr_fsa & DISABLE_CREATE_SOURCE_DIR)
+         {
+            *ptr_fsa ^= DISABLE_CREATE_SOURCE_DIR;
+            system_log(CONFIG_SIGN, __FILE__, __LINE__,
+                       _("Create source dir enabled by %s"), user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_CREATE_SOURCE_DIR,
+                      "%s", user);
+         }
+         else
+         {
+            (void)fprintf(stdout, _("Create source dir already enabled.\n"));
+         }
+         break;
+
+      case DISABLE_CREATE_SOURCE_DIR_SEL :
+         if (*ptr_fsa & DISABLE_CREATE_SOURCE_DIR)
+         {
+            (void)fprintf(stdout, _("Create source dir already disabled.\n"));
+         }
+         else
+         {
+            *ptr_fsa |= DISABLE_CREATE_SOURCE_DIR;
+            system_log(CONFIG_SIGN, __FILE__, __LINE__,
+                       _("Create source dir disabled by %s"), user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_CREATE_SOURCE_DIR,
+                      "%s", user);
          }
          break;
 
@@ -633,6 +686,14 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stdout, _("Dir warn time    : Enabled\n"));
          }
+         if (*ptr_fsa & DISABLE_CREATE_SOURCE_DIR)
+         {
+            (void)fprintf(stdout, _("Create source dir: Disabled\n"));
+         }
+         else
+         {
+            (void)fprintf(stdout, _("Create source dir: Enabled\n"));
+         }
          if (*ptr_fsa & ENABLE_CREATE_TARGET_DIR)
          {
             (void)fprintf(stdout, _("Create target dir: Enabled\n"));
@@ -649,6 +710,8 @@ main(int argc, char *argv[])
    }
 
    if ((action == ENABLE_ARCHIVE_SEL) || (action == DISABLE_ARCHIVE_SEL) ||
+       (action == ENABLE_CREATE_SOURCE_DIR_SEL) ||
+       (action == DISABLE_CREATE_SOURCE_DIR_SEL) ||
        (action == ENABLE_CREATE_TARGET_DIR_SEL) ||
        (action == DISABLE_CREATE_TARGET_DIR_SEL) ||
        (action == ENABLE_RETRIEVE_SEL) || (action == DISABLE_RETRIEVE_SEL) ||
@@ -676,6 +739,8 @@ usage(char *progname)
                  progname);
    (void)fprintf(stderr, _("          -a      enable archive\n"));
    (void)fprintf(stderr, _("          -A      disable archive\n"));
+   (void)fprintf(stderr, _("          -b      enable create source dir\n"));
+   (void)fprintf(stderr, _("          -B      disable create source dir\n"));
    (void)fprintf(stderr, _("          -c      enable create target dir\n"));
    (void)fprintf(stderr, _("          -C      disable create target dir\n"));
    (void)fprintf(stderr, _("          -d      enable directory warn time\n"));

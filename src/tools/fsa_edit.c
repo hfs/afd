@@ -1,6 +1,6 @@
 /*
  *  fsa_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -211,7 +211,9 @@ main(int argc, char *argv[])
                                   (fsa[position].host_status & HOST_ERROR_ACKNOWLEDGED_T) ? 1 : 0);
                     (void)fprintf(stdout, "     Host errors offline time [%d]..(b)\n",
                                   (fsa[position].host_status & HOST_ERROR_OFFLINE_T) ? 1 : 0);
-                    (void)fprintf(stderr, "     None..........................(c) ");
+                    (void)fprintf(stdout, "     Reset integer value to 0 [%d]..(c)\n",
+                                  fsa[position].host_status);
+                    (void)fprintf(stderr, "     None..........................(d) ");
 #ifdef LOCK_DEBUG
                     lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (position * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
 #else
@@ -243,7 +245,9 @@ main(int argc, char *argv[])
                                   break;
                        case 'b' : fsa[position].host_status ^= HOST_ERROR_OFFLINE_T;
                                   break;
-                       case 'c' : break;
+                       case 'c' : fsa[position].host_status = 0;
+                                  break;
+                       case 'd' : break;
                        default  : (void)printf(_("Wrong choice!\n"));
                                   (void)sleep(1);
                                   break;
@@ -255,15 +259,15 @@ main(int argc, char *argv[])
 #endif
                     break;
          case '6' : (void)fprintf(stderr, _("\n\n     Enter value [6] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fsa[position].max_errors = value;
                     break;
          case '7' : (void)fprintf(stderr, _("\n\n     Enter value [7] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fsa[position].block_size = value;
                     break;
          case '8' : (void)fprintf(stderr, _("\n\n     Enter value [8] (1 - %d): "), MAX_NO_PARALLEL_JOBS);
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     if ((value > 0) && (value <= MAX_NO_PARALLEL_JOBS))
                     {
                        fsa[position].allowed_transfers = value;
@@ -275,14 +279,14 @@ main(int argc, char *argv[])
                     }
                     break;
          case '9' : (void)fprintf(stderr, _("\n\n     Enter value [9] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fsa[position].transfer_timeout = value;
                     break;
          case 'a' : (void)fprintf(stderr, _("\n\n     Enter hostname  : "));
-                    (void)scanf("%s", fsa[position].real_hostname[0]);
+                    (void)scanf("%39s", fsa[position].real_hostname[0]);
                     break;
          case 'b' : (void)fprintf(stderr, _("\n\nEnter hostdisplayname: "));
-                    (void)scanf("%s", fsa[position].host_dsp_name);
+                    (void)scanf("%7s", fsa[position].host_dsp_name);
                     break;
          case 'c' : 
 #ifdef LOCK_DEBUG
@@ -298,7 +302,7 @@ main(int argc, char *argv[])
 #endif
                     break;
          case 'd' : (void)fprintf(stderr, _("\n\n     Enter value [d] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     if (value > MAX_NO_PARALLEL_JOBS)
                     {
                        (void)printf(_("The value must be between 0 and %d!\n"), MAX_NO_PARALLEL_JOBS);
@@ -311,15 +315,15 @@ main(int argc, char *argv[])
                     break;
          case 'e' : (void)fprintf(stderr, _("\n\n     Enter value [e] : "));
                     file_name[0] = '\0';
-                    (void)scanf("%s", file_name);
+                    (void)scanf("%256s", file_name);
                     (void)strcpy(fsa[position].job_status[0].file_name_in_use, file_name);
                     break;
          case 'f' : (void)fprintf(stderr, _("\n\n     Enter value [f] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fsa[position].jobs_queued = value;
                     break;
          case 'g' : (void)fprintf(stderr, _("\n\n     Enter value [g] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fsa[position].transfer_rate_limit = value;
                     break;
          case 'h' : if ((fsa[position].auto_toggle == ON) &&

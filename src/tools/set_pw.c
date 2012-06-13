@@ -1,6 +1,6 @@
 /*
  *  set_pw.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,15 +89,15 @@ main(int argc, char *argv[])
    char                current_user[MAX_FULL_USER_ID_LENGTH],
                        fake_user[MAX_FULL_USER_ID_LENGTH],
                        file[MAX_PATH_LENGTH],
-                       hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
-                       real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
+                       hostname[MAX_REAL_HOSTNAME_LENGTH],
+                       real_hostname[MAX_REAL_HOSTNAME_LENGTH],
                        *perm_buffer,
                        *ptr,
-                       uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 3],
-                       user[MAX_USER_NAME_LENGTH + 1],
-                       smtp_user[MAX_USER_NAME_LENGTH + 1],
+                       uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1],
+                       user[MAX_USER_NAME_LENGTH],
+                       smtp_user[MAX_USER_NAME_LENGTH],
                        work_dir[MAX_PATH_LENGTH];
-   unsigned char       passwd[MAX_USER_NAME_LENGTH + 1],
+   unsigned char       passwd[MAX_USER_NAME_LENGTH],
                        smtp_auth;
    struct passwd_buf  *pwb;
    struct job_id_data *jd;
@@ -131,12 +131,12 @@ main(int argc, char *argv[])
    }
 
    if (get_arg(&argc, argv, "-c", uh_name,
-               MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 2) == SUCCESS)
+               MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH) == SUCCESS)
    {
       ptr = uh_name;
       i = 0;
       while ((*(ptr + i) != '@') && (*(ptr + i) != '\0') &&
-             (i < MAX_USER_NAME_LENGTH))
+             (i < (MAX_USER_NAME_LENGTH - 1)))
       {
          user[i] = *(ptr + i);
          i++;
@@ -151,7 +151,7 @@ main(int argc, char *argv[])
       user[i] = '\0';
       ptr += i + 1;
       i = 0;
-      while ((*(ptr + i) != '\0') && (i < MAX_REAL_HOSTNAME_LENGTH))
+      while ((*(ptr + i) != '\0') && (i < (MAX_REAL_HOSTNAME_LENGTH - 1)))
       {
          hostname[i] = *(ptr + i);
          i++;
@@ -166,7 +166,7 @@ main(int argc, char *argv[])
       hostname[i] = '\0';
    }
    else if (get_arg(&argc, argv, "-i", uh_name,
-                    MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 2) == SUCCESS)
+                    MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH) == SUCCESS)
         {
            unsigned long ulong_val;
 
@@ -325,12 +325,25 @@ main(int argc, char *argv[])
                                         NULL, NO, real_hostname, NULL, NULL,
                                         NULL, NULL, NULL, NULL, NULL)) == 0)
          {
-            if (((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE)) ||
-                (scheme & LOC_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT
-                (scheme & MAP_FLAG) ||
+            int mask = 0;
+
+#ifdef _WITH_FD_EXEC_SUPPORT
+            mask |= EXEC_FLAG;
 #endif
-                (scheme & WMO_FLAG))
+#ifdef _WITH_LOC_SUPPORT
+            mask |= LOC_FLAG;
+#endif
+#ifdef _WITH_MAP_SUPPORT
+            mask |= MAP_FLAG;
+#endif
+#ifdef _WITH_WMO_SUPPORT
+            mask |= WMO_FLAG;
+#endif
+            if ((scheme & mask)
+#ifdef _WITH_SMTP_SUPPORT
+                || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))
+#endif
+               )
             {
                (void)fprintf(stderr,
                              "The scheme of this job does not need a password.\n");
@@ -338,10 +351,12 @@ main(int argc, char *argv[])
             }
             else
             {
+#ifdef _WITH_SMTP_SUPPORT
                if ((scheme & SMTP_FLAG) && (smtp_auth != SMTP_AUTH_NONE))
                {
                   (void)strcpy(uh_name, smtp_user);
                }
+#endif
                if (uh_name[0] != '\0')
                {
                   t_hostname(real_hostname, &uh_name[strlen(uh_name)]);
@@ -351,29 +366,26 @@ main(int argc, char *argv[])
                   t_hostname(real_hostname, uh_name);
                }
             }
-            if (((scheme & LOC_FLAG) == 0) &&
-#ifdef _WITH_WMO_SUPPORT
-                ((scheme & WMO_FLAG) == 0) &&
+            if ((scheme & mask)
+#ifdef _WITH_SMTP_SUPPORT
+                || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))
 #endif
-#ifdef _WITH_MAP_SUPPORT
-                ((scheme & MAP_FLAG) == 0) &&
-#endif
-                (smtp_auth != SMTP_AUTH_NONE))
-            {
-               if (uh_name[0] != '\0')
-               {
-                  t_hostname(real_hostname, &uh_name[strlen(uh_name)]);
-               }
-               else
-               {
-                  t_hostname(real_hostname, uh_name);
-               }
-            }
-            else
+               )
             {
                (void)fprintf(stderr,
                              "The scheme of this job does not need a password.\n");
                exit(INCORRECT);
+            }
+            else
+            {
+               if (uh_name[0] != '\0')
+               {
+                  t_hostname(real_hostname, &uh_name[strlen(uh_name)]);
+               }
+               else
+               {
+                  t_hostname(real_hostname, uh_name);
+               }
             }
          }
          else
@@ -460,19 +472,36 @@ main(int argc, char *argv[])
                                            NULL, NO, real_hostname, NULL, NULL,
                                            NULL, NULL, NULL, NULL, NULL)) == 0)
             {
+               int mask = 0;
+
+#ifdef _WITH_FD_EXEC_SUPPORT
+               mask |= EXEC_FLAG;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+               mask |= LOC_FLAG;
+#endif
+#ifdef _WITH_MAP_SUPPORT
+               mask |= MAP_FLAG;
+#endif
+#ifdef _WITH_WMO_SUPPORT
+               mask |= WMO_FLAG;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
                if ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))
                {
                   (void)strcpy(uh_name, smtp_user);
                }
-               if (((scheme & LOC_FLAG) == 0) &&
-#ifdef _WITH_WMO_SUPPORT
-                   ((scheme & WMO_FLAG) == 0) &&
 #endif
-#ifdef _WITH_MAP_SUPPORT
-                   ((scheme & MAP_FLAG) == 0) &&
+#ifdef _WITH_SMTP_SUPPORT
+               if (((scheme & mask) || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))) &&
+#else
+               if ((scheme & mask) &&
 #endif
-                   (((scheme & SMTP_FLAG) == 0) || (smtp_auth != SMTP_AUTH_NONE)) &&
-                   (CHECK_STRCMP(uh_name, user) == 0))
+                   (CHECK_STRCMP(uh_name, user) != 0))
+               {
+                  uh_name[0] = '\0';
+               }
+               else
                {
                   if (CHECK_STRCMP(real_hostname, hostname) == 0)
                   {
@@ -490,10 +519,6 @@ main(int argc, char *argv[])
                   {
                      uh_name[0] = '\0';
                   }
-               }
-               else
-               {
-                  uh_name[0] = '\0';
                }
             }
             else
@@ -527,19 +552,36 @@ main(int argc, char *argv[])
                                               NULL, NULL, NULL,
                                               NULL, NULL)) == 0)
                {
+                  int mask = 0;
+
+#ifdef _WITH_FD_EXEC_SUPPORT
+                  mask |= EXEC_FLAG;
+#endif
+#ifdef _WITH_LOC_SUPPORT
+                  mask |= LOC_FLAG;
+#endif
+#ifdef _WITH_MAP_SUPPORT
+                  mask |= MAP_FLAG;
+#endif
+#ifdef _WITH_WMO_SUPPORT
+                  mask |= WMO_FLAG;
+#endif
+#ifdef _WITH_SMTP_SUPPORT
                   if ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))
                   {
                      (void)strcpy(uh_name, smtp_user);
                   }
-                  if (((scheme & LOC_FLAG) == 0) &&
-#ifdef _WITH_WMO_SUPPORT
-                      ((scheme & WMO_FLAG) == 0) &&
 #endif
-#ifdef _WITH_MAP_SUPPORT
-                      ((scheme & MAP_FLAG) == 0) &&
+#ifdef _WITH_SMTP_SUPPORT
+                  if (((scheme & mask) || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))) &&
+#else
+                  if ((scheme & mask) &&
 #endif
-                      (((scheme & SMTP_FLAG) == 0) || (smtp_auth != SMTP_AUTH_NONE)) &&
-                      (CHECK_STRCMP(uh_name, user) == 0))
+                      (CHECK_STRCMP(uh_name, user) != 0))
+                  {
+                     uh_name[0] = '\0';
+                  }
+                  else
                   {
                      if (CHECK_STRCMP(real_hostname, hostname) == 0)
                      {
@@ -557,10 +599,6 @@ main(int argc, char *argv[])
                      {
                         uh_name[0] = '\0';
                      }
-                  }
-                  else
-                  {
-                     uh_name[0] = '\0';
                   }
                }
                else
@@ -613,12 +651,12 @@ main(int argc, char *argv[])
    i = 0;
    if (read_from_stdin == YES)
    {
-      unsigned char tmp_passwd[MAX_USER_NAME_LENGTH + 1],
+      unsigned char tmp_passwd[MAX_USER_NAME_LENGTH],
                     *uptr;
 
-      scanf("%s", tmp_passwd);
+      scanf("%79s", tmp_passwd);
       uptr = tmp_passwd;
-      while ((*uptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+      while ((*uptr != '\0') && (i < (MAX_USER_NAME_LENGTH - 1)))
       {
          if ((i % 2) == 0)
          {

@@ -1,6 +1,6 @@
 /*
  *  gf_http.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,6 +66,7 @@ DESCR__E_M1
 
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
+                           files_to_retrieve_shown = 0,
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -83,6 +84,7 @@ int                        event_log_fd = STDERR_FILENO,
 #endif
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag;
+off_t                      file_size_to_retrieve_shown = 0;
 #ifdef HAVE_MMAP
 off_t                      fra_size,
                            fsa_size;
@@ -239,16 +241,25 @@ main(int argc, char *argv[])
 #else
    timeout_flag = OFF;
 #endif
-   if ((status = http_connect(db.hostname, db.port,
+   if ((status = http_connect(db.hostname, db.http_proxy,
+                              db.port, db.user, db.password,
 #ifdef WITH_SSL
-                              db.user, db.password, db.auth, db.sndbuf_size, db.rcvbuf_size)) != SUCCESS)
-#else
-                              db.user, db.password, db.sndbuf_size, db.rcvbuf_size)) != SUCCESS)
+                              db.auth,
 #endif
+                              db.sndbuf_size, db.rcvbuf_size)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                "HTTP connection to %s at port %d failed (%d).",
-                db.hostname, db.port, status);
+      if (db.http_proxy[0] == '\0')
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   "HTTP connection to %s at port %d failed (%d).",
+                   db.hostname, db.port, status);
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   "HTTP connection to HTTP proxy %s at port %d failed (%d).",
+                   db.http_proxy, db.port, status);
+      }
       exit(CONNECT_ERROR);
    }
    else
@@ -270,6 +281,26 @@ main(int argc, char *argv[])
 #else
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL, "Connected.");
 #endif
+      }
+   }
+
+   if ((status = http_options(db.hostname, db.target_dir)) != SUCCESS)
+   {
+      trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
+                __FILE__, __LINE__, NULL, msg_str,
+                "Failed to get options (%d).", status);
+      if (timeout_flag == ON)
+      {
+         http_quit();
+         exit(eval_timeout(OPEN_REMOTE_ERROR));
+      }
+   }
+   else
+   {
+      if (fsa->debug > NORMAL_MODE)
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                      "Got HTTP server options.");
       }
    }
 
@@ -318,6 +349,8 @@ main(int argc, char *argv[])
 #else
             unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
 #endif
+            files_to_retrieve_shown += files_to_retrieve;
+            file_size_to_retrieve_shown += file_size_to_retrieve;
          }
 
          (void)gsf_check_fra();
@@ -326,7 +359,8 @@ main(int argc, char *argv[])
             /* Looks as if this directory is no longer in our database. */
             (void)http_quit();
             reset_values(files_retrieved, file_size_retrieved,
-                         files_to_retrieve, file_size_to_retrieve);
+                         files_to_retrieve, file_size_to_retrieve,
+                         (struct job *)&db);
             return(SUCCESS);
          }
 
@@ -340,7 +374,8 @@ main(int argc, char *argv[])
                        fra[db.fra_pos].dir_alias);
             http_quit();
             reset_values(files_retrieved, file_size_retrieved,
-                         files_to_retrieve, file_size_to_retrieve);
+                         files_to_retrieve, file_size_to_retrieve,
+                         (struct job *)&db);
             exit(INCORRECT);
          }
          else
@@ -404,6 +439,8 @@ main(int argc, char *argv[])
                {
                   content_length = rl[i].size;
                }
+               tmp_content_length = rl[i].size;
+          
                if (((status = http_get(db.hostname, db.target_dir,
                                        rl[i].file_name,
                                        &tmp_content_length, offset)) != SUCCESS) &&
@@ -438,7 +475,7 @@ main(int argc, char *argv[])
                    */
                   rl[i].retrieved = YES;
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa((struct job *)&db) != NEITHER)
                   {
 #ifdef LOCK_DEBUG
                      lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
@@ -451,6 +488,7 @@ main(int argc, char *argv[])
 
                      /* Total file counter. */
                      fsa->total_file_counter -= 1;
+                     files_to_retrieve_shown -= 1;
 #ifdef _VERIFY_FSA
                      if (fsa->total_file_counter < 0)
                      {
@@ -472,6 +510,7 @@ main(int argc, char *argv[])
                      if (rl[i].size > 0)
                      {
                         fsa->total_file_size -= rl[i].size;
+                        file_size_to_retrieve_shown -= rl[i].size;
 #ifdef _VERIFY_FSA
                         if (fsa->total_file_size < 0)
                         {
@@ -523,24 +562,12 @@ main(int argc, char *argv[])
 
                   if (offset > 0)
                   {
-                     if (content_length > 0)
-                     {
 #ifdef O_LARGEFILE
-                        fd = open(local_tmp_file, O_WRONLY | O_APPEND |
-                                  O_LARGEFILE);
+                     fd = open(local_tmp_file, O_WRONLY | O_APPEND |
+                               O_LARGEFILE);
 #else
-                        fd = open(local_tmp_file, O_WRONLY | O_APPEND);
+                     fd = open(local_tmp_file, O_WRONLY | O_APPEND);
 #endif
-                     }
-                     else
-                     {
-#ifdef O_LARGEFILE
-                        fd = open(local_tmp_file, O_WRONLY | O_CREAT |
-                                  O_LARGEFILE, FILE_MODE);
-#else
-                        fd = open(local_tmp_file, O_WRONLY | O_CREAT, FILE_MODE);
-#endif
-                     }
                   }
                   else
                   {
@@ -558,7 +585,8 @@ main(int argc, char *argv[])
                                local_tmp_file, strerror(errno));
                      http_quit();
                      reset_values(files_retrieved, file_size_retrieved,
-                                  files_to_retrieve, file_size_to_retrieve);
+                                  files_to_retrieve, file_size_to_retrieve,
+                                  (struct job *)&db);
                      exit(OPEN_LOCAL_ERROR);
                   }
                   else
@@ -570,7 +598,7 @@ main(int argc, char *argv[])
                      }
                   }
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa((struct job *)&db) != NEITHER)
                   {
                      if (content_length == -1)
                      {
@@ -591,7 +619,7 @@ main(int argc, char *argv[])
                                   rl[i].file_name);
                   }
 
-                  if ((status != NOTHING_TO_FETCH) && (content_length > 0))
+                  if (status != NOTHING_TO_FETCH)
                   {
                      bytes_done = 0;
                      if (fsa->trl_per_process > 0)
@@ -608,7 +636,8 @@ main(int argc, char *argv[])
                                         "Failed to read from remote file %s",
                                         rl[i].file_name);
                               reset_values(files_retrieved, file_size_retrieved,
-                                           files_to_retrieve, file_size_to_retrieve);
+                                           files_to_retrieve, file_size_to_retrieve,
+                                           (struct job *)&db);
                               http_quit();
                               exit(eval_timeout(READ_REMOTE_ERROR));
                            }
@@ -627,19 +656,20 @@ main(int argc, char *argv[])
                                  http_quit();
                                  reset_values(files_retrieved, file_size_retrieved,
                                               files_to_retrieve,
-                                              file_size_to_retrieve);
+                                              file_size_to_retrieve,
+                                              (struct job *)&db);
                                  exit(WRITE_LOCAL_ERROR);
                               }
                               bytes_done += status;
                            }
 
-                           if (gsf_check_fsa() != NEITHER)
+                           if (gsf_check_fsa((struct job *)&db) != NEITHER)
                            {
                               fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                               fsa->job_status[(int)db.job_no].file_size_done += status;
                               fsa->job_status[(int)db.job_no].bytes_send += status;
                            }
-                        } while ((status != 0) && (bytes_done < content_length));
+                        } while (status != 0);
                      }
                      else /* We need to read data in chunks dictated by the server. */
                      {
@@ -665,7 +695,8 @@ main(int argc, char *argv[])
                                         "Failed to read from remote file %s",
                                         rl[i].file_name);
                               reset_values(files_retrieved, file_size_retrieved,
-                                           files_to_retrieve, file_size_to_retrieve);
+                                           files_to_retrieve, file_size_to_retrieve,
+                                           (struct job *)&db);
                               http_quit();
                               (void)unlink(local_tmp_file);
                               exit(eval_timeout(READ_REMOTE_ERROR));
@@ -686,20 +717,20 @@ main(int argc, char *argv[])
                                  (void)unlink(local_tmp_file);
                                  reset_values(files_retrieved, file_size_retrieved,
                                               files_to_retrieve,
-                                              file_size_to_retrieve);
+                                              file_size_to_retrieve,
+                                              (struct job *)&db);
                                  exit(WRITE_LOCAL_ERROR);
                               }
                               bytes_done += status;
                            }
 
-                           if (gsf_check_fsa() != NEITHER)
+                           if (gsf_check_fsa((struct job *)&db) != NEITHER)
                            {
                               fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                               fsa->job_status[(int)db.job_no].file_size_done += status;
                               fsa->job_status[(int)db.job_no].bytes_send += status;
                            }
-                        } while ((status != HTTP_LAST_CHUNK) &&
-                                 (bytes_done < content_length));
+                        } while (status != HTTP_LAST_CHUNK);
                      }
                   } /* if (status != NOTHING_TO_FETCH) */
 
@@ -739,7 +770,7 @@ main(int argc, char *argv[])
                      }
                   }
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa((struct job *)&db) != NEITHER)
                   {
 #ifdef LOCK_DEBUG
                      lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
@@ -753,6 +784,7 @@ main(int argc, char *argv[])
 
                      /* Total file counter. */
                      fsa->total_file_counter -= 1;
+                     files_to_retrieve_shown -= 1;
 #ifdef _VERIFY_FSA
                      if (fsa->total_file_counter < 0)
                      {
@@ -773,6 +805,7 @@ main(int argc, char *argv[])
                      if ((rl[i].size != content_length) && (content_length > 0))
                      {
                         fsa->total_file_size += (content_length - rl[i].size);
+                        file_size_to_retrieve_shown += (content_length - rl[i].size);
                         fsa->job_status[(int)db.job_no].file_size += (content_length - rl[i].size);
                         if (adjust_rl_size == YES)
                         {
@@ -792,6 +825,7 @@ main(int argc, char *argv[])
                      if (content_length > 0)
                      {
                         fsa->total_file_size -= content_length;
+                        file_size_to_retrieve_shown -= content_length;
 #ifdef _VERIFY_FSA
                         if (fsa->total_file_size < 0)
                         {
@@ -1048,7 +1082,8 @@ main(int argc, char *argv[])
          } /* for (i = 0; i < *no_of_listed_files; i++) */
 
          reset_values(files_retrieved, file_size_retrieved,
-                      files_to_retrieve, file_size_to_retrieve);
+                      files_to_retrieve, file_size_to_retrieve,
+                      (struct job *)&db);
 
          /* Free memory for the read buffer. */
          free(buffer);
@@ -1202,7 +1237,8 @@ gf_http_exit(void)
    {
       WHAT_DONE("retrieved", fsa->job_status[(int)db.job_no].file_size_done,
                 fsa->job_status[(int)db.job_no].no_of_files_done);
-      reset_fsa((struct job *)&db, exitflag);
+      reset_fsa((struct job *)&db, exitflag, files_to_retrieve_shown,
+                file_size_to_retrieve_shown);
    }
 
    send_proc_fin(NO);
@@ -1220,7 +1256,6 @@ static int
 http_timeup(void)
 {
    time_t now,
-          sleeptime = 0,
           timeup;
 
    (void)gsf_check_fra();
@@ -1276,8 +1311,10 @@ http_timeup(void)
          timeup = fra[db.fra_pos].next_check_time;
       }
    }
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
+      time_t sleeptime = 0;
+
       if (fsa->protocol_options & STAT_KEEPALIVE)
       {
          sleeptime = fsa->transfer_timeout - 5;
@@ -1299,7 +1336,7 @@ http_timeup(void)
          {
             return(INCORRECT);
          }
-         if (gsf_check_fsa() == NEITHER)
+         if (gsf_check_fsa((struct job *)&db) == NEITHER)
          {
             break;
          }
@@ -1324,7 +1361,8 @@ http_timeup(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, files_to_retrieve_shown,
+             file_size_to_retrieve_shown);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
               "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -1335,7 +1373,8 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, files_to_retrieve_shown,
+             file_size_to_retrieve_shown);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }

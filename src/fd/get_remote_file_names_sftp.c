@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names_sftp.c - Part of AFD, an automatic file distribution
  *                                 program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ static time_t                     current_time;
 
 /* Local function prototypes. */
 static int                        check_list(char *, struct stat *, int *,
-                                  off_t *);
+                                  off_t *, int *);
 
 
 /*#################### get_remote_file_names_sftp() #####################*/
@@ -233,6 +233,13 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve,
             }
             else
             {
+               if (strlen(filename) >= (MAX_FILENAME_LENGTH - 1))
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Remote file name `%s' is to long, it may only be %d bytes long.",
+                            filename, (MAX_FILENAME_LENGTH - 1));
+                  continue;
+               }
                if (fsa->debug > NORMAL_MODE)
                {
                   time_t mtime;
@@ -257,7 +264,8 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve,
                   {
                      if (((status = pmatch(p_mask, filename, NULL)) == 0) &&
                          (check_list(filename, &stat_buf, &files_to_retrieve,
-                                     file_size_to_retrieve) == 0))
+                                     file_size_to_retrieve,
+                                     more_files_in_list) == 0))
                      {
                         gotcha = YES;
                         files_to_retrieve++;
@@ -313,16 +321,6 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve,
          free(fml[i].file_list);
       }
       free(fml);
-
-      if (files_to_retrieve >= fra[db.fra_pos].max_copied_files)
-      {
-         files_to_retrieve = fra[db.fra_pos].max_copied_files;
-         *more_files_in_list = YES;
-      }
-      else if (*file_size_to_retrieve >= fra[db.fra_pos].max_copied_file_size)
-           {
-              *more_files_in_list = YES;
-           }
 
       /*
        * Remove all files from the remote_list structure that are not
@@ -419,7 +417,8 @@ static int
 check_list(char        *file,
            struct stat *p_stat_buf,
            int         *files_to_retrieve,
-           off_t       *file_size_to_retrieve)
+           off_t       *file_size_to_retrieve,
+           int         *more_files_in_list)
 {
    int i;
 
@@ -441,8 +440,6 @@ check_list(char        *file,
          {
             rl[i].in_list = YES;
             if ((rl[i].retrieved == NO) && (rl[i].assigned == 0) &&
-                (*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
-                (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size) &&
                 (((db.special_flag & OLD_ERROR_JOB) == 0) ||
 #ifdef LOCK_DEBUG
                    (lock_region(rl_fd, (off_t)i, __FILE__, __LINE__) == LOCK_IS_NOT_SET)
@@ -457,19 +454,28 @@ check_list(char        *file,
                rl[i].got_date = YES;
                rl[i].size = p_stat_buf->st_size;
 
-               if ((rl[i].size > 0) &&
-                   ((fra[db.fra_pos].ignore_size == 0) ||
-                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
-                     (fra[db.fra_pos].ignore_size == rl[i].size)) ||
-                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
-                     (fra[db.fra_pos].ignore_size < rl[i].size)) ||
-                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
-                     (fra[db.fra_pos].ignore_size > rl[i].size))))
+               if ((fra[db.fra_pos].ignore_size == 0) ||
+                   ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
+                    (fra[db.fra_pos].ignore_size == rl[i].size)) ||
+                   ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
+                    (fra[db.fra_pos].ignore_size < rl[i].size)) ||
+                   ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
+                    (fra[db.fra_pos].ignore_size > rl[i].size)))
                {
                   if (fra[db.fra_pos].ignore_file_time == 0)
                   {
                      *file_size_to_retrieve += rl[i].size;
-                     rl[i].assigned = (unsigned char)db.job_no + 1;
+                     if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                         (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                     {
+                        rl[i].assigned = (unsigned char)db.job_no + 1;
+                     }
+                     else
+                     {
+                        rl[i].assigned = 0;
+                        *file_size_to_retrieve -= rl[i].size;
+                        *more_files_in_list = YES;
+                     }
                      ret = 0;
                   }
                   else
@@ -485,7 +491,17 @@ check_list(char        *file,
                           (fra[db.fra_pos].ignore_file_time > diff_time)))
                      {
                         *file_size_to_retrieve += rl[i].size;
-                        rl[i].assigned = (unsigned char)db.job_no + 1;
+                        if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                            (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                        {
+                           rl[i].assigned = (unsigned char)db.job_no + 1;
+                        }
+                        else
+                        {
+                           rl[i].assigned = 0;
+                           *file_size_to_retrieve -= rl[i].size;
+                           *more_files_in_list = YES;
+                        }
                         ret = 0;
                      }
                      else
@@ -523,10 +539,8 @@ check_list(char        *file,
          if (CHECK_STRCMP(rl[i].file_name, file) == 0)
          {
             rl[i].in_list = YES;
-            if (((*files_to_retrieve >= fra[db.fra_pos].max_copied_files) ||
-                 (*file_size_to_retrieve >= fra[db.fra_pos].max_copied_file_size)) ||
-                ((fra[db.fra_pos].stupid_mode == GET_ONCE_ONLY) &&
-                 (rl[i].retrieved == YES)))
+            if ((fra[db.fra_pos].stupid_mode == GET_ONCE_ONLY) &&
+                (rl[i].retrieved == YES))
             {
                return(1);
             }
@@ -545,29 +559,40 @@ check_list(char        *file,
                {
                   rl[i].file_mtime = p_stat_buf->st_mtime;
                   rl[i].retrieved = NO;
+                  rl[i].assigned = 0;
                }
                rl[i].got_date = YES;
                if (rl[i].size != p_stat_buf->st_size)
                {
                   rl[i].size = p_stat_buf->st_size;
                   rl[i].retrieved = NO;
+                  rl[i].assigned = 0;
                }
                if (rl[i].retrieved == NO)
                {
-                  if ((rl[i].size > 0) &&
-                      ((fra[db.fra_pos].ignore_size == 0) ||
-                       ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
-                        (fra[db.fra_pos].ignore_size == rl[i].size)) ||
-                       ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
-                        (fra[db.fra_pos].ignore_size < rl[i].size)) ||
-                       ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
-                        (fra[db.fra_pos].ignore_size > rl[i].size))))
+                  if ((fra[db.fra_pos].ignore_size == 0) ||
+                      ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
+                       (fra[db.fra_pos].ignore_size == rl[i].size)) ||
+                      ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
+                       (fra[db.fra_pos].ignore_size < rl[i].size)) ||
+                      ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
+                       (fra[db.fra_pos].ignore_size > rl[i].size)))
                   {
                      if ((rl[i].got_date == NO) ||
                          (fra[db.fra_pos].ignore_file_time == 0))
                      {
                         *file_size_to_retrieve += rl[i].size;
-                        rl[i].assigned = (unsigned char)db.job_no + 1;
+                        if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                            (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                        {
+                           rl[i].assigned = (unsigned char)db.job_no + 1;
+                        }
+                        else
+                        {
+                           rl[i].assigned = 0;
+                           *file_size_to_retrieve -= rl[i].size;
+                           *more_files_in_list = YES;
+                        }
                         ret = 0;
                      }
                      else
@@ -583,7 +608,17 @@ check_list(char        *file,
                              (fra[db.fra_pos].ignore_file_time > diff_time)))
                         {
                            *file_size_to_retrieve += rl[i].size;
-                           rl[i].assigned = (unsigned char)db.job_no + 1;
+                           if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+                               (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+                           {
+                              rl[i].assigned = (unsigned char)db.job_no + 1;
+                           }
+                           else
+                           {
+                              rl[i].assigned = 0;
+                              *file_size_to_retrieve -= rl[i].size;
+                              *more_files_in_list = YES;
+                           }
                            ret = 0;
                         }
                         else
@@ -653,56 +688,55 @@ check_list(char        *file,
    rl[*no_of_listed_files].file_mtime = p_stat_buf->st_mtime;
    rl[*no_of_listed_files].got_date = YES;
 
-   if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
-       (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+   if ((fra[db.fra_pos].ignore_size == 0) ||
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
+        (fra[db.fra_pos].ignore_size == rl[*no_of_listed_files].size)) ||
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
+        (fra[db.fra_pos].ignore_size < rl[*no_of_listed_files].size)) ||
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
+        (fra[db.fra_pos].ignore_size > rl[*no_of_listed_files].size)))
    {
-      if ((fra[db.fra_pos].ignore_size == 0) ||
-          ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
-           (fra[db.fra_pos].ignore_size == rl[*no_of_listed_files].size)) ||
-          ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
-           (fra[db.fra_pos].ignore_size < rl[*no_of_listed_files].size)) ||
-          ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
-           (fra[db.fra_pos].ignore_size > rl[*no_of_listed_files].size)))
+      if ((rl[*no_of_listed_files].got_date == NO) ||
+          (fra[db.fra_pos].ignore_file_time == 0))
       {
-         if ((rl[*no_of_listed_files].got_date == NO) ||
-             (fra[db.fra_pos].ignore_file_time == 0))
+         *file_size_to_retrieve += p_stat_buf->st_size;
+         (*no_of_listed_files)++;
+      }
+      else
+      {
+         time_t diff_time;
+
+         diff_time = current_time - rl[*no_of_listed_files].file_mtime;
+         if (((fra[db.fra_pos].gt_lt_sign & IFTIME_EQUAL) &&
+              (fra[db.fra_pos].ignore_file_time == diff_time)) ||
+             ((fra[db.fra_pos].gt_lt_sign & IFTIME_LESS_THEN) &&
+              (fra[db.fra_pos].ignore_file_time < diff_time)) ||
+             ((fra[db.fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) &&
+                 (fra[db.fra_pos].ignore_file_time > diff_time)))
          {
             *file_size_to_retrieve += p_stat_buf->st_size;
             (*no_of_listed_files)++;
          }
          else
          {
-            time_t diff_time;
-
-            diff_time = current_time - rl[*no_of_listed_files].file_mtime;
-            if (((fra[db.fra_pos].gt_lt_sign & IFTIME_EQUAL) &&
-                 (fra[db.fra_pos].ignore_file_time == diff_time)) ||
-                ((fra[db.fra_pos].gt_lt_sign & IFTIME_LESS_THEN) &&
-                 (fra[db.fra_pos].ignore_file_time < diff_time)) ||
-                ((fra[db.fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) &&
-                    (fra[db.fra_pos].ignore_file_time > diff_time)))
-            {
-               *file_size_to_retrieve += p_stat_buf->st_size;
-               (*no_of_listed_files)++;
-            }
-            else
-            {
-               return(1);
-            }
+            return(1);
          }
+      }
+      if ((*files_to_retrieve < fra[db.fra_pos].max_copied_files) &&
+          (*file_size_to_retrieve < fra[db.fra_pos].max_copied_file_size))
+      {
          rl[(*no_of_listed_files) - 1].assigned = (unsigned char)db.job_no + 1;
-         return(0);
       }
       else
       {
-         return(1);
+         rl[(*no_of_listed_files) - 1].assigned = 0;
+         *file_size_to_retrieve -= p_stat_buf->st_size;
+         *more_files_in_list = YES;
       }
+      return(0);
    }
    else
    {
-      rl[*no_of_listed_files].assigned = 0;
-      (*no_of_listed_files)++;
-
-      return(0);
+      return(1);
    }
 }

@@ -1,6 +1,6 @@
 /*
  *  ssh_common.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>       /* memcpy(), strerror()                        */
-#include <stdlib.h>       /* malloc(), free()                            */
+#include <stdlib.h>       /* malloc(), free(), exit()                    */
 #include <sys/types.h>    /* fd_set                                      */
 #include <setjmp.h>       /* sigsetjmp(), siglongjmp()                   */
 #include <signal.h>       /* kill()                                      */
@@ -77,7 +77,7 @@ DESCR__E_M3
 # include <util.h>
 #endif
 #include <termios.h>
-#include <unistd.h>       /* select(), exit(), write(), read(), close()  */
+#include <unistd.h>       /* select(), write(), read(), close()          */
 #include <fcntl.h>        /* open()                                      */
 #include <errno.h>
 #include "fddefs.h"
@@ -145,8 +145,6 @@ ssh_exec(char          *host,
 
    if (passwd != NULL)
    {
-      int len;
-
       /* Do we have an identity tag "<i>" ? */
       if ((ptr = strstr(passwd, "<i>")))
       {
@@ -177,6 +175,8 @@ ssh_exec(char          *host,
 
       if (idBeg)
       {
+         int len;
+
          len = idEnd - idBeg + 1;
          if ((identityFilePath = malloc(len + 1)) == NULL)
          {
@@ -228,7 +228,7 @@ ssh_exec(char          *host,
          {
             if ((*child_pid = fork()) == 0)  /* Child process. */
             {
-               char *args[18],
+               char *args[20],
                     dummy,
                     str_protocol[1 + 3 + 1],
                     str_port[MAX_INT_LENGTH];
@@ -279,7 +279,11 @@ ssh_exec(char          *host,
                   args[argcount] = "-C";
                   argcount++;
                }
-               args[argcount] = "-x";
+               args[argcount] = "-oForwardX11 no";
+               argcount++;
+               args[argcount] = "-oForwardAgent no";
+               argcount++;
+               args[argcount] = "-oClearAllForwardings yes";
                argcount++;
 #ifdef _WITH_FALLBACK_TO_RSH_NO
                args[argcount] = "-oFallBackToRsh no";
@@ -385,10 +389,7 @@ ssh_exec(char          *host,
       }
    }
 
-   if (identityFilePath)
-   {
-      (void)free(identityFilePath);
-   }
+   (void)free(identityFilePath);
 #ifdef WITH_SSH_FINGERPRINT
 # ifdef WITH_REMOVE_FROM_KNOWNHOSTS
    (void)strcpy(sd.hostname, host);
@@ -425,8 +426,6 @@ ssh_login(int data_fd, char *passwd)
 
    if (passwd != NULL)
    {
-      int len;
-
       /* Do we have an identity tag "<i>" ? */
       if ((ptr = strstr(passwd, "<i>")))
       {
@@ -462,6 +461,8 @@ ssh_login(int data_fd, char *passwd)
 
       if (passwdBeg)
       {
+         int len;
+
          len = passwdEnd - passwdBeg + 1;
          if ((password = malloc(len + 2)) == NULL)
          {
@@ -843,11 +844,8 @@ retry_read:
               }
            }
    }
+   (void)free(password);
 
-   if (password)
-   {
-      (void)free(password);
-   }
    return(status);
 }
 

@@ -1,6 +1,6 @@
 /*
  *  mmap_emu.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1994 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1994 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,11 +101,13 @@ mmap_emu(caddr_t addr,
    if (errno != 0)
    {
       (void)unlink(fifoname);
+      (void)close(write_fd);
       return((caddr_t) -1);
    }
    if ((read_fd = open(fifoname, O_NDELAY)) < 0)
    {
       (void)unlink(fifoname);
+      (void)close(write_fd);
       return((caddr_t) -1);
    }
 
@@ -117,6 +119,8 @@ mmap_emu(caddr_t addr,
    if (write(write_fd, buf, buf_length) != buf_length)
    {
       (void)unlink(fifoname);
+      (void)close(read_fd);
+      (void)close(write_fd);
       return((caddr_t) -1);
    }
 
@@ -136,6 +140,8 @@ mmap_emu(caddr_t addr,
    if ((shmptr = (caddr_t)shmat(shmid, 0, 0)) == (caddr_t) -1)
    {
       (void)unlink(fifoname);
+      (void)close(read_fd);
+      (void)close(write_fd);
       return((caddr_t) -1);
    }
 #ifdef _MMAP_EMU_DEBUG

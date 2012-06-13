@@ -1,6 +1,6 @@
 /*
  *  cmdline.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -178,6 +178,8 @@ struct data
           char         proxy_name[MAX_PROXY_NAME_LENGTH + 1];
           char         remote_dir[MAX_PATH_LENGTH];
           char         chmod_str[5];     /* String mode value for FTP.     */
+          char         dir_mode_str[5];  /* String mode value when         */
+                                         /* creating directories for FTP.  */
           char         smtp_server[MAX_USER_NAME_LENGTH];
                                          /* Target directory on the remote */
                                          /* side.                          */

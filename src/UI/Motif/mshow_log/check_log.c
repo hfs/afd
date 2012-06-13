@@ -1,6 +1,6 @@
 /*
  *  check_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,8 @@ extern int            current_log_number,
                       log_type_flag,
                       no_of_hosts;
 extern XT_PTR_TYPE    toggles_set;
-extern off_t          total_length;
+extern off_t          max_logfile_size,
+                      total_length;
 extern unsigned int   toggles_set_parallel_jobs;
 extern ino_t          current_inode_no;
 extern char           log_dir[MAX_PATH_LENGTH],
@@ -102,9 +103,7 @@ check_log(Widget w)
 #ifdef _SLOW_COUNTER
    static int old_line_counter = 0;
 #endif
-   int        i,
-              length,
-              locked = 0,
+   int        locked = 0,
               lock_counter = 1,
               cursor_counter = 1;
    char       line[MAX_LINE_LENGTH + 1],
@@ -112,7 +111,8 @@ check_log(Widget w)
 
    if (p_log_file != NULL)
    {
-      int          max_lines = 0;
+      int          length,
+                   max_lines = 0;
       unsigned int chars_buffered = 0;
       char         *line_buffer;
 
@@ -124,6 +124,8 @@ check_log(Widget w)
       }
       if (no_of_hosts > 0)
       {
+         int i;
+
          while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
          {
             length = strlen(line);
@@ -244,10 +246,10 @@ check_log(Widget w)
 
    /* Has a new log file been created? */
    if ((((log_type_flag == TRANS_DB_LOG_TYPE) &&
-         (total_length > MAX_TRANS_DB_LOGFILE_SIZE)) ||
+         (total_length > max_logfile_size)) ||
         (((log_type_flag == SYSTEM_LOG_TYPE) ||
           (log_type_flag == MON_SYSTEM_LOG_TYPE)) &&
-         (total_length > MAX_SYS_LOGFILE_SIZE))) &&
+         (total_length > max_logfile_size))) &&
        (current_log_number == 0))
    {
       char        log_file[MAX_PATH_LENGTH];

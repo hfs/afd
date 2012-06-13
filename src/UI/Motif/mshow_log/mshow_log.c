@@ -1,6 +1,6 @@
 /*
  *  mshow_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,6 +54,10 @@ DESCR__E_M1
 #include <string.h>              /* strcpy(), strcat(), strcmp()         */
 #include <ctype.h>               /* toupper()                            */
 #include <signal.h>              /* signal()                             */
+#ifdef HAVE_SETPRIORITY
+# include <sys/time.h>
+# include <sys/resource.h>       /* setpriority()                        */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>              /* gethostname(), STDERR_FILENO         */
@@ -113,7 +117,8 @@ int            alias_name_length,
                sys_log_fd = STDERR_FILENO,
                toggles_set_parallel_jobs;
 XT_PTR_TYPE    toggles_set;
-off_t          total_length;
+off_t          max_logfile_size = 1024,
+               total_length;
 ino_t          current_inode_no;
 char           log_dir[MAX_PATH_LENGTH],
                log_type[MAX_FILENAME_LENGTH],
@@ -136,8 +141,11 @@ FILE           *p_log_file;
 const char     *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
-static void    init_log_file(int *, char **),
-               create_cursors(void),
+static void    create_cursors(void),
+#ifdef HAVE_SETPRIORITY
+               get_afd_config_value(void),
+#endif
+               init_log_file(int *, char **),
                sig_bus(int),
                sig_segv(int),
                usage(char *);
@@ -206,6 +214,9 @@ main(int argc, char *argv[])
 
    p_work_dir = work_dir;
    init_log_file(&argc, argv);
+#ifdef HAVE_SETPRIORITY
+   get_afd_config_value();
+#endif
 
    (void)strcpy(window_title, log_type);
    (void)strcat(window_title, " Log ");
@@ -952,8 +963,10 @@ init_log_file(int *argc, char *argv[])
    {
       (void)strcpy(log_name, SYSTEM_LOG_NAME);
       max_log_number = MAX_SYSTEM_LOG_FILES;
-      get_max_log_number(&max_log_number, MAX_SYSTEM_LOG_FILES_DEF,
-                         MAX_SYSTEM_LOG_FILES);
+      max_logfile_size = MAX_SYS_LOGFILE_SIZE;
+      get_max_log_values(&max_log_number, MAX_SYSTEM_LOG_FILES_DEF,
+                         MAX_SYSTEM_LOG_FILES, &max_logfile_size,
+                         MAX_SYS_LOGFILE_SIZE_DEF, MAX_SYS_LOGFILE_SIZE);
       max_log_number--;
       log_type_flag = SYSTEM_LOG_TYPE;
    }
@@ -966,8 +979,8 @@ init_log_file(int *argc, char *argv[])
            {
               alias_name_length = DEFAULT_DIR_ALIAS_DISPLAY_LENGTH;
            }
-           get_max_log_number(&max_log_number, MAX_RECEIVE_LOG_FILES_DEF,
-                              MAX_RECEIVE_LOG_FILES);
+           get_max_log_values(&max_log_number, MAX_RECEIVE_LOG_FILES_DEF,
+                              MAX_RECEIVE_LOG_FILES, NULL, NULL, 0);
            max_log_number--;
            log_type_flag = RECEIVE_LOG_TYPE;
         }
@@ -980,8 +993,8 @@ init_log_file(int *argc, char *argv[])
            {
               alias_name_length = DEFAULT_HOSTNAME_DISPLAY_LENGTH;
            }
-           get_max_log_number(&max_log_number, MAX_TRANSFER_LOG_FILES_DEF,
-                              MAX_TRANSFER_LOG_FILES);
+           get_max_log_values(&max_log_number, MAX_TRANSFER_LOG_FILES_DEF,
+                              MAX_TRANSFER_LOG_FILES, NULL, NULL, 0);
            max_log_number--;
            log_type_flag = TRANSFER_LOG_TYPE;
         }
@@ -989,13 +1002,16 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, TRANS_DB_LOG_NAME);
            max_log_number = MAX_TRANS_DB_LOG_FILES;
+           max_logfile_size = MAX_TRANS_DB_LOGFILE_SIZE;
            if ((alias_name_length < 1) ||
                (alias_name_length > MAX_HOSTNAME_LENGTH))
            {
               alias_name_length = DEFAULT_HOSTNAME_DISPLAY_LENGTH;
            }
-           get_max_log_number(&max_log_number, MAX_TRANS_DB_LOG_FILES_DEF,
-                              MAX_TRANS_DB_LOG_FILES);
+           get_max_log_values(&max_log_number, MAX_TRANS_DB_LOG_FILES_DEF,
+                              MAX_TRANS_DB_LOG_FILES, &max_logfile_size,
+                              MAX_TRANS_DB_LOGFILE_SIZE_DEF,
+                              MAX_TRANS_DB_LOGFILE_SIZE);
            max_log_number--;
            log_type_flag = TRANS_DB_LOG_TYPE;
         }
@@ -1003,8 +1019,8 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, MON_SYS_LOG_NAME);
            max_log_number = MAX_MON_SYS_LOG_FILES;
-           get_max_log_number(&max_log_number, MAX_MON_SYS_LOG_FILES_DEF,
-                              MAX_MON_SYS_LOG_FILES);
+           get_max_log_values(&max_log_number, MAX_MON_SYS_LOG_FILES_DEF,
+                              MAX_MON_SYS_LOG_FILES, NULL, NULL, 0);
            max_log_number--;
            log_type_flag = MON_SYSTEM_LOG_TYPE;
         }
@@ -1017,8 +1033,8 @@ init_log_file(int *argc, char *argv[])
            {
               alias_name_length = DEFAULT_AFD_ALIAS_DISPLAY_LENGTH;
            }
-           get_max_log_number(&max_log_number, MAX_MON_LOG_FILES_DEF,
-                              MAX_MON_LOG_FILES);
+           get_max_log_values(&max_log_number, MAX_MON_LOG_FILES_DEF,
+                              MAX_MON_LOG_FILES, NULL, NULL, 0);
            max_log_number--;
            log_type_flag = MONITOR_LOG_TYPE;
         }
@@ -1061,7 +1077,7 @@ init_log_file(int *argc, char *argv[])
       RT_ARRAY(hosts, no_of_hosts, (MAX_AFDNAME_LENGTH + 1), char);
       while (*argc > 1)
       {
-         (void)strcpy(hosts[i], argv[1]);
+         (void)my_strncpy(hosts[i], argv[1], (MAX_AFDNAME_LENGTH + 1));
          (*argc)--; argv++;
          i++;
       }
@@ -1069,6 +1085,39 @@ init_log_file(int *argc, char *argv[])
 
    return;
 }
+
+
+#ifdef HAVE_SETPRIORITY
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(void)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(config_file, F_OK) == 0) &&
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, SHOW_LOG_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+      free(buffer);
+   }
+
+   return;
+}
+#endif
 
 
 /*---------------------------------- usage() ----------------------------*/

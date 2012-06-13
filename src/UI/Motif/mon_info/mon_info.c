@@ -1,6 +1,6 @@
 /*
  *  mon_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -93,7 +93,7 @@ int                    afd_position = -1,
                        no_of_afds,
                        sys_log_fd = STDERR_FILENO;
 off_t                  msa_size;
-char                   afd_name[MAX_AFD_NAME_LENGTH + 1],
+char                   afd_name[MAX_AFDNAME_LENGTH + 1],
                        font_name[40],
                        *info_data = NULL,
                        *p_work_dir,
@@ -594,7 +594,7 @@ init_mon_info(int *argc, char *argv[])
    {
       (void)strcpy(font_name, "fixed");
    }
-   if (get_arg(argc, argv, "-a", afd_name, MAX_AFD_NAME_LENGTH + 1) == INCORRECT)
+   if (get_arg(argc, argv, "-a", afd_name, MAX_AFDNAME_LENGTH + 1) == INCORRECT)
    {
       usage(argv[0]);
       exit(INCORRECT);
@@ -732,8 +732,6 @@ usage(char *progname)
 static void
 eval_permissions(char *perm_buffer)
 {
-   char *ptr;
-
    /*
     * If we find 'all' right at the beginning, no further evaluation
     * is needed, since the user has all permissions.
@@ -748,7 +746,7 @@ eval_permissions(char *perm_buffer)
    else
    {
       /* May the user change the information? */
-      if ((ptr = posi(perm_buffer, EDIT_MON_INFO_PERM)) == NULL)
+      if (posi(perm_buffer, EDIT_MON_INFO_PERM) == NULL)
       {
          /* The user may NOT change the information. */
          editable = NO;

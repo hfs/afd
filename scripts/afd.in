@@ -37,6 +37,36 @@ else
 fi
 
 
+meta_data()
+{
+cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="afd" version="0.1">
+   <version>0.1</version>
+   <longdesc lang="en">
+AFD is an automatic file distributor and collector. It is
+used to distribute data files via FTP, FTPS, SFTP, SMTP
+and/or SCP. It collects files via FTP, FTPS, SFTP, HTTP
+and/or HTTPS.
+   </longdesc>
+   <shortdesc lang="en">
+AFD is an automatic file distributor and collector.
+   </shortdesc>
+   <actions>
+      <action name="start"        timeout="20"/>
+      <action name="stop"         timeout="40"/>
+      <action name="monitor"      timeout="20"
+                                  interval="10" depth="0"/>
+      <action name="reload"       timeout="20"/>
+      <action name="meta-data"    timeout="5"/>
+      <action name="validate-all" timeout="20"/>
+   </actions>
+</resource-agent>
+END
+}
+
+
 # See how we were called.
 case "$1" in
   start)
@@ -151,6 +181,43 @@ case "$1" in
 	done
 	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/afd
 	;;
+  reload)
+	RETVAL=0
+	for afduser in $AFD_USERS
+	do
+	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
+	   if [ "$AFD_WORK_DIR_LIST" = "" ]
+	   then
+	      echo -n "Reloading configuration of AFD for $afduser : "
+	      su - $afduser -c "udc"
+	      case $? in
+	         0)
+	            echo "Done"
+	            ;;
+	         *)
+	            RETVAL=$?
+	            echo "Failed"
+	            ;;
+	      esac
+	   else
+	      counter=0
+	      for afddir in $AFD_WORK_DIR_LIST
+	      do
+	         echo -n "Reloading configuration of AFD ($afddir) for $afduser : "
+	         su - $afduser -c "udc -w $afddir"
+	         case $? in
+	            0)
+	               echo "Done"
+	               ;;
+	            *)
+	               RETVAL=$?
+	               echo "Failed"
+	               ;;
+	         esac
+	      done
+	   fi
+	done
+        ;;
   restart)
 	$0 stop
 	sleep 2
@@ -213,7 +280,7 @@ case "$1" in
 	      do
 	         if [ -f /var/lock/subsys/restart_afd.$afduser-$counter ]
 	         then
-	            echo -n "Starting AFD for $afduser : "
+	            echo -n "Starting AFD for $afduser in $afddir : "
 	            su - $afduser -c "afd -w $afddir -a"
 	            case $? in
 	               0)
@@ -310,45 +377,60 @@ case "$1" in
 	fi
 	rm -f /var/lock/subsys/afd.restart
 	;;
-  status)
+  status|monitor)
 	NOT_RUNNING=""
 	IS_RUNNING=""
 	IS_DISABLED=""
+	IS_STOPPED=""
 	for afduser in $AFD_USERS
 	do
 	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	   if [ "$AFD_WORK_DIR_LIST" = "" ]
 	   then
-	      su - $afduser -c "afd -c"
-	      RETVAL=$?
-	      if [ $RETVAL -ne 5 ]
+	      su - $afduser -c "ls \$AFD_WORK_DIR/fifodir/AFD_ACTIVE > /dev/null 2>&1"
+	      if [ $? -eq 0 ]
 	      then
-	         su - $afduser -c "ls $AFD_WORK_DIR/etc/NO_AUTO_RESTART > /dev/null 2>&1"
-	         if [ $? = 0 ]
+	         su - $afduser -c "afd -c"
+	         RETVAL=$?
+	         if [ $RETVAL -ne 5 ]
 	         then
-	            IS_DISABLED="`echo $IS_DISABLED` $afduser"
+	            su - $afduser -c "ls \$AFD_WORK_DIR/etc/NO_AUTO_RESTART > /dev/null 2>&1"
+	            if [ $? = 0 ]
+	            then
+	               IS_DISABLED="`echo $IS_DISABLED` $afduser"
+	            else
+	               NOT_RUNNING="`echo $NOT_RUNNING` $afduser"
+	            fi
 	         else
-	            NOT_RUNNING="`echo $NOT_RUNNING` $afduser"
+	            IS_RUNNING="`echo $IS_RUNNING` $afduser"
 	         fi
 	      else
-	         IS_RUNNING="`echo $IS_RUNNING` $afduser"
+	         IS_STOPPED="`echo $IS_STOPPED` $afduser"
+	         RETVAL=7
 	      fi
 	   else
 	      counter=0
 	      for afddir in $AFD_WORK_DIR_LIST
 	      do
-	         su - $afduser -c "afd -w $afddir -c"
-	         RETVAL=$?
-	         if [ $RETVAL -ne 5 ]
+	         su - $afduser -c "ls $afddir/fifodir/AFD_ACTIVE > /dev/null 2>&1"
+	         if [ $? -eq 0 ]
 	         then
-	            if [ -f $afddir/etc/NO_AUTO_RESTART ]
+	            su - $afduser -c "afd -w $afddir -c"
+	            RETVAL=$?
+	            if [ $RETVAL -ne 5 ]
 	            then
-	               IS_DISABLED="`echo $IS_DISABLED` $afduser[$afddir]"
+	               if [ -f $afddir/etc/NO_AUTO_RESTART ]
+	               then
+	                  IS_DISABLED="`echo $IS_DISABLED` $afduser[$afddir]"
+	               else
+	                  NOT_RUNNING="`echo $NOT_RUNNING` $afduser[$afddir]"
+	               fi
 	            else
-	               NOT_RUNNING="`echo $NOT_RUNNING` $afduser[$afddir]"
+	               IS_RUNNING="`echo $IS_RUNNING` $afduser[$afddir]"
 	            fi
 	         else
-	            IS_RUNNING="`echo $IS_RUNNING` $afduser[$afddir]"
+	            IS_STOPPED="`echo $IS_STOPPED` $afduser[$afddir]"
+	            RETVAL=7
 	         fi
 	         counter=`expr "$counter" + 1`
 	      done
@@ -358,18 +440,38 @@ case "$1" in
 	then
 	   if [ "$IS_DISABLED" = "" ]
 	   then
-	      echo "AFD for ${IS_RUNNING} is running."
+	      if [ "$IS_STOPPED" = "" ]
+	      then
+	         echo "AFD for ${IS_RUNNING} is running."
+	         RETVAL=0
+	      else
+	         echo "AFD for ${IS_RUNNING} is running and for ${IS_STOPPED} it is stopped."
+	         RETVAL=7
+	      fi
 	   else
-	      echo "AFD for ${IS_RUNNING} is running and for ${IS_DISABLED} it is disabled."
+	      if [ "$IS_STOPPED" = "" ]
+	      then
+	         echo "AFD for ${IS_RUNNING} is running and for ${IS_DISABLED} it is disabled."
+	         RETVAL=0
+	      else
+	         echo "AFD for ${IS_RUNNING} is running, for ${IS_DISABLED} it is disabled and for ${IS_STOPPED} it is stopped."
+	         RETVAL=7
+	      fi
 	   fi
-	   RETVAL=0
 	else
 	   echo "AFD for ${NOT_RUNNING} is NOT active."
 	   RETVAL=1
 	fi
 	;;
+  meta-data)
+        meta_data
+        RETVAL=0
+        ;;
+  validate-all)
+        RETVAL=0
+        ;;
   *)
-	echo "*** Usage: afd {start|stop|restart|condrestart|status}"
+	echo "*** Usage: afd {start|stop|restart|condrestart|reload|status|monitor|meta-data|validate-all}"
 	RETVAL=1
 	;;
 esac

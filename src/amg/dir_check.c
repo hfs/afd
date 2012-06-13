@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,9 +28,6 @@ DESCR__S_M1
  ** SYNOPSIS
  **   dir_check [--version]         - Show version.
  **             <work_dir>          - Working directory of AFD.
- **             <shared memory ID>  - ID of shared memory that contains
- **                                   all necessary data for instant
- **                                   jobs.
  **             <rescan time>       - The time interval when to check
  **                                   whether any directories have changed.
  **             <no of process>     - The maximum number that it may fork
@@ -118,6 +115,13 @@ int                        afd_file_dir_length,
                            afd_status_fd,
                            dcpl_fd = -1,
                            event_log_fd = STDERR_FILENO,
+#ifdef HAVE_SETPRIORITY
+                           add_afd_priority = DEFAULT_ADD_AFD_PRIORITY_DEF,
+                           current_priority = 0,
+                           exec_base_priority = NO_PRIORITY,
+                           max_sched_priority = DEFAULT_MAX_NICE_VALUE,
+                           min_sched_priority = DEFAULT_MIN_NICE_VALUE,
+#endif
                            force_check = NO,
                            fra_id,         /* ID of FRA.                 */
                            fra_fd = -1,    /* Needed by fra_attach().    */
@@ -145,6 +149,7 @@ int                        afd_file_dir_length,
 #ifndef _WITH_PTHREAD
                            dir_check_timeout,
 #endif
+                           no_of_brc_entries,
                            no_of_jobs,
                            no_of_local_dirs,/* No. of directories in the */
                                             /* DIR_CONFIG file that are  */
@@ -216,6 +221,8 @@ struct afd_status          *p_afd_status;
 struct rule                *rule;
 struct message_buf         *mb;
 struct fork_job_data       *fjd = NULL;
+struct wmo_bul_rep         *brcdb = NULL; /* Bulletin Report Configuration */
+                                          /* Database.                     */
 #ifdef _DELETE_LOG
 struct delete_log          dl;
 #endif
@@ -299,13 +306,9 @@ main(int argc, char *argv[])
                     rescan_time = DEFAULT_RESCAN_TIME,
                     sleep_time;
    char             *fifo_buffer,
-#ifdef _FIFO_DEBUG
-                    cmd[2],
-#endif
 #ifndef _WITH_PTHREAD
                     *p_paused_host,
 #endif
-                    rule_file[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
    fd_set           rset;
 #ifdef _WITH_PTHREAD
@@ -323,8 +326,14 @@ main(int argc, char *argv[])
 
    (void)umask(0);
    p_work_dir = work_dir;
-   init_dir_check(argc, argv, rule_file, &rescan_time, &read_fd,
-                  &write_fd, &del_time_job_fd);
+   init_dir_check(argc, argv, &rescan_time,
+#ifdef WITH_ONETIME
+                  &ot_job_fd,
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+                  &ot_job_readfd,
+#endif
+#endif
+                  &read_fd, &write_fd, &del_time_job_fd);
 
 #ifdef SA_FULLDUMP
    /*
@@ -422,6 +431,12 @@ main(int argc, char *argv[])
    {
       max_fd = fin_fd;
    }
+#ifdef WITH_ONETIME
+   if (ot_job_fd > max_fd)
+   {
+      max_fd = ot_job_fd;
+   }
+#endif
 #ifdef WITH_INOTIFY
    if ((inotify_fd != -1) && (inotify_fd > max_fd))
    {
@@ -432,7 +447,6 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
 
    now = time(NULL);
-
    next_time_check = (now / TIME_CHECK_INTERVAL) *
                       TIME_CHECK_INTERVAL + TIME_CHECK_INTERVAL;
    next_search_time = (now / OLD_FILE_SEARCH_INTERVAL) *
@@ -450,8 +464,8 @@ main(int argc, char *argv[])
 
    if (force_reread_interval)
    {
-      system_log(DEBUG_SIGN, NULL, 0, "Force reread interval : %u seconds",
-                 force_reread_interval);
+      system_log(DEBUG_SIGN, NULL, 0, "%s: Force reread interval : %u seconds",
+                 DC_PROC_NAME, force_reread_interval);
    }
 
    /*
@@ -478,7 +492,7 @@ main(int argc, char *argv[])
       }
       if (now >= next_rename_rule_check_time)
       {
-         get_rename_rules(rule_file, YES);
+         get_rename_rules(YES);
          if (no_of_orphaned_procs > 0)
          {
             check_orphaned_procs(now);
@@ -568,6 +582,34 @@ main(int argc, char *argv[])
       {
          check_fifo(read_fd, write_fd);
       }
+#ifdef WITH_ONETIME
+      else if ((status > 0) && (FD_ISSET(ot_job_fd, &rset)))
+           {
+              if ((n = read(fin_fd, fifo_buffer, fifo_size)) >= sizeof(unsigned int))
+              {
+                 unsigned int onetime_jid;
+
+                 do
+                 {
+                    onetime_jid = *(unsigned int *)&fifo_buffer[bytes_done];
+                    handle_onetime_job(onetime_jid);
+                    bytes_done += sizeof(unsigned int);
+                 } while ((n > bytes_done) &&
+                          ((n - bytes_done) >= sizeof(unsigned int)));
+              }
+              if ((n > 0) && ((n - bytes_done) > 0))
+              {
+                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                            "Reading garbage from fifo [%d]", (n - bytes_done));
+              }
+              else if (n == -1)
+                   {
+                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "read() error while reading from %s : %s",
+                                 IP_FIN_FIFO, strerror(errno));
+                   }
+           }
+#endif
       else if ((status > 0) && (FD_ISSET(fin_fd, &rset)))
            {
               int bytes_done = 0;
@@ -624,7 +666,6 @@ main(int argc, char *argv[])
            if ((p_afd_status->amg_jobs & PAUSE_DISTRIBUTION) == 0)
            {
 #endif
-              int         ret;
               time_t      start_time = now + sleep_time;
               struct stat dir_stat_buf;
 
@@ -956,7 +997,8 @@ main(int argc, char *argv[])
                  if ((full_scan_timeout == 0) ||
                      (diff_time < full_scan_timeout))
                  {
-                    int j;
+                    int j,
+                        ret;
 
                     while (fdc > 0)
                     {
@@ -1578,10 +1620,7 @@ handle_dir(int    dir_pos,
         ((pool_dir != NULL) ||
          (fra[de[dir_pos].fra_pos].no_of_process < fra[de[dir_pos].fra_pos].max_process))))
    {
-      int        j,
-                 k,
-                 files_moved,
-                 files_linked,
+      int        files_moved,
                  remove_orig_file_path = YES,
                  unique_number;
       off_t      file_size_linked,
@@ -1807,6 +1846,9 @@ handle_dir(int    dir_pos,
       }
       if (files_moved > 0)
       {
+         int          files_linked,
+                      j,
+                      k;
          unsigned int split_job_counter;
 #ifdef _DISTRIBUTION_LOG
          unsigned int no_of_distribution_types;
@@ -2123,10 +2165,7 @@ handle_dir(int    dir_pos,
                                                 }
                                              }
                                           }
-                                          if (tmp_file_name_buffer != NULL)
-                                          {
-                                             free(tmp_file_name_buffer);
-                                          }
+                                          free(tmp_file_name_buffer);
                                        }
                                        else
                                        {
@@ -2190,7 +2229,18 @@ handle_dir(int    dir_pos,
 
                                        dcpl[*no_of_process].pid = pid;
                                        dcpl[*no_of_process].fra_pos = de[dir_pos].fra_pos;
-                                       dcpl[*no_of_process].job_id = db[de[dir_pos].fme[j].pos[k]].job_id;
+# ifdef WITH_ONETIME
+                                       if (onetime == YES)
+                                       {
+                                          dcpl[*no_of_process].job_id = ONETIME_JOB_ID;
+                                       }
+                                       else
+                                       {
+# endif
+                                          dcpl[*no_of_process].job_id = db[de[dir_pos].fme[j].pos[k]].job_id;
+# ifdef WITH_ONETIME
+                                       }
+# endif
                                        fra[de[dir_pos].fra_pos].no_of_process++;
                                        (*no_of_process)++;
                                        p_afd_status->amg_fork_counter++;
@@ -2504,11 +2554,18 @@ handle_dir(int    dir_pos,
 static pid_t
 get_one_zombie(pid_t cpid, time_t now)
 {
-   int   status;
-   pid_t pid;
+   int           status;
+   pid_t         pid;
+#ifdef HAVE_WAIT4
+   struct rusage ru;
+#endif
 
    /* Is there a zombie? */
+#ifdef HAVE_WAIT4
+   if ((pid = wait4(cpid, &status, (cpid == -1) ? WNOHANG : 0, &ru)) > 0)
+#else
    if ((pid = waitpid(cpid, &status, (cpid == -1) ? WNOHANG : 0)) > 0)
+#endif
    {
       int pos;
 
@@ -2517,6 +2574,26 @@ get_one_zombie(pid_t cpid, time_t now)
          switch (WEXITSTATUS(status))
          {
             case 0 : /* Ordinary end of process. */
+#ifdef HAVE_WAIT4
+                     /* User CPU time. */
+                     p_afd_status->amg_child_utime.tv_usec += ru.ru_utime.tv_usec;
+                     if (p_afd_status->amg_child_utime.tv_usec > 1000000000L)
+                     {
+                        p_afd_status->amg_child_utime.tv_sec++;
+                        p_afd_status->amg_child_utime.tv_usec -= 1000000000L;
+                     }
+                     p_afd_status->amg_child_utime.tv_sec += ru.ru_utime.tv_sec;
+
+                     /* System CPU time. */
+                     p_afd_status->amg_child_stime.tv_usec += ru.ru_stime.tv_usec;
+                     if (p_afd_status->amg_child_stime.tv_usec > 1000000000L)
+                     {
+                        p_afd_status->amg_child_stime.tv_sec++;
+                        p_afd_status->amg_child_stime.tv_usec -= 1000000000L;
+                     }
+                     p_afd_status->amg_child_stime.tv_sec += ru.ru_stime.tv_sec;
+#endif
+                     break;
             case 1 : /* No files found. */
                      break;
 
@@ -2730,6 +2807,9 @@ check_fifo(int read_fd, int write_fd)
 {
    int  n;
    char buffer[20];
+#ifdef _FIFO_DEBUG
+   char cmd[2];
+#endif
 
    /* Read the message. */
    if ((n = read(read_fd, buffer, 20)) > 0)

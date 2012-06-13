@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -94,6 +94,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
+#define _DIR_ORIGINATOR
 #define DATA_TYPES 3
 #ifdef _PRODUCTION_LOG
 #define LOG_ENTRY_STEP_SIZE 10
@@ -261,11 +262,11 @@ bin_file_chopper(char         *bin_file,
       /* Impossible */
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   _("Cannot determine directory where to store files!"));
-#ifdef HAVE_MMAP
+# ifdef HAVE_MMAP
       (void)munmap(p_file, stat_buf.st_size);
-#else
+# else
       (void)munmap_emu(p_file);
-#endif
+# endif
       return(INCORRECT);
    }
    ptr++;
@@ -579,15 +580,19 @@ bin_file_chopper(char         *bin_file,
                {
                   if ((no_of_log_entries % LOG_ENTRY_STEP_SIZE) == 0)
                   {
-                     size_t new_size;
+                     size_t             new_size;
+                     struct prod_log_db *tmp_pld;
 
                      new_size = ((no_of_log_entries / LOG_ENTRY_STEP_SIZE) + 1) *
                                 LOG_ENTRY_STEP_SIZE * sizeof(struct prod_log_db);
-                     if ((pld = realloc(pld, new_size)) == NULL)
+                     if ((tmp_pld = realloc(pld, new_size)) == NULL)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    _("realloc() error : %s"), strerror(errno));
+                        free(pld);
+                        no_of_log_entries = 0;
                      }
+                     pld = tmp_pld;
                   }
                }
                if (pld != NULL)

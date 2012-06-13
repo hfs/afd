@@ -1,7 +1,7 @@
 /*
  *  current_job_list_spy.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -65,7 +65,6 @@ int
 main(int argc, char *argv[])
 {
    int         fd,
-               i,
                *no_of_jobs;
    char        file[MAX_PATH_LENGTH],
                *ptr,
@@ -112,6 +111,8 @@ main(int argc, char *argv[])
 
    if (*no_of_jobs > 0)
    {
+      int i;
+
       (void)fprintf(stdout, "No of jobs : %d\n", *no_of_jobs);
       for (i = 0; i < *no_of_jobs; i++)
       {

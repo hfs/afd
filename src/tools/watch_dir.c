@@ -1,6 +1,6 @@
 /*
  *  watch_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 
    if (argc == 2)
    {
-      (void)strcpy(watch_dir, argv[1]);
+      (void)my_strncpy(watch_dir, argv[1], MAX_PATH_LENGTH);
    }
    else
    {

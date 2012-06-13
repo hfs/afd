@@ -1,6 +1,6 @@
 /*
  *  create_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,6 +58,7 @@ DESCR__S_M3
  **   09.02.2005 H.Kiehl Added additional time entry structure to enable
  **                      alarm times.
  **   24.02.2007 H.Kiehl Added inotify support.
+ **   28.05.2012 H.Kiehl Added 'create sourde dir' support.
  **
  */
 DESCR__E_M3
@@ -93,7 +94,7 @@ extern struct fileretrieve_status *fra;
 void
 create_fra(int no_of_dirs)
 {
-   int                        i, k,
+   int                        i,
                               fra_id_fd,
                               loops,
                               old_fra_fd = -1,
@@ -403,6 +404,9 @@ create_fra(int no_of_dirs)
          fra[i].dup_check_timeout      = dd[i].dup_check_timeout;
          fra[i].dup_check_flag         = dd[i].dup_check_flag;
 #endif
+#ifdef NEW_FRA
+         fra[i].dir_mode               = dd[i].dir_mode;
+#endif
          fra[i].warn_time              = dd[i].warn_time;
          fra[i].max_errors             = dd[i].max_errors;
          fra[i].in_dc_flag             = dd[i].in_dc_flag;
@@ -431,6 +435,10 @@ create_fra(int no_of_dirs)
          {
             fra[i].dir_flag |= DONT_GET_DIR_LIST;
          }
+         if (dd[i].create_source_dir == YES)
+         {
+            fra[i].dir_flag |= CREATE_R_SRC_DIR;
+         }
 #ifdef WITH_INOTIFY
          if (dd[i].inotify_flag & INOTIFY_RENAME_FLAG)
          {
@@ -454,7 +462,8 @@ create_fra(int no_of_dirs)
    }
    else /* There is an old database file. */
    {
-      int gotcha;
+      int gotcha,
+          k;
 
       for (i = 0; i < no_of_dirs; i++)
       {
@@ -489,6 +498,9 @@ create_fra(int no_of_dirs)
 #ifdef WITH_DUP_CHECK
          fra[i].dup_check_timeout      = dd[i].dup_check_timeout;
          fra[i].dup_check_flag         = dd[i].dup_check_flag;
+#endif
+#ifdef NEW_FRA
+         fra[i].dir_mode               = dd[i].dir_mode;
 #endif
          fra[i].warn_time              = dd[i].warn_time;
          fra[i].in_dc_flag             = dd[i].in_dc_flag;
@@ -551,6 +563,13 @@ create_fra(int no_of_dirs)
                  (dd[i].do_not_get_dir_list == YES)))
             {
                fra[i].dir_flag ^= DONT_GET_DIR_LIST;
+            }
+            if (((fra[i].dir_flag & CREATE_R_SRC_DIR) &&
+                 (dd[i].create_source_dir == NO)) ||
+                (((fra[i].dir_flag & CREATE_R_SRC_DIR) == 0) &&
+                 (dd[i].create_source_dir == YES)))
+            {
+               fra[i].dir_flag ^= CREATE_R_SRC_DIR;
             }
             if ((fra[i].dir_flag & WARN_TIME_REACHED) &&
                 ((fra[i].warn_time < 1) ||
@@ -616,6 +635,10 @@ create_fra(int no_of_dirs)
             if (dd[i].do_not_get_dir_list == YES)
             {
                fra[i].dir_flag |= DONT_GET_DIR_LIST;
+            }
+            if (dd[i].create_source_dir == YES)
+            {
+               fra[i].dir_flag |= CREATE_R_SRC_DIR;
             }
 #ifdef WITH_INOTIFY
             if (dd[i].inotify_flag & INOTIFY_RENAME_FLAG)

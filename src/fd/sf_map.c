@@ -1,6 +1,6 @@
 /*
  *  sf_map.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -226,7 +226,7 @@ main(int argc, char *argv[])
    }
 
    /* Inform FSA that we have are ready to copy the files. */
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa(p_db) != NEITHER)
    {
       fsa->job_status[(int)db.job_no].connect_status = MAP_ACTIVE;
       fsa->job_status[(int)db.job_no].no_of_files = files_to_send;
@@ -280,7 +280,7 @@ main(int argc, char *argv[])
                       &ol_transfer_time,
                       &ol_output_type,
                       db.host_alias,
-                      current_toggle,
+                      (current_toggle - 1),
                       MAP);
    }
 #endif
@@ -296,7 +296,7 @@ main(int argc, char *argv[])
       (void)strcpy(p_source_file, p_file_name_buffer);
 
       /* Write status to FSA? */
-      if (gsf_check_fsa() != NEITHER)
+      if (gsf_check_fsa(p_db) != NEITHER)
       {
          fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
          (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -439,7 +439,7 @@ main(int argc, char *argv[])
 #endif
 
       /* Tell FSA we have send a file !!!! */
-      if (gsf_check_fsa() != NEITHER)
+      if (gsf_check_fsa(p_db) != NEITHER)
       {
          fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
          fsa->job_status[(int)db.job_no].no_of_files_done = files_send + 1;
@@ -746,7 +746,7 @@ try_again_unlink:
 
    if (local_file_counter)
    {
-      if (gsf_check_fsa() != NEITHER)
+      if (gsf_check_fsa(p_db) != NEITHER)
       {
          update_tfc(local_file_counter, local_file_size,
                     p_file_size_buffer, files_to_send, files_send);
@@ -778,7 +778,7 @@ try_again_unlink:
 static void
 sf_map_exit(void)
 {
-   reset_fsa((struct job *)&db, exitflag);
+   reset_fsa((struct job *)&db, exitflag, 0, 0);
 
    if (file_name_buffer != NULL)
    {
@@ -803,7 +803,7 @@ sf_map_exit(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
              "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -814,7 +814,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }

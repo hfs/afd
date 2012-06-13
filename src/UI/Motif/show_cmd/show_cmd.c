@@ -1,6 +1,6 @@
 /*
  *  show_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -388,7 +388,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    }
    if (argv[1][0] == '"')
    {
-      (void)strcpy(cmd, &argv[1][1]);
+      (void)my_strncpy(cmd, &argv[1][1], MAX_PATH_LENGTH);
       length = strlen(cmd);
       if (cmd[length - 1] == '"')
       {
@@ -397,7 +397,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    }
    else
    {
-      (void)strcpy(cmd, argv[1]);
+      (void)my_strncpy(cmd, argv[1], MAX_PATH_LENGTH);
    }
    if (*argc > 2)
    {
@@ -436,7 +436,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
       {
          length = MAX_TITLE_CMD_LENGTH;
       }
-      (void)my_strncpy(title_cmd, ptr, length);
+      (void)my_strncpy(title_cmd, ptr, length + 1);
    }
    else
    {

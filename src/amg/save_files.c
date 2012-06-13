@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,6 +63,8 @@ DESCR__S_M3
  **                      specified in 'age-limit' option.
  **   16.12.2010 H.Kiehl When we fail to create the target directory,
  **                      log in DELETE_LOG the files we failed to save.
+ **   28.03.2012 H.Kiehl Handle cross link errors in case we use
+ **                      mount with bind option in linux.
  **
  */
 DESCR__E_M3
@@ -302,13 +304,21 @@ save_files(char                   *src_path,
                      }
                      if ((retstat = rename(src_path, dest_path)) == -1)
                      {
-                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Failed to rename() file `%s' to `%s'",
-                                   src_path, dest_path);
-                        errno = 0;
+                        if (errno == EXDEV)
+                        {
+                           link_flag &= ~IN_SAME_FILESYSTEM;
+                           goto cross_link_error;
+                        }
+                        else
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Failed to rename() file `%s' to `%s'",
+                                      src_path, dest_path);
+                           errno = 0;
 #ifdef _DISTRIBUTION_LOG
-                        dist_type = ERROR_DIS_TYPE;
+                           dist_type = ERROR_DIS_TYPE;
 #endif
+                        }
                      }
                      else
                      {
@@ -355,6 +365,11 @@ save_files(char                   *src_path,
                               file_size_deleted += del_file_size;
                               if ((retstat = link(src_path, dest_path)) == -1)
                               {
+                                 if (errno == EXDEV)
+                                 {
+                                    link_flag &= ~IN_SAME_FILESYSTEM;
+                                    goto cross_link_error;
+                                 }
                                  system_log(WARN_SIGN, __FILE__, __LINE__,
                                             "Failed to link file `%s' to `%s' : %s",
                                             src_path, dest_path,
@@ -371,16 +386,21 @@ save_files(char                   *src_path,
                               }
                            }
                         }
-                        else
-                        {
-                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Failed to link file `%s' to `%s' : %s",
-                                      src_path, dest_path, strerror(errno));
-                           errno = 0;
+                        else if (errno == EXDEV)
+                             {
+                                link_flag &= ~IN_SAME_FILESYSTEM;
+                                goto cross_link_error;
+                             }
+                             else
+                             {
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "Failed to link file `%s' to `%s' : %s",
+                                           src_path, dest_path, strerror(errno));
+                                errno = 0;
 #ifdef _DISTRIBUTION_LOG
-                           dist_type = ERROR_DIS_TYPE;
+                                dist_type = ERROR_DIS_TYPE;
 #endif
-                        }
+                             }
                      }
                      else
                      {
@@ -391,6 +411,7 @@ save_files(char                   *src_path,
                }
                else
                {
+cross_link_error:
                   if ((retstat = copy_file(src_path, dest_path, NULL)) < 0)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,

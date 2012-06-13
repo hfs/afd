@@ -1,6 +1,6 @@
 /*
  *  logdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 #else
 # define MAX_SYS_LOGFILE_SIZE             2097152
 #endif
+#define MAX_SYS_LOGFILE_SIZE_DEF          "MAX_SYS_LOGFILE_SIZE"
 #define SYSTEM_LOG_RESCAN_TIME            10
 #define SYSTEM_LOG_NAME                   "SYSTEM_LOG."
 #define SYSTEM_LOG_NAME_LENGTH            (sizeof(SYSTEM_LOG_NAME) - 1)
@@ -33,6 +34,7 @@
 #define MAX_SYSTEM_LOG_FILES_DEF          "MAX_SYSTEM_LOG_FILES"
 #define MAX_EVENT_LOG_FILES               5            /* Must be > 1!   */
 #define MAX_EVE_LOGFILE_SIZE              10485760
+#define MAX_EVE_LOGFILE_SIZE_DEF          "MAX_EVE_LOGFILE_SIZE"
 #define EVENT_LOG_RESCAN_TIME             60
 #define EVENT_LOG_NAME                    "EVENT_LOG."
 #define EVENT_LOG_NAME_LENGTH             (sizeof(EVENT_LOG_NAME) - 1)
@@ -50,6 +52,7 @@
 #define MAX_TRANSFER_LOG_FILES_DEF        "MAX_TRANSFER_LOG_FILES"
 #define MAX_TRANS_DB_LOG_FILES            3            /* Must be > 1!   */
 #define MAX_TRANS_DB_LOGFILE_SIZE         8388608
+#define MAX_TRANS_DB_LOGFILE_SIZE_DEF     "MAX_TRANS_DB_LOGFILE_SIZE"
 #define MAX_TRANS_DB_LOG_FILES_DEF        "MAX_TRANS_DB_LOG_FILES"
 #define TRANS_DB_LOG_RESCAN_TIME          10
 #define TRANS_DB_LOG_NAME                 "TRANS_DB_LOG."
@@ -57,6 +60,8 @@
 #define TRANS_DB_LOG_NAME_ALL             "TRANS_DB_LOG.*"
 
 /* Definitions for the log process of afd_monitor. */
+#define MAX_MON_SYS_LOGFILE_SIZE          2097152
+#define MAX_MON_SYS_LOGFILE_SIZE_DEF      "MAX_MON_SYS_LOGFILE_SIZE"
 #define MAX_MON_SYS_LOG_FILES             4            /* Must be > 1!   */
 #define MON_SYS_LOG_RESCAN_TIME           5
 #define MON_SYS_LOG_NAME                  "MON_SYS_LOG."

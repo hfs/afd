@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -762,7 +762,7 @@ search_data(register char *ptr,
             *(p_event_action + k) = eastr[event_action_no][k];
             k++;
          }
-         while (k < (int)MAX_EVENT_ACTION_LENGTH)
+         while (k <= (int)MAX_EVENT_ACTION_LENGTH)
          {
             *(p_event_action + k) = ' ';
             k++;

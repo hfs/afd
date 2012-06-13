@@ -113,6 +113,7 @@ get_number_of_fields(char *bin_file)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error (size = %d) : %s (%s %d)\n",
                 stat_buf.st_size, strerror(errno), __FILE__, __LINE__);
+      (void)close(fd);
       return(INCORRECT);
    }
 
@@ -124,6 +125,7 @@ get_number_of_fields(char *bin_file)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "read() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
+      (void)close(fd);
       free(buffer);
       return(INCORRECT);
    }

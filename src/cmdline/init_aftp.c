@@ -1,6 +1,6 @@
 /*
  *  init_aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -96,7 +96,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    {
       ptr++;
    }
-   (void)strcpy(name, ptr);
+   (void)my_strncpy(name, ptr, 30);
    if (name[0] == 'r')
    {
       p_db->exec_mode = RETRIEVE_MODE;
@@ -134,6 +134,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    p_db->auth              = NO;
 #endif
    p_db->create_target_dir = NO;
+   p_db->dir_mode_str[0]   = '\0';
    if (name[0] == 't')
    {
       p_db->no_of_files    = 1;
@@ -206,7 +207,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                char config_file[MAX_PATH_LENGTH];
 
                argv++;
-               (void)strcpy(config_file, argv[0]);
+               (void)my_strncpy(config_file, argv[0], MAX_PATH_LENGTH);
                argc--;
 
                eval_config_file(config_file, p_db);
@@ -215,6 +216,33 @@ init_aftp(int argc, char *argv[], struct data *p_db)
 
          case 'C' : /* Create target dir. */
             p_db->create_target_dir = YES;
+            if ((argc > 1) && (*(argv + 1)[0] != '-'))
+            {
+               int  i = 0;
+               char *aptr;
+
+               aptr = argv[1];
+               do
+               {
+                  if ((isdigit((int)*aptr)) && (i < 4))
+                  {
+                     p_db->dir_mode_str[i] = *aptr;
+                     i++; aptr++;
+                  }
+                  else
+                  {
+                     i = 0;
+                     p_db->dir_mode_str[0] = '\0';
+                     break;
+                  }
+               } while (*aptr != '\0');
+               if (i > 0)
+               {
+                  argv++;
+                  argc--;
+                  p_db->dir_mode_str[i] = '\0';
+               }
+            }
             break;
 
          case 'd' : /* Target directory on remote host. */
@@ -226,7 +254,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->remote_dir, argv[0]);
+               (void)my_strncpy(p_db->remote_dir, argv[0], MAX_PATH_LENGTH);
                argc--;
             }
             break;
@@ -242,7 +270,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                char filename_file[MAX_PATH_LENGTH];
 
                argv++;
-               (void)strcpy(filename_file, argv[0]);
+               (void)my_strncpy(filename_file, argv[0], MAX_PATH_LENGTH);
                argc--;
 
                if (eval_filename_file(filename_file, p_db) == INCORRECT)
@@ -267,7 +295,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->hostname, argv[0]);
+               (void)my_strncpy(p_db->hostname, argv[0], MAX_FILENAME_LENGTH);
                argc--;
             }
             break;
@@ -315,7 +343,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                        }
                        else
                        {
-                          (void)strcpy(p_db->lock_notation, argv[0]);
+                          (void)my_strncpy(p_db->lock_notation, argv[0],
+                                           MAX_FILENAME_LENGTH);
                        }
                }
             }
@@ -452,7 +481,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->proxy_name, argv[0]);
+               (void)my_strncpy(p_db->proxy_name, argv[0],
+                                MAX_PROXY_NAME_LENGTH + 1);
                argc--;
             }
             break;
@@ -467,7 +497,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->user, argv[0]);
+               (void)my_strncpy(p_db->user, argv[0], MAX_USER_NAME_LENGTH);
                argc--;
 
                /* If user is specified a password must be there as well! */
@@ -480,7 +510,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                else
                {
                   argv++;
-                  (void)strcpy(p_db->password, argv[0]);
+                  (void)my_strncpy(p_db->password, argv[0],
+                                   MAX_USER_NAME_LENGTH);
                   argc--;
                }
             }
@@ -630,7 +661,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
               if (p_db->filename == NULL)
               {
                  RT_ARRAY(p_db->filename, 1, MAX_PATH_LENGTH, char);
-                 (void)strcpy(p_db->filename[0], argv[1]);
+                 (void)my_strncpy(p_db->filename[0], argv[1], MAX_PATH_LENGTH);
               }
               else
               {
@@ -653,7 +684,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
               p_db->no_of_files += argc - 1;
               while ((--argc > 0) && ((*++argv)[0] != '-'))
               {
-                 (void)strcpy(p_db->filename[i], argv[0]);
+                 (void)my_strncpy(p_db->filename[i], argv[0], MAX_PATH_LENGTH);
                  i++;
               }
            }
@@ -702,13 +733,14 @@ usage(void)
                                        specify -2 it will try to determine\n\
                                        the size with the SIZE command.\n"));
    }
-   (void)fprintf(stderr, _("  -b <block size>                    - FTP block size in bytes. Default %d\n\
+   (void)fprintf(stderr, _("  -b <block size>                    - Transfer block size in bytes. Default %d\n\
                                        bytes.\n"), DEFAULT_TRANSFER_BLOCKSIZE);
    (void)fprintf(stderr, _("  -c <config file>                   - Configuration file holding user name,\n\
                                        password and target directory in URL\n\
                                        format.\n"));
-   (void)fprintf(stderr, _("  -C                                 - If target directory does not exist create\n\
-                                       it.\n"));
+   (void)fprintf(stderr, _("  -C[ <mode>]                        - If target directory does not exist create\n\
+                                       it. The optional mode can be used to\n\
+                                       set the permission of this directory.\n"));
    (void)fprintf(stderr, _("  -d <remote directory>              - Directory where file(s) are to be stored.\n"));
    (void)fprintf(stderr, _("  -f <filename>                      - File containing a list of filenames\n\
                                        that are to be send.\n"));

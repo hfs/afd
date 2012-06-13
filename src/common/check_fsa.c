@@ -1,6 +1,6 @@
 /*
  *  check_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -101,7 +101,7 @@ check_fsa(int passive)
 
          if (passive == YES)
          {
-            if (fsa_attach_passive() < 0)
+            if (fsa_attach_passive(YES) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           _("Passive attach to FSA failed."));

@@ -1,6 +1,6 @@
 /*
  *  check_afd_heartbeat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,8 @@ DESCR__S_M3
  **   16.06.2002 H.Kiehl Created
  **   27.04.2009 H.Kiehl Read from AFD_ACTIVE file so NFS updates the
  **                      content.
+ **   11.10.2011 H.Kiehl Return 2 to indicate that we did not get any
+ **                      responce.
  **
  */
 DESCR__E_M3
@@ -136,6 +138,10 @@ check_afd_heartbeat(long wait_time, int remove_process)
          {
             kill_jobs(stat_buf.st_size);
          }
+         if (elapsed_time > wait_time)
+         {
+            afd_active = 2; /* To signal a timeout. */
+         }
          if (close(afd_active_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -211,7 +217,7 @@ kill_jobs(off_t st_size)
    if (process_left > 0)
    {
       /* Lets wait a little longer. */
-      (void)sleep(12L);
+      (void)sleep(10L);
 
       /* Now kill am the hard way. */
       ptr = buffer;

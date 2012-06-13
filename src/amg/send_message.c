@@ -1,6 +1,6 @@
 /*
  *  send_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,24 +38,46 @@ DESCR__S_M3
  **
  ** DESCRIPTION
  **   The function send_message() sends a message of the following
- **   format to the FD:
- **   <creation time><JID><SJC><dir no><unique number><Priority><Originator>
- **   <creation time><JID><SJC><unique number><dir no><Priority><Originator>
- **          |         |    |      |            |         |       |
- **          |         |    |      |            |         | +-----+
- **          |         |    |      |            |         | |
- **          |         |    |      |            |         | |
- **          |         |    |      |            |         | |
- **          |         |    |      |            |         | +-> char
- **          |         |    |      |            |         +---> char
- **          |         |    |      |            +-------------> unsigned short
- **          |         |    |      +--------------------------> unsigned int
+ **   format to the FD if SIZEOF_TIME_T is 4:
+ **   <creation time><JID><SJC><FTS><FSTS><unique number><dir no><Priority><Originator>
+ **          |         |    |    |    |     |              |         |       |
+ **          |         |    |    |    |     |  +-----------+         |       |
+ **          |         |    |    |    |     |  |  +------------------+       |
+ **          |         |    |    |    |     |  |  |  +-----------------------+
+ **          |         |    |    |    |     |  |  |  |
+ **          |         |    |    |    |     |  |  |  +--------> char
+ **          |         |    |    |    |     |  |  +-----------> char
+ **          |         |    |    |    |     |  +--------------> unsigned short
+ **          |         |    |    |    |     +-----------------> unsigned int
+ **          |         |    |    |    +-----------------------> off_t
+ **          |         |    |    +----------------------------> unsigned int
  **          |         |    +---------------------------------> unsigned int
  **          |         +--------------------------------------> unsigned int
  **          +------------------------------------------------> time_t
  **
- **   JID - Job ID
- **   SJC - Split Job Counter
+ **   If SIZEOF_TIME_T is not 4 then the order is as follows:
+ **
+ **   <creation time><FSTS><JID><SJC><FTS><unique number><dir no><Priority><Originator>
+ **          |         |    |    |    |     |              |         |       |
+ **          |         |    |    |    |     |  +-----------+         |       |
+ **          |         |    |    |    |     |  |  +------------------+       |
+ **          |         |    |    |    |     |  |  |  +-----------------------+
+ **          |         |    |    |    |     |  |  |  |
+ **          |         |    |    |    |     |  |  |  +--------> char
+ **          |         |    |    |    |     |  |  +-----------> char
+ **          |         |    |    |    |     |  +--------------> unsigned short
+ **          |         |    |    |    |     +-----------------> unsigned int
+ **          |         |    |    |    +-----------------------> unsigned int
+ **          |         |    |    +----------------------------> unsigned int
+ **          |         |    +---------------------------------> unsigned int
+ **          |         +--------------------------------------> off_t
+ **          +------------------------------------------------> time_t
+ **
+ **
+ **   JID  - Job ID
+ **   SJC  - Split Job Counter
+ **   FTS  - Files To Send
+ **   FSTS - File Size To Send
  **
  **   But only when the FD is currently active. If not these messages
  **   get stored in the buffer 'mb'.
@@ -225,9 +247,6 @@ send_message(char          *outgoing_file_dir,
       char           fifo_buffer[MAX_BIN_MSG_LENGTH],
                      *ptr;
       unsigned short dir_no;
-#ifdef _WITH_PTHREAD
-      int            rtn;
-#endif
 
       ptr = p_unique_name + 1;
       while ((*ptr != '/') && (*ptr != '\0'))
@@ -245,6 +264,8 @@ send_message(char          *outgoing_file_dir,
       if (do_handle_options == YES)
       {
 #ifdef _WITH_PTHREAD
+         int rtn;
+
          if ((rtn = pthread_mutex_lock(&fsa_mutex)) != 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,

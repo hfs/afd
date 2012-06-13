@@ -1,6 +1,6 @@
 /*
  *  convert_jid.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,13 +120,13 @@ convert_jid(int           old_jid_fd,
             unsigned char old_version,
             unsigned char new_version)
 {
-   int         i;
-   size_t      new_size;
    char        *ptr;
    struct stat stat_buf;
 
    if ((old_version == 1) && (new_version == 2))
    {
+      int                  i;
+      size_t               new_size;
       struct job_id_data_1 *old_jid;
       struct job_id_data_2 *new_jid;
 

@@ -1,6 +1,6 @@
 /*
  *  fra_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,23 +159,23 @@ main(int argc, char *argv[])
       {
          case 0   : break;
          case '1' : (void)fprintf(stderr, _("\n\n     Enter value [1] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fra[position].files_in_dir = (int)value;
                     break;
          case '2' : (void)fprintf(stderr, _("\n\n     Enter value [2] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fra[position].bytes_in_dir = value;
                     break;
          case '3' : (void)fprintf(stderr, _("\n\n     Enter value [3] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fra[position].files_queued = value;
                     break;
          case '4' : (void)fprintf(stderr, _("\n\n     Enter value [4] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fra[position].bytes_in_queue = value;
                     break;
          case '5' : (void)fprintf(stderr, _("\n\n     Enter value [5] : "));
-                    (void)scanf("%u", &value);
+                    (void)scanf("%11u", &value);
                     fra[position].error_counter = value;
                     break;
          case 'x' :

@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,10 +42,6 @@
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
-#define START_TIME_NO_ENTER     1
-#define START_TIME              2
-#define END_TIME_NO_ENTER       3
-#define END_TIME                4
 #define FILE_NAME_NO_ENTER      5
 #define FILE_NAME               6
 #define DIRECTORY_NAME_NO_ENTER 7
@@ -56,7 +52,6 @@
 #define RECIPIENT_NAME          12
 
 #define NO_OF_VISIBLE_LINES     20
-#define MAXARGS                 20
 
 #define LINES_BUFFERED          1000
 #define MAX_DISPLAYED_FILE_SIZE 12
@@ -68,7 +63,7 @@
 /* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT       32
 #define SHOW_MEDIUM_FORMAT      46
-#define SHOW_LONG_FORMAT        95
+#define SHOW_LONG_FORMAT        115
 #define HEADING_LINE_SHORT      "Date       Time     File name                        Type Hostname    File size"
 #define SUM_SEP_LINE_SHORT      "==============================================================================="
 #define HEADING_LINE_MEDIUM     "Date       Time     File name                                      Type Hostname    File size"
@@ -169,6 +164,7 @@ extern void close_button(Widget, XtPointer, XtPointer),
             send_files(int, int *),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
+            select_all_button(Widget, XtPointer, XtPointer),
             show_summary(unsigned int, double),
             toggled(Widget, XtPointer, XtPointer),
             view_button(Widget, XtPointer, XtPointer),

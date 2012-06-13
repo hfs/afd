@@ -9,7 +9,7 @@
 <p>
 In $AFD_WORK_DIR/etc/action it is possible to define what AFD should do
 when for example some remote host is not reachable. It is possible to
-then execute some script or binary program. The four possible actions
+then execute some script or binary program. There are five possible actions,
 each have their own subdiretory in $AFD_WORK_DIR/etc/action, defined as
 follows:
 </p>
@@ -65,15 +65,16 @@ to put into the directory a script/program with the name 'all.default'. Then
 the action will be done for all source/target entities. It is also possible
 to use both method, then if a separate script/program s found, this will be
 taken and not 'all.default'. If the 'all.default' script/program is called,
-it is always called with the alias name as a second parameter.
+it is always called with the alias name (of the host or directory ) as a
+second parameter.
 </p>
 <hr size=3 noshade>
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 2008, 2009 by H.Kiehl<br>
+   Copyright &copy; 2008 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 04.05.2009
+   Last updated: 03.06.2012
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

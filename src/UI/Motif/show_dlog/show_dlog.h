@@ -1,6 +1,6 @@
 /*
  *  show_dlog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,10 +45,6 @@
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
-#define START_TIME_NO_ENTER       1
-#define START_TIME                2
-#define END_TIME_NO_ENTER         3
-#define END_TIME                  4
 #define FILE_NAME_NO_ENTER        5
 #define FILE_NAME                 6
 #define DIRECTORY_NAME_NO_ENTER   7
@@ -59,7 +55,6 @@
 #define RECIPIENT_NAME            12
 
 #define NO_OF_VISIBLE_LINES       20
-#define MAXARGS                   20
 
 #define LINES_BUFFERED            1000
 #define MAX_DISPLAYED_FILE_SIZE   10
@@ -72,7 +67,7 @@
 /* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT         26
 #define SHOW_MEDIUM_FORMAT        40
-#define SHOW_LONG_FORMAT          95
+#define SHOW_LONG_FORMAT          115
 #define DATE_TIME_HEADER         "Date   Time     "
 #define FILE_NAME_HEADER         "File name"
 #define FILE_SIZE_HEADER         "File size   "
@@ -212,6 +207,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int, off_t),
             save_input(Widget, XtPointer, XtPointer),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
+            select_all_button(Widget, XtPointer, XtPointer),
             select_delete_reason(Widget, XtPointer, XtPointer);
 int         get_sum_data(int, time_t *, double *);
 

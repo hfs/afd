@@ -31,6 +31,7 @@ init_afd_SOURCES     = init_afd.c\
 init_afd_LDADD       = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 afd_SOURCES          = afd.c\
                        check_afd_heartbeat.c\
+                       initialize_db.c\
                        startup_afd.c\
                        shutdown_afd.c
 afd_LDADD            = ../common/libafd.a

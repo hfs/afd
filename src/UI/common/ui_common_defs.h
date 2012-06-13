@@ -1,6 +1,6 @@
 /*
  *  ui_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 # define XT_PTR_TYPE long
 #endif
 
-#define MAXARGS                          20
+#define MAXARGS                          21
 #define MAX_INTENSITY                    65535
 #define STARTING_REDRAW_TIME             500
 #define MIN_REDRAW_TIME                  1500
@@ -78,7 +78,8 @@
 # define SHOW_SMTPS                      512
 #endif
 #define SHOW_SFTP                        1024
-#define SHOW_NONE                        2048
+#define SHOW_EXEC                        2048
+#define SHOW_NONE                        4096
 
 /* Definitions for all X programs of the AFD. */
 #define MAX_MESSAGE_LENGTH               80

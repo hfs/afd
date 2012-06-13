@@ -1,6 +1,6 @@
 /*
  *  window_size.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -70,15 +70,16 @@ extern struct filetransfer_status *fsa;
 signed char
 window_size(int *window_width, int *window_height)
 {
-   int         i, j,
-               max_no_of_lines,
-               new_window_width,
-               new_window_height,
-               previous_no_of_rows;
+   int         new_window_width,
+               new_window_height;
    signed char window_size_changed;
 
    if (no_of_long_lines > 0)
    {
+      int i,
+          max_no_of_lines,
+          previous_no_of_rows;
+
       /* How many columns do we need? */
       no_of_columns = no_of_long_lines / no_of_rows_set;
       if ((no_of_long_lines % no_of_rows_set) != 0)
@@ -104,10 +105,7 @@ window_size(int *window_width, int *window_height)
       }
 
       /* Determine the length of each column. */
-      if (line_length != NULL)
-      {
-         free(line_length);
-      }
+      free(line_length);
       if ((line_length = malloc(no_of_columns * sizeof(int))) == NULL)
       {
          (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
@@ -117,7 +115,8 @@ window_size(int *window_width, int *window_height)
       new_window_width = 0;
       if (line_style & SHOW_JOBS)
       {
-         int max_no_parallel_jobs = 0,
+         int j,
+             max_no_parallel_jobs = 0,
 	     pos,
              row_counter = 0;
 

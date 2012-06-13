@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -153,6 +153,7 @@ DESCR__S_M3
  **   30.04.2007 H.Kiehl Recount files when we rename and overwrite files.
  **   08.03.2008 H.Kiehl Added -s to exec option.
  **   18.01.2011 H.Kiehl Added lchmod option, to do local chmod.
+ **   17.03.2012 H.Kiehl Added %T time modifier for assembling file names.
  **
  */
 DESCR__E_M3
@@ -177,6 +178,13 @@ DESCR__E_M3
 /* External global variables. */
 extern time_t                     default_exec_timeout;
 extern int                        fra_fd,
+#ifdef HAVE_SETPRIORITY
+                                  add_afd_priority,
+                                  current_priority,
+                                  exec_base_priority,
+                                  max_sched_priority,
+                                  min_sched_priority,
+#endif
                                   no_of_rule_headers,
                                   receive_log_fd;
 #ifndef _WITH_PTHREAD
@@ -670,14 +678,42 @@ handle_options(int          position,
          {
             register int ii = 0,
                          k = 0;
+#ifdef HAVE_SETPRIORITY
+            int          sched_priority;
+#endif
             char         *p_end = p_command,
-                         *insert_list[10],
-                         tmp_char,
+                         *insert_list[MAX_EXEC_FILE_SUBSTITUTION],
                          tmp_option[1024],
                          command_str[1024],
                          *return_str = NULL;
             off_t        lock_offset;
 
+#ifdef HAVE_SETPRIORITY
+            if (exec_base_priority != NO_PRIORITY)
+            {
+               sched_priority = exec_base_priority;
+            }
+            else
+            {
+               sched_priority = current_priority;
+            }
+            if (add_afd_priority == YES)
+            {
+               sched_priority += (db[position].priority - '0');
+               if (sched_priority > min_sched_priority)
+               {
+                  sched_priority = min_sched_priority;
+               }
+               else if (sched_priority < max_sched_priority)
+                    {
+                       sched_priority = max_sched_priority;
+                    }
+            }
+            if (sched_priority == current_priority)
+            {
+               sched_priority = NO_PRIORITY;
+            }
+#endif
             if (lock_all_jobs == YES)
             {
                lock_offset = AFD_WORD_OFFSET +
@@ -688,7 +724,7 @@ handle_options(int          position,
                lock_region_w(fra_fd, lock_offset + LOCK_EXEC);
 #endif
             }
-            while ((*p_end != '\0') && (ii < 10))
+            while ((*p_end != '\0') && (ii < MAX_EXEC_FILE_SUBSTITUTION))
             {
                if ((*p_end == '%') && (*(p_end + 1) == 's'))
                {
@@ -705,10 +741,11 @@ handle_options(int          position,
                   p_end++; k++;
                }
             }
-            if (ii >= 10)
+            if (ii >= MAX_EXEC_FILE_SUBSTITUTION)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "To many %%s in exec option. Can oly handle 10.");
+                           "To many %%s in exec option. Can oly handle %d.",
+                           MAX_EXEC_FILE_SUBSTITUTION);
             }
             tmp_option[k] = '\0';
             p_command = tmp_option;
@@ -726,7 +763,8 @@ handle_options(int          position,
                        mask_file_name,
                        ret,
                        save_dir_created = NO;
-                  char *fnp;
+                  char *fnp,
+                       tmp_char;
 #ifdef _PRODUCTION_LOG
 #endif
 
@@ -787,14 +825,17 @@ handle_options(int          position,
                      }
                      if ((ret = exec_cmd(command_str, &return_str,
                                          receive_log_fd, p_fra->dir_alias,
-                                         MAX_DIR_ALIAS_LENGTH, "",
-                                         exec_timeout, YES,
+                                         MAX_DIR_ALIAS_LENGTH,
+#ifdef HAVE_SETPRIORITY
+                                         sched_priority,
+#endif
+                                         "", exec_timeout, YES,
                                          YES)) != 0) /* ie != SUCCESS */
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to execute command %s [Return code = %d]",
                                     command_str, ret);
-                        if (return_str[0] != '\0')
+                        if ((return_str != NULL) && (return_str[0] != '\0'))
                         {
                            char *end_ptr = return_str,
                                 *start_ptr;
@@ -824,11 +865,8 @@ handle_options(int          position,
                         unlock_region(fra_fd, lock_offset + LOCK_EXEC);
 #endif
                      }
-                     if (return_str != NULL)
-                     {
-                        free(return_str);
-                        return_str = NULL;
-                     }
+                     free(return_str);
+                     return_str = NULL;
                      file_removed = NO;
                      if ((ret != 0) && (on_error_save == YES))
                      {
@@ -1019,13 +1057,16 @@ handle_options(int          position,
                }
                if ((ret = exec_cmd(command_str, &return_str,
                                    receive_log_fd, p_fra->dir_alias,
-                                   MAX_DIR_ALIAS_LENGTH, "",
-                                   exec_timeout, YES, YES)) != 0)
+                                   MAX_DIR_ALIAS_LENGTH,
+#ifdef HAVE_SETPRIORITY
+                                   sched_priority,
+#endif
+                                   "", exec_timeout, YES, YES)) != 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to execute command %s [Return code = %d]",
                               command_str, ret);
-                  if (return_str[0] != '\0')
+                  if ((return_str != NULL) && (return_str[0] != '\0'))
                   {
                      char *end_ptr = return_str,
                           *start_ptr;
@@ -1054,23 +1095,20 @@ handle_options(int          position,
                   unlock_region(fra_fd, lock_offset + LOCK_EXEC);
 #endif
                }
-               if (return_str != NULL)
-               {
-                  free(return_str);
-                  return_str = NULL;
-               }
+               free(return_str);
+               return_str = NULL;
 
                if (delete_original_file == YES)
                {
-                  int do_rename,
-                      ren_unlink_ret;
-
 #ifdef _WITH_PTHREAD
                   if ((file_counter = get_file_names(file_path,
                                                      &file_name_buffer,
                                                      &p_file_name)) > 0)
                   {
 #endif
+                  int do_rename,
+                      ren_unlink_ret;
+
                   if ((ret != 0) && (on_error_save == YES))
                   {
                      if ((mkdir(save_orig_file, DIR_MODE) == -1) &&
@@ -1261,14 +1299,8 @@ handle_options(int          position,
 #endif
                }
             }
-            if (del_orig_file != NULL)
-            {
-               free(del_orig_file);
-            }
-            if (save_orig_file != NULL)
-            {
-               free(save_orig_file);
-            }
+            free(del_orig_file);
+            free(save_orig_file);
             if (lock_all_jobs == YES)
             {
 #ifdef LOCK_DEBUG
@@ -2587,6 +2619,34 @@ handle_options(int          position,
                      }
                      break;
 
+                  case 'd' : /* Add full date. */
+                     if ((extract_options & EXTRACT_ADD_FULL_DATE) == 0)
+                     {
+                        extract_options |= EXTRACT_ADD_FULL_DATE;
+                     }
+                     break;
+
+                  case 'D' : /* Do not add full date. */
+                     if (extract_options & EXTRACT_ADD_FULL_DATE)
+                     {
+                        extract_options ^= EXTRACT_ADD_FULL_DATE;
+                     }
+                     break;
+
+                  case 'f' : /* Add bulletin header and original filename. */
+                     if ((extract_options & EXTRACT_ADD_BUL_ORIG_FILE) == 0)
+                     {
+                        extract_options |= EXTRACT_ADD_BUL_ORIG_FILE;
+                     }
+                     break;
+
+                  case 'F' : /* Do not add bulletin header and original filename. */
+                     if (extract_options & EXTRACT_ADD_BUL_ORIG_FILE)
+                     {
+                        extract_options ^= EXTRACT_ADD_BUL_ORIG_FILE;
+                     }
+                     break;
+
                   case 'n' : /* Add unique number. */
                      if ((extract_options & EXTRACT_ADD_UNIQUE_NUMBER) == 0)
                      {
@@ -2605,6 +2665,20 @@ handle_options(int          position,
                      }
                      break;
 
+                  case 'r' : /* Generate file name with report type. */
+                     if ((extract_options & EXTRACT_SHOW_REPORT_TYPE) == 0)
+                     {
+                        extract_options |= EXTRACT_SHOW_REPORT_TYPE;
+                     }
+                     break;
+
+                  case 'R' : /* Generate file name without report type. */
+                     if (extract_options & EXTRACT_SHOW_REPORT_TYPE)
+                     {
+                        extract_options ^= EXTRACT_SHOW_REPORT_TYPE;
+                     }
+                     break;
+
                   case 's' : /* Add SOH and ETX. */
                      if ((extract_options & EXTRACT_ADD_SOH_ETX) == 0)
                      {
@@ -2616,6 +2690,20 @@ handle_options(int          position,
                      if (extract_options & EXTRACT_ADD_SOH_ETX)
                      {
                         extract_options ^= EXTRACT_ADD_SOH_ETX;
+                     }
+                     break;
+
+                  case 't' : /* In report show extra heading with report type. */
+                     if ((extract_options & EXTRACT_EXTRA_REPORT_HEADING) == 0)
+                     {
+                        extract_options |= EXTRACT_EXTRA_REPORT_HEADING;
+                     }
+                     break;
+
+                  case 'T' : /* In report do not show extra heading with report type. */
+                     if (extract_options & EXTRACT_EXTRA_REPORT_HEADING)
+                     {
+                        extract_options ^= EXTRACT_EXTRA_REPORT_HEADING;
                      }
                      break;
 
@@ -4164,10 +4252,7 @@ check_changes(time_t       creation_time,
             prev_file_counter = 0;
          }
       }
-      if (new_file_size_buffer != NULL)
-      {
-         free(new_file_size_buffer);
-      }
+      free(new_file_size_buffer);
    }
 
    return(file_counter);
@@ -4364,8 +4449,10 @@ get_file_names(char *file_path, char **file_name_buffer, char **p_file_name)
 static void
 create_assembled_name(char *name, char *rule)
 {
-   char *p_name = name,
-        *p_rule = rule;
+   time_t time_modifier = 0;
+   char   *p_name = name,
+          *p_rule = rule,
+          time_mod_sign = '+';
 
    do
    {
@@ -4395,6 +4482,77 @@ create_assembled_name(char *name, char *rule)
                p_rule++;
                break;
 
+            case 'T' : /* Get time modifier. */
+               {
+                  int  j = 0,
+                       time_unit;
+                  char string[MAX_INT_LENGTH + 1];
+
+                  p_rule++;
+                  switch (*p_rule)
+                  {
+                     case '+' :
+                     case '-' :
+                     case '*' :
+                     case '/' :
+                     case '%' :
+                        time_mod_sign = *p_rule;
+                        p_rule++;
+                        break;
+                     default  :
+                        time_mod_sign = '+';
+                        break;
+                  }
+                  while ((isdigit((int)(*p_rule))) && (j < MAX_INT_LENGTH))
+                  {
+                     string[j++] = *p_rule++;
+                  }
+                  if ((j > 0) &&
+                      (j < MAX_INT_LENGTH))
+                  {
+                     string[j] = '\0';
+                     time_modifier = atoi(string);
+                  }
+                  else
+                  {
+                     if (j == MAX_INT_LENGTH)
+                     {
+                        while (isdigit((int)(*p_rule)))
+                        {
+                           p_rule++;
+                        }
+                     }
+                     time_modifier = 0;
+                  }
+                  switch (*p_rule)
+                  {
+                     case 'S' : /* Second. */
+                        time_unit = 1;
+                        p_rule++;
+                        break;
+                     case 'M' : /* Minute. */
+                        time_unit = 60;
+                        p_rule++;
+                        break;
+                     case 'H' : /* Hour. */
+                        time_unit = 3600;
+                        p_rule++;
+                        break;
+                     case 'd' : /* Day. */
+                        time_unit = 86400;
+                        p_rule++;
+                        break;
+                     default :
+                        time_unit = 1;
+                        break;
+                  }
+                  if (time_modifier > 0)
+                  {
+                     time_modifier = time_modifier * time_unit;
+                  }
+               }
+               break;
+
             case 't' : /* Insert actual time. */
                p_rule++;
                if (*p_rule == '\0')
@@ -4411,6 +4569,28 @@ create_assembled_name(char *name, char *rule)
                   time_t current_time;
 
                   current_time = time(NULL);
+                  if (time_modifier > 0)
+                  {
+                     switch (time_mod_sign)
+                     {
+                        case '-' :
+                           current_time = current_time - time_modifier;
+                           break;
+                        case '*' :
+                           current_time = current_time * time_modifier;
+                           break;
+                        case '/' :
+                           current_time = current_time / time_modifier;
+                           break;
+                        case '%' :
+                           current_time = current_time % time_modifier;
+                           break;
+                        case '+' :
+                        default  :
+                           current_time = current_time + time_modifier;
+                           break;
+                     }
+                  }
                   switch (*p_rule)
                   {
                      case 'a' : /* Short day eg. Tue. */

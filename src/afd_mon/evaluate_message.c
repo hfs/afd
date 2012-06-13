@@ -1,6 +1,6 @@
 /*
  *  evaluate_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -750,13 +750,14 @@ evaluate_message(int *bytes_done)
            }
            if (*ptr == ' ')
            {
-              int i, k = 0,
-                  pos;
+              int pos;
 
               *ptr = '\0';
               pos = atoi(ptr_start);
               if (pos < msa[afd_no].no_of_hosts)
               {
+                 int i, k = 0;
+
                  ptr = ptr + 1;
                  ptr_start = ptr;
                  while ((*ptr != ' ') && (*ptr != '\0'))
@@ -823,13 +824,14 @@ evaluate_message(int *bytes_done)
            }
            if (*ptr == ' ')
            {
-              int i = 0,
-                  pos;
+              int pos;
 
               *ptr = '\0';
               pos = atoi(ptr_start);
               if (pos < msa[afd_no].no_of_hosts)
               {
+                 int i = 0;
+
                  ptr = ptr + 1;
                  while ((*ptr != ' ') && (*ptr != '\0') &&
                         (i < MAX_HOSTNAME_LENGTH))
@@ -900,13 +902,14 @@ evaluate_message(int *bytes_done)
               }
               if (*ptr == ' ')
               {
-                 int i = 0,
-                     pos;
+                 int pos;
 
                  *ptr = '\0';
                  pos = atoi(ptr_start);
                  if (pos < msa[afd_no].no_of_dirs)
                  {
+                    int i = 0;
+
                     ptr = ptr + 1;
                     ptr_start = ptr;
                     while ((*ptr != ' ') && (*ptr != '\0') &&
@@ -1064,13 +1067,14 @@ evaluate_message(int *bytes_done)
               }
               if (*ptr == ' ')
               {
-                 int i = 0,
-                     pos;
+                 int pos;
 
                  *ptr = '\0';
                  pos = atoi(ptr_start);
                  if (pos < msa[afd_no].no_of_jobs)
                  {
+                    int i = 0;
+
                     ptr = ptr + 1;
                     ptr_start = ptr;
                     while ((*ptr != ' ') && (*ptr != '\0') &&
@@ -1123,7 +1127,7 @@ evaluate_message(int *bytes_done)
                                 i = 0;
                                 ptr = ptr + 2;
                                 while ((*ptr != '\0') &&
-                                       (i < MAX_RECIPIENT_LENGTH))
+                                       (i < (MAX_RECIPIENT_LENGTH - 1)))
                                 {
 #ifdef WITHOUT_BLUR_DATA
                                    ajl[pos].recipient[i] = *ptr;
@@ -1545,7 +1549,8 @@ reshuffel_dir_data(int no_of_dirs)
             old_no_of_dirs = *(int *)ptr;
             ptr += AFD_WORD_OFFSET;
             oadl = (struct afd_dir_list *)ptr;
-            get_max_log_number(&gotcha, MAX_ADL_FILES_DEF, MAX_ADL_FILES);
+            get_max_log_values(&gotcha, MAX_ADL_FILES_DEF, MAX_ADL_FILES,
+                               NULL, NULL, 0);
             offset_time = gotcha * SWITCH_FILE_TIME;
             no_added = no_deleted = 0;
             for (i = 0; i < old_no_of_dirs; i++)
@@ -1775,7 +1780,8 @@ reshuffel_job_data(int no_of_job_ids)
             old_no_of_job_ids = *(int *)ptr;
             ptr += AFD_WORD_OFFSET;
             oajl = (struct afd_job_list *)ptr;
-            get_max_log_number(&gotcha, MAX_AJL_FILES_DEF, MAX_AJL_FILES);
+            get_max_log_values(&gotcha, MAX_AJL_FILES_DEF, MAX_AJL_FILES,
+                               NULL, NULL, 0);
             offset_time = gotcha * SWITCH_FILE_TIME;
             no_added = no_deleted = 0;
             for (i = 0; i < old_no_of_job_ids; i++)

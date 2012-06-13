@@ -1,6 +1,6 @@
 /*
  *  delete_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -251,8 +251,8 @@ main(int argc, char *argv[])
    }
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,
-                      MAX_DELETE_LOG_FILES);
+   get_max_log_values(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,
+                      MAX_DELETE_LOG_FILES, NULL, NULL, 0);
 
    /*
     * Set umask so that all log files have the permission 644.

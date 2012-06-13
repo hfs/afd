@@ -10,7 +10,9 @@ MAINTAINERCLEANFILES = Makefile.in aclocal.m4 configure ac-tools/config.guess\
                        afd.spec\
                        errors
 CLEANFILES           = core core.* typescript configmake.h configmake.h-t\
-                       po/$(PACKAGE).pot
+                       po/$(PACKAGE).pot afd.spec\
+                       $(PACKAGE)-$(VERSION).tar.gz\
+                       $(PACKAGE)-$(VERSION).tar.bz2
 BUILT_SOURCES        = configmake.h
 SUBDIRS              = po src scripts etc doc
 DISTDOCS             = COPYING CREDITS INSTALL KNOWN-BUGS README.configure\

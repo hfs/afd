@@ -1,6 +1,6 @@
 /*
  *  get_arg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,6 +29,8 @@ DESCR__S_M3
  **               char *buffer, int buf_length)
  **   int get_arg_array(int *argc, char *argv[], char *arg,
  **                     char ***buffer, int *no_of_elements)
+ **   int get_arg_int_array(int *argc, char *argv[], char *arg,
+ **                         unsigned int **buffer, int *no_of_elements)
  **
  ** DESCRIPTION
  **   The function get_arg() gets the argument 'arg' from the command
@@ -41,6 +43,10 @@ DESCR__S_M3
  **   into a two dimensional array that it allocates. The caller
  **   is responsible to free this free this memory with FREE_RT_ARRAY().
  **
+ **   Function get_arg_int_array() collects all elements of an argument
+ **   into a unsigned int array that it allocates. The caller
+ **   is responsible to free this free this memory with free().
+ **
  ** RETURN VALUES
  **   SUCCESS when the argument was found. Otherwise INCORRECT is
  **   returned.
@@ -51,13 +57,14 @@ DESCR__S_M3
  ** HISTORY
  **   23.01.2000 H.Kiehl Created
  **   20.10.2005 H.Kiehl Added function get_arg_array().
+ **   25.03.2011 H.Kiehl Added function get_arg_int_array().
  **
  */
 DESCR__E_M3
 
-#include <stdio.h>             /* fprintf(), NULL                        */
-#include <string.h>            /* strcmp(), strcpy()                     */
-#include <stdlib.h>            /* malloc() in RT_ARRAY() macro           */
+#include <stdio.h>            /* fprintf(), NULL                         */
+#include <string.h>           /* strcmp(), strcpy()                      */
+#include <stdlib.h>           /* strtoul(), malloc() in RT_ARRAY() macro */
 #include <errno.h>
 
 
@@ -176,6 +183,89 @@ get_arg_array(int  *argc,
             for (j = 0; j < *no_of_elements; j++)
             {
                (void)strcpy((*buffer)[j], argv[i + j + 1]);
+            }
+            if ((i + *no_of_elements + 1) < *argc)
+            {
+               for (j = i; j < (*argc - *no_of_elements - 1); j++)
+               {
+                  argv[j] = argv[j + *no_of_elements + 1];
+               }
+               argv[j] = NULL;
+            }
+            else
+            {
+               argv[i] = NULL;
+            }
+            *argc -= (*no_of_elements + 1);
+         }
+         else
+         {
+            *buffer = NULL;
+            if ((i + 1) < *argc)
+            {
+               for (j = i; j < *argc; j++)
+               {
+                  argv[j] = argv[j + 1];
+               }
+               argv[j] = NULL;
+            }
+            else
+            {
+               argv[i] = NULL;
+            }
+            *argc -= 1;
+         }
+
+         return(SUCCESS);
+      }
+   }
+
+   /* Argument NOT found. */
+   return(INCORRECT);
+}
+
+
+/*######################### get_arg_int_array() ##########################*/
+int
+get_arg_int_array(int          *argc,
+                  char         *argv[],
+                  char         *arg,
+                  unsigned int **buffer,
+                  int          *no_of_elements)
+{
+   register int i;
+
+   for (i = 1; i < *argc; i++)
+   {
+      if (CHECK_STRCMP(argv[i], arg) == 0)
+      {
+         register int j;
+         int          tmp_i = i;
+
+         *no_of_elements = 0;
+         while (((i + 1) < *argc) && (argv[i + 1][0] != '-'))
+         {
+            j = 0;
+            while (argv[i + 1][j] != '\0')
+            {
+               j++;
+            }
+            (*no_of_elements)++;
+            i++;
+         }
+         if (*no_of_elements > 0)
+         {
+            i = tmp_i;
+            if ((*buffer = malloc((*no_of_elements * sizeof(int)))) == NULL)
+            {
+               (void)fprintf(stderr,
+                             "malloc() error : %s (%s %d)\n",
+                             strerror(errno), __FILE__, __LINE__);
+               return(INCORRECT);
+            }
+            for (j = 0; j < *no_of_elements; j++)
+            {
+               (*buffer)[j] = (unsigned int)strtoul(argv[i + j + 1], NULL, 16);
             }
             if ((i + *no_of_elements + 1) < *argc)
             {

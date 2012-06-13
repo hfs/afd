@@ -1,6 +1,6 @@
 /*
  *  coe_open.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,11 +103,13 @@ coe_open(char *pathname, int flags, ...)
 
    if ((val = fcntl(fd, F_GETFD, 0)) == -1)
    {
+      (void)close(fd);
       return(-1);
    }
    val |= FD_CLOEXEC;
    if (fcntl(fd, F_SETFD, val) == -1)
    {
+      (void)close(fd);
       return(-1);
    }
 

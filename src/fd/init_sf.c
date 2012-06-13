@@ -1,6 +1,6 @@
 /*
  *  init_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -127,6 +127,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
            db.port = -1;
         }
    db.reply_to = NULL;
+   db.default_from = NULL;
    db.from = NULL;
    db.charset = NULL;
    db.fsa_pos = INCORRECT;
@@ -136,10 +137,14 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.protocol = protocol;
    db.special_ptr = NULL;
    db.subject = NULL;
+   db.exec_cmd = NULL;
 #ifdef _WITH_TRANS_EXEC
    db.trans_exec_cmd = NULL;
    db.trans_exec_timeout = DEFAULT_EXEC_TIMEOUT;
    db.set_trans_exec_lock = NO;
+# ifdef HAVE_SETPRIORITY
+   db.afd_config_mtime = 0L;
+# endif
 #endif
    db.special_flag = 0;
    db.mode_flag = 0;
@@ -151,7 +156,10 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #endif
    db.lock = DEFAULT_LOCK;
    db.smtp_server[0] = '\0';
+   db.http_proxy[0] = '\0';
    db.chmod_str[0] = '\0';
+   db.dir_mode = 0;
+   db.dir_mode_str[0] = '\0';
    db.trans_rename_rule[0] = '\0';
    db.user_rename_rule[0] = '\0';
    db.lock_file_name = NULL;
@@ -186,6 +194,13 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       send_proc_fin(NO);
       exit(-status);
+   }
+   if (protocol & EXEC_FLAG)
+   {
+      if (check_exec_type(db.exec_cmd))
+      {
+         db.special_flag |= EXEC_ONCE_ONLY;
+      }
    }
    if ((protocol & FTP_FLAG) && (db.mode_flag == 0))
    {
@@ -255,6 +270,13 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       db.rcvbuf_size = fsa->sockrcv_bufsize;
    }
+#ifdef WITH_SSL
+   if ((fsa->protocol & HTTP_FLAG) && (fsa->protocol & SSL_FLAG) &&
+       (db.port == DEFAULT_HTTP_PORT))
+   {
+      db.port = DEFAULT_HTTPS_PORT;
+   }
+#endif
 
    /* Open/create log fifos. */
    (void)strcpy(gbuf, p_work_dir);
@@ -307,20 +329,19 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
     */
    if ((db.trans_rename_rule[0] != '\0') ||
        (db.user_rename_rule[0] != '\0') ||
-       (db.subject_rename_rule[0] != '\0'))
+       (db.subject_rename_rule[0] != '\0') ||
+       ((db.special_flag & ADD_MAIL_HEADER) &&
+        (db.special_ptr != NULL) && (*db.special_ptr != '/')))
    {
-      (void)strcpy(gbuf, p_work_dir);
-      (void)strcat(gbuf, ETC_DIR);
-      (void)strcat(gbuf, RENAME_RULE_FILE);
-      get_rename_rules(gbuf, NO);
+      get_rename_rules(NO);
       if (db.trans_rename_rule[0] != '\0')
       {
          if ((db.trans_rule_pos = get_rule(db.trans_rename_rule,
                                            no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Could NOT find rule %s. Ignoring this option.",
-                      db.trans_rename_rule);
+                      "Could NOT find rule %s. Ignoring the option \"%s\".",
+                      db.trans_rename_rule, TRANS_RENAME_ID);
             db.trans_rename_rule[0] = '\0';
          }
       }
@@ -341,9 +362,23 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
                                              no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Could NOT find rule %s. Ignoring this option.",
-                       db.subject_rename_rule);
+                       "Could NOT find rule %s. Ignoring the option \"%s\".",
+                       db.subject_rename_rule, SUBJECT_ID);
             db.subject_rename_rule[0] = '\0';
+         }
+      }
+      if ((db.special_flag & ADD_MAIL_HEADER) &&
+          (db.special_ptr != NULL) && (*db.special_ptr != '/'))
+      {
+         if ((db.mail_header_rule_pos = get_rule(db.special_ptr,
+                                                 no_of_rule_headers)) < 0)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could NOT find rule %s. Ignoring the option \"%s\".",
+                       db.special_ptr, ADD_MAIL_HEADER_ID);
+            db.special_flag &= ~ADD_MAIL_HEADER;
+            free(db.special_ptr);
+            db.special_ptr = NULL;
          }
       }
    }
@@ -388,7 +423,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    }
 
    /* Do we want to display the status? */
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
 #ifdef LOCK_DEBUG
       rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);

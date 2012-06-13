@@ -1,6 +1,6 @@
 /*
  *  afd_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1011,10 +1011,7 @@ mon_active(void)
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
-   if (buffer != NULL)
-   {
-      free(buffer);
-   }
+   free(buffer);
 
    return;
 }

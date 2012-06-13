@@ -1,6 +1,6 @@
 /*
  *  get_dc_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -242,7 +242,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
    }
 
-   if ((ret = fsa_attach_passive()) < 0)
+   if ((ret = fsa_attach_passive(NO)) < 0)
    {
       if (ret == INCORRECT_VERSION)
       {
@@ -294,13 +294,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
    current_jid_list = NULL;
    no_of_current_jobs = 0;
 
-   if (get_current_jid_list() == INCORRECT)
-   {
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
-   }
+   (void)get_current_jid_list();
 
    /* Map to JID database. */
    (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
@@ -309,10 +303,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
       (void)fprintf(stderr,
                  _("Failed to open() `%s' : %s (%s %d)\n"),
                  file, strerror(errno), __FILE__, __LINE__);
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
+      free(current_jid_list);
       return;
    }
    if (fstat(jd_fd, &stat_buf) == -1)
@@ -320,10 +311,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
       (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       (void)close(jd_fd);
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
+      free(current_jid_list);
       return;
    }
    if (stat_buf.st_size > 0)
@@ -337,10 +325,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
          (void)fprintf(stderr, _("Failed to mmap() to %s : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
          (void)close(jd_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
@@ -349,10 +334,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
                        _("Incorrect JID version (data=%d current=%d)!\n"),
                        *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
          (void)close(jd_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       no_of_job_ids = *(int *)ptr;
@@ -364,10 +346,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
       (void)fprintf(stderr, _("Job ID database file is empty. (%s %d)\n"),
                     __FILE__, __LINE__);
       (void)close(jd_fd);
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
+      free(current_jid_list);
       return;
    }
    if (close(jd_fd) == -1)
@@ -382,10 +361,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
    {
       (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
+      free(current_jid_list);
       if (jid_size > 0)
       {
          if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
@@ -401,10 +377,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
       (void)fprintf(stderr, _("Failed to fstat() `%s' : %s (%s %d)\n"),
                     file, strerror(errno), __FILE__, __LINE__);
       (void)close(dnb_fd);
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
+      free(current_jid_list);
       if (jid_size > 0)
       {
          if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
@@ -426,10 +399,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
          (void)fprintf(stderr, _("Failed to mmap() to `%s' : %s (%s %d)\n"),
                        file, strerror(errno), __FILE__, __LINE__);
          (void)close(dnb_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          if (jid_size > 0)
          {
             if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
@@ -449,10 +419,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
       (void)fprintf(stderr, _("Job ID database file is empty. (%s %d)\n"),
                     __FILE__, __LINE__);
       (void)close(dnb_fd);
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-      }
+      free(current_jid_list);
       if (jid_size > 0)
       {
          if (munmap(((char *)jd - AFD_WORD_OFFSET), jid_size) < 0)
@@ -729,10 +696,7 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
    (void)fra_detach();
 
    /* Free all memory that was allocated or mapped. */
-   if (current_jid_list != NULL)
-   {
-      free(current_jid_list);
-   }
+   free(current_jid_list);
    if (dcl_size > 0)
    {
       if (munmap(((char *)dcl - AFD_WORD_OFFSET), dcl_size) < 0)

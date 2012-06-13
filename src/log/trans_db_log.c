@@ -1,6 +1,6 @@
 /*
  *  trans_db_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,6 +81,7 @@ main(int argc, char *argv[])
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    int         writefd;
 #endif
+   off_t       max_trans_db_logfile_size = MAX_TRANS_DB_LOGFILE_SIZE;
    char        *p_end = NULL,
                *work_dir,
                log_file[MAX_PATH_LENGTH],
@@ -135,8 +136,9 @@ main(int argc, char *argv[])
    }
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_trans_db_log_files, MAX_TRANS_DB_LOG_FILES_DEF,
-                      MAX_TRANS_DB_LOG_FILES);
+   get_max_log_values(&max_trans_db_log_files, MAX_TRANS_DB_LOG_FILES_DEF,
+                      MAX_TRANS_DB_LOG_FILES, &max_trans_db_logfile_size,
+                      MAX_TRANS_DB_LOGFILE_SIZE_DEF, MAX_TRANS_DB_LOGFILE_SIZE);
 
    /*
     * Set umask so that all log files have the permission 644.
@@ -173,7 +175,7 @@ main(int argc, char *argv[])
       }
       else
       {
-         if (stat_buf.st_size > MAX_TRANS_DB_LOGFILE_SIZE)
+         if (stat_buf.st_size > max_trans_db_logfile_size)
          {
             if (log_number < (max_trans_db_log_files - 1))
             {
@@ -209,7 +211,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      log_stat = logger(p_log_file, MAX_TRANS_DB_LOGFILE_SIZE,
+      log_stat = logger(p_log_file, max_trans_db_logfile_size,
                         trans_db_log_fd, TRANS_DB_LOG_RESCAN_TIME);
 
       if (fclose(p_log_file) == EOF)

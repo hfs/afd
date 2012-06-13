@@ -1315,7 +1315,7 @@ init_menu_bar(GtkWidget **menu_w)
    /*                           View Menu                                */
    /**********************************************************************/
    if ((acp.show_slog != NO_PERMISSION) || (acp.show_elog != NO_PERMISSION) ||
-       (acp.show_rlog != NO_PERMISSION) || (acp.show_tlog != NO_PERMISSION) ||
+       (acp.show_rlog != NO_PERMISSION) ||
        (acp.show_tlog != NO_PERMISSION) || (acp.show_dlog != NO_PERMISSION) ||
        (acp.show_tdlog != NO_PERMISSION) || (acp.show_ilog != NO_PERMISSION) ||
        (acp.show_olog != NO_PERMISSION) || (acp.show_dlog != NO_PERMISSION) ||

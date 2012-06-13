@@ -1,6 +1,6 @@
 /*
  *  mon_sys_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -86,6 +86,7 @@ main(int argc, char *argv[])
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    int         writefd;
 #endif
+   off_t       max_mon_sys_logfile_size = MAX_MON_SYS_LOGFILE_SIZE;
    char        *p_end = NULL,
                *work_dir,
                log_file[MAX_PATH_LENGTH],
@@ -148,8 +149,9 @@ main(int argc, char *argv[])
    }
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_mon_sys_log_files, MAX_MON_SYS_LOG_FILES_DEF,
-                      MAX_MON_SYS_LOG_FILES);
+   get_max_log_values(&max_mon_sys_log_files, MAX_MON_SYS_LOG_FILES_DEF,
+                      MAX_MON_SYS_LOG_FILES, &max_mon_sys_logfile_size,
+                      MAX_MON_SYS_LOGFILE_SIZE_DEF, MAX_MON_SYS_LOGFILE_SIZE);
 
    /* Attach to AFD_MON Status Area. */
    if (attach_afd_mon_status() < 0)
@@ -192,7 +194,7 @@ main(int argc, char *argv[])
       }
       else
       {
-         if (stat_buf.st_size > MAX_SYS_LOGFILE_SIZE)
+         if (stat_buf.st_size > max_mon_sys_logfile_size)
          {
             if (log_number < (max_mon_sys_log_files - 1))
             {
@@ -228,7 +230,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      log_stat = logger(p_log_file, MAX_SYS_LOGFILE_SIZE,
+      log_stat = logger(p_log_file, max_mon_sys_logfile_size,
                         mon_sys_log_fd,  MON_SYS_LOG_RESCAN_TIME);
 
       (void)fclose(p_log_file);

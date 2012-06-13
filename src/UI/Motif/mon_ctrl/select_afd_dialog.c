@@ -1,6 +1,6 @@
 /*
  *  select_afd_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -485,11 +485,12 @@ static void
 search_select_afd(Widget w, XtPointer client_data, XtPointer call_data)
 {
    char *text = XmTextGetString(find_text_w);
-   int  i,
-        match;
+   int  i;
 
    if (name_class == AFD_NAME_CLASS)
    {
+      int match;
+
       for (i = 0; i < no_of_afds; i++)
       {
          if (name_type == ALIAS_NAME)

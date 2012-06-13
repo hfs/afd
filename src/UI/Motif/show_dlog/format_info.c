@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 -2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -109,7 +109,6 @@ void
 format_output_info(char **text)
 {
    int buffer_length = 8192,
-       i,
        count,
        length;
 
@@ -238,6 +237,8 @@ format_output_info(char **text)
       }
       if (id.d_o.no_of_dir_options > 0)
       {
+         int i;
+
          count = sprintf(*text + length, "DIR-options: %s\n",
                          id.d_o.aoptions[0]);
          length += count;
@@ -260,6 +261,7 @@ format_output_info(char **text)
       }
       if (id.dbe[0].files != NULL)
       {
+         int  i;
          char *p_file;
 
          p_file = id.dbe[0].files;
@@ -317,6 +319,8 @@ format_output_info(char **text)
       max_y++;
       if (id.dbe[0].no_of_loptions > 0)
       {
+         int i;
+
          count = sprintf(*text + length, "AMG-options: %s\n", id.dbe[0].loptions[0]);
          length += count;
          if (count > max_x)
@@ -606,6 +610,7 @@ format_input_info(char **text)
                   (void)xrec(INFO_DIALOG,
                              "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data icomplete. (%s %d)",
                              __FILE__, __LINE__);
+                  free(l_array);
                   return;
                }
                if ((*text = realloc(*text, buffer_length)) == NULL)
@@ -614,6 +619,7 @@ format_input_info(char **text)
                              "Failed to realloc() %d bytes : %s (%s %d)",
                              buffer_length, strerror(errno),
                              __FILE__, __LINE__);
+                  free(l_array);
                   return;
                }
             }
@@ -639,6 +645,7 @@ format_input_info(char **text)
                (void)xrec(INFO_DIALOG,
                           "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data icomplete. (%s %d)",
                           __FILE__, __LINE__);
+               free(l_array);
                return;
             }
             if ((*text = realloc(*text, buffer_length)) == NULL)
@@ -647,6 +654,7 @@ format_input_info(char **text)
                           "Failed to realloc() %d bytes : %s (%s %d)",
                           buffer_length, strerror(errno),
                           __FILE__, __LINE__);
+               free(l_array);
                return;
             }
          }
@@ -673,6 +681,7 @@ format_input_info(char **text)
                      (void)xrec(INFO_DIALOG,
                                 "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data icomplete. (%s %d)",
                                 __FILE__, __LINE__);
+                     free(l_array);
                      return;
                   }
                   if ((*text = realloc(*text, buffer_length)) == NULL)
@@ -681,6 +690,7 @@ format_input_info(char **text)
                                 "Failed to realloc() %d bytes : %s (%s %d)",
                                 buffer_length, strerror(errno),
                                 __FILE__, __LINE__);
+                     free(l_array);
                      return;
                   }
                }
@@ -726,6 +736,7 @@ format_input_info(char **text)
                      (void)xrec(INFO_DIALOG,
                                 "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data icomplete. (%s %d)",
                                 __FILE__, __LINE__);
+                     free(l_array);
                      return;
                   }
                   if ((*text = realloc(*text, buffer_length)) == NULL)
@@ -734,6 +745,7 @@ format_input_info(char **text)
                                 "Failed to realloc() %d bytes : %s (%s %d)",
                                 buffer_length, strerror(errno),
                                 __FILE__, __LINE__);
+                     free(l_array);
                      return;
                   }
                }
@@ -779,6 +791,7 @@ format_input_info(char **text)
                              (void)xrec(INFO_DIALOG,
                                         "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data icomplete. (%s %d)",
                                         __FILE__, __LINE__);
+                             free(l_array);
                              return;
                           }
                           if ((*text = realloc(*text, buffer_length)) == NULL)
@@ -787,6 +800,7 @@ format_input_info(char **text)
                                         "Failed to realloc() %d bytes : %s (%s %d)",
                                         buffer_length, strerror(errno),
                                         __FILE__, __LINE__);
+                             free(l_array);
                              return;
                           }
                        }
@@ -854,6 +868,7 @@ format_input_info(char **text)
             (void)xrec(INFO_DIALOG,
                        "Buffer for writting DIR_CONFIG data is larger then 10 Megabyte. DIR_CONFIG data icomplete. (%s %d)",
                        __FILE__, __LINE__);
+            free(l_array);
             return;
          }
          if ((*text = realloc(*text, buffer_length)) == NULL)
@@ -862,6 +877,7 @@ format_input_info(char **text)
                        "Failed to realloc() %d bytes : %s (%s %d)",
                        buffer_length, strerror(errno),
                        __FILE__, __LINE__);
+            free(l_array);
             return;
          }
       }

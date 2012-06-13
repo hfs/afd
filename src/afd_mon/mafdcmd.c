@@ -1,6 +1,6 @@
 /*
  *  mafdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -591,7 +591,7 @@ eval_input(int argc, char *argv[])
         need_afdname = NO;
    char progname[128];
 
-   (void)strcpy(progname, argv[0]);
+   (void)my_strncpy(progname, argv[0], 128);
 
    /**********************************************************/
    /* The following while loop checks for the parameters:    */
@@ -655,7 +655,7 @@ eval_input(int argc, char *argv[])
          RT_ARRAY(afds, no_of_afd_names, (MAX_AFD_NAME_LENGTH + 1), char);
          while (argc > 0)
          {
-            (void)strcpy(afds[i], argv[0]);
+            (void)my_strncpy(afds[i], argv[0], MAX_AFD_NAME_LENGTH + 1);
             argc--; argv++;
             i++;
          }

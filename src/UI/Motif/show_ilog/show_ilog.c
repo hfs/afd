@@ -1,6 +1,6 @@
 /*
  *  show_ilog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,11 @@ DESCR__E_M1
 #include <string.h>            /* strcpy(), strcat(), strerror()         */
 #include <ctype.h>             /* toupper()                              */
 #include <signal.h>            /* signal()                               */
-#include <stdlib.h>            /* free()                                 */
+#include <stdlib.h>            /* malloc(), free()                       */
+#ifdef HAVE_SETPRIORITY
+# include <sys/time.h>
+# include <sys/resource.h>     /* setpriority()                          */
+#endif
 #include <sys/types.h>
 #include <unistd.h>            /* gethostname()                          */
 #include <errno.h>
@@ -96,6 +100,7 @@ Widget                     appshell,
                            print_button_w,
                            radiobox_w,
                            scrollbar_w,
+                           select_all_button_w,
                            statusbox_w,
                            summarybox_w,
                            special_button_w;
@@ -113,9 +118,12 @@ int                        acd_counter = 0,
                            no_of_search_hosts,
                            no_of_search_dirs,
                            no_of_search_dirids,
+                           *search_dir_length = NULL,
                            special_button_flag,
                            sum_line_length,
                            sys_log_fd = STDERR_FILENO;
+unsigned int               all_list_items = 0,
+                           *search_dirid = NULL;
 #ifdef HAVE_MMAP
 off_t                      fra_size;
 #endif
@@ -128,7 +136,7 @@ char                       *p_work_dir,
                            header_line[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1],
                            search_file_name[MAX_PATH_LENGTH],
                            **search_dir = NULL,
-                           **search_dirid = NULL,
+                           *search_dir_filter = NULL,
                            **search_recipient,
                            **search_user;
 struct item_list           *il = NULL;
@@ -138,8 +146,11 @@ struct fileretrieve_status *fra;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
-static void                init_show_ilog(int *, char **),
-                           eval_permissions(char *),
+static void                eval_permissions(char *),
+#ifdef HAVE_SETPRIORITY
+                           get_afd_config_value(void),
+#endif
+                           init_show_ilog(int *, char **),
                            sig_bus(int),
                            sig_segv(int),
                            usage(char *);
@@ -201,6 +212,9 @@ main(int argc, char *argv[])
    /* Initialise global values. */
    p_work_dir = work_dir;
    init_show_ilog(&argc, argv);
+#ifdef HAVE_SETPRIORITY
+   get_afd_config_value();
+#endif
    (void)strcpy(window_title, "Input Log ");
    if (get_afd_name(&window_title[10]) == INCORRECT)
    {
@@ -708,7 +722,7 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
-   XtSetArg(args[argcount], XmNfractionBase, 31);
+   XtSetArg(args[argcount], XmNfractionBase, 41);
    argcount++;
    buttonbox_w = XmCreateForm(mainform_w, "buttonbox", args, argcount);
    special_button_w = XtVaCreateManagedWidget("Search",
@@ -721,25 +735,25 @@ main(int argc, char *argv[])
                         XmNrightAttachment,      XmATTACH_POSITION,
                         XmNrightPosition,        10,
                         XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       30,
+                        XmNbottomPosition,       40,
                         NULL);
    XtAddCallback(special_button_w, XmNactivateCallback,
                  (XtCallbackProc)search_button, (XtPointer)0);
-   print_button_w = XtVaCreateManagedWidget("Print",
+   select_all_button_w = XtVaCreateManagedWidget("Select All",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
                         XmNtopAttachment,        XmATTACH_POSITION,
-                        XmNtopPosition,          1,
+                        XmNtopPosition,          1,                
                         XmNleftAttachment,       XmATTACH_POSITION,
                         XmNleftPosition,         11,
                         XmNrightAttachment,      XmATTACH_POSITION,
                         XmNrightPosition,        20,
                         XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       30,
+                        XmNbottomPosition,       40,
                         NULL);
-   XtAddCallback(print_button_w, XmNactivateCallback,
-                 (XtCallbackProc)print_button, (XtPointer)0);
-   button_w = XtVaCreateManagedWidget("Close",
+      XtAddCallback(select_all_button_w, XmNactivateCallback,
+                    (XtCallbackProc)select_all_button, (XtPointer)0);
+   print_button_w = XtVaCreateManagedWidget("Print",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
                         XmNtopAttachment,        XmATTACH_POSITION,
@@ -749,7 +763,21 @@ main(int argc, char *argv[])
                         XmNrightAttachment,      XmATTACH_POSITION,
                         XmNrightPosition,        30,
                         XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       30,
+                        XmNbottomPosition,       40,
+                        NULL);
+   XtAddCallback(print_button_w, XmNactivateCallback,
+                 (XtCallbackProc)print_button, (XtPointer)0);
+   button_w = XtVaCreateManagedWidget("Close",
+                        xmPushButtonWidgetClass, buttonbox_w,
+                        XmNfontList,             fontlist,
+                        XmNtopAttachment,        XmATTACH_POSITION,
+                        XmNtopPosition,          1,
+                        XmNleftAttachment,       XmATTACH_POSITION,
+                        XmNleftPosition,         31,
+                        XmNrightAttachment,      XmATTACH_POSITION,
+                        XmNrightPosition,        40,
+                        XmNbottomAttachment,     XmATTACH_POSITION,
+                        XmNbottomPosition,       40,
                         NULL);
    XtAddCallback(button_w, XmNactivateCallback,
                  (XtCallbackProc)close_button, (XtPointer)0);
@@ -815,6 +843,7 @@ main(int argc, char *argv[])
                            XmNfontList,         fontlist,
                            XmNleftAttachment,   XmATTACH_FORM,
                            XmNleftOffset,       3,
+                           XmNrightAttachment,  XmATTACH_FORM,
                            XmNbottomAttachment, XmATTACH_WIDGET,
                            XmNbottomWidget,     separator_w,
                            NULL);
@@ -918,16 +947,37 @@ main(int argc, char *argv[])
                ((no_of_search_dirs + no_of_search_dirids) * 2) + 1;
       if ((str = malloc(length)) != NULL)
       {
-         int i;
+         int  i;
+         char *ptr;
 
          length = 0;
          for (i = 0; i < no_of_search_dirs; i++)
          {
             length += sprintf(&str[length], "%s, ", search_dir[i]);
+            search_dir_filter[i] = NO;
+            ptr = str;
+            while (*ptr != '\0')
+            {
+               if (((*ptr == '?') || (*ptr == '*') || (*ptr == '[')) &&
+                   ((ptr == str) || (*(ptr - 1) != '\\')))
+               {
+                  search_dir_filter[i] = YES;
+                  break;
+               }
+               ptr++;
+            }
+            if (search_dir_filter[i] == YES)
+            {
+               search_dir_length[i] = 0;
+            }
+            else                                            
+            {
+               search_dir_length[i] = strlen(search_dir[i]);
+            }
          }
          for (i = 0; i < no_of_search_dirids; i++)
          {
-            length += sprintf(&str[length], "#%s, ", search_dirid[i]);
+            length += sprintf(&str[length], "#%x, ", search_dirid[i]);
          }
          str[length - 2] = '\0';
          XtVaSetValues(directory_w, XmNvalue, str, NULL);
@@ -988,8 +1038,8 @@ init_show_ilog(int *argc, char *argv[])
    {
       (void)strcpy(font_name, "fixed");
    }
-   if (get_arg_array(argc, argv, "-d", &search_dirid,
-                     &no_of_search_dirids) == INCORRECT)
+   if (get_arg_int_array(argc, argv, "-d", &search_dirid,
+                         &no_of_search_dirids) == INCORRECT)
    {
       no_of_search_dirids = 0;
    }
@@ -997,6 +1047,21 @@ init_show_ilog(int *argc, char *argv[])
                      &no_of_search_dirs) == INCORRECT)
    {
       no_of_search_dirs = 0;
+   }
+   else
+   {
+      if ((search_dir_filter = malloc(no_of_search_dirs)) == NULL)
+      {
+         (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      if ((search_dir_length = malloc((no_of_search_dirs * sizeof(int)))) == NULL)
+      {
+         (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
 
    /* Now lets see if user may use this program. */
@@ -1051,7 +1116,7 @@ init_show_ilog(int *argc, char *argv[])
                (MAX_RECIPIENT_LENGTH + 1), char);
       while (*argc > 1)
       {
-         (void)strcpy(search_recipient[i], argv[1]);
+         (void)my_strncpy(search_recipient[i], argv[1], MAX_RECIPIENT_LENGTH + 1);
          if (strlen(search_recipient[i]) == MAX_HOSTNAME_LENGTH)
          {
             (void)strcat(search_recipient[i], "*");
@@ -1073,11 +1138,44 @@ init_show_ilog(int *argc, char *argv[])
    no_of_log_files = 0;
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_input_log_files, MAX_INPUT_LOG_FILES_DEF,
-                      MAX_INPUT_LOG_FILES);
+   get_max_log_values(&max_input_log_files, MAX_INPUT_LOG_FILES_DEF,
+                      MAX_INPUT_LOG_FILES, NULL, NULL, 0);
 
    return;
 }
+
+
+#ifdef HAVE_SETPRIORITY
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(void)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(config_file, F_OK) == 0) &&
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, SHOW_LOG_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+      free(buffer);
+   }
+
+   return;
+}
+#endif
 
 
 /*---------------------------------- usage() ----------------------------*/

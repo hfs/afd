@@ -45,6 +45,7 @@ DESCR__S_M3
  **                         2 - File content.
  **                         3 - Filename and file content.
  **                         4 - Filname without last suffix.
+ **                         5 - Filename and file size.
  **        <action>     - What action is to be taken when we find a
  **                       duplicate. The following values are possible:
  **                        24 - Delete. (default)

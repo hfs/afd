@@ -1,6 +1,6 @@
 /*
  *  send_log_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -389,8 +389,8 @@ init_log_values(char  *log_name,
             remote_log_inode[i] = '\0';
             j = 0;
             i++;
-            while ((i < MAX_INODE_LOG_NO_LENGTH) && (buffer[i] != '\n') &&
-                   (j < MAX_INT_LENGTH))
+            while ((i < (MAX_INODE_LOG_NO_LENGTH - 1)) && (buffer[i] != '\n') &&
+                   (j < (MAX_INT_LENGTH - 1)))
             {
                current_log_no_str[j] = buffer[i];
                i++; j++;

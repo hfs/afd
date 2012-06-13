@@ -1,6 +1,6 @@
 /*
  *  show_elog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,10 @@ DESCR__E_M1
 #include <ctype.h>             /* toupper()                              */
 #include <signal.h>            /* signal(), kill()                       */
 #include <stdlib.h>            /* free(), atexit()                       */
+#ifdef HAVE_SETPRIORITY
+# include <sys/time.h>
+# include <sys/resource.h>     /* setpriority()                          */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>          /* umask()                                */
 #include <unistd.h>            /* gethostname()                          */
@@ -85,9 +89,11 @@ Widget           appshell,
                  class_togglebox_w,
                  cont_togglebox_w,
                  dir_alias_w,
+                 dir_label_w,
                  end_time_w,
                  headingbox_w,
                  host_alias_w,
+                 host_label_w,
                  outputbox_w,
                  print_button_w,
                  scrollbar_w,
@@ -130,8 +136,11 @@ struct sol_perm  perm;
 const char       *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
-static void      init_show_elog(int *, char **),
-                 eval_permissions(char *),
+static void      eval_permissions(char *),
+#ifdef HAVE_SETPRIORITY
+                 get_afd_config_value(void),
+#endif
+                 init_show_elog(int *, char **),
                  sig_bus(int),
                  sig_exit(int),
                  sig_segv(int),
@@ -188,6 +197,9 @@ main(int argc, char *argv[])
    /* Initialise global values. */
    p_work_dir = work_dir;
    init_show_elog(&argc, argv);
+#ifdef HAVE_SETPRIORITY
+   get_afd_config_value();
+#endif
 
    (void)strcpy(window_title, "AFD Event Log ");
    if (get_afd_name(&window_title[10]) == INCORRECT)
@@ -451,7 +463,7 @@ main(int argc, char *argv[])
    argcount++;
    selectionbox_w = XmCreateForm(mainform_w, "selectionbox", args, argcount);
 
-   label_w = XtVaCreateManagedWidget("Host :",
+   host_label_w = XtVaCreateManagedWidget("Host :",
                            xmLabelGadgetClass,  selectionbox_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -475,7 +487,7 @@ main(int argc, char *argv[])
                            XmNbottomAttachment, XmATTACH_POSITION,
                            XmNbottomPosition,   103,
                            XmNleftAttachment,   XmATTACH_WIDGET,
-                           XmNleftWidget,       label_w,
+                           XmNleftWidget,       host_label_w,
                            XmNrightAttachment,  XmATTACH_POSITION,
                            XmNrightPosition,    31,
                            NULL);
@@ -484,7 +496,7 @@ main(int argc, char *argv[])
    XtAddCallback(host_alias_w, XmNactivateCallback, save_input,
                  (XtPointer)HOST_ALIAS);
 
-   label_w = XtVaCreateManagedWidget("Dir :",
+   dir_label_w = XtVaCreateManagedWidget("Dir :",
                            xmLabelGadgetClass,  selectionbox_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -508,7 +520,7 @@ main(int argc, char *argv[])
                            XmNbottomAttachment, XmATTACH_POSITION,
                            XmNbottomPosition,   103,
                            XmNleftAttachment,   XmATTACH_WIDGET,
-                           XmNleftWidget,       label_w,
+                           XmNleftWidget,       dir_label_w,
                            XmNrightAttachment,  XmATTACH_POSITION,
                            XmNrightPosition,    60,
                            NULL);
@@ -1023,6 +1035,27 @@ main(int argc, char *argv[])
       }
    }
 
+   if (toggles_set & SHOW_CLASS_DIRECTORY)
+   {
+      XtSetSensitive(dir_label_w, True);
+      XtSetSensitive(dir_alias_w, True);
+   }
+   else
+   {
+      XtSetSensitive(dir_label_w, False);
+      XtSetSensitive(dir_alias_w, False);
+   }
+   if (toggles_set & SHOW_CLASS_HOST)
+   {
+      XtSetSensitive(host_label_w, True);
+      XtSetSensitive(host_alias_w, True);
+   }
+   else
+   {
+      XtSetSensitive(host_label_w, False);
+      XtSetSensitive(host_alias_w, False);
+   }
+
    /* Get Window for resizing the main window. */
    main_window = XtWindow(appshell);
 
@@ -1157,8 +1190,8 @@ init_show_elog(int *argc, char *argv[])
 
    /* Get the maximum number of event logfiles. */
    max_event_log_files = MAX_EVENT_LOG_FILES;
-   get_max_log_number(&max_event_log_files, MAX_EVENT_LOG_FILES_DEF,
-                      MAX_EVENT_LOG_FILES);
+   get_max_log_values(&max_event_log_files, MAX_EVENT_LOG_FILES_DEF,
+                      MAX_EVENT_LOG_FILES, NULL, NULL, 0);
 
    ea_toggles_set_1 = (1 << EA_REREAD_DIR_CONFIG) |
                       (1 << EA_REREAD_HOST_CONFIG) |
@@ -1217,10 +1250,45 @@ init_show_elog(int *argc, char *argv[])
                       (1 << (EA_EXEC_SUCCESS_ACTION_STOP - EA_DISABLE_HOST)) |
                       (1 << (EA_START_DIRECTORY - EA_DISABLE_HOST)) |
                       (1 << (EA_STOP_DIRECTORY - EA_DISABLE_HOST)) |
-                      (1 << (EA_CHANGE_INFO - EA_DISABLE_HOST));
+                      (1 << (EA_CHANGE_INFO - EA_DISABLE_HOST)) |
+                      (1 << (EA_ENABLE_CREATE_SOURCE_DIR - EA_DISABLE_HOST)) |
+                      (1 << (EA_DISABLE_CREATE_SOURCE_DIR - EA_DISABLE_HOST));
 
    return;
 }
+
+
+#ifdef HAVE_SETPRIORITY
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(void)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(config_file, F_OK) == 0) &&
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, SHOW_LOG_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+      free(buffer);
+   }
+
+   return;
+}
+#endif
 
 
 /*---------------------------------- usage() ----------------------------*/

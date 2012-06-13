@@ -1,6 +1,6 @@
 /*
  *  reread_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -220,7 +220,11 @@ reread_dir_config(int              dc_changed,
             hl[i].in_dir_config = NO;
             hl[i].protocol = 0;
          }
+#ifdef WITH_ONETIME
+         if (eval_dir_config(db_size, warn_counter, NO) < 0)
+#else
          if (eval_dir_config(db_size, warn_counter) < 0)
+#endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not find any valid entries in database %s",
@@ -272,6 +276,9 @@ reread_dir_config(int              dc_changed,
                         /* Don't exit here, since the process might */
                         /* have died in the meantime.               */
                      }
+
+                     /* Eliminate zombie of killed job. */
+                     (void)amg_zombie_check(&tmp_dc_pid, 0);
                   }
                   else
                   {
@@ -282,9 +289,6 @@ reread_dir_config(int              dc_changed,
                                 "Hmmm, pid is %lld!!!", (pri_pid_t)tmp_dc_pid);
 #endif
                   }
-
-                  /* Eliminate zombie of killed job. */
-                  (void)amg_zombie_check(&tmp_dc_pid, 0);
 
                   dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
                                             rescan_time, max_no_proc);

@@ -1,6 +1,6 @@
 /*
  *  check_alda_cache.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2010 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ DESCR__E_M3
 #include "version.h"
 
 /* Global variables. */
-int         sys_log_fd = STDERR_FILENO;
+int         sys_log_fd = STDOUT_FILENO;
 char        *p_work_dir;
 const char  *sys_log_name = SYSTEM_LOG_FIFO;
 
@@ -132,8 +132,7 @@ main(int argc, char *argv[])
       int          log_cache_buf_size,
                    n;
       off_t        *log_pos;
-      char         *log_cache_buffer,
-                   tmp_char;
+      char         *log_cache_buffer;
       FILE         *fp;
 
       n = sizeof(time_t);
@@ -173,7 +172,7 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((tmp_char = fgetc(fp)) != '\n')
+               if (fgetc(fp) != '\n')
                {
                   (void)fprintf(stdout,
 #if SIZEOF_OFF_T == 4
@@ -196,6 +195,17 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
       (void)fprintf(stdout, "Alda cache file `%s' is good!\n", cache_file);
+
+      if (close(fd) == -1)
+      {
+         (void)fprintf(stderr, "Failed to close() `%s` : %s (%s %d)\n",
+                       cache_file, strerror(errno), __FILE__, __LINE__);
+      }
+      if (fclose(fp) == EOF)
+      {
+         (void)fprintf(stderr, _("Failed to fclose() `%s' : %s\n"),
+                       log_file, strerror(errno));
+      }
    }
 
    return(SUCCESS);

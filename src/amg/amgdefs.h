@@ -61,10 +61,18 @@
 #define MAX_FILES_TO_PROCESS       3    /* The maximum number of files   */
                                         /* that the AMG may copy in one  */
                                         /* go if extract option is set.  */
+#ifdef WITH_ONETIME
+# define MAX_NO_OF_ONETIME_DIRS    10   /* Number of onetime directories */
+                                        /* we can handle in one go.      */
+#endif
 #if defined (_INPUT_LOG) || defined (_OUTPUT_LOG)
 #define MAX_NO_OF_DB_PER_FILE      200  /* The maximum number of         */
                                         /* database that can be stored   */
                                         /* in a database history file.   */
+#endif
+#ifdef WITH_ONETIME
+# define OT_DC_STEP_SIZE           10   /* Number of onetime configs     */
+                                        /* stored in one cycle.          */
 #endif
 #define DG_BUFFER_STEP_SIZE        2    /* The steps in which the buffer */
                                         /* is increased for the          */
@@ -191,21 +199,38 @@
 #define ISO8859_2ASCII             22
 
 /* Definitions for the different extract options. */
-#define EXTRACT_ADD_SOH_ETX        1
-#define EXTRACT_ADD_CRC_CHECKSUM   2
-#define EXTRACT_ADD_UNIQUE_NUMBER  4
-#define EXTRACT_REPORTS            8
-#define EXTRACT_REMOVE_WMO_HEADER  16
-#define DEFAULT_EXTRACT_OPTIONS    (EXTRACT_ADD_SOH_ETX | EXTRACT_ADD_CRC_CHECKSUM)
+#define EXTRACT_ADD_SOH_ETX          1
+#define EXTRACT_ADD_CRC_CHECKSUM     2
+#define EXTRACT_ADD_UNIQUE_NUMBER    4
+#define EXTRACT_REPORTS              8
+#define EXTRACT_REMOVE_WMO_HEADER    16
+#define EXTRACT_EXTRA_REPORT_HEADING 32
+#define EXTRACT_SHOW_REPORT_TYPE     64
+#define EXTRACT_ADD_FULL_DATE        128
+#define EXTRACT_ADD_BUL_ORIG_FILE    256
+#define USE_EXTERNAL_MSG_RULES       512
+#define DEFAULT_EXTRACT_OPTIONS      (EXTRACT_ADD_SOH_ETX | EXTRACT_ADD_CRC_CHECKSUM)
+
+#ifdef WITH_ONETIME
+/* Definitions for the different onetime job types. */
+# define OT_CONFIG_TYPE              1
+# define OT_LIST_TYPE                2
+#endif
 
 /* Definition of fifos for the AMG to communicate. */
 /* with the above jobs.                           */
 #define DC_CMD_FIFO                "/dc_cmd.fifo"
 #define DC_RESP_FIFO               "/dc_resp.fifo"
+#ifdef WITH_ONETIME
+# define OT_JOB_FIFO               "/ot_job.fifo"
+#endif
 
 /* Definitions of the process names that are started */
 /* by the AMG main process.                          */
 #define DC_PROC_NAME               "dir_check"
+#ifdef WITH_ONETIME
+# define OT_PROC_NAME              "onetime_check"
+#endif
 
 /* Return values for function eval_dir_config() */
 #define NO_VALID_ENTRIES           -2
@@ -319,9 +344,9 @@ struct dir_group
           char              orig_dir_name[MAX_PATH_LENGTH];
                                             /* Directory name as it is   */
                                             /* in DIR_CONFIG.            */
-          char              url[MAX_RECIPIENT_LENGTH + 1];
+          char              url[MAX_RECIPIENT_LENGTH];
           char              alias[MAX_DIR_ALIAS_LENGTH + 1];
-          char              real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char              real_hostname[MAX_REAL_HOSTNAME_LENGTH];
           char              host_alias[MAX_HOSTNAME_LENGTH + 1];
           char              option[MAX_DIR_OPTION_LENGTH + 1];
                                             /* This is the old way of    */
@@ -354,7 +379,7 @@ struct dir_data
                                             /* toggling character eg:    */
                                             /* mrz_mfa + mrz_mfb =>      */
                                             /*       mrz_mf              */
-          char          url[MAX_RECIPIENT_LENGTH + 1];
+          char          url[MAX_RECIPIENT_LENGTH];
           char          wait_for_filename[MAX_WAIT_FOR_LENGTH]; /* Wait  */
                                             /* for the given file name|  */
                                             /* pattern before we take    */
@@ -395,6 +420,13 @@ struct dir_data
                                             /* HTTP, where directory     */
                                             /* listing is not supported  */
                                             /* or wanted.                */
+          unsigned char dont_create_source_dir;
+          unsigned char create_source_dir;  /* Create the source         */
+                                            /* directory if it does not  */
+                                            /* exist.                    */
+          mode_t        dir_mode;           /* The permissions which a   */
+                                            /* newly created source      */
+                                            /* directory should have.    */
           char          priority;           /* Priority for this         */
                                             /* directory.                */
           unsigned int  protocol;           /* Transfer protocol that    */
@@ -632,9 +664,12 @@ struct dc_proc_list
 
 struct dir_config_buf
        {
-          unsigned int dc_id;
-          time_t       dc_old_time;
-          char         *dir_config_file;
+          unsigned int  dc_id;
+          time_t        dc_old_time;
+          char          *dir_config_file;
+#ifdef WITH_ONETIME
+          unsigned char type;
+#endif
        };
 
 struct fork_job_data
@@ -653,6 +688,39 @@ struct file_dist_list
           unsigned char *proc_cycles;
        };
 #endif
+
+#define BUL_TYPE_INP   1 /* input (inp)   */
+#define BUL_TYPE_IGN   2 /* ignore (ign)  */
+#define BUL_TYPE_CMP   3 /* compile (cmp) */
+#define BUL_SPEC_DUP   1 /* duplicate check */
+#define RT_TEXT        1 /* TEXT       */
+#define RT_CLIMAT      2 /* CLIMAT     */
+#define RT_TAF         3 /* TAF        */
+#define RT_METAR       4 /* METAR      */
+#define RT_SPECIAL_01  5 /* SPECIAL-01 */
+#define RT_SPECIAL_02  6 /* SPECIAL-02 */
+#define RT_SPECIAL_03  7 /* SPECIAL-03 */
+#define RT_SPECIAL_66  8 /* SPECIAL-66 */
+#define RT_SYNOP       9 /* SYNOP      */
+#define RT_SYNOP_SHIP 10 /* SYNOP-SHIP */
+#define RT_UPPER_AIR  11 /* UPPER-AIR  */
+#define STID_IIiii     1
+#define STID_CCCC      2
+struct wmo_bul_rep
+       {
+          char          TTAAii[7];
+          char          CCCC[5];
+          char          type;        /* 1 - input (inp)          */
+                                     /* 2 - ignore (ign)         */
+                                     /* 3 - compile (cmp)        */
+          char          spec;
+          short         rss;         /* Report Sub Specification */
+                                     /* -1 is no report          */
+          unsigned char rt;          /* Report type.             */
+          char          mimj[2];
+          char          stid;        /* D - IIiii                */
+                                     /* L - CCCC                 */
+       };
 
 /* Function prototypes. */
 extern int    amg_zombie_check(pid_t *, int),
@@ -695,7 +763,11 @@ extern int    amg_zombie_check(pid_t *, int),
 #endif
               check_process_list(int),
               create_db(void),
+#ifdef WITH_ONETIME
+              eval_dir_config(off_t, unsigned int *, int),
+#else
               eval_dir_config(off_t, unsigned int *),
+#endif
               handle_options(int, time_t, unsigned int, unsigned int,
                              char *, int *, off_t *),
               in_time(time_t, unsigned int, struct bd_time_entry *),
@@ -730,10 +802,17 @@ extern void   check_file_dir(time_t),
                       unsigned int),
 #endif
               enter_time_job(int),
+              eval_bul_rep_config(char *, char *, int),
               eval_dir_options(int, char *, char *),
               handle_time_jobs(time_t),
-              init_dir_check(int, char **, char *, time_t *, int *,
-                             int *, int *),
+              init_dir_check(int, char **, time_t *,
+#ifdef WITH_ONETIME
+                             int *,
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+                             int *,
+# endif
+#endif
+                             int *, int *, int *),
               init_dis_log(void),
               init_job_data(void),
               init_msg_buffer(void),
@@ -750,7 +829,7 @@ extern void   check_file_dir(time_t),
 #else
               remove_time_dir(char *, unsigned int),
 #endif
-              rm_removed_files(struct directory_entry *),
+              rm_removed_files(struct directory_entry *, int, char *),
               search_old_files(time_t),
               send_message(char *, char *, unsigned int, unsigned int,
                            time_t, int,

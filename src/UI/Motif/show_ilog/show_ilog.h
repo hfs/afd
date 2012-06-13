@@ -1,6 +1,6 @@
 /*
  *  show_ilog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,10 +31,6 @@
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
-#define START_TIME_NO_ENTER     1
-#define START_TIME              2
-#define END_TIME_NO_ENTER       3
-#define END_TIME                4
 #define FILE_NAME_NO_ENTER      5
 #define FILE_NAME               6
 #define DIRECTORY_NAME_NO_ENTER 7
@@ -45,7 +41,6 @@
 #define RECIPIENT_NAME          12
 
 #define NO_OF_VISIBLE_LINES     20
-#define MAXARGS                 20
 
 #define LINES_BUFFERED          1000
 #define MAX_DISPLAYED_FILE_SIZE 10
@@ -56,7 +51,7 @@
 
 /* Maximum length of the file name that is displayed. */
 #define SHOW_SHORT_FORMAT       50
-#define SHOW_LONG_FORMAT        95
+#define SHOW_LONG_FORMAT        115
 #define DATE_TIME_HEADER        "Date   Time     "
 #define FILE_NAME_HEADER        "File name"
 #define REST_HEADER             "File size"
@@ -88,8 +83,8 @@ struct db_entry
           char         loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
           char         recipient[MAX_RECIPIENT_LENGTH];
           char         user[MAX_RECIPIENT_LENGTH];
-          char         dir_url_hostname[MAX_HOSTNAME_LENGTH + 2];
-          char         dir_url_user[MAX_USER_NAME_LENGTH + 2];
+          char         dir_url_hostname[MAX_HOSTNAME_LENGTH + 2 + 1];
+          char         dir_url_user[MAX_USER_NAME_LENGTH + 2 + 1];
           char         dir_config_file[MAX_PATH_LENGTH];
           char         priority;
        };
@@ -115,9 +110,9 @@ struct alda_call_data
            char          real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
            char          final_name[MAX_PATH_LENGTH + 1];
            off_t         final_size;
-           char          hr_final_size[12];
+           char          hr_final_size[12 + 1];
            time_t        delivery_time;
-           char          transmission_time[MAX_INT_LENGTH + 1 + 2 + 1 + 2 + 1 + 1];
+           char          transmission_time[MAX_INT_LENGTH + 1 + 2 + 1 + 2 + 1 + 1 + 1];
            unsigned int  output_job_id;
            unsigned int  retries;
            unsigned int  split_job_counter;
@@ -216,6 +211,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
             save_input(Widget, XtPointer, XtPointer),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
+            select_all_button(Widget, XtPointer, XtPointer),
             set_sensitive(void);
 
 #endif /* __show_ilog_h */

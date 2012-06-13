@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -209,7 +209,11 @@ create_db(void)
 
       /* Lets just assume that when db was allocated that the data */
       /* in struct directory_entry is also still allocated.        */
+#ifdef WITH_ONETIME
+      for (i = 0; i < (no_of_local_dirs + MAX_NO_OF_ONETIME_DIRS); i++)
+#else
       for (i = 0; i < no_of_local_dirs; i++)
+#endif
       {
          for (j = 0; j < de[i].nfg; j++)
          {
@@ -736,9 +740,9 @@ create_db(void)
          db[i].loptions_flag = (unsigned int)strtoul(p_ptr[i].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] + p_offset, NULL, 16);
 
          /*
-          * Because extracting bulletins from files can take quit a
-          * while, make shure that we fork. We can do this by setting
-          * the lfs flag to GO_PARALLEL.
+          * Because some options (such as exec, extracting bulletins, etc.)
+          * can take a while, it is better to fork such jobs. We can do this
+          * by setting the lfs flag to GO_PARALLEL.
           */
          p_loptions = db[i].loptions;
          for (j = 0; j < db[i].no_of_loptions; j++)
@@ -769,11 +773,12 @@ create_db(void)
                     }
                     if (eval_time_str(ptr, &te) == SUCCESS)
                     {
-                       int new_size;
+                       int                  new_size;
+                       struct bd_time_entry *tmp_te;
 
                        new_size = (db[i].no_of_time_entries + 1) *
                                   sizeof(struct bd_time_entry);
-                       if ((db[i].te = realloc(db[i].te, new_size)) == NULL)
+                       if ((tmp_te = realloc(db[i].te, new_size)) == NULL)
                        {
                           system_log(ERROR_SIGN, __FILE__, __LINE__,
                                      "Failed to realloc() %d bytes : %s",
@@ -781,6 +786,7 @@ create_db(void)
                        }
                        else
                        {
+                          db[i].te = tmp_te;
                           db[i].time_option_type = SEND_NO_COLLECT_TIME;
                           (void)memcpy(&db[i].te[db[i].no_of_time_entries],
                                        &te, sizeof(struct bd_time_entry));
@@ -804,11 +810,12 @@ create_db(void)
                     }
                     if (eval_time_str(ptr, &te) == SUCCESS)
                     {
-                       int new_size;
+                       int                  new_size;
+                       struct bd_time_entry *tmp_te;
 
                        new_size = (db[i].no_of_time_entries + 1) *
                                   sizeof(struct bd_time_entry);
-                       if ((db[i].te = realloc(db[i].te, new_size)) == NULL)
+                       if ((tmp_te = realloc(db[i].te, new_size)) == NULL)
                        {
                           system_log(ERROR_SIGN, __FILE__, __LINE__,
                                      "Failed to realloc() %d bytes : %s",
@@ -816,6 +823,7 @@ create_db(void)
                        }
                        else
                        {
+                          db[i].te = tmp_te;
                           (void)memcpy(&db[i].te[db[i].no_of_time_entries],
                                        &te, sizeof(struct bd_time_entry));
                           db[i].no_of_time_entries++;
@@ -986,6 +994,10 @@ create_db(void)
       else if (scheme & HTTP_FLAG)
            {
               db[i].protocol = HTTP;
+           }
+      else if (scheme & EXEC_FLAG)
+           {
+              db[i].protocol = EXEC;
            }
 #ifdef _WITH_SCP_SUPPORT
       else if (scheme & SCP_FLAG)
@@ -1219,6 +1231,21 @@ create_db(void)
                          "One directory not in the same filesystem as AFD.");
            }
    }
+
+#ifdef WITH_ONETIME
+   for (i = (dir_counter + 1); i < (no_of_local_dirs + MAX_NO_OF_ONETIME_DIRS); i++)
+   {
+      de[i].nfg   = 0;
+      de[i].fme   = NULL;
+      de[i].flag  = 0;
+      de[i].dir   = NULL;
+      de[i].alias = ;
+      de[i].fra_pos = ;
+      de[i].dir_id = ;
+      de[i].search_time = 0;
+      de[i].paused_dir = NULL;
+   }
+#endif
 
 #ifdef _TEST_FILE_TABLE
    for (i = 0; i < no_of_local_dirs; i++)

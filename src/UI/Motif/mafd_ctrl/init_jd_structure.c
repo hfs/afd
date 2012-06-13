@@ -1,7 +1,7 @@
 /*
  *  init_jd_structure.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,7 +78,7 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
    {
       (void)my_strncpy(p_jd->file_name_in_use,
                        fsa[select_no].job_status[job_no].file_name_in_use,
-                       filename_display_length);
+                       filename_display_length + 1);
       p_jd->filename_compare_length = strlen(p_jd->file_name_in_use);
       if (p_jd->filename_compare_length < filename_display_length)
       {

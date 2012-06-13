@@ -1,6 +1,6 @@
 /*
  *  archive_watch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -50,6 +50,9 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>              /* struct timeval                     */
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>         /* setpriority()                      */
+#endif
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>                /* O_RDWR, O_RDONLY, O_NONBLOCK, etc  */
 #endif
@@ -70,6 +73,9 @@ const char   *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
 static void  aw_exit(void),
+#ifdef HAVE_SETPRIORITY
+             get_afd_config_value(void),
+#endif
              sig_bus(int),
              sig_exit(int),
              sig_segv(int);
@@ -150,6 +156,10 @@ main(int argc, char *argv[])
                  aw_cmd_fifo, strerror(errno));
       exit(INCORRECT);
    }
+
+#ifdef HAVE_SETPRIORITY
+   get_afd_config_value();
+#endif
 
    /* Do some cleanups when we exit. */
    if (atexit(aw_exit) != 0)
@@ -274,6 +284,39 @@ main(int argc, char *argv[])
 
    exit(SUCCESS);
 }
+
+
+#ifdef HAVE_SETPRIORITY
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(void)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(config_file, F_OK) == 0) &&
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, ARCHIVE_WATCH_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+      free(buffer);
+   }
+
+   return;
+}
+#endif
 
 
 /*+++++++++++++++++++++++++++++++ aw_exit() +++++++++++++++++++++++++++++*/

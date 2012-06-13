@@ -1,6 +1,6 @@
 /*
  *  check_output_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,6 @@ check_output_line(char         *line,
                   unsigned int *prev_unique_number,
                   unsigned int *prev_split_job_counter)
 {
-   register int  i = 0;
    register char *ptr = line + LOG_DATE_LENGTH + 1;
 
    if ((trace_mode == ON) && (mode & ALDA_FORWARD_MODE))
@@ -117,6 +116,8 @@ check_output_line(char         *line,
        (((prev_file_name != NULL) && (mode & ALDA_FORWARD_MODE)) ||
         (start_time_end == 0) || (olog.output_time < start_time_end)))
    {
+      register int i = 0;
+
       while ((*(ptr + i) != ' ') && (i < MAX_REAL_HOSTNAME_LENGTH) &&
              (*(ptr + i) != '\0'))
       {
@@ -166,6 +167,8 @@ check_output_line(char         *line,
                case ALDA_FTP   : olog.protocol = ALDA_FTP_FLAG;
                                  break;
                case ALDA_LOC   : olog.protocol = ALDA_LOC_FLAG;
+                                 break;
+               case ALDA_EXEC  : olog.protocol = ALDA_EXEC_FLAG;
                                  break;
                case ALDA_SMTP  : olog.protocol = ALDA_SMTP_FLAG;
                                  break;

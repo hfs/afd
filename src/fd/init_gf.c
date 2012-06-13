@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -115,6 +115,8 @@ init_gf(int argc, char *argv[], int protocol)
    db.toggle_host = NO;
    db.protocol = protocol;
    db.special_ptr = NULL;
+   db.dir_mode = 0;
+   db.dir_mode_str[0] = '\0';
 #ifdef WITH_SSH_FINGERPRINT
    db.ssh_fingerprint[0] = '\0';
    db.key_type = 0;
@@ -122,6 +124,7 @@ init_gf(int argc, char *argv[], int protocol)
 #ifdef WITH_SSL
    db.auth = NO;
 #endif
+   db.http_proxy[0] = '\0';
    db.ssh_protocol = 0;
    db.sndbuf_size = 0;
    db.rcvbuf_size = 0;
@@ -183,7 +186,8 @@ init_gf(int argc, char *argv[], int protocol)
       db.te = &fra[db.fra_pos].te[0];
    }
 #ifdef WITH_SSL
-   if ((fsa->protocol & HTTP_FLAG) && (fsa->protocol & SSL_FLAG))
+   if ((fsa->protocol & HTTP_FLAG) && (fsa->protocol & SSL_FLAG) &&
+       (db.port == DEFAULT_HTTP_PORT))
    {
       db.port = DEFAULT_HTTPS_PORT;
    }
@@ -309,7 +313,7 @@ init_gf(int argc, char *argv[], int protocol)
 
    db.lock_offset = AFD_WORD_OFFSET +
                     (db.fsa_pos * sizeof(struct filetransfer_status));
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
 #ifdef LOCK_DEBUG
       rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);

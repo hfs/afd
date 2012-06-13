@@ -1,6 +1,6 @@
 /*
  *  check_nummeric.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -57,7 +57,6 @@ DESCR__E_M3
 void
 check_nummeric(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int                        i;
    XmTextVerifyCallbackStruct *cbs = (XmTextVerifyCallbackStruct *)call_data;
 
    /* Check for backspace. */
@@ -68,6 +67,8 @@ check_nummeric(Widget w, XtPointer client_data, XtPointer call_data)
    }
    else
    {
+      int i;
+
       for (i = 0; i < cbs->text->length; i++)
       {
          if (isdigit((int)(*(cbs->text->ptr + i))) == 0)

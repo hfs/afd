@@ -32,8 +32,21 @@
                                   that this will not block jobs that work
                                   fine to another host.
                                   [Default: enabled]
+--disable-loc_support           - Support for sending files locally.
+                                  [Default: enabled]
+--disable-ftp_support           - Support for the FTP protocol.
+                                  [Default: enabled]
+--disable-sftp_support          - Support for the SFTP protocol.
+                                  [Default: enabled]
+--disable-smtp_support          - Support for the SMTP protocol.
+                                  [Default: enabled]
+--disable-http_support          - Support for the HTTP protocol.
+                                  [Default: enabled]
 --disable-wmo_support           - Support for the special protocol used by the
                                   WMO to transport data via TCP.
+                                  [Default: enabled]
+--disable-fd_exec_support       - Support for using an external program to
+                                  transmit the data.
                                   [Default: enabled]
 --disable-dupcheck_support      - When enabled AFD will be able to check
                                   the input and output for duplicates.
@@ -170,6 +183,7 @@
                                   very slow and eat lots of memory.
                                   [Default: disabled]
 --enable-compile_afd_mon_only   - This will compile the AFD monitor only.
+--enable-onetime_support        - Enables support for onetime jobs.
 --enable-afd_mon                - If set this will also compile all programms
                                   to monitor other AFD´s too.
                                   [Default: disabled]

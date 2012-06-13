@@ -1,7 +1,7 @@
 /*
  *  create_eumetsat_name.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1999 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -78,7 +78,7 @@ main(int argc, char *argv[])
    int         diff_time,
                ver_time = 0;
    time_t      base_time;
-   char        newname[69];
+   char        newname[70];
    struct stat stat_buf;
    struct tm   *p_tm;
 

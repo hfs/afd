@@ -1,6 +1,6 @@
 /*
  *  get_job_priority.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2010, 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,11 +67,7 @@ get_job_priority(unsigned int job_id)
          }
       }
    }
-
-   if (jd != NULL)
-   {
-      free(jd);
-   }
+   free(jd);
 
    return(0);
 }

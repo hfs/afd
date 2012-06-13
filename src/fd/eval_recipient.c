@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -53,26 +53,30 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   07.11.1995 H.Kiehl Created
- **   15.12.1996 H.Kiehl Changed to URL format.
- **   26.03.1998 H.Kiehl Remove host switching information, this is now
- **                      completely handled by the AMG.
- **   12.04.1998 H.Kiehl Added DOS binary mode.
- **   03.06.1998 H.Kiehl Allow user to add special characters (@, :, etc)
- **                      in password.
- **   15.12.2001 H.Kiehl When server= is set take this as hostname.
- **   19.02.2002 H.Kiehl Added the ability to read recipient group file.
- **   21.03.2003 H.Kiehl Support to only map to the required part of FSA.
- **   09.04.2004 H.Kiehl Support for TLS/SSL.
- **   28.01.2005 H.Kiehl Don't keep the error time indefinite long, for
- **                      retrieving remote files.
- **   21.11.2005 H.Kiehl Added time modifier when evaluating the directory.
- **   12.02.2006 H.Kiehl Added transfer_mode N for none for FTP.
- **   28.03.2006 H.Kiehl Added %h directory modifier for inserting local
- **                      hostname.
- **   15.04.2008 H.Kiehl Accept url's without @ sign such as http://idefix.
- **                      For FTP assume assume anonymous login if no user
- **                      is given.
+ **   07.11.1995 H.Kiehl   Created
+ **   15.12.1996 H.Kiehl   Changed to URL format.
+ **   26.03.1998 H.Kiehl   Remove host switching information, this is now
+ **                        completely handled by the AMG.
+ **   12.04.1998 H.Kiehl   Added DOS binary mode.
+ **   03.06.1998 H.Kiehl   Allow user to add special characters (@, :, etc)
+ **                        in password.
+ **   15.12.2001 H.Kiehl   When server= is set take this as hostname.
+ **   19.02.2002 H.Kiehl   Added the ability to read recipient group file.
+ **   21.03.2003 H.Kiehl   Support to only map to the required part of FSA.
+ **   09.04.2004 H.Kiehl   Support for TLS/SSL.
+ **   28.01.2005 H.Kiehl   Don't keep the error time indefinite long, for
+ **                        retrieving remote files.
+ **   21.11.2005 H.Kiehl   Added time modifier when evaluating the directory.
+ **   12.02.2006 H.Kiehl   Added transfer_mode N for none for FTP.
+ **   28.03.2006 H.Kiehl   Added %h directory modifier for inserting local
+ **                        hostname.
+ **   15.04.2008 H.Kiehl   Accept url's without @ sign such as http://idefix.
+ **                        For FTP assume assume anonymous login if no user
+ **                        is given.
+ **   10.03.2012 H.Kiehl   We must pass struct job *p_db also to
+ **                        get_group_list(), otherwise we loose those values
+ **                        during a burst.
+ **   24.04.2012 S.Knudsen Scheme ftpS was ignored.
  **
  */
 DESCR__E_M3
@@ -97,7 +101,7 @@ eval_recipient(char       *recipient,
                 scheme;
    int          port;
    time_t       time_buf;
-   char         smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
+   char         server[MAX_REAL_HOSTNAME_LENGTH];
 
    if ((next_check_time > 0) && (fsa->error_counter > 0) &&
        (fsa->error_counter < fsa->max_errors))
@@ -127,35 +131,56 @@ eval_recipient(char       *recipient,
                                   p_db->password, NO, p_db->hostname, &port,
                                   p_db->target_dir, NULL, &time_buf,
                                   &p_db->transfer_mode, &p_db->ssh_protocol,
-                                  smtp_server)) == 0)
+                                  server)) == 0)
    {
+#ifdef WITH_MSG_PROTOCOL_CHANGE
+      if ((scheme & p_db->protocol) == 0)
+      {
+      }
+#endif
+      if (p_db->protocol & EXEC_FLAG)
+      {
+         p_db->exec_cmd = p_db->target_dir;
+      }
+
       if (port != -1)
       {
          p_db->port = port;
       }
-      if (smtp_server[0] != '\0')
+      if (server[0] != '\0')
       {
-         p_db->special_flag |= SMTP_SERVER_NAME_IN_MESSAGE;
-         (void)strcpy(p_db->smtp_server, smtp_server);
+         if (scheme & SMTP_FLAG)
+         {
+            p_db->special_flag |= SMTP_SERVER_NAME_IN_MESSAGE;
+            (void)strcpy(p_db->smtp_server, server);
+         }
+         if (scheme & HTTP_FLAG)
+         {
+            (void)strcpy(p_db->http_proxy, server);
+         }
       }
 #ifdef WITH_SSL
       if (scheme & SSL_FLAG)
       {
-         p_db->auth = YES;
+         if (recipient[3] == 'S')
+         {
+            p_db->auth = BOTH;
+         }
+         else
+         {
+            p_db->auth = YES;
+         }
       }
-      else if (recipient[3] == 'S')
-           {
-              p_db->auth = BOTH;
-           }
 #endif
 
       if (p_db->user[0] == MAIL_GROUP_IDENTIFIER)
       {
-         get_group_list(&p_db->user[1]);
+         get_group_list(&p_db->user[1], p_db);
       }
       else if (p_db->user[0] == '\0')
            {
-              if ((p_db->protocol & LOC_FLAG) == 0)
+              if (((p_db->protocol & LOC_FLAG) == 0) &&
+                  ((p_db->protocol & EXEC_FLAG) == 0)) 
               {
                  p_db->user[0] = 'a'; p_db->user[1] = 'n';
                  p_db->user[2] = 'o'; p_db->user[3] = 'n';
@@ -165,13 +190,13 @@ eval_recipient(char       *recipient,
               }
               if (p_db->hostname[0] == MAIL_GROUP_IDENTIFIER)
               {
-                 get_group_list(&p_db->hostname[1]);
+                 get_group_list(&p_db->hostname[1], p_db);
                  (void)memmove(p_db->hostname, &p_db->hostname[1],
                                strlen(&p_db->hostname[1]) + 1);
               }
               else
               {
-                 if (p_db->protocol & FTP)
+                 if (p_db->protocol & FTP_FLAG)
                  {
                     /* Assume anonymous login. */
                     p_db->password[0] = 'a'; p_db->password[1] = 'f';
@@ -200,7 +225,8 @@ eval_recipient(char       *recipient,
 # ifdef _WITH_MAP_SUPPORT
              (p_db->protocol & MAP_FLAG) ||
 # endif
-             (p_db->protocol & LOC_FLAG))
+             (p_db->protocol & LOC_FLAG) ||
+             (p_db->protocol & EXEC_FLAG))
          {
             /* No need to lookup a passwd. */;
          }
@@ -212,13 +238,13 @@ eval_recipient(char       *recipient,
                 (p_db->smtp_auth != SMTP_AUTH_NONE))
             {
                (void)strcpy(uh_name, p_db->smtp_user);
-               if (smtp_server[0] == '\0')
+               if (server[0] == '\0')
                {
                   (void)strcat(uh_name, p_db->hostname);
                }
                else
                {
-                  (void)strcat(uh_name, smtp_server);
+                  (void)strcat(uh_name, server);
                }
             }
             else
@@ -288,7 +314,7 @@ eval_recipient(char       *recipient,
           * Uups. What do we do now? Host not in the FSA!
           * Hmm. Maybe somebody has a better idea?
           */
-         if (((port = gsf_check_fsa()) == NO) || (port == NEITHER) ||
+         if (((port = gsf_check_fsa(p_db)) == NO) || (port == NEITHER) ||
              ((port == YES) && (p_db->fsa_pos == INCORRECT)) ||
              ((port == YES) && (p_db->fsa_pos != INCORRECT) &&
               (CHECK_STRCMP(p_db->host_alias, fsa->host_alias))))

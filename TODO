@@ -379,7 +379,7 @@ o       Switching AFD's in afd_mon, mon_ctrl.     *    [DONE]
 
 
 
------------------------->>>>> Version 2.0.x <<<<<--------------------------
+------------------------>>>>> Version 1.4.x <<<<<--------------------------
 o       SFTP support.                           ***    [DONE]
 o       Group transfer rate limit.               **    [DONE]
 o       Centralize log files via afd_mon.       ***    [DONE]
@@ -395,13 +395,42 @@ o       Add an event log.                        **    [DONE]
 o       Implemented persistend connection for
         transmitting files.                     ***    [DONE]
 o       Allow to set warn and/or error actions
-        for source and/or destination.            *    [UNDER CONSTRUCTION]
-o       Interface to allow user to handle events. *    [UNDER CONSTRUCTION]
+        for source and/or destination.            *    [DONE]
+o       Interface to allow user to handle events. *    [DONE]
+o       Support for sending files via HTTP
+        protocol.                                 *    [DONE]
+o       Editing function for afd_info and mon_info
+        dialogs.                                  *    [DONE]
+o       Add search function for dialogs showing
+        configuration data.                       *    [DONE]
+o       Be able to handle DOS-style configuration
+        files                                     *    [DONE]
+o       Implement unique locking.                **    [DONE]
+o       Support for multiple time options       ***    [DONE]
+o       Make use of off-screen pixmap in afd_ctrl,
+        dir_ctrl and mon_ctrl dialog to speed up
+        redraws over slow connections.           **    [DONE]
+-------------------------> Rel: 26 November 2009 <------------------------
+
+
+
+------------------------>>>>> Version 1.5.x <<<<<--------------------------
+o       Add support for groups in afd_ctrl
+        dialog.                                ****    [TODO]
+o       Use alda to get the data for show_xlog
+        dialogs.                                  *    [TODO]
+o       Extra process that stores data into archive
+        in case archive directory lies on a
+        different file system.                  ***    [TODO]
+o       Implement support for one time jobs.      *    [UNDER CONSTRUCTION]
+o       HTTP proxy support.                       *    [TODO]
+o       Use inotify to detect new files.        ***    [UNDER CONSTRUCTION]
 o       Dialog to view statistics.                *    [UNDER CONSTRUCTION]
 o       Create WMO server.                        *    [UNDER CONSTRUCTION]
 o       Command line tool that allows to follow
         files within several AFD's.            ****    [UNDER CONSTRUCTION]
 o       Convert all dialogs to gtk+.            ***    [UNDER CONSTRUCTION]
+o       Internationalization.                     *    [UNDER CONSTRUCTION]
 o       Follow directories. Add a dir option that
         tells AFD to search all subsequent
         directories.                             **    [TODO]
@@ -409,12 +438,11 @@ o       Rename option for send in show_olog.      *    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
 o       Support for IP6.                        ***    [TODO]
 o       Write process sf_sql to send files to
-        a database.                               *    [TODO]
+        a database and gf_sql to retrieve data
+        from a database.                         **    [TODO]
 o       Implement context sensitive help for
         the 'afd_ctrl' dialog.                    *    [TODO]
 o       Create process that can do multi-casting.**    [TODO]
-o       Support for sending files via HTTP
-        protocol.                                 *    [TODO]
 o       Create interface to add, remove and or
         change individual jobs within AFD.      ***    [TODO]
 o       Make MAX_HOSTNAME_LENGTH changeable at

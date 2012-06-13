@@ -1,6 +1,6 @@
 /*
  *  check_host_alias.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,11 +79,10 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
    if ((search_host_alias_counter != 0) || (search_host_id_counter != 0) ||
        (search_host_name_counter != 0))
    {
-      int ret;
-
       if (mode & ALDA_LOCAL_MODE)
       {
-         int i;
+         int i,
+             ret;
 
          if (search_host_alias_counter != 0)
          {
@@ -108,7 +107,7 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
          {
             if (fsa_fd == -1)
             {
-               if (fsa_attach_passive() != SUCCESS)
+               if (fsa_attach_passive(NO) != SUCCESS)
                {
                   (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
                                 __FILE__, __LINE__);
@@ -138,7 +137,7 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
          {
             if (fsa_fd == -1)
             {
-               if (fsa_attach_passive() != SUCCESS)
+               if (fsa_attach_passive(NO) != SUCCESS)
                {
                   (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
                                 __FILE__, __LINE__);
@@ -212,7 +211,8 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
 #ifdef WITH_AFD_MON
       else
       {
-         int i;
+         int i,
+             ret;
 
          if (start_alias_counter != 0)
          {

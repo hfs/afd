@@ -25,10 +25,11 @@ DESCR__S_M3
  **   reset_values - resets total_file_counter + total_file_size in FSA
  **
  ** SYNOPSIS
- **   void reset_values(int   files_retrieved,
- **                     off_t file_size_retrieved,
- **                     int   files_to_retrieve,
- **                     off_t file_size_to_retrieve)
+ **   void reset_values(int        files_retrieved,
+ **                     off_t      file_size_retrieved,
+ **                     int        files_to_retrieve,
+ **                     off_t      file_size_to_retrieve,
+ **                     struct job *p_db)
  **
  ** DESCRIPTION
  **
@@ -49,26 +50,26 @@ DESCR__E_M3
 /* External global variables. */
 extern int                        fsa_fd;
 extern struct filetransfer_status *fsa;
-extern struct job                 db;
 
 
 /*############################ reset_values() ###########################*/
 void
-reset_values(int   files_retrieved,
-             off_t file_size_retrieved,
-             int   files_to_retrieve,
-             off_t file_size_to_retrieve)
+reset_values(int        files_retrieved,
+             off_t      file_size_retrieved,
+             int        files_to_retrieve,
+             off_t      file_size_to_retrieve,
+             struct job *p_db)
 {
    if (((files_retrieved < files_to_retrieve) ||
         (file_size_retrieved < file_size_to_retrieve)) &&
-       (db.fsa_pos != INCORRECT))
+       (p_db->fsa_pos != INCORRECT))
    {
-      if (gsf_check_fsa() != NEITHER)
+      if (gsf_check_fsa(p_db) != NEITHER)
       {
 #ifdef LOCK_DEBUG
-         lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
+         lock_region_w(fsa_fd, p_db->lock_offset + LOCK_TFC, __FILE__, __LINE__);
 #else
-         lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
+         lock_region_w(fsa_fd, p_db->lock_offset + LOCK_TFC);
 #endif
          if (files_retrieved < files_to_retrieve)
          {
@@ -106,9 +107,9 @@ reset_values(int   files_retrieved,
 #endif
          }
 #ifdef LOCK_DEBUG
-         unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
+         unlock_region(fsa_fd, p_db->lock_offset + LOCK_TFC, __FILE__, __LINE__);
 #else
-         unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
+         unlock_region(fsa_fd, p_db->lock_offset + LOCK_TFC);
 #endif
       }
    }

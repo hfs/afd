@@ -13,7 +13,7 @@ could be:
         - the load of the remote system
              - cpu usage
              - wait IO
-        - how many files + size we currently transmitt to this AFD
+        - how many files + size we currently transmit to this AFD
 
 AFDD
 ====

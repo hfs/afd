@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -110,6 +110,16 @@ main(int argc, char *argv[])
       view_type = SHORT_VIEW;
    }
 
+   /* Do not start if binary dataset matches the one stort on disk. */
+   if (check_typesize_data() > 0)
+   {
+      (void)fprintf(stderr,
+                    "The compiled binary does not match stored database.\n");
+      (void)fprintf(stderr,
+                    "Initialize database with the command : afd -i\n");
+      exit(INCORRECT);
+   }
+
    if (argc == 2)
    {
       if (isdigit((int)(argv[1][0])) != 0)
@@ -132,7 +142,7 @@ main(int argc, char *argv[])
            exit(INCORRECT);
         }
 
-   if ((j = fsa_attach_passive()) < 0)
+   if ((j = fsa_attach_passive(NO)) < 0)
    {
       if (j == INCORRECT_VERSION)
       {
@@ -273,14 +283,24 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stdout, "ignore_bin ");
          }
+         if (fsa[j].protocol_options & CHECK_SIZE)
+         {
+            (void)fprintf(stdout, "check_size ");
+         }
       }
       if (fsa[j].protocol & SFTP_FLAG)
       {
          (void)fprintf(stdout, "SFTP ");
-         if (((fsa[j].protocol & FTP_FLAG) == 0) &&
-             (fsa[j].protocol_options & FTP_FAST_CD))
+         if ((fsa[j].protocol & FTP_FLAG) == 0)
          {
-            (void)fprintf(stdout, "fast_cd ");
+            if (fsa[j].protocol_options & FTP_FAST_CD)
+            {
+               (void)fprintf(stdout, "fast_cd ");
+            }
+            if (fsa[j].protocol_options & CHECK_SIZE)
+            {
+               (void)fprintf(stdout, "check_size ");
+            }
          }
          if (fsa[j].protocol_options & ENABLE_COMPRESSION)
          {
@@ -354,6 +374,10 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "sort_file_names ");
       }
+      if (fsa[j].protocol_options & NO_AGEING_JOBS)
+      {
+         (void)fprintf(stdout, "no_ageing_jobs ");
+      }
       (void)fprintf(stdout, "\n");
       (void)fprintf(stdout, "Direction            : ");
       if (fsa[j].protocol & SEND_FLAG)
@@ -416,6 +440,10 @@ main(int argc, char *argv[])
            {
               (void)fprintf(stdout, "Debug mode           : FULL TRACE\n");
            }
+           else
+           {
+              (void)fprintf(stdout, "Debug mode           : Unknown\n");
+           }
 #ifdef WITH_DUP_CHECK
       if (fsa[j].dup_check_timeout == 0L)
       {
@@ -438,13 +466,17 @@ main(int argc, char *argv[])
               {
                  (void)fprintf(stdout, "NAME_NO_SUFFIX ");
               }
+         else if (fsa[j].dup_check_flag & DC_FILENAME_AND_SIZE)
+              {
+                 (void)fprintf(stdout, "NAME_SIZE ");
+              }
          else if (fsa[j].dup_check_flag & DC_FILE_CONTENT)
               {
                  (void)fprintf(stdout, "FILE_CONTENT ");
               }
          else if (fsa[j].dup_check_flag & DC_FILE_CONT_NAME)
               {
-                 (void)fprintf(stdout, "FILE_CONT_NAME ");
+                 (void)fprintf(stdout, "FILE_NAME_CONT ");
               }
               else
               {

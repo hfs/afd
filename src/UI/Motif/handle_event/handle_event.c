@@ -151,7 +151,6 @@ main(int argc, char *argv[])
                    radiobox_w,
                    time_box_w;
    XmFontListEntry entry;
-   XFontStruct     *font_struct;
    XmFontList      fontlist;
    XmFontType      dummy;
    Arg             args[21];
@@ -216,7 +215,7 @@ main(int argc, char *argv[])
 
    entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
                                XmFONT_IS_FONT, "TAG1");
-   font_struct = (XFontStruct *)XmFontListEntryGetFont(entry, &dummy);
+   (void)XmFontListEntryGetFont(entry, &dummy);
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 

@@ -1,6 +1,6 @@
 /*
  *  expand_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,27 +57,51 @@ expand_path(char *user, char *path)
 {
    struct passwd *pwd;
 
+   errno = 0;
    if (user[0] == '\0')
    {
       if ((pwd = getpwuid(getuid())) == NULL)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
+         if (errno == 0)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_UID_T == 4
-                    _("Cannot find working directory for userid %d in /etc/passwd : %s"),
+                       _("Cannot find working directory for userid %d in /etc/passwd"),
 #else
-                    _("Cannot find working directory for userid %lld in /etc/passwd : %s"),
+                       _("Cannot find working directory for userid %lld in /etc/passwd"),
 #endif
-                    (pri_uid_t)getuid(), strerror(errno));
-         return(INCORRECT);
+                       (pri_uid_t)getuid());
+            return(INCORRECT);
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_UID_T == 4
+                       _("Cannot find working directory for userid %d in /etc/passwd : %s"),
+#else
+                       _("Cannot find working directory for userid %lld in /etc/passwd : %s"),
+#endif
+                       (pri_uid_t)getuid(), strerror(errno));
+            return(INCORRECT);
+         }
       }
    }
    else
    {
       if ((pwd = getpwnam(user)) == NULL)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    _("Cannot find users %s working directory in /etc/passwd : %s"),
-                    user, strerror(errno));
+         if (errno == 0)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Cannot find users `%s' working directory in /etc/passwd"),
+                       user);
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Cannot find users `%s' working directory in /etc/passwd : %s"),
+                       user, strerror(errno));
+         }
          return(INCORRECT);
       }
    }

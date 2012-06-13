@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -147,6 +147,9 @@ extern struct apps_list        *apps_list;
 /* Local global variables. */
 static int                     in_window = NO;
 
+/* Local function prototypes. */
+static int                     in_ec_area(int, XEvent *);
+
 
 /*############################ mon_focus() ##############################*/
 void
@@ -169,9 +172,7 @@ mon_focus(Widget      w,
 
 /*############################ mon_input() ##############################*/
 void
-mon_input(Widget      w,
-          XtPointer   client_data,
-          XEvent      *event)
+mon_input(Widget w, XtPointer client_data, XEvent *event)
 {
    int        select_no;
    static int last_motion_pos = -1;
@@ -306,6 +307,68 @@ mon_input(Widget      w,
                  }
                  else if (event->xkey.state & ShiftMask)
                       {
+                         if (connect_data[select_no].inverse == OFF)
+                         {
+                            int i;
+
+                            if (select_no > 0)
+                            {
+                               for (i = select_no - 1; i > 0; i--)
+                               {
+                                  if (connect_data[i].inverse != OFF)
+                                  {
+                                     break;
+                                  }
+                               }
+                            }
+                            else
+                            {
+                               i = 0;
+                            }
+                            if (connect_data[i].inverse != OFF)
+                            {
+                               int j;
+
+                               for (j = i + 1; j <= select_no; j++)
+                               {
+                                  connect_data[j].inverse = connect_data[i].inverse;
+                                  draw_line_status(j, 1);
+                               }
+                            }
+                            else
+                            {
+                               connect_data[select_no].inverse = ON;
+                               no_selected++;
+                               draw_line_status(select_no, 1);
+                            }
+                         }
+                         else
+                         {
+                            if (connect_data[select_no].inverse == ON)
+                            {
+                               connect_data[select_no].inverse = OFF;
+                               no_selected--;
+                            }
+                            else
+                            {
+                               connect_data[select_no].inverse = OFF;
+                               no_selected_static--;
+                            }
+                            draw_line_status(select_no, 1);
+                         }
+                         XFlush(display);
+                      }
+                 else if ((line_style != BARS_ONLY) &&
+                          ((msa[select_no].ec > 0) ||
+                           (msa[select_no].host_error_counter > 0)) &&
+                          (in_ec_area(select_no, event)))
+                      {
+                         popup_error_history(event->xbutton.x_root,
+                                             event->xbutton.y_root, select_no);
+                      }
+                      else
+                      {
+                         destroy_error_history();
                          if (connect_data[select_no].inverse == ON)
                          {
                             connect_data[select_no].inverse = OFF;
@@ -324,50 +387,6 @@ mon_input(Widget      w,
 
                          draw_line_status(select_no, 1);
                          XFlush(display);
-                      }
-                 else if (line_style != BARS_ONLY)
-                      {
-                         int x_offset,
-                             y_offset;
-
-                          x_offset = event->xbutton.x -
-                                     ((event->xbutton.x / line_length) *
-                                     line_length);
-                          y_offset = event->xbutton.y -
-                                     ((event->xbutton.y / line_height) *
-                                     line_height);
-
-#ifdef _DEBUG
-                         (void)fprintf(stderr,
-                                       "x_offset=%d y_offset=%d EC:%d-%d EH:%d-%d Y:%d-%d\n",
-                                       x_offset, y_offset, x_offset_ec,
-                                       (x_offset_ec + (2 * glyph_width)),
-                                       x_offset_eh,
-                                       (x_offset_eh + (2 * glyph_width)),
-                                       SPACE_ABOVE_LINE,
-                                       (line_height - SPACE_BELOW_LINE));
-#endif
-                         if ((((x_offset > x_offset_ec) &&
-                               (x_offset < (x_offset_ec + (2 * glyph_width))) &&
-                               (msa[select_no].ec > 0)) ||
-                              ((x_offset > x_offset_eh) &&
-                               (x_offset < (x_offset_eh + (2 * glyph_width))) &&
-                               (msa[select_no].host_error_counter > 0))) &&
-                             ((y_offset > SPACE_ABOVE_LINE) &&
-                              (y_offset < (line_height - SPACE_BELOW_LINE))))
-                         {
-                            popup_error_history(event->xbutton.x_root,
-                                                event->xbutton.y_root,
-                                                select_no);
-                         }
-                         else
-                         {
-                            destroy_error_history();
-                         }
-                      }
-                      else
-                      {
-                         destroy_error_history();
                       }
 
                  last_motion_pos = select_no;
@@ -429,6 +448,44 @@ mon_input(Widget      w,
    }
 
    return;
+}
+
+
+/*+++++++++++++++++++++++++++++ in_ec_area() ++++++++++++++++++++++++++++*/
+static int
+in_ec_area(int select_no, XEvent *event)
+{
+   int x_offset,
+       y_offset;
+
+    x_offset = event->xbutton.x - ((event->xbutton.x / line_length) *
+               line_length);
+    y_offset = event->xbutton.y - ((event->xbutton.y / line_height) *
+               line_height);
+
+#ifdef _DEBUG
+   (void)fprintf(stderr,
+                 "x_offset=%d y_offset=%d EC:%d-%d EH:%d-%d Y:%d-%d\n",
+                 x_offset, y_offset, x_offset_ec,
+                 (x_offset_ec + (2 * glyph_width)),
+                 x_offset_eh,
+                 (x_offset_eh + (2 * glyph_width)),
+                 SPACE_ABOVE_LINE,
+                 (line_height - SPACE_BELOW_LINE));
+#endif
+   if ((((x_offset > x_offset_ec) &&
+         (x_offset < (x_offset_ec + (2 * glyph_width))) &&
+         (msa[select_no].ec > 0)) ||
+        ((x_offset > x_offset_eh) &&
+         (x_offset < (x_offset_eh + (2 * glyph_width))) &&
+         (msa[select_no].host_error_counter > 0))) &&
+       ((y_offset > SPACE_ABOVE_LINE) &&
+        (y_offset < (line_height - SPACE_BELOW_LINE))))
+   {
+      return(YES);
+   }
+
+   return(NO);
 }
 
 
@@ -505,6 +562,7 @@ mon_popup_cb(Widget    w,
    {
       (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
+      FREE_RT_ARRAY(hosts);
       return;
    }
 
@@ -560,6 +618,8 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_LOG);
          (void)strcpy(log_typ, MON_SYSTEM_STR);
 	 make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
 	 return;
 
       case MON_LOG_SEL : /* Monitor Log. */
@@ -585,6 +645,8 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_FILE_LOAD);
 	 make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
 	 return;
 
       case VIEW_KBYTE_LOAD_SEL : /* KByte Load. */
@@ -599,6 +661,8 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_KBYTE_LOAD);
 	 make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
 	 return;
 
       case VIEW_CONNECTION_LOAD_SEL : /* Connection Load. */
@@ -613,6 +677,8 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_CONNECTION_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case VIEW_TRANSFER_LOAD_SEL : /* Active Transfers Load. */
@@ -627,6 +693,8 @@ mon_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_TRANSFER_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(hosts);
          return;
 
       case EXIT_SEL  : /* Exit. */
@@ -1099,7 +1167,7 @@ start_remote_prog(Widget    w,
                  "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
-   if ((args = malloc(15 * sizeof(char *))) == NULL)
+   if ((args = malloc(17 * sizeof(char *))) == NULL)
    {
       (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
@@ -2154,7 +2222,6 @@ change_mon_history_cb(Widget    w,
                       XtPointer client_data,
                       XtPointer call_data)
 {
-   int         i;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
    if (current_his_log != item_no)
@@ -2219,6 +2286,8 @@ change_mon_history_cb(Widget    w,
 
    if (resize_mon_window() == YES)
    {
+      int i;
+
       calc_mon_but_coord(window_width);
       XClearWindow(display, line_window);
       XFreePixmap(display, label_pixmap);

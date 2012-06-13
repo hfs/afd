@@ -1,6 +1,6 @@
 /*
  *  aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -84,6 +84,7 @@ DESCR__S_M1
  **   19.03.2006 H.Kiehl Added proxy support.
  **   05.03.2008 H.Kiehl Added chmod support.
  **   16.03.2009 H.Kiehl Added gettext supoort.
+ **   30.03.2012 H.Kiehl Inform when we created a directory.
  **
  */
 DESCR__E_M1
@@ -131,15 +132,9 @@ main(int argc, char *argv[])
 {
    int         exit_status = SUCCESS,
                fd = -1,
-               j,
                status,
-               loops,
-               rest,
-               files_send = 0,
                no_of_files_done = 0;
-   size_t      length;
-   off_t       append_offset = 0,
-               file_size_done = 0,
+   off_t       file_size_done = 0,
                file_size_to_retrieve,
                local_file_size,
                no_of_bytes;
@@ -149,6 +144,7 @@ main(int argc, char *argv[])
    char        *ascii_buffer = NULL,
                append_count = 0,
                *buffer,
+               *created_path = NULL,
                *file_ptr,
                initial_filename[MAX_FILENAME_LENGTH],
                final_filename[MAX_FILENAME_LENGTH];
@@ -229,6 +225,20 @@ main(int argc, char *argv[])
          else
          {
             trans_log(INFO_SIGN, NULL, 0, NULL, msg_str, _("Connected."));
+         }
+      }
+
+      if (db.special_flag & CREATE_TARGET_DIR)
+      {
+         if ((created_path = malloc(2048)) == NULL)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      _("malloc() error : %s (%s %d)\n"),
+                      strerror(errno), __FILE__, __LINE__);
+         }                                                     
+         else
+         {
+            created_path[0] = '\0';
          }
       }
    }
@@ -533,7 +543,8 @@ main(int argc, char *argv[])
    /* Change directory if necessary. */
    if (db.remote_dir[0] != '\0')
    {
-      if ((status = ftp_cd(db.remote_dir, db.create_target_dir)) != SUCCESS)
+      if ((status = ftp_cd(db.remote_dir, db.create_target_dir, db.dir_mode_str,
+                           created_path)) != SUCCESS)
       {
          if (db.create_target_dir == YES)
          {
@@ -556,6 +567,12 @@ main(int argc, char *argv[])
          {
             trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       _("Changed directory to %s"), db.remote_dir);
+         }
+         if ((created_path != NULL) && (created_path[0] != '\0'))
+         {
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      "Created directory `%s'.", created_path);
+            created_path[0] = '\0';
          }
       }
    } /* if (db.remote_dir[0] != '\0') */
@@ -839,9 +856,14 @@ main(int argc, char *argv[])
    }
    else /* Send data. */
    {
-      int local_file_not_found = 0;
+      int    files_send = 0,
+             local_file_not_found = 0,
+             loops,
+             rest;
+      size_t length;
+      off_t  append_offset = 0;
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-      int keep_alive_timeout = transfer_timeout - 5;
+      int    keep_alive_timeout = transfer_timeout - 5;
 
       if (db.keepalive == YES)
       {
@@ -1165,6 +1187,8 @@ main(int argc, char *argv[])
 
          if (db.exec_mode == TRANSFER_MODE)
          {
+            int j;
+
             for (;;)
             {
                for (j = 0; j < loops; j++)
@@ -1347,6 +1371,8 @@ main(int argc, char *argv[])
          }
          else /* TEST_MODE, write dummy files. */
          {
+            int j;
+
             for (j = 0; j < loops; j++)
             {
                if ((status = ftp_write(buffer, ascii_buffer,
@@ -1533,7 +1559,9 @@ main(int argc, char *argv[])
                (void)strcat(final_filename, DOT_NOTATION);
             }
             if ((status = ftp_move(initial_filename, final_filename, 0,
-                                   db.create_target_dir)) != SUCCESS)
+                                   db.create_target_dir,
+                                   db.dir_mode_str,
+                                   created_path)) != SUCCESS)
             {
                WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
@@ -1549,6 +1577,12 @@ main(int argc, char *argv[])
                   trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             _("Renamed remote file %s to %s"),
                             initial_filename, final_filename);
+               }
+               if ((created_path != NULL) && (created_path[0] != '\0'))
+               {
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Created directory `%s'.", created_path);
+                  created_path[0] = '\0';   
                }
             }
          }
@@ -1671,7 +1705,9 @@ main(int argc, char *argv[])
 
             /* Remove leading dot from ready file. */
             if ((status = ftp_move(ready_file_name, &ready_file_name[1], 0,
-                                   db.create_target_dir)) != SUCCESS)
+                                   db.create_target_dir,
+                                   db.dir_mode_str,
+                                   created_path)) != SUCCESS)
             {
                WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
@@ -1687,6 +1723,12 @@ main(int argc, char *argv[])
                   trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             _("Renamed remote ready file %s to %s"),
                             ready_file_name, &ready_file_name[1]);
+               }
+               if ((created_path != NULL) && (created_path[0] != '\0'))
+               {
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Created directory `%s'.", created_path);
+                  created_path[0] = '\0';   
                }
             }
          }
@@ -1767,10 +1809,7 @@ main(int argc, char *argv[])
    }
 
    /* Don't need the ASCII buffer. */
-   if (ascii_buffer != NULL)
-   {
-      free(ascii_buffer);
-   }
+   free(ascii_buffer);
 
    exit(exit_status);
 }

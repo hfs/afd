@@ -1,6 +1,6 @@
 /*
  *  awmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2010 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,18 +101,10 @@ int
 main(int argc, char *argv[])
 {
    int         exit_status = SUCCESS,
-               fd = -1,
-               j,
                status,
-               loops,
-               rest,
-               files_send = 0,
-               no_of_files_done = 0,
                *wmo_counter,
                wmo_counter_fd = -1;
-   size_t      length;
-   off_t       file_size_done = 0,
-               local_file_size,
+   off_t       local_file_size,
                no_of_bytes;
    char        *ascii_buffer = NULL,
                *buffer,
@@ -194,10 +186,18 @@ main(int argc, char *argv[])
    }
 
    {
-      int end_length,
-          header_length,
-          length_type_indicator,
-          local_file_not_found = 0;
+      int    end_length,
+             fd = -1,
+             files_send = 0,
+             header_length,
+             j,
+             length_type_indicator,
+             local_file_not_found = 0,
+             loops,
+             no_of_files_done = 0,
+             rest;
+      size_t length;
+      off_t  file_size_done = 0;
 
       /* Send all files. */
       for (files_send = 0; files_send < db.no_of_files; files_send++)
@@ -664,10 +664,7 @@ main(int argc, char *argv[])
    }
 
    /* Don't need the ASCII buffer. */
-   if (ascii_buffer != NULL)
-   {
-      free(ascii_buffer);
-   }
+   free(ascii_buffer);
 
    exit(exit_status);
 }

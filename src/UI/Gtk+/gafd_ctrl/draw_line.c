@@ -393,7 +393,7 @@ draw_line_status(int pos, signed char delta)
 
    if (connect_data[pos].long_pos > -1)
    {
-      int column, i;
+      int column;
 
       /* First locate position of x and y. */
       locate_xy_column(connect_data[pos].long_pos, &x, &y, &column);
@@ -438,6 +438,8 @@ draw_line_status(int pos, signed char delta)
 
       if (line_style & SHOW_JOBS)
       {
+         int i;
+
          /* Draw status button for each parallel transfer. */
          for (i = 0; i < fsa[pos].allowed_transfers; i++)
          {

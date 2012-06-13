@@ -1,6 +1,6 @@
 /*
  *  get_real_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,7 @@ get_real_hostname(char *host_alias, int current_toggle, char *real_hostname)
 
       if (fsa_fd == -1)
       {
-         if (fsa_attach_passive() != SUCCESS)
+         if (fsa_attach_passive(NO) != SUCCESS)
          {
             (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
                           __FILE__, __LINE__);

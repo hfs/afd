@@ -1,6 +1,6 @@
 /*
  *  eval_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -345,12 +345,11 @@ eval_filename_file(char *file_name, struct data *p_db)
    }
    else
    {
-      register int i, j;
-      size_t       length,
-                   max_length,
-                   max_rename_length;
-      char         *p_start,
-                   *ptr = buffer;
+      size_t length,
+             max_length,
+             max_rename_length;
+      char   *p_start,
+             *ptr = buffer;
 
       /* First lets count the number of entries so we can later */
       /* allocate the memory we need.                           */
@@ -394,6 +393,8 @@ eval_filename_file(char *file_name, struct data *p_db)
 
       if (max_length > 0)
       {
+         register int i, j;
+
          max_length++;
          RT_ARRAY(p_db->filename, p_db->no_of_files, max_length, char);
          if (max_rename_length > 0)

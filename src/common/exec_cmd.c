@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,6 +63,7 @@ DESCR__S_M3
  **                      returned by the 'cmd', which the caller must
  **                      now free.
  **   11.02.2007 H.Kiehl Added job string when writting to log_fd.
+ **   01.11.2011 H.Kiehl Added support for setting scheduling priority.
  **
  */
 DESCR__E_M3
@@ -75,6 +76,9 @@ DESCR__E_M3
 #include <unistd.h>                   /* read(), close(), STDOUT_FILENO, */
                                       /* STDERR_FILENO, select()         */
 #include <sys/time.h>                 /* struct timeval                  */
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>            /* setpriority()                   */
+#endif
 #include <sys/types.h>
 #include <sys/wait.h>                 /* waitpid()                       */
 #include <sys/times.h>                /* times()                         */
@@ -94,6 +98,9 @@ exec_cmd(char   *cmd,
          int    log_fd,
          char   *name,
          int    name_length,
+#ifdef HAVE_SETPRIORITY
+         int    set_priority,
+#endif
          char   *job,
          time_t exec_timeout,
          int    dup_stderr,
@@ -192,6 +199,18 @@ exec_cmd(char   *cmd,
             }
             (void)close(fds[0]);
 
+#ifdef HAVE_SETPRIORITY
+            if (set_priority > NO_PRIORITY)
+            {
+               if (setpriority(PRIO_PROCESS, 0, set_priority) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             _("Failed to setpriority() to %d : %s"),
+                             set_priority, strerror(errno));
+               }
+            }
+#endif
+
             (void)execl("/bin/sh", "sh", "-c", cmd, (char *)0);
          }
          _exit(INCORRECT);
@@ -220,10 +239,7 @@ exec_cmd(char   *cmd,
             time_t         exec_start_time;
             struct timeval timeout;
 
-            if (*buffer != NULL)
-            {
-               free(*buffer);
-            }
+            free(*buffer);
             if ((*buffer = malloc(max_pipe_size + 1)) == NULL)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -323,15 +339,19 @@ exec_cmd(char   *cmd,
                                  if (nleft < (max_pipe_size / 2))
                                  {
                                     size_t size;
+                                    char   *tmp_buffer;
 
                                     size = bytes_read + max_pipe_size + 1;
-                                    if ((*buffer = realloc(*buffer, size)) == NULL)
+                                    if ((tmp_buffer = realloc(*buffer, size)) == NULL)
                                     {
                                        system_log(ERROR_SIGN, __FILE__, __LINE__,
                                                   _("Failed to realloc() %d bytes : %s"),
                                                   size, strerror(errno));
+                                       free(*buffer);
+                                       *buffer = NULL;
                                        return(INCORRECT);
                                     }
+                                    *buffer = tmp_buffer;
                                     nleft = nleft + max_pipe_size;
                                     read_ptr = *buffer + bytes_read;
                                  }
@@ -394,15 +414,19 @@ exec_cmd(char   *cmd,
                              if (nleft == 0)
                              {
                                 size_t size;
+                                char   *tmp_buffer;
 
                                 size = bytes_read + max_pipe_size + 1;
-                                if ((*buffer = realloc(*buffer, size)) == NULL)
+                                if ((tmp_buffer = realloc(*buffer, size)) == NULL)
                                 {
                                    system_log(ERROR_SIGN, __FILE__, __LINE__,
                                               _("Failed to realloc() %d bytes : %s"),
                                               size, strerror(errno));
+                                   free(*buffer);
+                                   *buffer = NULL;
                                    return(INCORRECT);
                                 }
+                                *buffer = tmp_buffer;
                                 nleft = max_pipe_size;
                                 read_ptr = *buffer + bytes_read;
                              }

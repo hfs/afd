@@ -1,6 +1,6 @@
 /*
  *  show_amg_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -148,24 +148,24 @@ main(int argc, char *argv[])
 static void
 show_amg_data(FILE *output, char *p_mmap, off_t data_length)
 {
-   int            i,
-                  j,
-                  k,
-                  no_of_jobs,
-                  value,
-                  size;
-   char           option[MAX_OPTION_LENGTH],
-                  *ptr = NULL,
-                  *tmp_ptr = NULL,
-                  *p_offset = NULL;
-   struct p_array *p_ptr;
-
    /* Show what is stored in the AMG data file. */
    (void)fprintf(output, "\n\n====================> Contents of AMG data file <===================\n");
    (void)fprintf(output, "                      =========================\n");
 
    if (data_length > 0)
    {
+      int            i,
+                     j,
+                     k,
+                     no_of_jobs,
+                     value,
+                     size;
+      char           option[MAX_OPTION_LENGTH],
+                     *ptr = NULL,
+                     *tmp_ptr = NULL,
+                     *p_offset = NULL;
+      struct p_array *p_ptr;
+
       ptr = p_mmap;
 
       /* First get the no of jobs. */

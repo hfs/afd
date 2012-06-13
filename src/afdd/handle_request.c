@@ -1,6 +1,6 @@
 /*
  *  handle_request.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ handle_request(int  sock_sd,
       exit(INCORRECT);
    }
 
-   if (fsa_attach_passive() < 0)
+   if (fsa_attach_passive(NO) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, _("Failed to attach to FSA."));
       exit(INCORRECT);
@@ -1147,6 +1147,7 @@ handle_request(int  sock_sd,
                             (void)fprintf(p_data, "501- Unknown log type\r\n");
                             log_defs = 0;
                             complete_failure = YES;
+                            break;
                          }
                       } while (*ptr == ' ');
 

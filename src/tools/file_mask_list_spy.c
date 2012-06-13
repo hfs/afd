@@ -1,7 +1,7 @@
 /*
  *  file_mask_list_spy.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,6 @@ main(int argc, char *argv[])
 {
    int          fd,
                 fml_offset,
-                i, j,
                 mask_offset,
                 no_of_file_masks_id,
                 search_id;
@@ -125,6 +124,8 @@ main(int argc, char *argv[])
 
    if (no_of_file_masks_id > 0)
    {
+      int i, j;
+
       for (i = 0; i < no_of_file_masks_id; i++)
       {
          if ((search_id == NO) ||

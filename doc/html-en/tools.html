@@ -73,9 +73,11 @@ data. Otherwise both AFD's will retrieve the data and that can be quit
 annoying. The syntax of afdcfg is as follows:
 </p>
 <pre>
-   SYNTAX  : afdcfg [-w working directory] options
+   SYNTAX  : afdcfg [-w working directory] [-u [<user>]] options
              -a      enable archive
              -A      disable archive
+             -b      enable create source dir
+             -B      disable create source dir
              -c      enable create target dir
              -C      disable create target dir
              -d      enable dir warn time
@@ -273,8 +275,11 @@ The program afd_status prints the current status of the AFD that is displayed
 at the bottom row of the afd_ctrl dialog.
 </p>
 <pre>
+Hostname             : ducktown
+Working directory    : /home/afd
+User name + ID       : afd (9999)
 AMG                  : 1
-AMG jobs             : 1
+AMG jobs status flag : 0
 FD                   : 1
 System log           : 1
 Event log            : 1
@@ -287,6 +292,8 @@ input_log            : 1
 output_log           : 1
 delete_log           : 1
 production_log       : 1
+distribution_log     : 1
+ALDA daemon          : 1
 Receivelog indicator : 155 &lt; I I W I I &gt;
 Receive log history  : ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? I E ? ? ? ? ? I I ? I I I I W W W W I
 Syslog indicator     : 787 &lt; I I I I I &gt;
@@ -299,6 +306,10 @@ Jobs in queue        : 0
 AMG fork() counter   : 6
 FD fork() counter    : 1213
 Burst2 counter       : 4
+AMG child user time  : 0.26994
+AMG child system time: 0.20995
+FD child user time   : 0.28980
+FD child system time : 0.179952
 Max. FD queue length : 17
 Directories scanned  : 2418
 AFD start time       : Thu Jan 19 20:29:37 2006
@@ -434,6 +445,7 @@ given host alias. The output looks as follows when a host alias is given
 as the first argument:
 </p>
 <pre>
+    DIR_CONFIG    : /home/afd/etc/DIR_CONFIG
     Directory     : /home/afd/data/mfa
     Dir-alias     : MRZ
     DIR-options   : time */5 * * * *
@@ -687,13 +699,58 @@ user interaction, so it can be used from any shell scripts or programs such as
          40 - Failed to read file name file.
          60 - Syntax wrong.
 </pre>
+<h3 align=center><a name="awmo"><u>Automatic WMO (awmo)</u></a></h3>
+<p>
+asmtp is a tool small tool that sends file(s) via WMO protocol without any
+user interaction, so it can be used from any shell scripts or programs such as
+<a href="xsend_file.html">xsend_file</a>. The syntax of awmo is as follows:
+</p>
+<pre>
+   SYNTAX: [t]awmo [options] [file 1 ... file n]
+
+     OPTIONS                              DESCRIPTION
+     --version                          - Show current version
+     -a                                 - Wait for an acknowledge from server.
+     -b <block size>                    - Transfer block size in bytes. Default 4096
+                                          bytes.
+     -f <filename>                      - File containing a list of filenames
+                                          that are to be send.
+     -h <host name | IP number>         - Hostname or IP number to which to
+                                          send the file(s).
+     -H                                 - File name is header
+     -m <A | I | F>                     - WMO transfer type, ASCII, binary or Fax.
+                                          Default is binary.
+     -p <port number>                   - Remote port number of WMO-server.
+     -r                                 - Remove transmitted file.
+     -S <buffer size>                   - Socket send buffer size
+                                          (in bytes).
+     -t <timout>                        - WMO timeout in seconds. Default 120s.
+     -v                                 - Verbose. Shows all WMO commands and
+                                          the reply from the remote server.
+     -?                                 - Display this help and exit.
+     The following values are returned on exit:
+          0 - File transmitted successfully.
+          1 - Failed to connect.
+         10 - Failed to open remote file.
+         11 - Error when writing into remote file.
+         12 - Failed to close remote file.
+         20 - Operation received timeout.
+         28 - Connection reset by peer.
+         29 - Connection refused.
+         30 - Could not open source file.
+         31 - Failed to read source file.
+         17 - System error stat().
+         34 - System error malloc().
+         40 - Failed to read file name file.
+         60 - Syntax wrong.
+</pre>
 <hr size=3 noshade>
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 2001 - 2009 by H.Kiehl<br>
+   Copyright &copy; 2001 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 15.10.2009
+   Last updated: 03.06.2012
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

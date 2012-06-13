@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,9 @@ DESCR__E_M1
 #include <time.h>             /* clock_t                                 */
 #include <signal.h>           /* signal()                                */
 #include <sys/time.h>
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>    /* setpriority()                           */
+#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>         /* waitpid()                               */
@@ -290,10 +293,6 @@ main(int argc, char *argv[])
    (void)memset((struct sockaddr *) &data, 0, sizeof(data));
    data.sin_family = AF_INET;
    data.sin_addr.s_addr = INADDR_ANY;
-
-   /* Get full name to AFD_CONFIG file. */
-   (void)sprintf(afd_config_file, "%s%s%s",
-                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
 
    do
    {
@@ -550,17 +549,29 @@ zombie_check(void)
 static void                                                                
 get_afdd_config_value(char *port_no, int *max_afdd_connections)
 {
-   char *buffer,
-        config_file[MAX_PATH_LENGTH];
+   char *buffer;
 
-   (void)sprintf(config_file, "%s%s%s", p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   (void)sprintf(afd_config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(afd_config_file, F_OK) == 0) &&
+       (read_file_no_cr(afd_config_file, &buffer) != INCORRECT))
    {
       char *ptr = buffer,
            tmp_trusted_ip[MAX_IP_LENGTH + 1],
            value[MAX_INT_LENGTH];
 
+#ifdef HAVE_SETPRIORITY
+      if (get_definition(buffer, AFDD_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+#endif
       if (get_definition(buffer, MAX_AFDD_CONNECTIONS_DEF,
                          value, MAX_INT_LENGTH) != NULL)
       {
@@ -589,9 +600,8 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
          if ((port >= lower_limit) && (port <= upper_limit))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       _("Invalid port number given %d (lower limit = %d, upper limit = %d) in AFD_CONFIG, setting to default %s."),
-                       port, lower_limit, upper_limit, DEFAULT_AFD_PORT_NO);
-            (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
+                       _("Setting %s to %d, but it is not in the valid range (lower limit = %d, upper limit = %d)."),
+                       AFD_TCP_PORT_DEF, port, lower_limit, upper_limit);
          }
       }
 
@@ -754,6 +764,7 @@ get_ip_local_port_range(int *lower_limit, int *upper_limit)
       system_log(WARN_SIGN, __FILE__, __LINE__,
                  "Failed to read() %s : %s",
                  LOCAL_IP_RANGE_PROC_FILE, strerror(errno));
+      (void)close(fd);
       return;
    }
    buffer[ret] = '\0';

@@ -1,6 +1,6 @@
 /*
  *  eval_input_alda.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,7 +96,7 @@ DESCR__S_M3
  **              -- Output log data --
  **              %[Z]Ot<time char>      - time when sending starts
  **              %[Z]OT<time char>      - time when file is transmitted
- **              %[X]OD<duration char>  - time taken to transmitt file
+ **              %[X]OD<duration char>  - time taken to transmit file
  **              %[Y]Of                 - local output file name
  **              %[Y]OF                 - remote output file name/directory
  **              %[Y]OE                 - final output file name/directory
@@ -781,7 +781,8 @@ eval_input_alda(int *argc, char *argv[])
                {
                   if (access(*(argv + 1), R_OK) == 0)
                   {
-                     (void)strcpy(footer_filename, *(argv + 1));
+                     (void)my_strncpy(footer_filename, *(argv + 1),
+                                      MAX_PATH_LENGTH);
                   }
                   else
                   {
@@ -808,7 +809,7 @@ eval_input_alda(int *argc, char *argv[])
                {
                   if (access(*(argv + 1), R_OK) == 0)
                   {
-                     (void)strcpy(header_filename, *(argv + 1));
+                     (void)my_strncpy(header_filename, *(argv + 1), MAX_PATH_LENGTH);
                   }
                   else
                   {
@@ -833,7 +834,8 @@ eval_input_alda(int *argc, char *argv[])
                }
                else
                {
-                  (void)strcpy(output_filename, *(argv + 1));
+                  (void)my_strncpy(output_filename, *(argv + 1),
+                                   MAX_PATH_LENGTH);
                   (*argc) -= 2;
                   argv += 2;
                }
@@ -1440,6 +1442,10 @@ store_protocols(char *str_protocols)
       else if (strcmp(p_start, ALDA_LOC_SHEME) == 0)
            {
               protocols |= ALDA_LOC_FLAG;
+           }
+      else if (strcmp(p_start, ALDA_EXEC_SHEME) == 0)
+           {
+              protocols |= ALDA_EXEC_FLAG;
            }
       else if (strcmp(p_start, ALDA_SMTP_SHEME) == 0)
            {
@@ -2134,6 +2140,7 @@ usage(char *progname)
    (void)fprintf(stderr, "            -p <protocol>                Protocol used for transport:\n");
    (void)fprintf(stderr, "                                          %s\n", ALDA_FTP_SHEME);
    (void)fprintf(stderr, "                                          %s\n", ALDA_LOC_SHEME);
+   (void)fprintf(stderr, "                                          %s\n", ALDA_EXEC_SHEME);
    (void)fprintf(stderr, "                                          %s\n", ALDA_SMTP_SHEME);
    (void)fprintf(stderr, "                                          %s\n", ALDA_SFTP_SHEME);
    (void)fprintf(stderr, "                                          %s\n", ALDA_SCP_SHEME);

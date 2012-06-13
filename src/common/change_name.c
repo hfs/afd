@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -91,6 +91,9 @@ DESCR__S_M3
  **   09.05.2008 H.Kiehl    For %o or %O check that the original file name
  **                         is long enough.
  **   11.11.2010 H.Kiehl    Added R, w and W to %t parameter.
+ **   17.02.2011 H.Kiehl    Allow the following case: nsc????.*  *nsc????.*
+ **                         That is more then one asterix if we have only
+ **                         one in the filter part.
  **
  */
 DESCR__E_M3
@@ -422,7 +425,7 @@ change_name(char         *orig_file_name,
                            }
                            else
                            {
-                              my_strncpy(ptr_newname, ptr_oldname, number);
+                              my_strncpy(ptr_newname, ptr_oldname, number + 1);
                               ptr_newname += number;
                            }
                         }
@@ -762,13 +765,22 @@ change_name(char         *orig_file_name,
             break;
 
          case '*' : /* Locate the '*' -> insert the next 'ptr_asterix'. */
-            if (act_asterix == count_asterix)
+            if (act_asterix >= count_asterix)
             {
-               system_log(WARN_SIGN, NULL, 0,
-                          _("can not pass more '*' as found before -> ignored"));
-               system_log(DEBUG_SIGN, NULL, 0,
-                          "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
-                          orig_file_name, filter, rename_to_rule, new_name);
+               if (count_asterix == 1)
+               {
+                  (void)strcpy(ptr_newname, ptr_asterix[0]);
+                  ptr_newname += strlen(ptr_asterix[0]);
+                  act_asterix++;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, NULL, 0,
+                             _("can not pass more '*' as found before -> ignored"));
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
+                             orig_file_name, filter, rename_to_rule, new_name);
+               }
             }
             else
             {

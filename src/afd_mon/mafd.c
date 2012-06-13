@@ -1,6 +1,6 @@
 /*
  *  mafd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -124,7 +124,6 @@ main(int argc, char *argv[])
                   shutdown_perm,
                   start_up,
                   startup_perm,
-                  status,
                   user_offset;
    char           *perm_buffer,
                   work_dir[MAX_PATH_LENGTH],
@@ -234,10 +233,7 @@ main(int argc, char *argv[])
             {
                initialize_perm = YES;
             }
-            if (perm_buffer != NULL)
-            {
-               free(perm_buffer);
-            }
+            free(perm_buffer);
          }
          break;
 
@@ -641,6 +637,8 @@ main(int argc, char *argv[])
    }
    else /* Start both. */
    {
+      int status;
+
       if (check_database() == -1)
       {
          (void)fprintf(stderr,
@@ -810,6 +808,7 @@ delete_fifodir_files(char *fifodir, int offset)
            MON_CMD_FIFO,
            MON_RESP_FIFO,
            MON_PROBE_ONLY_FIFO,
+           MON_LOG_FIFO,
            MON_SYS_LOG_FIFO
         },
         *mfilelist[] =
@@ -818,7 +817,10 @@ delete_fifodir_files(char *fifodir, int offset)
            RETRY_MON_FIFO_ALL,
            ADL_FILE_NAME_ALL,
            AHL_FILE_NAME_ALL,
-           AJL_FILE_NAME_ALL
+           AJL_FILE_NAME_ALL,
+           OLD_ADL_FILE_NAME_ALL,
+           OLD_AJL_FILE_NAME_ALL,
+           TMP_AJL_FILE_NAME_ALL
         };
 
    file_ptr = fifodir + offset;

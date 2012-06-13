@@ -1593,7 +1593,7 @@ msgstr "readdir() Fehler : %s"
 msgid "closedir() error : %s"
 msgstr "closedir() Fehler : %s"
 
-#: src/common/get_max_log_number.c:78
+#: src/common/get_max_log_values.c:78
 #, c-format
 msgid ""
 "Incorrect value (%d, must be more then 1 but less then 600) set in "

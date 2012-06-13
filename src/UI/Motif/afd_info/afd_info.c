@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,8 +89,8 @@ Widget                     appshell,
                            info_w,
                            pll_widget,  /* Pixmap label left.  */
                            plr_widget;  /* Pixmap label right. */
-Pixmap                     active_pixmap,
-                           passive_pixmap;
+Pixmap                     active_pixmap = XmUNSPECIFIED_PIXMAP,
+                           passive_pixmap = XmUNSPECIFIED_PIXMAP;
 Colormap                   default_cmap;
 int                        editable = NO,
                            event_log_fd = STDERR_FILENO,
@@ -588,6 +588,10 @@ main(int argc, char *argv[])
    {
       length += sprintf(&protocol_label_str[length], "LOC ");
    }
+   if (fsa[host_position].protocol & EXEC_FLAG)
+   {
+      length += sprintf(&protocol_label_str[length], "EXEC ");
+   }
    if (fsa[host_position].protocol & SMTP_FLAG)
    {
       length += sprintf(&protocol_label_str[length], "SMTP ");
@@ -814,12 +818,11 @@ main(int argc, char *argv[])
 static void
 init_afd_info(int *argc, char *argv[])
 {
-   int    user_offset;
-   size_t length;
-   char   fake_user[MAX_FULL_USER_ID_LENGTH],
-          *perm_buffer,
-          profile[MAX_PROFILE_NAME_LENGTH + 1],
-          *ptr;
+   int  user_offset;
+   char fake_user[MAX_FULL_USER_ID_LENGTH],
+        *perm_buffer,
+        profile[MAX_PROFILE_NAME_LENGTH + 1],
+        *ptr;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -853,6 +856,16 @@ init_afd_info(int *argc, char *argv[])
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD. (%s %d)\n",
                     __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
+   /* Do not start if binary dataset matches the one stort on disk. */
+   if (check_typesize_data() > 0)
+   {
+      (void)fprintf(stderr,
+                    "The compiled binary does not match stored database.\n");
+      (void)fprintf(stderr,
+                    "Initialize database with the command : afd -i\n");
       exit(INCORRECT);
    }
 
@@ -898,11 +911,12 @@ init_afd_info(int *argc, char *argv[])
    get_user(user, fake_user, user_offset);
 
    /* Attach to the FSA. */
-   if ((length = fsa_attach_passive()) < 0)
+   if ((user_offset = fsa_attach_passive(NO)) < 0)
    {
-      if (length == INCORRECT_VERSION)
+      if (user_offset == INCORRECT_VERSION)
       {
-         (void)fprintf(stderr, "This program is not able to attach to the FSA due to incorrect version. (%s %d)\n",
+         (void)fprintf(stderr,
+                       "This program is not able to attach to the FSA due to incorrect version. (%s %d)\n",
                        __FILE__, __LINE__);
       }
       else
@@ -978,8 +992,6 @@ usage(char *progname)
 static void
 eval_permissions(char *perm_buffer)
 {
-   char *ptr;
-
    /*
     * If we find 'all' right at the beginning, no further evaluation
     * is needed, since the user has all permissions.
@@ -993,6 +1005,8 @@ eval_permissions(char *perm_buffer)
    }
    else
    {
+      char *ptr;
+
       /* May the user change the information? */
       if ((ptr = posi(perm_buffer, EDIT_AFD_INFO_PERM)) == NULL)
       {

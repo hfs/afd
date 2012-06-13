@@ -1,7 +1,7 @@
 /*
  *  check_dir_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,7 +114,8 @@ check_dir_status(Widget w)
    {
       unsigned int    new_bar_length;
       size_t          new_size = no_of_dirs * sizeof(struct dir_line);
-      struct dir_line *new_connect_data;
+      struct dir_line *new_connect_data,
+                      *tmp_connect_data;
 
       if ((new_connect_data = calloc(no_of_dirs,
                                      sizeof(struct dir_line))) == NULL)
@@ -276,12 +277,16 @@ check_dir_status(Widget w)
          }
       }
 
-      if ((connect_data = realloc(connect_data, new_size)) == NULL)
+      if ((tmp_connect_data = realloc(connect_data, new_size)) == NULL)
       {
+         int tmp_errno = errno;
+
+         free(connect_data);
          (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
-                    strerror(errno), __FILE__, __LINE__);
+                    strerror(tmp_errno), __FILE__, __LINE__);
          return;
       }
+      connect_data = tmp_connect_data;
 
       /* Activate the new connect_data structure. */
       (void)memcpy(&connect_data[0], &new_connect_data[0],

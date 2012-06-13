@@ -56,6 +56,98 @@ the new value:
    <td valign=top>afdd</td>
 </tr>
 <tr>
+   <td valign=top><a name="afdd_priority">AFDD_PRIORITY</a></td>
+   <td>Scheduling priority that the process afdd, used to monitor the
+       AFD with afd_mon, should run. Since it is just used for
+       monitoring it does not need a high priority. See man nice
+       for the meaning of the values, mostly it goes from 19 (least
+       favorable) to -20 (most favorable scheduling). You can only set
+       negative values here if AFD runs under root, which is not
+       recommended.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>afdd</td>
+</tr>
+<tr>
+   <td valign=top><a name="afd_stat_priority">AFD_STAT_PRIORITY</a></td>
+   <td>Scheduling priority that the process afd_stat, used to collect
+       statistics like number of files and bytes send and/or retrieved,
+       number of connections and number of errors. This also does not
+       need a high priority.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>afd_stat</td>
+</tr>
+<tr>
+   <td valign=top><a name="amg_priority">AMG_PRIORITY</a></td>
+   <td>Scheduling priority that the process <a href="amg.html">amg</a>.
+       Since this process scans the local directories it is important.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>amg</td>
+</tr>
+<tr>
+   <td valign=top><a name="archive_watch_priority">ARCHIVE_WATCH_PRIORITY</a></td>
+   <td>Scheduling priority that the process <a href="archive_watch.html">
+       archive_watch</a>. If the archive is big (has lots of small files),
+       this process can strain the disk subsystem considerably, for this
+       reason it is a good idea to have this process run at a low as
+       possible priority.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>archive_watch</td>
+</tr>
+<tr>
+   <td valign=top><a name="exec_base_priority">EXEC_BASE_PRIORITY</a></td>
+   <td>Scheduling priority that the process gets when AMG forks via the
+       <a href="dir_config.html#exec">exec</a> option or FD via the
+       <a href="dir_config.html#pexec">pexec</a> option. Note that on
+       most implementation it is required that the executable file dir_check
+       and fd need to belong to root and need to have the sticky bit set.
+       In most cases it is not needed to set this value.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>amg, fd</td>
+</tr>
+<tr>
+   <td valign=top><a name="fd_priority">FD_PRIORITY</a></td>
+   <td>Scheduling priority that the process <a href="fd.html">fd</a>.
+       Since this process distributes the data and scans remote directories
+       it is important.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>fd</td>
+</tr>
+<tr>
+   <td valign=top><a name="init_afd_priority">INIT_AFD_PRIORITY</a></td>
+   <td>Scheduling priority that the process init_afd. This process starts
+       all other process of AFD and they will inherit the priority given
+       to init_afd.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>init_afd</td>
+</tr>
+<tr>
+   <td valign=top><a name="show_log_priority">SHOW_LOG_PRIORITY</a></td>
+   <td>Scheduling priority that the grapical dialogs showing log data:
+       <a href="show_log.html">show_log</a>, <a href="show_elog.html">
+       show_elog</a>, <a href="show_ilog.html">show_ilog</a>,
+       <a href="show_olog.html">show_olog</a> and <a href="show_dlog.html">
+       show_dlog</a>. Since these process are non critical and they can
+       produce a lot of IO and CPU load they should get a low priority.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>show_log, show_elog, show_ilog, show_olog, show_dlog</td>
+</tr>
+<tr>
+   <td valign=top><a name="max_nice_value">MAX_NICE_VALUE</a></td>
+   <td>Usually it is not needed to set this value, but it can be used to
+       increase or decrease the maximum nice value to what your system
+       does support.</td>
+   <td valign=top>0</td>
+   <td valign=top>amg, fd</td>
+</tr>
+<tr>
+   <td valign=top><a name="min_nice_value">MIN_NICE_VALUE</a></td>
+   <td>Usually it is not needed to set this value, but it can be used to
+       increase or decrease the minimum nice value to what your system
+       does support.</td>
+   <td valign=top>19</td>
+   <td valign=top>amg, fd</td>
+</tr>
+<tr>
    <td valign=top><a name="trusted_remote_ip">TRUSTED_REMOTE_IP</a></td>
    <td>Trusted IP-number that may connect to AFD_TCP_PORT. To
        enter more then one IP-number you must have the
@@ -95,8 +187,21 @@ the new value:
    <td valign=top><a name="dir_config_name">DIR_CONFIG_NAME</a></td>
    <td>The file from where AFD will read it's configuration. This
        option may be used more then once, thus making it possible
-       to read from multiple configuration files.</td>
+       to read from multiple configuration files. If the name specified
+       does not contain the absolute path, it will try to locate the
+       given file in $AFD_WORK_DIR/etc.</td>
    <td valign=top>$AFD_WORK_DIR/etc/DIR_CONFIG</td>
+   <td valign=top>amg</td>
+</tr>
+<tr>
+   <td valign=top><a name="rename_rule_name">RENAME_RULE_NAME</a></td>
+   <td>Via this options it is possible to specify the file name from where
+       the AFD reads all the rules on how to rename files. This option may
+       be used more then once, thus making it possible to read from
+       multiple rename rule files. If the name specified does not contain
+       the absolute path, it will try to locate the given file in
+       $AFD_WORK_DIR/etc.</td>
+   <td valign=top>$AFD_WORK_DIR/etc/rename.rule</td>
    <td valign=top>amg</td>
 </tr>
 <tr>
@@ -190,10 +295,17 @@ the new value:
    <td valign=top><a name="create_source_dir">CREATE_SOURCE_DIR</a></td>
    <td>If this is set to NO, the source directories will not be created if
        they do not exist. When set to YES, these will be created if AFD does
-       have the permission to do so. Currently only local directories will be
-       created, not remote directories.</td>
+       have the permission to do so. Only local directories will be
+       created.</td>
     <td valign=top>YES</td>
     <td valign=top>amg</td>
+</tr>
+<tr>
+   <td valign=top><a name="create_source_dir_mode">CREATE_SOURCE_DIR_MODE</a></td>
+   <td>The permission of the source directories that found in the DIR_CONFIG
+       and created by AMG if they are not there.</td>
+   <td valign=top>775</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top><a name="create_target_dir">CREATE_TARGET_DIR</a></td>
@@ -228,6 +340,14 @@ the new value:
        process is killed.</td>
    <td valign=top>0</td>
    <td valign=top>amg/fd</td>
+</tr>
+<tr>
+   <td valign=top><a name="default_http_proxy">DEFAULT_HTTP_PROXY</a></td>
+   <td>The default HTTP proxy where HTTP requests are send to. This can
+       be an IP number or a hostname. Optionally one can specify the
+       default port using the following syntax: &lt;server name&gt;:&lt;port&gt;</td>
+   <td valign=top>Not set</td>
+   <td valign=top>fd</td>
 </tr>
 <tr>
    <td valign=top><a name="default_smtp_server">DEFAULT_SMTP_SERVER</a></td>
@@ -310,18 +430,17 @@ the new value:
    <td valign=top>amg</td>
 </tr>
 <tr>
-   <td valign=top><a name="create_source_dir_mode">CREATE_SOURCE_DIR_MODE</a></td>
-   <td>The permission of the source directories that found in the DIR_CONFIG
-       and created by AMG if they are not there.</td>
-   <td valign=top>775</td>
-   <td valign=top>amg</td>
-</tr>
-<tr>
    <td valign=top><a name="max_system_log_files">MAX_SYSTEM_LOG_FILES</a></td>
    <td>The number of old system logfiles that AFD keeps before they are
        deleted.</td>
    <td valign=top>4</td>
    <td valign=top><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td valign=top><a name="max_sys_logfile_size">MAX_SYS_LOGFILE_SIZE</a></td>
+   <td>The size in bytes before the system logfile is rotated.</td>
+   <td valign=top>2097152</td>
+   <td valign=top>system_log</td>
 </tr>
 <tr>
    <td valign=top><a name="max_receive_log_files">MAX_RECEIVE_LOG_FILES</a></td>
@@ -345,11 +464,36 @@ the new value:
    <td valign=top><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <td valign=top><a name="max_trans_db_logfile_size">MAX_TRANS_DB_LOGFILE_SIZE</a></td>
+   <td>The size in bytes before the transfer debug logfile is rotated.</td>
+   <td valign=top>8388608</td>
+   <td valign=top>trans_db_log</td>
+</tr>
+<tr>
+   <td valign=top><a name="max_event_log_files">MAX_EVENT_LOG_FILES</a></td>
+   <td>The number of old event logfiles that AFD keeps before they are
+       deleted.</td>
+   <td valign=top>5</td>
+   <td valign=top><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td valign=top><a name="max_eve_logfile_size">MAX_EVE_LOGFILE_SIZE</a></td>
+   <td>The size in bytes before the event logfile is rotated.</td>
+   <td valign=top>10485760</td>
+   <td valign=top>event_log</td>
+</tr>
+<tr>
    <td valign=top><a name="max_mon_sys_log_files">MAX_MON_SYS_LOG_FILES</a></td>
    <td>The number of old monitor system logfiles that AFD keeps before
        they are deleted.</td>
    <td valign=top>4</td>
    <td valign=top><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td valign=top><a name="max_mon_sys_logfile_size">MAX_MON_SYS_LOGFILE_SIZE</a></td>
+   <td>The size in bytes before the monitor system logfile is rotated.</td>
+   <td valign=top>2097152</td>
+   <td valign=top>mon_sys_log</td>
 </tr>
 <tr>
    <td valign=top><a name="max_mon_log_files">MAX_MON_LOG_FILES</a></td>
@@ -475,9 +619,9 @@ restarted.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1999 - 2010 by H.Kiehl<br>
+   Copyright &copy; 1999 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 05.01.2011
+   Last updated: 28.05.2012
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

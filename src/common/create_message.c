@@ -1,6 +1,6 @@
 /*
  *  create_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,6 @@ int
 create_message(unsigned int job_id, char *recipient, char *options)
 {
    int          fd,
-                length,
                 ret = SUCCESS;
    char         buffer[1 + MAX_RECIPIENT_LENGTH + 2 + 1];
 #ifdef EXPAND_PATH_IN_MESSAGE
@@ -134,6 +133,8 @@ create_message(unsigned int job_id, char *recipient, char *options)
    {
       if (write(fd, DESTINATION_IDENTIFIER, DESTINATION_IDENTIFIER_LENGTH) == DESTINATION_IDENTIFIER_LENGTH)
       {
+         int length;
+
 #ifdef EXPAND_PATH_IN_MESSAGE
          length = sprintf(buffer, "\n%s\n\n", p_recipient);
 #else

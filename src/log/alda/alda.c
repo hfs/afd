@@ -1,6 +1,6 @@
 /*
  *  alda.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ DESCR__E_M3
 #include <string.h>      /* strerror()                                  */
 #include <stdlib.h>      /* exit(), atoi()                              */
 #include <time.h>        /* time()                                      */
-#include <unistd.h>      /* STDERR_FILENO                               */
+#include <unistd.h>      /* STDOUT_FILENO                               */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -95,7 +95,7 @@ int                        data_printed,
                            gt_lt_sign,
                            no_of_dirs = 0,
                            no_of_hosts = 0,
-                           sys_log_fd = STDERR_FILENO, /* Used by get_afd_path(). */
+                           sys_log_fd = STDOUT_FILENO, /* Used by get_afd_path(). */
                            trace_mode,
                            verbose;
 time_t                     end_time_end,
@@ -313,7 +313,10 @@ main(int argc, char *argv[])
     }
 #endif
 
-   start = time(NULL);
+   if (verbose)
+   {
+      start = time(NULL);
+   }
 
    /* Lets determine what log files we need to search. */
    for (;;)
@@ -349,6 +352,76 @@ main(int argc, char *argv[])
             {
                detach_ahl();
             }
+# ifdef _INPUT_LOG
+            if (input.fp != NULL)
+            {
+               if (fclose(input.fp) == EOF)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to fclose() `%s' : %s (%s %d)\n",
+                                input.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               input.fp = NULL;
+               input.bytes_read = 0;
+            }
+# endif
+# ifdef _DISTRIBUTION_LOG
+            if (distribution.fp != NULL)
+            {
+               if (fclose(distribution.fp) == EOF)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to fclose() `%s' : %s (%s %d)\n",
+                                distribution.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               distribution.fp = NULL;
+               distribution.bytes_read = 0;
+            }
+# endif
+# ifdef _PRODUCTION_LOG
+            if (production.fp != NULL)
+            {
+               if (fclose(production.fp) == EOF)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to fclose() `%s' : %s (%s %d)\n",
+                                production.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               production.fp = NULL;
+               production.bytes_read = 0;
+            }
+# endif
+# ifdef _OUTPUT_LOG
+            if (output.fp != NULL)
+            {
+               if (fclose(output.fp) == EOF)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to fclose() `%s' : %s (%s %d)\n",
+                                output.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               output.fp = NULL;
+               output.bytes_read = 0;
+            }
+# endif
+# ifdef _DELETE_LOG
+            if (delete.fp != NULL)
+            {
+               if (fclose(delete.fp) == EOF)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to fclose() `%s' : %s (%s %d)\n",
+                                delete.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               delete.fp = NULL;
+               delete.bytes_read = 0;
+            }
+# endif
          }
 #endif
       }
@@ -503,7 +576,19 @@ main(int argc, char *argv[])
          break;
       }
    }
-   end = time(NULL);
+   if (verbose)
+   {
+      end = time(NULL);
+   }
+
+   if (verbose)
+   {
+#if SIZEOF_TIME_T == 4
+      (void)printf("Search time = %ld\n", (pri_time_t)(end - start));
+#else
+      (void)printf("Search time = %lld\n", (pri_time_t)(end - start));
+#endif
+   }
 
 #ifdef CACHE_DEBUG
    print_alda_cache();
@@ -1186,130 +1271,149 @@ search_afd(char *search_afd)
                   }
                   else if (olog.output_type == 2) /* Dup check store. */
                        {
-                          RESET_OLOG();
-                          more_log_data &= ~SEARCH_OUTPUT_LOG;
+                          if (search_log_type == SEARCH_ALL_LOGS)
+                          {
+                             RESET_OLOG();
+                             more_log_data &= ~SEARCH_OUTPUT_LOG;
+                          }
+                          else
+                          {
+                             got_data = 0;
+                          }
                        }
                        else /* Age limit, dup check delete, file */
                             /* currently transmitted by other    */
                             /* process.                          */
                        {
+                          if (search_log_type == SEARCH_ALL_LOGS)
+                          {
 # ifdef _DELETE_LOG
-                          (void)strcpy(dlog.alias_name, olog.alias_name);
-                          if (olog.protocol == ALDA_FTP_FLAG)
-                          {
-                             (void)strcpy(dlog.user_process, SEND_FILE_FTP);
-                             dlog.user_process_length = SEND_FILE_FTP_LENGTH;
-                          }
-                          else if (olog.protocol == ALDA_LOC_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, SEND_FILE_LOC);
-                                  dlog.user_process_length = SEND_FILE_LOC_LENGTH;
-                               }
-                          else if (olog.protocol == ALDA_SMTP_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, SEND_FILE_SMTP);
-                                  dlog.user_process_length = SEND_FILE_SMTP_LENGTH;
-                               }
-                          else if (olog.protocol == ALDA_SFTP_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, SEND_FILE_SFTP);
-                                  dlog.user_process_length = SEND_FILE_SFTP_LENGTH;
-                               }
-                          else if (olog.protocol == ALDA_SCP_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, "sf_scp");
-                                  dlog.user_process_length = 6;
-                               }
-                          else if (olog.protocol == ALDA_HTTP_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, SEND_FILE_HTTP);
-                                  dlog.user_process_length = SEND_FILE_HTTP_LENGTH;
-                               }
-                          else if (olog.protocol == ALDA_HTTPS_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, "sf_https");
-                                  dlog.user_process_length = 8;
-                               }
-                          else if (olog.protocol == ALDA_FTPS_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, "sf_ftps");
-                                  dlog.user_process_length = 7;
-                               }
-                          else if (olog.protocol == ALDA_WMO_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, "sf_wmo");
-                                  dlog.user_process_length = 6;
-                               }
-                          else if (olog.protocol == ALDA_MAP_FLAG)
-                               {
-                                  (void)strcpy(dlog.user_process, "sf_map");
-                                  dlog.user_process_length = 6;
-                               }
-                               else
-                               {
-                                  (void)strcpy(dlog.user_process, "sf_xxx");
-                                  dlog.user_process_length = 6;
-                               }
-                          if (olog.output_type == 1) /* Age-limit */
-                          {
-                             dlog.deletion_type = AGE_OUTPUT;
-                             dlog.add_reason[0] = '\0';
-                             dlog.add_reason_length = 0;
-                          }
-                          else if (olog.output_type == 3) /* dupcheck delete */
-                               {
-                                  dlog.deletion_type = DUP_OUTPUT;
-                                  dlog.add_reason[0] = '\0';
-                                  dlog.add_reason_length = 0;
-                               }
-                          else if (olog.output_type == 4) /* currently transmitted */
-                               {
-                                  dlog.deletion_type = FILE_CURRENTLY_TRANSMITTED;
-                                  dlog.add_reason[0] = '\0';
-                                  dlog.add_reason_length = 0;
-                               }
-                          else if (olog.output_type == 5) /* Recipient unknown */
-                               {
-                                  dlog.deletion_type = RECIPIENT_REJECTED;
-                                  dlog.add_reason[0] = '\0';
-                                  dlog.add_reason_length = 0;
-                               }
-                               else
-                               {
-                                  dlog.deletion_type = 0;
-                                  (void)strcpy(dlog.add_reason, UKN_DEL_REASON_STR);
-                                  dlog.add_reason_length = UKN_DEL_REASON_STR_LENGTH;
-                               }
-                          dlog.file_size = olog.file_size;
-                          dlog.delete_time = olog.output_time;
+                             (void)strcpy(dlog.alias_name, olog.alias_name);
+                             if (olog.protocol == ALDA_FTP_FLAG)
+                             {
+                                (void)strcpy(dlog.user_process, SEND_FILE_FTP);
+                                dlog.user_process_length = SEND_FILE_FTP_LENGTH;
+                             }
+                             else if (olog.protocol == ALDA_LOC_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, SEND_FILE_LOC);
+                                     dlog.user_process_length = SEND_FILE_LOC_LENGTH;
+                                  }
+                             else if (olog.protocol == ALDA_EXEC_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, SEND_FILE_EXEC);
+                                     dlog.user_process_length = SEND_FILE_EXEC_LENGTH;
+                                  }
+                             else if (olog.protocol == ALDA_SMTP_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, SEND_FILE_SMTP);
+                                     dlog.user_process_length = SEND_FILE_SMTP_LENGTH;
+                                  }
+                             else if (olog.protocol == ALDA_SFTP_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, SEND_FILE_SFTP);
+                                     dlog.user_process_length = SEND_FILE_SFTP_LENGTH;
+                                  }
+                             else if (olog.protocol == ALDA_SCP_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, "sf_scp");
+                                     dlog.user_process_length = 6;
+                                  }
+                             else if (olog.protocol == ALDA_HTTP_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, SEND_FILE_HTTP);
+                                     dlog.user_process_length = SEND_FILE_HTTP_LENGTH;
+                                  }
+                             else if (olog.protocol == ALDA_HTTPS_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, "sf_https");
+                                     dlog.user_process_length = 8;
+                                  }
+                             else if (olog.protocol == ALDA_FTPS_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, "sf_ftps");
+                                     dlog.user_process_length = 7;
+                                  }
+                             else if (olog.protocol == ALDA_WMO_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, "sf_wmo");
+                                     dlog.user_process_length = 6;
+                                  }
+                             else if (olog.protocol == ALDA_MAP_FLAG)
+                                  {
+                                     (void)strcpy(dlog.user_process, "sf_map");
+                                     dlog.user_process_length = 6;
+                                  }
+                                  else
+                                  {
+                                     (void)strcpy(dlog.user_process, "sf_xxx");
+                                     dlog.user_process_length = 6;
+                                  }
+                             if (olog.output_type == 1) /* Age-limit */
+                             {
+                                dlog.deletion_type = AGE_OUTPUT;
+                                dlog.add_reason[0] = '\0';
+                                dlog.add_reason_length = 0;
+                             }
+                             else if (olog.output_type == 3) /* dupcheck delete */
+                                  {
+                                     dlog.deletion_type = DUP_OUTPUT;
+                                     dlog.add_reason[0] = '\0';
+                                     dlog.add_reason_length = 0;
+                                  }
+                             else if (olog.output_type == 4) /* currently transmitted */
+                                  {
+                                     dlog.deletion_type = FILE_CURRENTLY_TRANSMITTED;
+                                     dlog.add_reason[0] = '\0';
+                                     dlog.add_reason_length = 0;
+                                  }
+                             else if (olog.output_type == 5) /* Recipient unknown */
+                                  {
+                                     dlog.deletion_type = RECIPIENT_REJECTED;
+                                     dlog.add_reason[0] = '\0';
+                                     dlog.add_reason_length = 0;
+                                  }
+                                  else
+                                  {
+                                     dlog.deletion_type = 0;
+                                     (void)strcpy(dlog.add_reason, UKN_DEL_REASON_STR);
+                                     dlog.add_reason_length = UKN_DEL_REASON_STR_LENGTH;
+                                  }
+                             dlog.file_size = olog.file_size;
+                             dlog.delete_time = olog.output_time;
 #  ifdef _DISTRIBUTION_LOG
-                          dlog.dir_id = ulog.dir_id;
+                             dlog.dir_id = ulog.dir_id;
 #  else
 #   ifdef _INPUT_LOG
-                          dlog.dir_id = ilog.dir_id;
+                             dlog.dir_id = ilog.dir_id;
 #   else
 #    ifdef _PRODUCTION_LOG
-                          dlog.dir_id = plog.dir_id;
+                             dlog.dir_id = plog.dir_id;
 #    else
-                          dlog.dir_id = 0;
+                             dlog.dir_id = 0;
 #    endif
 #   endif
 #  endif
-                          (void)memcpy(&dlog.bd_delete_time,
-                                       &olog.bd_output_time, sizeof(struct tm));
-                          (void)memcpy(&dlog.bd_job_creation_time,
-                                       &olog.bd_job_creation_time, sizeof(struct tm));
-                          (void)strcpy(dlog.filename, olog.local_filename);
-                          dlog.job_creation_time = olog.job_creation_time;
-                          dlog.filename_length = olog.remote_name_length;
-                          dlog.unique_number = olog.unique_number;
-                          dlog.split_job_counter = olog.split_job_counter;
-                          dlog.alias_name_length = olog.alias_name_length;
-                          dlog.job_id = olog.job_id;
-                          got_data |= SEARCH_DELETE_LOG;
+                             (void)memcpy(&dlog.bd_delete_time,
+                                          &olog.bd_output_time, sizeof(struct tm));
+                             (void)memcpy(&dlog.bd_job_creation_time,
+                                          &olog.bd_job_creation_time, sizeof(struct tm));
+                             (void)strcpy(dlog.filename, olog.local_filename);
+                             dlog.job_creation_time = olog.job_creation_time;
+                             dlog.filename_length = olog.remote_name_length;
+                             dlog.unique_number = olog.unique_number;
+                             dlog.split_job_counter = olog.split_job_counter;
+                             dlog.alias_name_length = olog.alias_name_length;
+                             dlog.job_id = olog.job_id;
+                             got_data |= SEARCH_DELETE_LOG;
 # endif
-                          RESET_OLOG();
-                          more_log_data &= ~SEARCH_OUTPUT_LOG;
+                             RESET_OLOG();
+                             more_log_data &= ~SEARCH_OUTPUT_LOG;
+                          }
+                          else
+                          {
+                             got_data = 0;
+                          }
                        }
                }
                else if (ret == NO_LOG_DATA)
@@ -1328,6 +1432,7 @@ search_afd(char *search_afd)
          }
          else
          {
+#ifdef _DISTRIBUTION_LOG
             if ((ulog.distribution_type == DISABLED_DIS_TYPE) ||
                 (ulog.distribution_type == DUPCHECK_DIS_TYPE) ||
                 (ulog.distribution_type == AGE_LIMIT_DELETE_DIS_TYPE))
@@ -1345,8 +1450,11 @@ search_afd(char *search_afd)
             }
             else
             {
+#endif
                RESET_OLOG();
+#ifdef _DISTRIBUTION_LOG
             }
+#endif
             more_log_data &= ~SEARCH_OUTPUT_LOG;
          }
 #endif /* _OUTPUT_LOG */
@@ -1692,7 +1800,9 @@ search_afd(char *search_afd)
    }
    else
    {
+#ifdef _PRODUCTION_LOG
       prev_proc_cycles = -1;
+#endif
       do
       {
 #ifdef _OUTPUT_LOG
@@ -4389,8 +4499,7 @@ init_file_data(time_t start_time,
                int    log_type,
                char   *search_afd)
 {
-   int                  i,
-                        no_of_log_files;
+   int                  no_of_log_files;
    struct stat          stat_buf;
    struct log_file_data *p_data;
 
@@ -4413,8 +4522,8 @@ init_file_data(time_t start_time,
                                          INPUT_BUFFER_FILE);
          }
          input.max_log_files = MAX_INPUT_LOG_FILES;
-         get_max_log_number(&input.max_log_files, MAX_INPUT_LOG_FILES_DEF,
-                            MAX_INPUT_LOG_FILES);
+         get_max_log_values(&input.max_log_files, MAX_INPUT_LOG_FILES_DEF,
+                            MAX_INPUT_LOG_FILES, NULL, NULL, 0);
          no_of_log_files = input.max_log_files;
          p_data = &input;
          break;
@@ -4437,8 +4546,9 @@ init_file_data(time_t start_time,
                                          DISTRIBUTION_BUFFER_FILE);
          }
          distribution.max_log_files = MAX_DISTRIBUTION_LOG_FILES;
-         get_max_log_number(&distribution.max_log_files, MAX_DISTRIBUTION_LOG_FILES_DEF,
-                            MAX_DISTRIBUTION_LOG_FILES);
+         get_max_log_values(&distribution.max_log_files,
+                            MAX_DISTRIBUTION_LOG_FILES_DEF,
+                            MAX_DISTRIBUTION_LOG_FILES, NULL, NULL, 0);
          no_of_log_files = distribution.max_log_files;
          p_data = &distribution;
          break;
@@ -4461,9 +4571,9 @@ init_file_data(time_t start_time,
                                               PRODUCTION_BUFFER_FILE);
          }
          production.max_log_files = MAX_PRODUCTION_LOG_FILES;
-         get_max_log_number(&production.max_log_files,
+         get_max_log_values(&production.max_log_files,
                             MAX_PRODUCTION_LOG_FILES_DEF,
-                            MAX_PRODUCTION_LOG_FILES);
+                            MAX_PRODUCTION_LOG_FILES, NULL, NULL, 0);
          no_of_log_files = production.max_log_files;
          p_data = &production;
          break;
@@ -4501,8 +4611,8 @@ init_file_data(time_t start_time,
 # endif
          }
          output.max_log_files = MAX_OUTPUT_LOG_FILES;
-         get_max_log_number(&output.max_log_files, MAX_OUTPUT_LOG_FILES_DEF,
-                            MAX_OUTPUT_LOG_FILES);
+         get_max_log_values(&output.max_log_files, MAX_OUTPUT_LOG_FILES_DEF,
+                            MAX_OUTPUT_LOG_FILES, NULL, NULL, 0);
          no_of_log_files = output.max_log_files;
          p_data = &output;
          break;
@@ -4525,8 +4635,8 @@ init_file_data(time_t start_time,
                                           DELETE_BUFFER_FILE);
          }
          delete.max_log_files = MAX_DELETE_LOG_FILES;
-         get_max_log_number(&delete.max_log_files, MAX_DELETE_LOG_FILES_DEF,
-                            MAX_DELETE_LOG_FILES);
+         get_max_log_values(&delete.max_log_files, MAX_DELETE_LOG_FILES_DEF,
+                            MAX_DELETE_LOG_FILES, NULL, NULL, 0);
          no_of_log_files = delete.max_log_files;
          p_data = &delete;
          break;
@@ -4549,6 +4659,8 @@ init_file_data(time_t start_time,
    }
    else
    {
+      int i;
+
       for (i = 0; i < no_of_log_files; i++)
       {
          (void)sprintf(p_data->p_log_number, "%d", i);

@@ -1,6 +1,6 @@
 /*
  *  edit_hc.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -24,7 +24,6 @@
 #include <Xm/DragDrop.h>
 #include "motif_common_defs.h"
 
-#define MAXARGS                 20
 #define SIDE_OFFSET             4
 
 /* Definitions for the save_input() callback routine. */
@@ -142,6 +141,8 @@
 #define COMPRESION_CHANGED            8192
 #define KEEP_TIME_STAMP_CHANGED       16384
 #define SORT_FILE_NAMES_CHANGED       32768
+#define NO_AGEING_JOBS_CHANGED        65536
+#define CHECK_SIZE_CHANGED            131072
 
 /* Structure holding all changed entries of one host. */
 struct changed_entry

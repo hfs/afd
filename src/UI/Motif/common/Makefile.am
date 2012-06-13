@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2010 Holger Kiehl
+## Copyright (C) 2001 - 2012 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ INCLUDES              = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
 lib_LIBRARIES         = libmotifafd.a
 libmotifafd_a_SOURCES = check_nummeric.c\
                         disable_drag_drop.c\
+                        eval_time.c\
                         generic_print.c\
                         handle_info_file.c\
                         make_xprocess.c\

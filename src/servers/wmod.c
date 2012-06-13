@@ -1,6 +1,6 @@
 /*
  *  wmod.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -465,12 +465,13 @@ main(int argc, char *argv[])
          }
          else
          {
-            int length,
-                pos;
+            int pos;
 
             check_fsa_pos();
             if ((pos = get_free_connection(fsa_pos, current_pid)) < 0)
             {
+               int length;
+
                length = sprintf(reply, "421 Service not available.\r\n");
                (void)write(new_sockfd, reply, length);
                (void)close(new_sockfd);

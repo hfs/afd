@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -591,9 +591,7 @@ get_all(int item)
 static void
 get_job_data(struct job_id_data *p_jd)
 {
-   register int  i;
    register char *p_tmp;
-   int           size;
 
    id.count = 1;
 
@@ -622,6 +620,8 @@ get_job_data(struct job_id_data *p_jd)
    /* Save all AMG (local) options. */
    if (id.dbe[0].no_of_loptions > 0)
    {
+      register int i;
+
       p_tmp = p_jd->loptions;
       for (i = 0; i < id.dbe[0].no_of_loptions; i++)
       {
@@ -635,6 +635,8 @@ get_job_data(struct job_id_data *p_jd)
    /* Save all FD (standart) options. */
    if (id.dbe[0].no_of_soptions > 0)
    {
+      int size;
+
       size = strlen(p_jd->soptions);
       if ((id.dbe[0].soptions = calloc(size + 1, sizeof(char))) == NULL)
       {
@@ -678,11 +680,8 @@ get_dir_data(int dir_pos)
 
    if (get_current_jid_list() == INCORRECT)
    {
-      if (current_jid_list != NULL)
-      {
-         free(current_jid_list);
-         no_of_current_jobs = 0;
-      }
+      free(current_jid_list);
+      no_of_current_jobs = 0;
       return;
    }
 
@@ -695,8 +694,6 @@ get_dir_data(int dir_pos)
          {
             if (current_jid_list[j] == jd[i].job_id)
             {
-               int k;
-
                /* Allocate memory to hold all data. */
                if ((id.count % 10) == 0)
                {
@@ -711,11 +708,8 @@ get_dir_data(int dir_pos)
                   {
                      (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
-                     if (current_jid_list != NULL)
-                     {
-                        free(current_jid_list);
-                        no_of_current_jobs = 0;
-                     }
+                     free(current_jid_list);
+                     no_of_current_jobs = 0;
                      return;
                   }
                }
@@ -726,6 +720,8 @@ get_dir_data(int dir_pos)
                                   &id.dbe[id.count].files);
                if (id.dbe[id.count].files != NULL)
                {
+                  int k;
+
                   p_file = id.dbe[id.count].files;
 
                   /*
@@ -774,11 +770,8 @@ get_dir_data(int dir_pos)
                         {
                            (void)xrec(FATAL_DIALOG, "calloc() error : %s (%s %d)",
                                       strerror(errno), __FILE__, __LINE__);
-                           if (current_jid_list != NULL)
-                           {
-                              free(current_jid_list);
-                              no_of_current_jobs = 0;
-                           }
+                           free(current_jid_list);
+                           no_of_current_jobs = 0;
                            return;
                         }
                         (void)memcpy(id.dbe[id.count].soptions, jd[i].soptions,
@@ -799,11 +792,8 @@ get_dir_data(int dir_pos)
       } /* if (jd[i].dir_id_pos == dir_pos) */
    } /* for (i = (*no_of_job_ids - 1); i > -1; i--) */
 
-   if (current_jid_list != NULL)
-   {
-      free(current_jid_list);
-      no_of_current_jobs = 0;
-   }
+   free(current_jid_list);
+   no_of_current_jobs = 0;
 
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  eval_alda_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -416,6 +416,7 @@ eval_alda_data(char *text)
       }
       acd[acd_counter].no_of_distribution_types = (unsigned int)strtoul(str_val, NULL, 16);
 
+#ifdef _DISTRIBUTION_LOG
       if (acd[acd_counter].distribution_type == DISABLED_DIS_TYPE)
       {
          int i;
@@ -453,6 +454,7 @@ eval_alda_data(char *text)
       }
       else
       {
+#endif
          acd[acd_counter].job_id_list = NULL;
          while ((*ptr != '|') && (*ptr > '\n'))
          {
@@ -462,7 +464,9 @@ eval_alda_data(char *text)
          {
             ptr++;
          }
+#ifdef _DISTRIBUTION_LOG
       }
+#endif
 
       /* Delete reason ID. */
       length = 0;

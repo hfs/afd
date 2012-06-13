@@ -1,6 +1,6 @@
 /*
  *  check_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -90,6 +90,9 @@ check_permissions(void)
                         { FD_CMD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { AW_CMD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { IP_FIN_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
+# ifdef WITH_ONETIME
+                        { OT_FIN_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
+# endif
                         { SF_FIN_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { RETRY_FD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { FD_DELETE_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
@@ -139,6 +142,9 @@ check_permissions(void)
                         { FD_CMD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { AW_CMD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { IP_FIN_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+# ifdef WITH_ONETIME
+                        { OT_FIN_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+# endif
                         { SF_FIN_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { RETRY_FD_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { FD_DELETE_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
@@ -188,6 +194,7 @@ check_permissions(void)
 #ifdef WITH_ERROR_QUEUE
                         { ERROR_QUEUE_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
 #endif
+                        { TYPESIZE_DATA_FILE, (S_IFREG | (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
                         { NULL, 0, 0 }
                      },
                      logdir[] =

@@ -1,6 +1,6 @@
 /*
  *  eval_host_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1721,7 +1721,9 @@ eval_host_config(int              *hosts_found,
        * have different values. So we must do this check here.
        */
       if (((*hl)[host_counter].protocol_options != 0) &&
-          (((*hl)[host_counter].protocol_options > (SORT_FILE_NAMES |
+          (((*hl)[host_counter].protocol_options > (CHECK_SIZE |
+                                                    NO_AGEING_JOBS |
+                                                    SORT_FILE_NAMES |
                                                     KEEP_TIME_STAMP |
                                                     ENABLE_COMPRESSION |
                                                     USE_SEQUENCE_LOCKING |
@@ -1747,7 +1749,9 @@ eval_host_config(int              *hosts_found,
                     _("Unknown protocol option <%d> for host %s, largest value is %d and smallest %d."),
                     (*hl)[host_counter].protocol_options,
                     (*hl)[host_counter].host_alias,
-                    (SORT_FILE_NAMES |
+                    (CHECK_SIZE |
+                     NO_AGEING_JOBS |
+                     SORT_FILE_NAMES |
                      KEEP_TIME_STAMP |
                      ENABLE_COMPRESSION |
                      USE_SEQUENCE_LOCKING |

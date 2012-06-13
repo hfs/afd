@@ -1,6 +1,6 @@
 /*
  *  get_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -219,8 +219,12 @@ get_user(char *user, char *fake_user, int user_offset)
             {
                char *buffer = NULL;
 
-               if (exec_cmd("who am i", &buffer, -1, NULL, 0, "", 0L,
-                            YES, YES) != INCORRECT)
+               if ((exec_cmd("who am i", &buffer, -1, NULL, 0,
+#ifdef HAVE_SETPRIORITY
+                             NO_PRIORITY,
+#endif
+                             "", 0L, YES, YES) != INCORRECT) &&
+                   (buffer != NULL))
                {
                   char *search_ptr = buffer;
 
@@ -261,19 +265,13 @@ get_user(char *user, char *fake_user, int user_offset)
                               user[length + real_display_length] = '>';
                            }
                            user[length + real_display_length + offset] = '\0';
-                           if (buffer != NULL)
-                           {
-                              free(buffer);
-                           }
+                           free(buffer);
                            return;
                         }
                      }
                   }
                }
-               if (buffer != NULL)
-               {
-                  free(buffer);
-               }
+               free(buffer);
                ptr = getenv("DISPLAY");
             }
          }

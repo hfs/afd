@@ -1,7 +1,7 @@
 /*
  *  count_burst.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2012 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -90,6 +90,11 @@ main(int argc, char *argv[])
       (void)fprintf(stderr, "Failed to read() %s : %s\n",
                     argv[1], strerror(errno));
       exit(1);
+   }
+   if (close(fd) == -1)
+   {
+      (void)fprintf(stderr, "Failed to close() %s : %s\n",
+                    argv[1], strerror(errno));
    }
    file_buf[stat_buf.st_size] = '\0';
    ptr = file_buf;

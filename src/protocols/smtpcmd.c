@@ -1,6 +1,6 @@
 /*
  *  smtpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -117,7 +117,7 @@ DESCR__E_M3
 
 #include <stdio.h>            /* fprintf(), fdopen(), fclose()           */
 #include <string.h>           /* memset(), memcpy(), strcpy()            */
-#include <stdlib.h>           /* atoi()                                  */
+#include <stdlib.h>           /* atoi(), exit()                          */
 #include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>        /* fd_set                                  */
 #include <sys/time.h>         /* struct timeval                          */
@@ -126,8 +126,7 @@ DESCR__E_M3
 #include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
 #include <netdb.h>            /* struct hostent, gethostbyname()         */
 #include <arpa/inet.h>        /* inet_addr()                             */
-#include <unistd.h>           /* select(), exit(), write(), read(),      */
-                              /* close()                                 */
+#include <unistd.h>           /* select(), write(), read(), close()      */
 #include <errno.h>
 #include "fddefs.h"
 #include "smtpdefs.h"
@@ -243,6 +242,25 @@ smtp_connect(char *hostname, int port)
 
    if (connect(smtp_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
+#ifdef ETIMEDOUT
+      if (errno == ETIMEDOUT)
+      {
+         timeout_flag = ON;
+      }
+# ifdef ECONNREFUSED
+      else if (errno == ECONNREFUSED)
+           {
+              timeout_flag = CON_REFUSED;
+           }
+# endif
+#else
+# ifdef ECONNREFUSED
+      if (errno == ECONNREFUSED)
+      {
+         timeout_flag = CON_REFUSED;
+      }
+# endif
+#endif
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
                 _("Failed to connect() to %s : %s"), hostname, strerror(errno));
       (void)close(smtp_fd);
@@ -684,6 +702,10 @@ smtp_write(char *block, char *buffer, int size)
 #ifdef _WITH_SEND
            if ((status = send(smtp_fd, ptr, size, 0)) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write", NULL,
                         _("send() error after writting %d bytes : %s"),
                         status, strerror(errno));
@@ -692,6 +714,10 @@ smtp_write(char *block, char *buffer, int size)
 #else
            if ((status = write(smtp_fd, ptr, size)) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write", NULL,
                         _("write() error after writting %d bytes : %s"),
                         status, strerror(errno));
@@ -723,8 +749,6 @@ smtp_write(char *block, char *buffer, int size)
 int
 smtp_write_iso8859(char *block, char *buffer, int size)
 {
-   register int  i,
-                 count = 1;
    int           status;
    unsigned char *ptr = (unsigned char *)block;
    fd_set        wset;
@@ -746,6 +770,9 @@ smtp_write_iso8859(char *block, char *buffer, int size)
    }
    else if (FD_ISSET(smtp_fd, &wset))
         {
+           register int count = 1,
+                        i;
+
            for (i = 0; i < size; i++)
            {
               if (*ptr == '\n')
@@ -845,6 +872,10 @@ smtp_write_iso8859(char *block, char *buffer, int size)
 #ifdef _WITH_SEND
            if ((status = send(smtp_fd, ptr, size, 0)) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write_iso8859", NULL,
                         _("send() error after writting %d bytes : %s"),
                         status, strerror(errno));
@@ -853,6 +884,10 @@ smtp_write_iso8859(char *block, char *buffer, int size)
 #else
            if ((status = write(smtp_fd, ptr, size)) != size)
            {
+              if ((errno == ECONNRESET) || (errno == EBADF))
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_write_iso8859", NULL,
                         _("write() error after writting %d bytes : %s"),
                         status, strerror(errno));
@@ -884,8 +919,6 @@ smtp_write_iso8859(char *block, char *buffer, int size)
 int
 smtp_close(void)
 {
-   int reply;
-
 #ifdef WITH_TRACE
    trace_log(NULL, 0, W_TRACE, NULL, 0, "<0D><0A>.<0D><0A>");
 #endif
@@ -899,6 +932,8 @@ smtp_close(void)
 
    if (timeout_flag == OFF)
    {
+      int reply;
+
       if ((reply = get_reply(smtp_fp)) < 0)
       {
          return(INCORRECT);
@@ -917,8 +952,6 @@ smtp_close(void)
 int
 smtp_quit(void)
 {
-   int reply;
-
 #ifdef WITH_TRACE
    trace_log(NULL, 0, W_TRACE, NULL, 0, "QUIT<0D><0A>");
 #endif
@@ -932,6 +965,8 @@ smtp_quit(void)
 
    if ((timeout_flag != ON) && (timeout_flag != CON_RESET))
    {
+      int reply;
+
       if ((reply = get_reply(smtp_fp)) < 0)
       {
          (void)fclose(smtp_fp);

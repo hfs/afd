@@ -1,6 +1,6 @@
 /*
  *  check_fake_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -165,7 +165,7 @@ check_fake_user(int *argc, char *argv[], char *config_file, char *fake_user)
                   {
                      (void)memcpy(real_user, pwd->pw_name,
                                   MAX_FULL_USER_ID_LENGTH - 1);
-                     length = MAX_FULL_USER_ID_LENGTH;
+                     length = MAX_FULL_USER_ID_LENGTH - 1;
                   }
                   real_user[length] = '-';
                   real_user[length + 1] = '>';
@@ -213,10 +213,7 @@ check_fake_user(int *argc, char *argv[], char *config_file, char *fake_user)
                }
             }
          }
-         if (buffer != NULL)
-         {
-            free(buffer);
-         }
+         free(buffer);
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
       }

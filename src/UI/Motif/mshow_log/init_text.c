@@ -1,6 +1,6 @@
 /*
  *  init_text.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -150,12 +150,7 @@ init_text(void)
 static void
 read_text(void)
 {
-   int                  i,
-                        fd = fileno(p_log_file),
-                        length,
-                        block_length,
-                        last = MISS;
-   off_t                tmp_total_length = 0;
+   int                  fd = fileno(p_log_file);
    char                 *src = NULL,
                         *dst = NULL,
                         *ptr,
@@ -175,6 +170,11 @@ read_text(void)
 
    if (stat_buf.st_size > 0)
    {
+      int   block_length,
+            length,
+            last = MISS;
+      off_t tmp_total_length = 0;
+
       /* Change cursor to indicate we are doing something. */
       attrs.cursor = cursor1;
       XChangeWindowAttributes(display, XtWindow(appshell), CWCursor, &attrs);
@@ -204,8 +204,11 @@ read_text(void)
       }
       if (read(fd, src, stat_buf.st_size) != stat_buf.st_size)
       {
+         int tmp_errno = errno;
+
+         free(src);
          (void)xrec(FATAL_DIALOG, "read() error : %s (%s %d)",
-                    strerror(errno), __FILE__, __LINE__);
+                    strerror(tmp_errno), __FILE__, __LINE__);
          return;
       }
 #endif
@@ -223,6 +226,8 @@ read_text(void)
 
       if (no_of_hosts > 0)
       {
+         int i;
+
          while (tmp_total_length < stat_buf.st_size)
          {
             length = 0;

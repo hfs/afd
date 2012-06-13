@@ -1,6 +1,6 @@
 /*
  *  setup_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -119,8 +119,7 @@ extern struct afd_control_perm    acp;
 void
 setup_window(char *font_name, int redraw_mainmenu)
 {
-   int i,
-       new_max_bar_length;
+   int new_max_bar_length;
 
    if (redraw_mainmenu == YES)
    {
@@ -260,6 +259,7 @@ setup_window(char *font_name, int redraw_mainmenu)
             if (acp.show_elog != NO_PERMISSION)
             {
                XtVaSetValues(vw[EVENT_W], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[10], XmNfontList, fontlist, NULL);
             }
             if (acp.show_rlog != NO_PERMISSION)
             {
@@ -268,6 +268,7 @@ setup_window(char *font_name, int redraw_mainmenu)
             if (acp.show_tlog != NO_PERMISSION)
             {
                XtVaSetValues(vw[TRANS_W], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[11], XmNfontList, fontlist, NULL);
             }
             if (acp.show_tdlog != NO_PERMISSION)
             {
@@ -280,6 +281,7 @@ setup_window(char *font_name, int redraw_mainmenu)
             if (acp.show_olog != NO_PERMISSION)
             {
                XtVaSetValues(vw[OUTPUT_W], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[12], XmNfontList, fontlist, NULL);
             }
             if (acp.show_dlog != NO_PERMISSION)
             {
@@ -399,6 +401,7 @@ setup_window(char *font_name, int redraw_mainmenu)
    /* might have occurred.                         */
    if (new_max_bar_length != max_bar_length)
    {
+      int          i;
       unsigned int new_bar_length;
 
       max_bar_length = new_max_bar_length;

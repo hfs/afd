@@ -52,9 +52,8 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <unistd.h>                 /* sleep(), exit(), close(),         */
-                                    /* STDERR_FILENO                     */
-#include <stdlib.h>                 /* free(), malloc()                  */
+#include <unistd.h>                 /* sleep(), close(), STDERR_FILENO   */
+#include <stdlib.h>                 /* free(), malloc(), exit()          */
 #ifdef HAVE_MMAP
 # include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif

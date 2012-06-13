@@ -1,6 +1,6 @@
 /*
  *  fddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -150,7 +150,10 @@
 #define WRITE_LOCAL_ERROR        36
 #define WRITE_LOCAL_ERROR_STR    "Failed to write to local file"
 #define STAT_TARGET_ERROR        37     /* Used by sf_loc().             */
-#define STAT_TARGET_ERROR_STR    "Failed to access target dir"
+#define STAT_TARGET_ERROR_STR    "Failed to access target file/dir"
+#define FILE_SIZE_MATCH_ERROR    38     /* Local + remote size do not    */
+                                        /* match.                        */
+#define FILE_SIZE_MATCH_ERROR_STR "Local+remote size do not match"
 #define OPEN_FILE_DIR_ERROR      40     /* File directory does not exist */
 #define OPEN_FILE_DIR_ERROR_STR  "Local file directory does not exist"
 #define NO_MESSAGE_FILE          41     /* The message file does not     */
@@ -168,6 +171,8 @@
 # define MAP_FUNCTION_ERROR      55
 # define MAP_FUNCTION_ERROR_STR  "Error in MAP function"
 #endif
+#define EXEC_ERROR               56
+#define EXEC_ERROR_STR           "External transmit failed"
 #define SYNTAX_ERROR             60
 #define SYNTAX_ERROR_STR         "Syntax error"
 #define NO_FILES_TO_SEND         61
@@ -259,6 +264,7 @@
 #define UNIQUE_LOCKING                 524288
 #define DISTRIBUTED_HELPER_JOB         1048576
 #define MIRROR_DIR                     2097152
+#define EXEC_ONCE_ONLY                 4194304
 
 #ifdef _WITH_BURST_2
 # define MORE_DATA_FIFO                "/more_data_"
@@ -338,7 +344,11 @@ struct job
                                          /* the path we need.            */
           mode_t        chmod;           /* The permissions that the     */
                                          /* file should have.            */
+          mode_t        dir_mode;        /* The permissions that the     */
+                                         /* directory should have.       */
           char          chmod_str[5];    /* String mode value for FTP.   */
+          char          dir_mode_str[5]; /* String mode value when       */
+                                         /* creating directories for FTP.*/
           uid_t         user_id;         /* The user ID that the file    */
                                          /* should have.                 */
           gid_t         group_id;        /* The group ID that the file   */
@@ -350,29 +360,28 @@ struct job
           unsigned int  split_job_counter;
           unsigned int  unique_number;
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
-          char          hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char          hostname[MAX_REAL_HOSTNAME_LENGTH];
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
-          char          smtp_user[MAX_USER_NAME_LENGTH + 1];
-#if MAX_USER_NAME_LENGTH > MAX_REAL_HOSTNAME_LENGTH
-          char          user[MAX_USER_NAME_LENGTH + 1];
-#else
-          char          user[MAX_REAL_HOSTNAME_LENGTH + 1];
-#endif
+          char          smtp_user[MAX_USER_NAME_LENGTH];
+          char          user[MAX_USER_NAME_LENGTH];
 #ifdef WITH_SSH_FINGERPRINT
           char          ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1];
           char          key_type;
 #endif
-          char          password[MAX_USER_NAME_LENGTH + 1];
-          char          target_dir[MAX_RECIPIENT_LENGTH + 1];
+          char          password[MAX_USER_NAME_LENGTH];
+          char          target_dir[MAX_RECIPIENT_LENGTH];
                                          /* Target directory on the      */
                                          /* remote side.                 */
           char          msg_name[MAX_MSG_NAME_LENGTH];
-          char          smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
+          char          http_proxy[MAX_REAL_HOSTNAME_LENGTH];
+                                         /* HTTP proxy.                  */
+          char          smtp_server[MAX_REAL_HOSTNAME_LENGTH];
                                          /* SMTP server name.            */
           int           no_of_restart_files;
           int           subject_rule_pos;
           int           trans_rule_pos;
           int           user_rule_pos;
+          int           mail_header_rule_pos;
           char          **restart_file;
                                          /* When a transmission fails    */
                                          /* while it was transmitting a  */
@@ -463,8 +472,14 @@ struct job
           char          *subject;        /* Subject for mail.            */
           char          *reply_to;       /* The address where the        */
                                          /* recipient sends the reply.   */
+          char          *default_from;   /* If DEFAULT_SMTP_FROM is set  */
+                                         /* in AFD_CONFIG its value will */
+                                         /* be stored here.              */
           char          *from;           /* The address who send this    */
                                          /* mail.                        */
+          char          *exec_cmd;       /* For scheme exec, the command */
+                                         /* to execute. When used, this  */
+                                         /* points to target_dir.        */
 #ifdef _WITH_TRANS_EXEC
           char          *trans_exec_cmd; /* String holding the exec cmd. */
           time_t        trans_exec_timeout;/* When exec command should   */
@@ -472,6 +487,15 @@ struct job
           char          set_trans_exec_lock;/* When exec command should  */
                                          /* be locked, so only one can   */
                                          /* be active for this host.     */
+# ifdef HAVE_SETPRIORITY
+          time_t        afd_config_mtime;/* Modification time of         */
+                                         /* AFD_CONFIG file.             */
+          int           add_afd_priority;
+          int           current_priority;
+          int           exec_base_priority;
+          int           max_sched_priority;
+          int           min_sched_priority;
+# endif
 #endif
           char          *p_unique_name;  /* Pointer to the unique name   */
                                          /* of this job.                 */
@@ -539,6 +563,11 @@ struct job
                                          /*|   | helper job for         |*/
                                          /*|   | retrieving files.      |*/
                                          /*|22 | Mirror source dir.     |*/
+                                         /*|23 | EXEC: Execute command  |*/
+                                         /*|   |       for all files    |*/
+                                         /*|   |       once only.       |*/
+                                         /*|24 | Check the size of the  |*/
+                                         /*|   | file we just uploaded. |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
           unsigned int  dup_check_flag;  /* Flag storing the type of     */
@@ -671,6 +700,7 @@ extern int   append_compare(char *, char *),
                            unsigned int *,
 #endif
                            unsigned int *),
+             check_exec_type(char *),
              check_fra_fd(void),
              eval_input_gf(int, char **, struct job *),
              eval_input_sf(int, char **, struct job *),
@@ -684,7 +714,7 @@ extern int   append_compare(char *, char *),
              get_remote_file_names_http(off_t *, int *),
              get_remote_file_names_sftp(off_t *, int *),
              gsf_check_fra(void),
-             gsf_check_fsa(void),
+             gsf_check_fsa(struct job *),
              init_fifos_fd(void),
              init_sf(int, char **, char *, int),
              init_sf_burst2(struct job *, char *, unsigned int *,
@@ -703,7 +733,7 @@ extern void  calc_trl_per_process(int),
              check_trl_file(void),
              compare_dir_local(void),
              fsa_detach_pos(int),
-             get_group_list(char *),
+             get_group_list(char *, struct job *),
              get_new_positions(void),
              handle_delete_fifo(int, size_t, char *),
              handle_proxy(void),
@@ -734,8 +764,8 @@ extern void  calc_trl_per_process(int),
              remove_connection(struct connection *, int, time_t),
              remove_ls_data(int),
              remove_msg(int),
-             reset_fsa(struct job *, int),
-             reset_values(int, off_t, int, off_t),
+             reset_fsa(struct job *, int, int, off_t),
+             reset_values(int, off_t, int, off_t, struct job *),
              send_proc_fin(int),
              system_log(char *, char *, int, char *, ...),
              trace_log(char *, int, int, char *, int, char *, ...),

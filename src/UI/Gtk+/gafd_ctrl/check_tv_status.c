@@ -181,7 +181,7 @@ check_tv_status(Widget w)
 
             (void)my_strncpy(jd[i].file_name_in_use,
                              fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use,
-                             jd[i].filename_compare_length);
+                             jd[i].filename_compare_length + 1);
             if (jd[i].filename_compare_length < filename_display_length)
             {
                (void)memset(jd[i].file_name_in_use + jd[i].filename_compare_length, ' ',

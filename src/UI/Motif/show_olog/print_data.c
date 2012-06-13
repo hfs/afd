@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -116,8 +116,6 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       else
       {
-         register int  i,
-                       length;
          int           fd,
                        prepare_status;
          char          *line,
@@ -132,6 +130,9 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          if (prepare_status == SUCCESS)
          {
+            register int i,
+                         length;
+
             write_header(fd, sum_sep_line);
 
             XtVaGetValues(listbox_w, XmNitems, &all_items, NULL);
@@ -191,8 +192,6 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
    }
    else /* Print everything! */
    {
-      register int  i,
-                    length;
       int           fd,
                     no_of_items,
                     prepare_status;
@@ -208,6 +207,9 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       if (prepare_status == SUCCESS)
       {
+         register int i,
+                      length;
+
          write_header(fd, sum_sep_line);
 
          XtVaGetValues(listbox_w,
@@ -357,10 +359,13 @@ write_header(int fd, char *sum_sep_line)
    }
 
    tmp_length = length;
+#ifdef _WITH_FTP_SUPPORT
    if (toggles_set & SHOW_FTP)
    {
       length += sprintf(&buffer[length], "\tProtocol      : FTP");
    }
+#endif
+#ifdef _WITH_SMTP_SUPPORT
    if (toggles_set & SHOW_SMTP)
    {
       if (length == tmp_length)
@@ -372,6 +377,8 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", %s", SMTP_ID_STR);
       }
    }
+#endif
+#ifdef _WITH_LOC_SUPPORT
    if (toggles_set & SHOW_FILE)
    {
       if (length == tmp_length)
@@ -383,6 +390,21 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", %s", FILE_ID_STR);
       }
    }
+#endif
+#ifdef _WITH_FD_EXEC_SUPPORT
+   if (toggles_set & SHOW_EXEC)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tProtocol      : %s", EXEC_ID_STR);
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", %s", EXEC_ID_STR);
+      }
+   }
+#endif
+#ifdef _WITH_SFTP_SUPPORT
    if (toggles_set & SHOW_SFTP)
    {
       if (length == tmp_length)
@@ -394,6 +416,7 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", SFTP");
       }
    }
+#endif
 #ifdef _WITH_SCP_SUPPORT
    if (toggles_set & SHOW_SCP)
    {
@@ -434,6 +457,7 @@ write_header(int fd, char *sum_sep_line)
    }
 #endif
 #ifdef WITH_SSL
+# ifdef _WITH_FTP_SUPPORT
    if (toggles_set & SHOW_FTPS)
    {
       if (length == tmp_length)
@@ -445,6 +469,8 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", FTPS");
       }
    }
+# endif
+# ifdef _WITH_HTTP_SUPPORT
    if (toggles_set & SHOW_HTTPS)
    {
       if (length == tmp_length)
@@ -456,6 +482,8 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", HTTPS");
       }
    }
+# endif
+# ifdef _WITH_SMTP_SUPPORT
    if (toggles_set & SHOW_SMTPS)
    {
       if (length == tmp_length)
@@ -467,6 +495,7 @@ write_header(int fd, char *sum_sep_line)
          length += sprintf(&buffer[length], ", SMTPS");
       }
    }
+# endif
 #endif
 
    /* Don't forget the heading for the data. */

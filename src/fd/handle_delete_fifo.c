@@ -1,6 +1,6 @@
 /*
  *  handle_delete_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,6 +58,7 @@ DESCR__E_M3
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>          /* waitpid()                              */
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>

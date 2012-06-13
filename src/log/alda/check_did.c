@@ -1,6 +1,6 @@
 /*
  *  check_did.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -146,15 +146,15 @@ check_did(unsigned int did)
                   for (j = 0; j < search_dir_name_counter; j++)
                   {
                      if ((ret = pmatch(search_dir_name[j],
-                                       dna.dnb[i].orig_dir_name, NULL)) == 0)
+                                       dna.dnb[i].dir_name, NULL)) == 0)
                      {
                         k = 0;
-                        while (dna.dnb[i].orig_dir_name[k] != '\0')
+                        while (dna.dnb[i].dir_name[k] != '\0')
                         {
 # ifdef _INPUT_LOG
-                           ilog.full_source[k] = dna.dnb[i].orig_dir_name[k];
+                           ilog.full_source[k] = dna.dnb[i].dir_name[k];
 # else
-                           ulog.full_source[k] = dna.dnb[i].orig_dir_name[k];
+                           ulog.full_source[k] = dna.dnb[i].dir_name[k];
 # endif
                            k++;
                         }
@@ -225,15 +225,15 @@ check_did(unsigned int did)
                   for (j = 0; j < search_dir_name_counter; j++)
                   {
                      if ((ret = pmatch(search_dir_name[j],
-                                       adl[i].orig_dir_name, NULL)) == 0)
+                                       adl[i].dir_name, NULL)) == 0)
                      {
                         k = 0;
-                        while (adl[i].orig_dir_name[k] != '\0')
+                        while (adl[i].dir_name[k] != '\0')
                         {
 #  ifdef _INPUT_LOG
-                           ilog.full_source[k] = adl[i].orig_dir_name[k];
+                           ilog.full_source[k] = adl[i].dir_name[k];
 #  else
-                           ulog.full_source[k] = adl[i].orig_dir_name[k];
+                           ulog.full_source[k] = adl[i].dir_name[k];
 #  endif
                            k++;
                         }

@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -144,6 +144,7 @@ extern FILE                   *p_debug_file;
 #endif
 extern char                   *p_work_dir;
 extern int                    create_source_dir,
+                              create_source_dir_disabled,
                               dnb_fd,
                               data_length,/* The size of data for one job.  */
                               *no_of_dir_names,
@@ -156,7 +157,10 @@ extern mode_t                 create_source_dir_mode;
 extern struct host_list       *hl;        /* Structure that holds all the   */
                                           /* hosts.                         */
 extern struct dir_name_buf    *dnb;
-extern struct dir_config_buf  *dcl;
+extern struct dir_config_buf  *dc_dcl;
+#ifdef WITH_ONETIME
+extern struct dir_config_buf  *ot_dcl;
+#endif
 
 /* Global variables. */
 int                           no_of_local_dirs,
@@ -165,7 +169,6 @@ int                           no_of_local_dirs,
                               pwb_fd,
                               job_no;   /* By job number we here mean for   */
                                         /* each destination specified!      */
-char                          rule_file[MAX_PATH_LENGTH];
 struct rule                   *rule;
 struct dir_data               *dd = NULL;
 struct p_array                *pp;
@@ -180,8 +183,12 @@ static int                    check_hostname_list(char *, char *, char *,
 #endif
                               count_new_lines(char *, char *),
                               optimise_dir(char *);
-static void                   copy_to_file(void),
-                              copy_job(int, int, struct dir_group *),
+static void                   copy_job(int, int, struct dir_group *),
+#ifdef WITH_ONETIME
+                              copy_to_file(int),
+#else
+                              copy_to_file(void),
+#endif
                               insert_dir(struct dir_group *),
                               insert_hostname(struct dir_group *),
                               sort_jobs(void);
@@ -236,77 +243,88 @@ static char                   *posi_identifier(char *, char *, size_t);
 
 /*########################## eval_dir_config() ##########################*/
 int
+#ifdef WITH_ONETIME
+eval_dir_config(off_t db_size, unsigned int *warn_counter, int onetime)
+#else
 eval_dir_config(off_t db_size, unsigned int *warn_counter)
+#endif
 {
-   unsigned int     error_mask;
-   int              dcd = 0,             /* DIR_CONFIG's done.            */
-                    i,
-                    j,
+   unsigned int          error_mask;
+   int                   dcd = 0,             /* DIR_CONFIG's done.            */
+                         i,
+                         j,
 #ifdef _DEBUG
-                    k,
-                    m,
+                         k,
+                         m,
 #endif
-                    dummy_port,          /* Is actually not required for  */
-                                         /* url_evaluate(). But we supply */
-                                         /* it so we fool the function to */
-                                         /* do syntax checking on the URL.*/
-                    ret,                 /* Return value.                 */
-                    t_dgc = 0,           /* Total number of destination   */
-                                         /* groups found.                 */
-                    t_rc = 0,            /* Total number of recipients    */
-                                         /* found.                        */
-                    unique_file_counter, /* Counter for creating a unique */
-                                         /* file name.                    */
-                    unique_dest_counter; /* Counter for creating a unique */
-                                         /* destination name.             */
-   uid_t            current_uid;
-   char             *database = NULL,
-                    *dir_ptr,
-                    dummy_transfer_mode,
+                         dummy_port,          /* Is actually not required */
+                                              /* for url_evaluate(). But  */
+                                              /* we supply it so we fool  */
+                                              /* the function to do syntax*/
+                                              /* checking on the URL.     */
+                         ret,                 /* Return value.            */
+                         t_dgc = 0,           /* Total number of          */
+                                              /* destination groups found.*/
+                         t_rc = 0,            /* Total number of          */
+                                              /* recipients found.        */
+                         unique_file_counter, /* Counter for creating a   */
+                                              /* unique file name.        */
+                         unique_dest_counter; /* Counter for creating a   */
+                                              /* unique destination name. */
+   uid_t                 current_uid;
+   char                  *database = NULL,
+                         *dir_ptr,
+                         dummy_transfer_mode,
 #ifdef WITH_SSH_FINGERPRINT
-                    dummy_ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1],
-                    dummy_key_type,
+                         dummy_ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1],
+                         dummy_key_type,
 #endif
-                    *error_ptr,          /* Pointer showing where we fail */
-                                         /* to see that the directory is  */
-                                         /* available for us.             */
-                    *ptr,                /* Main pointer that walks       */
-                                         /* through buffer.               */
-                    last_char,           /* Storage for last character in */
-                                         /* directory name. If that is a  */
-                                         /* / spaces are ignored.         */
-                    *tmp_ptr = NULL,     /* */
-                    *search_ptr = NULL,  /* Pointer used in conjunction   */
-                                         /* with the posi() function.     */
-                    tmp_dir_char = 0,    /* Buffer that holds torn out    */
-                                         /* character.                    */
-                    *end_dir_ptr = NULL, /* Pointer that marks the end of */
-                                         /* a directory entry.            */
-                    other_dir_flag,      /* If set, there is another      */
-                                         /* directory entry.              */
-                    tmp_file_char = 1,   /* Buffer that holds torn out    */
-                                         /* character.                    */
-                    *end_file_ptr = NULL,/* Pointer that marks the end of */
-                                         /* a file entry.                 */
-                    other_file_flag,     /* If set, there is another file */
-                                         /* entry.                        */
-                    tmp_dest_char = 1,   /* Buffer that holds torn out    */
-                                         /* character.                    */
-                    *end_dest_ptr = NULL,/* Pointer that marks the end of */
-                                         /* a destination entry.          */
-                    other_dest_flag,     /* If set, there is another      */
-                                         /* destination entry.            */
-                    prev_user_name[MAX_USER_NAME_LENGTH + 1],
-                    prev_user_dir[MAX_PATH_LENGTH],
-                    user[MAX_USER_NAME_LENGTH + 1],
-                    smtp_user[MAX_USER_NAME_LENGTH + 1],
-                    password[MAX_USER_NAME_LENGTH + 1],
-                    directory[MAX_RECIPIENT_LENGTH + 1],
-                    dummy_directory[MAX_RECIPIENT_LENGTH + 1],
-                    smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
-   unsigned char    dummy_ssh_protocol,
-                    smtp_auth;
-   struct dir_group *dir;
+                         *error_ptr,          /* Pointer showing where we */
+                                              /* fail to see that the     */
+                                              /* directory is available   */
+                                              /* for us.                  */
+                         *ptr,                /* Main pointer that walks  */
+                                              /* through buffer.          */
+                         last_char,           /* Storage for last         */
+                                              /* character in directory   */
+                                              /* name. If that is a /     */
+                                              /* spaces are ignored.      */
+                         *tmp_ptr = NULL,     /* */
+                         *search_ptr = NULL,  /* Pointer used in          */
+                                              /* conjunction with the     */
+                                              /* posi() function.         */
+                         tmp_dir_char = 0,    /* Buffer that holds torn   */
+                                              /* out character.           */
+                         *end_dir_ptr = NULL, /* Pointer that marks the   */
+                                              /* end of a directory entry.*/
+                         other_dir_flag,      /* If set, there is another */
+                                              /* directory entry.         */
+                         tmp_file_char = 1,   /* Buffer that holds torn   */
+                                              /* out character.           */
+                         *end_file_ptr = NULL,/* Pointer that marks the   */
+                                              /* end of a file entry.     */
+                         other_file_flag,     /* If set, there is another */
+                                              /* file entry.              */
+                         tmp_dest_char = 1,   /* Buffer that holds torn   */
+                                              /* out character.           */
+                         *end_dest_ptr = NULL,/* Pointer that marks the   */
+                                              /* end of a destination     */
+                                              /* entry.                   */
+                         other_dest_flag,     /* If set, there is another */
+                                              /* destination entry.       */
+                         created_path[MAX_PATH_LENGTH],
+                         prev_user_name[MAX_USER_NAME_LENGTH],
+                         prev_user_dir[MAX_PATH_LENGTH],
+                         user[MAX_USER_NAME_LENGTH],
+                         smtp_user[MAX_USER_NAME_LENGTH],
+                         password[MAX_USER_NAME_LENGTH],
+                         directory[MAX_RECIPIENT_LENGTH],
+                         dummy_directory[MAX_RECIPIENT_LENGTH],
+                         smtp_server[MAX_REAL_HOSTNAME_LENGTH];
+   unsigned char         dummy_ssh_protocol,
+                         smtp_auth;
+   struct dir_group      *dir;
+   struct dir_config_buf *dcl;
 
    /* Allocate memory for the directory structure. */
    if ((dir = malloc(sizeof(struct dir_group))) == NULL)
@@ -339,38 +357,51 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
       exit(INCORRECT);
    }
 
-   if (dnb == NULL)
+#ifdef WITH_ONETIME
+   if (onetime == NO)
    {
-      size_t size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +
-                    AFD_WORD_OFFSET;
-      char   dir_name_file[MAX_PATH_LENGTH],
-             *p_dir_buf;
-
-      /*
-       * Map to the directory name database.
-       */
-      (void)strcpy(dir_name_file, p_work_dir);
-      (void)strcat(dir_name_file, FIFO_DIR);
-      (void)strcat(dir_name_file, DIR_NAME_FILE);
-      if ((p_dir_buf = attach_buf(dir_name_file, &dnb_fd,
-                                  &size, "AMG", FILE_MODE, NO)) == (caddr_t) -1)
-      {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to mmap() to %s : %s",
-                    dir_name_file, strerror(errno));
-         exit(INCORRECT);
-      }
-      no_of_dir_names = (int *)p_dir_buf;
-      p_dir_buf += AFD_WORD_OFFSET;
-      dnb = (struct dir_name_buf *)p_dir_buf;
-   } /* if (dnb == NULL) */
-
-   /* Lock the dir_name_buf structure so we do not get caught */
-   /* when the FD is removing a directory.                    */
-#ifdef LOCK_DEBUG
-   lock_region_w(dnb_fd, (off_t)1, __FILE__, __LINE__);
 #else
-   lock_region_w(dnb_fd, (off_t)1);
+      dcl = dc_dcl;
+#endif
+      if (dnb == NULL)
+      {
+         size_t size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +
+                       AFD_WORD_OFFSET;
+         char   dir_name_file[MAX_PATH_LENGTH],
+                *p_dir_buf;
+
+         /*
+          * Map to the directory name database.
+          */
+         (void)strcpy(dir_name_file, p_work_dir);
+         (void)strcat(dir_name_file, FIFO_DIR);
+         (void)strcat(dir_name_file, DIR_NAME_FILE);
+         if ((p_dir_buf = attach_buf(dir_name_file, &dnb_fd,
+                                     &size, "AMG", FILE_MODE, NO)) == (caddr_t) -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to mmap() to %s : %s",
+                       dir_name_file, strerror(errno));
+            exit(INCORRECT);
+         }
+         no_of_dir_names = (int *)p_dir_buf;
+         p_dir_buf += AFD_WORD_OFFSET;
+         dnb = (struct dir_name_buf *)p_dir_buf;
+      } /* if (dnb == NULL) */
+
+      /* Lock the dir_name_buf structure so we do not get caught */
+      /* when the FD is removing a directory.                    */
+#ifdef LOCK_DEBUG
+      lock_region_w(dnb_fd, (off_t)1, __FILE__, __LINE__);
+#else
+      lock_region_w(dnb_fd, (off_t)1);
+#endif
+#ifdef WITH_ONETIME
+   }
+   else
+   {
+      dcl = ot_dcl;
+   }
 #endif
 
    /* Initialise variables. */
@@ -380,13 +411,24 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
    unique_file_counter = 0;
    unique_dest_counter = 0;
    no_of_local_dirs = 0;
-   rule_file[0] = '\0'; /* We set this so we only read rename rule once   */
-                        /* in function check_rule() (see check_option.c). */
 
    /* Evaluate each DIR_CONFIG each by itself. */
    do
    {
-      system_log(DEBUG_SIGN, NULL, 0, "Reading %s", dcl[dcd].dir_config_file);
+#ifdef WITH_ONETIME
+      if (onetime == NO)
+      {
+#endif
+         system_log(DEBUG_SIGN, NULL, 0, "Reading %s",
+                    dcl[dcd].dir_config_file);
+#ifdef WITH_ONETIME
+      }
+      else
+      {
+         receive_log(INFO_SIGN, NULL, 0, 0L,
+                     "Reading %s", dcl[dcd].dir_config_file);
+      }
+#endif
 
       /* Read database file and store it into memory. */
       if ((read_file_no_cr(dcl[dcd].dir_config_file, &database) == INCORRECT) ||
@@ -739,7 +781,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                              (dir->alias[0] == '\0'))
                          {
                             (void)my_strncpy(dir->alias, dir->real_hostname,
-                                             MAX_DIR_ALIAS_LENGTH);
+                                             MAX_DIR_ALIAS_LENGTH + 1);
                          }
                          if (directory[0] != '/')
                          {
@@ -1822,6 +1864,9 @@ check_dummy_line:
             {
                if (duplicate == NO)
                {
+                  int    tmp_create_source_dir;
+                  mode_t tmp_create_source_dir_mode;
+
                   if ((no_of_local_dirs % 10) == 0)
                   {
                      size_t new_size = (((no_of_local_dirs / 10) + 1) * 10) *
@@ -1934,15 +1979,43 @@ check_dummy_line:
 
                   /* Now lets check if this directory does exist and if we */
                   /* do have enough permissions to work in this directory. */
+                  created_path[0] = '\0';
+                  if (create_source_dir_disabled == NO)
+                  {
+                  if (dd[no_of_local_dirs].create_source_dir == YES)
+                  {
+                     tmp_create_source_dir = YES;
+                     tmp_create_source_dir_mode = dd[no_of_local_dirs].dir_mode;
+                  }
+                  else
+                  {
+                     if (dd[no_of_local_dirs].dont_create_source_dir == YES)
+                     {
+                        tmp_create_source_dir = NO;
+                        tmp_create_source_dir_mode = 0;
+                     }
+                     else
+                     {
+                        tmp_create_source_dir = create_source_dir;
+                        tmp_create_source_dir_mode = create_source_dir_mode;
+                     }
+                  }
+                  }
+                  else
+                  {
+                     tmp_create_source_dir = NO;
+                     tmp_create_source_dir_mode = 0;
+                  }
                   if ((ret = check_create_path(dir->location,
-                                               create_source_dir_mode,
+                                               tmp_create_source_dir_mode,
                                                &error_ptr,
-                                               create_source_dir,
-                                               dd[no_of_local_dirs].remove)) == CREATED_DIR)
+                                               tmp_create_source_dir,
+                                               dd[no_of_local_dirs].remove,
+                                               created_path)) == CREATED_DIR)
                   {
                      system_log(INFO_SIGN, __FILE__, __LINE__,
-                                "Created directory `%s' at line %d from %s",
-                                dir->location,
+                                "Created directory `%s' [%s] at line %d from %s",
+                                dir->location, created_path,
                                 count_new_lines(database, ptr - 1),
                                 dcl[dcd].dir_config_file);
                   }
@@ -2187,76 +2260,92 @@ check_dummy_line:
       }
    }
 
-   /* See if there are any valid directory entries. */
-   if (no_of_local_dirs == 0)
+#ifdef WITH_ONETIME
+   if (onetime == NO)
    {
-      /* We assume there is no entry in database   */
-      /* or we have finished reading the database. */
-      ret = NO_VALID_ENTRIES;
+#endif
+      /* See if there are any valid directory entries. */
+      if (no_of_local_dirs == 0)
+      {
+         /* We assume there is no entry in database   */
+         /* or we have finished reading the database. */
+         ret = NO_VALID_ENTRIES;
+      }
+      else
+      {
+         /* Before we copy the data to a file lets sort  */
+         /* the directories so that same directories are */
+         /* in one group and not scattered over the hole */
+         /* list. Remember we might have multiple        */
+         /* DIR_CONFIG's where the user specifies the    */
+         /* same directory in each DIR_CONFIG.           */
+         sort_jobs();
+
+         /* Now copy data and pointers in their relevant */
+         /* shared memory areas.                         */
+#ifdef WITH_ONETIME
+         copy_to_file(NO);
+#else
+         copy_to_file();
+#endif
+
+         /* Don't forget to create the FSA (Filetransfer */
+         /* Status Area).                                */
+         create_sa(no_of_local_dirs);
+
+         /* Tell user what we have found in DIR_CONFIG. */
+         if (no_of_local_dirs > 1)
+         {
+            system_log(INFO_SIGN, NULL, 0,
+                       "Found %d directory entries with %d recipients in %d destinations.",
+                       no_of_local_dirs, t_rc, t_dgc);
+         }
+         else if ((no_of_local_dirs == 1) && (t_rc == 1))
+              {
+                 system_log(INFO_SIGN, NULL, 0,
+                           "Found one directory entry with %d recipient in %d destination.",
+                            t_rc, t_dgc);
+              }
+         else if ((no_of_local_dirs == 1) && (t_rc > 1) && (t_dgc == 1))
+              {
+                 system_log(INFO_SIGN, NULL, 0,
+                            "Found one directory entry with %d recipients in %d destination.",
+                            t_rc, t_dgc);
+              }
+              else
+              {
+                 system_log(INFO_SIGN, NULL, 0,
+                            "Found %d directory entry with %d recipients in %d destinations.",
+                            no_of_local_dirs, t_rc, t_dgc);
+              }
+         ret = SUCCESS;
+      }
+#ifdef WITH_ONETIME
    }
    else
    {
-      /* Before we copy the data to a file lets sort  */
-      /* the directories so that same directories are */
-      /* in one group and not scattered over the hole */
-      /* list. Remember we might have multiple        */
-      /* DIR_CONFIG's where the user specifies the    */
-      /* same directory in each DIR_CONFIG.           */
-      sort_jobs();
-
-      /* Now copy data and pointers in their relevant */
-      /* shared memory areas.                         */
-      copy_to_file();
-
-      /* Don't forget to create the FSA (Filetransfer */
-      /* Status Area).                                */
-      create_sa(no_of_local_dirs);
-
-      /* Tell user what we have found in DIR_CONFIG. */
-      if (no_of_local_dirs > 1)
-      {
-         system_log(INFO_SIGN, NULL, 0,
-                    "Found %d directory entries with %d recipients in %d destinations.",
-                    no_of_local_dirs, t_rc, t_dgc);
-      }
-      else if ((no_of_local_dirs == 1) && (t_rc == 1))
-           {
-              system_log(INFO_SIGN, NULL, 0,
-                        "Found one directory entry with %d recipient in %d destination.",
-                         t_rc, t_dgc);
-           }
-      else if ((no_of_local_dirs == 1) && (t_rc > 1) && (t_dgc == 1))
-           {
-              system_log(INFO_SIGN, NULL, 0,
-                         "Found one directory entry with %d recipients in %d destination.",
-                         t_rc, t_dgc);
-           }
-           else
-           {
-              system_log(INFO_SIGN, NULL, 0,
-                         "Found %d directory entry with %d recipients in %d destinations.",
-                         no_of_local_dirs, t_rc, t_dgc);
-           }
-      ret = SUCCESS;
+      copy_to_file(YES);
    }
+#endif
 
-   /* Release directory name buffer for FD. */
+#ifdef WITH_ONETIME
+   if (onetime == NO)
+   {
+#endif
+      /* Release directory name buffer for FD. */
 #ifdef LOCK_DEBUG
-   unlock_region(dnb_fd, 1, __FILE__, __LINE__);
+      unlock_region(dnb_fd, 1, __FILE__, __LINE__);
 #else
-   unlock_region(dnb_fd, 1);
+      unlock_region(dnb_fd, 1);
+#endif
+#ifdef WITH_ONETIME
+   }
 #endif
 
    /* Free all memory we allocated. */
-   if (dd != NULL)
-   {
-      free((void *)dd);
-   }
+   free((void *)dd);
    free(p_t);
-   if (pp != NULL)
-   {
-      free(pp);
-   }
+   free(pp);
    free((void *)dir);
    if (pwb != NULL)
    {
@@ -2935,7 +3024,11 @@ sort_jobs(void)
 /*              jobs, the pointer array and the data into it.            */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static void
+#ifdef WITH_ONETIME
+copy_to_file(int onetime)
+#else
 copy_to_file(void)
+#endif
 {
    /* First test if there is any data at all for this job type. */
    if (data_length > 0)
@@ -2964,8 +3057,21 @@ copy_to_file(void)
        * also be very handy when the disk is full. This is really not
        * necessary, however the overhead is very small, so lets just do it.
        */
-      ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file, "%s%s%s",
-                                        p_work_dir, FIFO_DIR, AMG_DATA_FILE);
+#ifdef WITH_ONETIME
+     if (onetime == YES)
+     {
+         ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file, "%s%s%s.%u",
+                                           p_work_dir, AFD_MSG_DIR,
+                                           AMG_ONETIME_DATA_FILE, onetime_jid);
+     }
+     else
+     {
+#endif
+         ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file, "%s%s%s",
+                                           p_work_dir, FIFO_DIR, AMG_DATA_FILE);
+#ifdef WITH_ONETIME
+     }
+#endif
       (void)strcpy(amg_data_file, tmp_amg_data_file);
       *ptr = '.';
       *(ptr + 1) = 't';
@@ -3148,14 +3254,12 @@ static int
 optimise_dir(char *path)
 {
    int  modified = NO;
-   char *end_ptr,
-        *read_ptr,
+   char *read_ptr,
         resolved_path[MAX_PATH_LENGTH],
         *write_ptr;
 
    write_ptr = resolved_path;
    read_ptr = path;
-   end_ptr = path + MAX_PATH_LENGTH - 2;
 
    /* Expand each slash-separated pathname component. */
    while (*read_ptr != '\0')

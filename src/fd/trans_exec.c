@@ -1,6 +1,6 @@
 /*
  *  trans_exec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <unistd.h>               /* geteuid()                           */
 #include <errno.h>
 #include "fddefs.h"
 
@@ -64,15 +64,13 @@ extern struct job                 db;
 void
 trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
 {
-#ifdef _WITH_TRANS_EXEC
    char *p_command,
         tmp_connect_status;
 
    tmp_connect_status = fsa->job_status[(int)db.job_no].connect_status;
    fsa->job_status[(int)db.job_no].connect_status = POST_EXEC;
    p_command = db.trans_exec_cmd;
-   while (((*p_command == ' ') || (*p_command == '\t')) &&
-          ((*p_command != '\n') && (*p_command != '\0')))
+   while ((*p_command == ' ') || (*p_command == '\t'))
    {
       p_command++;
    }
@@ -87,13 +85,13 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                    k = 0;
       char         *p_end = p_command,
                    *p_tmp_dir,
-                   *insert_list[10],
-                   tmp_char,
+                   *insert_list[MAX_EXEC_FILE_SUBSTITUTION],
                    tmp_option[1024],
                    command_str[1024],
                    *return_str = NULL;
 
-      while ((*p_end != '\n') && (*p_end != '\0'))
+      while ((*p_end != '\n') && (*p_end != '\0') &&
+             (ii < MAX_EXEC_FILE_SUBSTITUTION))
       {
          if ((*p_end == '%') && (*(p_end + 1) == 's'))
          {
@@ -109,6 +107,12 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
             tmp_option[k] = *p_end;
             p_end++; k++;
          }
+      }
+      if (ii >= MAX_EXEC_FILE_SUBSTITUTION)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "To many %%s in pexec option. Can oly handle %d.",
+                   MAX_EXEC_FILE_SUBSTITUTION);
       }
       tmp_option[k] = '\0';
       p_command = tmp_option;
@@ -141,6 +145,9 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
          }
          else
          {
+#ifdef HAVE_SETPRIORITY
+            int  sched_priority;
+#endif
             char job_str[4];
 
             job_str[0] = '[';
@@ -148,6 +155,34 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
             job_str[2] = ']';
             job_str[3] = '\0';
             *(p_tmp_dir + 5) = '\0';
+
+#ifdef HAVE_SETPRIORITY
+            if (db.exec_base_priority != NO_PRIORITY)
+            {
+               sched_priority = db.exec_base_priority;
+               if (db.add_afd_priority == YES)
+               {                           
+                  sched_priority += (int)(fsa->job_status[(int)db.job_no].unique_name[MAX_MSG_NAME_LENGTH - 1]);
+                  if (sched_priority > db.min_sched_priority)        
+                  {
+                     sched_priority = db.min_sched_priority;
+                  }
+                  else if (sched_priority < db.max_sched_priority)
+                       {
+                          sched_priority = db.max_sched_priority;
+                       }
+               }
+               if ((sched_priority == db.current_priority) ||
+                   ((db.current_priority > sched_priority) && (geteuid() != 0)))
+               {
+                  sched_priority = NO_PRIORITY;
+               }
+            }
+            else
+            {
+               sched_priority = NO_PRIORITY;
+            }
+#endif
 
             if (db.set_trans_exec_lock == YES)
             {
@@ -157,13 +192,16 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                lock_region_w(fsa_fd, db.lock_offset + LOCK_EXEC);
 #endif
             }
+
+            /* Setup command by inserting the filenames for all %s */
             if (ii > 0)
             {
                int  length,
                     length_start,
                     mask_file_name,
                     ret;
-               char *fnp;
+               char *fnp,
+                    tmp_char;
 
                insert_list[ii] = &tmp_option[k];
                tmp_char = *insert_list[0];
@@ -207,13 +245,16 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
 
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
+#ifdef HAVE_SETPRIORITY
+                                   sched_priority,
+#endif
                                    job_str, db.trans_exec_timeout,
                                    YES, YES)) != 0) /* ie != SUCCESS */
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to execute command %s [Return code = %d]",
                             command_str, ret);
-                  if (return_str[0] != '\0')
+                  if ((return_str != NULL) && (return_str[0] != '\0'))
                   {
                      char *end_ptr = return_str,
                           *start_ptr;
@@ -238,10 +279,10 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                else
                {
                   (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
-                                   command_str, MAX_MSG_NAME_LENGTH);
+                                   command_str, MAX_MSG_NAME_LENGTH + 1);
                }
             }
-            else
+            else /* Just execute command without file. */
             {
                int ret;
 
@@ -249,19 +290,41 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                              file_path, p_command);
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
+#ifdef HAVE_SETPRIORITY
+                                   sched_priority,
+#endif
                                    job_str, db.trans_exec_timeout, YES,
                                    YES)) != 0)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to execute command %s [Return code = %d]",
                             command_str, ret);
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
-                            "%s", return_str);
+                  if ((return_str != NULL) && (return_str[0] != '\0'))
+                  {
+                     char *end_ptr = return_str,
+                          *start_ptr;
+
+                     do
+                     {
+                        start_ptr = end_ptr;
+                        while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                        {
+                           end_ptr++;
+                        }
+                        if (*end_ptr == '\n')
+                        {
+                           *end_ptr = '\0';
+                           end_ptr++;
+                        }
+                        trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                  "%s", start_ptr);
+                     } while (*end_ptr != '\0');
+                  }
                }
                else
                {
                   (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
-                                   p_command, MAX_MSG_NAME_LENGTH);
+                                   p_command, MAX_MSG_NAME_LENGTH + 1);
                }
             }
             if (db.set_trans_exec_lock == YES)
@@ -272,11 +335,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                unlock_region(fsa_fd, db.lock_offset + LOCK_EXEC);
 #endif
             }
-            if (return_str != NULL)
-            {
-               free(return_str);
-               return_str = NULL;
-            }
+            free(return_str);
          }
          if (rec_rmdir(file_path) < 0)
          {
@@ -288,7 +347,6 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
    }
    fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
    fsa->job_status[(int)db.job_no].connect_status = tmp_connect_status;
-#endif /* _WITH_TRANS_EXEC */
 
    return;
 }

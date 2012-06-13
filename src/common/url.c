@@ -1,6 +1,6 @@
 /*
  *  url.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2008 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -73,6 +73,8 @@ DESCR__S_M3
  **                      to specify special characters with % character
  **                      and two hexa digits.
  **   17.01.2010 H.Kiehl Handle case when no port number is specified.
+ **   04.11.2011 H.Kiehl Handle case when the server= part is to long.
+ **   27.11.2011 H.Kiehl Added scheme exec.
  **
  */
 DESCR__E_M3
@@ -278,6 +280,13 @@ url_evaluate(char          *url,
               ptr += 7;
            }
 #endif
+           /* EXEC_SHEME : exec */
+      else if ((*ptr == 'e') && (*(ptr + 1) == 'x') && (*(ptr + 2) == 'e') &&
+               (*(ptr + 3) == 'c') && (*(ptr + 4) == ':'))
+           {
+              *scheme = EXEC_FLAG;
+              ptr += 4;
+           }
 #ifdef _WITH_SCP_SUPPORT
            /* SCP_SHEME : scp */
       else if ((*ptr == 's') && (*(ptr + 1) == 'c') && (*(ptr + 2) == 'p') &&
@@ -408,7 +417,7 @@ url_evaluate(char          *url,
                user[i] = *ptr;
                ptr++; i++;
             }
-            if (i > MAX_USER_NAME_LENGTH)
+            if (i >= MAX_USER_NAME_LENGTH)
             {
                while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
                       (*ptr != '/') && (*ptr != '\0'))
@@ -420,8 +429,12 @@ url_evaluate(char          *url,
                   ptr++;
                }
                url_error |= USER_NAME_TO_LONG;
+               user[0] = '\0';
             }
-            user[i] = '\0';
+            else
+            {
+               user[i] = '\0';
+            }
             todo &= ~URL_GET_USER;
          }
 
@@ -531,7 +544,8 @@ url_evaluate(char          *url,
                         i = 0;
                         while ((*ptr != ':') && (*ptr != ';') &&
                                (*ptr != '@') && (*ptr != '/') &&
-                               (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+                               (*ptr != '\0') &&
+                               (i < MAX_USER_NAME_LENGTH))
                         {
                            if (*ptr == '\\')
                            {
@@ -594,7 +608,7 @@ url_evaluate(char          *url,
                            smtp_user[i] = *ptr;
                            ptr++; i++;
                         }
-                        if (i > MAX_USER_NAME_LENGTH)
+                        if (i >= MAX_USER_NAME_LENGTH)
                         {
                            while ((*ptr != ':') && (*ptr != ';') &&
                                   (*ptr != '@') && (*ptr != '/') &&
@@ -607,8 +621,12 @@ url_evaluate(char          *url,
                               ptr++;
                            }
                            url_error |= USER_NAME_TO_LONG;
+                           smtp_user[0] = '\0';
                         }
-                        smtp_user[i] = '\0';
+                        else
+                        {
+                           smtp_user[i] = '\0';
+                        }
                      }
                      else
                      {
@@ -901,15 +919,19 @@ url_evaluate(char          *url,
                   password[i] = *ptr;
                   ptr++; i++;
                }
-               password[i] = '\0';
                todo &= ~URL_GET_PASSWORD;
-            }
-            if (i >= MAX_USER_NAME_LENGTH)
-            {
-               url_error |= PASSWORD_TO_LONG;
-               while ((*ptr != '@') && (*ptr != '/') && (*ptr != '\0'))
+               if (i >= MAX_USER_NAME_LENGTH)
                {
-                  ptr++;
+                  url_error |= PASSWORD_TO_LONG;
+                  while ((*ptr != '@') && (*ptr != '/') && (*ptr != '\0'))
+                  {
+                     ptr++;
+                  }
+                  password[0] = '\0';
+               }
+               else
+               {
+                  password[i] = '\0';
                }
             }
             if ((remove_passwd == YES) && (*ptr == '@') &&
@@ -1077,7 +1099,6 @@ url_evaluate(char          *url,
                   hostname[i] = *ptr;
                   i++; ptr++;
                }
-               hostname[i] = '\0';
                if (i >= MAX_REAL_HOSTNAME_LENGTH)
                {
                   url_error |= HOSTNAME_TO_LONG;
@@ -1086,6 +1107,10 @@ url_evaluate(char          *url,
                   {
                      ptr++;
                   }
+               }
+               else
+               {
+                  hostname[i] = '\0';
                }
                todo &= ~URL_GET_HOSTNAME;
             }
@@ -1385,7 +1410,7 @@ url_evaluate(char          *url,
                                       {
                                          int  j,
                                               time_unit;
-                                         char string[MAX_INT_LENGTH + 1];
+                                         char string[MAX_INT_LENGTH];
 
                                          ptr += 2;
                                          switch (*ptr)
@@ -1414,7 +1439,7 @@ url_evaluate(char          *url,
                                          }
                                          else
                                          {
-                                            if (j == MAX_INT_LENGTH)
+                                            if (j >= MAX_INT_LENGTH)
                                             {
                                                url_error |= TIME_MODIFIER_TO_LONG;
                                                while (isdigit((int)(*ptr)))
@@ -1457,9 +1482,9 @@ url_evaluate(char          *url,
                                       }
                                  else if ((*ptr == '%') && (*(ptr + 1) == 'h'))
                                       {
-                                         char hostname[40];
+                                         char hostname[60];
 
-                                         if (gethostname(hostname, 40) == -1)
+                                         if (gethostname(hostname, 60) == -1)
                                          {
                                             char *p_hostname;
 
@@ -1546,20 +1571,24 @@ url_evaluate(char          *url,
                                       }
                               }
                            }
-                           if (i >= MAX_RECIPIENT_LENGTH)
+                        }
+                        if (i >= MAX_RECIPIENT_LENGTH)
+                        {
+                           path[0] = '\0';
+                           url_error |= RECIPIENT_TO_LONG;
+                           while ((*ptr != '\0') && (*ptr != ';'))
                            {
-                              url_error |= PATH_TO_LONG;
-                              while ((*ptr != '\0') && (*ptr != ';'))
+                              if (*ptr == '\\')
                               {
-                                 if (*ptr == '\\')
-                                 {
-                                    ptr++;
-                                 }
                                  ptr++;
                               }
+                              ptr++;
                            }
                         }
-                        path[i] = '\0';
+                        else
+                        {
+                           path[i] = '\0';
+                        }
                         todo &= ~URL_GET_PATH;
                      }
                   }
@@ -1628,12 +1657,31 @@ url_evaluate(char          *url,
                                    ptr++;
                                    i = 0;
                                    while ((*ptr != '\0') && (*ptr != ' ') &&
-                                          (*ptr != '\t'))
+                                          (*ptr != '\t') && (*ptr != ';') &&
+                                          (i < MAX_REAL_HOSTNAME_LENGTH))
                                    {
                                       server[i] = *ptr;
                                       i++; ptr++;
                                    }
-                                   server[i] = '\0';
+                                   if (i >= MAX_REAL_HOSTNAME_LENGTH)
+                                   {
+                                      url_error |= SERVER_NAME_TO_LONG;
+                                      server[0] = '\0';
+                                      while ((*ptr != '\0') && (*ptr != ' ') &&
+                                             (*ptr != '\t') && (*ptr != ';'))
+                                      {
+                                         if (*ptr == '\\')
+                                         {
+                                            ptr++;
+                                         }
+                                         ptr++;
+                                      }
+                                   }
+                                   else
+                                   {
+                                      server[i] = '\0';
+                                   }
+
                                    todo &= ~URL_GET_SERVER;
                                 }
                            else if ((protocol_version != NULL) && (i == 8) &&
@@ -1761,7 +1809,7 @@ url_insert_password(char *url, char *password)
          {
             while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
                    (*ptr != '/') && (*ptr != '\0') &&
-                   (uh_name_length < MAX_USER_NAME_LENGTH))
+                   (uh_name_length < (MAX_USER_NAME_LENGTH - 1)))
             {
                if (*ptr == '\\')
                {
@@ -1879,7 +1927,7 @@ url_insert_password(char *url, char *password)
                         while ((*ptr != ':') && (*ptr != ';') &&
                                (*ptr != '@') && (*ptr != '/') &&
                                (*ptr != '\0') &&
-                               (uh_name_length < MAX_USER_NAME_LENGTH))
+                               (uh_name_length < (MAX_USER_NAME_LENGTH - 1)))
                         {
                            if (*ptr == '\\')
                            {
@@ -2019,7 +2067,7 @@ url_insert_password(char *url, char *password)
                ptr++;
                while ((*ptr != '\0') && (*ptr != '/') && (*ptr != ':') &&
                       (*ptr != ';') &&
-                      (uh_name_length < MAX_REAL_HOSTNAME_LENGTH))
+                      (uh_name_length < (MAX_REAL_HOSTNAME_LENGTH - 1)))
                {
                   if (*ptr == '\\')
                   {
@@ -2100,7 +2148,7 @@ url_insert_password(char *url, char *password)
                   ptr += 8;
                   uh_name_length = tmp_uh_name_length;
                   while ((*ptr != '\0') &&
-                         (uh_name_length < MAX_REAL_HOSTNAME_LENGTH))
+                         (uh_name_length < (MAX_REAL_HOSTNAME_LENGTH - 1)))
                   {
                      if (*ptr == '\\')
                      {
@@ -2418,7 +2466,8 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
             }
             error_str_length -= length;
          }
-         if ((error_str_length > 34) && (error_mask & NO_TIME_MODIFIER_SPECIFIED))
+         if ((error_str_length > 34) &&
+             (error_mask & NO_TIME_MODIFIER_SPECIFIED))
          {
             if (length)
             {
@@ -2432,12 +2481,13 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
             }
             error_str_length -= length;
          }
-         if ((error_str_length > (30 + MAX_INT_LENGTH)) && (error_mask & PATH_TO_LONG))
+         if ((error_str_length > (35 + MAX_INT_LENGTH)) &&
+             (error_mask & RECIPIENT_TO_LONG))
          {
             if (length)
             {
                length += sprintf(&error_str[length],
-                                 ", path may only be %d bytes long",
+                                 ", recipient may only be %d bytes long",
                                  MAX_RECIPIENT_LENGTH);
             }
             else
@@ -2499,6 +2549,22 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
             else
             {
                length = sprintf(error_str, "no port number supplied");
+            }
+            error_str_length -= length;
+         }
+         if ((error_str_length > (37 + MAX_INT_LENGTH)) &&
+             (error_mask & SERVER_NAME_TO_LONG))
+         {
+            if (length)
+            {
+               length += sprintf(&error_str[length],
+                                 ", server name may only be %d bytes long",
+                                 MAX_REAL_HOSTNAME_LENGTH);
+            }
+            else
+            {
+               length = sprintf(error_str, "server name may only be %d bytes long",
+                                MAX_REAL_HOSTNAME_LENGTH);
             }
             error_str_length -= length;
          }

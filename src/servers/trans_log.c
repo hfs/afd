@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,8 +78,7 @@ void
 trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
 {
    char      *ptr = fsa[fsa_pos].host_alias;
-   size_t    header_length,
-             length = HOSTNAME_OFFSET;
+   size_t    length = HOSTNAME_OFFSET;
    time_t    tvalue;
    char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
    va_list   ap;
@@ -120,7 +119,6 @@ trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
    buf[length + 3] = ':';
    buf[length + 4] = ' ';
    length += 5;
-   header_length = length;
 
    va_start(ap, fmt);
    length += vsprintf(&buf[length], fmt, ap);

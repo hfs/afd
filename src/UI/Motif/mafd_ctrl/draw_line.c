@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -393,7 +393,7 @@ draw_line_status(int pos, signed char delta)
 
    if (connect_data[pos].long_pos > -1)
    {
-      int column, i;
+      int column;
 
       /* First locate position of x and y. */
       locate_xy_column(connect_data[pos].long_pos, &x, &y, &column);
@@ -438,6 +438,8 @@ draw_line_status(int pos, signed char delta)
 
       if (line_style & SHOW_JOBS)
       {
+         int i;
+
          /* Draw status button for each parallel transfer. */
          for (i = 0; i < fsa[pos].allowed_transfers; i++)
          {

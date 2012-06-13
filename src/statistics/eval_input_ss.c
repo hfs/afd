@@ -1,6 +1,6 @@
 /*
  *  eval_input_ss.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -114,8 +114,7 @@ eval_input_ss(int  argc,
               int  *show_numeric_total_only,
               int  input)
 {
-   int i,
-       correct = YES;       /* Was input/syntax correct?      */
+   int correct = YES;       /* Was input/syntax correct?      */
 
    /**********************************************************/
    /* The following while loop checks for the parameters:    */
@@ -150,7 +149,8 @@ eval_input_ss(int  argc,
                {
                   while ((--argc > 0) && ((*++argv)[0] != '-'))
                   {
-                     (void)strcpy(status_file_name, argv[0]);
+                     (void)my_strncpy(status_file_name, argv[0],
+                                      MAX_FILENAME_LENGTH + 1);
                   }
                   argv--;
                   argc++;
@@ -355,11 +355,13 @@ eval_input_ss(int  argc,
     */
    if (argc > 0)
    {
+      int i;
+
       *arg_counter = argc;
       RT_ARRAY(arglist, argc, MAX_FILENAME_LENGTH, char);
       for (i = 0; i < argc; i++)
       {
-         (void)strcpy(arglist[i], argv[0]);
+         (void)my_strncpy(arglist[i], argv[0], MAX_FILENAME_LENGTH);
          argv++;
       }
    }

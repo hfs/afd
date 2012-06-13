@@ -1,6 +1,6 @@
 /*
  *  show_dlog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,6 +53,10 @@ DESCR__E_M1
 #include <ctype.h>             /* toupper()                              */
 #include <signal.h>            /* signal()                               */
 #include <stdlib.h>            /* free()                                 */
+#ifdef HAVE_SETPRIORITY
+# include <sys/time.h>
+# include <sys/resource.h>     /* setpriority()                          */
+#endif
 #include <sys/types.h>
 #include <unistd.h>            /* gethostname()                          */
 #include <errno.h>
@@ -94,6 +98,7 @@ Widget                     appshell,
                            recipient_w,
                            headingbox_w,
                            listbox_w,
+                           select_all_button_w,
                            statusbox_w,
                            summarybox_w,
                            scrollbar_w,
@@ -114,6 +119,7 @@ int                        char_width,
                            special_button_flag,
                            sum_line_length,
                            sys_log_fd = STDERR_FILENO;
+unsigned int               all_list_items = 0;
 XT_PTR_TYPE                dr_toggles_set;
 #ifdef HAVE_MMAP
 off_t                      fra_size;
@@ -135,8 +141,11 @@ struct fileretrieve_status *fra;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
-static void                init_show_dlog(int *, char **),
-                           eval_permissions(char *),
+static void                eval_permissions(char *),
+#ifdef HAVE_SETPRIORITY
+                           get_afd_config_value(void),
+#endif
+                           init_show_dlog(int *, char **),
                            sig_bus(int),
                            sig_segv(int),
                            usage(char *);
@@ -202,6 +211,9 @@ main(int argc, char *argv[])
    /* Initialise global values. */
    p_work_dir = work_dir;
    init_show_dlog(&argc, argv);
+#ifdef HAVE_SETPRIORITY
+   get_afd_config_value();
+#endif
 
    (void)strcpy(window_title, "Delete Log ");
    if (get_afd_name(&window_title[11]) == INCORRECT)
@@ -740,7 +752,7 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
-   XtSetArg(args[argcount], XmNfractionBase, 31);
+   XtSetArg(args[argcount], XmNfractionBase, 41);
    argcount++;
    buttonbox_w = XmCreateForm(mainform_w, "buttonbox", args, argcount);
    special_button_w = XtVaCreateManagedWidget("Search",
@@ -753,25 +765,25 @@ main(int argc, char *argv[])
                         XmNrightAttachment,      XmATTACH_POSITION,
                         XmNrightPosition,        10,
                         XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       30,
+                        XmNbottomPosition,       40,
                         NULL);
    XtAddCallback(special_button_w, XmNactivateCallback,
                  (XtCallbackProc)search_button, (XtPointer)0);
-   button_w = XtVaCreateManagedWidget("Print",
+   select_all_button_w = XtVaCreateManagedWidget("Select All",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
                         XmNtopAttachment,        XmATTACH_POSITION,
-                        XmNtopPosition,          1,
+                        XmNtopPosition,          1,                
                         XmNleftAttachment,       XmATTACH_POSITION,
-                        XmNleftPosition,         11,
+                        XmNleftPosition,         11,               
                         XmNrightAttachment,      XmATTACH_POSITION,
-                        XmNrightPosition,        20,
+                        XmNrightPosition,        20,               
                         XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       30,
+                        XmNbottomPosition,       40,               
                         NULL);
-   XtAddCallback(button_w, XmNactivateCallback,
-                 (XtCallbackProc)print_button, (XtPointer)0);
-   button_w = XtVaCreateManagedWidget("Close",
+   XtAddCallback(select_all_button_w, XmNactivateCallback,
+                 (XtCallbackProc)select_all_button, (XtPointer)0);
+   button_w = XtVaCreateManagedWidget("Print",
                         xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,             fontlist,
                         XmNtopAttachment,        XmATTACH_POSITION,
@@ -781,7 +793,21 @@ main(int argc, char *argv[])
                         XmNrightAttachment,      XmATTACH_POSITION,
                         XmNrightPosition,        30,
                         XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       30,
+                        XmNbottomPosition,       40,
+                        NULL);
+   XtAddCallback(button_w, XmNactivateCallback,
+                 (XtCallbackProc)print_button, (XtPointer)0);
+   button_w = XtVaCreateManagedWidget("Close",
+                        xmPushButtonWidgetClass, buttonbox_w,
+                        XmNfontList,             fontlist,
+                        XmNtopAttachment,        XmATTACH_POSITION,
+                        XmNtopPosition,          1,
+                        XmNleftAttachment,       XmATTACH_POSITION,
+                        XmNleftPosition,         31,
+                        XmNrightAttachment,      XmATTACH_POSITION,
+                        XmNrightPosition,        40,
+                        XmNbottomAttachment,     XmATTACH_POSITION,
+                        XmNbottomPosition,       40,
                         NULL);
    XtAddCallback(button_w, XmNactivateCallback,
                  (XtCallbackProc)close_button, (XtPointer)0);
@@ -847,6 +873,7 @@ main(int argc, char *argv[])
                            XmNfontList,         fontlist,
                            XmNleftAttachment,   XmATTACH_FORM,
                            XmNleftOffset,       3,
+                           XmNrightAttachment,  XmATTACH_FORM,
                            XmNbottomAttachment, XmATTACH_WIDGET,
                            XmNbottomWidget,     separator_w,
                            NULL);
@@ -1084,7 +1111,7 @@ init_show_dlog(int *argc, char *argv[])
                (MAX_RECIPIENT_LENGTH + 1), char);
       while (*argc > 1)
       {
-         (void)strcpy(search_recipient[i], argv[1]);
+         (void)my_strncpy(search_recipient[i], argv[1], MAX_RECIPIENT_LENGTH + 1);
          if (strlen(search_recipient[i]) == MAX_HOSTNAME_LENGTH)
          {
             (void)strcat(search_recipient[i], "*");
@@ -1127,11 +1154,44 @@ init_show_dlog(int *argc, char *argv[])
                     (1 << (MKDIR_QUEUE_ERROR + 1))) + 1;
 
    /* Get the maximum number of logfiles we keep for history. */
-   get_max_log_number(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,
-                      MAX_DELETE_LOG_FILES);
+   get_max_log_values(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,
+                      MAX_DELETE_LOG_FILES, NULL, NULL, 0);
 
    return;
 }
+
+
+#ifdef HAVE_SETPRIORITY
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(void)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((eaccess(config_file, F_OK) == 0) &&
+       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, SHOW_LOG_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (setpriority(PRIO_PROCESS, 0, atoi(value)) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       atoi(value), strerror(errno));
+         }
+      }
+      free(buffer);
+   }
+
+   return;
+}
+#endif
 
 
 /*-------------------------------- usage() ------------------------------*/

@@ -1,6 +1,6 @@
 /*
  *  handle_event.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,16 +22,9 @@
 
 #include "motif_common_defs.h"
 
-#define MAXARGS                  20
-
 #define ACKNOWLEDGE_SELECT       1
 #define OFFLINE_SELECT           2
 #define UNSET_SELECT             3
-
-#define START_TIME_NO_ENTER      1
-#define START_TIME               2
-#define END_TIME_NO_ENTER        3
-#define END_TIME                 4
 
 #define TIME_FORMAT              "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
 

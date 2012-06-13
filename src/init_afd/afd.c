@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,6 +39,7 @@ DESCR__S_M1
  **                              for the etc directory
  **    -p <role>                 use the given user role
  **    -r                        remove blocking startup of AFD
+ **    -T                        check if data types match current binary
  **    -s                        shutdown AFD
  **    -S                        silent AFD shutdown
  **    -u[ <user>]               different user
@@ -52,25 +53,26 @@ DESCR__S_M1
  **   the AFD. When starting the following process are being
  **   initiated in this order:
  **
- **          init_afd        - Monitors all process of the AFD.
- **          system_log      - Logs all system activities.
- **          transfer_log    - Logs all transfer activities.
- **          trans_db_log    - Logs all debug transfer activities.
- **          receive_log     - Logs all receive activities.
- **          archive_watch   - Searches archive for old files and
- **                            removes them.
- **          input_log       - Logs all activities on input.
- **          production_log  - Logs all production activity such as
- **                            exec, rename, assemble, etc.
- **          output_log      - Logs activities on output (can be turned
- **                            on/off on a per job basis).
- **          delete_log      - Logs all files that are being removed
- **                            by the AFD.
- **          afd_stat        - Collects statistic information.
- **          amg             - Searches user directories and generates
- **                            messages for the FD.
- **          fd              - Reads messages from the AMG and distributes
- **                            the corresponding files.
+ **          init_afd         - Monitors all process of the AFD.
+ **          system_log       - Logs all system activities.
+ **          transfer_log     - Logs all transfer activities.
+ **          trans_db_log     - Logs all debug transfer activities.
+ **          receive_log      - Logs all receive activities.
+ **          archive_watch    - Searches archive for old files and
+ **                             removes them.
+ **          input_log        - Logs all activities on input.
+ **          distribution_log - Logs how data is distributed.
+ **          production_log   - Logs all production activity such as
+ **                             exec, rename, assemble, etc.
+ **          output_log       - Logs activities on output (can be turned
+ **                             on/off on a per job basis).
+ **          delete_log       - Logs all files that are being removed
+ **                             by the AFD.
+ **          afd_stat         - Collects statistic information.
+ **          amg              - Searches user directories and generates
+ **                             messages for the FD.
+ **          fd               - Reads messages from the AMG and distributes
+ **                             the corresponding files.
  **          
  **
  ** RETURN VALUES
@@ -98,6 +100,7 @@ DESCR__S_M1
  **   04.03.2010 H.Kiehl When initializing with -i delete everything in
  **                      crc, incoming/file_mask and incoming/ls_data
  **                      directory.
+ **   20.10.2011 H.Kiehl Added -T option.
  **
  */
 DESCR__E_M1
@@ -118,8 +121,6 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 #include "logdefs.h"
-#include "amgdefs.h"
-#include "statdefs.h"
 
 /* Some local definitions. */
 #define AFD_ONLY                  1
@@ -149,9 +150,7 @@ const char        *sys_log_name = SYSTEM_LOG_FIFO;
 struct afd_status *p_afd_status;
 
 /* Local functions. */
-static void       delete_fifodir_files(char *, int),
-                  delete_log_files(char *, int),
-                  usage(char *);
+static void       usage(char *);
 static int        check_database(void);
 
 
@@ -160,7 +159,6 @@ int
 main(int argc, char *argv[])
 {
    int         start_up,
-               readfd,
                afd_ctrl_perm,
                initialize_perm,
                startup_perm,
@@ -437,6 +435,38 @@ main(int argc, char *argv[])
               {
                  start_up = REMOVE_BLOCK_FILE;
               }
+         else if (strcmp(argv[1], "-T") == 0) /* Check if data types match */
+                                              /* current binary.           */
+              {
+                 int changes;
+
+                 changes = check_typesize_data();
+                 if (changes > 0)
+                 {
+                    (void)fprintf(stdout,
+                                  _("There are %d changes. Database needs to be reinitialized with 'afd -i'\n"),
+                                  changes);
+                    (void)fprintf(stdout,
+                                  _("To see exactly what has changed, see %s%s/%s0 for more details.\n"),
+                                  p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
+                 }
+                 else
+                 {
+                    if (changes == 0)
+                    {
+                       (void)fprintf(stdout,
+                                     _("Database matches compiled version.\n"));
+                    }
+                    else
+                    {
+                       (void)fprintf(stdout,
+                                     _("Failed to check if there are changes. See %s%s/%s0 for more details.\n"),
+                                     p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
+                    }
+                 }
+
+                 exit(changes);
+              }
          else if (strcmp(argv[1], "-z") == 0) /* Set shutdown bit. */
               {
                  if (shutdown_perm != YES)
@@ -452,7 +482,7 @@ main(int argc, char *argv[])
                   (strcmp(argv[1], "-?") == 0)) /* Show usage. */
               {
                  usage(argv[0]);
-                 exit(0);
+                 exit(SUCCESS);
               }
               else
               {
@@ -527,25 +557,29 @@ main(int argc, char *argv[])
    if ((start_up == SHUTDOWN_ONLY) || (start_up == SILENT_SHUTDOWN_ONLY))
    {
       int   loops = 0,
-            n;
+            n,
+            readfd;
       pid_t ia_pid;
 
       p_afd_status = NULL;
       if (attach_afd_status(NULL, 5) == SUCCESS)
       {
-         char hostname[MAX_REAL_HOSTNAME_LENGTH];
-
-         if (gethostname(hostname, MAX_REAL_HOSTNAME_LENGTH) == 0)
+         if (p_afd_status->hostname[0] != '\0')
          {
-            if (strcmp(hostname, p_afd_status->hostname) != 0)
+            char hostname[MAX_REAL_HOSTNAME_LENGTH];
+
+            if (gethostname(hostname, MAX_REAL_HOSTNAME_LENGTH) == 0)
             {
-               if (start_up == SHUTDOWN_ONLY)
+               if (strcmp(hostname, p_afd_status->hostname) != 0)
                {
-                  (void)fprintf(stderr,
-                                _("Shutdown can only be done on %s or use -z.\n"),
-                                p_afd_status->hostname);
+                  if (start_up == SHUTDOWN_ONLY)
+                  {
+                     (void)fprintf(stderr,
+                                   _("Shutdown can only be done on %s or use -z.\n"),
+                                   p_afd_status->hostname);
+                  }
+                  exit(NOT_ON_CORRECT_HOST);
                }
-               exit(NOT_ON_CORRECT_HOST);
             }
          }
          (void)detach_afd_status();
@@ -755,22 +789,38 @@ main(int argc, char *argv[])
             (start_up == AFD_HEARTBEAT_CHECK) ||
             (start_up == AFD_HEARTBEAT_CHECK_ONLY))
         {
+           int ret;
+
            if ((start_up == AFD_CHECK_ONLY) ||
                (start_up == AFD_HEARTBEAT_CHECK_ONLY))
            {
-              if (check_afd_heartbeat(default_heartbeat_timeout, NO) == 1)
+              if ((ret = check_afd_heartbeat(default_heartbeat_timeout, NO)) == 1)
               {
                  (void)fprintf(stdout, _("AFD is active in %s\n"), p_work_dir);
                  exit(AFD_IS_ACTIVE);
               }
+              else if (ret == 2)
+                   {
+                      (void)fprintf(stdout,
+                                    _("AFD NOT responding within %ld seconds!\n"),
+                                    default_heartbeat_timeout);
+                      exit(AFD_NOT_RESPONDING);
+                   }
            }
            else
            {
-              if (check_afd_heartbeat(default_heartbeat_timeout, YES) == 1)
+              if ((ret = check_afd_heartbeat(default_heartbeat_timeout, YES)) == 1)
               {
                  (void)fprintf(stdout, _("AFD is active in %s\n"), p_work_dir);
                  exit(AFD_IS_ACTIVE);
               }
+              else if (ret == 2)
+                   {
+                      (void)fprintf(stdout,
+                                    _("AFD NOT responding within %ld seconds!\n"),
+                                    default_heartbeat_timeout);
+                      exit(AFD_NOT_RESPONDING);
+                   }
            }
            if ((start_up == AFD_CHECK) ||
                (start_up == AFD_HEARTBEAT_CHECK))
@@ -852,63 +902,7 @@ main(int argc, char *argv[])
            }
            else
            {
-              int  offset;
-              char dirs[MAX_PATH_LENGTH];
-
-              offset = sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
-              delete_fifodir_files(dirs, offset);
-              (void)sprintf(dirs, "%s%s", p_work_dir, AFD_MSG_DIR);
-              if (rec_rmdir(dirs) == INCORRECT)
-              {
-                 (void)fprintf(stderr,
-                               _("WARNING : Failed to delete everything in %s.\n"),
-                               dirs);
-              }
-#ifdef WITH_DUP_CHECK
-              (void)sprintf(dirs, "%s%s%s", p_work_dir, AFD_FILE_DIR,
-                            CRC_DIR);
-              if (rec_rmdir(dirs) == INCORRECT)
-              {
-                 (void)fprintf(stderr,
-                               _("WARNING : Failed to delete everything in %s.\n"),
-                               dirs);
-              }
-#endif
-              (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
-                            INCOMING_DIR, FILE_MASK_DIR);
-              if (rec_rmdir(dirs) == INCORRECT)
-              {
-                 (void)fprintf(stderr,
-                               _("WARNING : Failed to delete everything in %s.\n"),
-                               dirs);
-              }
-              (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
-                            INCOMING_DIR, LS_DATA_DIR);
-              if (rec_rmdir(dirs) == INCORRECT)
-              {
-                 (void)fprintf(stderr,
-                               _("WARNING : Failed to delete everything in %s.\n"),
-                               dirs);
-              }
-              if (start_up == AFD_FULL_INITIALIZE)
-              {
-                 (void)sprintf(dirs, "%s%s", p_work_dir, AFD_FILE_DIR);
-                 if (rec_rmdir(dirs) == INCORRECT)
-                 {
-                    (void)fprintf(stderr,
-                                  _("WARNING : Failed to delete everything in %s.\n"),
-                                  dirs);
-                 }
-                 (void)sprintf(dirs, "%s%s", p_work_dir, AFD_ARCHIVE_DIR);
-                 if (rec_rmdir(dirs) == INCORRECT)
-                 {
-                    (void)fprintf(stderr,
-                                  _("WARNING : Failed to delete everything in %s.\n"),
-                                  dirs);
-                 }
-                 offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
-                 delete_log_files(dirs, offset);
-              }
+              initialize_db((start_up == AFD_FULL_INITIALIZE) ? YES : NO);
               exit(SUCCESS);
            }
         }
@@ -949,10 +943,10 @@ main(int argc, char *argv[])
               exit(INCORRECT);
            }
 #ifdef HAVE_MMAP
-           if ((ptr = mmap(0, offset, (PROT_READ | PROT_WRITE),
+           if ((ptr = mmap(NULL, offset, (PROT_READ | PROT_WRITE),
                            MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #else
-           if ((ptr = mmap_emu(0, offset, (PROT_READ | PROT_WRITE),
+           if ((ptr = mmap_emu(NULL, offset, (PROT_READ | PROT_WRITE),
                                MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1)
 #endif
            {
@@ -998,8 +992,9 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      if (startup_afd() == YES)
+      if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, NO) == 1)
       {
+         /* AFD is already up and running. */
          (void)strcpy(exec_cmd, AFD_CTRL);
          if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                     (char *) 0) == -1)
@@ -1013,7 +1008,23 @@ main(int argc, char *argv[])
       }
       else
       {
-         exit(INCORRECT);
+         if (startup_afd() == YES)
+         {
+            (void)strcpy(exec_cmd, AFD_CTRL);
+            if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
+                       (char *) 0) == -1)
+            {
+               (void)fprintf(stderr,
+                             _("ERROR   : Failed to execute %s : %s (%s %d)\n"),
+                             exec_cmd, strerror(errno),
+                             __FILE__, __LINE__);
+               exit(1);
+            }
+         }
+         else
+         {
+            exit(INCORRECT);
+         }
       }
    }
 
@@ -1096,178 +1107,6 @@ check_database(void)
 }
 
 
-/*+++++++++++++++++++++++++ delete_fifodir_files() ++++++++++++++++++++++*/
-static void
-delete_fifodir_files(char *fifodir, int offset)
-{
-   int  i,
-        tmp_sys_log_fd;
-   char *file_ptr,
-        *filelist[] =
-         {
-            FSA_ID_FILE,
-            FRA_ID_FILE,
-            STATUS_SHMID_FILE,
-            BLOCK_FILE,
-            AMG_COUNTER_FILE,
-            COUNTER_FILE,
-            MESSAGE_BUF_FILE,
-            MSG_CACHE_FILE,
-            MSG_QUEUE_FILE,
-#ifdef WITH_ERROR_QUEUE
-            ERROR_QUEUE_FILE,
-#endif
-            FILE_MASK_FILE,
-            DC_LIST_FILE,
-            DIR_NAME_FILE,
-            JOB_ID_DATA_FILE,
-            DCPL_FILE_NAME,
-            PWB_DATA_FILE,
-            CURRENT_MSG_LIST_FILE,
-            AMG_DATA_FILE,
-            AMG_DATA_FILE_TMP,
-            LOCK_PROC_FILE,
-            AFD_ACTIVE_FILE,
-            WINDOW_ID_FILE,
-            SYSTEM_LOG_FIFO,
-            EVENT_LOG_FIFO,
-            RECEIVE_LOG_FIFO,
-            TRANSFER_LOG_FIFO,
-            TRANS_DEBUG_LOG_FIFO,
-            AFD_CMD_FIFO,
-            AFD_RESP_FIFO,
-            AMG_CMD_FIFO,
-            DB_UPDATE_FIFO,
-            FD_CMD_FIFO,
-            AW_CMD_FIFO,
-            IP_FIN_FIFO,
-            SF_FIN_FIFO,
-            RETRY_FD_FIFO,
-            FD_DELETE_FIFO,
-            FD_WAKE_UP_FIFO,
-            TRL_CALC_FIFO,
-            QUEUE_LIST_READY_FIFO,
-            QUEUE_LIST_DONE_FIFO,
-            PROBE_ONLY_FIFO,
-#ifdef _INPUT_LOG
-            INPUT_LOG_FIFO,
-#endif
-#ifdef _DISTRIBUTION_LOG
-            DISTRIBUTION_LOG_FIFO,
-#endif
-#ifdef _OUTPUT_LOG
-            OUTPUT_LOG_FIFO,
-#endif
-#ifdef _DELETE_LOG
-            DELETE_LOG_FIFO,
-#endif
-#ifdef _PRODUCTION_LOG
-            PRODUCTION_LOG_FIFO,
-#endif
-            DEL_TIME_JOB_FIFO,
-            FD_READY_FIFO,
-            MSG_FIFO,
-            DC_CMD_FIFO, /* from amgdefs.h */
-            DC_RESP_FIFO,
-            AFDD_LOG_FIFO
-         },
-        *mfilelist[] =
-        {
-           FSA_STAT_FILE_ALL,
-           FRA_STAT_FILE_ALL,
-           ALTERNATE_FILE_ALL,
-           DB_UPDATE_REPLY_FIFO_ALL
-        };
-
-   file_ptr = fifodir + offset;
-
-   /* Delete single files. */
-   for (i = 0; i < (sizeof(filelist) / sizeof(*filelist)); i++)
-   {
-      (void)strcpy(file_ptr, filelist[i]);
-      (void)unlink(fifodir);
-   }
-   *file_ptr = '\0';
-
-   tmp_sys_log_fd = sys_log_fd;
-   sys_log_fd = STDOUT_FILENO;
-
-   /* Delete multiple files. */
-   for (i = 0; i < (sizeof(mfilelist) / sizeof(*mfilelist)); i++)
-   {
-      (void)remove_files(fifodir, &mfilelist[i][1]);
-   }
-
-   sys_log_fd = tmp_sys_log_fd;
-
-   return;
-}
-
-
-/*++++++++++++++++++++++++++++ delete_log_files() +++++++++++++++++++++++*/
-static void
-delete_log_files(char *logdir, int offset)
-{
-   int  i,
-        tmp_sys_log_fd;
-   char *log_ptr,
-        *loglist[] =
-        {
-           "/DAEMON_LOG.init_afd",
-           NEW_STATISTIC_FILE,
-           NEW_ISTATISTIC_FILE
-        },
-        *mloglist[] =
-        {
-           SYSTEM_LOG_NAME_ALL,
-           EVENT_LOG_NAME_ALL,
-           RECEIVE_LOG_NAME_ALL,
-           TRANSFER_LOG_NAME_ALL,
-           TRANS_DB_LOG_NAME_ALL,
-#ifdef _INPUT_LOG
-           INPUT_BUFFER_FILE_ALL,
-#endif
-#ifdef _DISTRIBUTION_LOG
-           DISTRIBUTION_BUFFER_FILE_ALL,
-#endif
-#ifdef _OUTPUT_LOG
-           OUTPUT_BUFFER_FILE_ALL,
-#endif
-#ifdef _DELETE_LOG
-           DELETE_BUFFER_FILE_ALL,
-#endif
-#ifdef _PRODUCTION_LOG
-           PRODUCTION_BUFFER_FILE_ALL,
-#endif
-           ISTATISTIC_FILE_ALL,
-           STATISTIC_FILE_ALL
-        };
-
-   log_ptr = logdir + offset;
-
-   /* Delete single files. */
-   for (i = 0; i < (sizeof(loglist) / sizeof(*loglist)); i++)
-   {
-      (void)strcpy(log_ptr, loglist[i]);
-      (void)unlink(logdir);
-   }
-   *log_ptr = '\0';
-
-   tmp_sys_log_fd = sys_log_fd;
-   sys_log_fd = STDOUT_FILENO;
-
-   /* Delete multiple files. */
-   for (i = 0; i < (sizeof(mloglist)/sizeof(*mloglist)); i++)
-   {
-      (void)remove_files(logdir, mloglist[i]);
-   }
-
-   sys_log_fd = tmp_sys_log_fd;
-
-   return;
-}
-
-
 /*+++++++++++++++++++++++++++++++ usage() +++++++++++++++++++++++++++++++*/
 static void
 usage(char *progname)
@@ -1290,6 +1129,7 @@ usage(char *progname)
    (void)fprintf(stderr, _("    -r                        removes blocking startup of AFD\n"));
    (void)fprintf(stderr, _("    -s                        shutdown AFD\n"));
    (void)fprintf(stderr, _("    -S                        silent AFD shutdown\n"));
+   (void)fprintf(stderr, _("    -T                        check if data types match current binary\n"));
    (void)fprintf(stderr, _("    -z                        set shutdown bit\n"));
    (void)fprintf(stderr, _("    --help                    prints out this syntax\n"));
    (void)fprintf(stderr, _("    -v                        just print version number\n"));

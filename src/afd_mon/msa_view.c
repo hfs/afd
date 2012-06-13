@@ -1,6 +1,6 @@
 /*
  *  msa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -49,7 +49,7 @@ DESCR__S_M1
 DESCR__E_M1
 
 #include <stdio.h>                       /* fprintf(), stderr            */
-#include <string.h>                      /* strcpy(), strerror()         */
+#include <string.h>                      /* strerror()                   */
 #include <stdlib.h>                      /* atoi()                       */
 #include <ctype.h>                       /* isdigit()                    */
 #include <time.h>                        /* ctime()                      */
@@ -102,7 +102,7 @@ main(int argc, char *argv[])
       }
       else
       {
-         (void)strcpy(afdname, argv[1]);
+         (void)my_strncpy(afdname, argv[1], MAX_AFDNAME_LENGTH + 1);
       }
    }
    else if (argc == 1)

@@ -1,6 +1,6 @@
 /*
  *  xsend_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -385,6 +385,9 @@ main(int argc, char *argv[])
    button_w = XtCreateManagedWidget("FILE", xmPushButtonWidgetClass,
                                     pane_w, args, argcount);
    XtAddCallback(button_w, XmNactivateCallback, protocol_toggled, (XtPointer)LOC);
+   button_w = XtCreateManagedWidget("EXEC", xmPushButtonWidgetClass,
+                                    pane_w, args, argcount);
+   XtAddCallback(button_w, XmNactivateCallback, protocol_toggled, (XtPointer)EXEC);
 #endif
    button_w = XtCreateManagedWidget("MAILTO", xmPushButtonWidgetClass,
                                     pane_w, args, argcount);
@@ -503,7 +506,7 @@ main(int argc, char *argv[])
                  (XtPointer)HOSTNAME_NO_ENTER);
    XtAddCallback(hostname_w, XmNactivateCallback, send_save_input,
                  (XtPointer)HOSTNAME_ENTER);
-   if (db->protocol == LOC)
+   if ((db->protocol == LOC) || (db->protocol == EXEC))
    {
       XtSetSensitive(hostname_label_w, False);
       XtSetSensitive(hostname_w, False);
@@ -600,7 +603,8 @@ main(int argc, char *argv[])
                  (XtPointer)TARGET_DIR_NO_ENTER);
    XtAddCallback(target_dir_w, XmNactivateCallback, send_save_input,
                  (XtPointer)TARGET_DIR_ENTER);
-   if ((db->protocol != FTP) && (db->protocol != LOC))
+   if ((db->protocol != FTP) && (db->protocol != LOC) &&
+       (db->protocol != EXEC))
    {
       XtSetSensitive(target_dir_label_w, False);
       XtSetSensitive(target_dir_w, False);
@@ -674,9 +678,9 @@ main(int argc, char *argv[])
    XtAddCallback(timeout_w, XmNactivateCallback, send_save_input,
                  (XtPointer)TIMEOUT_ENTER);
 #ifdef _WITH_MAP_SUPPORT
-   if ((db->protocol == LOC) || (db->protocol == MAP))
+   if ((db->protocol == LOC) || (db->protocol == EXEC) || (db->protocol == MAP))
 #else
-   if (db->protocol == LOC)
+   if ((db->protocol == LOC) || (db->protocol == EXEC))
 #endif
    {
       XtSetSensitive(timeout_label_w, False);
@@ -711,7 +715,7 @@ main(int argc, char *argv[])
                  (XtPointer)PORT_NO_ENTER);
    XtAddCallback(port_w, XmNactivateCallback, send_save_input,
                  (XtPointer)PORT_ENTER);
-   if (db->protocol == LOC)
+   if ((db->protocol == LOC) || (db->protocol == EXEC))
    {
       XtSetSensitive(port_label_w, False);
       XtSetSensitive(port_w, False);
@@ -904,7 +908,7 @@ main(int argc, char *argv[])
    XtAddCallback(radio_w, XmNdisarmCallback,
                  (XtCallbackProc)lock_radio, (XtPointer)SET_LOCK_PREFIX);
    XtManageChild(lock_box_w);
-   if ((db->protocol != FTP) && (db->protocol != LOC))
+   if ((db->protocol != FTP) && (db->protocol != LOC) && (db->protocol != EXEC))
    {
       XtSetSensitive(lock_box_w, False);
    }
@@ -1240,7 +1244,7 @@ init_xsend_file(int  *argc,
       usage(argv[0]);
       exit(INCORRECT);
    }
-   (void)strcpy(file_name_file, argv[1]);
+   (void)my_strncpy(file_name_file, argv[1], MAX_PATH_LENGTH);
    url_file_name[0] = '\0';
 
    /* Prepare title for window. */

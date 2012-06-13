@@ -1,6 +1,6 @@
 /*
  *  show_istat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,9 +73,8 @@ DESCR__E_M1
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>                 /* getcwd(), exit(), close(),        */
-                                    /* STDERR_FILENO                     */
-#include <stdlib.h>                 /* getenv(), free(), malloc()        */
+#include <unistd.h>                 /* getcwd(), close(), STDERR_FILENO  */
+#include <stdlib.h>                 /* getenv(), free(), malloc(), exit()*/
 #ifdef HAVE_MMAP
 # include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
@@ -107,10 +106,8 @@ static void display_data(char *, int, char, int, double, double);
 int
 main(int argc, char *argv[])
 {
-   register int i,
-                j;
+   register int i;
    int          current_year,
-                position,
                 show_min_range = 0,
                 show_min = -1,
                 show_min_summary = -1,
@@ -121,14 +118,9 @@ main(int argc, char *argv[])
                 show_year = -1,
                 show_time_stamp = 0,
                 show_old_year = NO,
-                no_of_dirs,
                 dir_counter = -1,
-                stat_fd,
                 year;
    time_t       now;
-   double       nfr = 0.0, nbr = 0.0,
-                tmp_nfr = 0.0, tmp_nbr = 0.0,
-                total_nfr = 0.0, total_nbr = 0.0;
    char         work_dir[MAX_PATH_LENGTH],
                 statistic_file_name[MAX_FILENAME_LENGTH],
                 statistic_file[MAX_PATH_LENGTH];
@@ -224,6 +216,14 @@ main(int argc, char *argv[])
    }
    if (stat_buf.st_size > 0)
    {
+      register int j;
+      int          no_of_dirs,
+                   position,
+                   stat_fd;
+      double       nfr = 0.0, nbr = 0.0,
+                   tmp_nfr = 0.0, tmp_nbr = 0.0,
+                   total_nfr = 0.0, total_nbr = 0.0;
+
       /* Open file */
       if ((stat_fd = open(statistic_file, O_RDONLY)) < 0)
       {

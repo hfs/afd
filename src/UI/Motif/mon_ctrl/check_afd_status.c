@@ -1,7 +1,7 @@
 /*
  *  check_afd_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -110,7 +110,8 @@ check_afd_status(Widget w)
    if (check_msa() == YES)
    {
       size_t          new_size = no_of_afds * sizeof(struct mon_line);
-      struct mon_line *new_connect_data;
+      struct mon_line *new_connect_data,
+                      *tmp_connect_data;
 
       if ((new_connect_data = calloc(no_of_afds,
                                      sizeof(struct mon_line))) == NULL)
@@ -319,12 +320,16 @@ check_afd_status(Widget w)
          }
       }
 
-      if ((connect_data = realloc(connect_data, new_size)) == NULL)
+      if ((tmp_connect_data = realloc(connect_data, new_size)) == NULL)
       {
+         int tmp_errno = errno;
+
+         free(connect_data);
          (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
-                    strerror(errno), __FILE__, __LINE__);
+                    strerror(tmp_errno), __FILE__, __LINE__);
          return;
       }
+      connect_data = tmp_connect_data;
 
       /* Activate the new connect_data structure. */
       (void)memcpy(&connect_data[0], &new_connect_data[0],
@@ -366,7 +371,9 @@ check_afd_status(Widget w)
       if ((msa[i].afd_switching != NO_SWITCHING) &&
           (connect_data[i].afd_toggle != msa[i].afd_toggle))
       {
+#ifndef ONLY_KILL_AUTO_SWITCHING
          int j;
+#endif
 
          connect_data[i].afd_toggle = msa[i].afd_toggle;
          if (connect_data[i].afd_alias_length < MAX_AFDNAME_LENGTH)
@@ -392,7 +399,9 @@ check_afd_status(Widget w)
 #ifdef ONLY_KILL_AUTO_SWITCHING
          if (msa[i].afd_switching == AUTO_SWITCHING)
          {
+            int j;
 #endif
+
             for (j = 0; j < no_of_active_process; j++)
             {
                if (apps_list[j].position == i)

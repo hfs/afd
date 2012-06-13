@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -37,6 +37,7 @@ DESCR__S_M3
  **          -a <age limit>            The age limit for the files being send.
  **          -A                        Disable archiving of files.
  **          -f <SMTP from>            Default from identifier to send.
+ **          -h <HTTP proxy>[:<port>]  Proxy where to send the HTTP requests.
  **          -o <retries>              Old/Error message and number of retries.
  **          -r                        Resend from archive (job from show_olog).
  **          -R <SMTP reply-to>        Default reply-to identifier to send.
@@ -60,6 +61,7 @@ DESCR__S_M3
  **   21.03.2003 H.Kiehl Rewrite to accomodate to new syntax.
  **   30.08.2005 H.Kiehl Added -s to specify mail server name.
  **   22.01.2008 H.Kiehl Added -R to specify a default reply-to identifier.
+ **   28.12.2011 H.Kiehl Added -h to specify HTTP proxy.
  **
  */
 DESCR__E_M3
@@ -250,7 +252,7 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
 
                                        i++;
                                        length = strlen(argv[i]) + 1;
-                                       if ((p_db->from = malloc(length)) == NULL)
+                                       if ((p_db->default_from = malloc(length)) == NULL)
                                        {
                                           (void)fprintf(stderr,
 #if SIZEOF_SIZE_T == 4
@@ -264,13 +266,61 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                        }
                                        else
                                        {
-                                          (void)strcpy(p_db->from, argv[i]);
+                                          (void)strcpy(p_db->default_from, argv[i]);
                                        }
                                     }
                                     else
                                     {
                                        (void)fprintf(stderr,
                                                      "ERROR   : No default SMTP from specified for -f option.\n");
+                                       usage(argv[0]);
+                                       ret = SYNTAX_ERROR;
+                                    }
+                                    break;
+                                 case 'h' : /* Default HTTP proxy. */
+                                    if (((i + 1) < argc) &&
+                                        (argv[i + 1][0] != '-'))
+                                    {
+                                       int k = 0;
+
+                                       i++;
+                                       while ((argv[i][k] != '\0') &&
+                                              (argv[i][k] != ':') &&
+                                              (k < MAX_REAL_HOSTNAME_LENGTH))
+                                       {
+                                          p_db->http_proxy[k] = argv[i][k];
+                                          k++;
+                                       }
+                                       if ((k > 0) &&
+                                           (k < MAX_REAL_HOSTNAME_LENGTH))
+                                       {
+                                          p_db->http_proxy[k] = '\0';
+                                          if (argv[i][k] == ':')
+                                          {
+                                             p_db->port = atoi(&argv[i][k + 1]);
+                                          }
+                                       }
+                                       else
+                                       {
+                                          if (k == 0)
+                                          {
+                                             (void)fprintf(stderr,
+                                                           "ERROR   : No default HTTP proxy specified for -h option.\n");
+                                          }
+                                          else
+                                          {
+                                             (void)fprintf(stderr,
+                                                           "ERROR   : Default HTTP proxy specified for -h option is to long, may only be %d bytes long.\n",
+                                                           MAX_REAL_HOSTNAME_LENGTH);
+                                          }
+                                          usage(argv[0]);
+                                          ret = SYNTAX_ERROR;
+                                       }
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : No default HTTP proxy specified for -h option.\n");
                                        usage(argv[0]);
                                        ret = SYNTAX_ERROR;
                                     }
@@ -486,6 +536,7 @@ usage(char *name)
    (void)fprintf(stderr, "  -a <age limit>            - Set the default age limit in seconds.\n");
    (void)fprintf(stderr, "  -A                        - Archiving is disabled.\n");
    (void)fprintf(stderr, "  -f <SMTP from>            - Default from identifier to send.\n");
+   (void)fprintf(stderr, "  -h <HTTP proxy>[:<port>]  - Proxy where to send the HTTP request.\n");
    (void)fprintf(stderr, "  -o <retries>              - Old/error message and number of retries.\n");
    (void)fprintf(stderr, "  -r                        - Resend from archive.\n");
    (void)fprintf(stderr, "  -R <SMTP reply-to>        - Default reply-to identifier to send.\n");

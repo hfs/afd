@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -544,9 +544,9 @@ main(int argc, char *argv[])
 
       /* Inform FSA that we have finished connecting. */
 #ifdef _WITH_BURST_2
-      if ((burst_2_counter == 0) && (gsf_check_fsa() != NEITHER))
+      if ((burst_2_counter == 0) && (gsf_check_fsa(p_db) != NEITHER))
 #else
-      if (gsf_check_fsa() != NEITHER)
+      if (gsf_check_fsa(p_db) != NEITHER)
 #endif
       {
 #ifdef LOCK_DEBUG
@@ -663,9 +663,47 @@ main(int argc, char *argv[])
          else
          {
             /*
-             * Try read user specified mail header file for this host.
+             * If the path does not start with a / lets assume we
+             * want to try a rename rule.
              */
-            (void)strcpy(mail_header_file, db.special_ptr);
+            if (*db.special_ptr != '/')
+            {
+               register int k;
+               char         *ptr;
+
+               ptr = mail_header_file + sprintf(mail_header_file, "%s%s%s/",
+                                                p_work_dir, ETC_DIR,
+                                                MAIL_HEADER_DIR);
+               for (k = 0; k < rule[db.mail_header_rule_pos].no_of_rules; k++)
+               {
+                  if (pmatch(rule[db.mail_header_rule_pos].filter[k],
+                             p_file_name_buffer, NULL) == 0)
+                  {
+                     change_name(p_file_name_buffer,
+                                 rule[db.mail_header_rule_pos].filter[k],
+                                 rule[db.mail_header_rule_pos].rename_to[k],
+                                 ptr, &counter_fd,
+                                 &unique_counter, db.job_id);
+                     break;
+                  }
+               }
+               if (*ptr == '\0')
+               {
+                  mail_header_file[0] = '\0';
+               }
+            }
+            else
+            {
+               mail_header_file[0] = '\0';
+            }
+
+            if (mail_header_file[0] == '\0')
+            {
+               /*
+                * Try read user specified mail header file for this host.
+                */
+               (void)strcpy(mail_header_file, db.special_ptr);
+            }
          }
 
          if ((mail_fd = open(mail_header_file, O_RDONLY)) == -1)
@@ -1079,7 +1117,7 @@ main(int argc, char *argv[])
 #endif
 
          /* Write status to FSA? */
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
             (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -1677,7 +1715,7 @@ main(int argc, char *argv[])
 
                no_of_bytes += write_size;
 
-               if (gsf_check_fsa() != NEITHER)
+               if (gsf_check_fsa(p_db) != NEITHER)
                {
                   fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                   fsa->job_status[(int)db.job_no].file_size_done += write_size;
@@ -1738,7 +1776,7 @@ main(int argc, char *argv[])
 
                no_of_bytes += write_size;
 
-               if (gsf_check_fsa() != NEITHER)
+               if (gsf_check_fsa(p_db) != NEITHER)
                {
                   fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                   fsa->job_status[(int)db.job_no].file_size_done += write_size;
@@ -1850,7 +1888,7 @@ main(int argc, char *argv[])
          }
 
          /* Tell user via FSA a file has been mailed. */
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
             fsa->job_status[(int)db.job_no].no_of_files_done++;
@@ -2184,7 +2222,7 @@ try_again_unlink:
 
       if (local_file_counter)
       {
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -2282,7 +2320,7 @@ sf_smtp_exit(void)
 
       if (local_file_counter)
       {
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa((struct job *)&db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -2317,17 +2355,11 @@ sf_smtp_exit(void)
 #endif
          trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
-      reset_fsa((struct job *)&db, exitflag);
+      reset_fsa((struct job *)&db, exitflag, 0, 0);
    }
 
-   if (file_name_buffer != NULL)
-   {
-      free(file_name_buffer);
-   }
-   if (file_size_buffer != NULL)
-   {
-      free(file_size_buffer);
-   }
+   free(file_name_buffer);
+   free(file_size_buffer);
 
    send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
@@ -2343,7 +2375,7 @@ sf_smtp_exit(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
               "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -2354,7 +2386,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }

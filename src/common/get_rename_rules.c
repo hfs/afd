@@ -1,6 +1,6 @@
 /*
  *  get_rename_rules.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **                      in a shared memory area
  **
  ** SYNOPSIS
- **   void get_rename_rules(char *rule_file, int verbose)
+ **   void get_rename_rules(int verbose)
  **
  ** DESCRIPTION
  **   This function reads the rule file and stores the contents in the
@@ -61,6 +61,8 @@ DESCR__S_M3
  **   08.11.2006 H.Kiehl Allow for spaces in the rule and rename_to part.
  **                      The space must then be preceeded by a \.
  **   07.11.2008 H.Kiehl Accept DOS-style rename rule files.
+ **   01.04.2012 H.Kiehl Added supoort for reading multiple rename rule
+ **                      files.
  **
  */
 DESCR__E_M3
@@ -79,72 +81,71 @@ DESCR__E_M3
 
 /* External global variables. */
 extern int         no_of_rule_headers;
+extern char        *p_work_dir;
 extern struct rule *rule;
 
 
 /*########################## get_rename_rules() #########################*/
 void
-get_rename_rules(char *rule_file, int verbose)
+get_rename_rules(int verbose)
 {
-   static time_t last_read = 0;
-   static int    first_time = YES;
+   static time_t last_read_times = 0,
+                 last_afd_config_read = 0;
+   static int    first_time = YES,
+                 no_of_rename_rule_files = 0;
+   static char   *config_file = NULL,
+                 *rule_file[MAX_RENAME_RULE_FILES];
+   int           count,
+                 read_size = 1024,
+                 total_no_of_rules = 0;
+   time_t        current_times = 0;
+   off_t         max_size = 0;
    struct stat   stat_buf;
 
-   if (stat(rule_file, &stat_buf) == -1)
+   if (config_file == NULL)
    {
-      if (errno == ENOENT)
+      if ((config_file = malloc((strlen(p_work_dir) + ETC_DIR_LENGTH + AFD_CONFIG_FILE_LENGTH + 1))) == NULL)
       {
-         /*
-          * Only tell user once that the rules file is missing. Otherwise
-          * it is anoying to constantly receive this message.
-          */
-         if (first_time == YES)
-         {
-            if (verbose == YES)
-            {
-               system_log(INFO_SIGN, __FILE__, __LINE__,
-                          _("There is no renaming rules file `%s'"), rule_file);
-            }
-            first_time = NO;
-         }
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    _("Failed to malloc() %d bytes : %s"),
+                    (strlen(p_work_dir) + ETC_DIR_LENGTH + AFD_CONFIG_FILE_LENGTH + 1),
+                    strerror(errno));
+         return;
       }
-      else
+      (void)sprintf(config_file, "%s%s%s",
+                    p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   }
+   if (stat(config_file, &stat_buf) == -1)
+   {
+      if (errno != ENOENT)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     _("Failed to stat() `%s' : %s"),
-                    rule_file, strerror(errno));
+                    config_file, strerror(errno));
       }
    }
    else
    {
-      if (stat_buf.st_mtime != last_read)
+      if (stat_buf.st_mtime != last_afd_config_read)
       {
-         register int i;
-         int          fd;
-         char         *last_ptr,
-                      *ptr,
-                      *buffer;
+         char *buffer;
 
-         if (first_time == YES)
+         /* Discard what we have up to now. */
+         if (last_read_times != 0)
          {
-            first_time = NO;
-         }
-         else
-         {
-            if (verbose == YES)
-            {
-               system_log(INFO_SIGN, NULL, 0,
-                          _("Rereading renaming rules file."));
-            }
-         }
+            int i;
 
-         if (last_read != 0)
-         {
             /*
              * Since we are rereading the whole rules file again
-             * lets release the memory we stored for the previous
-             * structure of rule.
+             * lets release all the memory we stored for the previous
+             * rename rules.
              */
+            for (i = 0; i < no_of_rename_rule_files; i++)
+            {
+               free(rule_file[i]);
+            }
+            no_of_rename_rule_files = 0;
+
             for (i = 0; i < no_of_rule_headers; i++)
             {
                if (rule[i].filter != NULL)
@@ -159,51 +160,252 @@ get_rename_rules(char *rule_file, int verbose)
             free(rule);
             no_of_rule_headers = 0;
          }
-         last_read = stat_buf.st_mtime;
+         last_read_times = 0;
 
-         /* Allocate memory to store file. */
-         if ((buffer = malloc(1 + stat_buf.st_size + 1)) == NULL)
+         if ((eaccess(config_file, F_OK) == 0) &&
+             (read_file_no_cr(config_file, &buffer) != INCORRECT))
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       _("malloc() error : %s"), strerror(errno));
-            exit(INCORRECT);
-         }
+            int  length;
+            char *ptr,
+                 value[MAX_PATH_LENGTH];
 
+            ptr = buffer;
+            while ((ptr = get_definition(ptr, RENAME_RULE_NAME_DEF,
+                                         value, MAX_PATH_LENGTH)) != NULL)
+            {
+               if (value[0] != '/')
+               {
+                  char *p_path,
+                       user[MAX_USER_NAME_LENGTH + 1];
+
+                  if (value[0] == '~')
+                  {
+                     if (value[1] == '/')
+                     {
+                        p_path = &value[2];
+                        user[0] = '\0';
+                     }
+                     else
+                     {
+                        int j = 0;
+
+                        p_path = &value[1];
+                        while ((*(p_path + j) != '/') && (*(p_path + j) != '\0') &&
+                               (j < MAX_USER_NAME_LENGTH))
+                        {
+                           user[j] = *(p_path + j);
+                           j++;
+                        }
+                        if (j >= MAX_USER_NAME_LENGTH)
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      _("User name to long for %s definition %s. User name may be %d bytes long."),
+                                      RENAME_RULE_NAME_DEF, value,
+                                      MAX_USER_NAME_LENGTH);
+                        }
+                        user[j] = '\0';
+                     }
+                     (void)expand_path(user, p_path);
+                     length = strlen(p_path) + 1;
+                     (void)memmove(value, p_path, length);
+                  }
+                  else
+                  {
+                     char tmp_value[MAX_PATH_LENGTH];
+
+                     (void)strcpy(tmp_value, value);
+                     length = sprintf(value, "%s%s/%s",
+                                      p_work_dir, ETC_DIR, tmp_value) + 1;
+                  }
+               }
+               else
+               {
+                  length = strlen(value) + 1;
+               }
+
+               if ((rule_file[no_of_rename_rule_files] = malloc(length)) == NULL)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             _("Failed to malloc() %d bytes : %s"),
+                             length, strerror(errno));
+                  return;
+               }
+               (void)strcpy(rule_file[no_of_rename_rule_files], value);
+               no_of_rename_rule_files++;
+               if (no_of_rename_rule_files >= MAX_RENAME_RULE_FILES)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Only %d rename rule files possible.",
+                             MAX_RENAME_RULE_FILES);
+                  break;
+               }
+            }
+
+            free(buffer);
+            last_afd_config_read = stat_buf.st_mtime;
+         }
+      }
+   }
+
+   if (no_of_rename_rule_files == 0)
+   {
+      if ((rule_file[0] = malloc((strlen(p_work_dir) + ETC_DIR_LENGTH + RENAME_RULE_FILE_LENGTH + 1))) == NULL)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to malloc() %d bytes : %s"),
+                    (strlen(p_work_dir) + ETC_DIR_LENGTH + RENAME_RULE_FILE_LENGTH + 1),
+                    strerror(errno));
+         return;
+      }
+      (void)sprintf(rule_file[0], "%s%s%s", p_work_dir, ETC_DIR, RENAME_RULE_FILE);
+      no_of_rename_rule_files++;
+   }
+
+   for (count = 0; count < no_of_rename_rule_files; count++)
+   {
+      if (stat(rule_file[count], &stat_buf) == -1)
+      {
+         if (errno == ENOENT)
+         {
+            /*
+             * Only tell user once that the rules file is missing. Otherwise
+             * it is anoying to constantly receive this message.
+             */
+            if (first_time == YES)
+            {
+               if (verbose == YES)
+               {
+                  system_log(INFO_SIGN, __FILE__, __LINE__,
+                             _("There is no renaming rules file `%s'"),
+                             rule_file[count]);
+               }
+               if ((count + 1) == no_of_rename_rule_files)
+               {
+                  first_time = NO;
+               }
+            }
+         }
+         else
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       _("Failed to stat() `%s' : %s"),
+                       rule_file[count], strerror(errno));
+         }
+      }
+      else
+      {
+         max_size += stat_buf.st_size;
+         if (stat_buf.st_blksize > read_size)
+         {
+            read_size = stat_buf.st_blksize;
+         }
+         current_times += stat_buf.st_mtime;
+      }
+   }
+
+   if (last_read_times != current_times)
+   {
+      register int i;
+      int          bytes_read,
+                   fd;
+      off_t        bytes_buffered;
+      char         *last_ptr,
+                   *ptr,
+                   *buffer;
+
+      if (first_time == YES)
+      {
+         first_time = NO;
+      }
+      else
+      {
+         if (verbose == YES)
+         {
+            system_log(INFO_SIGN, NULL, 0,
+                       _("Rereading %d renaming rules file."),
+                       no_of_rename_rule_files);
+         }
+      }
+
+      if (last_read_times != 0)
+      {
+         /*
+          * Since we are rereading the whole rules file again
+          * lets release the memory we stored for the previous
+          * structure of rule.
+          */
+         for (i = 0; i < no_of_rule_headers; i++)
+         {
+            if (rule[i].filter != NULL)
+            {
+               FREE_RT_ARRAY(rule[i].filter);
+            }
+            if (rule[i].rename_to != NULL)
+            {
+               FREE_RT_ARRAY(rule[i].rename_to);
+            }
+         }
+         free(rule);
+         no_of_rule_headers = 0;
+      }
+      last_read_times = current_times;
+
+      /* Allocate memory to store file. */
+      if ((buffer = malloc(1 + max_size + 1 + read_size)) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    _("malloc() error : %s"), strerror(errno));
+         exit(INCORRECT);
+      }
+
+      buffer[0] = '\n';
+      bytes_buffered = 0;
+      for (count = 0; count < no_of_rename_rule_files; count++)
+      {
          /* Open file. */
-         if ((fd = open(rule_file, O_RDONLY)) == -1)
+         if ((fd = open(rule_file[count], O_RDONLY)) == -1)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        _("Failed to open() `%s' : %s"),
-                       rule_file, strerror(errno));
+                       rule_file[count], strerror(errno));
             free(buffer);
             exit(INCORRECT);
          }
 
          /* Read file into buffer. */
-         buffer[0] = '\n';
-         if (read(fd, &buffer[1], stat_buf.st_size) != stat_buf.st_size)
+         do
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
-                       _("Failed to read() `%s' : %s"),
-                       rule_file, strerror(errno));
-            free(buffer);
-            (void)close(fd);
-            exit(INCORRECT);
-         }
+            if ((bytes_read = read(fd, &buffer[1] + bytes_buffered,
+                                   read_size)) == -1)
+            {
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          _("Failed to read() `%s' : %s"),
+                          rule_file[count], strerror(errno));
+               free(buffer);
+               (void)close(fd);
+               exit(INCORRECT);
+            }
+            bytes_buffered += bytes_read;
+         } while (bytes_read == read_size);
+         buffer[bytes_buffered] = '\n';
+
          if (close(fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
                        _("close() error : %s"), strerror(errno));
          }
-         buffer[1 + stat_buf.st_size] = '\0';
+      } /* for (count = 0; count < no_of_rename_rule_files; count++) */
+      buffer[bytes_buffered] = '\0';
 
+      if (bytes_buffered > 0)
+      {
          /*
           * Now that we have the contents in the buffer lets first see
           * how many rules there are in the buffer so we can allocate
           * memory for the rules.
           */
          ptr = buffer;
-         last_ptr = buffer + stat_buf.st_size;
+         last_ptr = buffer + bytes_buffered;
          if (buffer[0] == '[')
          {
             no_of_rule_headers++;
@@ -218,9 +420,7 @@ get_rename_rules(char *rule_file, int verbose)
             register int j, k;
             int          no_of_rules,
                          max_filter_length,
-                         max_rule_length,
-                         count,
-                         total_no_of_rules = 0;
+                         max_rule_length;
             char         *end_ptr,
                          *search_ptr;
 
@@ -506,43 +706,43 @@ get_rename_rules(char *rule_file, int verbose)
                   break;
                }
             } /* for (i = 0; i < no_of_rule_headers; i++) */
-
-            if (verbose == YES)
-            {
-               system_log(INFO_SIGN, NULL, 0,
-                          _("Found %d rename rule headers with %d rules."),
-                          no_of_rule_headers, total_no_of_rules);
-            }
          } /* if (no_of_rule_headers > 0) */
+      }
+
+      if (verbose == YES)
+      {
+         if (no_of_rule_headers > 0)
+         {
+            system_log(INFO_SIGN, NULL, 0,
+                       _("Found %d rename rule headers with %d rules."),
+                       no_of_rule_headers, total_no_of_rules);
+         }
          else
          {
-            if (verbose == YES)
-            {
-               system_log(INFO_SIGN, NULL, 0,
-                          _("No rename rules found in %s"), rule_file);
-            }
+            system_log(INFO_SIGN, NULL, 0,
+                       _("No rename rules found in %s"), rule_file);
          }
+      }
 
-         /* The buffer holding the contents of the rule file */
-         /* is no longer needed.                             */
-         free(buffer);
+      /* The buffer holding the contents of the rule file */
+      /* is no longer needed.                             */
+      free(buffer);
 
 #ifdef _DEBUG_RULES
-         {
-            register int j;
+      {
+         register int j;
 
-            for (i = 0; i < no_of_rule_headers; i++)
+         for (i = 0; i < no_of_rule_headers; i++)
+         {
+            system_log(DEBUG_SIGN, NULL, 0, "[%s]", rule[i].header);
+            for (j = 0; j < rule[i].no_of_rules; j++)
             {
-               system_log(DEBUG_SIGN, NULL, 0, "[%s]", rule[i].header);
-               for (j = 0; j < rule[i].no_of_rules; j++)
-               {
-                  system_log(DEBUG_SIGN, NULL, 0, "%s  %s",
-                             rule[i].filter[j], rule[i].rename_to[j]);
-               }
+               system_log(DEBUG_SIGN, NULL, 0, "%s  %s",
+                          rule[i].filter[j], rule[i].rename_to[j]);
             }
          }
+      }
 #endif
-      } /* if (stat_buf.st_mtime != last_read) */
    }
 
    return;

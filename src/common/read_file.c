@@ -1,6 +1,6 @@
 /*
  *  read_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -99,7 +99,8 @@ read_file(char *filename, char **buffer)
          else
          {
             int  bytes_read;
-            char *read_ptr;
+            char *read_ptr,
+                 *tmp_buffer;
 
             bytes_buffered = 0;
             read_ptr = *buffer;
@@ -120,16 +121,18 @@ read_file(char *filename, char **buffer)
                bytes_buffered += bytes_read;
                if (bytes_read == stat_buf.st_blksize)
                {
-                  if ((*buffer = realloc(*buffer,
-                                         bytes_buffered + stat_buf.st_blksize + 1)) == NULL)
+                  if ((tmp_buffer = realloc(*buffer,
+                                            bytes_buffered + stat_buf.st_blksize + 1)) == NULL)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 _("Could not realloc() memory : %s"),
                                 strerror(errno));
                      (void)close(fd);
+                     free(*buffer);
                      *buffer = NULL;
                      return(INCORRECT);
                   }
+                  *buffer = tmp_buffer;
                   read_ptr = *buffer + bytes_buffered;
                }
             } while (bytes_read == stat_buf.st_blksize);

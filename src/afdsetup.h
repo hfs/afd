@@ -1,6 +1,6 @@
 /*
  *  afdsetup.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,14 +50,9 @@
  *                                 enable this. Best leave this disabled
  *                                 since it did not bring any performance
  *                                 gains, just complicated the code.
- * _WITH_MAP_SUPPORT             - Support for the special protocol used
- *                                 by the MAP system of the German Weather
- *                                 Service (DWD).
  * _WITH_SCP_SUPPORT             - Support for copying files via the SCP
  *                                 protocol. This requires a local ssh
  *                                 client.
- * _WITH_TRANS_EXEC              - With option to execute a command after
- *                                 each file was send.
  * DO_NOT_INFORM_ABOUT_OVERWRITE - If you do not want to be informed when
  *                                 an existing files is overwritten, then
  *                                 enable this.
@@ -75,9 +70,7 @@
 /* #define _WITH_SEND */
 /* #define _WITH_PTHREAD */
 #define _WITH_AFW2WMO
-/* #define _WITH_MAP_SUPPORT */
 #define _WITH_SCP_SUPPORT
-#define _WITH_TRANS_EXEC
 #define WITH_SSH_FINGERPRINT
 #ifdef WITH_SSH_FINGERPRINT
 # define WITH_REMOVE_FROM_KNOWNHOSTS
@@ -158,9 +151,10 @@
  * The interval time (in seconds) at which the process 'init_afd'
  * checks if all its child processes are still running and checks how
  * many directories (jobs) are currently in the AFD file directory.
- * DEFAULT: 3
+ * This is also the minimum update time of the heartbeat counter.
+ * DEFAULT: 2
  *-----------------------------------------------------------------------*/
-#define AFD_RESCAN_TIME 3
+#define AFD_RESCAN_TIME 2
 
 /*-----------------------------------------------------------------------*
  * When the disk is full, this is the time interval (in seconds) at

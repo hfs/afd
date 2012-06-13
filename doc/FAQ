@@ -397,7 +397,7 @@
       There could be many reasons why the files are not being send:
 
          - Make sure that there is a rule in the DIR_CONFIG to
-           transmitt those files.
+           transmit those files.
          - The files in the source directory must have the correct
            permission, ie. AFD must have read permission for those
            files.

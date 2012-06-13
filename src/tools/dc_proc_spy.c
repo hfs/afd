@@ -1,6 +1,6 @@
 /*
  *  dc_proc_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,6 @@ int
 main(int argc, char *argv[])
 {
    int                 fd,
-                       i,
                        *no_of_process;
    char                file[MAX_PATH_LENGTH],
                        *ptr,
@@ -120,6 +119,8 @@ main(int argc, char *argv[])
 
    if (*no_of_process > 0)
    {
+      int i;
+
       (void)fprintf(stdout, _("No of dir_config process : %d\n"), *no_of_process);
       (void)fprintf(stdout, "Pid        fra_pos    Job ID\n");
       for (i = 0; i < *no_of_process; i++)

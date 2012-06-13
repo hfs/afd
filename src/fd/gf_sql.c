@@ -1,6 +1,6 @@
 /*
  *  gf_sql.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ DESCR__E_M1
 
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
+                           files_to_retrieve_shown = 0,
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -81,6 +82,7 @@ int                        event_log_fd = STDERR_FILENO,
 #endif
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag;
+off_t                      file_size_to_retrieve_shown = 0;
 #ifdef HAVE_MMAP
 off_t                      fra_size,
                            fsa_size;
@@ -314,6 +316,8 @@ main(int argc, char *argv[])
 #else
             unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
 #endif
+            files_to_retrieve_shown += files_to_retrieve;
+            file_size_to_retrieve_shown += file_size_to_retrieve;
          }
 
          (void)gsf_check_fra();
@@ -322,7 +326,8 @@ main(int argc, char *argv[])
             /* Looks as if this source is no longer in our database. */
             (void)sql_quit();
             reset_values(files_retrieved, file_size_retrieved,
-                         files_to_retrieve, file_size_to_retrieve);
+                         files_to_retrieve, file_size_to_retrieve,
+                         (struct job *)&db);
             return(SUCCESS);
          }
 
@@ -336,7 +341,8 @@ main(int argc, char *argv[])
                        fra[db.fra_pos].dir_alias);
             sql_quit();
             reset_values(files_retrieved, file_size_retrieved,
-                         files_to_retrieve, file_size_to_retrieve);
+                         files_to_retrieve, file_size_to_retrieve,
+                         (struct job *)&db);
             exit(INCORRECT);
          }
          else
@@ -404,7 +410,8 @@ main(int argc, char *argv[])
                                local_tmp_file, strerror(errno));
                      sql_quit();
                      reset_values(files_retrieved, file_size_retrieved,
-                                  files_to_retrieve, file_size_to_retrieve);
+                                  files_to_retrieve, file_size_to_retrieve,
+                                  (struct job *)&db);
                      exit(OPEN_LOCAL_ERROR);
                   }
                   else
@@ -416,7 +423,7 @@ main(int argc, char *argv[])
                      }
                   }
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa((struct job *)&db) != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].file_size_in_use = 0;
                      (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -437,7 +444,8 @@ main(int argc, char *argv[])
                            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                      "Failed to read from remote database");
                            reset_values(files_retrieved, file_size_retrieved,
-                                        files_to_retrieve, file_size_to_retrieve);
+                                        files_to_retrieve, file_size_to_retrieve,
+                                        (struct job *)&db);
                            sql_quit();
                            exit(eval_timeout(READ_REMOTE_ERROR));
                         }
@@ -456,13 +464,14 @@ main(int argc, char *argv[])
                               sql_quit();
                               reset_values(files_retrieved, file_size_retrieved,
                                            files_to_retrieve,
-                                           file_size_to_retrieve);
+                                           file_size_to_retrieve,
+                                           (struct job *)&db);
                               exit(WRITE_LOCAL_ERROR);
                            }
                            bytes_done += status;
                         }
 
-                        if (gsf_check_fsa() != NEITHER)
+                        if (gsf_check_fsa((struct job *)&db) != NEITHER)
                         {
                            fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                            fsa->job_status[(int)db.job_no].file_size_done += status;
@@ -491,7 +500,7 @@ main(int argc, char *argv[])
                   {
                   }
 
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa((struct job *)&db) != NEITHER)
                   {
 #ifdef LOCK_DEBUG
                      lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
@@ -505,6 +514,7 @@ main(int argc, char *argv[])
 
                      /* Total file counter. */
                      fsa->total_file_counter -= 1;
+                     files_to_retrieve_shown -= 1;
 #ifdef _VERIFY_FSA
                      if (fsa->total_file_counter < 0)
                      {
@@ -525,6 +535,7 @@ main(int argc, char *argv[])
                      if ((rl[i].size != content_length) && (content_length > 0))
                      {
                         fsa->total_file_size += (content_length - rl[i].size);
+                        file_size_to_retrieve_shown += (content_length - rl[i].size);
                         fsa->job_status[(int)db.job_no].file_size += (content_length - rl[i].size);
                         if (adjust_rl_size == YES)
                         {
@@ -544,6 +555,7 @@ main(int argc, char *argv[])
                      if (content_length > 0)
                      {
                         fsa->total_file_size -= content_length;
+                        file_size_to_retrieve_shown -= content_length;
 #ifdef _VERIFY_FSA
                         if (fsa->total_file_size < 0)
                         {
@@ -798,7 +810,8 @@ main(int argc, char *argv[])
          file_size_retrieved += bytes_done;
 
          reset_values(files_retrieved, file_size_retrieved,
-                      files_to_retrieve, file_size_to_retrieve);
+                      files_to_retrieve, file_size_to_retrieve,
+                      (struct job *)&db);
 
          /* Free memory for the read buffer. */
          free(buffer);
@@ -952,7 +965,8 @@ gf_sql_exit(void)
    {
       WHAT_DONE("retrieved", fsa->job_status[(int)db.job_no].file_size_done,
                 fsa->job_status[(int)db.job_no].no_of_files_done);
-      reset_fsa((struct job *)&db, exitflag);
+      reset_fsa((struct job *)&db, exitflag, files_to_retrieve_shown,
+                file_size_to_retrieve_shown);
    }
 
    send_proc_fin(NO);
@@ -970,7 +984,6 @@ static int
 sql_timeup(void)
 {
    time_t now,
-          sleeptime = 0,
           timeup;
 
    (void)gsf_check_fra();
@@ -1026,8 +1039,10 @@ sql_timeup(void)
          timeup = fra[db.fra_pos].next_check_time;
       }
    }
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
+      time_t sleeptime = 0;
+
       if (fsa->protocol_options & STAT_KEEPALIVE)
       {
          sleeptime = fsa->transfer_timeout - 5;
@@ -1049,7 +1064,7 @@ sql_timeup(void)
          {
             return(INCORRECT);
          }
-         if (gsf_check_fsa() == NEITHER)
+         if (gsf_check_fsa((struct job *)&db) == NEITHER)
          {
             break;
          }
@@ -1074,7 +1089,8 @@ sql_timeup(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, files_to_retrieve_shown,
+             file_size_to_retrieve_shown);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
               "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -1085,7 +1101,8 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, files_to_retrieve_shown,
+             file_size_to_retrieve_shown);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }

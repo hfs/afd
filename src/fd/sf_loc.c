@@ -1,6 +1,6 @@
 /*
  *  sf_loc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,6 +59,10 @@ DESCR__S_M1
  **   03.03.2004 H.Kiehl Create target directory if it does not exist.
  **   02.09.2007 H.Kiehl Added copying via splice().
  **   23.01.2010 H.Kiehl Added support for mirroring source.
+ **   25.11.2011 H.Kiehl When calling trans_exec() use the source file
+ **                      and NOT the destination file!
+ **   28.03.2012 H.Kiehl Handle cross link errors in case we use
+ **                      mount with bind option in linux.
  **
  */
 DESCR__E_M1
@@ -259,7 +263,7 @@ main(int argc, char *argv[])
    }
 
    /* Inform FSA that we have are ready to copy the files. */
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa(p_db) != NEITHER)
    {
       fsa->job_status[(int)db.job_no].connect_status = LOC_ACTIVE;
       fsa->job_status[(int)db.job_no].no_of_files = files_to_send;
@@ -334,14 +338,26 @@ main(int argc, char *argv[])
             }
             else if ((errno == ENOENT) && (db.special_flag & CREATE_TARGET_DIR))
                  {
-                    char *error_ptr;
+                    char created_path[MAX_PATH_LENGTH],
+                         *error_ptr;
 
-                    if (((ret = check_create_path(db.target_dir, 0, &error_ptr,
-                                                  YES, YES)) == CREATED_DIR) ||
+                    created_path[0] = '\0';
+                    if (((ret = check_create_path(db.target_dir, db.dir_mode,
+                                                  &error_ptr, YES, YES,
+                                                  created_path)) == CREATED_DIR) ||
                         (ret == CHOWN_ERROR))
                     {
-                       trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                 "Created path `%s'", db.target_dir);
+                       if (strcmp(db.target_dir, created_path) == 0)
+                       {
+                          trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                    "Created directory `%s'", db.target_dir);
+                       }
+                       else
+                       {
+                          trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                    "Created directory part `%s' for `%s'",
+                                    created_path, db.target_dir);
+                       }
                        if (ret == CHOWN_ERROR)
                        {
                           trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -469,7 +485,7 @@ main(int argc, char *argv[])
        * one single rename() call.
        */
       if ((lfs == YES) && (p_to_name == ff_name) &&
-          (db.special_flag & TRANS_EXEC) == 0) && (nlink == 2) &&
+          ((db.special_flag & TRANS_EXEC) == 0) && (nlink == 2) &&
           (db.trans_rename_rule[0] == '\0') && (db.archive_time == 0) &&
           (access(db.target_dir, W_OK) == 0) &&
           (rename(file_path, db.target_dir) == 0))
@@ -477,7 +493,7 @@ main(int argc, char *argv[])
          p_file_size_buffer = file_size_buffer;
 
          /* Tell FSA we have copied a file. */
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
             fsa->job_status[(int)db.job_no].no_of_files_done += files_to_send;
@@ -541,7 +557,7 @@ main(int argc, char *argv[])
             (void)strcpy(p_source_file, p_file_name_buffer);
 
             /* Write status to FSA? */
-            if (gsf_check_fsa() != NEITHER)
+            if (gsf_check_fsa(p_db) != NEITHER)
             {
                fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
                (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -614,15 +630,29 @@ try_link_again:
                           }
                           if (*p_file == '/')
                           {
-                             char *error_ptr;
+                             char created_path[MAX_PATH_LENGTH],
+                                  *error_ptr;
 
                              *p_file = '\0';
-                             if (((ret = check_create_path(p_to_name, 0, &error_ptr,
-                                                           YES, YES)) == CREATED_DIR) ||
+                             created_path[0] = '\0';
+                             if (((ret = check_create_path(p_to_name, db.dir_mode,
+                                                           &error_ptr,
+                                                           YES, YES,
+                                                           created_path)) == CREATED_DIR) ||
                                  (ret == CHOWN_ERROR))
                              {
-                                trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                          "Created path `%s'", p_to_name);
+                                if (strcmp(p_to_name, created_path) == 0)
+                                {
+                                   trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                             "Created directory `%s'",
+                                             p_to_name);
+                                }
+                                else
+                                {
+                                   trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                             "Created directory part `%s' for `%s'",
+                                             created_path, p_to_name);
+                                }
                                 if (ret == CHOWN_ERROR)
                                 {
                                    trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -731,6 +761,11 @@ try_link_again:
                              exit(MOVE_ERROR);
                           }
                        }
+                  else if (errno == EXDEV)
+                       {
+                          lfs = NO;
+                          goto cross_link_error;
+                       }
                        else
                        {
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -752,6 +787,7 @@ try_link_again:
             }
             else
             {
+cross_link_error:
                if ((ret = copy_file_mkdir(source_file, p_to_name)) != SUCCESS)
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -805,15 +841,27 @@ try_link_again:
                      }
                      if (*p_file == '/')
                      {
-                        char *error_ptr;
+                        char created_path[MAX_PATH_LENGTH],
+                             *error_ptr;
 
                         *p_file = '\0';
-                        if (((ret = check_create_path(ff_name, 0, &error_ptr,
-                                                      YES, YES)) == CREATED_DIR) ||
+                        created_path[0] = '\0';
+                        if (((ret = check_create_path(ff_name, db.dir_mode,
+                                                      &error_ptr, YES, YES,
+                                                      created_path)) == CREATED_DIR) ||
                             (ret == CHOWN_ERROR))
                         {
-                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                     "Created path `%s'", ff_name);
+                           if (strcmp(ff_name, created_path) == 0)
+                           {
+                              trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                        "Created directory `%s'", ff_name);
+                           }
+                           else
+                           {
+                              trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                        "Created directory part `%s' for `%s'",
+                                        created_path, ff_name);
+                           }
                            if (ret == CHOWN_ERROR)
                            {
                               trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -958,7 +1006,7 @@ try_link_again:
             } /* if (db.special_flag & CHANGE_UID_GID) */
 
             /* Tell FSA we have copied a file. */
-            if (gsf_check_fsa() != NEITHER)
+            if (gsf_check_fsa(p_db) != NEITHER)
             {
                fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
                fsa->job_status[(int)db.job_no].no_of_files_done++;
@@ -983,7 +1031,7 @@ try_link_again:
 #ifdef _WITH_TRANS_EXEC
             if (db.special_flag & TRANS_EXEC)
             {
-               trans_exec(file_path, ff_name, p_file_name_buffer);
+               trans_exec(file_path, source_file, p_file_name_buffer);
             }
 #endif
 
@@ -1330,7 +1378,7 @@ try_again_unlink:
 
          if (local_file_counter)
          {
-            if (gsf_check_fsa() != NEITHER)
+            if (gsf_check_fsa(p_db) != NEITHER)
             {
                update_tfc(local_file_counter, local_file_size,
                           p_file_size_buffer, files_to_send, files_send);
@@ -1456,7 +1504,8 @@ copy_file_mkdir(char *from, char *to)
          {
             if ((errno == ENOENT) && (db.special_flag & CREATE_TARGET_DIR))
             {
-               char *p_file = to;
+               char created_path[MAX_PATH_LENGTH],
+                    *p_file = to;
 
                p_file += strlen(to);
                while ((*p_file != '/') && (p_file != to))
@@ -1468,12 +1517,23 @@ copy_file_mkdir(char *from, char *to)
                   char *error_ptr;
 
                   *p_file = '\0';
-                  if (((ret = check_create_path(to, 0, &error_ptr,
-                                                YES, YES)) == CREATED_DIR) ||
+                  created_path[0] = '\0';
+                  if (((ret = check_create_path(to, db.dir_mode, &error_ptr,
+                                                YES, YES,
+                                                created_path)) == CREATED_DIR) ||
                       (ret == CHOWN_ERROR))
                   {
-                     trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
-                               "Created path `%s'", to);
+                     if (strcmp(to, created_path) == 0)
+                     {
+                        trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                  "Created directory `%s'", to);
+                     }
+                     else
+                     {
+                        trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                  "Created directory part `%s' for `%s'",
+                                  created_path, to);
+                     }
                      if (ret == CHOWN_ERROR)
                      {
                         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -1682,13 +1742,12 @@ sf_loc_exit(void)
 {
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      int     diff_no_of_files_done,
-              length;
+      int     diff_no_of_files_done;
       u_off_t diff_file_size_done;
 
       if (local_file_counter)
       {
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa((struct job *)&db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -1701,6 +1760,7 @@ sf_loc_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
+         int  length;
 #ifdef _WITH_BURST_2
          char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 24 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
 #else
@@ -1735,17 +1795,11 @@ sf_loc_exit(void)
 #endif /* _WITH_BURST_2 */
          trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
-      reset_fsa((struct job *)&db, exitflag);
+      reset_fsa((struct job *)&db, exitflag, 0, 0);
    }
 
-   if (file_name_buffer != NULL)
-   {
-      free(file_name_buffer);
-   }
-   if (file_size_buffer != NULL)
-   {
-      free(file_size_buffer);
-   }
+   free(file_name_buffer);
+   free(file_size_buffer);
 
    send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
@@ -1761,7 +1815,7 @@ sf_loc_exit(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
               "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -1772,7 +1826,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }

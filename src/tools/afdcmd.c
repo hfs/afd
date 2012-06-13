@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1735,7 +1735,7 @@ main(int argc, char *argv[])
             if ((fsa[position].toggle_pos > 0) &&
                 (fsa[position].host_toggle_str[0] != '\0'))
             {
-               char tmp_host_alias[MAX_HOSTNAME_LENGTH + 1];
+               char tmp_host_alias[MAX_HOSTNAME_LENGTH + 2];
 
                system_log(DEBUG_SIGN, NULL, 0,
                           _("Host Switch initiated for host %s (%s) [afdcmd]"),
@@ -1904,10 +1904,7 @@ main(int argc, char *argv[])
           (ehc == NO) && (change_host_config == YES))
       {
          (void)write_host_config(no_of_hosts, host_config_file, hl);
-         if (hl != NULL)
-         {
-            free(hl);
-         }
+         free(hl);
       }
    }
 

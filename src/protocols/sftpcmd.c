@@ -1,6 +1,6 @@
 /*
  *  sftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@ DESCR__S_M3
  **   sftpcmd - commands to send files via the SFTP protocol
  **
  ** SYNOPSIS
+ **   int          sftp_cd(char *directory, int create_dir, mode_t dir_mode,
+ **                        char *created_path)
  **   int          sftp_close_dir(void)
  **   int          sftp_close_file(void)
  **   int          sftp_connect(char *hostname, int port, char *user,
@@ -32,15 +34,19 @@ DESCR__S_M3
  **                             char debug)
  **   int          sftp_dele(char *filename)
  **   int          sftp_flush(void)
- **   int          sftp_mkdir(char *directory)
- **   int          sftp_move(char *from, char *to, int create_dir)
+ **   int          sftp_mkdir(char *directory, mode_t dir_mode)
+ **   int          sftp_move(char *from, char *to, int create_dir,
+ **                          mode_t dir_mode, char *created_path)
  **   int          sftp_noop(void)
  **   int          sftp_open_dir(char *dirname, char debug)
  **   int          sftp_open_file(char *filename, off_t size, mode_t *mode,
  **                               char debug)
+ **   int          sftp_pwd(void)
  **   void         sftp_quit(void)
  **   int          sftp_read(char *block, int size)
  **   int          sftp_readdir(char *name, struct stat *p_stat_buf)
+ **   int          sftp_set_file_time(char *filename, time_t mtime,
+ **                                   time_t atime)
  **   int          sftp_stat(char *filename, struct stat *p_stat_buf)
  **   int          sftp_write(char *block, int size)
  **   unsigned int sftp_version(void)
@@ -82,7 +88,7 @@ DESCR__E_M3
 
 #include <stdio.h>            /* fdopen(), fclose()                      */
 #include <string.h>           /* memset(), memcpy()                      */
-#include <stdlib.h>           /* malloc(), free()                        */
+#include <stdlib.h>           /* malloc(), free(), exit()                */
 #ifdef WITH_OWNER_GROUP_EVAL
 # include <grp.h>             /* getgrnam()                              */
 # include <pwd.h>             /* getpwnam()                              */
@@ -93,8 +99,7 @@ DESCR__E_M3
 #include <sys/stat.h>         /* S_ISUID, S_ISGID, etc                   */
 #include <setjmp.h>           /* sigsetjmp(), siglongjmp()               */
 #include <signal.h>           /* signal(), kill()                        */
-#include <unistd.h>           /* select(), exit(), write(), read(),      */
-                              /* close()                                 */
+#include <unistd.h>           /* select(), write(), read(), close()      */
 #include <fcntl.h>            /* O_NONBLOCK                              */
 #include <errno.h>
 #include "ssh_commondefs.h"
@@ -107,7 +112,8 @@ DESCR__E_M3
            if ((create_dir == YES) && (retries == 0) &&                   \
                (get_xfer_uint(&msg[5]) == SSH_FX_NO_SUCH_FILE))           \
            {                                                              \
-              char *ptr,                                                  \
+              char *p_start,                                              \
+                   *ptr,                                                  \
                    tmp_char;                                              \
                                                                           \
               ptr = directory;                                            \
@@ -117,6 +123,7 @@ DESCR__E_M3
                  {                                                        \
                     ptr++;                                                \
                  }                                                        \
+                 p_start = ptr;                                           \
                  while ((*ptr != '/') && (*ptr != '\0'))                  \
                  {                                                        \
                     ptr++;                                                \
@@ -127,7 +134,18 @@ DESCR__E_M3
                     *ptr = '\0';                                          \
                     if ((status = sftp_stat(directory, NULL)) != SUCCESS) \
                     {                                                     \
-                       status = sftp_mkdir(directory);                    \
+                       status = sftp_mkdir(directory, dir_mode);          \
+                       if (status == SUCCESS)                             \
+                       {                                                  \
+                          if (created_path != NULL)                       \
+                          {                                               \
+                              if (created_path[0] != '\0')                \
+                              {                                           \
+                                 (void)strcat(created_path, "/");         \
+                              }                                           \
+                              (void)strcat(created_path, p_start);        \
+                          }                                               \
+                       }                                                  \
                     }                                                     \
                     else if (scd.version > 3)                             \
                          {                                                \
@@ -277,7 +295,6 @@ retry_connect:
                   {
                      if (msg[0] == SSH_FXP_VERSION)
                      {
-                        int  str_len;
                         char *ptr,
                              *p_xfer_str = NULL;
 
@@ -293,6 +310,7 @@ retry_connect:
                         scd.extensions = 0;
                         if (ui_var > 0)
                         {
+                           int          str_len;
                            unsigned int tmp_extension_flag = 0;
 
                            /*
@@ -358,9 +376,20 @@ retry_connect:
                      }
                      else
                      {
-                        trans_log(ERROR_SIGN, __FILE__, __LINE__, "sftp_connect", NULL,
-                                  _("Received invalid reply (%d) from SSH_FXP_INIT."),
-                                  (int)msg[0]);
+                        if (msg[0] == SSH_FXP_STATUS)
+                        {
+                           /* Some error has occured. */
+                           get_msg_str(&msg[9]);
+                           trans_log(ERROR_SIGN, __FILE__, __LINE__, "sftp_connect", error_2_str(&msg[5]),
+                                     _("Received invalid reply (%d = %s) from SSH_FXP_INIT."),
+                                     (int)msg[0], response_2_str(msg[0]));
+                        }
+                        else
+                        {
+                           trans_log(ERROR_SIGN, __FILE__, __LINE__, "sftp_connect", NULL,
+                                     _("Received invalid reply (%d = %s) from SSH_FXP_INIT."),
+                                     (int)msg[0], response_2_str(msg[0]));
+                        }
                         status = INCORRECT;
                      }
                   }
@@ -463,7 +492,6 @@ sftp_pwd(void)
                get_msg_str(&msg[9]);
                trans_log(DEBUG_SIGN, __FILE__, __LINE__, "sftp_pwd", NULL,
                          "%s", error_2_str(&msg[5]));
-               status = INCORRECT;
             }
             else
             {
@@ -471,8 +499,8 @@ sftp_pwd(void)
                          _("Expecting %d (SSH_FXP_NAME) but got %d (%s) as reply."),
                          SSH_FXP_NAME, (int)msg[0], response_2_str(msg[0]));
                msg_str[0] = '\0';
-               status = INCORRECT;
             }
+            status = INCORRECT;
          }
       }
    }
@@ -483,7 +511,7 @@ sftp_pwd(void)
 
 /*############################# sftp_cd() ###############################*/
 int
-sftp_cd(char *directory, int create_dir)
+sftp_cd(char *directory, int create_dir, mode_t dir_mode, char *created_path)
 {
    int  retries = 0,
         status;
@@ -547,10 +575,7 @@ retry_cd:
                    */
                   if (scd.version < 4)
                   {
-                     if (tmp_cwd != NULL)
-                     {
-                        free(tmp_cwd);
-                     }
+                     free(tmp_cwd);
                      tmp_cwd = scd.cwd;
                      scd.cwd = NULL;
                      if (sftp_stat(directory, NULL) == INCORRECT)
@@ -578,7 +603,8 @@ retry_cd:
                if ((create_dir == YES) && (retries == 0) &&
                    (get_xfer_uint(&msg[5]) == SSH_FX_NO_SUCH_FILE))
                {
-                  char *ptr,
+                  char *p_start,
+                       *ptr,
                        tmp_char;
 
                   ptr = directory;
@@ -588,6 +614,7 @@ retry_cd:
                      {
                         ptr++;
                      }
+                     p_start = ptr;
                      while ((*ptr != '/') && (*ptr != '\0'))
                      {
                         ptr++;
@@ -598,7 +625,18 @@ retry_cd:
                         *ptr = '\0';
                         if ((status = sftp_stat(directory, NULL)) != SUCCESS)
                         {
-                           status = sftp_mkdir(directory);
+                           status = sftp_mkdir(directory, dir_mode);
+                           if (status == SUCCESS)
+                           {
+                              if (created_path != NULL)
+                              {
+                                  if (created_path[0] != '\0')
+                                  {
+                                     (void)strcat(created_path, "/");
+                                  }
+                                  (void)strcat(created_path, p_start);
+                              }
+                           }
                         }
                         else if (scd.version > 3)
                              {
@@ -819,7 +857,6 @@ sftp_set_file_time(char *filename, time_t mtime, time_t atime)
             get_msg_str(&msg[9]);
             trans_log(DEBUG_SIGN, __FILE__, __LINE__, "sftp_set_file_time", NULL,
                       "%s", error_2_str(&msg[5]));
-            status = INCORRECT;
          }
          else
          {
@@ -827,8 +864,8 @@ sftp_set_file_time(char *filename, time_t mtime, time_t atime)
                       _("Expecting %d (SSH_FXP_STATUS) but got %d (%s) as reply."),
                       SSH_FXP_STATUS, (int)msg[0], response_2_str(msg[0]));
             msg_str[0] = '\0';
-            status = INCORRECT;
          }
+         status = INCORRECT;
       }
    }
 
@@ -1213,9 +1250,10 @@ sftp_close_dir(void)
 
 /*############################ sftp_mkdir() #############################*/
 int
-sftp_mkdir(char *directory)
+sftp_mkdir(char *directory, mode_t dir_mode)
 {
-   int status;
+   int attr_len,
+       status;
 
    /*
     * byte   SSH_FXP_MKDIR
@@ -1238,9 +1276,19 @@ sftp_mkdir(char *directory)
       status = sprintf(fullname, "%s/%s", scd.cwd, directory);
       set_xfer_str(&msg[4 + 1 + 4], fullname, status);
    }
-   set_xfer_uint(&msg[4 + 1 + 4 + 4 + status], 0);
-   set_xfer_uint(msg, (1 + 4 + 4 + status + 4));
-   if ((status = write_msg(msg, (4 + 1 + 4 + 4 + status + 4))) == SUCCESS)
+   if (dir_mode == 0)
+   {
+      set_xfer_uint(&msg[4 + 1 + 4 + 4 + status], 0);
+      attr_len = 0;
+   }
+   else
+   {
+      set_xfer_uint(&msg[4 + 1 + 4 + 4 + status], SSH_FILEXFER_ATTR_PERMISSIONS);
+      set_xfer_uint(&msg[4 + 1 + 4 + 4 + status + 4], (unsigned int)(dir_mode));
+      attr_len = 4;
+   }
+   set_xfer_uint(msg, (1 + 4 + 4 + status + 4 + attr_len));
+   if ((status = write_msg(msg, (4 + 1 + 4 + 4 + status + 4 + attr_len))) == SUCCESS)
    {
       if ((status = get_reply(scd.request_id)) == SUCCESS)
       {
@@ -1272,7 +1320,11 @@ sftp_mkdir(char *directory)
 
 /*############################ sftp_move() ##############################*/
 int
-sftp_move(char *from, char *to, int create_dir)
+sftp_move(char   *from,
+          char   *to,
+          int    create_dir,
+          mode_t dir_mode,
+          char   *created_path)
 {
    int from_length,
        pos,
@@ -1379,7 +1431,8 @@ retry_move:
                          *       We just misuse sftp_cd() to create the
                          *       directory for us, nothing more.
                          */
-                        if ((status = sftp_cd(p_to, YES)) == SUCCESS)
+                        if ((status = sftp_cd(p_to, YES, dir_mode,
+                                              created_path)) == SUCCESS)
                         {
                            retries++;
                            *ptr = '/';
@@ -2549,11 +2602,7 @@ get_xfer_names(unsigned int no_of_names, char *msg)
    int    status = SUCCESS;
    size_t length;
 
-   if (scd.nl != NULL)
-   {
-      free(scd.nl);
-   }
-
+   free(scd.nl);
    scd.nl_length = no_of_names;
    length = no_of_names * sizeof(struct name_list);
    if ((scd.nl = malloc(length)) == NULL)

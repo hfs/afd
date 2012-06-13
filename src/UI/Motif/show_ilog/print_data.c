@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -112,8 +112,6 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       else
       {
-         register int  i,
-                       length;
          int           fd,
                        prepare_status;
          char          *line,
@@ -135,6 +133,9 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          if (prepare_status == SUCCESS)
          {
+            register int i,
+                         length;
+
             write_header(fd, sum_sep_line);
 
             XtVaGetValues(listbox_w, XmNitems, &all_items, NULL);
@@ -210,8 +211,6 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
    }
    else /* Print everything! */
    {
-      register int  i,
-                    length;
       int           fd,
                     no_of_items,
                     prepare_status;
@@ -234,6 +233,9 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       if (prepare_status == SUCCESS)
       {
+         register int i,
+                      length;
+
          write_header(fd, sum_sep_line);
 
          XtVaGetValues(listbox_w,

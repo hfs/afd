@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -111,6 +111,10 @@ update_info(Widget w)
       if (fsa[host_position].protocol & LOC_FLAG)
       {
          length += sprintf(&protocol_label_str[length], "LOC ");
+      }
+      if (fsa[host_position].protocol & EXEC_FLAG)
+      {
+         length += sprintf(&protocol_label_str[length], "EXEC ");
       }
       if (fsa[host_position].protocol & SMTP_FLAG)
       {

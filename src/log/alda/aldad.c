@@ -1,6 +1,6 @@
 /*
  *  aldad.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009, 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -127,8 +127,7 @@ main(int argc, char *argv[])
          {
             if (stat_buf.st_mtime != old_st_mtime)
             {
-               int  gotcha,
-                    i;
+               int  i;
                char *buffer,
                     tmp_aldad[MAX_PATH_LENGTH + 1];
 
@@ -141,6 +140,7 @@ main(int argc, char *argv[])
                if ((eaccess(afd_config_file, F_OK) == 0) &&
                    (read_file_no_cr(afd_config_file, &buffer) != INCORRECT))
                {
+                  int  gotcha;
                   char *ptr = buffer;
 
                   /*

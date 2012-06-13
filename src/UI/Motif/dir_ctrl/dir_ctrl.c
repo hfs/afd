@@ -483,6 +483,16 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    }
    p_work_dir = work_dir;
 
+   /* Do not start if binary dataset matches the one stort on disk. */
+   if (check_typesize_data() > 0)
+   {
+      (void)fprintf(stderr,
+                    "The compiled binary does not match stored database.\n");
+      (void)fprintf(stderr,
+                    "Initialize database with the command : afd -i\n");
+      exit(INCORRECT);
+   }
+
    /* Disable all input? */
    if (get_arg(argc, argv, "-no_input", NULL, 0) == SUCCESS)
    {

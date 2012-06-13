@@ -1,7 +1,7 @@
 /*
  *  handle_setup_file.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -431,11 +431,7 @@ read_setup(char *file_name,
          }
       }
    }
-
-   if (buffer != NULL)
-   {
-      free(buffer);
-   }
+   free(buffer);
 
    return;
 }
@@ -525,6 +521,10 @@ write_setup(int  hostname_display_length,
    {
       (void)xrec(ERROR_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
+      if (fd != -1)
+      {
+         (void)close(fd);
+      }
       return;
    }
    euid = geteuid();
@@ -550,6 +550,7 @@ write_setup(int  hostname_display_length,
       }
       if (fd < 0)
       {
+         free(buffer);
          return;
       }
       if (ftruncate(fd, 0) == -1)
@@ -609,6 +610,7 @@ write_setup(int  hostname_display_length,
       if (lock_fd < 0)
       {
          (void)close(fd);
+         free(buffer);
          return;
       }
       if (ftruncate(fd, 0) == -1)

@@ -1,6 +1,6 @@
 /*
  *  get_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2004 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -96,7 +96,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ret = fsa_attach_passive()) < 0)
+   if ((ret = fsa_attach_passive(NO)) < 0)
    {
       if (ret == INCORRECT_VERSION)
       {

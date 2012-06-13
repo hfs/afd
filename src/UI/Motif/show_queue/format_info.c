@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -121,7 +121,6 @@ void
 format_output_info(char **text, int pos)
 {
    int buffer_length = 8192,
-       i,
        count,
        length;
 
@@ -147,6 +146,7 @@ format_output_info(char **text, int pos)
    if (qfl[pos].job_id != 0)
    {
       int                fd,
+                         i,
                          jd_pos = -1,
                          no_of_jobs;
       off_t              jd_size;
@@ -830,6 +830,7 @@ format_input_info(char **text, int pos)
                                         "malloc() erro : %s (%s %d)",
                                         strerror(errno), __FILE__, __LINE__);
                              (void)close(fd);
+                             free((void *)p_array);
                              return;
                           }
                           (void)memcpy(p_soptions, jd[i].soptions,

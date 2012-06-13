@@ -1,7 +1,7 @@
 /*
  *  resize_dir_window.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,21 +69,21 @@ extern unsigned int glyph_height;
 signed char
 resize_dir_window(void)
 {
-#ifdef _AUTO_REPOSITION
-   XWindowAttributes    window_attrib;
-   int                  display_width,
-                        display_height,
-                        new_x,
-                        new_y;
-   Position             root_x,
-                        root_y;
-#endif
-   static int           old_line_height = 0;
-   Arg                  args[5];
-   Cardinal             argcount;
-
    if (dir_window_size(&window_width, &window_height) == YES)
    {
+#ifdef _AUTO_REPOSITION
+      XWindowAttributes    window_attrib;
+      int                  display_width,
+                           display_height,
+                           new_x,
+                           new_y;
+      Position             root_x,
+                           root_y;
+#endif
+      static int           old_line_height = 0;
+      Arg                  args[5];
+      Cardinal             argcount;
+
       argcount = 0;
       XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
       argcount++;

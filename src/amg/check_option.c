@@ -1,6 +1,6 @@
 /*
  *  check_option.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,8 +56,7 @@ DESCR__E_M3
 
 /* External global variables. */
 extern int         no_of_rule_headers;
-extern char        *p_work_dir,
-                   rule_file[];
+extern char        *p_work_dir;
 extern struct rule *rule;
 
 /* Local function prototypes. */
@@ -790,11 +789,19 @@ check_option(char *option)
                     case 'B' :
                     case 'c' :
                     case 'C' :
+                    case 'd' :
+                    case 'D' :
+                    case 'f' :
+                    case 'F' :
                     case 'H' :
                     case 'n' :
                     case 'N' :
+                    case 'r' :
+                    case 'R' :
                     case 's' :
                     case 'S' :
+                    case 't' :
+                    case 'T' :
                        ptr += 2;
                        if ((*ptr != ' ') && (*ptr != '\t'))
                        {
@@ -920,6 +927,36 @@ check_option(char *option)
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             "Incorrect mode for option %s, only three or four octal numbers possible.",
                             CHMOD_ID);
+                 return(INCORRECT);
+              }
+           }
+        }
+   else if (CHECK_STRNCMP(option, CREATE_TARGET_DIR_ID, CREATE_TARGET_DIR_ID_LENGTH) == 0)
+        {
+           ptr += CREATE_TARGET_DIR_ID_LENGTH + 1;
+           while ((*ptr == ' ') || (*ptr == '\t'))
+           {
+              ptr++;
+           }
+           if (*ptr == '\0')
+           {
+              /* It's OK if no mode is specified. */;
+           }
+           else
+           {
+              if (((*ptr >= '0') && (*ptr < '8')) &&
+                  ((*(ptr + 1) >= '0') && (*(ptr + 1) < '8')) &&
+                  ((*(ptr + 2) >= '0') && (*(ptr + 2) < '8')) &&
+                  (((*(ptr + 3) >= '0') && (*(ptr + 3) < '8') &&
+                   (*(ptr + 4) == '\0')) || (*(ptr + 3) == '\0')))
+              {
+                 /* OK */;
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Incorrect mode for option %s, only three or four octal numbers possible.",
+                            CREATE_TARGET_DIR_ID);
                  return(INCORRECT);
               }
            }
@@ -1385,8 +1422,6 @@ check_option(char *option)
              (*(option + DELETE_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, FORCE_COPY_ID, FORCE_COPY_ID_LENGTH) == 0) &&
              (*(option + FORCE_COPY_ID_LENGTH) == '\0')) ||
-            ((CHECK_STRNCMP(option, CREATE_TARGET_DIR_ID, CREATE_TARGET_DIR_ID_LENGTH) == 0) &&
-             (*(option + CREATE_TARGET_DIR_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, DONT_CREATE_TARGET_DIR, DONT_CREATE_TARGET_DIR_LENGTH) == 0) &&
              (*(option + DONT_CREATE_TARGET_DIR_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, TIFF2GTS_ID, TIFF2GTS_ID_LENGTH) == 0) &&
@@ -1514,11 +1549,7 @@ check_option(char *option)
 static int
 check_rule(char *rename_rule)
 {
-   if (rule_file[0] == '\0')
-   {
-      (void)sprintf(rule_file, "%s%s%s", p_work_dir, ETC_DIR, RENAME_RULE_FILE);
-      get_rename_rules(rule_file, NO);
-   }
+   get_rename_rules(NO);
    if (no_of_rule_headers > 0)
    {
       int  i;
@@ -1563,12 +1594,12 @@ check_rule(char *rename_rule)
          *ptr = tmp_char;
       }
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "There is no rule %s in %s.", rename_rule, rule_file);
+                 "There is no rule %s in rename.rule.", rename_rule);
    }
    else
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "There are no rules, you need to configure %s.", rule_file);
+                 "There are no rules, you need to configure rename.rule.");
    }
 
    return(INCORRECT);

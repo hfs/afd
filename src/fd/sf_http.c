@@ -1,6 +1,6 @@
 /*
  *  sf_http.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -317,17 +317,25 @@ main(int argc, char *argv[])
 #else
    timeout_flag = OFF;
 #endif
-   if ((status = http_connect(db.hostname, db.port,
+   if ((status = http_connect(db.hostname, db.http_proxy,
+                              db.port, db.user, db.password,
 #ifdef WITH_SSL
-                              db.user, db.password, db.auth, db.sndbuf_size,
-#else
-                              db.user, db.password, db.sndbuf_size,
+                              db.auth,
 #endif
-                              db.rcvbuf_size)) != SUCCESS)
+                              db.sndbuf_size, db.rcvbuf_size)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                "HTTP connection to %s at port %d failed (%d).",
-                db.hostname, db.port, status);
+      if (db.http_proxy[0] == '\0')
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "HTTP connection to %s at port %d failed (%d).",
+                   db.hostname, db.port, status);
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "HTTP connection to HTTP proxy %s at port %d failed (%d).",
+                   db.http_proxy, db.port, status);
+      }
       exit(eval_timeout(CONNECT_ERROR));
    }
    else
@@ -352,10 +360,9 @@ main(int argc, char *argv[])
       }
    }
 
-#ifdef WITH_TRACE
    if ((status = http_options(db.hostname, db.target_dir)) != SUCCESS)
    {
-      trans_log((timeout_flag == ON) ? ERROR_SIGN : WARN_SIGN,
+      trans_log((timeout_flag == ON) ? ERROR_SIGN : INFO_SIGN,
                 __FILE__, __LINE__, NULL, msg_str,
                 "Failed to get options (%d).", status);
       if (timeout_flag == ON)
@@ -372,11 +379,10 @@ main(int argc, char *argv[])
                       "Got HTTP server options.");
       }
    }
-#endif
 
    /* Inform FSA that we have finished connecting and */
    /* will now start to transfer data.                */
-   if (gsf_check_fsa() != NEITHER)
+   if (gsf_check_fsa(p_db) != NEITHER)
    {
 #ifdef LOCK_DEBUG
       lock_region_w(fsa_fd, db.lock_offset + LOCK_CON, __FILE__, __LINE__);
@@ -435,7 +441,7 @@ main(int argc, char *argv[])
       {
          (void)sprintf(fullname, "%s/%s", file_path, p_file_name_buffer);
 
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
             (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
@@ -445,7 +451,7 @@ main(int argc, char *argv[])
          if (db.special_flag & FILE_NAME_IS_HEADER)
          {
             int  header_length = 0,
-                 space_count;
+                 space_count = 0;
             char *ptr = p_file_name_buffer;
 
             for (;;)
@@ -709,7 +715,7 @@ main(int argc, char *argv[])
 
                no_of_bytes += blocksize;
 
-               if (gsf_check_fsa() != NEITHER)
+               if (gsf_check_fsa(p_db) != NEITHER)
                {
                   fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                   fsa->job_status[(int)db.job_no].file_size_done += blocksize;
@@ -757,7 +763,7 @@ main(int argc, char *argv[])
 
                no_of_bytes += rest + end_length;
 
-               if (gsf_check_fsa() != NEITHER)
+               if (gsf_check_fsa(p_db) != NEITHER)
                {
                   fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                   fsa->job_status[(int)db.job_no].file_size_done += rest;
@@ -835,7 +841,7 @@ main(int argc, char *argv[])
          }
 
          /* Update FSA, one file transmitted. */
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
             fsa->job_status[(int)db.job_no].no_of_files_done++;
@@ -1185,7 +1191,7 @@ try_again_unlink:
 
       if (local_file_counter)
       {
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa(p_db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -1262,13 +1268,12 @@ sf_http_exit(void)
 {
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      int     diff_no_of_files_done,
-              length;
+      int     diff_no_of_files_done;
       u_off_t diff_file_size_done;
 
       if (local_file_counter)
       {                      
-         if (gsf_check_fsa() != NEITHER)
+         if (gsf_check_fsa((struct job *)&db) != NEITHER)
          {
             update_tfc(local_file_counter, local_file_size,
                        p_file_size_buffer, files_to_send, files_send);
@@ -1281,6 +1286,7 @@ sf_http_exit(void)
                             prev_file_size_done;
       if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
       {
+         int  length;
 #ifdef _WITH_BURST_2
          char buffer[MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1];
 #else
@@ -1302,17 +1308,11 @@ sf_http_exit(void)
 #endif /* _WITH_BURST_2 */
          trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
       }
-      reset_fsa((struct job *)&db, exitflag);
+      reset_fsa((struct job *)&db, exitflag, 0, 0);
    }
 
-   if (file_name_buffer != NULL)
-   {
-      free(file_name_buffer);
-   }
-   if (file_size_buffer != NULL)
-   {
-      free(file_size_buffer);
-   }
+   free(file_name_buffer);
+   free(file_size_buffer);
 
    send_proc_fin(NO);
    if (sys_log_fd != STDERR_FILENO)
@@ -1328,7 +1328,7 @@ sf_http_exit(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__,
              "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
@@ -1339,7 +1339,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR, 0, 0);
    system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }

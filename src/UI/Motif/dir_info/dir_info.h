@@ -1,6 +1,6 @@
 /*
  *  dir_info.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@
 
 #include "motif_common_defs.h"
 
-#define MAXARGS                  20
 #define MAX_INFO_STRING_LENGTH   60
 #define DIR_INFO_TEXT_WIDTH_L    15
 #define DIR_INFO_TEXT_WIDTH_R    18

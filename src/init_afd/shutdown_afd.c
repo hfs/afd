@@ -1,6 +1,6 @@
 /*
  *  shutdown_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -54,7 +54,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <sys/time.h>         /* struct timeval                          */
 #include <fcntl.h>            /* O_RDWR, O_WRONLY, etc                   */
-#include <unistd.h>           /* select(), unlink()                      */
+#include <unistd.h>           /* select()                                */
 #include <errno.h>
 #include "version.h"
 
@@ -73,8 +73,7 @@ shutdown_afd(char *user, long response_time, int afd_active_gone)
                   afd_resp_writefd,
 #endif
                   afd_resp_fd,
-                  status,
-                  val;
+                  status;
    fd_set         rset;
    char           buffer[DEFAULT_BUFFER_SIZE],
                   afd_resp_fifo[MAX_PATH_LENGTH];
@@ -147,6 +146,8 @@ shutdown_afd(char *user, long response_time, int afd_active_gone)
    /* Did we get a timeout? */
    if (status == 0)
    {
+      int val;
+
       if (response_time > 1L)
       {
          (void)fprintf(stderr, _("\nAFD is NOT responding!\n"));
@@ -198,16 +199,8 @@ shutdown_afd(char *user, long response_time, int afd_active_gone)
             (void)fprintf(stderr,
                           _("Removed all AFD processes and resources.\n"));
 
-            /* Remove AFD_ACTIVE file. */
-            (void)strcpy(afd_cmd_fifo, p_work_dir);
-            (void)strcat(afd_cmd_fifo, FIFO_DIR);
-            (void)strcat(afd_cmd_fifo, AFD_ACTIVE_FILE);
-            if (unlink(afd_cmd_fifo) == -1)
-            {
-               (void)fprintf(stderr,
-                             _("Failed to unlink() `%s' : %s (%s %d)\n"),
-                             afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
-            }
+            /* No need to remove AFD_ACTIVE file since          */
+            /* check_afd_heartbeat() did it for us.             */
             status = 0;
          }
          else

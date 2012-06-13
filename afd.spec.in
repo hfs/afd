@@ -99,13 +99,6 @@ install -p -m755 scripts/afd $RPM_BUILD_ROOT/%{INITDIR}
 install -p -m755 scripts/afdmon $RPM_BUILD_ROOT/%{INITDIR}
 install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT/%{sysconfdir}/afd
 install -p -m644 scripts/afdmon.sysconfig $RPM_BUILD_ROOT/%{sysconfdir}/afdmon
-install -p -m644 etc/AFD_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
-install -p -m644 etc/DIR_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
-install -p -m644 etc/host.info.sample $RPM_BUILD_ROOT/%{prefix}/etc
-install -p -m644 etc/INFO-LOOP.sample $RPM_BUILD_ROOT/%{prefix}/etc
-install -p -m644 etc/rename.rule.sample $RPM_BUILD_ROOT/%{prefix}/etc
-install -p -m644 etc/afd.name.sample $RPM_BUILD_ROOT/%{prefix}/etc
-install -p -m644 etc/afd.users.sample $RPM_BUILD_ROOT/%{prefix}/etc
 
 
 %clean

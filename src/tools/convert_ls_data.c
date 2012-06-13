@@ -1,7 +1,7 @@
 /*
  *  convert_ls_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,6 @@ main(int argc, char *argv[])
                           no_of_listed_files,
                           to_fd;
    char                   *ptr,
-                          time_str[25],
                           tmp_name[MAX_FILENAME_LENGTH];
    struct stat            stat_buf;
    struct retrieve_list   *rl;

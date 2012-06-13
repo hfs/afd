@@ -1,6 +1,6 @@
 /*
  *  convert.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,6 +72,8 @@ DESCR__S_M3
  **                      <SOH><CR><CR><LF> and <CR><CR><LF><ETX>.
  **   20.07.2006 H.Kiehl Added mrz2wmo.
  **   19.11.2008 H.Kiehl Added unix2dos, dos2unix, lf2crcrlf and crcrlf2lf.
+ **   29.06.2011 H.Kiehl For sohetx, if it already contains SOH and ETX,
+ **                      do not create a new file of zero length.
  **
  */
 DESCR__E_M3
@@ -105,6 +107,7 @@ static int crcrlf2lf(char *, char *, off_t *, off_t *),
 int
 convert(char *file_path, char *file_name, int type, off_t *file_size)
 {
+   int   no_change = NO;
    off_t new_length = 0,
          orig_size = 0;
    char  fullname[MAX_PATH_LENGTH],
@@ -200,20 +203,6 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
               return(INCORRECT);
            }
 
-           if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
-                             stat_buf.st_mode)) == -1)
-           {
-              receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                          _("Failed to open() %s : %s"),
-                          new_name, strerror(errno));
-              (void)close(from_fd);
-#ifdef HAVE_MMAP
-              (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-              (void)munmap_emu((void *)src_ptr);
-#endif
-              return(INCORRECT);
-           }
 
            switch (type)
            {
@@ -222,6 +211,20 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                  {
                     char buffer[4];
 
+                    if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                      stat_buf.st_mode)) == -1)
+                    {
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Failed to open() %s : %s"),
+                                   new_name, strerror(errno));
+                       (void)close(from_fd);
+#ifdef HAVE_MMAP
+                       (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                       (void)munmap_emu((void *)src_ptr);
+#endif
+                       return(INCORRECT);
+                    }
                     buffer[0] = 1;
                     buffer[1] = 13;
                     buffer[2] = 13;
@@ -278,6 +281,10 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                     }
                     new_length += 4;
                  }
+                 else
+                 {
+                    no_change = YES;
+                 }
                  break;
 
               case ONLY_WMO :
@@ -285,6 +292,21 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                     int   offset;
                     off_t size;
                     char  length_indicator[10];
+
+                    if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                      stat_buf.st_mode)) == -1)
+                    {
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Failed to open() %s : %s"),
+                                   new_name, strerror(errno));
+                       (void)close(from_fd);
+#ifdef HAVE_MMAP
+                       (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                       (void)munmap_emu((void *)src_ptr);
+#endif
+                       return(INCORRECT);
+                    }
 
                     if ((*src_ptr == 1) &&
                         (*(src_ptr + 1) == 13) &&
@@ -351,6 +373,21 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                            write_length;
                     char   length_indicator[14];
 
+                    if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                      stat_buf.st_mode)) == -1)
+                    {
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Failed to open() %s : %s"),
+                                   new_name, strerror(errno));
+                       (void)close(from_fd);
+#ifdef HAVE_MMAP
+                       (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                       (void)munmap_emu((void *)src_ptr);
+#endif
+                       return(INCORRECT);
+                    }
+
                     if (*src_ptr != 1)
                     {
                        if ((stat_buf.st_size > 10) &&
@@ -389,7 +426,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                    front_offset = 12;
                                    additional_length = 4;
                                 }
-                                else if ((*(src_ptr + 11) == 13) &&
+                                else if (((*(src_ptr + 11) == 13) ||
+                                          (*(src_ptr + 11) == ' ')) &&
                                          (*(src_ptr + 12) == 10))
                                      {
                                         length_indicator[10] = 1;
@@ -452,7 +490,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                           front_offset = 2;
                           additional_length = 4;
                        }
-                       else if ((*(src_ptr + 1) == 13) &&
+                       else if (((*(src_ptr + 1) == 13) ||
+                                 (*(src_ptr + 1) == ' ')) &&
                                 (*(src_ptr + 2) == 10))
                             {
                                length_indicator[10] = 1;
@@ -579,6 +618,21 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                            *ptr,
                            *ptr_start;
 
+                    if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                      stat_buf.st_mode)) == -1)
+                    {
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Failed to open() %s : %s"),
+                                   new_name, strerror(errno));
+                       (void)close(from_fd);
+#ifdef HAVE_MMAP
+                       (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                       (void)munmap_emu((void *)src_ptr);
+#endif
+                       return(INCORRECT);
+                    }
+
                     ptr = src_ptr;
                     do
                     {
@@ -623,7 +677,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                    ptr += 2;
                                    add_sohcrcrlf = YES;
                                 }
-                                else if ((*(ptr + 1) == 13) &&
+                                else if (((*(ptr + 1) == 13) ||
+                                          (*(ptr + 1) == ' ')) &&
                                          (*(ptr + 2) == 10))
                                      {
                                         ptr += 3;
@@ -705,7 +760,9 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                 {
                                    end_length = 0;
                                 }
-                                else if ((*(ptr - 1) == 10) && (*(ptr - 2) == 13))
+                                else if ((*(ptr - 1) == 10) &&
+                                         ((*(ptr - 2) == 13) ||
+                                          (*(ptr - 2) == ' ')))
                                      {
                                         end_length = 4;
                                         length -= 3;
@@ -769,6 +826,21 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                  break;
 
               case MRZ2WMO :
+                 if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                   stat_buf.st_mode)) == -1)
+                 {
+                    receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                _("Failed to open() %s : %s"),
+                                new_name, strerror(errno));
+                    (void)close(from_fd);
+#ifdef HAVE_MMAP
+                    (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                    (void)munmap_emu((void *)src_ptr);
+#endif
+                    return(INCORRECT);
+                 }
+
                  if ((new_length = bin_file_convert(src_ptr, stat_buf.st_size,
                                                     to_fd)) < 0)
                  {
@@ -782,6 +854,21 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
               case ISO8859_2ASCII :
                  {
                     char *dst;
+
+                    if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
+                                      stat_buf.st_mode)) == -1)
+                    {
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                   _("Failed to open() %s : %s"),
+                                   new_name, strerror(errno));
+                       (void)close(from_fd);
+#ifdef HAVE_MMAP
+                       (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                       (void)munmap_emu((void *)src_ptr);
+#endif
+                       return(INCORRECT);
+                    }
 
                     if ((dst = malloc((stat_buf.st_size * 3))) == NULL)
                     {
@@ -827,7 +914,6 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                  (void)munmap_emu((void *)src_ptr);
 #endif
                  (void)close(from_fd);
-                 (void)close(to_fd);
                  return(INCORRECT);
            }
 
@@ -841,43 +927,54 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                           _("Failed to munmap() `%s' : %s"), fullname, strerror(errno));
            }
 
-           if ((close(from_fd) == -1) || (close(to_fd) == -1))
+           if (close(from_fd) == -1)
            {
               receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                           _("close() error : `%s'"), strerror(errno));
+           }
+           if (no_change == NO)
+           {
+              if (close(to_fd) == -1)
+              {
+                 receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                             _("close() error : `%s'"), strerror(errno));
+              }
            }
            orig_size = stat_buf.st_size;
         }
 
    /* Remove the file that has just been extracted. */
-   if (unlink(fullname) < 0)
+   if (no_change == NO)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  _("Failed to unlink() `%s' : %s"), fullname, strerror(errno));
-   }
-   else
-   {
-      if (rename(new_name, fullname) == -1)
+      if (unlink(fullname) < 0)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     _("Failed to rename() `%s' to `%s' : %s"),
-                     new_name, fullname, strerror(errno));
-         *file_size += new_length;
+                     _("Failed to unlink() `%s' : %s"), fullname, strerror(errno));
       }
       else
       {
-         *file_size += (new_length - orig_size);
+         if (rename(new_name, fullname) == -1)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        _("Failed to rename() `%s' to `%s' : %s"),
+                        new_name, fullname, strerror(errno));
+            *file_size += new_length;
+         }
+         else
+         {
+            *file_size += (new_length - orig_size);
+         }
       }
-   }
-   if (new_length == 0)
-   {
-      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+      if (new_length == 0)
+      {
+         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
 #if SIZEOF_OFF_T == 4
-                  _("No data converted in %s (%ld bytes)."),
+                     _("No data converted in %s (%ld bytes)."),
 #else
-                  _("No data converted in %s (%lld bytes)."),
+                     _("No data converted in %s (%lld bytes)."),
 #endif
-                  file_name, (pri_off_t)orig_size);
+                     file_name, (pri_off_t)orig_size);
+      }
    }
 
    return(SUCCESS);

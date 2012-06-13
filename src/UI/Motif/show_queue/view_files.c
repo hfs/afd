@@ -102,12 +102,14 @@ view_files(int no_selected, int *select_list)
    {
       (void)xrec(ERROR_DIALOG, "Failed to open() `%s' : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
+      free((void *)select_done_list);
       return;
    }
    if (fstat(fd, &stat_buf) == -1)
    {
       (void)xrec(ERROR_DIALOG, "Failed to fstat() `%s' : %s (%s %d)",
                  fullname, strerror(errno), __FILE__, __LINE__);
+      free((void *)select_done_list);
       (void)close(fd);
       return;
    }
@@ -120,6 +122,7 @@ view_files(int no_selected, int *select_list)
       {
          (void)xrec(ERROR_DIALOG, "Failed to mmap() to `%s' : %s (%s %d)",
                     fullname, strerror(errno), __FILE__, __LINE__);
+         free((void *)select_done_list);
          (void)close(fd);
          return;
       }
@@ -132,6 +135,7 @@ view_files(int no_selected, int *select_list)
    {
       (void)xrec(ERROR_DIALOG,
                  "Dirname database file is empty. (%s %d)", __FILE__, __LINE__);
+      free((void *)select_done_list);
       (void)close(fd);
       return;
    }

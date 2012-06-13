@@ -1,6 +1,6 @@
 /*
  *  make_xprocess.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,13 +87,18 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
    {
       size_t new_size = ((no_of_active_process / 10) + 1) *
                         10 * sizeof(struct apps_list);
+      struct apps_list *tmp_apps_list;
 
-      if ((apps_list = realloc(apps_list, new_size)) == NULL)
+      if ((tmp_apps_list = realloc(apps_list, new_size)) == NULL)
       {
+         int tmp_errno = errno;
+
+         free(apps_list);
          (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
+                    strerror(tmp_errno), __FILE__, __LINE__);
          return;
       }
+      apps_list = tmp_apps_list;
    }
 
    if ((pid = fork()) < 0)

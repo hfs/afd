@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -99,6 +99,7 @@ extern int              file_name_toggle_set,
                         no_of_search_dirs,
                         no_of_search_dirids,
                         no_of_search_hosts;
+extern unsigned int     all_list_items;
 extern XT_PTR_TYPE      dr_toggles_set;
 extern size_t           search_file_size;
 extern time_t           start_time_val,
@@ -189,7 +190,7 @@ static void             display_data(int, time_t, time_t),
 #define COMMON_BLOCK()                                     \
         {                                                  \
            int  count = 0;                                 \
-           char job_id_str[MAX_INT_HEX_LENGTH];            \
+           char job_id_str[MAX_INT_HEX_LENGTH + 1];        \
                                                            \
            ptr++;                                          \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);\
@@ -253,10 +254,13 @@ static void             display_data(int, time_t, time_t),
                   kk;                                      \
                                                            \
               id.dir[0] = '\0';                            \
-              get_info(GOT_JOB_ID_DIR_ONLY);               \
-              count = strlen(id.dir);                      \
-              id.dir[count] = SEPARATOR_CHAR;              \
-              id.dir[count + 1] = '\0';                    \
+              if (no_of_search_dirs > 0)                   \
+              {                                            \
+                 get_info(GOT_JOB_ID_DIR_ONLY);            \
+                 count = strlen(id.dir);                   \
+                 id.dir[count] = SEPARATOR_CHAR;           \
+                 id.dir[count + 1] = '\0';                 \
+              }                                            \
                                                            \
               for (kk = 0; kk < no_of_search_dirids; kk++) \
               {                                            \
@@ -492,7 +496,6 @@ get_data(void)
                 start_file_no = -1;
    time_t       end,
                 start;
-   double       total_trans_time;
    char         status_message[MAX_MESSAGE_LENGTH];
    struct stat  stat_buf;
    XmString     xstr;
@@ -585,7 +588,6 @@ get_data(void)
    {
       (void)sprintf(p_log_file, "%d", i);
       (void)extract_data(log_file, j);
-      total_trans_time += trans_time;
       if ((perm.list_limit > 0) && (total_no_files >= perm.list_limit))
       {
          break;
@@ -2104,6 +2106,7 @@ display_data(int    i,
    calculate_summary(summary_str, first_date_found, time_when_transmitted,
                      total_no_files, file_size);
    (void)strcpy(total_summary_str, summary_str);
+   all_list_items = total_no_files;
 
    xeev.type = Expose;
    xeev.display = display;

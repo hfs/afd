@@ -1,6 +1,6 @@
 /*
  *  get_group_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2002 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   get_group_list - read list from group file
  **
  ** SYNOPSIS
- **   void get_group_list(char *user)
+ **   void get_group_list(char *user, struct job *p_db)
  **
  ** DESCRIPTION
  **
@@ -38,6 +38,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   21.02.2002 H.Kiehl Created
+ **   10.03.2012 H.Kiehl We NOT take global struct job. We might be doing
+ **                      a burst.
  **
  */
 DESCR__E_M3
@@ -51,12 +53,11 @@ DESCR__E_M3
 
 /* External global variables. */
 extern char   *p_work_dir;
-extern struct job db;
 
 
 /*########################### get_group_list() ##########################*/
 void
-get_group_list(char *user)
+get_group_list(char *user, struct job *p_db)
 {
    off_t file_size;
    char  *buffer = NULL,
@@ -75,7 +76,7 @@ get_group_list(char *user)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Failed to locate group %s in group file.", user);
-         db.group_list = NULL;
+         p_db->group_list = NULL;
       }
       else
       {
@@ -93,7 +94,7 @@ get_group_list(char *user)
              * First count the number of groups.
              */
             length = 0;
-            db.no_listed = 0;
+            p_db->no_listed = 0;
             do
             {
                ptr++;
@@ -114,7 +115,7 @@ get_group_list(char *user)
                              max_length = length;
                           }
                           length = 0;
-                          db.no_listed++;
+                          p_db->no_listed++;
                        }
                     }
                else if ((*ptr == ' ') || (*ptr == '\t'))
@@ -131,7 +132,7 @@ get_group_list(char *user)
                              max_length = length;
                           }
                           length = 0;
-                          db.no_listed++;
+                          p_db->no_listed++;
                        }
                     }
 
@@ -142,11 +143,11 @@ get_group_list(char *user)
                }
             } while ((*ptr != '[') && (*ptr != '\0'));
 
-            if ((db.no_listed > 0) && (max_length > 0))
+            if ((p_db->no_listed > 0) && (max_length > 0))
             {
                int counter = 0;
 
-               RT_ARRAY(db.group_list, db.no_listed, max_length, char);
+               RT_ARRAY(p_db->group_list, p_db->no_listed, max_length, char);
                ptr = ptr_start;
                length = 0;
                do
@@ -164,7 +165,7 @@ get_group_list(char *user)
                           }
                           if (length > 0)
                           {
-                             db.group_list[counter][length] = '\0';
+                             p_db->group_list[counter][length] = '\0';
                              length = 0;
                              counter++;
                           }
@@ -177,13 +178,13 @@ get_group_list(char *user)
                        {
                           if ((*ptr == '\n') || (*ptr == '\0'))
                           {
-                             db.group_list[counter][length] = '\0';
+                             p_db->group_list[counter][length] = '\0';
                              length = 0;
                              counter++;
                           }
                           else
                           {
-                             db.group_list[counter][length] = *ptr;
+                             p_db->group_list[counter][length] = *ptr;
                              length++;
                           }
                        }
@@ -198,14 +199,14 @@ get_group_list(char *user)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "No group elements found for group %s.", user);
-               db.group_list = NULL;
+               p_db->group_list = NULL;
             }
          }
          else
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "No group elements found for group %s.", user);
-            db.group_list = NULL;
+            p_db->group_list = NULL;
          }
       }
       free(buffer);

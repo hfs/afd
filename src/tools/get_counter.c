@@ -1,6 +1,6 @@
 /*
  *  get_counter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,7 +76,7 @@ main(int argc, char *argv[])
    (void)strcat(counter_file, FIFO_DIR);
    (void)strcat(counter_file, COUNTER_FILE);
 #ifdef GROUP_CAN_WRITE
-   if ((fd = open(counter_file, O_RDWR, S_IRUSR | S_IWUSR | S_IWUSR | S_IRGRP)) < 0)
+   if ((fd = open(counter_file, O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) < 0)
 #else
    if ((fd = open(counter_file, O_RDWR, S_IRUSR | S_IWUSR)) < 0)
 #endif

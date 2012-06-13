@@ -1,6 +1,6 @@
 /*
  *  event_reason.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -119,7 +119,6 @@ popup_event_reason(int x_root, int y_root, int host_no)
          XmString x_string;
          int      display_height,
                   display_width,
-                  length,
                   lines,
                   max_length,
                   over_hang,
@@ -128,7 +127,7 @@ popup_event_reason(int x_root, int y_root, int host_no)
 
          /* Lets determine how many lines we are able to display. */
          display_height = DisplayHeight(display, DefaultScreen(display));
-         length = max_length = lines = 0;
+         max_length = lines = 0;
          ptr = event_reason;
 
          while (*ptr != '\0')
@@ -148,7 +147,6 @@ popup_event_reason(int x_root, int y_root, int host_no)
             {
                max_length = str_length;
             }
-            length += str_length;
             ptr += str_length;
          }
 

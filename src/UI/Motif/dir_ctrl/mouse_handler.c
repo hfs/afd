@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -301,6 +301,59 @@ dir_input(Widget      w,
                  }
                  else if (event->xkey.state & ShiftMask)
                       {
+                         if (connect_data[select_no].inverse == OFF)
+                         {
+                            int i;
+
+                            if (select_no > 0)
+                            {
+                               for (i = select_no - 1; i > 0; i--)
+                               {
+                                  if (connect_data[i].inverse != OFF)
+                                  {
+                                     break;
+                                  }
+                               }
+                            }
+                            else
+                            {
+                               i = 0;
+                            }
+                            if (connect_data[i].inverse != OFF)
+                            {
+                               int j;
+
+                               for (j = i + 1; j <= select_no; j++)
+                               {
+                                  connect_data[j].inverse = connect_data[i].inverse;
+                                  draw_dir_line_status(j, 1);
+                               }
+                            }
+                            else
+                            {
+                               connect_data[select_no].inverse = ON;
+                               no_selected++;
+                               draw_dir_line_status(select_no, 1);
+                            }
+                         }
+                         else
+                         {
+                            if (connect_data[select_no].inverse == ON)
+                            {
+                               connect_data[select_no].inverse = OFF;
+                               no_selected--;
+                            }
+                            else
+                            {
+                               connect_data[select_no].inverse = OFF;
+                               no_selected_static--;
+                            }
+                            draw_dir_line_status(select_no, 1);
+                         }
+                         XFlush(display);
+                      }
+                      else
+                      {
                          if (connect_data[select_no].inverse == ON)
                          {
                             connect_data[select_no].inverse = OFF;
@@ -458,6 +511,8 @@ dir_popup_cb(Widget    w,
    {
       (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
+      FREE_RT_ARRAY(dirs)
+      FREE_RT_ARRAY(hosts)
       return;
    }
 
@@ -525,6 +580,9 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_LOG);
          (void)strcpy(log_typ, SYSTEM_STR);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(dirs)
+         FREE_RT_ARRAY(hosts)
          return;
 
       case E_LOG_SEL : /* Event Log */
@@ -658,6 +716,9 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_FILE_LOAD);
 	 make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(dirs)
+         FREE_RT_ARRAY(hosts)
 	 return;
 
       case VIEW_KBYTE_LOAD_SEL : /* KByte Load */
@@ -672,6 +733,9 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_KBYTE_LOAD);
 	 make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(dirs)
+         FREE_RT_ARRAY(hosts)
 	 return;
 
       case VIEW_CONNECTION_LOAD_SEL : /* Connection Load */
@@ -686,6 +750,9 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_CONNECTION_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(dirs)
+         FREE_RT_ARRAY(hosts)
          return;
 
       case VIEW_TRANSFER_LOAD_SEL : /* Active Transfers Load */
@@ -700,6 +767,9 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_TRANSFER_LOAD);
          make_xprocess(progname, progname, args, -1);
+         free(args);
+         FREE_RT_ARRAY(dirs)
+         FREE_RT_ARRAY(hosts)
          return;
 
       case DIR_VIEW_DC_SEL : /* View DIR_CONFIG entries. */
@@ -849,6 +919,9 @@ dir_popup_cb(Widget    w,
             (void)xrec(FATAL_DIALOG, "Failed to attach to FSA! (%s %d)",
                        __FILE__, __LINE__);
          }
+         free(args);
+         FREE_RT_ARRAY(dirs)
+         FREE_RT_ARRAY(hosts)
          return;
       }
    }
@@ -1149,6 +1222,9 @@ dir_popup_cb(Widget    w,
                      XRaiseWindow(display, window_id);
                      XSetInputFocus(display, window_id, RevertToParent,
                                     CurrentTime);
+                     free(args);
+                     FREE_RT_ARRAY(dirs)
+                     FREE_RT_ARRAY(hosts)
                      return;
                   }
                }

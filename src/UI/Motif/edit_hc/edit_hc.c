@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -178,8 +178,10 @@ Widget                     active_mode_w,
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                            ftp_keepalive_w,
 #endif
+                           match_size_w,
                            max_errors_w,
                            mode_label_w,
+                           no_ageing_jobs_w,
                            no_source_icon_w,
                            passive_mode_w,
                            passive_redirect_w,
@@ -206,6 +208,7 @@ Widget                     active_mode_w,
 #endif
                            transfer_rate_limit_label_w,
                            transfer_rate_limit_w,
+                           transfer_timeout_label_w,
                            transfer_timeout_w,
                            use_file_when_local_w,
                            warn_time_days_w,
@@ -886,7 +889,7 @@ main(int argc, char *argv[])
    argcount++;
    box_w = XmCreateForm(form_w, "text_input_box", args, argcount);
 
-   label_w = XtVaCreateManagedWidget("Transfer timeout  :",
+   transfer_timeout_label_w = XtVaCreateManagedWidget("Transfer timeout  :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -907,7 +910,7 @@ main(int argc, char *argv[])
                            XmNtopAttachment,    XmATTACH_POSITION,
                            XmNtopPosition,      0,
                            XmNleftAttachment,   XmATTACH_WIDGET,
-                           XmNleftWidget,       label_w,
+                           XmNleftWidget,       transfer_timeout_label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(transfer_timeout_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -2070,6 +2073,46 @@ main(int argc, char *argv[])
    XtAddCallback(sort_file_names_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button2,
                  (XtPointer)SORT_FILE_NAMES_CHANGED);
+   no_ageing_jobs_w = XtVaCreateManagedWidget("No ageing jobs",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             sort_file_names_w,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(no_ageing_jobs_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)NO_AGEING_JOBS_CHANGED);
+   XtManageChild(box_w);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,        box_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightOffset,      SIDE_OFFSET);
+   argcount++;
+   box_w = XmCreateForm(form_w, "protocol_specific4_box_w", args, argcount);
+   match_size_w = XtVaCreateManagedWidget("Match size",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_FORM,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(match_size_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2, (XtPointer)CHECK_SIZE_CHANGED);
    XtManageChild(box_w);
 
 /*-----------------------------------------------------------------------*/
@@ -2201,6 +2244,17 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    {
       exit(INCORRECT);
    }
+
+   /* Do not start if binary dataset matches the one stort on disk. */
+   if (check_typesize_data() > 0)
+   {
+      (void)fprintf(stderr,
+                    "The compiled binary does not match stored database.\n");
+      (void)fprintf(stderr,
+                    "Initialize database with the command : afd -i\n");
+      exit(INCORRECT);
+   }
+
    if (get_arg(argc, argv, "-h", selected_host,
                MAX_HOSTNAME_LENGTH) == INCORRECT)
    {

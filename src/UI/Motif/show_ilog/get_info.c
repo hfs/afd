@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -100,10 +100,7 @@ get_info(int item)
       id.dir_id = get_all(item - 1);
       if (get_current_jid_list() == INCORRECT)
       {
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
    }
@@ -125,10 +122,7 @@ get_info(int item)
       {
          (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (fstat(jd_fd, &stat_buf) == -1)
@@ -136,10 +130,7 @@ get_info(int item)
          (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          (void)close(jd_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (stat_buf.st_size > 0)
@@ -152,10 +143,7 @@ get_info(int item)
             (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
             (void)close(jd_fd);
-            if (current_jid_list != NULL)
-            {
-               free(current_jid_list);
-            }
+            free(current_jid_list);
             return;
          }
          if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_JID_VERSION)
@@ -163,10 +151,7 @@ get_info(int item)
             (void)xrec(ERROR_DIALOG, "Incorrect JID version (data=%d current=%d)!",
                        *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_JID_VERSION);
             (void)close(jd_fd);
-            if (current_jid_list != NULL)
-            {
-               free(current_jid_list);
-            }
+            free(current_jid_list);
             return;
          }
          no_of_job_ids = (int *)ptr;
@@ -179,10 +164,7 @@ get_info(int item)
          (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(jd_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
 
@@ -193,10 +175,7 @@ get_info(int item)
       {
          (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (fstat(dnb_fd, &stat_buf) == -1)
@@ -204,10 +183,7 @@ get_info(int item)
          (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          (void)close(dnb_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (stat_buf.st_size > 0)
@@ -220,10 +196,7 @@ get_info(int item)
             (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
             (void)close(dnb_fd);
-            if (current_jid_list != NULL)
-            {
-               free(current_jid_list);
-            }
+            free(current_jid_list);
             return;
          }
          no_of_dir_names = (int *)ptr;
@@ -236,10 +209,7 @@ get_info(int item)
          (void)xrec(ERROR_DIALOG, "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(dnb_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
 
@@ -250,10 +220,7 @@ get_info(int item)
       {
          (void)xrec(ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (fstat(jd_fd, &stat_buf) == -1)
@@ -261,10 +228,7 @@ get_info(int item)
          (void)xrec(ERROR_DIALOG, "Failed to fstat() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          (void)close(jd_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
       if (stat_buf.st_size > 0)
@@ -277,10 +241,7 @@ get_info(int item)
             (void)xrec(ERROR_DIALOG, "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
             (void)close(jd_fd);
-            if (current_jid_list != NULL)
-            {
-               free(current_jid_list);
-            }
+            free(current_jid_list);
             return;
          }
          if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_DCID_VERSION)
@@ -288,10 +249,7 @@ get_info(int item)
             (void)xrec(ERROR_DIALOG, "Incorrect DCID version (data=%d current=%d)!",
                        *(ptr + SIZEOF_INT + 1 + 1 + 1), CURRENT_DCID_VERSION);
             (void)close(jd_fd);
-            if (current_jid_list != NULL)
-            {
-               free(current_jid_list);
-            }
+            free(current_jid_list);
             return;
          }
          no_of_dc_ids = (int *)ptr;
@@ -305,10 +263,7 @@ get_info(int item)
                     "DIR_CONFIG ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
          (void)close(jd_fd);
-         if (current_jid_list != NULL)
-         {
-            free(current_jid_list);
-         }
+         free(current_jid_list);
          return;
       }
    }
@@ -335,10 +290,7 @@ get_info(int item)
       }
    } /* for (i = 0; i < *no_of_dir_names; i++) */
 
-   if (current_jid_list != NULL)
-   {
-      free(current_jid_list);
-   }
+   free(current_jid_list);
    return;
 }
 
@@ -369,7 +321,7 @@ get_sum_data(int item, time_t *date, double *file_size)
       int  i;
       char *ptr,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
-           str_hex_number[23];
+           str_hex_number[23 + 1];
 
       /* Go to beginning of line to read complete line. */
       if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos],
@@ -464,7 +416,7 @@ get_all(int item)
       int  i;
       char *ptr,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
-           str_hex_number[23];
+           str_hex_number[23 + 1];
 
       if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos],
                 SEEK_SET) == -1)
@@ -548,7 +500,7 @@ get_all(int item)
       }
       if (*ptr == SEPARATOR_CHAR)
       {
-         char str_hex_number2[23];
+         char str_hex_number2[23 + 1];
 
          str_hex_number[i] = '\0';
          ptr++;
@@ -737,16 +689,12 @@ get_recipient_only(int dir_pos)
                  j;
    register char *ptr;
    int           gotcha,
-                 ret,
-                 size;
+                 ret;
    char          *file_mask_buf,
                  *p_file,
                  recipient[MAX_RECIPIENT_LENGTH];
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
-   size = strlen(id.dir);
-   id.dir[size] = ' ';
-   id.dir[size + 1] = '\0';
 
    id.count = 0;
    for (i = 0; i < *no_of_job_ids; i++)

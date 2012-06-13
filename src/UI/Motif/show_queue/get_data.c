@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -701,14 +701,20 @@ get_retrieve_jobs(void)
                                  }
                                  else
                                  {
-                                    if ((qfl = realloc((char *)qfl, new_size)) == NULL)
+                                    struct queued_file_list *tmp_qfl;
+
+                                    if ((tmp_qfl = realloc((char *)qfl, new_size)) == NULL)
                                     {
+                                       int tmp_errno = errno;
+
+                                       free(qfl);
                                        (void)xrec(FATAL_DIALOG,
                                                   "realloc() error : %s (%s %d)",
-                                                  strerror(errno),
+                                                  strerror(tmp_errno),
                                                   __FILE__, __LINE__);
                                        return;
                                     }
+                                    qfl = tmp_qfl;
                                  }
                               }
                               if ((qfl[total_no_files].file_name = malloc(1)) == NULL)
@@ -831,8 +837,7 @@ get_input_files(void)
                      if ((stat(queue_dir, &stat_buf) != -1) &&
                          (S_ISDIR(stat_buf.st_mode)))
                      {
-                        int gotcha,
-                            ret;
+                        int gotcha;
 
                         if (no_of_search_hosts == 0)
                         {
@@ -841,6 +846,7 @@ get_input_files(void)
                         else
                         {
                            register int j;
+                           int          ret;
 
                            gotcha = NO;
                            for (j = 0; j < no_of_search_hosts; j++)
@@ -861,9 +867,9 @@ get_input_files(void)
 
                         if (gotcha == YES)
                         {
-                           insert_file(queue_dir, p_file, "\0", &p_dir->d_name[1],
-                                       SHOW_INPUT, 0, -1, i, dnb[i].dir_id, 0,
-                                       fra_pos);
+                           insert_file(queue_dir, p_file, "\0",
+                                       &p_dir->d_name[1], SHOW_INPUT, 0, -1,
+                                       i, dnb[i].dir_id, 0, fra_pos);
                         }
                      }
                   }
@@ -980,8 +986,6 @@ get_all_input_files(void)
 static void
 get_time_jobs(void)
 {
-   int           gotcha,
-                 pos;
    char          fullname[MAX_PATH_LENGTH],
                  *p_file,
                  *p_queue;
@@ -995,6 +999,9 @@ get_time_jobs(void)
 
    if ((dp = opendir(fullname)) != NULL)
    {
+      int gotcha,
+          pos;
+
       while (((p_dir = readdir(dp)) != NULL) && (limit_reached == NO))
       {
          if (p_dir->d_name[0] != '.')
@@ -1299,13 +1306,20 @@ insert_file(char         *queue_dir,
                            }
                            else
                            {
-                              if ((qfl = realloc((char *)qfl, new_size)) == NULL)
+                              struct queued_file_list *tmp_qfl;
+
+                              if ((tmp_qfl = realloc((char *)qfl, new_size)) == NULL)
                               {
+                                 int tmp_errno = errno;
+
+                                 free(qfl);
                                  (void)xrec(FATAL_DIALOG,
                                             "realloc() error : %s (%s %d)",
-                                            strerror(errno), __FILE__, __LINE__);
+                                            strerror(tmp_errno),
+                                            __FILE__, __LINE__);
                                  return;
                               }
+                              qfl = tmp_qfl;
                            }
                         }
                         if ((qfl[total_no_files].file_name = malloc(strlen(dirp->d_name) + 1)) == NULL)
@@ -1350,14 +1364,20 @@ insert_file(char         *queue_dir,
                               }
                               else
                               {
-                                 if ((qtb = realloc((char *)qtb, new_size)) == NULL)
+                                 struct queue_tmp_buf *tmp_qtb;
+
+                                 if ((tmp_qtb = realloc((char *)qtb, new_size)) == NULL)
                                  {
+                                    int tmp_errno = errno;
+
+                                    free(qtb);
                                     (void)xrec(FATAL_DIALOG,
                                                "realloc() error : %s (%s %d)",
-                                               strerror(errno),
+                                               strerror(tmp_errno),
                                                __FILE__, __LINE__);
                                     return;
                                  }
+                                 qtb = tmp_qtb;
                               }
                            }
                            for (i = 0; i < queue_tmp_buf_entries; i++)

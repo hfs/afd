@@ -1,6 +1,6 @@
 /*
  *  show_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -79,9 +79,8 @@ DESCR__E_M1
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>                 /* getcwd(), exit(), close(),        */
-                                    /* STDERR_FILENO                     */
-#include <stdlib.h>                 /* getenv(), free(), malloc()        */
+#include <unistd.h>                 /* getcwd(), close(), STDERR_FILENO  */
+#include <stdlib.h>                 /* getenv(), free(), malloc(), exit()*/
 #ifdef HAVE_MMAP
 # include <sys/mman.h>              /* mmap(), munmap()                  */
 #endif
@@ -113,10 +112,8 @@ static void display_data(double, double, double, double);
 int
 main(int argc, char *argv[])
 {
-   register int i,
-                j;
+   register int i;
    int          current_year,
-                position,
                 show_min_range = 0,
                 show_min = -1,
                 show_min_summary = -1,
@@ -127,14 +124,9 @@ main(int argc, char *argv[])
                 show_year = -1,
                 show_time_stamp = 0,
                 show_old_year = NO,
-                no_of_hosts,
                 host_counter = -1,
-                stat_fd,
                 year;
    time_t       now;
-   double       nfs = 0.0, nbs = 0.0, nc = 0.0, ne = 0.0,
-                tmp_nfs = 0.0, tmp_nbs = 0.0, tmp_nc = 0.0, tmp_ne = 0.0,
-                total_nfs = 0.0, total_nbs = 0.0, total_nc = 0.0, total_ne = 0.0;
    char         work_dir[MAX_PATH_LENGTH],
                 statistic_file_name[MAX_FILENAME_LENGTH],
                 statistic_file[MAX_PATH_LENGTH];
@@ -230,6 +222,15 @@ main(int argc, char *argv[])
    }
    if (stat_buf.st_size > 0)
    {
+      register int j;
+      int          no_of_hosts,
+                   position,
+                   stat_fd;
+      double       nfs = 0.0, nbs = 0.0, nc = 0.0, ne = 0.0,
+                   tmp_nfs = 0.0, tmp_nbs = 0.0, tmp_nc = 0.0, tmp_ne = 0.0,
+                   total_nfs = 0.0, total_nbs = 0.0, total_nc = 0.0,
+                   total_ne = 0.0;
+
       /* Open file */
       if ((stat_fd = open(statistic_file, O_RDONLY)) < 0)
       {

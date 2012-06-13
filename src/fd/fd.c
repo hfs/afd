@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -89,11 +89,15 @@ DESCR__E_M1
 #endif
 #include <sys/mman.h>         /* msync(), munmap()                       */
 #include <sys/time.h>         /* struct timeval                          */
+#ifdef HAVE_SETPRIORITY
+# include <sys/resource.h>    /* getpriority(), setpriority()            */
+#endif
 #include <sys/wait.h>         /* waitpid()                               */
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
 #include <errno.h>
 #include "fddefs.h"
 #include "smtpdefs.h"         /* For SMTP_HOST_NAME.                     */
+#include "httpdefs.h"         /* For HTTP_PROXY_NAME.                    */
 #include "logdefs.h"
 #include "version.h"
 
@@ -107,6 +111,12 @@ int                        amg_flag = NO,
                            delete_jobs_fd,
                            event_log_fd = STDERR_FILENO,
                            fd_cmd_fd,
+#ifdef HAVE_SETPRIORITY
+                           add_afd_priority = DEFAULT_ADD_AFD_PRIORITY_DEF,
+                           current_priority = 0,
+                           max_sched_priority = DEFAULT_MAX_NICE_VALUE,
+                           min_sched_priority = DEFAULT_MIN_NICE_VALUE,
+#endif
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                            delete_jobs_writefd,
                            fd_cmd_writefd,
@@ -163,6 +173,7 @@ char                       stop_flag = 0,
                            str_remote_file_check_interval[MAX_INT_LENGTH],
                            file_dir[MAX_PATH_LENGTH],
                            msg_dir[MAX_PATH_LENGTH],
+                           default_http_proxy[MAX_REAL_HOSTNAME_LENGTH + 1 + MAX_INT_LENGTH],
                            *default_smtp_from,
                            *default_smtp_reply_to,
                            default_smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1 + MAX_INT_LENGTH];
@@ -180,6 +191,8 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 /* Local global variables. */
 static int                 no_of_local_interfaces = 0;
 static char                **local_interface_names = NULL;
+static uid_t               euid, /* Effective user ID. */
+                           ruid; /* Real user ID. */
 static time_t              now;
 static double              max_threshold;
 
@@ -285,6 +298,18 @@ main(int argc, char *argv[])
 #endif
    CHECK_FOR_VERSION(argc, argv);
 
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to set back to the real user ID : %s",
+                    strerror(errno));
+      }
+   }
+
    /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
@@ -308,6 +333,16 @@ main(int argc, char *argv[])
 	            "Process FD already started by %s", ptr);
          exit(INCORRECT);
       }
+   }
+
+   /* Do not start if binary dataset matches the one stort on disk. */
+   if (check_typesize_data() > 0)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "The compiled binary does not match stored database.");
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Initialize database with the command : afd -i");
+      exit(INCORRECT);
    }
 
    /* Initialise variables. */
@@ -597,6 +632,9 @@ main(int argc, char *argv[])
               "FD configuration: Number of TRL groups          %d",
               no_of_trl_groups);
    system_log(DEBUG_SIGN, NULL, 0,
+              "FD configuration: Default HTTP proxy            %s",
+              (default_http_proxy[0] == '\0') ? HTTP_PROXY_NAME : default_http_proxy);
+   system_log(DEBUG_SIGN, NULL, 0,
               "FD configuration: Default SMTP server           %s",
               (default_smtp_server[0] == '\0') ? SMTP_HOST_NAME : default_smtp_server);
    if (default_smtp_from != NULL)
@@ -675,12 +713,13 @@ main(int argc, char *argv[])
             {
                if (connection[i].pid > 0)
                {
-                  int faulty,
-                      qb_pos;
+                  int qb_pos;
 
                   qb_pos_pid(connection[i].pid, &qb_pos);
                   if (qb_pos != -1)
                   {
+                     int faulty;
+
                      if ((faulty = zombie_check(&connection[i], now, &qb_pos,
                                                 WNOHANG)) == NO)
                      {
@@ -721,6 +760,17 @@ main(int argc, char *argv[])
                                "GOTCHA! Caught some unknown zombie with pid %lld",
 #endif
                                (pri_pid_t)ret);
+
+                    /* Double check if this is not still in the */
+                    /* connection structure.                    */
+                    for (i = 0; i < max_connections; i++)
+                    {
+                       if (connection[i].pid == ret)
+                       {
+                          remove_connection(&connection[i], NEITHER, now);
+                          break;
+                       }
+                    }
                  }
                  if ((ret == -1) && (errno != ECHILD))
                  {
@@ -939,6 +989,9 @@ system_log(DEBUG_SIGN, NULL, 0,
                      }
 
                      /* Put data in queue. */
+#ifdef HAVE_SETPRIORITY
+                     qb[qb_pos].msg_name[MAX_MSG_NAME_LENGTH - 1] = fra[retrieve_list[i]].priority - '0';
+#endif
                      qb[qb_pos].msg_name[0] = '\0';
                      qb[qb_pos].msg_number = msg_number;
                      qb[qb_pos].creation_time = now;
@@ -1683,6 +1736,12 @@ system_log(DEBUG_SIGN, NULL, 0,
                         qb_pos = 0;
                      }
 
+#ifdef HAVE_SETPRIORITY
+                     qb[qb_pos].msg_name[MAX_MSG_NAME_LENGTH - 1] = *msg_priority - '0';
+                     /* NOTE: We write the priority before in case   */
+                     /*       msg_name is really MAX_MSG_NAME_LENGTH */
+                     /*       long.                                  */
+#endif
                      (void)sprintf(qb[qb_pos].msg_name,
 #if SIZEOF_TIME_T == 4
                                    "%x/%x/%lx_%x_%x",
@@ -2206,6 +2265,53 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                                          (pri_pid_t)qb[exec_qb_pos].pid, strerror(errno));
                            }
                            p_afd_status->burst2_counter++;
+#ifdef HAVE_SETPRIORITY
+                           if (add_afd_priority == YES)
+                           {
+                              int sched_priority;
+
+                              sched_priority = current_priority + qb[qb_pos].msg_name[MAX_MSG_NAME_LENGTH - 1];
+                              if (sched_priority > min_sched_priority)
+                              {
+                                 sched_priority = min_sched_priority;
+                              }
+                              else if (sched_priority < max_sched_priority)
+                                   {
+                                      sched_priority = max_sched_priority;
+                                   }
+                              if (euid != ruid)
+                              {
+                                 if (seteuid(euid) == -1)
+                                 {
+                                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                                               "Failed to set the effective user ID : %s",
+                                               strerror(errno));
+                                 }
+                              }
+                              if (setpriority(PRIO_PROCESS, qb[qb_pos].pid,
+                                              sched_priority) == -1)
+                              {
+                                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+# if SIZEOF_PID_T == 4
+                                            "Failed to setpriority() to %d of process %d : %s",
+# else
+                                            "Failed to setpriority() to %d of process %lld : %s",
+# endif
+                                            sched_priority,
+                                            (pri_pid_t)qb[qb_pos].pid,
+                                            strerror(errno));
+                              }
+                              if (euid != ruid)
+                              {
+                                 if (seteuid(ruid) == -1)
+                                 {
+                                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                                               "Failed to set back to the real user ID : %s",
+                                               strerror(errno));
+                                 }
+                              }
+                           }
+#endif /* HAVE_SETPRIORITY */
                         }
                         else
                         {
@@ -2372,8 +2478,8 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                      last_pos_lookup = INCORRECT;
                   }
 #endif
-                  (void)strcpy(fsa[fsa_pos].job_status[connection[pos].job_no].unique_name,
-                               qb[qb_pos].msg_name);
+                  (void)memcpy(fsa[fsa_pos].job_status[connection[pos].job_no].unique_name,
+                               qb[qb_pos].msg_name, MAX_MSG_NAME_LENGTH);
                   if ((fsa[fsa_pos].error_counter == 0) &&
                       (fsa[fsa_pos].auto_toggle == ON) &&
                       (fsa[fsa_pos].original_toggle_pos != NONE) &&
@@ -2401,6 +2507,52 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                                                           qb_pos)) > 0)
                   {
                      pid = fsa[fsa_pos].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
+#ifdef HAVE_SETPRIORITY
+                     if (add_afd_priority == YES)
+                     {
+                        int sched_priority;
+
+                        sched_priority = current_priority + qb[qb_pos].msg_name[MAX_MSG_NAME_LENGTH - 1];
+                        if (sched_priority > min_sched_priority)
+                        {
+                           sched_priority = min_sched_priority;
+                        }
+                        else if (sched_priority < max_sched_priority)
+                             {
+                                sched_priority = max_sched_priority;
+                             }
+                        if (euid != ruid)
+                        {
+                           if (seteuid(euid) == -1)
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Failed to set the effective user ID : %s",
+                                         strerror(errno));
+                           }
+                        }
+                        if (setpriority(PRIO_PROCESS, pid,
+                                        sched_priority) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+# if SIZEOF_PID_T == 4
+                                      "Failed to setpriority() to %d of process %d : %s",
+# else
+                                      "Failed to setpriority() to %d of process %lld : %s",
+# endif
+                                      sched_priority, (pri_pid_t)pid,
+                                      strerror(errno));
+                        }
+                        if (euid != ruid)
+                        {
+                           if (seteuid(ruid) == -1)
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Failed to set back to the real user ID : %s",
+                                         strerror(errno));
+                           }
+                        }
+                     }
+#endif /* HAVE_SETPRIORITY */
                      fsa[fsa_pos].active_transfers += 1;
                      if ((fsa[fsa_pos].transfer_rate_limit > 0) ||
                          (no_of_trl_groups > 0))
@@ -2459,7 +2611,7 @@ make_process(struct connection *con, int qb_pos)
 {
    int   argcount;
    pid_t pid;
-   char  *args[14],
+   char  *args[20],
 #ifdef USE_SPRINTF
          str_job_no[MAX_INT_LENGTH],
          str_fsa_pos[MAX_INT_LENGTH],
@@ -2674,6 +2826,10 @@ make_process(struct connection *con, int qb_pos)
                  args[0] = SEND_FILE_SMTP;
               }
            }
+      else if (con->protocol == EXEC)
+           {
+              args[0] = SEND_FILE_EXEC;
+           }
            else
            {
               system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -2754,6 +2910,16 @@ make_process(struct connection *con, int qb_pos)
          args[argcount] = "-s";
          argcount++;
          args[argcount] = default_smtp_server;
+      }
+   }
+   if (con->protocol == HTTP)
+   {
+      if (default_http_proxy[0] != '\0')
+      {
+         argcount++;
+         args[argcount] = "-h";
+         argcount++;
+         args[argcount] = default_http_proxy;
       }
    }
    if (qb[qb_pos].retries > 0)
@@ -2907,12 +3073,19 @@ zombie_check(struct connection *p_con,
 {
    if (p_con->pid > 0)
    {
-      int   faulty = YES,
-            status;
-      pid_t ret;
+      int           faulty = YES,
+                    status;
+      pid_t         ret;
+#ifdef HAVE_WAIT4
+      struct rusage ru;
+#endif
 
       /* Wait for process to terminate. */
+#ifdef HAVE_WAIT4
+      if ((ret = wait4(p_con->pid, &status, options, &ru)) == p_con->pid)
+#else
       if ((ret = waitpid(p_con->pid, &status, options)) == p_con->pid)
+#endif
       {
          if (WIFEXITED(status))
          {
@@ -2979,7 +3152,7 @@ zombie_check(struct connection *p_con,
                   }
                   else
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
 #ifdef WITH_MULTI_FSA_CHECKS
                      if (fd_check_fsa() == YES)
@@ -3080,7 +3253,7 @@ zombie_check(struct connection *p_con,
 
                case MAIL_ERROR            : /* Failed to send mail to remote host. */
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                      (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                      (void)rec(transfer_log_fd, WARN_SIGN,
@@ -3162,10 +3335,14 @@ zombie_check(struct connection *p_con,
                case CLOSE_REMOTE_ERROR    : /* Close remote file. */
                case MKDIR_ERROR           : /* */
                case MOVE_ERROR            : /* Move file locally. */
-               case STAT_TARGET_ERROR     : /* Tailed to access target dir. */
+               case STAT_TARGET_ERROR     : /* Failed to access target dir. */
                case MOVE_REMOTE_ERROR     : /* */
                case OPEN_REMOTE_ERROR     : /* Failed to open remote file. */
                case LIST_ERROR            : /* Sending the LIST command failed. */
+               case EXEC_ERROR            : /* Failed to execute command for */
+                                            /* scheme exec.                  */
+               case FILE_SIZE_MATCH_ERROR : /* Local and remote file size do */
+                                            /* not match.                    */
                   if ((remove_error_jobs_not_in_queue == YES) &&
                       (mdb[qb[*qb_pos].pos].in_current_fsa != YES) &&
                       (p_con->msg_name[0] != '\0'))
@@ -3186,106 +3363,120 @@ zombie_check(struct connection *p_con,
                   }
                   else
                   {
-                     if (*qb_pos < *no_msg_queued)
+                     if (fsa[p_con->fsa_pos].protocol_options & NO_AGEING_JOBS)
                      {
-                        if (qb[*qb_pos].msg_number < max_threshold)
-                        {
-                           register int i = *qb_pos + 1;
-
-                           /*
-                            * Increase the message number, so that this job
-                            * will decrease in priority and resort the queue.
-                            */
-                           if (qb[*qb_pos].retries < RETRY_THRESHOLD)
-                           {
 #ifdef WITH_ERROR_QUEUE
-                              if (p_con->msg_name[0] != '\0')
+                        if ((p_con->msg_name[0] != '\0') &&
+                            (fsa[p_con->fsa_pos].host_status & ERROR_QUEUE_SET))
+                        {
+                           update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                   now + fsa[p_con->fsa_pos].retry_interval);
+                        }
+#endif
+                     }
+                     else
+                     {
+                        if (*qb_pos < *no_msg_queued)
+                        {
+                           if (qb[*qb_pos].msg_number < max_threshold)
+                           {
+                              register int i = *qb_pos + 1;
+
+                              /*
+                               * Increase the message number, so that this job
+                               * will decrease in priority and resort the queue.
+                               */
+                              if (qb[*qb_pos].retries < RETRY_THRESHOLD)
                               {
-                                 if (qb[*qb_pos].retries == 1)
+#ifdef WITH_ERROR_QUEUE
+                                 if (p_con->msg_name[0] != '\0')
                                  {
-                                    add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                                       fsa, p_con->fsa_pos, fsa_fd,
-                                                       exit_status,
-                                                       now + fsa[p_con->fsa_pos].retry_interval);
+                                    if (qb[*qb_pos].retries == 1)
+                                    {
+                                       add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                          fsa, p_con->fsa_pos, fsa_fd,
+                                                          exit_status,
+                                                          now + fsa[p_con->fsa_pos].retry_interval);
+                                    }
+                                    else
+                                    {
+                                       update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                               now + fsa[p_con->fsa_pos].retry_interval);
+                                    }
                                  }
-                                 else
+#endif
+                                 qb[*qb_pos].msg_number += 60000000.0;
+                              }
+                              else
+                              {
+#ifdef WITH_ERROR_QUEUE
+                                 if (p_con->msg_name[0] != '\0')
                                  {
                                     update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
                                                             now + fsa[p_con->fsa_pos].retry_interval);
                                  }
-                              }
 #endif
-                              qb[*qb_pos].msg_number += 60000000.0;
-                           }
-                           else
-                           {
-#ifdef WITH_ERROR_QUEUE
-                              if (p_con->msg_name[0] != '\0')
+                                 qb[*qb_pos].msg_number += ((double)qb[*qb_pos].creation_time * 10000.0 *
+                                                           (double)(qb[*qb_pos].retries - RETRY_THRESHOLD - 1));
+                              }
+                              while ((i < *no_msg_queued) &&
+                                     (qb[*qb_pos].msg_number > qb[i].msg_number))
                               {
-                                 update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                                         now + fsa[p_con->fsa_pos].retry_interval);
+                                 i++;
                               }
-#endif
-                              qb[*qb_pos].msg_number += ((double)qb[*qb_pos].creation_time * 10000.0 *
-                                                        (double)(qb[*qb_pos].retries - RETRY_THRESHOLD - 1));
-                           }
-                           while ((i < *no_msg_queued) &&
-                                  (qb[*qb_pos].msg_number > qb[i].msg_number))
-                           {
-                              i++;
-                           }
-                           if (i > (*qb_pos + 1))
-                           {
-                              size_t           move_size;
-                              struct queue_buf tmp_qb;
+                              if (i > (*qb_pos + 1))
+                              {
+                                 size_t           move_size;
+                                 struct queue_buf tmp_qb;
 
-                              (void)memcpy(&tmp_qb, &qb[*qb_pos],
-                                           sizeof(struct queue_buf));
-                              i--;
-                              move_size = (i - *qb_pos) * sizeof(struct queue_buf);
-                              (void)memmove(&qb[*qb_pos], &qb[*qb_pos + 1], move_size);
-                              (void)memcpy(&qb[i], &tmp_qb,
-                                           sizeof(struct queue_buf));
-                              *qb_pos = i;
-                           }
-                        }
-#ifdef WITH_ERROR_QUEUE
-                        else
-                        {
-                           if (qb[*qb_pos].retries < RETRY_THRESHOLD)
-                           {
-                              if (p_con->msg_name[0] != '\0')
-                              {
-                                 if (qb[*qb_pos].retries == 1)
-                                 {
-                                    add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                                       fsa, p_con->fsa_pos, fsa_fd,
-                                                       exit_status,
-                                                       now + fsa[p_con->fsa_pos].retry_interval);
-                                 }
-                                 else
-                                 {
-                                    update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                                            now + fsa[p_con->fsa_pos].retry_interval);
-                                 }
+                                 (void)memcpy(&tmp_qb, &qb[*qb_pos],
+                                              sizeof(struct queue_buf));
+                                 i--;
+                                 move_size = (i - *qb_pos) * sizeof(struct queue_buf);
+                                 (void)memmove(&qb[*qb_pos], &qb[*qb_pos + 1], move_size);
+                                 (void)memcpy(&qb[i], &tmp_qb,
+                                              sizeof(struct queue_buf));
+                                 *qb_pos = i;
                               }
                            }
+#ifdef WITH_ERROR_QUEUE
                            else
                            {
-                              if (p_con->msg_name[0] != '\0')
+                              if (qb[*qb_pos].retries < RETRY_THRESHOLD)
                               {
-                                 if (update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                                             now + fsa[p_con->fsa_pos].retry_interval) == NEITHER)
+                                 if (p_con->msg_name[0] != '\0')
                                  {
-                                    add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                                       fsa, p_con->fsa_pos, fsa_fd,
-                                                       exit_status,
-                                                       now + fsa[p_con->fsa_pos].retry_interval);
+                                    if (qb[*qb_pos].retries == 1)
+                                    {
+                                       add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                          fsa, p_con->fsa_pos, fsa_fd,
+                                                          exit_status,
+                                                          now + fsa[p_con->fsa_pos].retry_interval);
+                                    }
+                                    else
+                                    {
+                                       update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                               now + fsa[p_con->fsa_pos].retry_interval);
+                                    }
+                                 }
+                              }
+                              else
+                              {
+                                 if (p_con->msg_name[0] != '\0')
+                                 {
+                                    if (update_time_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                                now + fsa[p_con->fsa_pos].retry_interval) == NEITHER)
+                                    {
+                                       add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                                          fsa, p_con->fsa_pos, fsa_fd,
+                                                          exit_status,
+                                                          now + fsa[p_con->fsa_pos].retry_interval);
+                                    }
                                  }
                               }
                            }
-                        }
 #endif
+                        }
                      }
                      if (fsa[p_con->fsa_pos].first_error_time == 0L)
                      {
@@ -3296,7 +3487,7 @@ zombie_check(struct connection *p_con,
 
                case STAT_ERROR            : /* */
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                      (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                      if (fsa[p_con->fsa_pos].first_error_time == 0L)
@@ -3312,7 +3503,7 @@ zombie_check(struct connection *p_con,
 
                case LOCK_REGION_ERROR     : /* */
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                      (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                      (void)rec(transfer_log_fd, WARN_SIGN,
@@ -3324,7 +3515,7 @@ zombie_check(struct connection *p_con,
 
                case UNLOCK_REGION_ERROR   : /* */
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                      (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                      (void)rec(transfer_log_fd, WARN_SIGN,
@@ -3435,7 +3626,7 @@ zombie_check(struct connection *p_con,
 
                case ALLOC_ERROR           : /* */
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                      (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                      (void)rec(transfer_log_fd, WARN_SIGN,
@@ -3447,7 +3638,7 @@ zombie_check(struct connection *p_con,
 
                default                    : /* Unknown error. */
                   {
-                     char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                     char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                      (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                      (void)rec(transfer_log_fd, WARN_SIGN,
@@ -3477,6 +3668,25 @@ zombie_check(struct connection *p_con,
                fsa[p_con->fsa_pos].error_history[0] = (unsigned char)exit_status;
             }
 
+#ifdef HAVE_WAIT4
+            p_afd_status->fd_child_utime.tv_usec += ru.ru_utime.tv_usec;
+            if (p_afd_status->fd_child_utime.tv_usec > 1000000000L)
+            {
+               p_afd_status->fd_child_utime.tv_sec++;
+               p_afd_status->fd_child_utime.tv_usec -= 1000000000L;
+            }
+            p_afd_status->fd_child_utime.tv_sec += ru.ru_utime.tv_sec;
+
+            /* System CPU time. */
+            p_afd_status->fd_child_stime.tv_usec += ru.ru_stime.tv_usec;
+            if (p_afd_status->fd_child_stime.tv_usec > 1000000000L)
+            {
+               p_afd_status->fd_child_stime.tv_sec++;
+               p_afd_status->fd_child_stime.tv_usec -= 1000000000L;
+            }
+            p_afd_status->fd_child_stime.tv_sec += ru.ru_stime.tv_sec;
+#endif
+
             /*
              * When auto_toggle is active and we have just tried
              * the original host, lets not slow things done by
@@ -3493,7 +3703,7 @@ zombie_check(struct connection *p_con,
          else if (WIFSIGNALED(status))
               {
                  int  signum;
-                 char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                 char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                  /* Abnormal termination. */
 #ifdef WITH_MULTI_FSA_CHECKS
@@ -3545,7 +3755,7 @@ zombie_check(struct connection *p_con,
               }
          else if (WIFSTOPPED(status))
               {
-                 char tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+                 char tr_hostname[MAX_HOSTNAME_LENGTH + 2];
 
                  (void)strcpy(tr_hostname, fsa[p_con->fsa_pos].host_dsp_name);
                  (void)rec(transfer_log_fd, WARN_SIGN,
@@ -3674,7 +3884,11 @@ get_afd_config_value(void)
    if ((eaccess(config_file, F_OK) == 0) &&
        (read_file_no_cr(config_file, &buffer) != INCORRECT))
    {
-      char value[MAX_REAL_HOSTNAME_LENGTH];
+#if MAX_RECIPIENT_LENGTH > (MAX_REAL_HOSTNAME_LENGTH + 1 + MAX_INT_LENGTH)
+      char value[MAX_RECIPIENT_LENGTH];
+#else
+      char value[MAX_REAL_HOSTNAME_LENGTH + 1 + MAX_INT_LENGTH];
+#endif
 
       if (get_definition(buffer, MAX_CONNECTIONS_DEF,
                          value, MAX_INT_LENGTH) != NULL)
@@ -3752,6 +3966,15 @@ get_afd_config_value(void)
             *(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) ^= ENABLE_CREATE_TARGET_DIR;
          }
       }
+      if (get_definition(buffer, DEFAULT_HTTP_PROXY_DEF,
+                         value, MAX_REAL_HOSTNAME_LENGTH + 1 + MAX_INT_LENGTH) != NULL)
+      {
+         (void)strcpy(default_http_proxy, value);
+      }
+      else
+      {
+          default_http_proxy[0] = '\0';
+      }
       if (get_definition(buffer, DEFAULT_SMTP_SERVER_DEF,
                          value, MAX_REAL_HOSTNAME_LENGTH + 1 + MAX_INT_LENGTH) != NULL)
       {
@@ -3808,6 +4031,79 @@ get_afd_config_value(void)
             remove_error_jobs_not_in_queue = YES;
          }
       }
+#ifdef HAVE_SETPRIORITY
+      if (get_definition(buffer, FD_PRIORITY_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         current_priority = atoi(value);
+         if (setpriority(PRIO_PROCESS, 0, current_priority) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Failed to set priority to %d : %s",
+                       current_priority, strerror(errno));
+            errno = 0;
+            if (((current_priority = getpriority(PRIO_PROCESS, 0)) == -1) &&
+                (errno != 0))
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to getpriority() : %s", strerror(errno));
+               current_priority = 0;
+            }
+         }
+      }
+      else
+      {
+         errno = 0;
+         if (((current_priority = getpriority(PRIO_PROCESS, 0)) == -1) &&
+             (errno != 0))
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to getpriority() : %s", strerror(errno));
+            current_priority = 0;
+         }
+      }
+      if (euid == 0) /* Only root can increase priority! */
+      {
+         if (get_definition(buffer, ADD_AFD_PRIORITY_DEF,
+                            value, MAX_INT_LENGTH) != NULL)
+         {
+            if (((value[0] == 'n') || (value[0] == 'N')) &&
+                ((value[1] == 'o') || (value[1] == 'O')) &&
+                ((value[2] == '\0') || (value[2] == ' ') || (value[2] == '\t')))
+            {
+               add_afd_priority = NO;
+            }
+            else if (((value[0] == 'y') || (value[0] == 'Y')) &&
+                     ((value[1] == 'e') || (value[1] == 'E')) &&
+                     ((value[2] == 's') || (value[2] == 'S')) &&
+                     ((value[3] == '\0') || (value[3] == ' ') || (value[3] == '\t')))
+                 {
+                    add_afd_priority = YES;
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Only YES or NO (and not `%s') are possible for %s in AFD_CONFIG. Setting to default: %s",
+                               value, ADD_AFD_PRIORITY_DEF,
+                               (add_afd_priority == YES) ? "YES" : "NO");
+                 }
+         }
+         if (get_definition(buffer, MAX_NICE_VALUE_DEF,
+                            value, MAX_INT_LENGTH) != NULL)
+         {
+            max_sched_priority = atoi(value);
+         }
+         if (get_definition(buffer, MIN_NICE_VALUE_DEF,
+                            value, MAX_INT_LENGTH) != NULL)
+         {
+            min_sched_priority = atoi(value);
+         }
+      }
+      else
+      {
+         add_afd_priority = NO;
+      }
+#endif
       free(buffer);
    }
    else
@@ -3854,6 +4150,7 @@ get_local_interface_names(void)
             if (local_interface_names != NULL)
             {
                FREE_RT_ARRAY(local_interface_names);
+               local_interface_names = NULL;
             }
             no_of_local_interfaces = 0;
             interface_file_time = stat_buf.st_mtime;
@@ -3935,10 +4232,7 @@ get_local_interface_names(void)
                   }
                }
             }
-            if (buffer != NULL)
-            {
-               free(buffer);
-            }
+            free(buffer);
          }
       }
    }
@@ -4103,12 +4397,13 @@ fd_exit(void)
       {
          if (connection[i].pid > 0)
          {
-            int faulty,
-                qb_pos;
+            int qb_pos;
 
             qb_pos_pid(connection[i].pid, &qb_pos);
             if (qb_pos != -1)
             {
+               int faulty;
+
                if (((faulty = zombie_check(&connection[i], now, &qb_pos,
                                            WNOHANG)) == YES) ||
                    (faulty == NONE))
@@ -4169,13 +4464,14 @@ fd_exit(void)
          }
          else
          {
-            int faulty,
-                qb_pos;
+            int qb_pos;
 
             jobs_killed++;
             qb_pos_pid(connection[i].pid, &qb_pos);
             if (qb_pos != -1)
             {
+               int faulty;
+
                if (((faulty = zombie_check(&connection[i], now,
                                           &qb_pos, 0)) == YES) ||
                    (faulty == NONE))
@@ -4274,11 +4570,8 @@ fd_exit(void)
    }
 
    /* Free all memory that we allocated. */
-   if (connection != NULL)
-   {
-      free(connection);
-      connection = NULL;
-   }
+   free(connection);
+   connection = NULL;
 
    /* Set number of transfers to zero. */
    p_afd_status->no_of_transfers = 0;

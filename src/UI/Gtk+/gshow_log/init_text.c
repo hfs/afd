@@ -189,8 +189,11 @@ read_text(void)
       }
       if (read(fd, src, stat_buf.st_size) != stat_buf.st_size)
       {
+         int tmp_errno = errno;
+
+         (void)free(src);
          (void)xrec(FATAL_DIALOG, "read() error : %s (%s %d)",
-                    strerror(errno), __FILE__, __LINE__);
+                    strerror(tmp_errno), __FILE__, __LINE__);
          return;
       }
 #endif

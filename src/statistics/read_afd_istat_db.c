@@ -1,6 +1,6 @@
 /*
  *  read_afd_istat_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,6 @@ read_afd_istat_db(int no_of_dirs)
 {
    int             old_status_fd = -1,
                    new_status_fd,
-                   position,
                    i;
    time_t          now;
    static int      no_of_old_dirs = 0;
@@ -273,6 +272,8 @@ read_afd_istat_db(int no_of_dirs)
    }
    else
    {
+      int position;
+
       for (i = 0; i < no_of_dirs; i++)
       {
          if ((position = locate_dir(old_istat_db,

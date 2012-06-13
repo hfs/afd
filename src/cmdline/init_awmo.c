@@ -1,6 +1,6 @@
 /*
  *  init_awmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2010 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ DESCR__E_M3
 
 #include <stdio.h>                 /* stderr, fprintf()                  */
 #include <stdlib.h>                /* exit(), atoi()                     */
-#include <string.h>                /* strcpy(), strerror(), strcmp()     */
+#include <string.h>                /* strerror(), strcmp()               */
 #include <ctype.h>                 /* isdigit()                          */
 #include <errno.h>
 #include "cmdline.h"
@@ -81,7 +81,7 @@ init_awmo(int argc, char *argv[], struct data *p_db)
    {
       ptr++;
    }
-   (void)strcpy(name, ptr);
+   (void)my_strncpy(name, ptr, 30);
    if (name[0] == 't')
    {
       p_db->exec_mode = TEST_MODE;
@@ -148,7 +148,7 @@ init_awmo(int argc, char *argv[], struct data *p_db)
                char filename_file[MAX_PATH_LENGTH];
 
                argv++;
-               (void)strcpy(filename_file, argv[0]);
+               (void)my_strncpy(filename_file, argv[0], MAX_PATH_LENGTH);
                argc--;
 
                if (eval_filename_file(filename_file, p_db) == INCORRECT)
@@ -167,7 +167,7 @@ init_awmo(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->hostname, argv[0]);
+               (void)my_strncpy(p_db->hostname, argv[0], MAX_FILENAME_LENGTH);
                argc--;
             }
             break;
@@ -373,7 +373,7 @@ init_awmo(int argc, char *argv[], struct data *p_db)
               if (p_db->filename == NULL)
               {
                  RT_ARRAY(p_db->filename, 1, MAX_PATH_LENGTH, char);
-                 (void)strcpy(p_db->filename[0], argv[1]);
+                 (void)my_strncpy(p_db->filename[0], argv[1], MAX_PATH_LENGTH);
               }
               else
               {
@@ -396,7 +396,7 @@ init_awmo(int argc, char *argv[], struct data *p_db)
               p_db->no_of_files += argc - 1;
               while ((--argc > 0) && ((*++argv)[0] != '-'))
               {
-                 (void)strcpy(p_db->filename[i], argv[0]);
+                 (void)my_strncpy(p_db->filename[i], argv[0], MAX_PATH_LENGTH);
                  i++;
               }
            }
@@ -431,7 +431,7 @@ usage(void)
    (void)fprintf(stderr, _("  OPTIONS                              DESCRIPTION\n"));
    (void)fprintf(stderr, _("  --version                          - Show current version\n"));
    (void)fprintf(stderr, _("  -a                                 - Wait for an acknowledge from server.\n"));
-   (void)fprintf(stderr, _("  -b <block size>                    - WMO block size in bytes. Default %d\n\
+   (void)fprintf(stderr, _("  -b <block size>                    - Transfer block size in bytes. Default %d\n\
                                        bytes.\n"), DEFAULT_TRANSFER_BLOCKSIZE);
    (void)fprintf(stderr, _("  -f <filename>                      - File containing a list of filenames\n\
                                        that are to be send.\n"));
@@ -444,7 +444,7 @@ usage(void)
    {
       (void)fprintf(stderr, _("  -n <number of files>               - Number of files to be transfered.\n"));
    }
-   (void)fprintf(stderr, _("  -p <port number>                   - Remote port number of FTP-server.\n"));
+   (void)fprintf(stderr, _("  -p <port number>                   - Remote port number of WMO-server.\n"));
    (void)fprintf(stderr, _("  -r                                 - Remove transmitted file.\n"));
    (void)fprintf(stderr, _("  -S <buffer size>                   - Socket send buffer size\n\
                                     (in bytes).\n"));
@@ -453,7 +453,7 @@ usage(void)
       (void)fprintf(stderr, _("  -s <file size>                     - File size of file to be transfered.\n"));
    }
    (void)fprintf(stderr, _("  -t <timout>                        - WMO timeout in seconds. Default %lds.\n"), DEFAULT_TRANSFER_TIMEOUT);
-   (void)fprintf(stderr, _("  -v                                 - Verbose. Shows all FTP commands and\n\
+   (void)fprintf(stderr, _("  -v                                 - Verbose. Shows all WMO commands and\n\
                                        the reply from the remote server.\n"));
    (void)fprintf(stderr, _("  -?                                 - Display this help and exit.\n"));
    (void)fprintf(stderr, _("  The following values are returned on exit:\n"));

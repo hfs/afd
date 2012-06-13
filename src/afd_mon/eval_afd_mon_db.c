@@ -1,6 +1,6 @@
 /*
  *  eval_afd_mon_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -266,28 +266,27 @@ eval_afd_mon_db(struct mon_list **nml)
       /* Store AFD alias. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
-             (*ptr != '\0') && (i < MAX_AFDNAME_LENGTH))
+             (*ptr != '\0') && (i <= MAX_AFDNAME_LENGTH))
       {
          (*nml)[no_of_afds].afd_alias[i] = *ptr;
          ptr++; i++;
       }
-      if ((i == MAX_AFDNAME_LENGTH) && ((*ptr != ' ') || (*ptr != '\t')))
+      if (i > MAX_AFDNAME_LENGTH)
       {
-         char *tmp_ptr = ptr;
-
+         (*nml)[no_of_afds].afd_alias[MAX_AFDNAME_LENGTH] = '\0';
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                    (*nml)[no_of_afds].afd_alias, MAX_AFDNAME_LENGTH);
          while ((*ptr != ' ') && (*ptr != '\t') &&
                 (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
          }
-         if (tmp_ptr != ptr)
-         {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
-                       (*nml)[no_of_afds].afd_alias, MAX_AFDNAME_LENGTH);
-         }
       }
-      (*nml)[no_of_afds].afd_alias[i] = '\0';
+      else
+      {
+         (*nml)[no_of_afds].afd_alias[i] = '\0';
+      }
       while ((*ptr == ' ') || (*ptr == '\t'))
       {
          ptr++;
@@ -333,12 +332,13 @@ eval_afd_mon_db(struct mon_list **nml)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Maximum length for real hostname for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
-                    (*nml)[no_of_afds].afd_alias, MAX_REAL_HOSTNAME_LENGTH);
+                    (*nml)[no_of_afds].afd_alias, (MAX_REAL_HOSTNAME_LENGTH - 1));
          while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '|') &&
                 (*ptr != '/') && (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
          }
+         i--;
       }
       (*nml)[no_of_afds].hostname[0][i] = '\0';
       if ((*ptr == '|') || (*ptr == '/'))
@@ -358,12 +358,13 @@ eval_afd_mon_db(struct mon_list **nml)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Maximum length for second real hostname for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
-                       (*nml)[no_of_afds].afd_alias, MAX_REAL_HOSTNAME_LENGTH);
+                       (*nml)[no_of_afds].afd_alias, (MAX_REAL_HOSTNAME_LENGTH - 1));
             while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '|') &&
                    (*ptr != '/') && (*ptr != '\n') && (*ptr != '\0'))
             {
                ptr++;
             }
+            i--;
          }
          (*nml)[no_of_afds].hostname[1][i] = '\0';
          if (*tmp_ptr == '|')
@@ -437,7 +438,6 @@ eval_afd_mon_db(struct mon_list **nml)
             }
          }
       }
-      number[i] = '\0';
       if (i == 0)
       {
          (*nml)[no_of_afds].port[0] = atoi(DEFAULT_AFD_PORT_NO);
@@ -446,7 +446,7 @@ eval_afd_mon_db(struct mon_list **nml)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                          "Numeric value allowed transfers to large (>%d characters) for AFD %s to store as integer.",
-                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                         (MAX_INT_LENGTH - 1), (*nml)[no_of_afds].afd_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %s.",
                          DEFAULT_AFD_PORT_NO);
@@ -459,6 +459,7 @@ eval_afd_mon_db(struct mon_list **nml)
            }
            else
            {
+              number[i] = '\0';
               (*nml)[no_of_afds].port[0] = atoi(number);
            }
       if ((*ptr == '|') || (*ptr == '/'))
@@ -491,7 +492,6 @@ eval_afd_mon_db(struct mon_list **nml)
                }
             }
          }
-         number[i] = '\0';
          if (i == 0)
          {
             (*nml)[no_of_afds].port[1] = (*nml)[no_of_afds].port[0];
@@ -500,7 +500,7 @@ eval_afd_mon_db(struct mon_list **nml)
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             "Numeric value allowed transfers to large (>%d characters) for AFD %s to store as integer.",
-                            MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                            (MAX_INT_LENGTH - 1), (*nml)[no_of_afds].afd_alias);
                  system_log(WARN_SIGN, NULL, 0, "Disabling second port.");
                  (*nml)[no_of_afds].port[1] = (*nml)[no_of_afds].port[0];
                  while ((*ptr != ' ') && (*ptr != '\t') &&
@@ -511,6 +511,7 @@ eval_afd_mon_db(struct mon_list **nml)
               }
               else
               {
+                 number[i] = '\0';
                  (*nml)[no_of_afds].port[1] = atoi(number);
                  if (*tmp_ptr == '|')
                  {
@@ -580,7 +581,6 @@ eval_afd_mon_db(struct mon_list **nml)
             }
          }
       }
-      number[i] = '\0';
       if (i == 0)
       {
          (*nml)[no_of_afds].poll_interval = DEFAULT_POLL_INTERVAL;
@@ -589,7 +589,7 @@ eval_afd_mon_db(struct mon_list **nml)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                          "Numeric value for poll interval to large (>%d characters) for AFD %s to store as integer.",
-                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                         (MAX_INT_LENGTH - 1), (*nml)[no_of_afds].afd_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %s.",
                          DEFAULT_POLL_INTERVAL);
@@ -602,6 +602,7 @@ eval_afd_mon_db(struct mon_list **nml)
            }
            else
            {
+              number[i] = '\0';
               (*nml)[no_of_afds].poll_interval = atoi(number);
            }
       while ((*ptr == ' ') || (*ptr == '\t'))
@@ -656,7 +657,6 @@ eval_afd_mon_db(struct mon_list **nml)
             }
          }
       }
-      number[i] = '\0';
       if (i == 0)
       {
          (*nml)[no_of_afds].connect_time = DEFAULT_CONNECT_TIME;
@@ -665,7 +665,7 @@ eval_afd_mon_db(struct mon_list **nml)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                          "Numeric value for connect time to large (>%d characters) for AFD %s to store as integer.",
-                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                         (MAX_INT_LENGTH - 1), (*nml)[no_of_afds].afd_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %s.",
                          DEFAULT_CONNECT_TIME);
@@ -678,6 +678,7 @@ eval_afd_mon_db(struct mon_list **nml)
            }
            else
            {
+              number[i] = '\0';
               (*nml)[no_of_afds].connect_time = atoi(number);
            }
       while ((*ptr == ' ') || (*ptr == '\t'))
@@ -731,7 +732,6 @@ eval_afd_mon_db(struct mon_list **nml)
             }
          }
       }
-      number[i] = '\0';
       if (i == 0)
       {
          (*nml)[no_of_afds].disconnect_time = DEFAULT_DISCONNECT_TIME;
@@ -740,7 +740,7 @@ eval_afd_mon_db(struct mon_list **nml)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                         "Numeric value for disconnect time to large (>%d characters) for AFD %s to store as integer.",
-                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                        (MAX_INT_LENGTH - 1), (*nml)[no_of_afds].afd_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %s.",
                          DEFAULT_DISCONNECT_TIME);
@@ -753,6 +753,7 @@ eval_afd_mon_db(struct mon_list **nml)
            }
            else
            {
+              number[i] = '\0';
               (*nml)[no_of_afds].disconnect_time = atoi(number);
            }
       while ((*ptr == ' ') || (*ptr == '\t'))
@@ -805,7 +806,6 @@ eval_afd_mon_db(struct mon_list **nml)
             }
          }
       }
-      number[i] = '\0';
       if (i == 0)
       {
          (*nml)[no_of_afds].options = DEFAULT_OPTION_ENTRY;
@@ -814,7 +814,7 @@ eval_afd_mon_db(struct mon_list **nml)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                          "Numeric value for the options entry to large (>%d characters) for AFD %s to store as integer.",
-                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                         (MAX_INT_LENGTH - 1), (*nml)[no_of_afds].afd_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %s.",
                          DEFAULT_OPTION_ENTRY);
@@ -827,6 +827,7 @@ eval_afd_mon_db(struct mon_list **nml)
            }
            else
            {
+              number[i] = '\0';
               (*nml)[no_of_afds].options = atoi(number);
            }
       while ((*ptr == ' ') || (*ptr == '\t'))
@@ -870,6 +871,7 @@ eval_afd_mon_db(struct mon_list **nml)
          {
             ptr++;
          }
+         i--;
       }
       if ((i == 3) &&
           ((((*nml)[no_of_afds].rcmd[0] == 'r') ||
@@ -926,12 +928,13 @@ eval_afd_mon_db(struct mon_list **nml)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
-                       (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH);
+                       (*nml)[no_of_afds].afd_alias, (MAX_USER_NAME_LENGTH - 1));
             while ((*ptr != '\0') && !((*ptr == '-') && (*(ptr + 1) == '>')) &&
                    (*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n'))
             {
                ptr++;
             }
+            i--;
          }
          (*nml)[no_of_afds].convert_username[cu_counter][0][i] = '\0';
          if ((*ptr == '-') && (*(ptr + 1) == '>'))
@@ -948,12 +951,13 @@ eval_afd_mon_db(struct mon_list **nml)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
-                          (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH);
+                          (*nml)[no_of_afds].afd_alias, (MAX_USER_NAME_LENGTH - 1));
                while ((*ptr != ' ') && (*ptr != '\t') &&
                       (*ptr != '\n') && (*ptr != '\0'))
                {
                   ptr++;
                }
+               i--;
             }
             (*nml)[no_of_afds].convert_username[cu_counter][1][i] = '\0';
          }
@@ -986,11 +990,7 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       no_of_afds++;
    } while (*ptr != '\0');
-
-   if (afdbase != NULL)
-   {
-      free(afdbase);
-   }
+   free(afdbase);
 
    return;
 }

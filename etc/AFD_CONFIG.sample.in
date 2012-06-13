@@ -48,6 +48,56 @@
 #TRUSTED_REMOTE_IP                192.168.22.*
 
 ##########################################################################
+# Here scheduling priorities can be defined for the different AFD        #
+# process. Only  use these if you know what you are doing. See man nice  #
+# for the meaning of the values, mostly it goes from 19 (least favorable)#
+# to -20 (most favorable scheduling). You can only set negative values   #
+# here if AFD runs under root, which is not recommended. Since these     #
+# priorities are inherited by child process one can just set             #
+# INIT_AFD_PRIORITY to change the priority of all AFD process.           #
+# SHOW_LOG_PRIORITY will change the process of the dialogs  mshow_log,   #
+# show_olog, show_ilog, show_dlog and show_elog. EXEC_BASE_PRIORITY is   #
+# the base priority for all process started by the exec and pexec        #
+# option in DIR_CONFIG regardless of the set AMG_PRIORITY,  FD_PRIORITY  #
+# and INIT_AFD_PRIORITY.                                                 #
+# Default: None (Disabled)                                               #
+##########################################################################
+#AFDD_PRIORITY                    7
+#AFD_STAT_PRIORITY                6
+#AMG_PRIORITY                     0
+#ARCHIVE_WATCH_PRIORITY           12
+#EXEC_BASE_PRIORITY               5
+#FD_PRIORITY                      5
+#INIT_AFD_PRIORITY                0
+#SHOW_LOG_PRIORITY                15
+
+##########################################################################
+# If set to YES the AFD priority from DIR_CONFIG is added to the         #
+# scheduling priority. Process effected by this are all those started    #
+# via the exec and pexec option and all sf_xxx and gf_xxx process. This  #
+# value is added to any of the above value. For example if FD_PRIORITY   #
+# set to 5 and an AFD priority of 9 is set for a job the resulting       #
+# sf_xxx and/or gf_xxx process will have a priority of 14. If there is a #
+# pexec option set and EXEC_BASE_PRIORITY is 2 then the resulting        #
+# priority of the executing process would be 11.                         #
+# Default: NO                                                            #
+##########################################################################
+#ADD_AFD_PRIORITY                 YES
+
+##########################################################################
+# From the above two blocks it is clear that we need some minimum and    #
+# maximum values for the scheduling priority. Since I do not know how to #
+# determine this at compile time I led the user set this value here.     #
+# Note that it is not recommended to run AFD under root and since only   #
+# root can set nice values below 0, you should not set MAX_NICE_VALUE    #
+# below 0.                                                               #
+# Default: MAX_NICE_VALUE 0                                              #
+#          MIN_NICE_VALUE 19                                             #
+##########################################################################
+MAX_NICE_VALUE                   0
+MIN_NICE_VALUE                   19
+
+##########################################################################
 # Set this to YES if AFD is running in a global filesystem. This will    #
 # make AFD to sync it's memory mapped files more often to the file-      #
 # system.                                                                #
@@ -202,10 +252,18 @@ MAX_CONNECTIONS                  80
 #EXEC_TIMEOUT                     0
 
 ##########################################################################
+# The default HTTP proxy where HTTP requests are send to. This can be an #
+# IP number or a hostname. Optionally one can specify the default port   #
+# using the following syntax: <server name>:<port>                       #
+# Default: localhost:25                                                  #
+##########################################################################
+#DEFAULT_HTTP_PROXY               http_proxy.ducktown.de:8080
+
+##########################################################################
 # The default SMTP server where mails are to be send to. This can be an  #
 # IP number or a hostname. Optionally one can specify the default port   #
 # using the following syntax: <server name>:<port>                       #
-# Default: localhost                                                     #
+# Default: localhost:25                                                  #
 ##########################################################################
 #DEFAULT_SMTP_SERVER              localhost
 

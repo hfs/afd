@@ -1,6 +1,6 @@
 /*
  *  get_dir_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,6 +101,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                              DEL_UNKNOWN_FILES_ID,
                              fra[i].unknown_file_time / 3600);
                d_o->no_of_dir_options++;
+               if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+               {
+                  goto done;
+               }
             }
             if ((fra[i].delete_files_flag & QUEUED_FILES) &&
                 (fra[i].in_dc_flag & QUEUED_FILES_IDC))
@@ -109,6 +113,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                              DEL_QUEUED_FILES_ID,
                              fra[i].queued_file_time / 3600);
                d_o->no_of_dir_options++;
+               if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+               {
+                  goto done;
+               }
             }
             if ((fra[i].delete_files_flag & OLD_LOCKED_FILES) &&
                 (fra[i].in_dc_flag & OLD_LOCKED_FILES_IDC))
@@ -117,6 +125,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                              DEL_OLD_LOCKED_FILES_ID,
                              fra[i].locked_file_time / 3600);
                d_o->no_of_dir_options++;
+               if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+               {
+                  goto done;
+               }
             }
          }
          else
@@ -126,6 +138,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                             DONT_DEL_UNKNOWN_FILES_ID);
                d_o->no_of_dir_options++;
+               if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+               {
+                  goto done;
+               }
             }
          }
          if ((fra[i].report_unknown_files == NO) &&
@@ -134,6 +150,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          DONT_REP_UNKNOWN_FILES_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if ((fra[i].report_unknown_files == YES) &&
              (fra[i].in_dc_flag & REPUKW_FILES_IDC))
@@ -141,6 +161,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          REP_UNKNOWN_FILES_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
 #ifndef _WITH_PTHREAD
          if (fra[i].important_dir == YES)
@@ -148,6 +172,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          IMPORTANT_DIR_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
 #endif
          if ((fra[i].in_dc_flag & WARN_TIME_IDC) &&
@@ -160,6 +188,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 #endif
                           DIR_WARN_TIME_ID, (pri_time_t)fra[i].warn_time);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if ((fra[i].in_dc_flag & KEEP_CONNECTED_IDC) &&
              (fra[i].keep_connected != DEFAULT_KEEP_CONNECTED_TIME))
@@ -174,6 +206,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %u",
                           INOTIFY_FLAG_ID, fra[i].inotify_flag);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
 #endif
          if (fra[i].max_process != MAX_PROCESS_PER_DIR)
@@ -181,6 +217,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                           MAX_PROCESS_ID, fra[i].max_process);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if ((fra[i].max_copied_files != MAX_COPIED_FILES) &&
              (fra[i].in_dc_flag & MAX_CP_FILES_IDC))
@@ -188,6 +228,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                           MAX_FILES_ID, fra[i].max_copied_files);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if ((fra[i].max_copied_file_size != (MAX_COPIED_FILE_SIZE * 1024)) &&
              (fra[i].in_dc_flag & MAX_CP_FILE_SIZE_IDC))
@@ -200,6 +244,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                          MAX_SIZE_ID,
                          (pri_off_t)(fra[i].max_copied_file_size / 1024));
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].ignore_size != 0)
          {
@@ -237,6 +285,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                              (pri_off_t)fra[i].ignore_size);
             }
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].priority != DEFAULT_PRIORITY)
          {
@@ -249,12 +301,20 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %s",
                           WAIT_FOR_FILENAME_ID, fra[i].wait_for_filename);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].accumulate != 0)
          {
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                           ACCUMULATE_ID, fra[i].accumulate);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].accumulate_size != 0)
          {
@@ -266,12 +326,20 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                           ACCUMULATE_SIZE_ID,
                           (pri_off_t)fra[i].accumulate_size);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].stupid_mode == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          STORE_RETRIEVE_LIST_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          else if (fra[i].stupid_mode == GET_ONCE_ONLY)
               {
@@ -279,35 +347,85 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                               STORE_RETRIEVE_LIST_ID);
                  (void)strcat(d_o->aoptions[d_o->no_of_dir_options], " once");
                  d_o->no_of_dir_options++;
+                 if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+                 {
+                    goto done;
+                 }
               }
          if (fra[i].dir_flag & DONT_GET_DIR_LIST)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          DO_NOT_GET_DIR_LIST_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
+         }
+         if (fra[i].dir_flag & CREATE_R_SRC_DIR)
+         {
+#ifdef NEW_FRA
+            if (fra[i].dir_mode == 0)
+            {
+#endif
+               (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                            CREATE_SOURCE_DIR_ID);
+#ifdef NEW_FRA
+            }
+            else
+            {
+               int  length;
+               char str_number[MAX_INT_LENGTH];
+
+               length = sprintf(str_number, "%04o", fra[i].dir_mode);
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %s",
+                             CREATE_SOURCE_DIR_ID, &str_number[length - 4]);
+            }
+#endif
+            d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].remove == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          DO_NOT_REMOVE_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].dir_flag & ACCEPT_DOT_FILES)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          ACCEPT_DOT_FILES_ID);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].force_reread == YES)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options], "force reread");
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].end_character != -1)
          {
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
                           "%s %d", END_CHARACTER_ID, fra[i].end_character);
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].ignore_file_time != 0)
          {
@@ -337,6 +455,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                              fra[i].ignore_file_time);
             }
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
          if (fra[i].no_of_time_entries > 0)
          {
@@ -512,6 +634,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                }
                d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
                d_o->no_of_dir_options++;
+               if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+               {
+                  goto done;
+               }
             } /* for (j = 0; j < fra[i].no_of_time_entries; j++) */
          }
 #ifdef WITH_DUP_CHECK
@@ -615,6 +741,10 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  }
             d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
             d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
          }
 #endif
          if ((fra[i].protocol == FTP) || (fra[i].protocol == HTTP) ||
@@ -625,6 +755,8 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          break;
       }
    }
+
+done:
 
    if (attached == YES)
    {

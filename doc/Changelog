@@ -1129,3 +1129,157 @@
 25.01.2011 - In dialogs afd_ctrl, dir_ctrl and mon_ctrl one can now
              quickly change the font by pressing ctrl and +/-.
 ------------------------> Released: 28.01.2011 <---------------------------
+
+
+
+----------------------------> Version 1.4.4 <------------------------------
+                             ---------------
+04.02.2011 - If we fail to determine the working diretory show how
+             we are being called. To disable this just comment out
+             #define ARGV_DEBUG in src/common/get_afd_path.c.
+07.02.2011 - In RPM handle case when users write from .profile to stdout
+             and/or stderr.
+           - In Makefile.am do some more cleanups when we do a 'make clean'.
+08.02.2011 - Remove unnecessary port TCP range check in init_afd.
+           - Some directrory options where not shown when they are set
+             in DIR_CONFIG and in AFD_CONFIG. Fixed.
+10.02.2011 - Under some Motif versions the summary line at the bottom
+             of some dialogs was not shown if the font selected was
+             very small. Fixed.
+11.02.2011 - Speed up searching in dialog show_ilog and show_olog when
+             we specify a directory.
+15.02.2011 - Added extract option to add an additional header in report
+             indicating the report type.
+17.02.2011 - In rename.rule allow the following case: nsc????.* /*/nsc????.*
+             That is more then one asterix if we have only one in the
+             filter part.
+           - Update documentation on message structure send by AMG via
+             fifo to FD.
+21.02.2011 - In edit_hc pressing the button Name+size duplicate check
+             had no effect and was just silently ignored. Fixed.
+23.02.2011 - Added extract option to add the report type in the file
+             name.
+             NOTE: As of this version when extracting reports, the
+                   character before the station indicator is changed
+                   from an '_' to a '-'.
+04.03.2011 - Detect SWIS reports correctly.
+14.03.2011 - Added extract option -d to add full date to bulletin
+             name in the following format TTAAii_CCCC_<year><month>YYGGgg.
+             Where year is for example 2011 and month 03 for March.
+           - Added extract option -f to add the full bulletin name and
+             the original file name where this bulletin was extracted
+             from as the first line of the bulletin/report.
+15.03.2011 - For fetching files via http, added support for the HTML
+             list type listing.
+16.03.2011 - Even if the port for the AFD daemon afdd is not within
+             the given port range, allow it to be set. Just warn the
+             user that this might be a problem.
+17.03.2011 - Fixed long standing bug in process fd that could lead to
+             fetching jobs be started more then onced when DIR_CONFIG
+             is being updated.
+31.03.2011 - If directory option dupcheck is set and the queue is stopped
+             for any host that is getting data from this directory the
+             data is being deleted as soon as the queue is opend again.
+             Fixed.
+18.04.2011 - When process fd catches an unknown zombie lets still check
+             the internal process list if we must remove it there too.
+           - If system supports it, show user and system CPU usage of
+             childs created by process AMG and FD.
+27.04.2011 - In fra_view correct some output that was not shown
+             correctly.
+28.04.2011 - When we remember what files we retrieved locally we must
+             handle the case that we do not do a full scan of the source
+             directory. This bug could lead to more files being retrieved
+             then necessary.
+29.06.2011 - For option 'convert sohetx' do not create files of zero
+             length if the file already contains a SOH and ETX.
+19.07.2011 - Added a default configuration file AFD_MON.
+17.08.2011 - Be more verbose when we are unable to locate a users
+             home directory.
+           - Fix error in extended passive mode where we do not transmit
+             the correct IP to the remote host.
+15.10.2011 - In dialog show_elog if we deselect directory or host class
+             deactivate input for directory and host alias input field.
+18.10.2011 - Close possible memory leak in function get_permissions().
+19.10.2011 - Added function to that detects any changes to the internal
+             data structures of AFD.
+20.10.2011 - Added option -T to program afd to check if data types
+             match current binary.
+28.10.2011 - Implemented setting scheduling priorities for the different
+             AFD process.
+03.11.2011 - For option 'extract MRZ' and 'extract GRIB' the filename
+             generated has changed, in that the XXX is replaced by a
+             unique name as follows:
+               <job creation time>_<unique number>_<split job counter>
+             Here an example: XXX -> 4eb28696_898e_1f0
+04.11.2011 - In function that handles the evaluation of the URL, handle
+             case when the server= part is to long. This could lead to
+             a buffer overflow.
+05.11.2011 - Fix many buffer overflows and other errors or redundant
+             code with the tool smatch (http://smatch.sourceforge.net/).
+08.11.2011 - Properly delete everything when we issue an 'afd -i' or
+             'mafd -i'.
+25.11.2011 - When sending files local with scheme file and we use the
+             pexec option, we must use the pexec option on the source
+             file NOT the destination file!
+27.11.2011 - Added scheme exec to execute some command to transmit the
+             data.
+28.11.2011 - During a burst it can happen that the DEFAULT_SMTP_FROM
+             set in AFD_CONFIG is ignored.
+01.12.2011 - It is now possible to disable the ageing of jobs with
+             'No ageing jobs' in edit_hc dialog.
+18.12.2011 - In afd_ctrl, dir_ctrl and mon_ctrl dialog one now just needs
+             to press the left mouse button to select a line.
+27.12.2011 - Increase compatability of HTTP commands.
+29.12.2011 - Added support for HTTP proxy.
+03.01.2012 - Accept WMO bulletin headers that have a space sign
+             behind/before SOH/ETX.
+04.01.2012 - For dialogs show_[deio]log, show_queue and handle_event we
+             now enter the time of the current day from 00:00 (midnight)
+             if we just press the enter button. Thanks to Eva-Maria Krammig!
+16.01.2012 - Made size of log files SYSTEM_LOG, TRANS_DB_LOG and EVENT_LOG
+             when they get rotated configurable in AFD_CONFIG.
+24.01.2012 - Remove all strcpy() calls in combination with argv[] where
+             we did not check the length of the input data.
+           - Put in length check when using scanf() to read strings.
+02.02.2012 - Added a 'Select all' button to the dialogs show_ilog,
+             show_olog, show_dlog and schow_queue. Note with large
+             list you might need to increase the stack size on linux
+             and openmotif.
+01.03.2012 - Fix bug in afdd that could lead to an endless loop.
+10.03.2012 - During a burst it could happen that sf_smtp could forget
+             the group list entries, thus sending the mail to the
+             group list alias name and not to each member in the list.
+17.03.2012 - Added %T time modifier for option assemble.
+28.03.2012 - Handle cross-link error in sf_loc and save_files().
+30.03.2012 - Inform when we create a directory.
+01.04.2012 - Implemented multiple rename.rule files. This can be
+             configured via RENAME_RULE_NAME in AFD_CONFIG.
+12.04.2012 - Implemented reload parameter in afd init script.
+28.04.2012 - Ignore ./ that some FTP Servers return after a NLST command.
+           - Fix error where scheme ftpS was ignored.
+             Thanks to Sven Knudsen from shz.de for sending patches for
+             those two cases!
+30.04.2012 - Always reset the total file counter and size fields when
+             one of the retrieving jobs (gf_xxx) terminates.
+07.05.2012 - For the option "mail header" it now possible to specify a
+             rename rule identifier. Since the optional parameter to this
+             option can also be full path to the mail header file it is
+             important that the rename rule identifier does NOT start with
+             a /.
+09.05.2012 - When retrieving files we must check the length of the file
+             names if they do have the correct length.
+           - Process init_afd was logging some data to stdout, which
+             then landed in DAEMON_LOG.init_afd and not TRANSFER_LOG
+             and TRANS_DB_LOG.
+12.05.2012 - Added option to check if the file send matches the local
+             size after being send.
+13.05.2012 - Process init_afd may not exit when it fails to stat() the
+             files directory. This can be a temporary status in network
+             storage or on virtual systems.
+27.05.2012 - When setting the option "create target dir" it is now
+             possible to specify the permissions that the target directory
+             should have.
+28.05.2012 - Added new option to create remote source directory.
+03.06.2012 - Allow user to disable protocols via configure.
+------------------------> Released: 05.06.2012 <---------------------------

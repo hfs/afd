@@ -1,6 +1,6 @@
 /*
  *  motif_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,8 +26,14 @@
 /* The following definitions are for show_ilog and show_olog only. */
 #define CHECK_TIME_INTERVAL             10
 
+#define START_TIME_NO_ENTER             1
+#define START_TIME                      2
+#define END_TIME_NO_ENTER               3
+#define END_TIME                        4
+
 /* Function Prototypes. */
 extern int    check_info_file(char *, char *, int),
+              eval_time(char *, Widget, time_t *, int),
               prepare_printer(int *),
               prepare_file(int *, int);
 extern void   check_nummeric(Widget, XtPointer, XtPointer),

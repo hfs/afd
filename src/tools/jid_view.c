@@ -1,6 +1,6 @@
 /*
  *  jid_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ main(int argc, char *argv[])
 {
    int                  fd,
                         fml_offset,
-                        i, j,
+                        i,
                         mask_offset,
                         no_of_dir_names,
                         no_of_file_masks_id,
@@ -265,6 +265,8 @@ main(int argc, char *argv[])
 
    if (no_of_job_ids > 0)
    {
+      int j;
+
       for (i = 0; i < no_of_job_ids; i++)
       {
          for (j = 0; j < no_of_search_ids; j++)

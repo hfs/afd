@@ -1,6 +1,6 @@
 /*
  *  manage_trl_process.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -217,17 +217,22 @@ init_trl_data(void)
             }
             else
             {
-               if ((trlg = realloc(trlg,
-                                   ((no_of_trl_groups + 1) * sizeof(struct trl_group)))) == NULL)
+               struct trl_group *tmp_trlg;
+
+               if ((tmp_trlg = realloc(trlg,
+                                       ((no_of_trl_groups + 1) * sizeof(struct trl_group)))) == NULL)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to realloc() %d bytes : %s",
                              ((no_of_trl_groups + 1) * sizeof(struct trl_group)),
                              strerror(errno));
+                  free(trlg);
+                  trlg = NULL;
                   free(trlc);
                   trlc = NULL;
                   break;
                }
+               trlg = tmp_trlg;
             }
             trlg[no_of_trl_groups].no_of_hosts = 0;
             trlg[no_of_trl_groups].fsa_pos = NULL;
@@ -338,7 +343,9 @@ init_trl_data(void)
                                     }
                                     if (gotcha == NO)
                                     {
-                                       if ((trlg[no_of_trl_groups].fsa_pos = realloc(trlg[no_of_trl_groups].fsa_pos, ((trlg[no_of_trl_groups].no_of_hosts + 1) * sizeof(int)))) == NULL)
+                                       int *tmp_fsa_pos;
+
+                                       if ((tmp_fsa_pos = realloc(trlg[no_of_trl_groups].fsa_pos, ((trlg[no_of_trl_groups].no_of_hosts + 1) * sizeof(int)))) == NULL)
                                        {
                                           system_log(ERROR_SIGN, __FILE__, __LINE__,
                                                      "Failed to realloc() %d bytes : %s",
@@ -346,8 +353,11 @@ init_trl_data(void)
                                           free(buffer);
                                           free(trlc);
                                           trlc = NULL;
+                                          free(trlg[no_of_trl_groups].fsa_pos);
+                                          trlg[no_of_trl_groups].fsa_pos = NULL;
                                           return;
                                        }
+                                       trlg[no_of_trl_groups].fsa_pos = tmp_fsa_pos;
                                     }
                                     else
                                     {

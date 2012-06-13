@@ -1,7 +1,7 @@
 /*
  *  log_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007, 2008 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -991,8 +991,8 @@ eval_log_buffer(char *log_data_buffer,
                               *bytes_buffered = 0;
                               return;
                         }
-                        get_max_log_number(&max_log_files, max_log_def,
-                                           default_log_files);
+                        get_max_log_values(&max_log_files, max_log_def,
+                                           default_log_files, NULL, NULL, 0);
                         get_log_number(&log_number, (max_log_files - 1),
                                        log_name, log_name_length, p_mon_alias);
                         if (log_number < (max_log_files - 1))
@@ -1252,7 +1252,7 @@ check_create_log_file(char *log_name, int log_pos)
 
       length = sprintf(p_log_dir, "%s", log_name);
       i = 0;
-      while ((i < MAX_INODE_LOG_NO_LENGTH) &&
+      while ((i < (MAX_INODE_LOG_NO_LENGTH - 1)) &&
              (cur_ino_log_no_str[log_pos][i] != ' '))
       {
          i++;
@@ -1260,7 +1260,7 @@ check_create_log_file(char *log_name, int log_pos)
       if ((i > 0) && (i < MAX_INODE_LOG_NO_LENGTH))
       {
          i++;
-         while ((i < MAX_INODE_LOG_NO_LENGTH) &&
+         while ((i < (MAX_INODE_LOG_NO_LENGTH - 1)) &&
                (cur_ino_log_no_str[log_pos][i] != '\0'))
          {
             *(p_log_dir + length) = cur_ino_log_no_str[log_pos][i];
@@ -1356,7 +1356,7 @@ get_cur_ino_log_no(char *log_name, int log_pos)
          }
          if ((i > 0) && (i < MAX_LONG_LONG_LENGTH))
          {
-            while ((i < MAX_INODE_LOG_NO_LENGTH) && (buffer[i] != '\n'))
+            while ((i < (MAX_INODE_LOG_NO_LENGTH - 1)) && (buffer[i] != '\n'))
             {
                cur_ino_log_no_str[log_pos][i] = buffer[i];
                i++;

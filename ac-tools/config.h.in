@@ -143,6 +143,9 @@
 /* Define to 1 if you have the `seteuid' function. */
 #undef HAVE_SETEUID
 
+/* Define to 1 if you have the `setpriority' function. */
+#undef HAVE_SETPRIORITY
+
 /* Define to 1 if you have the `setreuid' function. */
 #undef HAVE_SETREUID
 
@@ -232,6 +235,9 @@
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
 
+/* With wait4 support */
+#undef HAVE_WAIT4
+
 /* With XPM support */
 #undef HAVE_XPM
 
@@ -277,6 +283,9 @@
 /* With show exec times */
 #undef SHOW_EXEC_TIMES
 
+/* The size of `char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
 /* The size of `ino_t', as computed by sizeof. */
 #undef SIZEOF_INO_T
 
@@ -286,6 +295,9 @@
 /* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
+/* The size of `long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
 /* The size of `nlink_t', as computed by sizeof. */
 #undef SIZEOF_NLINK_T
 
@@ -294,6 +306,9 @@
 
 /* The size of `pid_t', as computed by sizeof. */
 #undef SIZEOF_PID_T
+
+/* The size of `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
 
 /* The size of `size_t', as computed by sizeof. */
 #undef SIZEOF_SIZE_T
@@ -377,6 +392,9 @@
 /* Enable multiple directory scans */
 #undef WITH_MULTI_DIR_SCANS
 
+/* With onetime support */
+#undef WITH_ONETIME
+
 /* With password in message */
 #undef WITH_PASSWD_IN_MSG
 
@@ -438,11 +456,35 @@
 /* With verify FSA support */
 #undef _VERIFY_FSA
 
+/* With support for transmitting files via external program */
+#undef _WITH_FD_EXEC_SUPPORT
+
+/* With FTP support */
+#undef _WITH_FTP_SUPPORT
+
+/* With HTTP support */
+#undef _WITH_HTTP_SUPPORT
+
+/* With support for copying files locally */
+#undef _WITH_LOC_SUPPORT
+
 /* With MAP support */
 #undef _WITH_MAP_SUPPORT
 
+/* With SCP support */
+#undef _WITH_SCP_SUPPORT
+
 /* With server support */
 #undef _WITH_SERVER_SUPPORT
+
+/* With SFTP support */
+#undef _WITH_SFTP_SUPPORT
+
+/* With SMTP support */
+#undef _WITH_SMTP_SUPPORT
+
+/* With trans_exec support */
+#undef _WITH_TRANS_EXEC
 
 /* With WMO socket support */
 #undef _WITH_WMO_SUPPORT

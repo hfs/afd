@@ -1,6 +1,6 @@
 /*
  *  check_burst_2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -155,7 +155,7 @@ check_burst_2(char         *file_path,
          prev_job_id = 0;
 
          /* It could be that the FSA changed. */
-         if ((gsf_check_fsa() == YES) && (db.fsa_pos == INCORRECT))
+         if ((gsf_check_fsa((struct job *)&db) == YES) && (db.fsa_pos == INCORRECT))
          {
             /*
              * Host is no longer in FSA, so there is
@@ -163,7 +163,7 @@ check_burst_2(char         *file_path,
              */
             return(NO);
          }
-         if ((db.protocol != LOC_FLAG) &&
+         if ((db.protocol != LOC_FLAG) && (db.protocol != EXEC_FLAG) &&
              (strcmp(db.hostname, fsa->real_hostname[(int)(fsa->host_toggle - 1)]) != 0))
          {
             /*
@@ -250,6 +250,12 @@ check_burst_2(char         *file_path,
                        how[3] = 'l'; how[4] = 'e'; how[5] = 'd';
                        how[6] = '\0';
                     }
+               else if (db.protocol & EXEC_FLAG)
+                    {
+                       how[0] = 'e'; how[1] = 'x'; how[2] = 'e';
+                       how[3] = 'c'; how[4] = 'e'; how[5] = 'd';
+                       how[6] = '\0';
+                    }
                     else
                     {
                        how[0] = 's'; how[1] = 'e'; how[2] = 'n';
@@ -295,7 +301,7 @@ check_burst_2(char         *file_path,
             sigdelset(&suspmask, SIGUSR1);
             sigsuspend(&suspmask); /* Wait for SIGUSR1 or SIGALRM. */
             (void)alarm(0);
-            if (gsf_check_fsa() != NEITHER)
+            if (gsf_check_fsa((struct job *)&db) != NEITHER)
             {
                if (fsa->job_status[(int)db.job_no].unique_name[2] == 5)
                {
@@ -444,7 +450,7 @@ check_burst_2(char         *file_path,
                sigdelset(&suspmask, SIGUSR1);
                sigsuspend(&suspmask);
                (void)alarm(0);
-               if (gsf_check_fsa() != NEITHER)
+               if (gsf_check_fsa((struct job *)&db) != NEITHER)
                {
                   if (fsa->job_status[(int)db.job_no].unique_name[2] == 4)
                   {
@@ -501,7 +507,7 @@ check_burst_2(char         *file_path,
                if ((alarm_triggered == YES) &&
                    (fsa->job_status[(int)db.job_no].unique_name[1] == '\0'))
                {
-                  if (gsf_check_fsa() != NEITHER)
+                  if (gsf_check_fsa((struct job *)&db) != NEITHER)
                   {
                      fsa->job_status[(int)db.job_no].unique_name[2] = 1;
                   }
@@ -530,7 +536,7 @@ check_burst_2(char         *file_path,
          }
 
          /* It could be that the FSA changed. */
-         if ((gsf_check_fsa() == YES) && (db.fsa_pos == INCORRECT))
+         if ((gsf_check_fsa((struct job *)&db) == YES) && (db.fsa_pos == INCORRECT))
          {
             /*
              * Host is no longer in FSA, so there is
@@ -599,8 +605,11 @@ check_burst_2(char         *file_path,
                p_new_db->output_log           = YES;
 #endif
                p_new_db->lock                 = DEFAULT_LOCK;
+               p_new_db->http_proxy[0]        = '\0';
                p_new_db->smtp_server[0]       = '\0';
                p_new_db->chmod_str[0]         = '\0';
+               p_new_db->dir_mode             = 0;
+               p_new_db->dir_mode_str[0]      = '\0';
                p_new_db->trans_rename_rule[0] = '\0';
                p_new_db->user_rename_rule[0]  = '\0';
                p_new_db->rename_file_busy     = '\0';
@@ -662,6 +671,7 @@ check_burst_2(char         *file_path,
                 * NOTE: We must set protocol for eval_message()
                 *       otherwise some values are NOT set!
                 */
+               p_new_db->default_from = db.default_from;
                p_new_db->protocol = db.protocol;
                p_new_db->job_id = db.job_id;
                if (eval_message(msg_name, p_new_db) < 0)

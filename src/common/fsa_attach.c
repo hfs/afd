@@ -1,6 +1,6 @@
 /*
  *  fsa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int fsa_attach(void)
- **   int fsa_attach_passive(void)
+ **   int fsa_attach_passive(int silent)
  **
  ** DESCRIPTION
  **   Attaches to the memory mapped area of the FSA (File Transfer
@@ -48,6 +48,8 @@ DESCR__S_M3
  **           |               |  1 | DISABLE_RETRIEVE
  **           |               |  2 | DISABLE_ARCHIVE
  **           |               |  3 | ENABLE_CREATE_TARGET_DIR
+ **           |               |  4 | DISABLE_HOST_WARN_TIME
+ **           |               |  5 | DISABLE_CREATE_SOURCE_DIR
  **    -------+---------------+---------------------------------------
  **       7   | unsigned char | Not used.
  **    -------+---------------+---------------------------------------
@@ -61,7 +63,9 @@ DESCR__S_M3
  **   host. When the function returns successful it returns the pointer
  **   'fsa' to the begining of the first structure.
  **
- **   fsa_attach_passive() attaches to the FSA in read only mode.
+ **   fsa_attach_passive() attaches to the FSA in read only mode. If
+ **   silent is set to YES it will not report an error if the FSA file
+ **   does not exist.
  **
  ** RETURN VALUES
  **   SUCCESS when attaching to the FSA successful and sets the
@@ -333,7 +337,7 @@ fsa_attach(void)
 
 /*######################## fsa_attach_passive() #########################*/
 int
-fsa_attach_passive(void)
+fsa_attach_passive(int silent)
 {
    int          fd,
                 retries = 0,
@@ -391,9 +395,12 @@ fsa_attach_passive(void)
       /* Read the FSA ID. */
       if ((fd = coe_open(fsa_id_file, O_RDONLY)) == -1)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    _("Failed to open() `%s' : %s"),
-                    fsa_id_file, strerror(errno));
+         if (silent == NO)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       _("Failed to open() `%s' : %s"),
+                       fsa_id_file, strerror(errno));
+         }
          return(INCORRECT);
       }
 
@@ -452,9 +459,12 @@ fsa_attach_passive(void)
          }
          else
          {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("Failed to open() `%s' : %s"),
-                       fsa_stat_file, strerror(errno));
+            if (silent == NO)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          _("Failed to open() `%s' : %s"),
+                          fsa_stat_file, strerror(errno));
+            }
             return(INCORRECT);
          }
       }

@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -190,6 +190,12 @@ receive_log(char         *sign,
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "write() error : %s", strerror(errno));
+   }
+
+   if (close(receive_log_fd) == -1)
+   {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    return;

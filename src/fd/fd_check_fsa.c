@@ -1,6 +1,6 @@
 /*
  *  fd_check_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002, 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -80,8 +80,10 @@ fd_check_fsa(void)
 {
    if (fsa != NULL)
    {
-      int  i, j,
-           gotcha = NO,
+#ifdef _WITH_BURST_2
+      int  i, j;
+#endif
+      int  gotcha = NO,
            loops = 0;
       char *ptr;
 

@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -181,7 +181,6 @@ static int
 check_list(char *file, off_t *file_size_to_retrieve)
 {
    static int check_size = YES;
-   int        status;
 
    if (rl == NULL)
    {
@@ -227,6 +226,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
    (void)strcpy(rl[*no_of_listed_files].file_name, file);
    if (check_size == YES)
    {
+      int   status;
       off_t size;
 
       if ((status = ftp_size(file, &size)) == SUCCESS)

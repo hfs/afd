@@ -1,6 +1,6 @@
 /*
  *  wmo2ascii.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,6 +120,7 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
                   receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                               _("wmo2ascii(): malloc() error : %s"),
                               strerror(errno));
+                  free(read_buffer);
                }
                else
                {

@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -117,8 +117,10 @@ extern Widget                     active_mode_w,
                                   kc_send_w,
                                   keep_connected_w,
                                   keep_time_stamp_w,
+                                  match_size_w,
                                   max_errors_w,
                                   mode_label_w,
+                                  no_ageing_jobs_w,
                                   no_source_icon_w,
                                   passive_mode_w,
                                   passive_redirect_w,
@@ -143,6 +145,7 @@ extern Widget                     active_mode_w,
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                                   tcp_keepalive_w,
 #endif
+                                  transfer_timeout_label_w,
                                   transfer_timeout_w,
                                   transfer_rate_limit_label_w,
                                   transfer_rate_limit_w,
@@ -412,8 +415,8 @@ read_reply(XtPointer client_data, int *fd, XtInputId *id)
    if ((n = read(*fd, rbuffer,
                  MAX_UHC_RESPONCE_LENGTH)) != MAX_UHC_RESPONCE_LENGTH)
    {
-      (void)fprintf(stderr, "read() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr, "read() error (%d) : %s (%s %d)\n",
+                    n, strerror(errno), __FILE__, __LINE__);
    }
    else
    {
@@ -717,6 +720,14 @@ dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
            ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
            ce[cur_pos].dup_check_flag |= DC_FILE_CONT_NAME;
         }
+   else if ((XT_PTR_TYPE)client_data == FILE_NAMESIZE_SEL)
+        {
+           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
+           ce[cur_pos].dup_check_flag |= DC_FILENAME_AND_SIZE;
+           ce[cur_pos].dup_check_flag &= ~DC_NAME_NO_SUFFIX;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
+           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
+        }
    else if ((XT_PTR_TYPE)client_data == FILE_NOSUFFIX_SEL)
         {
            ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
@@ -724,14 +735,6 @@ dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
            ce[cur_pos].dup_check_flag |= DC_NAME_NO_SUFFIX;
            ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
            ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
-        }
-   else if ((XT_PTR_TYPE)client_data == FILE_NOSUFFIX_SEL)
-        {
-           ce[cur_pos].dup_check_flag &= ~DC_FILENAME_ONLY;
-           ce[cur_pos].dup_check_flag |= DC_FILENAME_AND_SIZE;
-           ce[cur_pos].dup_check_flag &= ~DC_NAME_NO_SUFFIX;
-           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONTENT;
-           ce[cur_pos].dup_check_flag &= ~DC_FILE_CONT_NAME;
         }
         else
         {
@@ -1301,16 +1304,6 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             }
          }
 
-         if (ce[cur_pos].value_changed & TRANSFER_TIMEOUT_CHANGED)
-         {
-            (void)sprintf(numeric_str, "%ld", ce[cur_pos].transfer_timeout);
-         }
-         else
-         {
-            (void)sprintf(numeric_str, "%ld", fsa[cur_pos].transfer_timeout);
-         }
-         XtVaSetValues(transfer_timeout_w, XmNvalue, numeric_str, NULL);
-
          if (fsa[cur_pos].auto_toggle == ON)
          {
             XtSetSensitive(successful_retries_label_w, True);
@@ -1447,7 +1440,6 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(auto_toggle_w, False);
          XtSetSensitive(real_hostname_1_w, False);
          XtSetSensitive(real_hostname_2_w, False);
-         XtSetSensitive(transfer_timeout_w, False);
          XtSetSensitive(successful_retries_label_w, False);
          XtSetSensitive(successful_retries_w, False);
          XtSetSensitive(transfer_rate_limit_label_w, False);
@@ -1456,6 +1448,38 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(socket_send_buffer_size_w, False);
          XtSetSensitive(socket_receive_buffer_size_label_w, False);
          XtSetSensitive(socket_receive_buffer_size_w, False);
+      }
+
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+          (fsa[cur_pos].protocol & SFTP_FLAG) ||
+          (fsa[cur_pos].protocol & HTTP_FLAG) ||
+#ifdef _WITH_SCP_SUPPORT
+          (fsa[cur_pos].protocol & SCP_FLAG) ||
+#endif
+#ifdef _WITH_WMO_SUPPORT
+          (fsa[cur_pos].protocol & WMO_FLAG) ||
+#endif
+#ifdef _WITH_MAP_SUPPORT
+          (fsa[cur_pos].protocol & MAP_FLAG) ||
+#endif
+          (fsa[cur_pos].protocol & SMTP_FLAG) ||
+          (fsa[cur_pos].protocol & EXEC_FLAG))
+      {
+         if (ce[cur_pos].value_changed & TRANSFER_TIMEOUT_CHANGED)
+         {
+            (void)sprintf(numeric_str, "%ld", ce[cur_pos].transfer_timeout);
+         }
+         else
+         {
+            (void)sprintf(numeric_str, "%ld", fsa[cur_pos].transfer_timeout);
+         }
+         XtVaSetValues(transfer_timeout_w, XmNvalue, numeric_str, NULL);
+         XtSetSensitive(transfer_timeout_label_w, True);
+      }
+      else
+      {
+         XtSetSensitive(transfer_timeout_w, False);
+         XtSetSensitive(transfer_timeout_label_w, False);
       }
 
       if (fsa[cur_pos].protocol & FTP_FLAG)
@@ -1556,6 +1580,15 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          {
             XtVaSetValues(ftp_ignore_bin_w, XmNset, False, NULL);
          }
+         XtSetSensitive(match_size_w, True);
+         if (fsa[cur_pos].protocol_options & CHECK_SIZE)
+         {
+            XtVaSetValues(match_size_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(match_size_w, XmNset, False, NULL);
+         }
       }
       else
       {
@@ -1580,10 +1613,20 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             {
                XtVaSetValues(ftp_fast_cd_w, XmNset, False, NULL);
             }
+            XtSetSensitive(match_size_w, True);
+            if (fsa[cur_pos].protocol_options & CHECK_SIZE)
+            {
+               XtVaSetValues(match_size_w, XmNset, True, NULL);
+            }
+            else
+            {
+               XtVaSetValues(match_size_w, XmNset, False, NULL);
+            }
          }
          else
          {
             XtSetSensitive(ftp_fast_cd_w, False);
+            XtSetSensitive(match_size_w, False);
          }
          XtSetSensitive(ftp_ignore_bin_w, False);
       }
@@ -1605,6 +1648,14 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       else
       {
          XtVaSetValues(sort_file_names_w, XmNset, False, NULL);
+      }
+      if (fsa[cur_pos].protocol_options & NO_AGEING_JOBS)
+      {
+         XtVaSetValues(no_ageing_jobs_w, XmNset, True, NULL);
+      }
+      else
+      {
+         XtVaSetValues(no_ageing_jobs_w, XmNset, False, NULL);
       }
 
       if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
@@ -2414,6 +2465,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                {
                   fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
                }
+               if (fsa[i].dup_check_flag & DC_FILENAME_AND_SIZE)
+               {
+                  fsa[i].dup_check_flag ^= DC_FILENAME_AND_SIZE;
+               }
                if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
                {
                   fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
@@ -2433,6 +2488,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     {
                        fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
                     }
+                    if (fsa[i].dup_check_flag & DC_FILENAME_AND_SIZE)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILENAME_AND_SIZE;
+                    }
                     if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
                     {
                        fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
@@ -2440,6 +2499,29 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
                     {
                        fsa[i].dup_check_flag ^= DC_FILE_CONTENT;
+                    }
+                 }
+            else if (ce[i].dup_check_flag & DC_FILENAME_AND_SIZE)
+                 {
+                    if ((fsa[i].dup_check_flag & DC_FILENAME_AND_SIZE) == 0)
+                    {
+                       fsa[i].dup_check_flag |= DC_FILENAME_AND_SIZE;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILENAME_ONLY)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
+                    }
+                    if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+                    {
+                       fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONTENT;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONT_NAME)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONT_NAME;
                     }
                  }
             else if (ce[i].dup_check_flag & DC_NAME_NO_SUFFIX)
@@ -2451,6 +2533,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     if (fsa[i].dup_check_flag & DC_FILENAME_ONLY)
                     {
                        fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILENAME_AND_SIZE)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILENAME_AND_SIZE;
                     }
                     if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
                     {
@@ -2470,6 +2556,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
                     {
                        fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILENAME_AND_SIZE)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILENAME_AND_SIZE;
                     }
                     if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
                     {
@@ -2673,6 +2763,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             fsa[i].protocol_options ^= SORT_FILE_NAMES;
             changes++;
          }
+         if (ce[i].value_changed2 & NO_AGEING_JOBS_CHANGED)
+         {
+            fsa[i].protocol_options ^= NO_AGEING_JOBS;
+            changes++;
+         }
          if (ce[i].value_changed & FTP_FAST_RENAME_CHANGED)
          {
             fsa[i].protocol_options ^= FTP_FAST_MOVE;
@@ -2703,6 +2798,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          if (ce[i].value_changed2 & FTP_PASSIVE_REDIRECT_CHANGED)
          {
             fsa[i].protocol_options ^= FTP_ALLOW_DATA_REDIRECT;
+            changes++;
+         }
+         if (ce[i].value_changed2 & CHECK_SIZE_CHANGED)
+         {
+            fsa[i].protocol_options ^= CHECK_SIZE;
             changes++;
          }
          if (ce[i].value_changed2 & ERROR_OFFLINE_STATIC_CHANGED)
@@ -2847,11 +2947,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
 
    if ((host_alias_order_change == YES) || (changes > 0))
    {
-      int  ret,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-           db_update_readfd,
+      int  db_update_readfd;
 #endif
-           db_update_fd;
+      int  db_update_fd;
       char db_update_fifo[MAX_PATH_LENGTH];
 
       (void)strcpy(db_update_fifo, p_work_dir);
@@ -2868,6 +2967,8 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       else
       {
+         int ret;
+
          if ((ret = send_cmd(HOST_CONFIG_UPDATE, db_update_fd)) != SUCCESS)
          {
             (void)xrec(ERROR_DIALOG,
@@ -2903,6 +3004,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             (void)xrec(FATAL_DIALOG,
                        "AAAaaaarrrrghhhh!!! Could not find host %s in FSA. (%s %d)",
                        last_selected_host, __FILE__, __LINE__);
+            if (host_list != NULL)
+            {
+               FREE_RT_ARRAY(host_list);
+            }
             return;
          }
          init_host_list(cur_pos);

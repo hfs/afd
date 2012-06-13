@@ -1,7 +1,7 @@
 /*
  *  handle_retrieve_list.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,9 @@ DESCR__S_M3
  **   int check_list(struct directory_entry *p_de,
  **                  char                   *file,
  **                  struct stat            *p_stat_buf)
- **   int rm_removed_files(struct directory_entry *p_de)
+ **   int rm_removed_files(struct directory_entry *p_de,
+ **                        int                    full_scan,
+ **                        char                   *dirname)
  **
  ** DESCRIPTION
  **
@@ -44,13 +46,16 @@ DESCR__S_M3
  **   21.08.2006 H.Kiehl Created
  **   30.01.2009 H.Kiehl Catch case when retrieve list file size does
  **                      not match the expected size.
+ **   28.04.2011 H.Kiehl In rm_removed_files() we not to handle the
+ **                      case when we did not do a complete scan of
+ **                      the directory.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>                /* strcpy(), strerror(), memmove()    */
-#include <stdlib.h>                /* malloc(), realloc(), free()        */
+#include <stdlib.h>                /* exit()                             */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -405,11 +410,42 @@ check_list(struct directory_entry *p_de,
 
 /*########################## rm_removed_files() #########################*/
 void
-rm_removed_files(struct directory_entry *p_de)
+rm_removed_files(struct directory_entry *p_de, int full_scan, char *dirname)
 {
    int    files_removed = 0,
           i;
    size_t move_size;
+
+   /*
+    * Since we might not have scaned the full directory and we mark
+    * the in_list part of the structure as NO when we begin the scan
+    * we must then complete the scan!
+    */
+   if (full_scan != YES)
+   {
+      char        *work_ptr;
+#ifdef SAVE_FILE_CHECK
+      struct stat stat_buf;
+#endif
+
+      work_ptr = dirname + strlen(dirname);
+      for (i = 0; i < *p_de->no_of_listed_files; i++)
+      {
+         if (p_de->rl[i].in_list == NO)
+         {
+            (void)strcpy(work_ptr, p_de->rl[i].file_name);
+#ifdef SAVE_FILE_CHECK
+            if ((stat(dirname, &stat_buf) == 0) && (S_ISREG(stat_buf.st_mode)))
+#else
+            if (access(dirname, F_OK) == 0)
+#endif
+            {
+               p_de->rl[i].in_list = YES;
+            }
+         }
+      }
+      *work_ptr = '\0';
+   }
 
    for (i = 0; i < (*p_de->no_of_listed_files - files_removed); i++)
    {

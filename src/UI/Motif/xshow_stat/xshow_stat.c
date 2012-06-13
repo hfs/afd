@@ -1,6 +1,6 @@
 /*
  *  xshow_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -508,7 +508,7 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
       RT_ARRAY(hosts, host_counter, (MAX_RECIPIENT_LENGTH + 1), char);
       while (*argc > 1)
       {
-         (void)strcpy(hosts[i], argv[1]);
+         (void)my_strncpy(hosts[i], argv[1], (MAX_RECIPIENT_LENGTH + 1));
          (*argc)--; argv++;
          i++;
       }

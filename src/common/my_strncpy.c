@@ -1,6 +1,6 @@
 /*
  *  my_strncpy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,13 +57,14 @@ my_strncpy(char *dest, const char *src, const size_t n)
       dest[i] = src[i];
       i++;
    }
-   dest[i] = '\0';
    if (i == n)
    {
+      dest[i - 1] = '\0';
       return(-1);
    }
    else
    {
+      dest[i] = '\0';
       return(SUCCESS);
    }
 }

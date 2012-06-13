@@ -1,6 +1,6 @@
 /*
  *  eval_input_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,10 +33,11 @@ DESCR__S_M3
  **
  **    gf_xxx <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]
  **        OPTIONS
- **          -d               Distributed helper job.
- **          -i <interval>    Interval at which we should retry.
- **          -o <retries>     Old/Error message and number of retries.
- **          -t               Temp toggle.
+ **          -d                        Distributed helper job.
+ **          -h <HTTP proxy>[:<port>]  Proxy where to send the HTTP requests.
+ **          -i <interval>             Interval at which we should retry.
+ **          -o <retries>              Old/Error message and number of retries.
+ **          -t                        Temp toggle.
  **
  ** RETURN VALUES
  **   struct job *p_db   -
@@ -48,6 +49,7 @@ DESCR__S_M3
  **   18.08.2000 H.Kiehl Created
  **   12.04.2003 H.Kiehl Rewrite to accomodate to new syntax.
  **   09.07.2009 H.Kiehl Added -i option.
+ **   28.12.2011 H.Kiehl Added -h to specify HTTP proxy.
  **
  */
 DESCR__E_M3
@@ -158,6 +160,54 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                            {
                               case 'd' : /* Distribution helper job. */
                                  p_db->special_flag |= DISTRIBUTED_HELPER_JOB;
+                                 break;
+                              case 'h' : /* Default HTTP proxy. */
+                                 if (((i + 1) < argc) &&
+                                     (argv[i + 1][0] != '-'))
+                                 {
+                                    int k = 0;
+
+                                    i++;
+                                    while ((argv[i][k] != '\0') &&
+                                           (argv[i][k] != ':') &&
+                                           (k < MAX_REAL_HOSTNAME_LENGTH))
+                                    {
+                                       p_db->http_proxy[k] = argv[i][k];
+                                       k++;
+                                    }
+                                    if ((k > 0) &&
+                                        (k < MAX_REAL_HOSTNAME_LENGTH))
+                                    {
+                                       p_db->http_proxy[k] = '\0';
+                                       if (argv[i][k] == ':')
+                                       {
+                                          p_db->port = atoi(&argv[i][k + 1]);
+                                       }
+                                    }
+                                    else
+                                    {
+                                       if (k == 0)
+                                       {
+                                          (void)fprintf(stderr,
+                                                        "ERROR   : No default HTTP proxy specified for -h option.\n");
+                                       }
+                                       else
+                                       {
+                                          (void)fprintf(stderr,
+                                                        "ERROR   : Default HTTP proxy specified for -h option is to long, may only be %d bytes long.\n",
+                                                        MAX_REAL_HOSTNAME_LENGTH);
+                                       }
+                                       usage(argv[0]);
+                                       ret = SYNTAX_ERROR;
+                                    }
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stderr,
+                                                  "ERROR   : No default HTTP proxy specified for -h option.\n");
+                                    usage(argv[0]);
+                                    ret = SYNTAX_ERROR;
+                                 }
                                  break;
                               case 'i' : /* Interval at which it should retry. */
                                  if (((i + 1) < argc) &&
@@ -287,12 +337,13 @@ static void
 usage(char *name)
 {
    (void)fprintf(stderr, "SYNTAX: %s <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]\n\n", name);
-   (void)fprintf(stderr, "OPTIONS                 DESCRIPTION\n");
-   (void)fprintf(stderr, "  --version           - Show current version\n");
-   (void)fprintf(stderr, "  -d                  - this is a distributed helper job\n");
-   (void)fprintf(stderr, "  -i <interval>       - interval at which we should retry\n");
-   (void)fprintf(stderr, "  -o <retries>        - old/error message\n");
-   (void)fprintf(stderr, "  -t                  - use other host\n");
+   (void)fprintf(stderr, "OPTIONS                       DESCRIPTION\n");
+   (void)fprintf(stderr, "  --version                 - Show current version\n");
+   (void)fprintf(stderr, "  -d                        - this is a distributed helper job\n");
+   (void)fprintf(stderr, "  -h <HTTP proxy>[:<port>]  - Proxy where to send the HTTP request.\n");
+   (void)fprintf(stderr, "  -i <interval>             - interval at which we should retry\n");
+   (void)fprintf(stderr, "  -o <retries>              - old/error message\n");
+   (void)fprintf(stderr, "  -t                        - use other host\n");
 
    return;
 }

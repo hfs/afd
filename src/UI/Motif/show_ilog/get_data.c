@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>        /* sprintf()                                   */
-#include <string.h>       /* strerror()                                  */
+#include <string.h>       /* strerror(), strcmp()                        */
 #include <stdlib.h>       /* malloc(), realloc(), free(), strtod()       */
 #include <time.h>         /* time()                                      */
 #ifdef TM_IN_SYS_TIME
@@ -94,16 +94,19 @@ extern int              continues_toggle_set,
                         no_of_search_dirs,
                         no_of_search_dirids,
                         no_of_search_hosts,
+                        *search_dir_length,
                         special_button_flag,
                         file_name_length,
                         no_of_log_files;
+extern unsigned int     all_list_items,
+                        *search_dirid;
 extern size_t           search_file_size;
 extern time_t           start_time_val,
                         end_time_val;
 extern char             *p_work_dir,
                         search_file_name[],
                         **search_dir,
-                        **search_dirid,
+                        *search_dir_filter,
                         **search_recipient,
                         **search_user,
                         summary_str[],
@@ -200,7 +203,7 @@ static void   check_log_updates(Widget),
               int  count = 0,                                               \
                    gotcha = NO,                                             \
                    kk;                                                      \
-              char dir_id_str[15];                                          \
+              char dir_id_str[15 + 1];                                      \
                                                                             \
               while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (count < 15))\
               {                                                             \
@@ -210,14 +213,17 @@ static void   check_log_updates(Widget),
               dir_id_str[count] = '\0';                                     \
               id.dir_id = (unsigned int)strtoul(dir_id_str, NULL, 16);      \
               id.dir[0] = '\0';                                             \
-              get_info(GOT_JOB_ID_DIR_ONLY);                                \
-              count = strlen(id.dir);                                       \
-              id.dir[count] = SEPARATOR_CHAR;                               \
-              id.dir[count + 1] = '\0';                                     \
+              if (no_of_search_dirs > 0)                                    \
+              {                                                             \
+                 get_info(GOT_JOB_ID_DIR_ONLY);                             \
+                 count = strlen(id.dir);                                    \
+                 id.dir[count] = SEPARATOR_CHAR;                            \
+                 id.dir[count + 1] = '\0';                                  \
+              }                                                             \
                                                                             \
               for (kk = 0; kk < no_of_search_dirids; kk++)                  \
               {                                                             \
-                 if (sfilter(search_dirid[kk], dir_id_str, 0) == 0)         \
+                 if (search_dirid[kk] == id.dir_id)                         \
                  {                                                          \
                     gotcha = YES;                                           \
                     break;                                                  \
@@ -227,10 +233,24 @@ static void   check_log_updates(Widget),
               {                                                             \
                  for (kk = 0; kk < no_of_search_dirs; kk++)                 \
                  {                                                          \
-                    if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                    if (search_dir_filter[kk] == YES)                       \
                     {                                                       \
-                       gotcha = YES;                                        \
-                       break;                                               \
+                       if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                       {                                                    \
+                          gotcha = YES;                                     \
+                          break;                                            \
+                       }                                                    \
+                    }                                                       \
+                    else                                                    \
+                    {                                                       \
+                       if (search_dir_length[kk] == count)                  \
+                       {                                                    \
+                          if (strncmp(search_dir[kk], id.dir, count) == 0)  \
+                          {                                                 \
+                             gotcha = YES;                                  \
+                             break;                                         \
+                          }                                                 \
+                       }                                                    \
                     }                                                       \
                  }                                                          \
               }                                                             \
@@ -273,7 +293,6 @@ get_data(void)
                start_file_no = -1,
                end_file_no = -1;
    time_t      end;
-   double      total_file_size;
    char        status_message[MAX_MESSAGE_LENGTH];
    struct stat stat_buf;
    XmString    xstr;
@@ -411,7 +430,6 @@ get_data(void)
    {
       (void)sprintf(p_log_file, "%d", i);
       (void)extract_data(log_file, j, i);
-      total_file_size += file_size;
       if ((perm.list_limit > 0) && (total_no_files >= perm.list_limit))
       {
          break;
@@ -1118,7 +1136,7 @@ no_criteria(register char *ptr,
             int  count = 0,
                  gotcha = NO,
                  kk;
-            char dir_id_str[15];
+            char dir_id_str[15 + 1];
 
             while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (count < 15))
             {
@@ -1128,14 +1146,17 @@ no_criteria(register char *ptr,
             dir_id_str[count] = '\0';
             id.dir_id = (unsigned int)strtoul(dir_id_str, NULL, 16);
             id.dir[0] = '\0';
-            get_info(GOT_JOB_ID_DIR_ONLY);
-            count = strlen(id.dir);
-            id.dir[count] = SEPARATOR_CHAR;
-            id.dir[count + 1] = '\0';
+            if (no_of_search_dirs > 0)
+            {
+               get_info(GOT_JOB_ID_DIR_ONLY);
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
+            }
 
             for (kk = 0; kk < no_of_search_dirids; kk++)
             {
-               if (sfilter(search_dirid[kk], dir_id_str, 0) == 0)
+               if (search_dirid[kk] == id.dir_id)
                {
                   gotcha = YES;
                   break;
@@ -1145,10 +1166,24 @@ no_criteria(register char *ptr,
             {
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
-                  if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                  if (search_dir_filter[kk] == YES)
                   {
-                     gotcha = YES;
-                     break;
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  else
+                  {
+                     if (search_dir_length[kk] == count)
+                     {
+                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
             }
@@ -1777,7 +1812,7 @@ recipient_only(register char *ptr,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *ptr_start_line,
-                dir_id_str[15];
+                dir_id_str[15 + 1];
    struct tm    *p_ts;
 
 #ifndef LESSTIF_WORKAROUND
@@ -1953,26 +1988,40 @@ recipient_only(register char *ptr,
          {
             int kk;
 
-            count = strlen(id.dir);
-            id.dir[count] = SEPARATOR_CHAR;
-            id.dir[count + 1] = '\0';
-
+            gotcha = NO;
             for (kk = 0; kk < no_of_search_dirids; kk++)
             {
-               if (sfilter(search_dirid[kk], dir_id_str, 0) == 0)
+               if (search_dirid[kk] == id.dir_id)
                {
                   gotcha = YES;
                   break;
                }
             }
-            if (gotcha == NO)
+            if ((gotcha == NO) && (no_of_search_dirs > 0))
             {
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
-                  if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                  if (search_dir_filter[kk] == YES)
                   {
-                     gotcha = YES;
-                     break;
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  else
+                  {
+                     if (search_dir_length[kk] == count)
+                     {
+                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
             }
@@ -2044,7 +2093,7 @@ file_name_and_recipient(register char *ptr,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *ptr_start_line,
-                dir_id_str[15];
+                dir_id_str[15 + 1];
    struct tm    *p_ts;
 
 #ifndef LESSTIF_WORKAROUND
@@ -2227,26 +2276,40 @@ file_name_and_recipient(register char *ptr,
          {
             int kk;
 
-            count = strlen(id.dir);
-            id.dir[count] = SEPARATOR_CHAR;
-            id.dir[count + 1] = '\0';
-
+            gotcha = NO;
             for (kk = 0; kk < no_of_search_dirids; kk++)
             {
-               if (sfilter(search_dirid[kk], dir_id_str, 0) == 0)
+               if (search_dirid[kk] == id.dir_id)
                {
                   gotcha = YES;
                   break;
                }
             }
-            if (gotcha == NO)
+            if ((gotcha == NO) || (no_of_search_dirs > 0))
             {
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
-                  if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                  if (search_dir_filter[kk] == YES)
                   {
-                     gotcha = YES;
-                     break;
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  else
+                  {
+                     if (search_dir_length[kk] == count)
+                     {
+                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
             }
@@ -2318,7 +2381,7 @@ file_size_and_recipient(register char *ptr,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *ptr_start_line,
-                dir_id_str[15];
+                dir_id_str[15 + 1];
    struct tm    *p_ts;
 
 #ifndef LESSTIF_WORKAROUND
@@ -2547,26 +2610,40 @@ file_size_and_recipient(register char *ptr,
          {
             int kk;
 
-            count = strlen(id.dir);
-            id.dir[count] = SEPARATOR_CHAR;
-            id.dir[count + 1] = '\0';
-
+            gotcha = NO;
             for (kk = 0; kk < no_of_search_dirids; kk++)
             {
-               if (sfilter(search_dirid[kk], dir_id_str, 0) == 0)
+               if (search_dirid[kk] == id.dir_id)
                {
                   gotcha = YES;
                   break;
                }
             }
-            if (gotcha == NO)
+            if ((gotcha == NO) && (no_of_search_dirs > 0))
             {
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
-                  if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                  if (search_dir_filter[kk] == YES)
                   {
-                     gotcha = YES;
-                     break;
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  else
+                  {
+                     if (search_dir_length[kk] == count)
+                     {
+                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
             }
@@ -2579,13 +2656,10 @@ file_size_and_recipient(register char *ptr,
          {
             ptr++;
          }
-
          line_counter++;
          item_counter++;
          file_size += tmp_file_size;
-
          str_list[i] = XmStringCreateLocalized(line);
-
          ptr++;
       }
       loops++;
@@ -2641,7 +2715,7 @@ file_name_size_recipient(register char *ptr,
                 time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *ptr_start_line,
-                dir_id_str[15];
+                dir_id_str[15 + 1];
    struct tm    *p_ts;
 
 #ifndef LESSTIF_WORKAROUND
@@ -2856,26 +2930,40 @@ file_name_size_recipient(register char *ptr,
          {
             int kk;
 
-            count = strlen(id.dir);
-            id.dir[count] = SEPARATOR_CHAR;
-            id.dir[count + 1] = '\0';
-
+            gotcha = NO;
             for (kk = 0; kk < no_of_search_dirids; kk++)
             {
-               if (sfilter(search_dirid[kk], dir_id_str, 0) == 0)
+               if (search_dirid[kk] == id.dir_id)
                {
                   gotcha = YES;
                   break;
                }
             }
-            if (gotcha == NO)
+            if ((gotcha == NO) && (no_of_search_dirs > 0))
             {
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
-                  if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                  if (search_dir_filter[kk] == YES)
                   {
-                     gotcha = YES;
-                     break;
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  else
+                  {
+                     if (search_dir_length[kk] == count)
+                     {
+                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
             }
@@ -2894,7 +2982,6 @@ file_name_size_recipient(register char *ptr,
          str_list[i] = XmStringCreateLocalized(line);
          ptr++;
       }
-
       loops++;
 
       /* Display what we have in buffer. */
@@ -2982,6 +3069,7 @@ display_data(int    i,
    xstr = XmStringCreateLtoR(status_message, XmFONTLIST_DEFAULT_TAG);
    XtVaSetValues(statusbox_w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);
+   all_list_items = total_no_files;
 
    return;
 }

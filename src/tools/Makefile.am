@@ -27,8 +27,9 @@ endif
 INCLUDES                     = -I.. -I../init_afd -I../amg -I../fd\
                                -I../statistics -I../log
 bin_PROGRAMS                 = afdcmd afdcfg afd_hex_print afd_status\
-                               fsa_edit fsa_view fra_edit fra_view get_dc_data\
-                               get_hostname grib2wmo jid_view set_pw udc
+                               fsa_edit fsa_view fra_edit fra_view\
+                               get_dc_data get_hostname grib2wmo\
+                               jid_view set_pw udc
 sbin_PROGRAMS                = cache_spy convert_fsa convert_stat\
                                current_job_list_spy dc_id_spy dir_spy\
                                $(DUPCHECK) file_mask_list_spy\

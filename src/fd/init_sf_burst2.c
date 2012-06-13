@@ -1,6 +1,6 @@
 /*
  *  init_sf_burst2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,6 +82,7 @@ init_sf_burst2(struct job   *p_new_db,
       db.age_limit    = p_new_db->age_limit;
       db.retries      = p_new_db->retries;
       db.chmod        = p_new_db->chmod;
+      db.dir_mode     = p_new_db->dir_mode;
       db.chmod_str[0] = p_new_db->chmod_str[0];
       if (db.chmod_str[0] != '\0')
       {
@@ -89,6 +90,14 @@ init_sf_burst2(struct job   *p_new_db,
          db.chmod_str[2] = p_new_db->chmod_str[2];
          db.chmod_str[3] = p_new_db->chmod_str[3];
          db.chmod_str[4] = p_new_db->chmod_str[4];
+      }
+      db.dir_mode_str[0] = p_new_db->dir_mode_str[0];
+      if (db.dir_mode_str[0] != '\0')
+      {
+         db.dir_mode_str[1] = p_new_db->dir_mode_str[1];
+         db.dir_mode_str[2] = p_new_db->dir_mode_str[2];
+         db.dir_mode_str[3] = p_new_db->dir_mode_str[3];
+         db.dir_mode_str[4] = p_new_db->dir_mode_str[4];
       }
       db.user_id      = p_new_db->user_id;
       db.group_id     = p_new_db->group_id;
@@ -122,6 +131,14 @@ init_sf_burst2(struct job   *p_new_db,
       else
       {
          (void)strcpy(db.smtp_server, p_new_db->smtp_server);
+      }
+      if (p_new_db->http_proxy[0] == '\0')
+      {
+         db.http_proxy[0] = '\0';
+      }
+      else
+      {
+         (void)strcpy(db.http_proxy, p_new_db->http_proxy);
       }
       if (db.group_list != NULL)
       {
@@ -183,6 +200,7 @@ init_sf_burst2(struct job   *p_new_db,
          free(db.lock_file_name);
       }
       db.lock_file_name = p_new_db->lock_file_name;
+      db.exec_cmd = p_new_db->exec_cmd;
 #ifdef _WITH_TRANS_EXEC
       if (db.trans_exec_cmd != NULL)
       {
@@ -216,22 +234,20 @@ init_sf_burst2(struct job   *p_new_db,
     * Open the AFD counter file. This is needed when trans_rename is
     * used or user renaming (SMTP).
     */
-   if ((db.trans_rename_rule[0] != '\0') || (db.user_rename_rule[0] != '\0'))
+   if ((db.trans_rename_rule[0] != '\0') || (db.user_rename_rule[0] != '\0') ||
+       (db.subject_rename_rule[0] != '\0') ||
+       ((db.special_flag & ADD_MAIL_HEADER) &&
+        (db.special_ptr != NULL) && (*db.special_ptr != '/')))
    {
-      char gbuf[MAX_PATH_LENGTH];
-
-      (void)strcpy(gbuf, p_work_dir);
-      (void)strcat(gbuf, ETC_DIR);
-      (void)strcat(gbuf, RENAME_RULE_FILE);
-      get_rename_rules(gbuf, NO);
+      get_rename_rules(NO);
       if (db.trans_rename_rule[0] != '\0')
       {
          if ((db.trans_rule_pos = get_rule(db.trans_rename_rule,
                                            no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Could NOT find rule %s. Ignoring this option.",
-                      db.trans_rename_rule);
+                      "Could NOT find rule %s. Ignoring the option \"%s\".",
+                      db.trans_rename_rule, TRANS_RENAME_ID);
             db.trans_rename_rule[0] = '\0';
          }
       }
@@ -252,9 +268,23 @@ init_sf_burst2(struct job   *p_new_db,
                                              no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Could NOT find rule %s. Ignoring this option.",
-                       db.subject_rename_rule);
+                       "Could NOT find rule %s. Ignoring the option \"%s\".",
+                       db.subject_rename_rule, SUBJECT_ID);
             db.subject_rename_rule[0] = '\0';
+         }
+      }
+      if ((db.special_flag & ADD_MAIL_HEADER) &&
+          (db.special_ptr != NULL) && (*db.special_ptr != '/'))
+      {
+         if ((db.mail_header_rule_pos = get_rule(db.special_ptr,
+                                                 no_of_rule_headers)) < 0)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could NOT find rule %s. Ignoring the option \"%s\".",
+                       db.special_ptr, ADD_MAIL_HEADER_ID);
+            db.special_flag &= ~ADD_MAIL_HEADER;
+            free(db.special_ptr);
+            db.special_ptr = NULL;
          }
       }
    }
@@ -262,7 +292,7 @@ init_sf_burst2(struct job   *p_new_db,
    if ((files_to_send = get_file_names(file_path, &file_size_to_send)) > 0)
    {
       /* Do we want to display the status? */
-      if (gsf_check_fsa() != NEITHER)
+      if (gsf_check_fsa((struct job *)&db) != NEITHER)
       {
 #ifdef LOCK_DEBUG
          rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
@@ -284,6 +314,10 @@ init_sf_burst2(struct job   *p_new_db,
          else if (db.protocol & SMTP_FLAG)
               {
                  fsa->job_status[(int)db.job_no].connect_status = SMTP_BURST_TRANSFER_ACTIVE;
+              }
+         else if (db.protocol & EXEC_FLAG)
+              {
+                 fsa->job_status[(int)db.job_no].connect_status = EXEC_BURST_TRANSFER_ACTIVE;
               }
          else if (db.protocol & SCP_FLAG)
               {
@@ -318,6 +352,18 @@ init_sf_burst2(struct job   *p_new_db,
             if (*values_changed & TARGET_DIR_CHANGED)
             {
                (void)strcpy(db.target_dir, p_new_db->target_dir);
+
+               if (db.protocol & EXEC_FLAG)
+               {
+                  if (check_exec_type(db.exec_cmd))
+                  {
+                     db.special_flag |= EXEC_ONCE_ONLY;
+                  }
+                  else
+                  {
+                     db.special_flag &= ~EXEC_ONCE_ONLY;
+                  }
+               }
             }
          }
          else

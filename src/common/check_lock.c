@@ -1,6 +1,6 @@
 /*
  *  check_lock.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -112,6 +112,7 @@ check_lock(char *file, char block_flag)
          return(INCORRECT);
       }
 
+      (void)close(fd);
       if (tlock.l_type == F_UNLCK)
       {
          return(LOCK_IS_NOT_SET);

@@ -1,6 +1,6 @@
 /*
  *  convert_error_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -92,13 +92,13 @@ convert_error_queue(int           old_eq_fd,
                     unsigned char old_version,
                     unsigned char new_version)
 {
-   int    i;
-   size_t new_size;
-   char   *ptr = old_eq_ptr;
+   char *ptr = old_eq_ptr;
 
    if ((old_version == 0) && (new_version == 1))
    {
-      int                  no_of_old_error_ids;
+      int                  i,
+                           no_of_old_error_ids;
+      size_t               new_size;
       struct error_queue_0 *old_eq;
       struct error_queue_1 *new_eq;
 

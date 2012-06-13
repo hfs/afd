@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -185,7 +185,7 @@ struct mon_list
                                                  /* the dialog.          */
           char          hostname[2][MAX_REAL_HOSTNAME_LENGTH];
                                                  /* The remote host name.*/
-          char          rcmd[MAX_REMOTE_CMD_LENGTH + 1];
+          char          rcmd[MAX_REMOTE_CMD_LENGTH];
                                                  /* The command to       */
                                                  /* execute on remote    */
                                                  /* host, either rsh or  */
