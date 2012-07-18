@@ -1014,7 +1014,8 @@ sql_timeup(void)
    else
    {
       fra[db.fra_pos].next_check_time = calc_next_time_array(db.no_of_time_entries,
-                                                             db.te, now);
+                                                             db.te, now,
+                                                             __FILE__, __LINE__);
    }
    if (fra[db.fra_pos].next_check_time > timeup)
    {

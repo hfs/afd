@@ -1081,12 +1081,8 @@ check_database(void)
       {
          (void)fprintf(stderr, _("%s failed : `%s'\n"),
                        AFD_AUTO_CONFIG, db_file);
-         ret = -1;
       }
-      else
-      {
-         ret = 0;
-      }
+      ret = 0;
       if (ferror(fp))
       {
          (void)fprintf(stderr, _("ferror() error : %s\n"), strerror(errno));
@@ -1095,7 +1091,9 @@ check_database(void)
       {
          (void)fprintf(stderr, _("Failed to pclose() : %s\n"), strerror(errno));
       }
-      return(ret);
+      (void)sprintf(db_file, "%s%s%s",
+                    p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE);
+      return(eaccess(db_file, R_OK));
    }
    else
    {

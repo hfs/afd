@@ -1,6 +1,6 @@
 /*
  *  copy_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,8 @@ DESCR__S_M3
  **   03.07.2001 H.Kiehl When copying via mmap(), copy in chunks.
  **   17.07.2001 H.Kiehl Removed mmap() stuff, simplifies porting.
  **   02.09.2007 H.Kiehl Added copying via splice().
+ **   13.07.2012 H.Kiehl Keep modification and access time of original
+ **                      file.
  **
  */
 DESCR__E_M3
@@ -55,6 +57,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdlib.h>     /* malloc(), free()                              */
+#include <utime.h>      /* utime()                                       */
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
@@ -125,6 +128,8 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
          }
          else
          {
+            struct utimbuf old_time;
+
             if (p_stat_buf->st_size > 0)
             {
 #ifdef WITH_SPLICE_SUPPORT
@@ -224,6 +229,16 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           _("Failed to close() `%s' : %s"),
+                          to, strerror(errno));
+            }
+
+            /* Keep time stamp of the original file. */
+            old_time.actime = stat_buf.st_atime;
+            old_time.modtime = stat_buf.st_mtime;
+            if (utime(to, &old_time) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to set time of file %s : %s",
                           to, strerror(errno));
             }
          }

@@ -95,6 +95,7 @@ extern struct fileretrieve_status *fra;
 extern struct delete_log          dl;
 #endif
 #ifdef _DISTRIBUTION_LOG
+extern unsigned int               max_jobs_per_file;
 extern struct file_dist_list      **file_dist_pool;
 #endif
 
@@ -440,7 +441,8 @@ cross_link_error:
                }
             }
 #ifdef _DISTRIBUTION_LOG
-            if (dist_type < NO_OF_DISTRIBUTION_TYPES)
+            if ((dist_type < NO_OF_DISTRIBUTION_TYPES) &&
+                (file_dist_pool[i][dist_type].no_of_dist < max_jobs_per_file))
             {
                file_dist_pool[i][dist_type].jid_list[file_dist_pool[i][dist_type].no_of_dist] = p_db->job_id;
                file_dist_pool[i][dist_type].proc_cycles[file_dist_pool[i][dist_type].no_of_dist] = (unsigned char)(p_db->no_of_loptions - p_db->no_of_time_entries);

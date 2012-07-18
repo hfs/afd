@@ -503,6 +503,7 @@ main(int argc, char *argv[])
                                   "Total file counter less then zero. Correcting to %d.",
                                   tmp_val);
                         fsa->total_file_counter = tmp_val;
+                        files_to_retrieve_shown = tmp_val;
                      }
 #endif
 
@@ -521,6 +522,7 @@ main(int argc, char *argv[])
                               new_size = 0;
                            }
                            fsa->total_file_size = new_size;
+                           file_size_to_retrieve_shown = new_size;
                            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 # if SIZEOF_OFF_T == 4
                                      "Total file size overflowed. Correcting to %ld.",
@@ -540,6 +542,7 @@ main(int argc, char *argv[])
 # endif
                                              (pri_off_t)fsa->total_file_size);
                                 fsa->total_file_size = 0;
+                                file_size_to_retrieve_shown = 0;
                              }
 #endif
                      }
@@ -628,48 +631,151 @@ main(int argc, char *argv[])
                      }
                      if (status == SUCCESS)
                      {
-                        do
+                        if (content_length == -1)
                         {
-                           if ((status = http_read(buffer, blocksize)) == INCORRECT)
+                           do
                            {
-                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                                        "Failed to read from remote file %s",
-                                        rl[i].file_name);
-                              reset_values(files_retrieved, file_size_retrieved,
-                                           files_to_retrieve, file_size_to_retrieve,
-                                           (struct job *)&db);
-                              http_quit();
-                              exit(eval_timeout(READ_REMOTE_ERROR));
-                           }
-                           if (fsa->trl_per_process > 0)
-                           {
-                              limit_transfer_rate(status, fsa->trl_per_process,
-                                                  clktck);
-                           }
-                           if (status > 0)
-                           {
-                              if (write(fd, buffer, status) != status)
+#ifdef WITH_DEBUG_HTTP_READ
+                              if (fsa->debug > NORMAL_MODE)
                               {
-                                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                           "Failed to write() to file %s : %s",
-                                           local_tmp_file, strerror(errno));
-                                 http_quit();
-                                 reset_values(files_retrieved, file_size_retrieved,
-                                              files_to_retrieve,
-                                              file_size_to_retrieve,
-                                              (struct job *)&db);
-                                 exit(WRITE_LOCAL_ERROR);
+                                 trans_db_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+# if SIZEOF_OFF_T == 4
+                                              "Reading blocksize %d (bytes_done=%ld).",
+# else
+                                              "Reading blocksize %d (bytes_done=%ld).",
+# endif
+                                              blocksize, (pri_off_t)bytes_done);
                               }
-                              bytes_done += status;
-                           }
+#endif
+                              if ((status = http_read(buffer, blocksize)) == INCORRECT)
+                              {
+                                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                                           "Failed to read from remote file %s",
+                                           rl[i].file_name);
+                                 reset_values(files_retrieved, file_size_retrieved,
+                                              files_to_retrieve, file_size_to_retrieve,
+                                              (struct job *)&db);
+                                 http_quit();
+                                 exit(eval_timeout(READ_REMOTE_ERROR));
+                              }
+                              if (fsa->trl_per_process > 0)
+                              {
+                                 limit_transfer_rate(status, fsa->trl_per_process,
+                                                     clktck);
+                              }
+                              if (status > 0)
+                              {
+                                 if (write(fd, buffer, status) != status)
+                                 {
+                                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                              "Failed to write() to file %s : %s",
+                                              local_tmp_file, strerror(errno));
+                                    http_quit();
+                                    reset_values(files_retrieved, file_size_retrieved,
+                                                 files_to_retrieve,
+                                                 file_size_to_retrieve,
+                                                 (struct job *)&db);
+                                    exit(WRITE_LOCAL_ERROR);
+                                 }
+                                 bytes_done += status;
+                              }
+#ifdef WITH_DEBUG_HTTP_READ
+                              if (fsa->debug > NORMAL_MODE)
+                              {
+                                 trans_db_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+# if SIZEOF_OFF_T == 4
+                                              "Blocksize read = %d (bytes_done=%ld)",
+# else
+                                              "Blocksize read = %d (bytes_done=%lld)",
+# endif
+                                              status, (pri_off_t)bytes_done);
+                              }
+#endif
 
-                           if (gsf_check_fsa((struct job *)&db) != NEITHER)
+                              if (gsf_check_fsa((struct job *)&db) != NEITHER)
+                              {
+                                 fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
+                                 fsa->job_status[(int)db.job_no].file_size_done += status;
+                                 fsa->job_status[(int)db.job_no].bytes_send += status;
+                              }
+                           } while (status != 0);
+                        }
+                        else
+                        {
+                           int hunk_size;
+
+                           while (bytes_done != content_length)
                            {
-                              fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
-                              fsa->job_status[(int)db.job_no].file_size_done += status;
-                              fsa->job_status[(int)db.job_no].bytes_send += status;
+                              hunk_size = content_length - bytes_done;
+                              if (hunk_size > blocksize)
+                              {
+                                 hunk_size = blocksize;
+                              }
+#ifdef WITH_DEBUG_HTTP_READ
+                              if (fsa->debug > NORMAL_MODE)
+                              {
+                                 trans_db_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+# if SIZEOF_OFF_T == 4
+                                              "Reading blocksize %d (bytes_done=%ld).",
+# else
+                                              "Reading blocksize %d (bytes_done=%ld).",
+# endif
+                                              hunk_size, (pri_off_t)bytes_done);
+                              }
+#endif
+                              if ((status = http_read(buffer, hunk_size)) == INCORRECT)
+                              {
+                                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                                           "Failed to read from remote file %s",
+                                           rl[i].file_name);
+                                 reset_values(files_retrieved, file_size_retrieved,
+                                              files_to_retrieve, file_size_to_retrieve,
+                                              (struct job *)&db);
+                                 http_quit();
+                                 exit(eval_timeout(READ_REMOTE_ERROR));
+                              }
+                              if (fsa->trl_per_process > 0)
+                              {
+                                 limit_transfer_rate(status, fsa->trl_per_process,
+                                                     clktck);
+                              }
+                              if (status > 0)
+                              {
+                                 if (write(fd, buffer, status) != status)
+                                 {
+                                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                              "Failed to write() to file %s : %s",
+                                              local_tmp_file, strerror(errno));
+                                    http_quit();
+                                    reset_values(files_retrieved, file_size_retrieved,
+                                                 files_to_retrieve,
+                                                 file_size_to_retrieve,
+                                                 (struct job *)&db);
+                                    exit(WRITE_LOCAL_ERROR);
+                                 }
+                                 bytes_done += status;
+                              }
+#ifdef WITH_DEBUG_HTTP_READ
+                              if (fsa->debug > NORMAL_MODE)
+                              {
+                                 trans_db_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+# if SIZEOF_OFF_T == 4
+                                              "Blocksize read = %d (bytes_done=%ld)",
+# else
+                                              "Blocksize read = %d (bytes_done=%lld)",
+# endif
+                                              status, (pri_off_t)bytes_done);
+                              }
+#endif
+
+                              if (gsf_check_fsa((struct job *)&db) != NEITHER)
+                              {
+                                 fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
+                                 fsa->job_status[(int)db.job_no].file_size_done += status;
+                                 fsa->job_status[(int)db.job_no].bytes_send += status;
+                              }
                            }
-                        } while (status != 0);
+                        }
                      }
                      else /* We need to read data in chunks dictated by the server. */
                      {
@@ -799,14 +905,15 @@ main(int argc, char *argv[])
                                   "Total file counter less then zero. Correcting to %d.",
                                   tmp_val);
                         fsa->total_file_counter = tmp_val;
+                        files_to_retrieve_shown = tmp_val;
                      }
 #endif
 
                      if ((rl[i].size != content_length) && (content_length > 0))
                      {
-                        fsa->total_file_size += (content_length - rl[i].size);
-                        file_size_to_retrieve_shown += (content_length - rl[i].size);
-                        fsa->job_status[(int)db.job_no].file_size += (content_length - rl[i].size);
+                        fsa->total_file_size += content_length;
+                        file_size_to_retrieve_shown += content_length;
+                        fsa->job_status[(int)db.job_no].file_size += content_length;
                         if (adjust_rl_size == YES)
                         {
                            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -836,6 +943,7 @@ main(int argc, char *argv[])
                               new_size = 0;
                            }
                            fsa->total_file_size = new_size;
+                           file_size_to_retrieve_shown = new_size;
                            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
 # if SIZEOF_OFF_T == 4
                                      "Total file size overflowed. Correcting to %ld.",
@@ -855,6 +963,7 @@ main(int argc, char *argv[])
 # endif
                                              (pri_off_t)fsa->total_file_size);
                                 fsa->total_file_size = 0;
+                                file_size_to_retrieve_shown = 0;
                              }
 #endif
                      }
@@ -1286,7 +1395,8 @@ http_timeup(void)
    else
    {
       fra[db.fra_pos].next_check_time = calc_next_time_array(db.no_of_time_entries,
-                                                             db.te, now);
+                                                             db.te, now,
+                                                             __FILE__, __LINE__);
    }
    if (fra[db.fra_pos].next_check_time > timeup)
    {

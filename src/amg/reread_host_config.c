@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -198,7 +198,7 @@ reread_host_config(time_t           *hc_old_time,
          exit(INCORRECT);
       }
       (void)memset(mark_list, NO, *old_no_of_hosts);
-      for (i = 0; i < no_of_hosts; i++)
+      for (i = 0; i < new_no_of_hosts; i++)
       {
          host_pos = INCORRECT;
          for (j = 0; j < *old_no_of_hosts; j++)
@@ -395,7 +395,7 @@ reread_host_config(time_t           *hc_old_time,
              */
             host_order_changed = YES;
          }
-      } /* for (i = 0; i < no_of_hosts; i++) */
+      } /* for (i = 0; i < new_no_of_hosts; i++) */
 
       if (host_order_changed != YES)
       {

@@ -481,7 +481,7 @@ main(int argc, char *argv[])
                            &default_warn_time, &create_source_dir);
 
       /* Lets check and see if create_source_dir was set via afdcfg. */
-      if (fsa_attach_passive(YES) != INCORRECT)
+      if (fsa_attach_passive(YES) == SUCCESS)
       {
          if (*(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_CREATE_SOURCE_DIR)
          {
@@ -546,7 +546,7 @@ main(int argc, char *argv[])
          /*
           * Try get the host information from the current FSA.
           */
-         if (fsa_attach_passive(YES) != INCORRECT)
+         if (fsa_attach_passive(YES) == SUCCESS)
          {
             size_t new_size = ((no_of_hosts / HOST_BUF_SIZE) + 1) *
                               HOST_BUF_SIZE * sizeof(struct host_list);

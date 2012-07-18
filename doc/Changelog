@@ -1283,3 +1283,25 @@
 28.05.2012 - Added new option to create remote source directory.
 03.06.2012 - Allow user to disable protocols via configure.
 ------------------------> Released: 05.06.2012 <---------------------------
+
+
+
+----------------------------> Version 1.4.5 <------------------------------
+                             ---------------
+14.06.2012 - In some cases AFD did not detect that it fails to attach to
+             its internal database.
+           - Function check_files() could crash due to an incorrect
+             size check.
+15.06.2012 - To locate an error in function calc_next_time() we extended
+             the parameters so that the caller can give the information
+             who is calling it.
+           - Dialogs show_dlog and show_olog did not show any results
+             when called from dialog dir_ctrl and a directory was selected.
+20.06.2012 - When asking for HTTP options some servers return additional
+             information in human readable form. This was considered in
+             the code and it could happen that AFD gets out of order and
+             thus lossing connection.
+           - Downloading a file via HTTP could sometimes lead to a timout,
+             because we tried to read an additional block beyond the end
+             of the file.
+------------------------> Released: ??.??.201? <---------------------------

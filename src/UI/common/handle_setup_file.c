@@ -78,6 +78,8 @@ DESCR__E_M3
 #include <errno.h>
 #include "ui_common_defs.h"
 
+#define WITH_HOSTNAME_LENGTH_CORRECTION 1
+
 /* External global variables. */
 extern int  no_of_rows_set,
             no_of_short_lines;
@@ -198,7 +200,7 @@ read_setup(char *file_name,
       return;
    }
 
-   if ((buffer = malloc(stat_buf.st_size)) == NULL)
+   if ((buffer = malloc(stat_buf.st_size + 1)) == NULL)
    {
       (void)close(fd);
       return;
@@ -210,6 +212,7 @@ read_setup(char *file_name,
       return;
    }
    (void)close(fd); /* This will release the lock as well. */
+   buffer[stat_buf.st_size] = '\0';
 
    /* Get the default font. */
    if ((ptr = posi(buffer, FONT_ID)) != NULL)
@@ -320,10 +323,12 @@ read_setup(char *file_name,
          }
          tmp_buffer[i] = '\0';
          *hostname_display_length = atoi(tmp_buffer);
+#ifdef WITH_HOSTNAME_LENGTH_CORRECTION
          if (*hostname_display_length > MAX_HOSTNAME_LENGTH)
          {
             *hostname_display_length = MAX_HOSTNAME_LENGTH;
          }
+#endif
       }
       else
       {

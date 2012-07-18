@@ -752,7 +752,8 @@ main(int argc, char *argv[])
                     {
                        fra[de[i].fra_pos].next_check_time = calc_next_time_array(fra[de[i].fra_pos].no_of_time_entries,
                                                                                  &fra[de[i].fra_pos].te[0],
-                                                                                 start_time);
+                                                                                 start_time,
+                                                                                 __FILE__, __LINE__);
                     }
                  }
               }
@@ -931,7 +932,8 @@ main(int argc, char *argv[])
                     {
                        fra[de[i].fra_pos].next_check_time = calc_next_time_array(fra[de[i].fra_pos].no_of_time_entries,
                                                                                  &fra[de[i].fra_pos].te[0],
-                                                                                 start_time);
+                                                                                 start_time,
+                                                                                 __FILE__, __LINE__);
                     }
                  }
                  if (((*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME) == 0) &&
@@ -2376,9 +2378,12 @@ handle_dir(int    dir_pos,
                         {
                            for (split_job_counter = 0; split_job_counter < files_moved; split_job_counter++)
                            {
-                              file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
-                              file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
-                              file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                              if (file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist < max_jobs_per_file)
+                              {
+                                 file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
+                                 file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
+                                 file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                              }
                            }
                         }
                         else
@@ -2395,9 +2400,12 @@ handle_dir(int    dir_pos,
                                                    file_name_pool[split_job_counter],
                                                    &pmatch_time)) == 0)
                                  {
-                                    file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
-                                    file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
-                                    file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                                    if (file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist < max_jobs_per_file)
+                                    {
+                                       file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].jid_list[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = db[de[dir_pos].fme[j].pos[k]].job_id;
+                                       file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].proc_cycles[file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist] = 0;
+                                       file_dist_pool[split_job_counter][DISABLED_DIS_TYPE].no_of_dist++;
+                                    }
                                  }
                                  else if (ret == 1)
                                       {

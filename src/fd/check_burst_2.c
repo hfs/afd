@@ -674,6 +674,9 @@ check_burst_2(char         *file_path,
                p_new_db->default_from = db.default_from;
                p_new_db->protocol = db.protocol;
                p_new_db->job_id = db.job_id;
+#ifdef HAVE_SETPRIORITY
+               p_new_db->afd_config_mtime = db.afd_config_mtime;
+#endif
                if (eval_message(msg_name, p_new_db) < 0)
                {
                   free(p_new_db);

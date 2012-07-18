@@ -1,6 +1,6 @@
 /*
  *  handle_time_jobs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -109,7 +109,8 @@ handle_time_jobs(time_t now)
             break;
          }
          db[time_job_list[i]].next_start_time = calc_next_time_array(db[time_job_list[i]].no_of_time_entries,
-                                                                     db[time_job_list[i]].te, now);
+                                                                     db[time_job_list[i]].te, now,
+                                                                     __FILE__, __LINE__);
       }
    }
 

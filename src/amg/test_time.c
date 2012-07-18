@@ -1,6 +1,6 @@
 /*
  *  test_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,7 +88,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      next_time = calc_next_time(&te, current_time);
+      next_time = calc_next_time(&te, current_time, __FILE__, __LINE__);
    }
    else
    {
@@ -111,7 +111,8 @@ main(int argc, char *argv[])
             exit(INCORRECT);
          }
       }
-      next_time = calc_next_time_array((argc - 1), te, current_time);
+      next_time = calc_next_time_array((argc - 1), te, current_time,
+                                       __FILE__, __LINE__);
    }
 
 #if SIZEOF_TIME_T == 4

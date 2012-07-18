@@ -79,7 +79,7 @@ DESCR__E_M3
 #include "mafd_ctrl.h"
 #include "show_olog.h"
 
-#define _MACRO_DEBUG
+/* #define _MACRO_DEBUG */
 
 /* External global variables. */
 extern Display          *display;
@@ -330,13 +330,10 @@ static void   check_log_updates(Widget),
                      kk;\
 \
                  id.dir[0] = '\0';\
-                 if (no_of_search_dirs > 0)\
-                 {\
-                    get_info(GOT_JOB_ID_DIR_ONLY);\
-                    count = strlen(id.dir);\
-                    id.dir[count] = SEPARATOR_CHAR;\
-                    id.dir[count + 1] = '\0';\
-                 }\
+                 get_info(GOT_JOB_ID_DIR_ONLY);\
+                 count = strlen(id.dir);\
+                 id.dir[count] = SEPARATOR_CHAR;\
+                 id.dir[count + 1] = '\0';\
                  for (kk = 0; kk < no_of_search_dirids; kk++)\
                  {\
                     if (search_dirid[kk] == id.dir_id)\
@@ -2163,13 +2160,10 @@ no_criteria(register char *ptr,
                    kk;
 
                id.dir[0] = '\0';
-               if (no_of_search_dirs > 0)
-               {
-                  get_info(GOT_JOB_ID_DIR_ONLY);
-                  count = strlen(id.dir);
-                  id.dir[count] = SEPARATOR_CHAR;
-                  id.dir[count + 1] = '\0';
-               }
+               get_info(GOT_JOB_ID_DIR_ONLY);
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
 
                for (kk = 0; kk < no_of_search_dirids; kk++)
                {
@@ -4399,13 +4393,10 @@ recipient_only(register char *ptr,
                    kk;
 
                id.dir[0] = '\0';
-               if (no_of_search_dirs > 0)
-               {
-                  get_info(GOT_JOB_ID_DIR_ONLY);
-                  count = strlen(id.dir);
-                  id.dir[count] = SEPARATOR_CHAR;
-                  id.dir[count + 1] = '\0';
-               }
+               get_info(GOT_JOB_ID_DIR_ONLY);
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
 
                for (kk = 0; kk < no_of_search_dirids; kk++)
                {

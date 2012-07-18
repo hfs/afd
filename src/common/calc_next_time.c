@@ -26,10 +26,15 @@ DESCR__S_M3
  **                    like entry
  **
  ** SYNOPSIS
- **   time_t calc_next_time(struct bd_time_entry *te, time_t current_time);
+ **   time_t calc_next_time(struct bd_time_entry *te,
+ **                         time_t               current_time,
+ **                         char                 *source_file,
+ **                         int                  source_line);
  **   time_t calc_next_time_array(int                  no_of_entries,
  **                               struct bd_time_entry *te,
- **                               time_t               current_time);
+ **                               time_t               current_time,
+ **                               char                 *source_file,
+ **                               int                  source_line);
  **
  ** DESCRIPTION
  **   The function calc_next_time() calculates from the structure
@@ -53,6 +58,8 @@ DESCR__S_M3
  **   13.11.2006 H.Kiehl Added function calc_next_time_array().
  **   18.11.2006 H.Kiehl It did not handle the case when tm_min=59
  **                      correctly. Fixed.
+ **   15.06.2012 H.Kiehl If we hit an error show more details and the
+ **                      the source line from where we have been called.
  **
  */
 DESCR__E_M3
@@ -74,7 +81,9 @@ static int check_day(struct bd_time_entry *, struct tm *),
 time_t
 calc_next_time_array(int                  no_of_entries,
                      struct bd_time_entry *te,
-                     time_t               current_time)
+                     time_t               current_time,
+                     char                 *source_file,
+                     int                  source_line)
 {
    int    i;
    time_t new_time = 0,
@@ -82,7 +91,7 @@ calc_next_time_array(int                  no_of_entries,
 
    for (i = 0; i < no_of_entries; i++)
    {
-      tmp_time = calc_next_time(&te[i], current_time);
+      tmp_time = calc_next_time(&te[i], current_time, source_file, source_line);
       if ((tmp_time < new_time) || (new_time == 0))
       {
          new_time = tmp_time;
@@ -99,7 +108,10 @@ calc_next_time_array(int                  no_of_entries,
 
 /*######################### calc_next_time() ############################*/
 time_t
-calc_next_time(struct bd_time_entry *te, time_t current_time)
+calc_next_time(struct bd_time_entry *te,
+               time_t               current_time,
+               char                 *source_file,
+               int                  source_line)
 {
    int       gotcha,
              i;
@@ -110,11 +122,41 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
 
    if (check_month(te, bd_time) == INCORRECT)
    {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#ifdef HAVE_LONG_LONG
+                 "Broken time entry %lld %lld %u %u %d %d called from %s %d",
+                 te->continuous_minute, te->minute,
+#else
+                 "Broken time entry %d%d%d%d%d%d%d%d %d%d%d%d%d%d%d%d %u %u %d %d called from %s %d",
+                 (int)te->continuous_minute[0], (int)te->continuous_minute[1],
+                 (int)te->continuous_minute[2], (int)te->continuous_minute[3],
+                 (int)te->continuous_minute[4], (int)te->continuous_minute[5],
+                 (int)te->continuous_minute[6], (int)te->continuous_minute[7],
+                 (int)te->minute[0], (int)te->minute[1], (int)te->minute[2], (int)te->minute[3],
+                 (int)te->minute[4], (int)te->minute[5], (int)te->minute[6], (int)te->minute[7],
+#endif
+                 te->hour, te->day_of_month, (int)(te->month),
+                 (int)(te->day_of_week), source_file, source_line);
       return(0);
    }
 
    if (check_day(te, bd_time) == INCORRECT)
    {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#ifdef HAVE_LONG_LONG
+                 "Broken time entry %lld %lld %u %u %d %d called from %s %d",
+                 te->continuous_minute, te->minute,
+#else
+                 "Broken time entry %d%d%d%d%d%d%d%d %d%d%d%d%d%d%d%d %u %u %d %d called from %s %d",
+                 (int)te->continuous_minute[0], (int)te->continuous_minute[1],
+                 (int)te->continuous_minute[2], (int)te->continuous_minute[3],
+                 (int)te->continuous_minute[4], (int)te->continuous_minute[5],
+                 (int)te->continuous_minute[6], (int)te->continuous_minute[7],
+                 (int)te->minute[0], (int)te->minute[1], (int)te->minute[2], (int)te->minute[3],
+                 (int)te->minute[4], (int)te->minute[5], (int)te->minute[6], (int)te->minute[7],
+#endif
+                 te->hour, te->day_of_month, (int)(te->month),
+                 (int)(te->day_of_week), source_file, source_line);
       return(0);
    }
 
@@ -154,6 +196,21 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     _("Failed to locate any valid minute!?"));
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+# ifdef HAVE_LONG_LONG
+                    "Broken time entry %lld %lld %u %u %d %d called from %s %d",
+                    te->continuous_minute, te->minute,
+# else
+                    "Broken time entry %d%d%d%d%d%d%d%d %d%d%d%d%d%d%d%d %u %u %d %d called from %s %d",
+                    (int)te->continuous_minute[0], (int)te->continuous_minute[1],
+                    (int)te->continuous_minute[2], (int)te->continuous_minute[3],
+                    (int)te->continuous_minute[4], (int)te->continuous_minute[5],
+                    (int)te->continuous_minute[6], (int)te->continuous_minute[7],
+                    (int)te->minute[0], (int)te->minute[1], (int)te->minute[2], (int)te->minute[3],
+                    (int)te->minute[4], (int)te->minute[5], (int)te->minute[6], (int)te->minute[7],
+# endif
+                    te->hour, te->day_of_month, (int)(te->month),
+                    (int)(te->day_of_week), source_file, source_line);
          return(0);
       }
       bd_time->tm_min = i;
@@ -184,6 +241,21 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  _("Failed to locate any valid minute!?"));
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+# ifdef HAVE_LONG_LONG
+                 "Broken time entry %lld %lld %u %u %d %d called from %s %d",
+                 te->continuous_minute, te->minute,
+# else
+                 "Broken time entry %d%d%d%d%d%d%d%d %d%d%d%d%d%d%d%d %u %u %d %d called from %s %d",
+                 (int)te->continuous_minute[0], (int)te->continuous_minute[1],
+                 (int)te->continuous_minute[2], (int)te->continuous_minute[3],
+                 (int)te->continuous_minute[4], (int)te->continuous_minute[5],
+                 (int)te->continuous_minute[6], (int)te->continuous_minute[7],
+                 (int)te->minute[0], (int)te->minute[1], (int)te->minute[2], (int)te->minute[3],
+                 (int)te->minute[4], (int)te->minute[5], (int)te->minute[6], (int)te->minute[7],
+# endif
+                 te->hour, te->day_of_month, (int)(te->month),
+                 (int)(te->day_of_week), source_file, source_line);
       return(0);
    }
    bd_time->tm_min = i;
@@ -215,6 +287,21 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
                }
                if (check_day(te, bd_time) == INCORRECT)
                {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#ifdef HAVE_LONG_LONG
+                             "Broken time entry %lld %lld %u %u %d %d called from %s %d",
+                             te->continuous_minute, te->minute,
+#else
+                             "Broken time entry %d%d%d%d%d%d%d%d %d%d%d%d%d%d%d%d %u %u %d %d called from %s %d",
+                             (int)te->continuous_minute[0], (int)te->continuous_minute[1],
+                             (int)te->continuous_minute[2], (int)te->continuous_minute[3],
+                             (int)te->continuous_minute[4], (int)te->continuous_minute[5],
+                             (int)te->continuous_minute[6], (int)te->continuous_minute[7],
+                             (int)te->minute[0], (int)te->minute[1], (int)te->minute[2], (int)te->minute[3],
+                             (int)te->minute[4], (int)te->minute[5], (int)te->minute[6], (int)te->minute[7],
+#endif
+                             te->hour, te->day_of_month, (int)(te->month),
+                             (int)(te->day_of_week), source_file, source_line);
                   return(0);
                }
                gotcha = YES;
@@ -226,6 +313,21 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     _("Failed to locate any valid hour!?"));
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#ifdef HAVE_LONG_LONG
+                    "Broken time entry %lld %lld %u %u %d %d called from %s %d",
+                    te->continuous_minute, te->minute,
+#else
+                    "Broken time entry %d%d%d%d%d%d%d%d %d%d%d%d%d%d%d%d %u %u %d %d called from %s %d",
+                    (int)te->continuous_minute[0], (int)te->continuous_minute[1],
+                    (int)te->continuous_minute[2], (int)te->continuous_minute[3],
+                    (int)te->continuous_minute[4], (int)te->continuous_minute[5],
+                    (int)te->continuous_minute[6], (int)te->continuous_minute[7],
+                    (int)te->minute[0], (int)te->minute[1], (int)te->minute[2], (int)te->minute[3],
+                    (int)te->minute[4], (int)te->minute[5], (int)te->minute[6], (int)te->minute[7],
+#endif
+                    te->hour, te->day_of_month, (int)(te->month),
+                    (int)(te->day_of_week), source_file, source_line);
          return(0);
       }
       if (bd_time->tm_hour != i)

@@ -455,7 +455,8 @@ create_fra(int no_of_dirs)
                          (fra[i].no_of_time_entries * sizeof(struct bd_time_entry)));
             fra[i].next_check_time = calc_next_time_array(fra[i].no_of_time_entries,
                                                           &fra[i].te[0],
-                                                          current_time);
+                                                          current_time,
+                                                          __FILE__, __LINE__);
          }
          (void)memset(&fra[i].ate, 0, sizeof(struct bd_time_entry));
       } /* for (i = 0; i < no_of_dirs; i++) */
@@ -513,7 +514,8 @@ create_fra(int no_of_dirs)
                          (fra[i].no_of_time_entries * sizeof(struct bd_time_entry)));
             fra[i].next_check_time = calc_next_time_array(fra[i].no_of_time_entries,
                                                           &fra[i].te[0],
-                                                          current_time);
+                                                          current_time,
+                                                          __FILE__, __LINE__);
          }
 
          /*

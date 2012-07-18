@@ -698,6 +698,12 @@ create_db(void)
          de[dir_counter].fme[de[dir_counter].nfg].pos[de[dir_counter].fme[de[dir_counter].nfg].dest_count] = i;
          de[dir_counter].fme[de[dir_counter].nfg].dest_count++;
          de[dir_counter].nfg++;
+#ifdef _DISTRIBUTION_LOG
+         if (de[dir_counter].nfg > max_jobs_per_file)
+         {
+            max_jobs_per_file = de[dir_counter].nfg;
+         }
+#endif
       }
       else if ((i > 0) && (db[i].files == db[i - 1].files))
            {
@@ -829,7 +835,9 @@ create_db(void)
                           db[i].no_of_time_entries++;
                           db[i].next_start_time = calc_next_time_array(db[i].no_of_time_entries,
                                                                        db[i].te,
-                                                                       time(NULL));
+                                                                       time(NULL),
+                                                                       __FILE__,
+                                                                       __LINE__);
                           db[i].time_option_type = SEND_COLLECT_TIME;
                        }
                     }
@@ -1133,6 +1141,9 @@ create_db(void)
       max_jobs_per_file = 1;
    }
    j = max_jobs_per_file * sizeof(unsigned int);
+   system_log(DEBUG_SIGN, NULL, 0,
+              "max_jobs_per_file = %u max_file_buffer = %u",
+              max_jobs_per_file, max_file_buffer);
 # ifdef _WITH_PTHREAD
    for (m = 0; m < no_of_local_dirs; m++)
    {

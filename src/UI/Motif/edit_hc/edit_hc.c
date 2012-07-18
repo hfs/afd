@@ -489,12 +489,15 @@ main(int argc, char *argv[])
    box_w = XmCreateForm(form_w, "host_list_box_w", args, argcount);
 
    (void)memcpy(label_str, HOST_ALIAS_LABEL, HOST_ALIAS_LABEL_LENGTH);
+
+   /* We want at least MAX_HOSTNAME_LENGTH be visible to the user. */
    if (HOST_ALIAS_LABEL_LENGTH < MAX_HOSTNAME_LENGTH)
    {
+      /* Note, the '4 + ' is for the slider. */
       (void)memset(&label_str[HOST_ALIAS_LABEL_LENGTH], ' ',
-                   (MAX_HOSTNAME_LENGTH - HOST_ALIAS_LABEL_LENGTH));
-      label_str[MAX_HOSTNAME_LENGTH] = ':';
-      label_str[MAX_HOSTNAME_LENGTH + 1] = '\0';
+                   (4 + MAX_HOSTNAME_LENGTH - HOST_ALIAS_LABEL_LENGTH));
+      label_str[4 + MAX_HOSTNAME_LENGTH] = ':';
+      label_str[4 + MAX_HOSTNAME_LENGTH + 1] = '\0';
    }
    else
    {

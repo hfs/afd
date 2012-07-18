@@ -134,10 +134,11 @@ static int                       basic_authentication(void),
                                  check_connection(void),
                                  get_http_reply(int *),
                                  read_msg(int *, int);
+static void                      flush_read(void),
 #ifdef WITH_SSL
-static void                      sig_handler(int);
+                                 sig_handler(int),
 #endif
-static void                      store_http_options(int, int);
+                                 store_http_options(int, int);
 
 
 /*########################## http_connect() #############################*/
@@ -630,7 +631,14 @@ retry_get:
                *content_length = hmr.content_length;
             }
          }
-         else if (reply == 401)
+         else if ((reply == 403) || /* Forbidden */
+                  (reply == 404))   /* Not Found */
+              {
+                 flush_read();
+                 hmr.bytes_buffered = 0;
+                 hmr.bytes_read = 0;
+              }
+         else if (reply == 401) /* Unauthorized */
               {
                  if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
                  {
@@ -747,7 +755,7 @@ retry_put_response:
       }
       reply = SUCCESS;
    }
-   else if (reply == 401)
+   else if (reply == 401) /* Unauthorized */
         {
            if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
            {
@@ -766,6 +774,9 @@ retry_put_response:
                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_put_response", NULL,
                              _("Digest authentication not yet implemented."));
                 }
+
+           hmr.bytes_buffered = 0;
+           hmr.bytes_read = 0;
         }
    else if (reply == CONNECTION_REOPENED)
         {
@@ -846,7 +857,7 @@ retry_del:
          {
             reply = SUCCESS;
          }
-         else if (reply == 401)
+         else if (reply == 401) /* Unauthorized */
               {
                  if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
                  {
@@ -943,11 +954,11 @@ retry_options:
                            (hmr.authorization == NULL) ? "" : hmr.authorization,
                            host)) == SUCCESS)
       {
-         if (((reply = get_http_reply(NULL)) == 200) || (reply == 403))
+         if ((reply = get_http_reply(&hmr.bytes_buffered)) == 200)
          {
             reply = SUCCESS;
          }
-         else if (reply == 401)
+         else if (reply == 401) /* Unauthorized */
               {
                  if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
                  {
@@ -969,6 +980,13 @@ retry_options:
 
                  hmr.bytes_buffered = 0;
                  hmr.bytes_read = 0;
+              }
+         else if (reply == 403) /* Forbidden */
+              {
+                 flush_read();
+                 hmr.bytes_buffered = 0;
+                 hmr.bytes_read = 0;
+                 reply = SUCCESS;
               }
          else if (reply == CONNECTION_REOPENED)
               {
@@ -1073,7 +1091,7 @@ retry_head:
                *date = hmr.date;
             }
          }
-         else if (reply == 401)
+         else if (reply == 401) /* Unauthorized */
               {
                  if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
                  {
@@ -1096,7 +1114,8 @@ retry_head:
                  hmr.bytes_buffered = 0;
                  hmr.bytes_read = 0;
               }
-         else if ((reply == 405) || (reply == 501))
+         else if ((reply == 405) || /* Method Not Allowed */
+                  (reply == 501))   /* Not Implemented */
               {
                  hmr.http_options_not_working |= HTTP_OPTION_HEAD;
                  *content_length = -1;
@@ -2069,7 +2088,8 @@ get_http_reply(int *ret_bytes_buffered)
                     }
                     store_http_options(i, read_length);
                  }
-         }
+         } /* for (;;) */
+
          if ((ret_bytes_buffered != NULL) && (bytes_buffered > read_length))
          {
             *ret_bytes_buffered = bytes_buffered - read_length - 1;
@@ -2229,6 +2249,10 @@ read_msg(int *read_length, int offset)
                        {
                           if (hmr.bytes_read == 0)
                           {
+#ifdef WITH_TRACE
+                             trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+                                       "read_msg(): 0 bytes read");
+#endif
                              return(0);
                           }
                           else
@@ -2254,6 +2278,10 @@ read_msg(int *read_length, int offset)
                        {
                           if (hmr.bytes_read == 0)
                           {
+#ifdef WITH_TRACE
+                             trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+                                       "read_msg(): 0 bytes read");
+#endif
                              return(0);
                           }
                           else
@@ -2284,6 +2312,8 @@ read_msg(int *read_length, int offset)
 #ifdef WITH_TRACE
                     trace_log(NULL, 0, BIN_CMD_R_TRACE,
                               &msg_str[bytes_buffered], hmr.bytes_read, NULL);
+                    trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+                              "read_msg(): %d bytes read", hmr.bytes_read);
 #endif
                     read_ptr = &msg_str[bytes_buffered];
                     bytes_buffered += hmr.bytes_read;
@@ -2321,12 +2351,77 @@ read_msg(int *read_length, int offset)
             }
             *read_length = read_ptr - msg_str;
             read_ptr++;
+#ifdef WITH_TRACE
+            trace_log(__FILE__, __LINE__, R_TRACE, msg_str, *read_length, NULL);
+#endif
             return(bytes_buffered);
          }
          read_ptr++;
          hmr.bytes_read--;
       } while (hmr.bytes_read > 0);
    } /* for (;;) */
+}
+
+
+/*----------------------------- flush_read() ----------------------------*/
+/*                              ------------                             */
+/* Some HTTP servers return warn/error information in human readable     */
+/* form, that we do not need. We must however read the complete message, */
+/* otherwise the command/reponce sequence will get mixed up.             */
+/*-----------------------------------------------------------------------*/
+static void
+flush_read(void)
+{
+   int   hunk_size,
+         bytes_buffered;
+   off_t total_read = 0;
+   char  buffer[2048];
+
+#ifdef WITH_TRACE
+   trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+# if SIZEOF_OFF_T == 4
+             "Flush reading %ld bytes (bufferd bytes = %d).",
+# else
+             "Flush reading %lld bytes (bufferd bytes = %d).",
+# endif
+             (pri_off_t)hmr.content_length, hmr.bytes_buffered);
+#endif
+   while (total_read != hmr.content_length)
+   {
+      hunk_size = hmr.content_length - total_read;
+      if (hunk_size > 2048)
+      {
+         hunk_size = 2048;
+      }
+#ifdef WITH_TRACE
+      trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+                "Reading hunk size = %d bytes.", hunk_size);
+#endif
+      if ((bytes_buffered = http_read(buffer, hunk_size)) <= 0)
+      {
+#ifdef WITH_TRACE
+         trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+# if SIZEOF_OFF_T == 4
+                   "No good read %d, flushed %ld bytes.",
+# else
+                   "No good read %d, flushed %lld bytes.",
+# endif
+                   bytes_buffered, (pri_off_t)total_read);
+#endif
+         return;
+      }
+      total_read += bytes_buffered;
+   }
+#ifdef WITH_TRACE
+   trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+# if SIZEOF_OFF_T == 4
+             "Flushed %ld bytes.", (pri_off_t)total_read);
+# else
+             "Flushed %lld bytes.", (pri_off_t)total_read);
+# endif
+#endif
+
+   return;
 }
 
 

@@ -254,13 +254,10 @@ static void             display_data(int, time_t, time_t),
                   kk;                                      \
                                                            \
               id.dir[0] = '\0';                            \
-              if (no_of_search_dirs > 0)                   \
-              {                                            \
-                 get_info(GOT_JOB_ID_DIR_ONLY);            \
-                 count = strlen(id.dir);                   \
-                 id.dir[count] = SEPARATOR_CHAR;           \
-                 id.dir[count + 1] = '\0';                 \
-              }                                            \
+              get_info(GOT_JOB_ID_DIR_ONLY);               \
+              count = strlen(id.dir);                      \
+              id.dir[count] = SEPARATOR_CHAR;              \
+              id.dir[count + 1] = '\0';                    \
                                                            \
               for (kk = 0; kk < no_of_search_dirids; kk++) \
               {                                            \

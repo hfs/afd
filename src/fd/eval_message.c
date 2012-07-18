@@ -2470,7 +2470,7 @@ eval_message(char *message_name, struct job *p_db)
 
       length = strlen(p_db->default_from) + 1;
       free(p_db->from);
-      if ((p_db->from = malloc(length)) == NULL)
+      if ((p_db->from = malloc(length + 1)) == NULL)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Failed to malloc() memory, will ignore default from option : %s",

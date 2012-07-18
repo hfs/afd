@@ -3360,8 +3360,9 @@ extern off_t        bin_file_convert(char *, off_t, int),
                     tiff2gts(char *, char *);
 extern ssize_t      readn(int, void *, int),
                     writen(int, const void *, size_t, ssize_t);
-extern time_t       calc_next_time(struct bd_time_entry *, time_t),
-                    calc_next_time_array(int, struct bd_time_entry *, time_t),
+extern time_t       calc_next_time(struct bd_time_entry *, time_t, char *, int),
+                    calc_next_time_array(int, struct bd_time_entry *, time_t,
+                                         char *, int),
                     datestr2unixtime(char *),
                     write_host_config(int, char *, struct host_list *);
 #ifdef WITH_ERROR_QUEUE

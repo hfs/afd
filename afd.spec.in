@@ -1,7 +1,7 @@
 Summary: A file distribution and fetching system
 Name: afd
 Version: @AFD_VERSION@
-Release: @AFD_RELEASE@
+Release: @AFD_RELEASE@%{?dist}
 License: GPLv2
 Group: Applications/Communications
 BuildRoot: %{_builddir}/%{name}-root

@@ -925,6 +925,7 @@ main(int argc, char *argv[])
 static void
 init_log_file(int *argc, char *argv[])
 {
+   int  max_alias_length;
    char log_file[MAX_PATH_LENGTH];
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
@@ -963,6 +964,7 @@ init_log_file(int *argc, char *argv[])
    {
       (void)strcpy(log_name, SYSTEM_LOG_NAME);
       max_log_number = MAX_SYSTEM_LOG_FILES;
+      max_alias_length = MAX_DIR_ALIAS_LENGTH;
       max_logfile_size = MAX_SYS_LOGFILE_SIZE;
       get_max_log_values(&max_log_number, MAX_SYSTEM_LOG_FILES_DEF,
                          MAX_SYSTEM_LOG_FILES, &max_logfile_size,
@@ -974,6 +976,7 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, RECEIVE_LOG_NAME);
            max_log_number = MAX_RECEIVE_LOG_FILES;
+           max_alias_length = MAX_DIR_ALIAS_LENGTH;
            if ((alias_name_length < 1) ||
                (alias_name_length > MAX_DIR_ALIAS_LENGTH))
            {
@@ -988,6 +991,7 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, TRANSFER_LOG_NAME);
            max_log_number = MAX_TRANSFER_LOG_FILES;
+           max_alias_length = MAX_HOSTNAME_LENGTH;
            if ((alias_name_length < 1) ||
                (alias_name_length > MAX_HOSTNAME_LENGTH))
            {
@@ -1002,6 +1006,7 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, TRANS_DB_LOG_NAME);
            max_log_number = MAX_TRANS_DB_LOG_FILES;
+           max_alias_length = MAX_HOSTNAME_LENGTH;
            max_logfile_size = MAX_TRANS_DB_LOGFILE_SIZE;
            if ((alias_name_length < 1) ||
                (alias_name_length > MAX_HOSTNAME_LENGTH))
@@ -1019,6 +1024,7 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, MON_SYS_LOG_NAME);
            max_log_number = MAX_MON_SYS_LOG_FILES;
+           max_alias_length = MAX_DIR_ALIAS_LENGTH;
            get_max_log_values(&max_log_number, MAX_MON_SYS_LOG_FILES_DEF,
                               MAX_MON_SYS_LOG_FILES, NULL, NULL, 0);
            max_log_number--;
@@ -1028,6 +1034,7 @@ init_log_file(int *argc, char *argv[])
         {
            (void)strcpy(log_name, MON_LOG_NAME);
            max_log_number = MAX_MON_LOG_FILES;
+           max_alias_length = MAX_AFDNAME_LENGTH;
            if ((alias_name_length < 1) ||
                (alias_name_length > MAX_AFDNAME_LENGTH))
            {
@@ -1074,10 +1081,10 @@ init_log_file(int *argc, char *argv[])
    {
       int i = 0;
 
-      RT_ARRAY(hosts, no_of_hosts, (MAX_AFDNAME_LENGTH + 1), char);
+      RT_ARRAY(hosts, no_of_hosts, (max_alias_length + 1), char);
       while (*argc > 1)
       {
-         (void)my_strncpy(hosts[i], argv[1], (MAX_AFDNAME_LENGTH + 1));
+         (void)my_strncpy(hosts[i], argv[1], (max_alias_length + 1));
          (*argc)--; argv++;
          i++;
       }
