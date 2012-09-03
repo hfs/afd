@@ -147,7 +147,7 @@
 struct line 
        {
           char           hostname[MAX_HOSTNAME_LENGTH + 1];
-          char           host_display_str[MAX_HOSTNAME_LENGTH + 1];
+          char           host_display_str[MAX_HOSTNAME_LENGTH + 2];
           int            no_of_files[MAX_NO_PARALLEL_JOBS];
           char           connect_status[MAX_NO_PARALLEL_JOBS];
           char           detailed_selection[MAX_NO_PARALLEL_JOBS];
@@ -257,7 +257,7 @@ struct afd_control_perm
 struct job_data
        {
           char          hostname[MAX_HOSTNAME_LENGTH + 1];
-          char          host_display_str[MAX_HOSTNAME_LENGTH + 1];
+          char          host_display_str[MAX_HOSTNAME_LENGTH + 2];
           signed char   priority[2];
           char          file_name_in_use[MAX_FILENAME_LENGTH + 1];
           char          str_fs_use[5];        /* String file_size_in_use.*/

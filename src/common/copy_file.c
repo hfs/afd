@@ -233,8 +233,8 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
             }
 
             /* Keep time stamp of the original file. */
-            old_time.actime = stat_buf.st_atime;
-            old_time.modtime = stat_buf.st_mtime;
+            old_time.actime = p_stat_buf->st_atime;
+            old_time.modtime = p_stat_buf->st_mtime;
             if (utime(to, &old_time) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,

@@ -224,7 +224,7 @@ search_text(Widget w, XtPointer client_data, XtPointer call_data)
 void
 update_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   char str_line[MAX_LINE_COUNTER_DIGITS];
+   char str_line[MAX_LINE_COUNTER_DIGITS + 1];
 
    if (last_pos != 0)
    {

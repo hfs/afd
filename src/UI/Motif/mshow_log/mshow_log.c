@@ -1052,6 +1052,7 @@ init_log_file(int *argc, char *argv[])
             exit(INCORRECT);
         }
 
+   max_alias_length += 4; /* In case there is switching information. */
    (void)sprintf(log_file, "%s/%s0", log_dir, log_name);
    current_log_number = 0;
 

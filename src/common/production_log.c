@@ -158,7 +158,13 @@ production_log(time_t       creation_time,
                      split_job_counter, SEPARATOR_CHAR, dir_id,
                      SEPARATOR_CHAR, job_id, SEPARATOR_CHAR);
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&production_buffer[length],
+                       (MAX_INT_LENGTH + MAX_PRODUCTION_BUFFER_LENGTH) - length,
+                       fmt, ap) + 1;
+#else
    length += vsprintf(&production_buffer[length], fmt, ap) + 1;
+#endif
    production_buffer[length] = '\n';
    *(unsigned short *)production_buffer = (unsigned short)length;
    va_end(ap);

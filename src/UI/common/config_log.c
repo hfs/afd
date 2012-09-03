@@ -1,6 +1,6 @@
 /*
  *  config_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -80,7 +80,7 @@ config_log(unsigned int event_class,
              pos1,
              pos2;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + 1];
    va_list   ap;
    struct tm *p_ts;
 
@@ -148,7 +148,12 @@ config_log(unsigned int event_class,
 
    if (alias == NULL)
    {
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length], MAX_LINE_LENGTH, "%s",
+                         eastr[event_action]);
+#else
       length += sprintf(&buf[length], "%s", eastr[event_action]);
+#endif
    }
    else
    {
@@ -162,20 +167,33 @@ config_log(unsigned int event_class,
       {
          alias_length = MAX_DIR_ALIAS_LENGTH;
       }
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length], MAX_LINE_LENGTH, "%-*s: %s",
+                         alias_length, alias, eastr[event_action]);
+#else
       length += sprintf(&buf[length], "%-*s: %s",
                         alias_length, alias, eastr[event_action]);
+#endif
    }
    if (fmt != NULL)
    {
       buf[length++] = ' ';
       pos1 = length;
       va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+      length += vsnprintf(&buf[length], MAX_LINE_LENGTH, fmt, ap);
+#else
       length += vsprintf(&buf[length], fmt, ap);
+#endif
       va_end(ap);
    }
 
    pos2 = length;
+#ifdef HAVE_SNPRINTF
+   length += snprintf(&buf[length], MAX_LINE_LENGTH, " (%s)\n", user);
+#else
    length += sprintf(&buf[length], " (%s)\n", user);
+#endif
    if (sys_log_fd != STDOUT_FILENO)
    {
       (void)write(sys_log_fd, buf, length);

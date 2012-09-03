@@ -157,7 +157,13 @@ event_log(time_t       event_time,
                        LOG_DATE_LENGTH, (pri_time_t)event_time, event_class,
                        event_type, event_action, SEPARATOR_CHAR);
       va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+      length += vsnprintf(&event_buffer[length],
+                          (MAX_TIME_T_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_DIR_ALIAS_LENGTH + MAX_HOSTNAME_LENGTH + MAX_USER_NAME_LENGTH + MAX_EVENT_REASON_LENGTH) - length,
+                          fmt, ap);
+#else
       length += vsprintf(&event_buffer[length], fmt, ap);
+#endif
       va_end(ap);
    }
    event_buffer[length++] = '\n';

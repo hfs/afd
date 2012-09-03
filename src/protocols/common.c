@@ -71,13 +71,17 @@ int
 command(int fd, char *fmt, ...)
 {
    int     length;
-   char    buf[MAX_LINE_LENGTH];
+   char    buf[MAX_LINE_LENGTH + 1];
    va_list ap;
    char    *ptr,
            *ptr_start;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length = vsnprintf(buf, MAX_LINE_LENGTH, fmt, ap);
+#else
    length = vsprintf(buf, fmt, ap);
+#endif
    va_end(ap);
    buf[length] = '\r';
    buf[length + 1] = '\n';

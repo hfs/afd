@@ -1044,7 +1044,6 @@ check_database(void)
 #ifdef WITH_AUTO_CONFIG
    if (eaccess(db_file, R_OK) == -1)
    {
-      int         ret;
       FILE        *fp;
       struct stat stat_buf;
 
@@ -1082,7 +1081,6 @@ check_database(void)
          (void)fprintf(stderr, _("%s failed : `%s'\n"),
                        AFD_AUTO_CONFIG, db_file);
       }
-      ret = 0;
       if (ferror(fp))
       {
          (void)fprintf(stderr, _("ferror() error : %s\n"), strerror(errno));

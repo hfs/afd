@@ -528,7 +528,7 @@ check_files(struct directory_entry *p_de,
                         }
                         for (i = 0; i < p_de->nfg; i++)
                         {
-                           for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++)
+                           for (j = 0; ((i < p_de->nfg) && (j < p_de->fme[i].nfm)); j++)
                            {
                               if ((ret = pmatch(p_de->fme[i].file_mask[j],
                                                 p_dir->d_name, &pmatch_time)) == 0)
@@ -580,7 +580,7 @@ check_files(struct directory_entry *p_de,
                                        */
                                       break;
                                    }
-                           } /* for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++) */
+                           } /* for (j = 0; ((i < p_de->nfg) && (j < p_de->fme[i].nfm)); j++) */
                         } /* for (i = 0; i < p_de->nfg; i++) */
                      }
                   }
@@ -2021,7 +2021,7 @@ check_files(struct directory_entry *p_de,
                                     */
                                    break;
                                 }
-                        } /* for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++) */
+                        } /* for (j = 0; ((i < p_de->nfg) && (j < p_de->fme[i].nfm)); j++) */
                      } /* for (i = 0; i < p_de->nfg; i++) */
 
                      if ((gotcha == NO) &&

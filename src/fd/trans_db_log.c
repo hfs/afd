@@ -72,11 +72,12 @@ void
 trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
 {
    register int i = 0;
+   int          tmp_errno = errno;
    char         *ptr;
    size_t       header_length,
                 length;
    time_t       tvalue;
-   char         buf[MAX_LINE_LENGTH];
+   char         buf[MAX_LINE_LENGTH + 1];
    va_list      ap;
    struct tm    *p_ts;
 
@@ -159,7 +160,11 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    header_length = length;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length], MAX_LINE_LENGTH - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
    if (buf[length - 1] == '\n')
    {
@@ -174,8 +179,13 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    }
    else
    {
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length], MAX_LINE_LENGTH - length,
+                         " #%x (%s %d)\n", db.job_id, file, line);
+#else
       length += sprintf(&buf[length], " #%x (%s %d)\n",
                         db.job_id, file, line);
+#endif
    }
    if ((msg_str != NULL) && (msg_str[0] != '\0'))
    {
@@ -192,7 +202,8 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
             end_ptr++;
          }
          ptr = end_ptr;
-         while ((*end_ptr != '\n') && (*end_ptr != '\r') &&
+         while (((end_ptr - msg_str) < MAX_RET_MSG_LENGTH) &&
+                (*end_ptr != '\n') && (*end_ptr != '\r') &&
                 (*end_ptr != '\0'))
          {
             /* Replace any unprintable characters with a dot. */
@@ -207,7 +218,17 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
             *end_ptr = '\0';
             end_ptr++;
          }
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length], MAX_LINE_LENGTH - length,
+                            "%s%s\n", buf, ptr);
+#else
          length += sprintf(&buf[length], "%s%s\n", buf, ptr);
+#endif
+         if ((length >= MAX_LINE_LENGTH) ||
+             ((end_ptr - msg_str) >= MAX_RET_MSG_LENGTH))
+         {
+            break;
+         }
       } while (*end_ptr != '\0');
       buf[header_length] = tmp_char;
    }
@@ -217,6 +238,7 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "write() error : %s", strerror(errno));
    }
+   errno = tmp_errno;
 
    return;
 }

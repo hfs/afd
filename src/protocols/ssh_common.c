@@ -46,6 +46,9 @@ DESCR__S_M3
  **   01.01.2006 H.Kiehl Created
  **   23.07.2006 H.Kiehl Added host fingerprint check.
  **   18.04.2009 H.Kiehl Added compression.
+ **   03.08.2012 H.Kiehl In function ssh_login() use O_NONBLOCK for reading
+ **                      initial string from ssh process instead of an
+ **                      alarm().
  */
 DESCR__E_M3
 
@@ -54,7 +57,6 @@ DESCR__E_M3
 #include <string.h>       /* memcpy(), strerror()                        */
 #include <stdlib.h>       /* malloc(), free(), exit()                    */
 #include <sys/types.h>    /* fd_set                                      */
-#include <setjmp.h>       /* sigsetjmp(), siglongjmp()                   */
 #include <signal.h>       /* kill()                                      */
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
@@ -78,7 +80,7 @@ DESCR__E_M3
 #endif
 #include <termios.h>
 #include <unistd.h>       /* select(), write(), read(), close()          */
-#include <fcntl.h>        /* open()                                      */
+#include <fcntl.h>        /* open(), fcntl()                             */
 #include <errno.h>
 #include "fddefs.h"
 #include "ssh_commondefs.h"
@@ -92,7 +94,6 @@ extern long            transfer_timeout;
 /* Local global variables. */
 static int             fdm;
 static pid_t           ssh_data_pid;
-static sigjmp_buf      env_alrm;
 #ifdef WITH_SSH_FINGERPRINT
 # ifdef WITH_REMOVE_FROM_KNOWNHOSTS
 static struct ssh_data sd;
@@ -112,7 +113,6 @@ static int             get_passwd_reply(int),
 #ifdef WITH_TRACE
 static size_t          pipe_write_np(int, char *, size_t);
 #endif
-static void            sig_handler(int);
 
 #define NO_PROMPT 0
 
@@ -411,6 +411,7 @@ ssh_login(int data_fd, char *passwd)
 {
    int            eio_loops = 0,
                   max_fd,
+                  rr_loops = 0,
                   status;
    char           *password = NULL, /* To store the password part. */
                   *passwdBeg = NULL,
@@ -488,6 +489,7 @@ ssh_login(int data_fd, char *passwd)
 
    for (;;)
    {
+retry_read_with_stat:
       FD_SET(data_fd, &rset);
       FD_SET(data_fd, &eset);
       FD_SET(fdm, &rset);
@@ -514,37 +516,80 @@ retry_read:
                }
           else if (FD_ISSET(fdm, &rset))
                {
-                  int tmp_errno;
+                  int flags,
+                      tmp_errno;
 
-                  if (signal(SIGALRM, sig_handler) == SIG_ERR)
+                  /*
+                   * Since it sometimes happens that also select() tells
+                   * us that data is there ready to be read but there is
+                   * no data available. Thus we have to set O_NONBLOCK
+                   * otherwise we will block here.
+                   * We also have tried this (up to 1.4.4) to set an alarm.
+                   * This had the disadvantage that we lost a lot of time
+                   * waiting for the alarm.
+                   */
+                  if ((flags = fcntl(fdm, F_GETFL, 0)) == -1)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
-                               _("Failed to set signal handler : %s"),
+                               "Failed to get flag via fcntl() : %s", strerror(errno));
+                     status = INCORRECT;
+                     break;
+                  }
+                  flags |= O_NONBLOCK;
+                  if (fcntl(fdm, F_SETFL, flags) == -1)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
+                               "Failed to set O_NONBLOCK flag via fcntl() : %s",
                                strerror(errno));
                      status = INCORRECT;
                      break;
                   }
-                  if (sigsetjmp(env_alrm, 1) != 0)
+                  if (((status = read(fdm, msg_str, MAX_RET_MSG_LENGTH)) == -1) &&
+                      (errno == EAGAIN))
+                  {
+                     if (rr_loops > 5)
+                     {
+                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
+                                  _("Hit an Input/Output error, assuming child was not up. Retrying (%d)."),
+                                  rr_loops);
+                     }
+                     rr_loops++;
+                     if (rr_loops == 11)
+                     {
+                        break;
+                     }
+                     else
+                     {
+                        goto retry_read_with_stat;
+                     }
+                  }
+                  tmp_errno = errno;
+                  if ((flags = fcntl(fdm, F_GETFL, 0)) == -1)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
-                               _("read() timeout (%ld)"), transfer_timeout);
-                     timeout_flag = ON;
+                               "Failed to get flag via fcntl() : %s", strerror(errno));
                      status = INCORRECT;
                      break;
                   }
-                  (void)alarm(transfer_timeout);
-                  status = read(fdm, msg_str, MAX_RET_MSG_LENGTH);
-                  tmp_errno = errno;
-                  (void)alarm(0);
+                  flags &= ~O_NONBLOCK;
+                  if (fcntl(fdm, F_SETFL, flags) == -1)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
+                               "Failed to unset O_NONBLOCK flag via fcntl() : %s",
+                               strerror(errno));
+                     status = INCORRECT;
+                     break;
+                  }
 
                   if (status < 0)
                   {
                      if ((tmp_errno == EIO) && (eio_loops < 10))
                      {
-                        if (eio_loops == 0)
+                        if (eio_loops > 5)
                         {
                            trans_log(DEBUG_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
-                                     _("Hit an Input/Output error, assuming child was not up. Retrying."));
+                                     _("Hit an Input/Output error, assuming child was not up. Retrying (%d)."),
+                                     eio_loops);
                         }
                         (void)my_usleep(200000L);
                         eio_loops++;
@@ -558,12 +603,13 @@ retry_read:
                                      _("Hit an Input/Output error, even after retrying %d times."),
                                      eio_loops);
                         }
-                        if (errno == ECONNRESET)
+                        if (tmp_errno == ECONNRESET)
                         {
                            timeout_flag = CON_RESET;
                         }
                         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ssh_login", NULL,
-                                  _("read() error : %s"), strerror(tmp_errno));
+                                  _("read() error (%d): %s"),
+                                  status, strerror(tmp_errno));
                         status = INCORRECT;
                      }
                   }
@@ -843,7 +889,7 @@ retry_read:
                  break;
               }
            }
-   }
+   } /* for (;;) */
    (void)free(password);
 
    return(status);
@@ -1496,12 +1542,4 @@ tty_raw(int fd)
       return(-1);
    }
    return(0);
-}
-
-
-/*+++++++++++++++++++++++++++++ sig_handler() +++++++++++++++++++++++++++*/
-static void
-sig_handler(int signo)
-{
-   siglongjmp(env_alrm, 1);
 }

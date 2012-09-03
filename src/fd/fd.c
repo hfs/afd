@@ -389,10 +389,7 @@ main(int argc, char *argv[])
    }
    for (i = 0; i < no_of_dirs; i++)
    {
-      if (fra[i].queued > 0)
-      {
-         fra[i].queued = 0;
-      }
+      fra[i].queued = 0;
    }
    init_fra_data();
 
@@ -3268,6 +3265,7 @@ zombie_check(struct connection *p_con,
                case TIMEOUT_ERROR         : /* Timeout arrived. */
                case CONNECTION_RESET_ERROR: /* Connection reset by peer. */
                case CONNECT_ERROR         : /* Failed to connect to remote host. */
+               case CONNECTION_REFUSED_ERROR: /* Connection refused. */
 #ifdef WITH_SSL
                case AUTH_ERROR            : /* SSL/TLS authentification error. */
 #endif

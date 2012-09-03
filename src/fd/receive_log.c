@@ -76,20 +76,22 @@ receive_log(char         *sign,
             unsigned int job_id,
             char         *fmt, ...)
 {
-   int       receive_log_fd = -1;
+   int       receive_log_fd = -1,
+             tmp_errno = errno;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    int       receive_log_readfd;
 #endif
    char      dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
              *ptr;
    size_t    length = DIR_ALIAS_OFFSET;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
    va_list   ap;
    struct tm *p_ts;
 
    get_dir_alias(job_id, dir_alias);
    if (dir_alias[0] == '\0')
    {
+      errno = tmp_errno;
       return;
    }
    ptr = dir_alias;
@@ -133,6 +135,7 @@ receive_log(char         *sign,
    }
    if (receive_log_fd == -1)
    {
+      errno = tmp_errno;
       return;
    }
 
@@ -173,7 +176,12 @@ receive_log(char         *sign,
    length += 2;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length],
+                       (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if ((file == NULL) || (line == 0))
@@ -183,7 +191,13 @@ receive_log(char         *sign,
    }
    else
    {
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length],
+                         (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                         " (%s %d)\n", file, line);
+#else
       length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
    }
 
    if (write(receive_log_fd, buf, length) != length)
@@ -197,6 +211,7 @@ receive_log(char         *sign,
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
+   errno = tmp_errno;
 
    return;
 }

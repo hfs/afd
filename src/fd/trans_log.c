@@ -86,11 +86,12 @@ trans_log(char *sign,
           char *fmt,
           ...)
 {
+   int       tmp_errno = errno;
    char      *ptr = tr_hostname;
    size_t    header_length,
              length = HOSTNAME_OFFSET;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
    va_list   ap;
    struct tm *p_ts;
 
@@ -123,7 +124,7 @@ trans_log(char *sign,
    buf[14] = sign[2];
    buf[15] = ' ';
 
-   while ((*ptr != '\0') && ((length - HOSTNAME_OFFSET) < MAX_HOSTNAME_LENGTH))
+   while (((length - HOSTNAME_OFFSET) < MAX_HOSTNAME_LENGTH) && (*ptr != '\0'))
    {
       buf[length] = *ptr;
       ptr++; length++;
@@ -141,12 +142,23 @@ trans_log(char *sign,
    length += 5;
    if ((function != NULL) && (function[0] != '\0'))
    {
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length],
+                         (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                         "%s(): ", function);
+#else
       length += sprintf(&buf[length], "%s(): ", function);
+#endif
    }
    header_length = length;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length],
+                       (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if (timeout_flag == ON)
@@ -163,9 +175,16 @@ trans_log(char *sign,
               {
                  length--;
               }
+#ifdef HAVE_SNPRINTF
+              length += snprintf(&buf[length],
+                                 (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                                 " due to timeout (%lds). #%x (%s %d)\n",
+                                 transfer_timeout, db.job_id, file, line);
+#else
               length += sprintf(&buf[length],
                                 " due to timeout (%lds). #%x (%s %d)\n",
                                 transfer_timeout, db.job_id, file, line);
+#endif
            }
            else
            {
@@ -173,9 +192,16 @@ trans_log(char *sign,
               {
                  length--;
               }
+#ifdef HAVE_SNPRINTF
+              length += snprintf(&buf[length],
+                                 (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                                 " due to timeout (%lds). (%s %d)\n",
+                                 transfer_timeout, file, line);
+#else
               length += sprintf(&buf[length],
                                 " due to timeout (%lds). (%s %d)\n",
                                 transfer_timeout, file, line);
+#endif
            }
    }
    else
@@ -187,12 +213,24 @@ trans_log(char *sign,
       }
       else if (db.msg_name[0] != '\0')
            {
+#ifdef HAVE_SNPRINTF
+              length += snprintf(&buf[length],
+                                 (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                                 " #%x (%s %d)\n", db.job_id, file, line);
+#else
               length += sprintf(&buf[length], " #%x (%s %d)\n",
                                 db.job_id, file, line);
+#endif
            }
            else
            {
+#ifdef HAVE_SNPRINTF
+              length += snprintf(&buf[length],
+                                 (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                                 " (%s %d)\n", file, line);
+#else
               length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
            }
 
       if ((msg_str != NULL) && (msg_str[0] != '\0') && (timeout_flag == OFF))
@@ -210,7 +248,8 @@ trans_log(char *sign,
                end_ptr++;
             }
             ptr = end_ptr;
-            while ((*end_ptr != '\n') && (*end_ptr != '\r') &&
+            while (((end_ptr - msg_str) < MAX_RET_MSG_LENGTH) &&
+                   (*end_ptr != '\n') && (*end_ptr != '\r') &&
                    (*end_ptr != '\0'))
             {
                /* Replace any unprintable characters with a dot. */
@@ -225,13 +264,28 @@ trans_log(char *sign,
                *end_ptr = '\0';
                end_ptr++;
             }
+#ifdef HAVE_SNPRINTF
+            length += snprintf(&buf[length],
+                               (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                               "%s%s\n", buf, ptr);
+#else
             length += sprintf(&buf[length], "%s%s\n", buf, ptr);
+#endif
+            if ((length >= (MAX_LINE_LENGTH + MAX_LINE_LENGTH)) ||
+                ((end_ptr - msg_str) >= MAX_RET_MSG_LENGTH))
+            {
+               break;
+            }
          } while (*end_ptr != '\0');
          buf[header_length] = tmp_char;
       }
    }
 
-   (void)write(transfer_log_fd, buf, length);
+   if (write(transfer_log_fd, buf, length) != length)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "write() error : %s", strerror(errno));
+   }
 
    if (fsa->debug > NORMAL_MODE)
    {
@@ -281,6 +335,7 @@ trans_log(char *sign,
          }
       }
    }
+   errno = tmp_errno;
 
    return;
 }

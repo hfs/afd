@@ -97,6 +97,8 @@ trace_log(char *file,
           int  buffer_length,
           char *fmt, ...)
 {
+   int tmp_errno = errno;
+
    if ((((type == BIN_R_TRACE) || (type == BIN_W_TRACE)) &&
         (fsa->debug == FULL_TRACE_MODE)) ||
        (((type == R_TRACE) || (type == W_TRACE) || (type == C_TRACE) ||
@@ -146,7 +148,7 @@ trace_log(char *file,
          size_t    header_length,
                    length = HOSTNAME_OFFSET;
          time_t    tvalue;
-         char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH],
+         char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1],
                    *hex = "0123456789ABCDEF";
          struct tm *p_ts;
 
@@ -270,7 +272,13 @@ trace_log(char *file,
             va_list   ap;
 
             va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+            length += vsnprintf(&buf[length],
+                                (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                                fmt, ap);
+#else
             length += vsprintf(&buf[length], fmt, ap);
+#endif
             va_end(ap);
 
             if ((file == NULL) || (line == 0))
@@ -280,7 +288,13 @@ trace_log(char *file,
             }
             else
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&buf[length],
+                                  (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                                  " (%s %d)\n", file, line);
+#else
                length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
             }
 
             if (write(trans_db_log_fd, buf, length) != length)
@@ -291,6 +305,7 @@ trace_log(char *file,
          }
       }
    }
+   errno = tmp_errno;
 
    return;
 }

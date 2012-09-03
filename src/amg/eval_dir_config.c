@@ -3005,7 +3005,7 @@ sort_jobs(void)
          }
          else
          {
-            while ((j < job_no) &&
+            while (((j + 1) < job_no) &&
                    (p_ptr[j].ptr[DIRECTORY_PTR_POS] == p_ptr[j + 1].ptr[DIRECTORY_PTR_POS]))
             {
                j++;

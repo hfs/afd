@@ -135,13 +135,17 @@ main(int argc, char *argv[])
    {
       ptr = uh_name;
       i = 0;
-      while ((*(ptr + i) != '@') && (*(ptr + i) != '\0') &&
+      while ((*ptr != '@') && (*ptr != '\0') &&
              (i < (MAX_USER_NAME_LENGTH - 1)))
       {
-         user[i] = *(ptr + i);
-         i++;
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         user[i] = *ptr;
+         i++; ptr++;
       }
-      if (*(ptr + i) != '@')
+      if (*ptr != '@')
       {
          (void)fprintf(stderr,
                        "Invalid user hostname combination %s, it should be <user>@<hostname>.\n",
@@ -149,14 +153,18 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
       user[i] = '\0';
-      ptr += i + 1;
+      ptr += 1;
       i = 0;
-      while ((*(ptr + i) != '\0') && (i < (MAX_REAL_HOSTNAME_LENGTH - 1)))
+      while ((*ptr != '\0') && (i < (MAX_REAL_HOSTNAME_LENGTH - 1)))
       {
-         hostname[i] = *(ptr + i);
-         i++;
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         hostname[i] = *ptr;
+         i++; ptr++;
       }
-      if (*(ptr + i) != '\0')
+      if (*ptr != '\0')
       {
          (void)fprintf(stderr,
                        "Invalid user hostname combination %s, it should be <user>@<hostname>.\n",

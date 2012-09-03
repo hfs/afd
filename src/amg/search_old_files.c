@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -221,7 +221,7 @@ search_old_files(time_t current_time)
                               }
                               for (j = 0; j < de[i].nfg; j++)
                               {
-                                 for (k = 0; ((k < de[i].fme[j].nfm) && (j < de[i].nfg)); k++)
+                                 for (k = 0; ((j < de[i].nfg) && (k < de[i].fme[j].nfm)); k++)
                                  {
                                     if ((ret = pmatch(de[i].fme[j].file_mask[k],
                                                       p_dir->d_name,

@@ -75,10 +75,11 @@ mon_log(char   *sign,
         char   *msg_str,
         char   *fmt, ...)
 {
+   int       tmp_errno = errno;
    char      *ptr = p_mon_alias;
    size_t    header_length,
              length = MON_ALIAS_OFFSET;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
    va_list   ap;
    struct tm *p_ts;
 
@@ -120,7 +121,12 @@ mon_log(char   *sign,
    header_length = length;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length],
+                       (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if (timeout_flag == ON)
@@ -136,9 +142,16 @@ mon_log(char   *sign,
          {
             length--;
          }
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length],
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            " due to timeout (%lds). (%s %d)\n",
+                            tcp_timeout, file, line);
+#else
          length += sprintf(&buf[length],
                            " due to timeout (%lds). (%s %d)\n",
                            tcp_timeout, file, line);
+#endif
       }
    }
    else
@@ -150,7 +163,13 @@ mon_log(char   *sign,
       }
       else
       {
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length],
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            " (%s %d)\n", file, line);
+#else
          length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
       }
 
       if ((msg_str != NULL) && (msg_str[0] != '\0') && (timeout_flag == OFF))
@@ -168,7 +187,8 @@ mon_log(char   *sign,
                end_ptr++;
             }
             ptr = end_ptr;
-            while ((*end_ptr != '\n') && (*end_ptr != '\r') &&
+            while (((end_ptr - msg_str) < MAX_RET_MSG_LENGTH) &&
+                   (*end_ptr != '\n') && (*end_ptr != '\r') &&
                    (*end_ptr != '\0'))
             {
                /* Replace any unprintable characters with a dot. */
@@ -183,7 +203,18 @@ mon_log(char   *sign,
                *end_ptr = '\0';
                end_ptr++;
             }
+#ifdef HAVE_SNPRINTF
+            length += snprintf(&buf[length],
+                               (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                               "%s%s\n", buf, ptr);
+#else
             length += sprintf(&buf[length], "%s%s\n", buf, ptr);
+#endif
+            if ((length >= (MAX_LINE_LENGTH + MAX_LINE_LENGTH)) ||
+                ((end_ptr - msg_str) >= MAX_RET_MSG_LENGTH))
+            {
+               break;
+            }
          } while (*end_ptr != '\0');
          buf[header_length] = tmp_char;
       }
@@ -194,6 +225,7 @@ mon_log(char   *sign,
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "write() error : %s", strerror(errno));
    }
+   errno = tmp_errno;
 
    return;
 }

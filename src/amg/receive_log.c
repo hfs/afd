@@ -71,9 +71,10 @@ receive_log(char   *sign,
             time_t current_time,
             char   *fmt, ...)
 {
-   char      *ptr = p_fra->dir_alias;
+   int       tmp_errno = errno;
    size_t    length = DIR_ALIAS_OFFSET;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1],
+             *ptr = p_fra->dir_alias;
    va_list   ap;
    struct tm *p_ts;
 
@@ -108,7 +109,7 @@ receive_log(char   *sign,
    buf[14] = sign[2];
    buf[15] = ' ';
 
-   while (*ptr != '\0')
+   while ((length < (MAX_LINE_LENGTH + MAX_LINE_LENGTH)) && (*ptr != '\0'))
    {
       buf[length] = *ptr;
       ptr++; length++;
@@ -123,7 +124,12 @@ receive_log(char   *sign,
    length += 2;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length],
+                       (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if ((file == NULL) || (line == 0))
@@ -133,7 +139,13 @@ receive_log(char   *sign,
    }
    else
    {
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length],
+                         (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                         " (%s %d)\n", file, line);
+#else
       length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
    }
 
    if (write(receive_log_fd, buf, length) != length)
@@ -141,6 +153,7 @@ receive_log(char   *sign,
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "write() error : %s", strerror(errno));
    }
+   errno = tmp_errno;
 
    return;
 }

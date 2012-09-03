@@ -75,7 +75,7 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
    int       tmp_errno = errno;
    size_t    length;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + 1];
    va_list   ap;
    struct tm *p_ts;
 
@@ -145,7 +145,11 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
    length = 16;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length], MAX_LINE_LENGTH - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if ((file == NULL) || (line == 0))
@@ -155,7 +159,12 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
    }
    else
    {
+#ifdef HAVE_SNPRINTF
+      length += snprintf(&buf[length], MAX_LINE_LENGTH - length, " (%s %d)\n",
+                         file, line);
+#else
       length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
    }
 
    if (write(sys_log_fd, buf, length) == -1)

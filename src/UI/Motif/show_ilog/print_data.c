@@ -422,7 +422,7 @@ static void
 write_summary(int fd, char *sum_sep_line)
 {
    int  length;
-   char buffer[(2 * (MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1))];
+   char buffer[(2 * (MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 5 + 1))];
 
    length = sprintf(buffer, "%s\n%s\n", sum_sep_line, summary_str);
 

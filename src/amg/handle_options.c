@@ -277,7 +277,7 @@ handle_options(int          position,
          newname[MAX_PATH_LENGTH];
 
    options = db[position].loptions;
-   for (i = 0; i < db[position].no_of_loptions; i++)
+   for (i = 0; ((i < db[position].no_of_loptions) && (*files_to_send > 0)); i++)
    {
       p_file_name = file_name_buffer;
 
@@ -3515,16 +3515,19 @@ rename_ow(int          overwrite,
 static void
 prepare_rename_ow(int file_counter, char **new_name_buffer)
 {
-   size_t new_size = file_counter * MAX_FILENAME_LENGTH;
-
-   if ((*new_name_buffer = malloc(new_size)) == NULL)
+   if (file_counter > 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not malloc() memory [%d bytes] : %s",
-                 new_size, strerror(errno));
-      exit(INCORRECT);
+      size_t new_size = file_counter * MAX_FILENAME_LENGTH;
+
+      if ((*new_name_buffer = malloc(new_size)) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not malloc() memory [%d bytes] : %s",
+                    new_size, strerror(errno));
+         exit(INCORRECT);
+      }
+      (void)memcpy(*new_name_buffer, file_name_buffer, new_size);
    }
-   (void)memcpy(*new_name_buffer, file_name_buffer, new_size);
 
    return;
 }

@@ -64,7 +64,7 @@ rec(int fd, char *sign, char *fmt, ...)
 {
    int       length;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + 1];
    va_list   ap;
 #ifndef _OLD_REC
    struct tm *p_ts;
@@ -96,13 +96,17 @@ rec(int fd, char *sign, char *fmt, ...)
 #endif
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length], MAX_LINE_LENGTH - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
+   va_end(ap);
 
    if (write(fd, buf, length) != length)
    {
       return(-errno);
    }
-   va_end(ap);
 
    return(length);
 }
