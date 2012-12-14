@@ -121,7 +121,8 @@ time_t                     start_time_val,
                            end_time_val;
 size_t                     search_file_size;
 unsigned int               *search_dirid = NULL,
-                           total_no_files;
+                           total_no_files,
+                           unprintable_chars;
 #ifdef HAVE_MMAP
 off_t                      fra_size;
 #endif

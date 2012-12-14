@@ -1,6 +1,6 @@
 /*
  *  fax2gts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2006 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -86,7 +86,11 @@ fax2gts(char *path, char* filename, int fax_format)
       char dest_file_name[MAX_PATH_LENGTH];
 
       /* Open destination file. */
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dest_file_name, MAX_PATH_LENGTH, "%s/.%s", path, filename);
+#else
       (void)sprintf(dest_file_name, "%s/.%s", path, filename);
+#endif
       if ((to_fd = open(dest_file_name,
                         (O_WRONLY | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
       {
@@ -157,7 +161,11 @@ fax2gts(char *path, char* filename, int fax_format)
             int from_fd;
 
             /* Open source file. */
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s", path, filename);
+#else
             (void)sprintf(fullname, "%s/%s", path, filename);
+#endif
             if ((from_fd = open(fullname, O_RDONLY, 0)) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,

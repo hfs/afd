@@ -16,7 +16,46 @@ only possible to have one of this dialog open at the same time.
 <center>
 <table border>
 <tr>
-   <td><a name="alias_hostname">&nbsp<b>1</b>&nbsp</a></td>
+   <td><a name="host_switching">&nbsp<b>1</b>&nbsp</a></td>
+   <td>Host Switching</td>
+   <td>When the toggle button for Host switching is turned on (inserted)
+       it is possible to have two addresses for a single host. The
+       second host is always regarded as the secondary host. The user
+       may can change to the secondary host or main host by pressing
+       the <a href="afd_ctrl.html#Switch_host">Switch host button</a>.
+       In the Host 1 and Host 2 fields characters can be entered that
+       distinguish the two hosts from each other. The character will
+       be appended to the end of the alias host name.</td>
+</tr>
+<tr>
+   <td><a name="real_hostname">&nbsp<b>2</b>&nbsp</a></td>
+   <td>Host/IP</td>
+   <td>Here you may specify the real host name or IP number. This has the
+       advantage that you can give remote hosts names that are not in
+       the local /etc/hosts file or the name server. If a secondary host
+       is available, the second host field will be active. When the toggle
+       button at the bottom of this boxed is set and the active real hostname
+       matches that of the current (ie. the host where AFD is running) or if
+       it matches any of the entries in <a href="local_interface.html">
+       $AFD_WORK_DIR/etc/local_interface.list</a> it will use scheme
+       'file' to deliver the data.</td>
+</tr>
+<tr>
+   <td><a name="proxy">&nbsp<b>3</b>&nbsp</a></td>
+   <td>Proxy Name</td>
+   <td>If the remote server is a proxy, enter the sequence on how to
+       enter the proxy here. Currently you can only specify the order of
+       the user name and the password. To enter the user name just enter
+       $U&lt;user name&gt; and the password is entered with $P&lt;password&gt;.
+       You may specify as many user and password elements as you want, each one
+       must however be separated by a ;. If you only put a $U followed
+       directly by a ; it will take the user name from the recipient
+       entry. The same goes for the password. If the remote server
+       requires the ACCT (account) directive instead of the USER
+       to enter the login name you may also use $A instead of $U.</td>
+</tr>
+<tr>
+   <td><a name="alias_hostname">&nbsp<b>4</b>&nbsp</a></td>
    <td>Alias Hostname</td>
    <td>In this list widget, all host alias names found in the DIR_CONFIG
        are listed in the order that they are found there. In order to make a
@@ -29,55 +68,36 @@ only possible to have one of this dialog open at the same time.
        pressed.</td>
 </tr>
 <tr>
-   <td><a name="host_switching">&nbsp<b>2</b>&nbsp</a></td>
-   <td>Host Switching</td>
-   <td>When the toggle button for Host switching is turned on (inserted)
-       it is possible to have two addresses for a single host. The
-       second host is always regarded as the secondary host. The user
-       may can change to the secondary host or main host by pressing
-       the <a href="afd_ctrl.html#Switch_host">Switch host button</a>.
-       In the Host 1 and Host 2 fields characters can be entered that
-       distinguish the two hosts from each other. The character will
-       be appended to the end of the alias host name.</td>
-</tr>
-<tr>
-   <td><a name="real_hostname">&nbsp<b>3</b>&nbsp</a></td>
-   <td>Real Hostname</td>
-   <td>Here you may specify the real host name or IP number. This has the
-       advantage that you can give remote hosts names that are not in
-       the local /etc/hosts file or the name server. If a secondary host
-       is available, the second host field will be active. When the toggle
-       button at the bottom of this boxed is set and the active real hostname
-       matches that of the current (ie. the host where AFD is running) or if
-       it matches any of the entries in <a href="local_interface.html">
-       $AFD_WORK_DIR/etc/local_interface.list</a> it will use scheme
-       'file' to deliver the data.</td>
-</tr>
-<tr>
-   <td><a name="text_fields">&nbsp<b>4</b>&nbsp</a></td>
+   <td><a name="text_fields">&nbsp<b>5</b>&nbsp</a></td>
    <td>Text Fields</td>
    <td><table border>
        <tr>
           <td><a name="transfer_timeout">Transfer timeout</a></td>
           <td>The time how long the AFD should wait for a reply from the
-              remote site.</td>
-       </tr>
-       <tr>
-          <td><a name="retry_interval">Retry interval</a></td>
-          <td>If an error occurs, this is the delay (in seconds) before
-              another transfer is initiated.</td>
-       </tr>
-       <tr>
-          <td><a name="max_errors">Maximum errors</a></td>
-          <td>If max. errors is reached the destination identifier turns
-              'red'. If error retries reaches twice max. errors the queue
-              of this host will be paused.</td>
+              remote site. If one sets the Interrupt button it will
+              cancel the transmission of a single file after the given
+              timeout.</td>
        </tr>
        <tr>
           <td>Ignore errors+warnings</td>
           <td>If set, errors and warnings for this host will be set to
               offline. If the value of 'Maximum errors' is reached the
               host will turn 'blue'.</td>
+       </tr>
+       <tr>
+          <td><a name="do_not_delete_data">Do not delete data</a></td>
+          <td>When set no data will be deleted even when option
+              <a href="dir_config.html#age-limit">age-limit</a> is set
+              or directory option <a href="dir_config.html#delete_queued_files">
+              delete queued files</a> is set. This can be useful when the
+              target host is taken down for maintenance and you do not
+              want to loose any data.</td>
+       </tr>
+       <tr>
+          <td><a name="max_errors">Maximum errors</a></td>
+          <td>If max. errors is reached the destination identifier turns
+              'red'. If error retries reaches twice max. errors the queue
+              of this host will be paused.</td>
        </tr>
        <tr>
           <td><a name="successful_retries">Successful retries</a></td>
@@ -89,13 +109,9 @@ only possible to have one of this dialog open at the same time.
               after a failover.</td>
        </tr>
        <tr>
-          <td><a name="do_not_delete_data">Do not delete data</a></td>
-          <td>When set no data will be deleted even when option
-              <a href="dir_config.html#age-limit">age-limit</a> is set
-              or directory option <a href="dir_config.html#delete_queued_files">
-              delete queued files</a> is set. This can be useful when the
-              target host is taken down for maintenance and you do not
-              want to loose any data.</td>
+          <td><a name="retry_interval">Retry interval</a></td>
+          <td>If an error occurs, this is the delay (in seconds) before
+              another transfer is initiated.</td>
        </tr>
        <tr>
           <td><a name="keep_connected">Keep connected</a></td>
@@ -119,7 +135,7 @@ only possible to have one of this dialog open at the same time.
    </td>
 </tr>
 <tr>
-   <td><a name="transfer_rate_limit">&nbsp<b>5</b>&nbsp</a></td>
+   <td><a name="transfer_rate_limit">&nbsp<b>6</b>&nbsp</a></td>
    <td>Transfer rate limit</td>
    <td>With this option the transfer rate to the given host can be
        limited. The Value is in Kilobytes per second. See also
@@ -127,7 +143,7 @@ only possible to have one of this dialog open at the same time.
        file, if you want to group several hosts to one limit.</td>
 </tr>
 <tr>
-   <td><a name="socket_send_buffer_size">&nbsp<b>6</b>&nbsp</a></td>
+   <td><a name="socket_send_buffer_size">&nbsp<b>7</b>&nbsp</a></td>
    <td>Socket send buffer size</td>
    <td>Changes the socket send buffer size. This can improve throughput
        on high bandwidth connections or when the RTT (round-trip time)
@@ -136,12 +152,12 @@ only possible to have one of this dialog open at the same time.
        latency with small files.</td>
 </tr>
 <tr>
-   <td><a name="socket_receive_buffer_size">&nbsp<b>7</b>&nbsp</a></td>
+   <td><a name="socket_receive_buffer_size">&nbsp<b>8</b>&nbsp</a></td>
    <td>Socket receive buffer size</td>
    <td>Changes the socket receive buffer size. See description above.</td>
 </tr>
 <tr>
-   <td><a name="check_for_duplicagtes">&nbsp<b>8</b>&nbsp</a></td>
+   <td><a name="check_for_duplicates">&nbsp<b>9</b>&nbsp</a></td>
    <td>Check for duplicates</td>
    <td>Performs a duplicate on files that are send to this host. The
        options have the following meaning:
@@ -154,6 +170,15 @@ only possible to have one of this dialog open at the same time.
           <td>Timeout</td>
           <td>Time in seconds when this CRC value is to be discarded
               from the database.</td>
+       </tr>
+       <tr>
+          <td>Reference</td>
+          <td>If Alias (default) is set, only the host alias is taken as
+              reference when checking if the data has already been transmitted.
+              If instead Recipient is used, the full recipient is taken
+              as reference (eg. ftp://donald@ducktown/data). This is useful
+              when you wish to send the same data to more then one user
+              and/or directory on the same host.</td>
        </tr>
        <tr>
           <td>Check Type</td>
@@ -207,19 +232,19 @@ only possible to have one of this dialog open at the same time.
           </td>
        </tr>
        <tr>
-          <td>Reference</td>
-          <td>If Alias (default) is set, only the host alias is taken as
-              reference when checking if the data has already been transmitted.
-              If instead Recipient is used, the full recipient is taken
-              as reference (eg. ftp://donald@ducktown/data). This is useful
-              when you wish to send the same data to more then one user
-              and/or directory on the same host.</td>
+          <td>CRC type</td>
+          <td>CRC-32 is a simple software CRC algorithm that has a reasonable
+              performance. CRC32c computes better checksums at the cost of
+              slightly higher memory usage but computes twice as fast as
+              the first algorithm CRC-32. If you CPU supports SSE4.2, this
+              calculation is done hardware and approximatly six time faster
+              then CRC-32.</td>
        </tr>
        </table>
    </td>
 </tr>
 <tr>
-   <td><a name="options">&nbsp<b>9</b>&nbsp</a></td>
+   <td><a name="options">&nbsp<b>10</b>&nbsp</a></td>
    <td>Options</td>
    <td><table border>
        <tr>
@@ -253,7 +278,7 @@ only possible to have one of this dialog open at the same time.
    </td>
 </tr>
 <tr>
-   <td><a name="protocol_specific_options">&nbsp<b>10</b>&nbsp</a></td>
+   <td><a name="protocol_specific_options">&nbsp<b>11</b>&nbsp</a></td>
    <td>Protocol specific</td>
    <td>Protocol specific options. Currently these are only for FTP and FTPS,
        except for Fast cd which can also be used for SFTP.
@@ -363,22 +388,14 @@ only possible to have one of this dialog open at the same time.
               and can bypass an error job. If you set this button it
               will no longer do this.</td>
        </tr>
+       <tr>
+          <td><a name="match_size">Match size</a></td>
+          <td>After file is transmitted check the size of the destination
+              file with that of the local file just send. If they do not
+              match, show an error and then resend the file.</td>
+       </tr>
        </table>
    </td>
-</tr>
-<tr>
-   <td><a name="proxy">&nbsp<b>11</b>&nbsp</a></td>
-   <td>Proxy</td>
-   <td>If the remote server is a proxy, enter the sequence on how to
-       enter the proxy here. Currently you can only specify the order of
-       the user name and the password. To enter the user name just enter
-       $U&lt;user name&gt; and the password is entered with $P&lt;password&gt;.
-       You may specify as many user and password elements as you want, each one
-       must however be separated by a ;. If you only put a $U followed
-       directly by a ; it will take the user name from the recipient
-       entry. The same goes for the password. If the remote server
-       requires the ACCT (account) directive instead of the USER
-       to enter the login name you may also use $A instead of $U.</td>
 </tr>
 <tr>
    <td>&nbsp<b>12</b>&nbsp</td>
@@ -399,9 +416,9 @@ only possible to have one of this dialog open at the same time.
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2011 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 03.12.2011
+   Last updated: 27.11.2012
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -1,6 +1,6 @@
 /*
  *  todos.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -68,7 +68,7 @@ static void
 convert(char *source_file)
 {
    int  tmp_char;
-   char dest_file[1024];
+   char dest_file[MAX_PATH_LENGTH];
    FILE *rfp,
         *wfp;
 
@@ -78,7 +78,11 @@ convert(char *source_file)
                     source_file, strerror(errno));
       exit(1);
    }
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(dest_file, MAX_PATH_LENGTH, "%s.tmp", source_file);
+#else
    (void)sprintf(dest_file, "%s.tmp", source_file);
+#endif
    if ((wfp = fopen(dest_file, "w+")) == NULL)
    {
       (void)fprintf(stderr, _("Failed to fopen() `%s' : %s\n"),

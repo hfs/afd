@@ -1,6 +1,6 @@
 /*
  *  initialize_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   initialize_db - initializes the AFD database
  **
  ** SYNOPSIS
- **   void initialize_db(int full_init)
+ **   void initialize_db(int init_level, int *old_value_list, int dry_run)
  **
  ** DESCRIPTION
  **
@@ -36,6 +36,9 @@ DESCR__S_M3
  **
  ** HISTORY
  **   20.10.2011 H.Kiehl Created
+ **   04.11.2012 H.Kiehl When deleting data try only delete the data
+ **                      that has changed, ie. that what is really
+ **                      necessary.
  **
  */
 DESCR__E_M3
@@ -48,75 +51,471 @@ DESCR__E_M3
 #include "logdefs.h"
 #include "statdefs.h"
 
+#define FSA_ID_FILE_NO              0
+#define FRA_ID_FILE_NO              1
+#define STATUS_SHMID_FILE_NO        2
+#define BLOCK_FILE_NO               3
+#define AMG_COUNTER_FILE_NO         4
+#define COUNTER_FILE_NO             5
+#define MESSAGE_BUF_FILE_NO         6
+#define MSG_CACHE_FILE_NO           7
+#define MSG_QUEUE_FILE_NO           8
+#ifdef WITH_ERROR_QUEUE
+# define ERROR_QUEUE_FILE_NO        9
+#endif
+#define FILE_MASK_FILE_NO           10
+#define DC_LIST_FILE_NO             11
+#define DIR_NAME_FILE_NO            12
+#define JOB_ID_DATA_FILE_NO         13
+#define DCPL_FILE_NAME_NO           14
+#define PWB_DATA_FILE_NO            15
+#define CURRENT_MSG_LIST_FILE_NO    16
+#define AMG_DATA_FILE_NO            17
+#define AMG_DATA_FILE_TMP_NO        18
+#define LOCK_PROC_FILE_NO           19
+#define AFD_ACTIVE_FILE_NO          20
+#define WINDOW_ID_FILE_NO           21
+#define SYSTEM_LOG_FIFO_NO          22
+#define EVENT_LOG_FIFO_NO           23
+#define RECEIVE_LOG_FIFO_NO         24
+#define TRANSFER_LOG_FIFO_NO        25
+#define TRANS_DEBUG_LOG_FIFO_NO     26
+#define AFD_CMD_FIFO_NO             27
+#define AFD_RESP_FIFO_NO            28
+#define AMG_CMD_FIFO_NO             29
+#define DB_UPDATE_FIFO_NO           30
+#define FD_CMD_FIFO_NO              31
+#define AW_CMD_FIFO_NO              32
+#define IP_FIN_FIFO_NO              33
+#ifdef WITH_ONETIME
+# define OT_FIN_FIFO_NO             34
+#endif
+#define SF_FIN_FIFO_NO              35
+#define RETRY_FD_FIFO_NO            36
+#define FD_DELETE_FIFO_NO           37
+#define FD_WAKE_UP_FIFO_NO          38
+#define TRL_CALC_FIFO_NO            39
+#define QUEUE_LIST_READY_FIFO_NO    40
+#define QUEUE_LIST_DONE_FIFO_NO     41
+#define PROBE_ONLY_FIFO_NO          42
+#ifdef _INPUT_LOG
+# define INPUT_LOG_FIFO_NO          43
+#endif
+#ifdef _DISTRIBUTION_LOG
+# define DISTRIBUTION_LOG_FIFO_NO   44
+#endif
+#ifdef _OUTPUT_LOG
+# define OUTPUT_LOG_FIFO_NO         45
+#endif
+#ifdef _DELETE_LOG
+# define DELETE_LOG_FIFO_NO         46
+#endif
+#ifdef _PRODUCTION_LOG
+# define PRODUCTION_LOG_FIFO_NO     47
+#endif
+#define DEL_TIME_JOB_FIFO_NO        48
+#define FD_READY_FIFO_NO            49
+#define MSG_FIFO_NO                 50
+#define DC_CMD_FIFO_NO              51
+#define DC_RESP_FIFO_NO             52
+#define AFDD_LOG_FIFO_NO            53
+#define TYPESIZE_DATA_FILE_NO       54
+
+#define FSA_STAT_FILE_ALL_NO        0
+#define FRA_STAT_FILE_ALL_NO        1
+#define ALTERNATE_FILE_ALL_NO       2
+#define DB_UPDATE_REPLY_FIFO_ALL_NO 3
+
+#define AFD_MSG_DIR_FLAG            1
+#ifdef WITH_DUP_CHECK
+# define CRC_DIR_FLAG               2
+#endif
+#define FILE_MASK_DIR_FLAG          4
+#define LS_DATA_DIR_FLAG            8
+
 /* External global variables. */
 extern int  sys_log_fd;
 extern char *p_work_dir;
 
 /* Local function prototypes. */
-static void delete_fifodir_files(char *, int),
-            delete_log_files(char *, int);
+static void delete_fifodir_files(char *, int, char *, char *, int),
+            delete_log_files(char *, int, int);
 
 
 /*########################## initialize_db() ############################*/
 void
-initialize_db(int full_init)
+initialize_db(int init_level, int *old_value_list, int dry_run)
 {
-   int  offset;
-   char dirs[MAX_PATH_LENGTH];
+   int  delete_dir,
+        offset;
+   char dirs[MAX_PATH_LENGTH],
+        filelistflag[TYPESIZE_DATA_FILE_NO + 1],
+        mfilelistflag[DB_UPDATE_REPLY_FIFO_ALL_NO + 1];
+
+   (void)memset(filelistflag, NO, (TYPESIZE_DATA_FILE_NO + 1));
+   (void)memset(mfilelistflag, NO, (DB_UPDATE_REPLY_FIFO_ALL_NO + 1));
+   if (old_value_list != NULL)
+   {
+      delete_dir = 0;
+      if (old_value_list[0] & MAX_MSG_NAME_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[MSG_QUEUE_FILE_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_FILENAME_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         delete_dir |= LS_DATA_DIR_FLAG;
+      }
+      if (old_value_list[0] & MAX_HOSTNAME_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[JOB_ID_DATA_FILE_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_REAL_HOSTNAME_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[STATUS_SHMID_FILE_NO] = YES;
+         filelistflag[PWB_DATA_FILE_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_PROXY_NAME_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_TOGGLE_STR_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & ERROR_HISTORY_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_NO_PARALLEL_JOBS_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_DIR_ALIAS_LENGTH_NR)
+      {
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_RECIPIENT_LENGTH_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[JOB_ID_DATA_FILE_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_WAIT_FOR_LENGTH_NR)
+      {
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_FRA_TIME_ENTRIES_NR)
+      {
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_OPTION_LENGTH_NR)
+      {
+         filelistflag[JOB_ID_DATA_FILE_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_PATH_LENGTH_NR)
+      {
+         filelistflag[DIR_NAME_FILE_NO] = YES;
+         filelistflag[DC_LIST_FILE_NO] = YES;
+      }
+      if (old_value_list[0] & MAX_USER_NAME_LENGTH_NR)
+      {
+         filelistflag[PWB_DATA_FILE_NO] = YES;
+      }
+      if ((old_value_list[0] & CHAR_NR) ||
+          (old_value_list[0] & INT_NR))
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         filelistflag[STATUS_SHMID_FILE_NO] = YES;
+         /* No need to delete BLOCK_FILE */
+         filelistflag[AMG_COUNTER_FILE_NO] = YES;
+         filelistflag[COUNTER_FILE_NO] = YES;
+         filelistflag[MESSAGE_BUF_FILE_NO] = YES;
+         filelistflag[MSG_CACHE_FILE_NO] = YES;
+         filelistflag[MSG_QUEUE_FILE_NO] = YES;
+#ifdef WITH_ERROR_QUEUE
+         filelistflag[ERROR_QUEUE_FILE_NO] = YES;
+#endif
+         filelistflag[FILE_MASK_FILE_NO] = YES;
+         filelistflag[DC_LIST_FILE_NO] = YES;
+         filelistflag[DIR_NAME_FILE_NO] = YES;
+         filelistflag[JOB_ID_DATA_FILE_NO] = YES;
+         filelistflag[DCPL_FILE_NAME_NO] = YES;
+         filelistflag[PWB_DATA_FILE_NO] = YES;
+         filelistflag[CURRENT_MSG_LIST_FILE_NO] = YES;
+         filelistflag[AMG_DATA_FILE_NO] = YES;
+         filelistflag[AMG_DATA_FILE_TMP_NO] = YES;
+         filelistflag[LOCK_PROC_FILE_NO] = YES;
+         filelistflag[AFD_ACTIVE_FILE_NO] = YES;
+         filelistflag[TYPESIZE_DATA_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+         mfilelistflag[ALTERNATE_FILE_ALL_NO] = YES;
+         delete_dir |= LS_DATA_DIR_FLAG;
+      }
+      if (old_value_list[0] & OFF_T_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[MSG_QUEUE_FILE_NO] = YES;
+         delete_dir |= LS_DATA_DIR_FLAG;
+      }
+      if (old_value_list[0] & TIME_T_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[MSG_QUEUE_FILE_NO] = YES;
+         delete_dir |= LS_DATA_DIR_FLAG;
+      }
+      if (old_value_list[0] & SHORT_NR)
+      {
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+      }
+#ifdef HAVE_LONG_LONG
+      if (old_value_list[0] & LONG_LONG_NR)
+      {
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+      }
+#endif
+      if (old_value_list[0] & PID_T_NR)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[MSG_QUEUE_FILE_NO] = YES;
+      }
+   }
+   else
+   {
+      delete_dir = 0;
+      if (init_level > 0)
+      {
+         filelistflag[SYSTEM_LOG_FIFO_NO] = YES;
+         filelistflag[EVENT_LOG_FIFO_NO] = YES;
+         filelistflag[RECEIVE_LOG_FIFO_NO] = YES;
+         filelistflag[TRANSFER_LOG_FIFO_NO] = YES;
+         filelistflag[TRANS_DEBUG_LOG_FIFO_NO] = YES;
+         filelistflag[AFD_CMD_FIFO_NO] = YES;
+         filelistflag[AFD_RESP_FIFO_NO] = YES;
+         filelistflag[AMG_CMD_FIFO_NO] = YES;
+         filelistflag[DB_UPDATE_FIFO_NO] = YES;
+         filelistflag[FD_CMD_FIFO_NO] = YES;
+         filelistflag[AW_CMD_FIFO_NO] = YES;
+         filelistflag[IP_FIN_FIFO_NO] = YES;
+#ifdef WITH_ONETIME
+         filelistflag[OT_FIN_FIFO_NO] = YES;
+#endif
+         filelistflag[SF_FIN_FIFO_NO] = YES;
+         filelistflag[RETRY_FD_FIFO_NO] = YES;
+         filelistflag[FD_DELETE_FIFO_NO] = YES;
+         filelistflag[FD_WAKE_UP_FIFO_NO] = YES;
+         filelistflag[TRL_CALC_FIFO_NO] = YES;
+         filelistflag[QUEUE_LIST_READY_FIFO_NO] = YES;
+         filelistflag[QUEUE_LIST_DONE_FIFO_NO] = YES;
+         filelistflag[PROBE_ONLY_FIFO_NO] = YES;
+#ifdef _INPUT_LOG
+         filelistflag[INPUT_LOG_FIFO_NO] = YES;
+#endif
+#ifdef _DISTRIBUTION_LOG
+         filelistflag[DISTRIBUTION_LOG_FIFO_NO] = YES;
+#endif
+#ifdef _OUTPUT_LOG
+         filelistflag[OUTPUT_LOG_FIFO_NO] = YES;
+#endif
+#ifdef _DELETE_LOG
+         filelistflag[DELETE_LOG_FIFO_NO] = YES;
+#endif
+#ifdef _PRODUCTION_LOG
+         filelistflag[PRODUCTION_LOG_FIFO_NO] = YES;
+#endif
+         filelistflag[DEL_TIME_JOB_FIFO_NO] = YES;
+         filelistflag[FD_READY_FIFO_NO] = YES;
+         filelistflag[MSG_FIFO_NO] = YES;
+         filelistflag[DC_CMD_FIFO_NO] = YES;
+         filelistflag[DC_RESP_FIFO_NO] = YES;
+         filelistflag[AFDD_LOG_FIFO_NO] = YES;
+         mfilelistflag[DB_UPDATE_REPLY_FIFO_ALL_NO] = YES;
+      }
+      if (init_level > 1)
+      {
+         filelistflag[AFD_ACTIVE_FILE_NO] = YES;
+         filelistflag[WINDOW_ID_FILE_NO] = YES;
+         filelistflag[LOCK_PROC_FILE_NO] = YES;
+         filelistflag[DCPL_FILE_NAME_NO] = YES;
+      }
+      if (init_level > 2)
+      {
+         filelistflag[FSA_ID_FILE_NO] = YES;
+         mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[FRA_ID_FILE_NO] = YES;
+         mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
+         filelistflag[AMG_DATA_FILE_NO] = YES;
+         filelistflag[AMG_DATA_FILE_TMP_NO] = YES;
+         mfilelistflag[ALTERNATE_FILE_ALL_NO] = YES;
+      }
+      if (init_level > 3)
+      {
+         delete_dir |= AFD_MSG_DIR_FLAG | FILE_MASK_DIR_FLAG;
+         filelistflag[MESSAGE_BUF_FILE_NO] = YES;
+         filelistflag[MSG_CACHE_FILE_NO] = YES;
+         filelistflag[MSG_QUEUE_FILE_NO] = YES;
+#ifdef WITH_ERROR_QUEUE
+         filelistflag[ERROR_QUEUE_FILE_NO] = YES;
+#endif
+         filelistflag[CURRENT_MSG_LIST_FILE_NO] = YES;
+      }
+      if (init_level > 4)
+      {
+         filelistflag[FILE_MASK_FILE_NO] = YES;
+         filelistflag[DC_LIST_FILE_NO] = YES;
+         filelistflag[DIR_NAME_FILE_NO] = YES;
+         filelistflag[JOB_ID_DATA_FILE_NO] = YES;
+      }
+      if (init_level > 5)
+      {
+         filelistflag[STATUS_SHMID_FILE_NO] = YES;
+      }
+      if (init_level > 6)
+      {
+         filelistflag[BLOCK_FILE_NO] = YES;
+         filelistflag[AMG_COUNTER_FILE_NO] = YES;
+         filelistflag[COUNTER_FILE_NO] = YES;
+#ifdef WITH_DUP_CHECK
+         delete_dir |= CRC_DIR_FLAG;
+#endif
+      }
+      if (init_level > 7)
+      {
+         filelistflag[PWB_DATA_FILE_NO] = YES;
+         filelistflag[TYPESIZE_DATA_FILE_NO] = YES;
+         delete_dir |= LS_DATA_DIR_FLAG;
+      }
+   }
 
    offset = sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
-   delete_fifodir_files(dirs, offset);
-   (void)sprintf(dirs, "%s%s", p_work_dir, AFD_MSG_DIR);
-   if (rec_rmdir(dirs) == INCORRECT)
+   delete_fifodir_files(dirs, offset, filelistflag, mfilelistflag, dry_run);
+   if (delete_dir & AFD_MSG_DIR_FLAG)
    {
-      (void)fprintf(stderr,
-                     _("WARNING : Failed to delete everything in %s.\n"),
-                     dirs);
+      (void)sprintf(dirs, "%s%s", p_work_dir, AFD_MSG_DIR);
+      if (dry_run == YES)
+      {
+         (void)fprintf(stdout, "rm -rf %s\n", dirs);
+      }
+      else
+      {
+         if (rec_rmdir(dirs) == INCORRECT)
+         {
+            (void)fprintf(stderr,
+                           _("WARNING : Failed to delete everything in %s.\n"),
+                           dirs);
+         }
+      }
    }
 #ifdef WITH_DUP_CHECK
-   (void)sprintf(dirs, "%s%s%s", p_work_dir, AFD_FILE_DIR,
-                 CRC_DIR);
-   if (rec_rmdir(dirs) == INCORRECT)
+   if (delete_dir & CRC_DIR_FLAG)
    {
-      (void)fprintf(stderr,
-                    _("WARNING : Failed to delete everything in %s.\n"),
-                    dirs);
+      (void)sprintf(dirs, "%s%s%s", p_work_dir, AFD_FILE_DIR, CRC_DIR);
+      if (dry_run == YES)
+      {
+         (void)fprintf(stdout, "rm -rf %s\n", dirs);
+      }
+      else
+      {
+         if (rec_rmdir(dirs) == INCORRECT)
+         {
+            (void)fprintf(stderr,
+                          _("WARNING : Failed to delete everything in %s.\n"),
+                          dirs);
+         }
+      }
    }
 #endif
-   (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
-                 INCOMING_DIR, FILE_MASK_DIR);
-   if (rec_rmdir(dirs) == INCORRECT)
+   if (delete_dir & FILE_MASK_DIR_FLAG)
    {
-      (void)fprintf(stderr,
-                    _("WARNING : Failed to delete everything in %s.\n"),
-                    dirs);
+      (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
+                    INCOMING_DIR, FILE_MASK_DIR);
+      if (dry_run == YES)
+      {
+         (void)fprintf(stdout, "rm -rf %s\n", dirs);
+      }
+      else
+      {
+         if (rec_rmdir(dirs) == INCORRECT)
+         {
+            (void)fprintf(stderr,
+                          _("WARNING : Failed to delete everything in %s.\n"),
+                          dirs);
+         }
+      }
    }
-   (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
-                 INCOMING_DIR, LS_DATA_DIR);
-   if (rec_rmdir(dirs) == INCORRECT)
+   if (delete_dir & LS_DATA_DIR_FLAG)
    {
-      (void)fprintf(stderr,
-                    _("WARNING : Failed to delete everything in %s.\n"),
-                    dirs);
+      (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
+                    INCOMING_DIR, LS_DATA_DIR);
+      if (dry_run == YES)
+      {
+         (void)fprintf(stdout, "rm -rf %s\n", dirs);
+      }
+      else
+      {
+         if (rec_rmdir(dirs) == INCORRECT)
+         {
+            (void)fprintf(stderr,
+                          _("WARNING : Failed to delete everything in %s.\n"),
+                          dirs);
+         }
+      }
    }
-   if (full_init == YES)
+   if (init_level > 8)
    {
       (void)sprintf(dirs, "%s%s", p_work_dir, AFD_FILE_DIR);
-      if (rec_rmdir(dirs) == INCORRECT)
+      if (dry_run == YES)
       {
-         (void)fprintf(stderr,
-                       _("WARNING : Failed to delete everything in %s.\n"),
-                       dirs);
+         (void)fprintf(stdout, "rm -rf %s\n", dirs);
+      }
+      else
+      {
+         if (rec_rmdir(dirs) == INCORRECT)
+         {
+            (void)fprintf(stderr,
+                          _("WARNING : Failed to delete everything in %s.\n"),
+                          dirs);
+         }
       }
       (void)sprintf(dirs, "%s%s", p_work_dir, AFD_ARCHIVE_DIR);
-      if (rec_rmdir(dirs) == INCORRECT)
+      if (dry_run == YES)
       {
-         (void)fprintf(stderr,
-                       _("WARNING : Failed to delete everything in %s.\n"),
-                       dirs);
+         (void)fprintf(stdout, "rm -rf %s\n", dirs);
+      }
+      else
+      {
+         if (rec_rmdir(dirs) == INCORRECT)
+         {
+            (void)fprintf(stderr,
+                          _("WARNING : Failed to delete everything in %s.\n"),
+                          dirs);
+         }
       }
       offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
-      delete_log_files(dirs, offset);
+      delete_log_files(dirs, offset, dry_run);
    }
 
    return;
@@ -125,7 +524,11 @@ initialize_db(int full_init)
 
 /*+++++++++++++++++++++++++ delete_fifodir_files() ++++++++++++++++++++++*/
 static void
-delete_fifodir_files(char *fifodir, int offset)
+delete_fifodir_files(char *fifodir,
+                     int  offset,
+                     char *filelistflag,
+                     char *mfilelistflag,
+                     int  dry_run)
 {
    int  i,
         tmp_sys_log_fd;
@@ -143,6 +546,8 @@ delete_fifodir_files(char *fifodir, int offset)
            MSG_QUEUE_FILE,
 #ifdef WITH_ERROR_QUEUE
            ERROR_QUEUE_FILE,
+#else
+           "",
 #endif
            FILE_MASK_FILE,
            DC_LIST_FILE,
@@ -170,6 +575,8 @@ delete_fifodir_files(char *fifodir, int offset)
            IP_FIN_FIFO,
 #ifdef WITH_ONETIME
            OT_FIN_FIFO,
+#else
+           "",
 #endif
            SF_FIN_FIFO,
            RETRY_FD_FIFO,
@@ -181,18 +588,28 @@ delete_fifodir_files(char *fifodir, int offset)
            PROBE_ONLY_FIFO,
 #ifdef _INPUT_LOG
            INPUT_LOG_FIFO,
+#else
+           "",
 #endif
 #ifdef _DISTRIBUTION_LOG
            DISTRIBUTION_LOG_FIFO,
+#else
+           "",
 #endif
 #ifdef _OUTPUT_LOG
            OUTPUT_LOG_FIFO,
+#else
+           "",
 #endif
 #ifdef _DELETE_LOG
            DELETE_LOG_FIFO,
+#else
+           "",
 #endif
 #ifdef _PRODUCTION_LOG
            PRODUCTION_LOG_FIFO,
+#else
+           "",
 #endif
            DEL_TIME_JOB_FIFO,
            FD_READY_FIFO,
@@ -215,8 +632,18 @@ delete_fifodir_files(char *fifodir, int offset)
    /* Delete single files. */
    for (i = 0; i < (sizeof(filelist) / sizeof(*filelist)); i++)
    {
-      (void)strcpy(file_ptr, filelist[i]);
-      (void)unlink(fifodir);
+      if (filelistflag[i] == YES)
+      {
+         (void)strcpy(file_ptr, filelist[i]);
+         if (dry_run == YES)
+         {
+            (void)fprintf(stdout, "rm -f %s\n", fifodir);
+         }
+         else
+         {
+            (void)unlink(fifodir);
+         }
+      }
    }
    *file_ptr = '\0';
 
@@ -226,7 +653,17 @@ delete_fifodir_files(char *fifodir, int offset)
    /* Delete multiple files. */
    for (i = 0; i < (sizeof(mfilelist) / sizeof(*mfilelist)); i++)
    {
-      (void)remove_files(fifodir, &mfilelist[i][1]);
+      if (mfilelistflag[i] == YES)
+      {
+         if (dry_run == YES)
+         {
+            (void)fprintf(stdout, "rm -f %s/%s\n", fifodir, &mfilelist[i][1]);
+         }
+         else
+         {
+            (void)remove_files(fifodir, &mfilelist[i][1]);
+         }
+      }
    }
 
    sys_log_fd = tmp_sys_log_fd;
@@ -237,7 +674,7 @@ delete_fifodir_files(char *fifodir, int offset)
 
 /*++++++++++++++++++++++++++++ delete_log_files() +++++++++++++++++++++++*/
 static void
-delete_log_files(char *logdir, int offset)
+delete_log_files(char *logdir, int offset, int dry_run)
 {
    int  i,
         tmp_sys_log_fd;
@@ -280,7 +717,14 @@ delete_log_files(char *logdir, int offset)
    for (i = 0; i < (sizeof(loglist) / sizeof(*loglist)); i++)
    {
       (void)strcpy(log_ptr, loglist[i]);
-      (void)unlink(logdir);
+      if (dry_run == YES)
+      {
+         (void)fprintf(stdout, "rm -f %s\n", logdir);
+      }
+      else
+      {
+         (void)unlink(logdir);
+      }
    }
    *log_ptr = '\0';
 
@@ -290,7 +734,14 @@ delete_log_files(char *logdir, int offset)
    /* Delete multiple files. */
    for (i = 0; i < (sizeof(mloglist)/sizeof(*mloglist)); i++)
    {
-      (void)remove_files(logdir, mloglist[i]);
+      if (dry_run == YES)
+      {
+         (void)fprintf(stdout, "rm -f %s/%s\n", logdir, mloglist[i]);
+      }
+      else
+      {
+         (void)remove_files(logdir, mloglist[i]);
+      }
    }
 
    sys_log_fd = tmp_sys_log_fd;

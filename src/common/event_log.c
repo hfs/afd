@@ -1,6 +1,6 @@
 /*
  *  event_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

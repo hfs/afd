@@ -1,6 +1,6 @@
 /*
  *  lookup_dc_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -141,8 +141,9 @@ lookup_dc_id(struct dir_config_buf **dcl, int dcl_counter)
                       (*dcl)[j].dir_config_file, length);
          mdcl[*no_of_dir_configs].dir_config_file[length] = '\0';
          mdcl[*no_of_dir_configs].dir_config_file[length + 1] = 0;
-         (*dcl)[j].dc_id = get_checksum(mdcl[*no_of_dir_configs].dir_config_file,
-                                     length + 2);
+         (*dcl)[j].dc_id = get_checksum(INITIAL_CRC,
+                                        mdcl[*no_of_dir_configs].dir_config_file,
+                                        length + 2);
          for (k = 0; k < *no_of_dir_configs; k++)
          {
             if (mdcl[k].dc_id == (*dcl)[j].dc_id)
@@ -162,7 +163,8 @@ lookup_dc_id(struct dir_config_buf **dcl, int dcl_counter)
                                 (*dcl)[j].dc_id);
                      break;
                   }
-               } while ((new_dc_id = get_checksum(mdcl[*no_of_dir_configs].dir_config_file,
+               } while ((new_dc_id = get_checksum(INITIAL_CRC,
+                                                  mdcl[*no_of_dir_configs].dir_config_file,
                                                   length + 2)) == (*dcl)[j].dc_id);
 
                if (new_dc_id != (*dcl)[j].dc_id)

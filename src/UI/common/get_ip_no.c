@@ -1,6 +1,6 @@
 /*
  *  get_ip_no.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ DESCR__S_M3
  ** HISTORY
  **   10.11.1996 H.Kiehl Created
  **   05.12.2000 H.Kiehl Check if hostname does contain a value.
+ **   19.08.2012 H.Kiehl Handle IPv6.
  **
  */
 DESCR__E_M3
@@ -66,6 +67,57 @@ get_ip_no(char *host_name, char *p_dest)
    }
    else
    {
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+      int             reply;
+      struct addrinfo hints,
+                      *result;
+
+      (void)memset(&hints, 0, sizeof(hints));
+      hints.ai_family = AF_UNSPEC;
+      hints.ai_socktype = SOCK_STREAM;
+
+      reply = getaddrinfo(host_name, NULL, &hints, &result);
+      if (reply != 0)
+      {
+         char *ptr = host_name;
+
+         do
+         {
+            if (!((isxdigit((int)(*ptr))) || (*ptr == '.') || (*ptr == ':')))
+            {
+               (void)strcpy(p_dest, "Unknown");
+               return;
+            }
+            ptr++;
+         } while (*ptr != '\0');
+         (void)strcpy(p_dest, host_name);
+      }
+      else
+      {
+         if (result->ai_family == AF_INET)
+         {
+            struct sockaddr_in *sa = (struct sockaddr_in *)result->ai_addr;
+
+            (void)strcpy(p_dest, inet_ntoa(sa->sin_addr));
+         }
+         else if (result->ai_family == AF_INET6)
+              {
+                 struct sockaddr_in6 *sa = (struct sockaddr_in6 *)result->ai_addr;
+
+                 if (inet_ntop(result->ai_family, &(sa->sin6_addr),
+                               p_dest, MAX_INFO_STRING_LENGTH) == NULL)
+                 {
+                    (void)fprintf(stderr, "Cannot get address of %s : %s\n",
+                                  host_name, strerror(errno));
+                 }
+              }
+              else
+              {
+                 (void)strcpy(p_dest, "Unknown address type");
+              }
+      }
+      freeaddrinfo(result);
+#else
       struct hostent *p_host;
 
       if ((p_host = gethostbyname(host_name)) == NULL)
@@ -94,6 +146,7 @@ get_ip_no(char *host_name, char *p_dest)
             (void)strcpy(p_dest, "Unknown address type");
          }
       }
+#endif
    }
 
    return;

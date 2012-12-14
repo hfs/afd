@@ -232,6 +232,7 @@
             olog.alias_name[0] = '\0';            \
             olog.real_hostname[0] = '\0';         \
             olog.recipient[0] = '\0';             \
+            olog.mail_id[0] = '\0';               \
             olog.transmission_time = 0.0;         \
             olog.file_size = -1;                  \
             olog.job_creation_time = -1L;         \
@@ -241,6 +242,7 @@
             olog.remote_name_length = 0;          \
             olog.archive_dir_length = 0;          \
             olog.alias_name_length = 0;           \
+            olog.mail_id_length = 0;              \
             olog.output_type = OT_UNKNOWN;        \
             olog.current_toggle = 0;              \
             olog.job_id = 0;                      \
@@ -562,6 +564,7 @@ struct alda_odata
                                                                   /*       this can vary in future.             */
           char          real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
           char          recipient[MAX_RECIPIENT_LENGTH];
+          char          mail_id[MAX_MAIL_ID_LENGTH + 1];
           double        transmission_time;
           off_t         file_size;
           time_t        job_creation_time;
@@ -571,6 +574,7 @@ struct alda_odata
           int           remote_name_length;
           int           archive_dir_length;
           int           alias_name_length;
+          int           mail_id_length;
           int           output_type;
           int           current_toggle;
           unsigned int  job_id;

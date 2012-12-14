@@ -1,7 +1,7 @@
 /*
  *  lookup_file_mask_id.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -212,7 +212,7 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
     * checksum is unique check that it does not appear anywhere in
     * struct job_id_data.
     */
-   p_db->file_mask_id = get_checksum(buffer, buf_size);
+   p_db->file_mask_id = get_checksum(INITIAL_CRC, buffer, buf_size);
    tmp_ptr = fmd;
    for (i = 0; i < *no_of_file_masks; i++)
    {
@@ -233,7 +233,7 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
                           p_db->file_mask_id);
                break;
             }
-         } while ((new_file_mask_id = get_checksum(buffer,
+         } while ((new_file_mask_id = get_checksum(INITIAL_CRC, buffer,
                                                    buf_size)) == p_db->file_mask_id);
 
          if (new_file_mask_id != p_db->file_mask_id)

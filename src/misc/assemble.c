@@ -73,6 +73,7 @@ DESCR__S_M3
  **   18.05.2005 H.Kiehl Forgot to write type indicator for WMO standard.
  **   16.11.2009 H.Kiehl Fix error if dest_file has same name as one of
  **                      the source files.
+ **   06.09.2012 H.Kiehl Added WMO standard with dummy message at end.
  **
  */
 DESCR__E_M3
@@ -107,12 +108,10 @@ assemble(char         *source_dir,
 {
    int         buffer_size = 0,
                fd,
+               have_sohetx = YES,
                i,
                length,
                to_fd = -1;
-#ifndef _WITH_SOH_ETX_CHECK
-   int         have_sohetx;
-#endif
    char        *buffer = NULL,
                *p_dest,
                *p_src,
@@ -220,9 +219,7 @@ assemble(char         *source_dir,
                      {
                         additional_length += 4;
                      }
-                     if ((length = write_length_indicator(to_fd,
-                                                          type, YES,
-                                                          stat_buf.st_size + additional_length)) < 0)
+                     have_sohetx = YES;
 #else
                   if (type != ASCII_STANDARD)
                   {
@@ -235,10 +232,10 @@ assemble(char         *source_dir,
                      {
                         have_sohetx = NO;
                      }
+#endif
                      if ((length = write_length_indicator(to_fd,
                                                           type, have_sohetx,
                                                           stat_buf.st_size)) < 0)
-#endif
                      {
                         if (length == -1)
                         {
@@ -350,6 +347,23 @@ assemble(char         *source_dir,
             *file_size += 4;
          }
       }
+      else if (type == WMO_WITH_DUMMY_MESSAGE)
+           {
+              if ((length = write_length_indicator(to_fd,
+                                                   type, have_sohetx, 0)) < 0)
+              {
+                 if (length == -1)
+                 {
+                    receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                _("write() error : %s"),
+                                strerror(errno));
+                 }
+              }
+              else
+              {
+                 *file_size += length;
+              }
+           }
       if (close(to_fd) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
@@ -463,7 +477,18 @@ write_length_indicator(int fd, int type, int have_sohetx, int length)
          break;
 
       case WMO_STANDARD  : /* WMO Standard */
-         (void)sprintf((char *)buffer, "%08lu", (unsigned long)length);
+      case WMO_WITH_DUMMY_MESSAGE : /* WMO Standard with dummy message at end. */
+         if (length > 99999999)
+         {
+            (void)strcpy((char *)buffer, "99999999");
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                        "Data length (%d) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+                        length);
+         }
+         else
+         {
+            (void)sprintf((char *)buffer, "%08d", length);
+         }
          write_length = 10;
          buffer[8] = '0';
          if (have_sohetx == YES)

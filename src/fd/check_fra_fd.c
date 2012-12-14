@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,6 +52,8 @@ DESCR__S_M3
  **                      message from queue.
  **   25.10.2008 H.Kiehl Check that we do not delete a directory where
  **                      a existing job has a subdirectory.
+ **   18.10.2012 H.Kiehl Improve queued flag check in FRA, in that we
+ **                      check for the process ID in FRA.
  **
  */
 DESCR__E_M3
@@ -205,9 +207,10 @@ check_fra_fd(void)
 
          if ((no_of_retrieves > 0) && (ord != NULL))
          {
-            int dirs_to_remove = 0,
-                gotcha,
-                pos;
+            register int k;
+            int          dirs_to_remove = 0,
+                         gotcha,
+                         pos;
 
             for (i = 0; i < no_of_retrieves; i++)
             {
@@ -252,8 +255,6 @@ check_fra_fd(void)
                   {
                      if (CHECK_STRCMP(ord[i].dir_alias, rql[j].dir_alias) == 0)
                      {
-                        int k;
-
                         if (qb[rql[j].qb_pos].pid > 0)
                         {
                            if (kill(qb[rql[j].qb_pos].pid, SIGKILL) < 0)
@@ -438,10 +439,13 @@ check_fra_fd(void)
                   gotcha = NO;
                   for (j = 0; j < no_remote_queued; j++)
                   {
-                     if (i == qb[rql[j].qb_pos].pos)
+                     for (k = 0; k < fsa[fra[i].fsa_pos].allowed_transfers; k++)
                      {
-                        gotcha = YES;
-                        break;
+                        if (fsa[fra[i].fsa_pos].job_status[k].proc_id == qb[rql[j].qb_pos].pid)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
                      }
                   }
                   if (gotcha == NO)

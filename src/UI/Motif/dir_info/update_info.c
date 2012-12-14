@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,8 +85,8 @@ void
 update_info(Widget w)
 {
    signed char flush = NO;
-   char        str_line[MAX_INFO_STRING_LENGTH],
-               tmp_str_line[MAX_INFO_STRING_LENGTH];
+   char        str_line[MAX_PATH_LENGTH + 1],
+               tmp_str_line[MAX_PATH_LENGTH + 1];
 
    /* Check if FRA changed. */
    if (check_fra(NO) == YES)
@@ -122,7 +122,7 @@ update_info(Widget w)
             insert_passwd(prev.display_url);
          }
          (void)sprintf(str_line, "%*s",
-                       MAX_INFO_STRING_LENGTH, prev.display_url);
+                       MAX_DIR_INFO_STRING_LENGTH, prev.display_url);
          XmTextSetString(url_text_w, str_line);
          flush = YES;
       }
@@ -271,7 +271,7 @@ update_info(Widget w)
    if (prev.last_retrieval != fra[fra_pos].last_retrieval)
    {
       prev.last_retrieval = fra[fra_pos].last_retrieval;
-      (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
+      (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                      localtime(&prev.last_retrieval));
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, tmp_str_line);
       XmTextSetString(text_wl[LAST_RETRIEVAL_POS], str_line);
@@ -404,7 +404,7 @@ update_info(Widget w)
    {
       if (prev.no_of_time_entries > 0)
       {
-         (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH,
+         (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH,
                         "%d.%m.%Y  %H:%M:%S",
                         localtime(&prev.next_check_time));
          (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
@@ -420,7 +420,7 @@ update_info(Widget w)
             (prev.next_check_time != fra[fra_pos].next_check_time))
         {
            prev.next_check_time = fra[fra_pos].next_check_time;
-           (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH,
+           (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH,
                           "%d.%m.%Y  %H:%M:%S",
                           localtime(&prev.next_check_time));
            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
@@ -466,10 +466,14 @@ update_info(Widget w)
          {
             length += sprintf(&dupcheck_label_str[length], ", CRC32");
          }
-         else
-         {
-            length += sprintf(&dupcheck_label_str[length], "Unknown");
-         }
+         else if (prev.dup_check_flag & DC_CRC32C)
+              {
+                 length += sprintf(&dupcheck_label_str[length], ", CRC32C");
+              }
+              else
+              {
+                 length += sprintf(&dupcheck_label_str[length], "Unknown");
+              }
          if ((prev.dup_check_flag & DC_DELETE) ||
              (prev.dup_check_flag & DC_STORE))
          {

@@ -79,7 +79,11 @@ tiff2gts(char *path, char* filename)
                 fullname[MAX_PATH_LENGTH];
    struct stat  stat_buf;
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s", path, filename);
+#else
    (void)sprintf(fullname, "%s/%s", path, filename);
+#endif
 
    if (stat(fullname, &stat_buf) < 0)
    {
@@ -177,7 +181,11 @@ tiff2gts(char *path, char* filename)
    /*
     * Open destination file and copy data.
     */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(dest_file_name, MAX_PATH_LENGTH, "%s/.%s", path, filename);
+#else
    (void)sprintf(dest_file_name, "%s/.%s", path, filename);
+#endif
    if ((fd = open(dest_file_name, (O_WRONLY | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -213,7 +221,11 @@ tiff2gts(char *path, char* filename)
    }
 
    /* Rename file to its new name. */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s", path, filename);
+#else
    (void)sprintf(fullname, "%s/%s", path, filename);
+#endif
    if (rename(dest_file_name, fullname) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,

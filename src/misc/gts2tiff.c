@@ -153,7 +153,11 @@ gts2tiff(char *path, char *filename)
    }
    else
    {
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(from, MAX_PATH_LENGTH, "%s/%s", path, filename);
+#else
       (void)sprintf(from, "%s/%s", path, filename);
+#endif
    }
    if ((fdin = open(from, O_RDONLY)) < 0)
    {
@@ -172,7 +176,11 @@ gts2tiff(char *path, char *filename)
    }
 
    /* Open and create destination file. */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(to, MAX_PATH_LENGTH, "%s%s", from, TIFF_END);
+#else
    (void)sprintf(to, "%s%s", from, TIFF_END);
+#endif
    if ((fdout = open(to, (O_RDWR | O_CREAT | O_TRUNC), stat_buf.st_mode)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,

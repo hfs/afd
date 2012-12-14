@@ -1,6 +1,6 @@
 /*
  *  wmoheader_from_grib.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2002 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1001,7 +1001,11 @@ wmoheader_from_grib(char *grib_buffer,
    }
    CCCC[4] = '\0';
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(TTAAii_CCCC_YYGGgg, 19, "%s%s%s_%s_%02d%02d%02d",
+#else
    (void)sprintf(TTAAii_CCCC_YYGGgg, "%s%s%s_%s_%02d%02d%02d",
+#endif
                  TT, AA, ii, CCCC,
                  *(ptr + 18),  /* PDS 15 */
                  *(ptr + 19),  /* PDS 16 */

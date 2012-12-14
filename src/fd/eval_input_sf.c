@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -36,6 +36,7 @@ DESCR__S_M3
  **
  **          -a <age limit>            The age limit for the files being send.
  **          -A                        Disable archiving of files.
+ **          -c                        Enable support for hardware CRC-32.
  **          -f <SMTP from>            Default from identifier to send.
  **          -h <HTTP proxy>[:<port>]  Proxy where to send the HTTP requests.
  **          -o <retries>              Old/Error message and number of retries.
@@ -62,6 +63,7 @@ DESCR__S_M3
  **   30.08.2005 H.Kiehl Added -s to specify mail server name.
  **   22.01.2008 H.Kiehl Added -R to specify a default reply-to identifier.
  **   28.12.2011 H.Kiehl Added -h to specify HTTP proxy.
+ **   23.11.2012 H.Kiehl Added -c for hardware CRC-32 support.
  **
  */
 DESCR__E_M3
@@ -75,6 +77,9 @@ DESCR__E_M3
 
 /* Global variables. */
 extern int                        fsa_id,
+#ifdef HAVE_HW_CRC32
+                                  have_hw_crc32,
+#endif
                                   *p_no_of_hosts;
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
@@ -244,6 +249,11 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                  case 'A' : /* Archiving is disabled. */
                                     p_db->archive_time = -1;
                                     break;
+#ifdef HAVE_HW_CRC32
+                                 case 'c' : /* CPU supports CRC32 in HW. */
+                                    have_hw_crc32 = YES;
+                                    break;
+#endif
                                  case 'f' : /* Default SMTP from. */
                                     if (((i + 1) < argc) &&
                                         (argv[i + 1][0] != '-'))
@@ -535,6 +545,9 @@ usage(char *name)
    (void)fprintf(stderr, "  --version                 - Show current version.\n");
    (void)fprintf(stderr, "  -a <age limit>            - Set the default age limit in seconds.\n");
    (void)fprintf(stderr, "  -A                        - Archiving is disabled.\n");
+#ifdef HAVE_HW_CRC32
+   (void)fprintf(stderr, "  -c                        - Enable support for hardware CRC-32.\n");
+#endif
    (void)fprintf(stderr, "  -f <SMTP from>            - Default from identifier to send.\n");
    (void)fprintf(stderr, "  -h <HTTP proxy>[:<port>]  - Proxy where to send the HTTP request.\n");
    (void)fprintf(stderr, "  -o <retries>              - Old/error message and number of retries.\n");

@@ -402,7 +402,6 @@ gf_ftp_SOURCES        = attach_ls_data.c\
                         init_gf.c\
                         limit_transfer_rate.c\
                         read_file_mask.c\
-                        remove_ls_data.c\
                         reset_fsa.c\
                         reset_values.c\
                         send_proc_fin.c\
@@ -447,7 +446,6 @@ gf_http_SOURCES       = attach_ls_data.c\
                         init_gf.c\
                         limit_transfer_rate.c\
                         read_file_mask.c\
-                        remove_ls_data.c\
                         reset_fsa.c\
                         reset_values.c\
                         send_proc_fin.c\

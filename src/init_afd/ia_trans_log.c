@@ -81,11 +81,11 @@ ia_trans_log(char *sign,
              char *fmt,
              ...)
 {
-   char      *ptr = fsa[fsa_pos].host_alias;
    int       tmp_errno = errno;
    size_t    length = HOSTNAME_OFFSET;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1],
+             *ptr = fsa[fsa_pos].host_alias;
    va_list   ap;
    struct tm *p_ts;
 

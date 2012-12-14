@@ -49,6 +49,7 @@
 #define ZOMBIE_CHECK_INTERVAL            2000 /* 2 seconds */
 #define MAX_VIEW_DATA_WINDOWS            4
 #define ADDITIONAL_INFO_LENGTH           50
+#define MAX_INFO_STRING_LENGTH           65
 
 /* Definitions for the printer interface. */
 #define SELECTION_TOGGLE                 1

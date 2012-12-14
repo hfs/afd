@@ -116,7 +116,8 @@ extern struct info_data id;
 extern struct sol_perm  perm;
 
 /* Local global variables. */
-static unsigned int     total_no_files;
+static unsigned int     total_no_files,
+                        unprintable_chars;
 static int              interval_id_set = NO,
                         last_file_no,
                         log_fd = -1;
@@ -423,6 +424,7 @@ get_data(void)
    file_size = 0.0;
    total_no_files = 0;
    first_date_found = -1;
+   unprintable_chars = 0;
    j = 0;
    for (i = start_file_no;
         ((i >= end_file_no) && (special_button_flag != STOP_BUTTON_PRESSED));
@@ -443,23 +445,24 @@ get_data(void)
       set_sensitive();
       if ((perm.list_limit == 0) || (total_no_files < perm.list_limit))
       {
-         if (total_no_files != 0)
+         if (total_no_files == 0)
          {
-#if SIZEOF_TIME_T == 4
-            (void)sprintf(status_message, "Search time: %lds",
-#else
-            (void)sprintf(status_message, "Search time: %llds",
-#endif
-                          (pri_time_t)(end - start));
+            i = sprintf(status_message, "No data found. ");
          }
          else
          {
+            i = 0;
+         }
 #if SIZEOF_TIME_T == 4
-            (void)sprintf(status_message, "No data found. Search time: %lds",
+         i += sprintf(status_message + i, "Search time: %lds",
 #else
-            (void)sprintf(status_message, "No data found. Search time: %llds",
+         i += sprintf(status_message + i, "Search time: %llds",
 #endif
-                          (pri_time_t)(end - start));
+                      (pri_time_t)(end - start));
+         if (unprintable_chars > 0)
+         {
+            (void)sprintf(status_message + i, " (%u unprintable chars!)",
+                          unprintable_chars);
          }
          SHOW_MESSAGE();
       }
@@ -1069,7 +1072,15 @@ no_criteria(register char *ptr,
          INSERT_TIME();
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
+            if (*ptr < ' ')
+            {
+               *(p_file_name + j) = '?';
+               unprintable_chars++;
+            }
+            else                               
+            {
+               *(p_file_name + j) = *ptr;
+            }
             ptr++; j++;
          }
 
@@ -1300,7 +1311,15 @@ file_name_only(register char *ptr,
             j = 0;
             while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
             {
-               *(p_file_name + j) = *ptr;
+               if (*ptr < ' ')
+               {
+                  *(p_file_name + j) = '?';
+                  unprintable_chars++;
+               }
+               else                               
+               {
+                  *(p_file_name + j) = *ptr;
+               }
                ptr++; j++;
             }
          }
@@ -1543,7 +1562,15 @@ file_size_only(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
+            if (*ptr < ' ')
+            {
+               *(p_file_name + j) = '?';
+               unprintable_chars++;
+            }
+            else                               
+            {
+               *(p_file_name + j) = *ptr;
+            }
             ptr++; j++;
          }
 
@@ -1732,7 +1759,15 @@ file_name_and_size(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
+            if (*ptr < ' ')
+            {
+               *(p_file_name + j) = '?';
+               unprintable_chars++;
+            }
+            else                               
+            {
+               *(p_file_name + j) = *ptr;
+            }
             ptr++; j++;
          }
          while (*ptr != SEPARATOR_CHAR)
@@ -1852,8 +1887,16 @@ recipient_only(register char *ptr,
          ptr += LOG_DATE_LENGTH + 1;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
-            id.file_name[j] = *ptr;
+            if (*ptr < ' ')
+            {
+               *(p_file_name + j) = '?';
+               unprintable_chars++;
+            }
+            else                               
+            {
+               *(p_file_name + j) = *ptr;
+            }
+            id.file_name[j] = *(p_file_name + j);
             ptr++; j++;
          }
          id.file_name[j] = ' ';
@@ -2135,8 +2178,16 @@ file_name_and_recipient(register char *ptr,
             j = 0;
             while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
             {
-               *(p_file_name + j) = *ptr;
-               id.file_name[j] = *ptr;
+               if (*ptr < ' ')
+               {
+                  *(p_file_name + j) = '?';
+                  unprintable_chars++;
+               }
+               else                               
+               {
+                  *(p_file_name + j) = *ptr;
+               }
+               id.file_name[j] = *(p_file_name + j);
                ptr++; j++;
             }
             id.file_name[j] = ' ';
@@ -2514,7 +2565,15 @@ file_size_and_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
+            if (*ptr < ' ')
+            {
+               *(p_file_name + j) = '?';
+               unprintable_chars++;
+            }
+            else                               
+            {
+               *(p_file_name + j) = *ptr;
+            }
             ptr++; j++;
          }
 
@@ -2753,7 +2812,14 @@ file_name_size_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            id.file_name[j] = *ptr;
+            if (*ptr < ' ')
+            {
+               id.file_name[j] = '?';
+            }
+            else
+            {
+               id.file_name[j] = *ptr;
+            }
             ptr++; j++;
          }
          id.file_name[j] = ' ';
@@ -2835,7 +2901,15 @@ file_name_size_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            *(p_file_name + j) = *ptr;
+            if (*ptr < ' ')
+            {
+               *(p_file_name + j) = '?';
+               unprintable_chars++;
+            }
+            else                               
+            {
+               *(p_file_name + j) = *ptr;
+            }
             ptr++; j++;
          }
          while (*ptr != SEPARATOR_CHAR)

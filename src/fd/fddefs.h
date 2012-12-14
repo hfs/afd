@@ -265,10 +265,9 @@
 #define DISTRIBUTED_HELPER_JOB         1048576
 #define MIRROR_DIR                     2097152
 #define EXEC_ONCE_ONLY                 4194304
+#define SHOW_ALL_GROUP_MEMBERS         8388608
 
 #ifdef _WITH_BURST_2
-# define MORE_DATA_FIFO                "/more_data_"
-
 /* Definition for values that have changed during a burst. */
 # define USER_CHANGED                  1
 # define TYPE_CHANGED                  2
@@ -364,6 +363,7 @@ struct job
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
           char          smtp_user[MAX_USER_NAME_LENGTH];
           char          user[MAX_USER_NAME_LENGTH];
+          char          active_user[MAX_USER_NAME_LENGTH];
 #ifdef WITH_SSH_FINGERPRINT
           char          ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1];
           char          key_type;
@@ -372,6 +372,7 @@ struct job
           char          target_dir[MAX_RECIPIENT_LENGTH];
                                          /* Target directory on the      */
                                          /* remote side.                 */
+          char          active_target_dir[MAX_RECIPIENT_LENGTH];
           char          msg_name[MAX_MSG_NAME_LENGTH];
           char          http_proxy[MAX_REAL_HOSTNAME_LENGTH];
                                          /* HTTP proxy.                  */
@@ -431,6 +432,7 @@ struct job
                                          /*         connection.          */
                                          /*  BOTH - Control and data     */
                                          /*         connection.          */
+          char          active_auth;     /* The current set auth value.  */
 #endif
           unsigned char ssh_protocol;    /* SSH protocol version to use. */
           char          toggle_host;     /* Take the host that is        */
@@ -441,6 +443,7 @@ struct job
           char          transfer_mode;   /* Transfer mode, A (ASCII) or  */
                                          /* I (Image, binary).           */
                                          /* (Default I)                  */
+          char          active_transfer_mode;
           char          lock;            /* The type of lock on the      */
                                          /* remote site. Their are so    */
                                          /* far two possibilities:       */
@@ -566,8 +569,8 @@ struct job
                                          /*|23 | EXEC: Execute command  |*/
                                          /*|   |       for all files    |*/
                                          /*|   |       once only.       |*/
-                                         /*|24 | Check the size of the  |*/
-                                         /*|   | file we just uploaded. |*/
+                                         /*|24 | Show all members of a  |*/
+                                         /*|   | group in the To: line. |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
           unsigned int  dup_check_flag;  /* Flag storing the type of     */
@@ -581,7 +584,8 @@ struct job
                                          /*|   26 | DC_WARN             |*/
                                          /*|   25 | DC_STORE            |*/
                                          /*|   24 | DC_DELETE           |*/
-                                         /*|17-23 | Not used.           |*/
+                                         /*|18-23 | Not used.           |*/
+                                         /*|   17 | DC_CRC32C           |*/
                                          /*|   16 | DC_CRC32            |*/
                                          /*| 4-15 | Not used.           |*/
                                          /*|    3 | DC_FILE_CONT_NAME   |*/
@@ -717,8 +721,7 @@ extern int   append_compare(char *, char *),
              gsf_check_fsa(struct job *),
              init_fifos_fd(void),
              init_sf(int, char **, char *, int),
-             init_sf_burst2(struct job *, char *, unsigned int *,
-                            unsigned int),
+             init_sf_burst2(struct job *, char *, unsigned int *),
              lookup_job_id(unsigned int),
              noop_wrapper(void),
              read_current_msg_list(unsigned int **, int *),

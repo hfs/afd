@@ -2327,6 +2327,10 @@ check_input_log(char         *search_afd,
          while (fgets(input.line, MAX_LINE_LENGTH, input.fp) != NULL)
 #endif
          {
+            if (verbose > 3)
+            {
+               (void)fprintf(stdout, "DEBUG 4: [INPUT] realine: %s", input.line);
+            }
 #ifdef HAVE_GETLINE
             input.bytes_read += n;
 #endif
@@ -2728,6 +2732,10 @@ check_distribution_log(char         *search_afd,
                          distribution.fp) != NULL)
 #endif
             {
+               if (verbose > 3)
+               {
+                  (void)fprintf(stdout, "DEBUG 4: [DISTRIBUTION] realine: %s", distribution.line);
+               }
                if ((trace_mode == ON) && (mode & ALDA_FORWARD_MODE))
                {
                   if (upl[distribution.current_file_no] == NULL)
@@ -3250,6 +3258,10 @@ check_production_log(char         *search_afd,
             while (fgets(production.line, MAX_LINE_LENGTH, production.fp) != NULL)
 #endif
             {
+               if (verbose > 3)
+               {
+                  (void)fprintf(stdout, "DEBUG 4: [PRODUCTION] realine: %s", production.line);
+               }
                if ((trace_mode == ON) && (mode & ALDA_FORWARD_MODE))
                {
                   if (ppl[production.current_file_no] == NULL)
@@ -3821,6 +3833,10 @@ check_output_log(char         *search_afd,
             while (fgets(output.line, MAX_LINE_LENGTH, output.fp) != NULL)
 #endif
             {
+               if (verbose > 3)
+               {
+                  (void)fprintf(stdout, "DEBUG 4: [OUTPUT] realine: %s", output.line);
+               }
                if ((trace_mode == ON) && (mode & ALDA_FORWARD_MODE))
                {
                   if (opl[output.current_file_no] == NULL)
@@ -4332,6 +4348,10 @@ check_delete_log(char         *search_afd,
             while (fgets(delete.line, MAX_LINE_LENGTH, delete.fp) != NULL)
 #endif
             {
+               if (verbose > 3)
+               {
+                  (void)fprintf(stdout, "DEBUG 4: [DELETE] realine: %s", delete.line);
+               }
                if ((trace_mode == ON) && (mode & ALDA_FORWARD_MODE))
                {
                   if (dpl[delete.current_file_no] == NULL)

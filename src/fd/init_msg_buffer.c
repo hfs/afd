@@ -1062,7 +1062,7 @@ list_job_to_remove(int                cache_pos,
           */
          for (j = 0; j < *no_msg_queued; j++)
          {
-            if (qb[j].pos > cache_pos)
+            if ((qb[j].pos > cache_pos) && (qb[j].msg_name[0] != '\0'))
             {
                qb[j].pos--;
             }

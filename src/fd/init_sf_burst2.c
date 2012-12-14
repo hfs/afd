@@ -27,8 +27,7 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int init_sf_burst2(struct job   *p_new_db,
  **                      char         *file_path,
- **                      unsigned int *values_changed,
- **                      unsigned int prev_job_id)
+ **                      unsigned int *values_changed)
  **
  ** DESCRIPTION
  **
@@ -61,14 +60,12 @@ extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
 
-extern char *file_name_buffer;
 
 /*########################## init_sf_burst2() ###########################*/
 int
 init_sf_burst2(struct job   *p_new_db,
                char         *file_path,
-               unsigned int *values_changed,
-               unsigned int prev_job_id)
+               unsigned int *values_changed)
 {
    int   files_to_send = 0;
 #ifdef _WITH_BURST_2
@@ -104,25 +101,50 @@ init_sf_burst2(struct job   *p_new_db,
       if (values_changed != NULL)
       {
          *values_changed = 0;
-         if (CHECK_STRCMP(db.user, p_new_db->user) != 0)
+         if (CHECK_STRCMP(db.active_user, p_new_db->user) != 0)
          {
             *values_changed |= USER_CHANGED;
          }
-         if (CHECK_STRCMP(db.target_dir, p_new_db->target_dir) != 0)
+         if (CHECK_STRCMP(db.active_target_dir, p_new_db->target_dir) != 0)
          {
             *values_changed |= TARGET_DIR_CHANGED;
          }
-         if (db.transfer_mode != p_new_db->transfer_mode)
+         if (db.active_transfer_mode != p_new_db->transfer_mode)
          {
             *values_changed |= TYPE_CHANGED;
          }
 #ifdef WITH_SSL
-         if (db.auth != p_new_db->auth)
+         if (db.active_auth != p_new_db->auth)
          {
             *values_changed |= AUTH_CHANGED;
          }
 #endif
       }
+      (void)strcpy(db.user, p_new_db->user);
+      (void)strcpy(db.target_dir, p_new_db->target_dir);
+      if (db.protocol & EXEC_FLAG)
+      {
+         if (check_exec_type(db.exec_cmd))
+         {
+            db.special_flag |= EXEC_ONCE_ONLY;
+         }
+         else
+         {
+            db.special_flag &= ~EXEC_ONCE_ONLY;
+         }
+      }
+      if (((db.transfer_mode == 'A') || (db.transfer_mode == 'D')) &&
+          (p_new_db->transfer_mode == 'N'))
+      {
+         db.transfer_mode = 'I';
+      }
+      else
+      {
+         db.transfer_mode = p_new_db->transfer_mode;
+      }
+#ifdef WITH_SSL
+      db.auth = p_new_db->auth;
+#endif
       (void)strcpy(db.password, p_new_db->password);
       if (p_new_db->smtp_server[0] == '\0')
       {
@@ -223,6 +245,9 @@ init_sf_burst2(struct job   *p_new_db,
       db.dup_check_timeout = p_new_db->dup_check_timeout;
       db.crc_id            = p_new_db->crc_id;
 #endif
+
+      free(p_new_db);
+      p_new_db = NULL;
    }
 
    if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & DISABLE_ARCHIVE)
@@ -289,16 +314,18 @@ init_sf_burst2(struct job   *p_new_db,
       }
    }
 
-   if ((files_to_send = get_file_names(file_path, &file_size_to_send)) > 0)
+   files_to_send = get_file_names(file_path, &file_size_to_send);
+
+   /* Do we want to display the status? */
+   if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
-      /* Do we want to display the status? */
-      if (gsf_check_fsa((struct job *)&db) != NEITHER)
-      {
 #ifdef LOCK_DEBUG
-         rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
+      rlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
 #else
-         rlock_region(fsa_fd, db.lock_offset);
+      rlock_region(fsa_fd, db.lock_offset);
 #endif
+      if (files_to_send > 0)
+      {
          if (db.protocol & FTP_FLAG)
          {
             fsa->job_status[(int)db.job_no].connect_status = FTP_BURST2_TRANSFER_ACTIVE;
@@ -331,61 +358,19 @@ init_sf_burst2(struct job   *p_new_db,
 #endif
          fsa->job_status[(int)db.job_no].no_of_files = fsa->job_status[(int)db.job_no].no_of_files_done + files_to_send;
          fsa->job_status[(int)db.job_no].file_size = fsa->job_status[(int)db.job_no].file_size_done + file_size_to_send;
-         fsa->job_status[(int)db.job_no].job_id = db.job_id;
+      }
+      fsa->job_status[(int)db.job_no].job_id = db.job_id;
 #ifdef LOCK_DEBUG
-         unlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
+      unlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
 #else
-         unlock_region(fsa_fd, db.lock_offset);
+      unlock_region(fsa_fd, db.lock_offset);
 #endif
 
-         /* Set the timeout value. */
-         transfer_timeout = fsa->transfer_timeout;
-      }
-      if (p_new_db != NULL)
-      {
-         if ((values_changed != NULL) && (*values_changed > 0))
-         {
-            if (*values_changed & USER_CHANGED)
-            {
-               (void)strcpy(db.user, p_new_db->user);
-            }
-            if (*values_changed & TARGET_DIR_CHANGED)
-            {
-               (void)strcpy(db.target_dir, p_new_db->target_dir);
-
-               if (db.protocol & EXEC_FLAG)
-               {
-                  if (check_exec_type(db.exec_cmd))
-                  {
-                     db.special_flag |= EXEC_ONCE_ONLY;
-                  }
-                  else
-                  {
-                     db.special_flag &= ~EXEC_ONCE_ONLY;
-                  }
-               }
-            }
-         }
-         else
-         {
-            (void)strcpy(db.user, p_new_db->user);
-            (void)strcpy(db.target_dir, p_new_db->target_dir);
-         }
-         if (((db.transfer_mode == 'A') || (db.transfer_mode == 'D')) &&
-             (p_new_db->transfer_mode == 'N'))
-         {
-            db.transfer_mode = 'I';
-         }
-         else
-         {
-            db.transfer_mode = p_new_db->transfer_mode;
-         }
-#ifdef WITH_SSL
-         db.auth = p_new_db->auth;
-#endif
-      }
+      /* Set the timeout value. */
+      transfer_timeout = fsa->transfer_timeout;
    }
-   else
+
+   if (files_to_send < 1)
    {
       int ret;
 
@@ -418,15 +403,15 @@ init_sf_burst2(struct job   *p_new_db,
                        "Failed to remove directory %s", file_path);
          }
       }
-      if (prev_job_id != 0)
-      {
-         db.job_id = prev_job_id;
-      }
    }
-   if (p_new_db != NULL)
+   else
    {
-      free(p_new_db);
-      p_new_db = NULL;
+      (void)strcpy(db.active_user, db.user);
+      (void)strcpy(db.active_target_dir, db.target_dir);
+      db.active_transfer_mode = db.transfer_mode;
+#ifdef WITH_SSL
+      db.active_auth = db.auth;
+#endif
    }
 #endif /* _WITH_BURST_2 */
 

@@ -1,6 +1,6 @@
 /*
  *  dir_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -150,8 +150,8 @@ main(int argc, char *argv[])
 #endif
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH],
-                   str_line[MAX_INFO_STRING_LENGTH + 1],
-                   tmp_str_line[MAX_INFO_STRING_LENGTH + 1];
+                   str_line[MAX_PATH_LENGTH + 1],
+                   tmp_str_line[MAX_PATH_LENGTH + 1];
    static String   fallback_res[] =
                    {
                       "*mwmDecorations : 42",
@@ -271,7 +271,7 @@ main(int argc, char *argv[])
    dirname_text_w = XtVaCreateManagedWidget("dirname_text_w",
                            xmTextWidgetClass,        dir_text_w,
                            XmNfontList,              fontlist,
-                           XmNcolumns,               MAX_INFO_STRING_LENGTH,
+                           XmNcolumns,               MAX_DIR_INFO_STRING_LENGTH,
                            XmNtraversalOn,           False,
                            XmNeditable,              False,
                            XmNcursorPositionVisible, False,
@@ -304,7 +304,7 @@ main(int argc, char *argv[])
       url_text_w = XtVaCreateManagedWidget("url_text_w",
                               xmTextWidgetClass,        dir_text_w,
                               XmNfontList,              fontlist,
-                              XmNcolumns,               MAX_INFO_STRING_LENGTH,
+                              XmNcolumns,               MAX_DIR_INFO_STRING_LENGTH,
                               XmNtraversalOn,           False,
                               XmNeditable,              False,
                               XmNcursorPositionVisible, False,
@@ -317,12 +317,11 @@ main(int argc, char *argv[])
                               XmNleftPosition,          12,
                               NULL);
       XtManageChild(dir_text_w);
-      (void)sprintf(str_line, "%*s", MAX_INFO_STRING_LENGTH, prev.display_url);
+      (void)sprintf(str_line, "%*s", MAX_DIR_INFO_STRING_LENGTH, prev.display_url);
       XmTextSetString(url_text_w, str_line);
    }
    XtManageChild(rowcol1_w);
-   (void)sprintf(str_line, "%*s", MAX_INFO_STRING_LENGTH,
-                 prev.real_dir_name);
+   (void)sprintf(str_line, "%s", prev.real_dir_name);
    XmTextSetString(dirname_text_w, str_line);
 
    /* Create the horizontal separator. */
@@ -492,7 +491,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_line, "%*llu", DIR_INFO_LENGTH_L, prev.bytes_received);
 #endif
    XmTextSetString(text_wl[BYTES_RECEIVED_POS], str_line);
-   (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
+   (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                   localtime(&prev.last_retrieval));
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, tmp_str_line);
    XmTextSetString(text_wl[LAST_RETRIEVAL_POS], str_line);
@@ -665,7 +664,7 @@ main(int argc, char *argv[])
    XmTextSetString(text_wr[FILES_RECEIVED_POS], str_line);
    if (prev.no_of_time_entries > 0)
    {
-      (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
+      (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                      localtime(&prev.next_check_time));
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
    }
@@ -712,10 +711,14 @@ main(int argc, char *argv[])
       {
          length += sprintf(&dupcheck_label_str[length], ", CRC32");
       }
-      else
-      {
-         length += sprintf(&dupcheck_label_str[length], "Unknown");
-      }
+      else if (prev.dup_check_flag & DC_CRC32C)
+           {
+              length += sprintf(&dupcheck_label_str[length], ", CRC32C");
+           }
+           else
+           {
+              length += sprintf(&dupcheck_label_str[length], "Unknown");
+           }
       if ((prev.dup_check_flag & DC_DELETE) || (prev.dup_check_flag & DC_STORE))
       {
          if (prev.dup_check_flag & DC_DELETE)
@@ -880,7 +883,7 @@ init_dir_info(int *argc, char *argv[])
    }
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, NULL) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");

@@ -1038,6 +1038,22 @@ init_show_ilog(int *argc, char *argv[])
    {
       (void)strcpy(font_name, "fixed");
    }
+   if (get_arg_array(argc, argv, "-h", &search_recipient,
+                     &no_of_search_hosts) == INCORRECT)
+   {
+      no_of_search_hosts = 0;
+   }
+   else
+   {
+      int i;
+
+      RT_ARRAY(search_user, no_of_search_hosts,
+               (MAX_RECIPIENT_LENGTH + 1), char);
+      for (i = 0; i < no_of_search_hosts; i++)
+      {
+         search_user[i][0] = '\0';
+      }
+   }
    if (get_arg_int_array(argc, argv, "-d", &search_dirid,
                          &no_of_search_dirids) == INCORRECT)
    {
@@ -1104,29 +1120,32 @@ init_show_ilog(int *argc, char *argv[])
          exit(INCORRECT);
    }
 
-   /* Collect all hostnames. */
-   no_of_search_hosts = *argc - 1;
-   if (no_of_search_hosts > 0)
+   if (no_of_search_hosts == 0)
    {
-      int i = 0;
+      /* Collect all hostnames if -h is not used. */
+      no_of_search_hosts = *argc - 1;
+      if (no_of_search_hosts > 0)
+      {
+         int i = 0;
 
-      RT_ARRAY(search_recipient, no_of_search_hosts,
-               (MAX_RECIPIENT_LENGTH + 1), char);
-      RT_ARRAY(search_user, no_of_search_hosts,
-               (MAX_RECIPIENT_LENGTH + 1), char);
-      while (*argc > 1)
-      {
-         (void)my_strncpy(search_recipient[i], argv[1], MAX_RECIPIENT_LENGTH + 1);
-         if (strlen(search_recipient[i]) == MAX_HOSTNAME_LENGTH)
+         RT_ARRAY(search_recipient, no_of_search_hosts,
+                  (MAX_RECIPIENT_LENGTH + 1), char);
+         RT_ARRAY(search_user, no_of_search_hosts,
+                  (MAX_RECIPIENT_LENGTH + 1), char);
+         while (*argc > 1)
          {
-            (void)strcat(search_recipient[i], "*");
+            (void)my_strncpy(search_recipient[i], argv[1], MAX_RECIPIENT_LENGTH + 1);
+            if (strlen(search_recipient[i]) == MAX_HOSTNAME_LENGTH)
+            {
+               (void)strcat(search_recipient[i], "*");
+            }
+            (*argc)--; argv++;
+            i++;
          }
-         (*argc)--; argv++;
-         i++;
-      }
-      for (i = 0; i < no_of_search_hosts; i++)
-      {
-         search_user[i][0] = '\0';
+         for (i = 0; i < no_of_search_hosts; i++)
+         {
+            search_user[i][0] = '\0';
+         }
       }
    }
 
@@ -1183,7 +1202,7 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "Usage : %s [options] [host name 1..n]\n",
+                 "Usage : %s [options] [host alias 1..n]\n",
                  progname);
    (void)fprintf(stderr,
                  "        Options:\n");
@@ -1191,6 +1210,8 @@ usage(char *progname)
                  "           -d <dir identifier 1> ... <dir identifier n>\n");
    (void)fprintf(stderr,
                  "           -D <directory 1> ... <directory n>\n");
+   (void)fprintf(stderr,
+                 "           -h <host alias 1> ... <host alias n>\n");
    (void)fprintf(stderr,
                  "           -f <font name>\n");
    (void)fprintf(stderr,

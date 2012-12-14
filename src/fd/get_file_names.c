@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,6 +68,9 @@ DESCR__E_M3
 /* Global variables. */
 extern int                        files_to_delete,
                                   fsa_fd;
+#ifdef HAVE_HW_CRC32
+extern int                        have_hw_crc32;
+#endif
 #ifdef _OUTPUT_LOG
 extern int                        ol_fd;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -101,9 +104,9 @@ extern struct delete_log          dl;
 #if defined (_DELETE_LOG) || defined (_OUTPUT_LOG)
 /* Local function prototypes. */
 # ifdef WITH_DUP_CHECK
-static void                       log_data(char *, off_t, time_t, int, char);
+static void                       log_data(char *, struct stat *, time_t, int, char);
 # else
-static void                       log_data(char *, off_t, time_t, char);
+static void                       log_data(char *, struct stat *, time_t, char);
 # endif
 #endif
 
@@ -327,7 +330,12 @@ get_file_names(char *file_path, off_t *file_size_to_send)
               ((db.special_flag & OLD_ERROR_JOB) == 0) &&
               (((is_duplicate = isdup(fullname, stat_buf.st_size, db.crc_id,
                                       db.dup_check_timeout,
-                                      db.dup_check_flag, NO)) == YES) &&
+                                      db.dup_check_flag,
+                                      NO,
+# ifdef HAVE_HW_CRC32
+                                      have_hw_crc32,
+# endif
+                                      YES, YES)) == YES) &&
                ((db.dup_check_flag & DC_DELETE) ||
                 (db.dup_check_flag & DC_STORE)))))
 #else
@@ -406,7 +414,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 # if defined (_DELETE_LOG) || defined (_OUTPUT_LOG)
                   else
                   {
-                     log_data(p_dir->d_name, stat_buf.st_size, diff_time,
+                     log_data(p_dir->d_name, &stat_buf, now,
                               YES, OT_DUPLICATE_DELETE + '0');
                   }
 # endif
@@ -428,7 +436,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 # if defined (_DELETE_LOG) || defined (_OUTPUT_LOG)
                      else
                      {
-                        log_data(p_dir->d_name, stat_buf.st_size, diff_time,
+                        log_data(p_dir->d_name, &stat_buf, now,
                                  YES, OT_DUPLICATE_STORED + '0');
                      }
 # endif
@@ -449,7 +457,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                else
                {
 #if defined (_DELETE_LOG) || defined (_OUTPUT_LOG)
-                  log_data(p_dir->d_name, stat_buf.st_size, diff_time,
+                  log_data(p_dir->d_name, &stat_buf, now,
 # ifdef WITH_DUP_CHECK
                            is_duplicate, (is_duplicate == YES) ? (OT_DUPLICATE_DELETE + '0') : (OT_AGE_LIMIT_DELETE + '0'));
 # else
@@ -617,13 +625,17 @@ get_file_names(char *file_path, off_t *file_size_to_send)
          }
       }
       errno = 0;
-   }
+   } /* while ((p_dir = readdir(dp)) != NULL) */
 
    if (errno)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not readdir() `%s' : %s", file_path, strerror(errno));
    }
+
+#ifdef WITH_DUP_CHECK
+   isdup_detach();
+#endif
 
    if ((file_mtime_buffer != NULL) &&
 #ifdef WITH_EUMETSAT_HEADERS
@@ -775,18 +787,18 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #if defined (_DELETE_LOG) || defined (_OUTPUT_LOG)
 /*++++++++++++++++++++++++++++++ log_data() +++++++++++++++++++++++++++++*/
 static void
-log_data(char   *d_name,
-         off_t  st_size,
-         time_t diff_time,
+log_data(char        *d_name,
+         struct stat *stat_buf,
+         time_t      now,
 # ifdef WITH_DUP_CHECK
-         int    is_duplicate,
+         int         is_duplicate,
 # endif
-         char   output_type)
+         char        output_type)
 {
 # ifdef _DELETE_LOG
    int    prog_name_length;
    size_t dl_real_size;
-   char   str_diff_time[2 + MAX_LONG_LENGTH + 1];
+   char   str_diff_time[2 + MAX_LONG_LENGTH + 6 + MAX_LONG_LENGTH + 12 + MAX_LONG_LENGTH + 30 + 1];
 # endif
 
 # ifdef _OUTPUT_LOG
@@ -916,7 +928,7 @@ log_data(char   *d_name,
          ol_file_name[*ol_file_name_length] = SEPARATOR_CHAR;
          ol_file_name[*ol_file_name_length + 1] = '\0';
          (*ol_file_name_length)++;
-         *ol_file_size = st_size;
+         *ol_file_size = stat_buf->st_size;
          *ol_job_number = db.job_id;
          *ol_retries = db.retries;
          *ol_unl = db.unl;
@@ -946,7 +958,7 @@ log_data(char   *d_name,
 #  else
                  AGE_OUTPUT);
 #  endif
-   *dl.file_size = st_size;
+   *dl.file_size = stat_buf->st_size;
    *dl.job_id = db.job_id;
    *dl.dir_id = 0;
    *dl.input_time = db.creation_time;
@@ -960,13 +972,24 @@ log_data(char   *d_name,
    }
    else
    {
+      time_t diff_time;
+
+      if (now < stat_buf->st_mtime)
+      {
+         diff_time = 0L;
+      }
+      else
+      {
+         diff_time = now - stat_buf->st_mtime;
+      }
 #  endif
 #  if SIZEOF_TIME_T == 4
-      (void)sprintf(str_diff_time, "%c>%ld (%s %d)",
+      (void)sprintf(str_diff_time, "%c>%ld [now=%ld file_mtime=%ld] (%s %d)",
 #  else
-      (void)sprintf(str_diff_time, "%c>%lld (%s %d)",
+      (void)sprintf(str_diff_time, "%c>%lld [now=%lld file_mtime=%lld] (%s %d)",
 #  endif
                     SEPARATOR_CHAR, (pri_time_t)diff_time,
+                    (pri_time_t)now, (pri_time_t)stat_buf->st_mtime,
                     __FILE__, __LINE__);
 #  ifdef WITH_DUP_CHECK
    }

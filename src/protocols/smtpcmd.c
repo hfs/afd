@@ -25,7 +25,7 @@ DESCR__S_M3
  **   smtpcmd - commands to send data via SMTP
  **
  ** SYNOPSIS
- **   int smtp_connect(char *hostname, int port)
+ **   int smtp_connect(char *hostname, int port, int sockbuf_size)
  **   int smtp_auth(char *user, char *passwd)
  **   int smtp_helo(char *host_name)
  **   int smtp_ehlo(char *host_name)
@@ -110,6 +110,8 @@ DESCR__S_M3
  **                      dot '.'.
  **   09.11.2008 H.Kiehl Implemented EHLO command.
  **   21.02.2009 H.Kiehl Added smtp_noop().
+ **   18.08.2012 H.Kiehl Use getaddrinfo() instead of gethostname() to
+ **                      support IPv6.
  **
  */
 DESCR__E_M3
@@ -134,6 +136,7 @@ DESCR__E_M3
 
 /* External global variables. */
 extern int                             timeout_flag;
+extern unsigned int                    special_flag;
 extern char                            msg_str[],
                                        tr_hostname[];
 #ifdef LINUX
@@ -146,7 +149,6 @@ extern struct job                      db;
 /* Local global variables. */
 static int                             smtp_fd;
 static FILE                            *smtp_fp;
-static struct sockaddr_in              ctrl;
 static struct timeval                  timeout;
 static struct smtp_server_capabilities ssc;
 
@@ -158,10 +160,108 @@ static int                             get_ehlo_reply(FILE *),
 
 /*########################## smtp_connect() #############################*/
 int
-smtp_connect(char *hostname, int port)
+smtp_connect(char *hostname, int port, int sockbuf_size)
 {
-   int                     reply;
-   my_socklen_t            length;
+   int             reply;
+#ifdef WITH_TRACE
+   int             length;
+#endif
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+   char            str_port[MAX_INT_LENGTH];
+   struct addrinfo hints,
+                   *result,
+                   *rp;
+
+   (void)memset((struct addrinfo *) &hints, 0, sizeof(struct addrinfo));
+   hints.ai_family = (special_flag & DISABLE_IPV6_FLAG) ? AF_INET : AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+/* ???   hints.ai_flags = AI_CANONNAME; */
+
+   (void)sprintf(str_port, "%d", port);
+   reply = getaddrinfo(hostname, str_port, &hints, &result);
+   if (reply != 0)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                _("Failed to getaddrinfo() %s : %s"),
+                hostname, gai_strerror(reply));
+      return(INCORRECT);
+   }
+
+   /*
+    * getaddrinfo() returns a list of address structures.
+    * Try each address until we successfully connect(). If socket()
+    * (or connect()) fails, we (close the socket and) try the next
+    * address.
+    */
+   for (rp = result; rp != NULL; rp = rp->ai_next)
+   {
+      if ((smtp_fd = socket(rp->ai_family, rp->ai_socktype,
+                               rp->ai_protocol)) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(msg_str, _("socket() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
+         continue;
+      }
+
+      if (sockbuf_size > 0)
+      {
+         if (setsockopt(smtp_fd, SOL_SOCKET, SO_SNDBUF,
+                        (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                      _("setsockopt() error : %s"), strerror(errno));
+         }
+      }
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      if (timeout_flag != OFF)
+      {
+         reply = 1;
+         if (setsockopt(smtp_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                      _("setsockopt() SO_KEEPALIVE error : %s"),
+                      strerror(errno));
+         }
+#  ifdef TCP_KEEPALIVE
+         reply = timeout_flag;
+         if (setsockopt(smtp_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                      _("setsockopt() TCP_KEEPALIVE error : %s"),
+                      strerror(errno));
+         }
+#  endif
+         timeout_flag = OFF;
+      }
+# endif
+
+      if (connect(smtp_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(msg_str, _("connect() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
+         (void)close(smtp_fd);
+         continue;
+      }
+
+      break; /* Success */
+   }
+
+   /* Ensure that we succeeded in finding an address. */
+   if (rp == NULL)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      return(INCORRECT);
+   }
+
+   freeaddrinfo(result);
+#else
    struct sockaddr_in      sin;
    register struct hostent *p_host = NULL;
 
@@ -170,10 +270,10 @@ smtp_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
          {
-#ifdef LINUX
+#  ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
@@ -186,21 +286,21 @@ smtp_connect(char *hostname, int port)
                          _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
-#else
+#  else
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
                       _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
-#endif
+#  endif
          }
          else
          {
-#endif /* !_HPUX && !_SCO */
+# endif /* !_HPUX && !_SCO */
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
                       _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          }
-#endif
+# endif
          return(INCORRECT);
       }
 
@@ -217,7 +317,17 @@ smtp_connect(char *hostname, int port)
    sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   if (sockbuf_size > 0)
+   {
+      if (setsockopt(smtp_fd, SOL_SOCKET, SO_SNDBUF,
+                     (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("setsockopt() error : %s"), strerror(errno));
+      }
+   }
+
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    if (timeout_flag != OFF)
    {
       reply = 1;
@@ -227,7 +337,7 @@ smtp_connect(char *hostname, int port)
          trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
                    _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
       }
-# ifdef TCP_KEEPALIVE
+#  ifdef TCP_KEEPALIVE
       reply = timeout_flag;
       if (setsockopt(smtp_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
                      sizeof(reply)) < 0)
@@ -235,50 +345,42 @@ smtp_connect(char *hostname, int port)
          trans_log(WARN_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
                    _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
       }
-# endif
+#  endif
       timeout_flag = OFF;
    }
-#endif
+# endif
 
    if (connect(smtp_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-#ifdef ETIMEDOUT
+# ifdef ETIMEDOUT
       if (errno == ETIMEDOUT)
       {
          timeout_flag = ON;
       }
-# ifdef ECONNREFUSED
+#  ifdef ECONNREFUSED
       else if (errno == ECONNREFUSED)
            {
               timeout_flag = CON_REFUSED;
            }
-# endif
-#else
-# ifdef ECONNREFUSED
+#  endif
+# else
+#  ifdef ECONNREFUSED
       if (errno == ECONNREFUSED)
       {
          timeout_flag = CON_REFUSED;
       }
+#  endif
 # endif
-#endif
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
                 _("Failed to connect() to %s : %s"), hostname, strerror(errno));
       (void)close(smtp_fd);
       return(INCORRECT);
    }
+#endif
 #ifdef WITH_TRACE
    length = sprintf(msg_str, _("Connected to %s"), hostname);
    trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 #endif
-
-   length = sizeof(ctrl);
-   if (getsockname(smtp_fd, (struct sockaddr *)&ctrl, &length) < 0)
-   {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
-                _("getsockname() error : %s"), strerror(errno));
-      (void)close(smtp_fd);
-      return(INCORRECT);
-   }
 
    if ((smtp_fp = fdopen(smtp_fd, "r+")) == NULL)
    {

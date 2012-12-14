@@ -129,6 +129,9 @@ struct prod_log_db
 
 /* External global variables. */
 extern int                no_of_brc_entries;
+#ifdef HAVE_HW_CRC32
+extern int                have_hw_crc32;
+#endif
 extern struct wmo_bul_rep *brcdb; /* Bulletin Report Configuration Database */
 
 /* Local global variables. */
@@ -193,7 +196,11 @@ extract(char         *file_name,
                fullname[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s", dest_dir, file_name);
+#else
    (void)sprintf(fullname, "%s/%s", dest_dir, file_name);
+#endif
    if ((from_fd = open(fullname, O_RDONLY)) == -1)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -1398,7 +1405,13 @@ write_file(char *msg, unsigned int length, time_t mtime, int soh_etx)
                   if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
                   {
                      end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
-                                           "-%x", get_checksum(p_start, (int)size));
+                                           "-%x",
+                                           get_checksum_crc32c(INITIAL_CRC, p_start,
+#ifdef HAVE_HW_CRC32
+                                                               (int)size, have_hw_crc32));
+#else
+                                                               (int)size));
+#endif
                   }
                   if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
                   {
@@ -1904,7 +1917,13 @@ write_file(char *msg, unsigned int length, time_t mtime, int soh_etx)
                   if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
                   {
                      end_offset += sprintf(&p_file_name[file_name_offset + end_offset],
-                                           "-%x", get_checksum(p_start, (int)size));
+                                           "-%x",
+                                           get_checksum_crc32c(INITIAL_CRC, p_start,
+#ifdef HAVE_HW_CRC32
+                                                               (int)size, have_hw_crc32));
+#else
+                                                               (int)size));
+#endif
                   }
                   if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
                   {
@@ -2055,7 +2074,13 @@ write_file(char *msg, unsigned int length, time_t mtime, int soh_etx)
       }
       if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
       {
-         i += sprintf(&p_file_name[i], "-%x", get_checksum(msg, length));
+         i += sprintf(&p_file_name[i], "-%x",
+                      get_checksum_crc32c(INITIAL_CRC, msg,
+#ifdef HAVE_HW_CRC32
+                                          length, have_hw_crc32));
+#else
+                                          length));
+#endif
       }
       if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
       {

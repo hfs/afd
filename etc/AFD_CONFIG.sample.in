@@ -108,10 +108,22 @@ MIN_NICE_VALUE                   19
 ##########################################################################
 # The configuration file from where AFD will read it's configuration.    #
 # This option may be used more then once, making it possible to have     #
-# multiple DIR_CONFIGS.                                                  #
+# multiple DIR_CONFIGS. If the name specified does not contain the       #
+# absolute path, it will try to locate the given file in                 #
+# $AFD_WORK_DIR/etc.                                                     #
 # Default: $AFD_WORK_DIR/etc/DIR_CONFIG  	                         #
 ##########################################################################
 #DIR_CONFIG_NAME                  /home/afd/AFD_DIR_CONFIG
+
+##########################################################################
+# Via this options it is possible to specify the file name from where    #
+# the AFD reads all the rules on how to rename files. This option may    #
+# be used more then once, thus making it possible to read from multiple  #
+# rename rule files. If the name specified does not contain the absolute #
+# path, it will try to locate the given file in $AFD_WORK_DIR/etc.       #
+# Default: $AFD_WORK_DIR/etc/rename.rule                                 #
+##########################################################################
+#RENAME_RULE_NAME                /home/afd/AFD_RENAME_RULES
 
 ##########################################################################
 # Maximum number of times that the process inst_job may fork itself.     #
@@ -328,23 +340,39 @@ ONE_DIR_COPY_TIMEOUT             10
 # Default RECEIVE_LOG       : 7                                          #
 # Default TRANSFER_LOG      : 7                                          #
 # Default TRANS_DB_LOG      : 3                                          #
+# Default EVENT_LOG         : 5                                          #
 # Default MON_SYS_LOG       : 4                                          #
 # Default MON_LOG           : 14                                         #
 # Default INPUT_LOG         : 7                                          #
+# Default DISTRIBUTION_LOG  : 7                                          #
 # Default PRODUCTION_LOG_LOG: 7                                          #
 # Default OUTPUT_LOG        : 7                                          #
-# Default ELETE_LOG         : 7                                          #
+# Default DELETE_LOG        : 7                                          #
 ##########################################################################
 #MAX_SYSTEM_LOG_FILES             4
 #MAX_RECEIVE_LOG_FILES            7
 #MAX_TRANSFER_LOG_FILES           7
 #MAX_TRANS_DB_LOG_FILES           3
+#MAX_EVENT_LOG_FILES              5
 #MAX_MON_SYS_LOG_FILES            4
 #MAX_MON_LOG_FILES                14
 #MAX_INPUT_LOG_FILES              7
+#MAX_DISTRIBUTION_LOG_FILES       7
 #MAX_PRODUCTION_LOG_FILES         7
 #MAX_OUTPUT_LOG_FILES             7
 #MAX_DELETE_LOG_FILES             7
+
+##########################################################################
+# The maximum size in bytes before a log file is rotated.                #
+# Default SYSTEM_LOG        : 2097152                                    #
+# Default TRANS_DB_LOG      : 8388608                                    #
+# Default EVENT_LOG         : 10485760                                   #
+# Default MON_SYS_LOG       : 2097152                                    #
+##########################################################################
+#MAX_SYS_LOGFILE_SIZE           2097152
+#MAX_TRANS_DB_LOGFILE_SIZE      8388608
+#MAX_EVE_LOGFILE_SIZE           10485760
+#MAX_MON_SYS_LOGFILE_SIZE       2097152
 
 ##########################################################################
 # Log specific data in a given format. It is possible to have multiple   #

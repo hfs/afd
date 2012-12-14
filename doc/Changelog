@@ -1304,4 +1304,67 @@
            - Downloading a file via HTTP could sometimes lead to a timout,
              because we tried to read an additional block beyond the end
              of the file.
-------------------------> Released: ??.??.201? <---------------------------
+04.07.2012 - Remove a buffer overflow in afdd when it evalutes directory
+             information.
+11.07.2012 - Automatic configuration failed when some files already
+             existed and would then fail to start. Fixed.
+13.07.2012 - Function copy_file() should also keep the modification and
+             access time of the original file. Thanks to Sibylle Krebber.
+14.07.2012 - Process dir_check could crash with certain configuration,
+             because function create_db() did not calculate the correct
+             amount of memory for certain structures. Thanks to David
+             Bridgman for reporting and providing configuration files
+             reproducing this.
+26.07.2012 - fra_view now shows all values of dir_flag.
+29.07.2012 - Process fd now resets the queued flag properly when it starts.
+03.08.2012 - For function ssh_login() use O_NONBLOCK to get around problem
+             where select() tells us there is data but when we try to
+             read() there is none. The solution with an alarm() had the
+             big disadvantage that it took very long and was very noisy.
+06.08.2012 - Added option to timeout a transfer.
+           - With the -c parameter of set_pw it was not possible to specify
+             a user name that had a @ sign. Fixed.
+08.08.2012 - Added initial support for IPv6.
+24.08.2012 - Add date field to SMTP header as this is required by RFC 822.
+06.09.2012 - Added assemble option WMO+DUMMY to assemble files with WMO
+             length indicator and with a dummy length indicator at end.
+17.10.2012 - With the option subject in combination with %s do not
+             complain that we can only handle one %s during a burst.
+           - set_pw would only set the password of the first user of
+             the target host when using the -c parameter.
+18.10.2012 - gf_http can now also fetch empty files. Thanks to Gary Ofield
+             for reporting this!
+           - When reorganising the internal queue of process fd, we
+             sometimes get the position in FRA wrong. This could lead
+             to several jobs trying to retrieve the same thing.
+26.10.2012 - Fix an error in show_ilog dialog when it is called with the
+             -d parameter and you want to print something.
+27.10.2012 - When hardlink protection is enabled in Linux warn the user
+             about this and then copy the file. This is a big overhead
+             but it is better then losing the file.
+04.11.2012 - When automatically initializing database due to some variables
+             having being changed, only remove those parts that are really
+             effected.
+           - In afd_info dialog make active passive sign work again.
+05.11.2012 - If the remote SMTP server sends a Mail Queue ID, it is now
+             stored in OUTPUT_LOG and shown via info click.
+10.11.2012 - Fix a bug that AFD would put files in the wrong directory
+             after a burst and in the job before all files are deleted
+             because of duplicate check and/or recipient.
+           - In show_dlog handle case when filename does have unprintable
+             characters.
+11.11.2012 - For dialogs show_queue, show_olog and show_ilog handle the
+             case when filename does have unprintable characters.
+13.11.2012 - During a burst we must initialize the password.
+19.11.2012 - In show_queue check if a retrieve job falls in the given
+             time span.
+           - Don't always detach from CRC file when we check for each
+             individual file of a job or directory.
+24.11.2012 - Added support for another CRC type which also supports the
+             harware CRC on some CPU's which have SSE4.2.
+           - Reorganise edit_hc dialog so that it fits on screens with
+             resolutions below 1024x768.
+28.11.2012 - Initializing AFD with 'afd -i' is now much less destructive.
+           - Allow users to set the initialization level from 1-9 where
+             9 is the same as -I, ie. most destructive.
+------------------------> Released: 29.11.2012 <---------------------------

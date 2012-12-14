@@ -484,7 +484,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    p_work_dir = work_dir;
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, stdout) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");

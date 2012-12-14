@@ -202,6 +202,8 @@ DESCR__S_M3
  **                      a file.
  **   17.08.2011 H.Kiehl Did not insert the remote IP in EPSV mode,
  **                      in function ftp_list() and ftp_data().
+ **   08.08.2012 H.Kiehl Use getaddrinfo() instead of gethostname() to
+ **                      support IPv6.
  */
 DESCR__E_M3
 
@@ -238,7 +240,8 @@ DESCR__E_M3
 # include <arpa/telnet.h> /* IAC, SYNCH, IP                              */
 #endif
 #ifdef HAVE_NETDB_H
-# include <netdb.h>       /* struct hostent, gethostbyname()             */
+# include <netdb.h>       /* struct hostent, gethostbyname(),            */
+                          /* getaddrinfo()                               */
 #endif
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>   /* inet_addr()                                 */
@@ -260,6 +263,7 @@ SSL                       *ssl_con = NULL;
 
 /* External global variables. */
 extern int                timeout_flag;
+extern unsigned int       special_flag;
 extern char               msg_str[];
 #ifdef LINUX
 extern char               *h_errlist[];  /* for gethostbyname()          */
@@ -268,6 +272,11 @@ extern int                h_nerr;        /* for gethostbyname()          */
 extern long               transfer_timeout;
 
 /* Local global variables. */
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+static int                ai_family;
+static size_t             ai_addrlen;
+static struct sockaddr    *ai_addr = NULL;
+#endif
 static int                control_fd,
                           data_fd = -1;
 #ifdef WITH_SSL
@@ -276,7 +285,6 @@ static SSL_CTX            *ssl_ctx;
 #endif
 static sigjmp_buf         env_alrm;
 static struct sockaddr_in ctrl,
-                          data,
                           sin;
 static struct timeval     timeout;
 
@@ -303,6 +311,111 @@ ftp_connect(char *hostname, int port)
 {
    int                     reply;
    my_socklen_t            length;
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+   char                    str_port[MAX_INT_LENGTH];
+   struct addrinfo         hints,
+                           *result,
+                           *rp;
+
+   (void)memset((struct addrinfo *) &hints, 0, sizeof(struct addrinfo));
+   hints.ai_family = (special_flag & DISABLE_IPV6_FLAG) ? AF_INET : AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+/* ???   hints.ai_flags = AI_CANONNAME; */
+
+   (void)sprintf(str_port, "%d", port);
+   reply = getaddrinfo(hostname, str_port, &hints, &result);
+   if (reply != 0)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                _("Failed to getaddrinfo() %s : %s"),
+                hostname, gai_strerror(reply));
+      return(INCORRECT);
+   }
+
+   /*
+    * getaddrinfo() returns a list of address structures.
+    * Try each address until we successfully connect(). If socket()
+    * (or connect()) fails, we (close the socket and) try the next
+    * address.
+    */
+   for (rp = result; rp != NULL; rp = rp->ai_next)
+   {
+      if ((control_fd = socket(rp->ai_family, rp->ai_socktype,
+                               rp->ai_protocol)) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(msg_str, _("socket() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
+         continue;
+      }
+
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      if (timeout_flag != OFF)
+      {
+         reply = 1;
+         if (setsockopt(control_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                      _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
+         }
+#  ifdef TCP_KEEPALIVE
+         reply = timeout_flag;
+         if (setsockopt(control_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                      _("setsockopt() TCP_KEEPALIVE error : %s"),
+                      strerror(errno));
+         }
+#  endif
+         timeout_flag = OFF;
+      }
+# endif
+
+      if (connect(control_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(msg_str, _("connect() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
+         (void)close(control_fd);
+         continue;
+      }
+
+      break; /* Success */
+   }
+
+   /* Ensure that we succeeded in finding an address. */
+   if (rp == NULL)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      return(INCORRECT);
+   }
+
+   if (ai_addr != NULL)
+   {
+      free(ai_addr);
+   }
+   if ((ai_addr = malloc(rp->ai_addrlen)) == NULL)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                _("malloc() error : %s"), strerror(errno));
+      (void)close(control_fd);
+      return(INCORRECT);
+   }
+   (void)memcpy(ai_addr, rp->ai_addr, rp->ai_addrlen);
+   ai_addrlen = rp->ai_addrlen;
+   ai_family = rp->ai_family;
+
+   freeaddrinfo(result);
+
+   (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
+   (void)memcpy((struct sockaddr *) &sin, (struct sockaddr_in *)ai_addr,
+                ai_addrlen);
+#else
    register struct hostent *p_host = NULL;
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
@@ -310,10 +423,10 @@ ftp_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
          {
-# ifdef LINUX
+#  ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
@@ -326,21 +439,21 @@ ftp_connect(char *hostname, int port)
                          _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
-# else
+#  else
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
                       _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
-# endif
+#  endif
          }
          else
          {
-#endif /* !_HPUX && !_SCO */
+# endif /* !_HPUX && !_SCO */
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
                       _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          }
-#endif
+# endif
          return(INCORRECT);
       }
 
@@ -357,7 +470,7 @@ ftp_connect(char *hostname, int port)
    sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    if (timeout_flag != OFF)
    {
       reply = 1;
@@ -367,7 +480,7 @@ ftp_connect(char *hostname, int port)
          trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
                    _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
       }
-# ifdef TCP_KEEPALIVE
+#  ifdef TCP_KEEPALIVE
       reply = timeout_flag;
       if (setsockopt(control_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
                      sizeof(reply)) < 0)
@@ -376,40 +489,41 @@ ftp_connect(char *hostname, int port)
                    _("setsockopt() TCP_KEEPALIVE error : %s"),
                    strerror(errno));
       }
-# endif
+#  endif
       timeout_flag = OFF;
    }
-#endif
+# endif
 
    if (connect(control_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-#ifdef ETIMEDOUT
+# ifdef ETIMEDOUT
       if (errno == ETIMEDOUT)
       {
          timeout_flag = ON;
       }
-# ifdef ECONNREFUSED
+#  ifdef ECONNREFUSED
       else if (errno == ECONNREFUSED)
            {
               timeout_flag = CON_REFUSED;
            }
-# endif
-#else
-# ifdef ECONNREFUSED
+#  endif
+# else
+#  ifdef ECONNREFUSED
       if (errno == ECONNREFUSED)
       {
          timeout_flag = CON_REFUSED;
       }
+#  endif
 # endif
-#endif
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
                 _("Failed to connect() to %s : %s"), hostname, strerror(errno));
       (void)close(control_fd);
       return(INCORRECT);
    }
-#ifdef WITH_TRACE
+# ifdef WITH_TRACE
    length = sprintf(msg_str, _("Connected to %s"), hostname);
    trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
 #endif
 
    length = sizeof(ctrl);
@@ -1485,43 +1599,59 @@ ftp_list(int mode, int type, ...)
       msg = va_arg(ap, char *);
    }
    va_end(ap);
-
-   data = ctrl;
-   data.sin_family = AF_INET;
-   data.sin_port = htons((u_short)0);
    msg_str[0] = '\0';
 
    if (mode & PASSIVE_MODE)
    {
       char *ptr;
 
-      if ((mode & EXTENDED_MODE) == 0)
-      {
-         reply = command(control_fd, "PASV");
-      }
-      else
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+      if (ai_family == AF_INET6)
       {
          reply = command(control_fd, "EPSV");
-      }
-      if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
-      {
-         return(INCORRECT);
-      }
-
-      if ((mode & EXTENDED_MODE) == 0)
-      {
-         if (reply != 227)
+         if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
          {
-            return(reply);
+            return(INCORRECT);
          }
-      }
-      else
-      {
+
          if (reply != 229)
          {
             return(reply);
          }
       }
+      else
+      {
+#endif
+         if ((mode & EXTENDED_MODE) == 0)
+         {
+            reply = command(control_fd, "PASV");
+         }
+         else
+         {
+            reply = command(control_fd, "EPSV");
+         }
+         if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
+         {
+            return(INCORRECT);
+         }
+
+         if ((mode & EXTENDED_MODE) == 0)
+         {
+            if (reply != 227)
+            {
+               return(reply);
+            }
+         }
+         else
+         {
+            if (reply != 229)
+            {
+               return(reply);
+            }
+         }
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+      }
+#endif
       ptr = &msg_str[3];
       do
       {
@@ -1529,125 +1659,195 @@ ftp_list(int mode, int type, ...)
       } while ((*ptr != '(') && (*ptr != '\0'));
       if (*ptr == '(')
       {
-         data = ctrl;
-         if ((mode & EXTENDED_MODE) == 0)
-         {
-            int number;
+         int number;
 
-            if ((number = get_number(&ptr, ',')) != INCORRECT)
-            {
-               if (mode & ALLOW_DATA_REDIRECT)
-               {
-                  *((char *)&data.sin_addr) = number;
-               }
-               else
-               {
-                  *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
-               }
-               if ((number = get_number(&ptr, ',')) != INCORRECT)
-               {
-                  if (mode & ALLOW_DATA_REDIRECT)
-                  {
-                     *((char *)&data.sin_addr + 1) = number;
-                  }
-                  else
-                  {
-                     *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
-                  }
-                  if ((number = get_number(&ptr, ',')) != INCORRECT)
-                  {
-                     if (mode & ALLOW_DATA_REDIRECT)
-                     {
-                        *((char *)&data.sin_addr + 2) = number;
-                     }
-                     else
-                     {
-                        *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
-                     }
-                     if ((number = get_number(&ptr, ',')) != INCORRECT)
-                     {
-                        if (mode & ALLOW_DATA_REDIRECT)
-                        {
-                           *((char *)&data.sin_addr + 3) = number;
-                        }
-                        else
-                        {
-                           *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
-                        }
-                        if ((number = get_number(&ptr, ',')) != INCORRECT)
-                        {
-                           *((char *)&data.sin_port) = number;
-                           if ((number = get_number(&ptr, ')')) != INCORRECT)
-                           {
-                              *((char *)&data.sin_port + 1) = number;
-                           }
-                        }
-                     }
-                  }
-               }
-            }
-            if (number == INCORRECT)
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+         if (ai_family == AF_INET6)
+         {
+            struct sockaddr_in6 data;
+
+            (void)memset(&data, 0, sizeof(data));
+            (void)memcpy(&data, ai_addr, ai_addrlen);
+            data.sin6_family = AF_INET6;
+
+            /* Note, only extended mode is supported in IPv6. */
+            if ((number = get_extended_number(ptr)) == INCORRECT)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
                          _("Failed to retrieve remote address %s"), msg_str);
+               return(INCORRECT);
+            }
+            data.sin6_port = htons((u_short)number);
+
+            if ((new_sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                         _("socket() error : %s"), strerror(errno));
+               return(INCORRECT);
+            }
+            if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                           sizeof(on)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                         _("setsockopt() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
+               return(INCORRECT);
+            }
+            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            {
+#ifdef ETIMEDOUT
+                if (errno == ETIMEDOUT)
+                {
+                   timeout_flag = ON;
+                }
+# ifdef ECONNREFUSED
+               else if (errno == ECONNREFUSED)
+                    {
+                       timeout_flag = CON_REFUSED;
+                    }
+# endif
+#else
+# ifdef ECONNREFUSED
+               if (errno == ECONNREFUSED)
+               {
+                  timeout_flag = CON_REFUSED;
+               }
+# endif
+#endif
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                         _("connect() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
                return(INCORRECT);
             }
          }
          else
          {
-            if (get_extended_number(ptr) == INCORRECT)
+#endif
+            struct sockaddr_in data;
+
+            data = ctrl;
+            data.sin_family = AF_INET;
+            data.sin_port = htons((u_short)0);
+            if ((mode & EXTENDED_MODE) == 0)
+            {
+               if ((number = get_number(&ptr, ',')) != INCORRECT)
+               {
+                  if (mode & ALLOW_DATA_REDIRECT)
+                  {
+                     *((char *)&data.sin_addr) = number;
+                  }
+                  else
+                  {
+                     *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
+                  }
+                  if ((number = get_number(&ptr, ',')) != INCORRECT)
+                  {
+                     if (mode & ALLOW_DATA_REDIRECT)
+                     {
+                        *((char *)&data.sin_addr + 1) = number;
+                     }
+                     else
+                     {
+                        *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
+                     }
+                     if ((number = get_number(&ptr, ',')) != INCORRECT)
+                     {
+                        if (mode & ALLOW_DATA_REDIRECT)
+                        {
+                           *((char *)&data.sin_addr + 2) = number;
+                        }
+                        else
+                        {
+                           *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
+                        }
+                        if ((number = get_number(&ptr, ',')) != INCORRECT)
+                        {
+                           if (mode & ALLOW_DATA_REDIRECT)
+                           {
+                              *((char *)&data.sin_addr + 3) = number;
+                           }
+                           else
+                           {
+                              *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
+                           }
+                           if ((number = get_number(&ptr, ',')) != INCORRECT)
+                           {
+                              *((char *)&data.sin_port) = number;
+                              if ((number = get_number(&ptr, ')')) != INCORRECT)
+                              {
+                                 *((char *)&data.sin_port + 1) = number;
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+               if (number == INCORRECT)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                            _("Failed to retrieve remote address %s"), msg_str);
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if ((number = get_extended_number(ptr)) == INCORRECT)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                            _("Failed to retrieve remote address %s"), msg_str);
+                  return(INCORRECT);
+               }
+               data.sin_port = htons((u_short)number);
+               *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
+               *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
+               *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
+               *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
+            }
+
+            if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                         _("Failed to retrieve remote address %s"), msg_str);
+                         _("socket() error : %s"), strerror(errno));
                return(INCORRECT);
             }
-            *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
-            *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
-            *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
-            *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
-         }
 
-         if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                      _("socket() error : %s"), strerror(errno));
-            return(INCORRECT);
-         }
-
-         if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
-                        sizeof(on)) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                      _("setsockopt() error : %s"), strerror(errno));
-            (void)close(new_sock_fd);
-            return(INCORRECT);
-         }
-         if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
-         {
+            if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                           sizeof(on)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                         _("setsockopt() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
+               return(INCORRECT);
+            }
+            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            {
 #ifdef ETIMEDOUT
-             if (errno == ETIMEDOUT)
-             {
-                timeout_flag = ON;
-             }
+                if (errno == ETIMEDOUT)
+                {
+                   timeout_flag = ON;
+                }
 # ifdef ECONNREFUSED
-            else if (errno == ECONNREFUSED)
-                 {
-                    timeout_flag = CON_REFUSED;
-                 }
+               else if (errno == ECONNREFUSED)
+                    {
+                       timeout_flag = CON_REFUSED;
+                    }
 # endif
 #else
 # ifdef ECONNREFUSED
-            if (errno == ECONNREFUSED)
-            {
-               timeout_flag = CON_REFUSED;
-            }
+               if (errno == ECONNREFUSED)
+               {
+                  timeout_flag = CON_REFUSED;
+               }
 # endif
 #endif
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                      _("connect() error : %s"), strerror(errno));
-            (void)close(new_sock_fd);
-            return(INCORRECT);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                         _("connect() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
+               return(INCORRECT);
+            }
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
          }
+#endif
 
          if (type & NLIST_CMD)
          {
@@ -1682,66 +1882,148 @@ ftp_list(int mode, int type, ...)
       int                sock_fd,
                          tmp_errno;
       my_socklen_t       length;
-      register char      *h,
-                         *p;
       struct sockaddr_in from;
 
-      if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+      if (ai_family == AF_INET6)
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                   _("socket() error : %s"), strerror(errno));
-         return(INCORRECT);
-      }
+         char                buf[64];
+         struct sockaddr_in6 data;
 
-      if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
-                     sizeof(on)) < 0)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                   _("setsockopt() error : %s"), strerror(errno));
-         (void)close(sock_fd);
-         return(INCORRECT);
-      }
+         (void)memset(&data, 0, sizeof(data));
+         (void)memcpy(&data, ai_addr, ai_addrlen);
+         data.sin6_family = AF_INET6;
+         data.sin6_port = htons((u_short)0);
 
-      length = sizeof(data);
-      if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                   _("bind() error : %s"), strerror(errno));
-         (void)close(sock_fd);
-         return(INCORRECT);
-      }
+         if ((sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("socket() error : %s"), strerror(errno));
+            return(INCORRECT);
+         }
 
-      if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                   _("getsockname() error : %s"), strerror(errno));
-         (void)close(sock_fd);
-         return(INCORRECT);
-      }
+         if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                        sizeof(on)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("setsockopt() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
 
-      if (listen(sock_fd, 1) < 0)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                   _("listen() error : %s"), strerror(errno));
-         (void)close(sock_fd);
-         return(INCORRECT);
-      }
+         length = sizeof(data);
+         if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("bind() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
 
-      h = (char *)&data.sin_addr;
-      p = (char *)&data.sin_port;
-      if ((mode & EXTENDED_MODE) == 0)
-      {
-         reply = command(control_fd, "PORT %d,%d,%d,%d,%d,%d",
-                         (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
-                         (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
-                         (((int)p[0]) & 0xff), (((int)p[1]) & 0xff));
+         if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("getsockname() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         if (listen(sock_fd, 1) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("listen() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         if (inet_ntop(AF_INET6, &data.sin6_addr, buf, sizeof(buf)) == NULL)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                      "Cannot get address of local socket : %s",
+                      strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         /* Note, only extended mode is supported in IPv6. */
+         if (command(control_fd, "EPRT |2|%s|%d|",
+                     buf, (int)ntohs(data.sin6_port)) != SUCCESS)
+         {
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
       }
       else
       {
-         reply = command(control_fd, "EPRT |1|%s|%d|",
-                         inet_ntoa(data.sin_addr),
-                         (int)ntohs(data.sin_port));
+#endif
+         register char      *h,
+                            *p;
+         struct sockaddr_in data;
+
+         data = ctrl;
+         data.sin_family = AF_INET;
+         data.sin_port = htons((u_short)0);
+
+         if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("socket() error : %s"), strerror(errno));
+            return(INCORRECT);
+         }
+
+         if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                        sizeof(on)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("setsockopt() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         length = sizeof(data);
+         if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("bind() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("getsockname() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         if (listen(sock_fd, 1) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                      _("listen() error : %s"), strerror(errno));
+            (void)close(sock_fd);
+            return(INCORRECT);
+         }
+
+         h = (char *)&data.sin_addr;
+         p = (char *)&data.sin_port;
+         if ((mode & EXTENDED_MODE) == 0)
+         {
+            reply = command(control_fd, "PORT %d,%d,%d,%d,%d,%d",
+                            (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
+                            (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
+                            (((int)p[0]) & 0xff), (((int)p[1]) & 0xff));
+         }
+         else
+         {
+            reply = command(control_fd, "EPRT |1|%s|%d|",
+                            inet_ntoa(data.sin_addr),
+                            (int)ntohs(data.sin_port));
+         }
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
       }
+#endif
+
       if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
       {
          (void)close(sock_fd);
@@ -1918,45 +2200,75 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
    {
       char *ptr;
 
-      if ((mode & EXTENDED_MODE) == 0)
-      {
-         if (command(control_fd, "PASV") != SUCCESS)
-         {
-            return(INCORRECT);
-         }
-      }
-      else
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+      if (ai_family == AF_INET6)
       {
          if (command(control_fd, "EPSV") != SUCCESS)
          {
             return(INCORRECT);
          }
-      }
-      if ((reply = get_reply()) < 0)
-      {
-         if (timeout_flag == OFF)
+         if ((reply = get_reply()) < 0)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("Failed to get reply after sending PASV command (%d)."),
-                      reply);
+            if (timeout_flag == OFF)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("Failed to get reply after sending EPSV command (%d)."),
+                         reply);
+            }
+            return(INCORRECT);
          }
-         return(INCORRECT);
-      }
 
-      if ((mode & EXTENDED_MODE) == 0)
-      {
-         if (reply != 227)
+         if (reply != 229)
          {
             return(reply);
          }
       }
       else
       {
-         if (reply != 229)
+#endif
+         if ((mode & EXTENDED_MODE) == 0)
          {
-            return(reply);
+            if (command(control_fd, "PASV") != SUCCESS)
+            {
+               return(INCORRECT);
+            }
          }
+         else
+         {
+            if (command(control_fd, "EPSV") != SUCCESS)
+            {
+               return(INCORRECT);
+            }
+         }
+         if ((reply = get_reply()) < 0)
+         {
+            if (timeout_flag == OFF)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("Failed to get reply after sending %s command (%d)."),
+                         ((mode & EXTENDED_MODE) == 0) ? "PASV" : "EPSV",
+                         reply);
+            }
+            return(INCORRECT);
+         }
+
+         if ((mode & EXTENDED_MODE) == 0)
+         {
+            if (reply != 227)
+            {
+               return(reply);
+            }
+         }
+         else
+         {
+            if (reply != 229)
+            {
+               return(reply);
+            }
+         }
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
       }
+#endif
       ptr = &msg_str[3];
       do
       {
@@ -1964,154 +2276,242 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
       } while ((*ptr != '(') && (*ptr != '\0'));
       if (*ptr == '(')
       {
-         data = ctrl;
-         data.sin_family = AF_INET;
-         if ((mode & EXTENDED_MODE) == 0)
-         {
-            int number;
+         int number;
 
-            if ((number = get_number(&ptr, ',')) != INCORRECT)
-            {
-               if (mode & ALLOW_DATA_REDIRECT)
-               {
-                  *((char *)&data.sin_addr) = number;
-               }
-               else
-               {
-                  *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
-               }
-               if ((number = get_number(&ptr, ',')) != INCORRECT)
-               {
-                  if (mode & ALLOW_DATA_REDIRECT)
-                  {
-                     *((char *)&data.sin_addr + 1) = number;
-                  }
-                  else
-                  {
-                     *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
-                  }
-                  if ((number = get_number(&ptr, ',')) != INCORRECT)
-                  {
-                     if (mode & ALLOW_DATA_REDIRECT)
-                     {
-                        *((char *)&data.sin_addr + 2) = number;
-                     }
-                     else
-                     {
-                        *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
-                     }
-                     if ((number = get_number(&ptr, ',')) != INCORRECT)
-                     {
-                        if (mode & ALLOW_DATA_REDIRECT)
-                        {
-                           *((char *)&data.sin_addr + 3) = number;
-                        }
-                        else
-                        {
-                           *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
-                        }
-                        if ((number = get_number(&ptr, ',')) != INCORRECT)
-                        {
-                           *((char *)&data.sin_port) = number;
-                           if ((number = get_number(&ptr, ')')) != INCORRECT)
-                           {
-                              *((char *)&data.sin_port + 1) = number;
-                           }
-                        }
-                     }
-                  }
-               }
-            }
-            if (number == INCORRECT)
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+         if (ai_family == AF_INET6)
+         {
+            struct sockaddr_in6 data;
+
+            (void)memset(&data, 0, sizeof(data));
+            (void)memcpy(&data, ai_addr, ai_addrlen);
+            data.sin6_family = AF_INET6;
+
+            /* Note, only extended mode is supported in IPv6. */
+            if ((number = get_extended_number(ptr)) == INCORRECT)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
                          _("Failed to retrieve remote address %s"), msg_str);
+               return(INCORRECT);
+            }
+            data.sin6_port = htons((u_short)number);
+
+            if ((new_sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("socket() error : %s"), strerror(errno));
+               return(INCORRECT);
+            }
+
+            if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                           sizeof(on)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("setsockopt() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
+               return(INCORRECT);
+            }
+            if (sockbuf_size > 0)
+            {
+               int optname;
+
+               if (type == DATA_WRITE)
+               {
+                  optname = SO_SNDBUF;
+               }
+               else
+               {
+                  optname = SO_RCVBUF;
+               }
+               if (setsockopt(new_sock_fd, SOL_SOCKET, optname,
+                              (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("setsockopt() error : %s"), strerror(errno));
+               }
+            }
+            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            {
+#ifdef ETIMEDOUT
+               if (errno == ETIMEDOUT)
+               {
+                  timeout_flag = ON;
+               }
+# ifdef ECONNREFUSED
+               else if (errno == ECONNREFUSED)
+                    {
+                       timeout_flag = CON_REFUSED;
+                    }
+# endif
+#else
+# ifdef ECONNREFUSED
+               if (errno == ECONNREFUSED)
+               {
+                  timeout_flag = CON_REFUSED;
+               }
+# endif
+#endif
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("connect() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
                return(INCORRECT);
             }
          }
          else
          {
-            if (get_extended_number(ptr) == INCORRECT)
+#endif
+            struct sockaddr_in data;
+
+            data = ctrl;
+            data.sin_family = AF_INET;
+            if ((mode & EXTENDED_MODE) == 0)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                         _("Failed to retrieve remote address %s"), msg_str);
-               return(INCORRECT);
-            }
-            *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
-            *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
-            *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
-            *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
-         }
-
-         if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("socket() error : %s"), strerror(errno));
-            return(INCORRECT);
-         }
-
-         if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
-                        sizeof(on)) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("setsockopt() error : %s"), strerror(errno));
-            (void)close(new_sock_fd);
-            return(INCORRECT);
-         }
-         if (sockbuf_size > 0)
-         {
-            int optname;
-
-            if (type == DATA_WRITE)
-            {
-               optname = SO_SNDBUF;
+               if ((number = get_number(&ptr, ',')) != INCORRECT)
+               {
+                  if (mode & ALLOW_DATA_REDIRECT)
+                  {
+                     *((char *)&data.sin_addr) = number;
+                  }
+                  else
+                  {
+                     *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
+                  }
+                  if ((number = get_number(&ptr, ',')) != INCORRECT)
+                  {
+                     if (mode & ALLOW_DATA_REDIRECT)
+                     {
+                        *((char *)&data.sin_addr + 1) = number;
+                     }
+                     else
+                     {
+                        *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
+                     }
+                     if ((number = get_number(&ptr, ',')) != INCORRECT)
+                     {
+                        if (mode & ALLOW_DATA_REDIRECT)
+                        {
+                           *((char *)&data.sin_addr + 2) = number;
+                        }
+                        else
+                        {
+                           *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
+                        }
+                        if ((number = get_number(&ptr, ',')) != INCORRECT)
+                        {
+                           if (mode & ALLOW_DATA_REDIRECT)
+                           {
+                              *((char *)&data.sin_addr + 3) = number;
+                           }
+                           else
+                           {
+                              *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
+                           }
+                           if ((number = get_number(&ptr, ',')) != INCORRECT)
+                           {
+                              *((char *)&data.sin_port) = number;
+                              if ((number = get_number(&ptr, ')')) != INCORRECT)
+                              {
+                                 *((char *)&data.sin_port + 1) = number;
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+               if (number == INCORRECT)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("Failed to retrieve remote address %s"), msg_str);
+                  return(INCORRECT);
+               }
             }
             else
             {
-               optname = SO_RCVBUF;
+               if ((number = get_extended_number(ptr)) == INCORRECT)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("Failed to retrieve remote address %s"), msg_str);
+                  return(INCORRECT);
+               }
+               data.sin_port = htons((u_short)number);
+               *((char *)&data.sin_addr) = *((char *)&sin.sin_addr);
+               *((char *)&data.sin_addr + 1) = *((char *)&sin.sin_addr + 1);
+               *((char *)&data.sin_addr + 2) = *((char *)&sin.sin_addr + 2);
+               *((char *)&data.sin_addr + 3) = *((char *)&sin.sin_addr + 3);
             }
-            if (setsockopt(new_sock_fd, SOL_SOCKET, optname,
-                           (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+
+            if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
             {
-               trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                         _("setsockopt() error : %s"), strerror(errno));
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("socket() error : %s"), strerror(errno));
+               return(INCORRECT);
             }
-         }
-         if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
-         {
-            char *h,
-                 *p;
+
+            if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                           sizeof(on)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("setsockopt() error : %s"), strerror(errno));
+               (void)close(new_sock_fd);
+               return(INCORRECT);
+            }
+            if (sockbuf_size > 0)
+            {
+               int optname;
+
+               if (type == DATA_WRITE)
+               {
+                  optname = SO_SNDBUF;
+               }
+               else
+               {
+                  optname = SO_RCVBUF;
+               }
+               if (setsockopt(new_sock_fd, SOL_SOCKET, optname,
+                              (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("setsockopt() error : %s"), strerror(errno));
+               }
+            }
+            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            {
+               char *h,
+                    *p;
 
 #ifdef ETIMEDOUT
-            if (errno == ETIMEDOUT)
-            {
-               timeout_flag = ON;
-            }
+               if (errno == ETIMEDOUT)
+               {
+                  timeout_flag = ON;
+               }
 # ifdef ECONNREFUSED
-            else if (errno == ECONNREFUSED)
-                 {
-                    timeout_flag = CON_REFUSED;
-                 }
+               else if (errno == ECONNREFUSED)
+                    {
+                       timeout_flag = CON_REFUSED;
+                    }
 # endif
 #else
 # ifdef ECONNREFUSED
-            if (errno == ECONNREFUSED)
-            {
-               timeout_flag = CON_REFUSED;
-            }
+               if (errno == ECONNREFUSED)
+               {
+                  timeout_flag = CON_REFUSED;
+               }
 # endif
 #endif
-            h = (char *)&data.sin_addr;
-            p = (char *)&data.sin_port;
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("connect() error (%d,%d,%d,%d,%d,%d) : %s"),
-                      (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
-                      (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
-                      (((int)p[0]) & 0xff), (((int)p[1]) & 0xff),
-                      strerror(errno));
-            (void)close(new_sock_fd);
-            return(INCORRECT);
+               h = (char *)&data.sin_addr;
+               p = (char *)&data.sin_port;
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("connect() error (%d,%d,%d,%d,%d,%d) : %s"),
+                         (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
+                         (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
+                         (((int)p[0]) & 0xff), (((int)p[1]) & 0xff),
+                         strerror(errno));
+               (void)close(new_sock_fd);
+               return(INCORRECT);
+            }
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
          }
+#endif
 
          /*
           * When we retrieve a file and part of it has already been
@@ -2243,113 +2643,122 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
 
       do
       {
-         data = ctrl;
-         data.sin_family = AF_INET;
-#ifdef FTP_REUSE_DATA_PORT
-try_again:
-         if (type != DATA_READ)
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+         if (ai_family == AF_INET6)
          {
-            data.sin_port = htons(data_port);
-         }
-         else
-         {
-            data.sin_port = htons((u_short)0);
-         }
-#else
-         data.sin_port = htons((u_short)0);
-#endif
+            char                buf[64];
+            struct sockaddr_in6 data;
 
-         if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("socket() error : %s"), strerror(errno));
-            return(INCORRECT);
-         }
-
-         if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
-                        sizeof(on)) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("setsockopt() error : %s"), strerror(errno));
-            (void)close(sock_fd);
-            return(INCORRECT);
-         }
-
-         length = sizeof(data);
-         if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
-         {
-#ifdef FTP_REUSE_DATA_PORT
-            if ((type != DATA_READ) &&
-                ((errno == EADDRINUSE) || (errno == EACCES)))
+            (void)memset(&data, 0, sizeof(data));
+            (void)memcpy(&data, ai_addr, ai_addrlen);
+            data.sin6_family = AF_INET6;
+# ifdef FTP_REUSE_DATA_PORT
+try_again_ipv6:
+            if (type != DATA_READ)
             {
-               data_port = 0;
-               loop_counter++;
-               if (loop_counter < 100)
-               {
-                  goto try_again;
-               }
-            }
-#endif
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("bind() error : %s"), strerror(errno));
-            (void)close(sock_fd);
-            return(INCORRECT);
-         }
-
-#ifdef FTP_REUSE_DATA_PORT
-         if ((type == DATA_READ) || (data_port == (u_short)0))
-         {
-#endif
-            if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
-            {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                         _("getsockname() error : %s"), strerror(errno));
-               (void)close(sock_fd);
-               return(INCORRECT);
-            }
-#ifdef FTP_REUSE_DATA_PORT
-         }
-#endif
-         if (sockbuf_size > 0)
-         {
-            int optname;
-
-            if (type == DATA_WRITE)
-            {
-               optname = SO_SNDBUF;
+               data.sin6_port = htons(data_port);
             }
             else
             {
-               optname = SO_RCVBUF;
+               data.sin6_port = htons((u_short)0);
             }
-            if (setsockopt(sock_fd, SOL_SOCKET, optname,
-                           (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+# else
+            data.sin6_port = htons((u_short)0);
+# endif
+            if ((sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0)
             {
-               trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                         _("setsockopt() error : %s"), strerror(errno));
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("socket() error : %s"), strerror(errno));
+               return(INCORRECT);
             }
-         }
 
-         if (listen(sock_fd, 1) < 0)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                      _("listen() error : %s"), strerror(errno));
-            (void)close(sock_fd);
-            return(INCORRECT);
-         }
+            if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                           sizeof(on)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("setsockopt() error : %s"), strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
 
-         h = (char *)&data.sin_addr;
-         p = (char *)&data.sin_port;
-#ifdef FTP_REUSE_DATA_PORT
-         data_port = data.sin_port;
-#endif
+            length = sizeof(data);
+            if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
+            {
+# ifdef FTP_REUSE_DATA_PORT
+               if ((type != DATA_READ) &&
+                   ((errno == EADDRINUSE) || (errno == EACCES)))
+               {
+                  data_port = 0;
+                  loop_counter++;
+                  if (loop_counter < 100)
+                  {
+                     goto try_again_ipv6;
+                  }
+               }
+# endif
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("bind() error : %s"), strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
 
-         if ((mode & EXTENDED_MODE) == 0)
-         {
-            if (command(control_fd, "PORT %d,%d,%d,%d,%d,%d",
-                        (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
-                        (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
-                        (((int)p[0]) & 0xff), (((int)p[1]) & 0xff)) != SUCCESS)
+# ifdef FTP_REUSE_DATA_PORT
+            if ((type == DATA_READ) || (data_port == (u_short)0))
+            {
+# endif
+               if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("getsockname() error : %s"), strerror(errno));
+                  (void)close(sock_fd);
+                  return(INCORRECT);
+               }
+# ifdef FTP_REUSE_DATA_PORT
+            }
+# endif
+            if (sockbuf_size > 0)
+            {
+               int optname;
+
+               if (type == DATA_WRITE)
+               {
+                  optname = SO_SNDBUF;
+               }
+               else
+               {
+                  optname = SO_RCVBUF;
+               }
+               if (setsockopt(sock_fd, SOL_SOCKET, optname,
+                              (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("setsockopt() error : %s"), strerror(errno));
+               }
+            }
+
+            if (listen(sock_fd, 1) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("listen() error : %s"), strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+
+# ifdef FTP_REUSE_DATA_PORT
+            data_port = data.sin6_port;
+# endif
+            if (inet_ntop(AF_INET6, &data.sin6_addr, buf, sizeof(buf)) == NULL)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         "Cannot get address of local socket : %s",
+                         strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+
+            /* Note, only extended mode is supported in IPv6. */
+            if (command(control_fd, "EPRT |2|%s|%d|",
+                        buf, (int)ntohs(data.sin6_port)) != SUCCESS)
             {
                (void)close(sock_fd);
                return(INCORRECT);
@@ -2357,14 +2766,134 @@ try_again:
          }
          else
          {
-            if (command(control_fd, "EPRT |1|%s|%d|",
-                        inet_ntoa(data.sin_addr),
-                        (int)ntohs(data.sin_port)) != SUCCESS)
+#endif
+            struct sockaddr_in data;
+
+            data = ctrl;
+            data.sin_family = AF_INET;
+#ifdef FTP_REUSE_DATA_PORT
+try_again:
+            if (type != DATA_READ)
             {
+               data.sin_port = htons(data_port);
+            }
+            else
+            {
+               data.sin_port = htons((u_short)0);
+            }
+#else
+            data.sin_port = htons((u_short)0);
+#endif
+
+            if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("socket() error : %s"), strerror(errno));
+               return(INCORRECT);
+            }
+
+            if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                           sizeof(on)) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("setsockopt() error : %s"), strerror(errno));
                (void)close(sock_fd);
                return(INCORRECT);
             }
+
+            length = sizeof(data);
+            if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
+            {
+#ifdef FTP_REUSE_DATA_PORT
+               if ((type != DATA_READ) &&
+                   ((errno == EADDRINUSE) || (errno == EACCES)))
+               {
+                  data_port = 0;
+                  loop_counter++;
+                  if (loop_counter < 100)
+                  {
+                     goto try_again;
+                  }
+               }
+#endif
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("bind() error : %s"), strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+
+#ifdef FTP_REUSE_DATA_PORT
+            if ((type == DATA_READ) || (data_port == (u_short)0))
+            {
+#endif
+               if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("getsockname() error : %s"), strerror(errno));
+                  (void)close(sock_fd);
+                  return(INCORRECT);
+               }
+#ifdef FTP_REUSE_DATA_PORT
+            }
+#endif
+            if (sockbuf_size > 0)
+            {
+               int optname;
+
+               if (type == DATA_WRITE)
+               {
+                  optname = SO_SNDBUF;
+               }
+               else
+               {
+                  optname = SO_RCVBUF;
+               }
+               if (setsockopt(sock_fd, SOL_SOCKET, optname,
+                              (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("setsockopt() error : %s"), strerror(errno));
+               }
+            }
+
+            if (listen(sock_fd, 1) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                         _("listen() error : %s"), strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+
+            h = (char *)&data.sin_addr;
+            p = (char *)&data.sin_port;
+#ifdef FTP_REUSE_DATA_PORT
+            data_port = data.sin_port;
+#endif
+
+            if ((mode & EXTENDED_MODE) == 0)
+            {
+               if (command(control_fd, "PORT %d,%d,%d,%d,%d,%d",
+                           (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
+                           (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
+                           (((int)p[0]) & 0xff), (((int)p[1]) & 0xff)) != SUCCESS)
+               {
+                  (void)close(sock_fd);
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (command(control_fd, "EPRT |1|%s|%d|",
+                           inet_ntoa(data.sin_addr),
+                           (int)ntohs(data.sin_port)) != SUCCESS)
+               {
+                  (void)close(sock_fd);
+                  return(INCORRECT);
+               }
+            }
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
          }
+#endif
          if ((reply = get_reply()) < 0)
          {
             if (timeout_flag == OFF)
@@ -3769,12 +4298,21 @@ get_extended_number(char *ptr)
       if (*(ptr + 1) != delimiter)
       {
          ptr++;
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+         if (((*ptr != '1') || (*ptr != '2')) && (*(ptr + 1) != delimiter))
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "get_extended_number", NULL,
+                      _("Can only handle IPv4 or IPv6."));
+            return(INCORRECT);
+         }
+#else
          if ((*ptr != '1') && (*(ptr + 1) != delimiter))
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "get_extended_number", NULL,
                       _("Can only handle IPv4."));
             return(INCORRECT);
          }
+#endif
          else
          {
             ptr++;
@@ -3816,7 +4354,7 @@ get_extended_number(char *ptr)
             number = (int)strtol(ptr_start, (char **)NULL, 10);
             if (errno == 0)
             {
-               data.sin_port = htons((u_short)number);
+               return(number);
             }
          }
       }
@@ -3827,7 +4365,7 @@ get_extended_number(char *ptr)
          return(INCORRECT);
       }
    }
-   return(SUCCESS);
+   return(INCORRECT);
 }
 
 

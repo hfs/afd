@@ -8,7 +8,11 @@ BuildRoot: %{_builddir}/%{name}-root
 Prefix: @prefix@
 Source0: %{name}-%{version}-@AFD_RELEASE@.tar.bz2
 Requires: @REQUIRES@
+%if 0%{?rhl}%{?fedora}
+BuildRequires: @BUILD_REQUIRES_REDHAT@
+%else
 BuildRequires: @BUILD_REQUIRES@
+%endif
 URL: http://www.dwd.de/AFD/
 
 %define distro_style_rpms      @DISTRO_STYLE_RPMS@
@@ -55,7 +59,7 @@ fi
 %if %{distro_style_rpms}
 %configure
 %else
-./configure '--libdir=%{prefix}/%{_lib}' %{cleaned_configure_args}
+./configure '--libdir=%{prefix}/%{_lib}' %{?cleaned_configure_args}
 %endif
 make -j$CPUS
 

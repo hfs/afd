@@ -1,6 +1,6 @@
 /*
  *  resend_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -640,7 +640,8 @@ get_archive_data(int pos, int file_no)
       i++; ptr++;
    }
    *(p_archive_name + i++) = '/';
-   while ((*p_unique_string != SEPARATOR_CHAR) && (*p_unique_string != '\n'))
+   while ((*p_unique_string != SEPARATOR_CHAR) && (*p_unique_string != ' ') &&
+          (*p_unique_string != '\n'))
    {
       *(p_archive_name + i) = *p_unique_string;
       i++; p_unique_string++;

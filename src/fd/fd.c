@@ -132,6 +132,9 @@ int                        amg_flag = NO,
                            fra_id,
                            fsa_fd = -1,
                            fsa_id,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32,
+#endif
                            last_pos_lookup = INCORRECT,
                            loop_counter = 0,
                            max_connections = MAX_DEFAULT_CONNECTIONS,
@@ -336,7 +339,7 @@ main(int argc, char *argv[])
    }
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, NULL) > 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "The compiled binary does not match stored database.");
@@ -482,7 +485,17 @@ main(int argc, char *argv[])
       qb[i].pid = PENDING;
       if (qb[i].msg_name[0] == '\0')
       {
-         ABS_REDUCE(fra[qb[i].pos].fsa_pos);
+         if ((fra[qb[i].pos].fsa_pos >= 0) &&
+             (fra[qb[i].pos].fsa_pos < no_of_hosts))
+         {
+            ABS_REDUCE(fra[qb[i].pos].fsa_pos);
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Unable to reduce jobs_queued for FSA position %d since it is out of range (0 - %d), for queue position %d (i = %d).",
+                       fra[qb[i].pos].fsa_pos, no_of_hosts, qb[i].pos, i);
+         }
          remove_msg(i);
          i--;
       }
@@ -568,6 +581,9 @@ main(int argc, char *argv[])
                 "Could not set signal handlers : %s", strerror(errno));
       exit(INCORRECT);
    }
+#ifdef HAVE_HW_CRC32
+   have_hw_crc32 = detect_cpu_crc32();
+#endif
 
    /* Find largest file descriptor. */
    max_fd = read_fin_fd;
@@ -624,7 +640,7 @@ main(int argc, char *argv[])
               FD_RESCAN_TIME);
    system_log(DEBUG_SIGN, NULL, 0,
               "FD configuration: Create target dir by default  %s",
-              (*(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) & ENABLE_CREATE_TARGET_DIR) ? "YES" : "NO");
+              (*(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) & ENABLE_CREATE_TARGET_DIR) ? "Yes" : "No");
    system_log(DEBUG_SIGN, NULL, 0,
               "FD configuration: Number of TRL groups          %d",
               no_of_trl_groups);
@@ -2610,7 +2626,11 @@ make_process(struct connection *con, int qb_pos)
 {
    int   argcount;
    pid_t pid;
+#ifdef HAVE_HW_CRC32
+   char  *args[21],
+#else
    char  *args[20],
+#endif
 #ifdef USE_SPRINTF
          str_job_no[MAX_INT_LENGTH],
          str_fsa_pos[MAX_INT_LENGTH],
@@ -2929,6 +2949,13 @@ make_process(struct connection *con, int qb_pos)
       argcount++;
       args[argcount] = str_retries;
    }
+#ifdef HAVE_HW_CRC32
+   if (have_hw_crc32 == YES)
+   {
+      argcount++;
+      args[argcount] = "-c";
+   }
+#endif
    args[argcount + 1] = NULL;
 
    switch (pid = fork())

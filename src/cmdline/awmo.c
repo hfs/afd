@@ -75,6 +75,7 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables. */
+unsigned int         special_flag = 0;
 int                  *no_of_listed_files,
                      sys_log_fd = STDERR_FILENO,
                      transfer_log_fd = STDERR_FILENO,
@@ -114,7 +115,7 @@ main(int argc, char *argv[])
    struct stat stat_buf;
 
 #ifdef HAVE_GETTEXT
-   setlocale(LC_ALL, "");
+   (void)setlocale(LC_ALL, "");
    bindtextdomain(PACKAGE, LOCALEDIR);
    textdomain(PACKAGE);
 #endif

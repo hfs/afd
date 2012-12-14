@@ -48,6 +48,7 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <fcntl.h>                  /* open()                            */
 #include <unistd.h>                 /* fstat(), lseek(), write()         */
+#include <time.h>                   /* strftime(), localtime()           */
 #ifdef HAVE_MMAP
 # include <sys/mman.h>              /* mmap()                            */
 #endif
@@ -131,25 +132,77 @@ main(int argc, char *argv[])
 
    if (*no_of_crcs > 0)
    {
-      int i;
+      int  i;
+      char time_str[25];
 
+      (void)strftime(time_str, 25, "%c",
+                     localtime((time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4)));
       (void)fprintf(stdout, "No of CRC's : %d\n", *no_of_crcs);
 #if SIZEOF_TIME_T == 4
-      (void)fprintf(stdout, "Check time  : %ld\n",
+      (void)fprintf(stdout, "Check time  : %s (%ld)\n",
 #else
-      (void)fprintf(stdout, "Check time  : %lld\n",
+      (void)fprintf(stdout, "Check time  : %s (%lld)\n",
 #endif
+                    time_str,
                     (pri_time_t)(*(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4)));
-      (void)fprintf(stdout, "CRC        Flag       Timeout\n");
+      (void)fprintf(stdout, "CRC         Timeout                                Flag\n");
       for (i = 0; i < *no_of_crcs; i++)
       {
+         (void)strftime(time_str, 25, "%c", localtime(&cdb[i].timeout));
 #if SIZEOF_TIME_T == 4
-         (void)fprintf(stdout, "%-10x %-10d %-12ld\n",
+         (void)fprintf(stdout, "%-10x  %s %-12ld ",
 #else
-         (void)fprintf(stdout, "%-10x %-10d %-12lld\n",
+         (void)fprintf(stdout, "%-10x  %s %-12lld ",
 #endif
-                       cdb[i].crc, cdb[i].flag,
-                       (pri_time_t)cdb[i].timeout);
+                       cdb[i].crc, time_str, (pri_time_t)cdb[i].timeout);
+         if (cdb[i].flag & DC_FILENAME_ONLY)
+         {
+            (void)fprintf(stdout, " FILENAME_ONLY");
+         }
+         if (cdb[i].flag & DC_FILE_CONTENT)
+         {
+            (void)fprintf(stdout, " FILE_CONTENT");
+         }
+         if (cdb[i].flag & DC_FILE_CONT_NAME)
+         {
+            (void)fprintf(stdout, " FILE_CONT_NAME");
+         }
+         if (cdb[i].flag & DC_NAME_NO_SUFFIX)
+         {
+            (void)fprintf(stdout, " NAME_NO_SUFFIX");
+         }
+         if (cdb[i].flag & DC_FILENAME_AND_SIZE)
+         {
+            (void)fprintf(stdout, " FILENAME_AND_SIZE");
+         }
+         if (cdb[i].flag & DC_CRC32)
+         {
+            (void)fprintf(stdout, " CRC32");
+         }
+         if (cdb[i].flag & DC_CRC32C)
+         {
+            (void)fprintf(stdout, " CRC32C");
+         }
+         if (cdb[i].flag & DC_DELETE)
+         {
+            (void)fprintf(stdout, " DELETE");
+         }
+         if (cdb[i].flag & DC_STORE)
+         {
+            (void)fprintf(stdout, " STORE");
+         }
+         if (cdb[i].flag & DC_WARN)
+         {
+            (void)fprintf(stdout, " WARN");
+         }
+         if (cdb[i].flag & USE_RECIPIENT_ID)
+         {
+            (void)fprintf(stdout, " USE_RECIPIENT_ID\n");
+         }
+         else
+         {
+            (void)fprintf(stdout, "\n");
+         }
       }
    }
    else

@@ -22,7 +22,6 @@
 
 #include "motif_common_defs.h"
 
-#define MAX_INFO_STRING_LENGTH   40
 #define NO_OF_FSA_ROWS           5
 #define FSA_INFO_TEXT_WIDTH_L    15
 #define FSA_INFO_TEXT_WIDTH_R    18

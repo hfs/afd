@@ -45,6 +45,7 @@ DESCR__S_M3
  **   06.01.2006 H.Kiehl When printing data for a specific host, print
  **                      out information about directory options.
  **   28.02.2008 H.Kiehl Added -D option.
+ **   13.09.2012 H.Kiehl Added --only_list_target_dirs option.
  **
  */
 DESCR__E_M3
@@ -88,7 +89,8 @@ static int                    no_of_dc_ids,
                               no_of_file_mask_ids,
                               no_of_gotchas,
                               no_of_job_ids,
-                              no_of_passwd;
+                              no_of_passwd,
+                              only_list_target_dirs = NO;
 static unsigned int           *gl; /* Gotcha List. */
 static char                   *fmd = NULL,
                               *fmd_end;
@@ -103,6 +105,7 @@ static void                   check_dir_options(int),
                               show_data(struct job_id_data *, char *, char *,
                                         int, struct passwd_buf *, int),
                               show_dir_data(int, int),
+                              show_target_dir_only(char *),
                               usage(FILE *, char *);
 static int                    same_directory(int *, unsigned int),
                               same_file_filter(int *, unsigned int,
@@ -178,6 +181,13 @@ main(int argc, char *argv[])
       {
          dir_id = 0;
          host_name[0] = '\0';
+      }
+   }
+   else
+   {
+      if (get_arg(&argc, argv, "--only_list_target_dirs", NULL, 0) == SUCCESS)
+      {
+         only_list_target_dirs = YES;
       }
    }
 
@@ -657,7 +667,8 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
        * Lets check both cases, a hostname can be used for retrieving files
        * and sending files. Always show both.
        */
-      if (fsa[position].protocol & RETRIEVE_FLAG)
+      if ((fsa[position].protocol & RETRIEVE_FLAG) &&
+          (only_list_target_dirs == NO))
       {
          for (i = 0; i < no_of_dirs; i++)
          {
@@ -684,8 +695,15 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
                {
                   if (strcmp(jd[j].host_alias, host_name) == 0)
                   {
-                     show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name,
-                               fmd, no_of_passwd, pwb, position);
+                     if (only_list_target_dirs == YES)
+                     {
+                        show_target_dir_only(jd[j].recipient);
+                     }
+                     else
+                     {
+                        show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name,
+                                  fmd, no_of_passwd, pwb, position);
+                     }
                   }
                   break;
                }
@@ -910,6 +928,39 @@ show_data(struct job_id_data *p_jd,
 
    /* Job ID. */
    (void)fprintf(stdout, "Job-ID        : %x\n\n", p_jd->job_id);
+
+   return;
+}
+
+
+/*++++++++++++++++++++++ show_target_dir_only() +++++++++++++++++++++++++*/
+static void
+show_target_dir_only(char *recipient)
+{
+   unsigned int scheme;
+   char         directory[MAX_RECIPIENT_LENGTH + 1],
+                user[MAX_USER_NAME_LENGTH + 1];
+
+   if (url_evaluate(recipient, &scheme, user, NULL, NULL,
+#ifdef WITH_SSH_FINGERPRINT
+                    NULL, NULL,
+#endif
+                    NULL, NO, NULL, NULL, directory, NULL, NULL,
+                    NULL, NULL, NULL) == 0)
+   {
+      if ((scheme & FTP_FLAG) || (scheme & LOC_FLAG) || (scheme & HTTP_FLAG) ||
+          (scheme & SFTP_FLAG) || (scheme & SCP_FLAG))
+      {
+         if ((directory[0] == '/') || (user[0] == '\0'))
+         {
+            (void)fprintf(stdout, "%s\n", directory);
+         }
+         else
+         {
+            (void)fprintf(stdout, "~%s/%s\n", user, directory);
+         }
+      }
+   }
 
    return;
 }
@@ -1256,7 +1307,7 @@ static void
 usage(FILE *stream, char *progname)
 {
    (void)fprintf(stream,
-                 _("Usage: %s [-d <dir alias>] [-h <host alias>] [-D <dir hex id>]\n"),
+                 _("Usage: %s [-d <dir alias>] [-h <host alias> [--only_list_target_dirs]] [-D <dir hex id>]\n"),
                  progname);
    return;
 }

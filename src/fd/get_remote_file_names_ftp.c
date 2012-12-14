@@ -355,16 +355,88 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
       {
          if ((status == 550) || (status == 450))
          {
-            remove_ls_data(db.fra_pos);
+            size_t new_size,
+                   old_size;
+
             trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to send NLST command (%d).", status);
+            if (attach_ls_data() == INCORRECT)
+            {
+               (void)ftp_quit();
+               exit(INCORRECT);
+            }
+            new_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                       AFD_WORD_OFFSET;
+            old_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                        RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                       AFD_WORD_OFFSET;
+            *no_of_listed_files = 0;
+
+            if (old_size != new_size)
+            {
+               char *ptr;
+
+               ptr = (char *)rl - AFD_WORD_OFFSET;
+               if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "mmap_resize() error : %s", strerror(errno));
+                  (void)ftp_quit();
+                  exit(INCORRECT);
+               }
+               no_of_listed_files = (int *)ptr;
+               ptr += AFD_WORD_OFFSET;
+               rl = (struct retrieve_list *)ptr;
+               if (*no_of_listed_files < 0)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+                  *no_of_listed_files = 0;
+               }
+            }
             return(0);
          }
          else if (status == 226)
               {
-                 remove_ls_data(db.fra_pos);
+                 size_t new_size,
+                        old_size;
+
                  trans_log(INFO_SIGN, NULL, 0, NULL, msg_str,
                            "No files found (%d).", status);
+                 if (attach_ls_data() == INCORRECT)
+                 {
+                    (void)ftp_quit();
+                    exit(INCORRECT);
+                 }
+                 new_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                            AFD_WORD_OFFSET;
+                 old_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                             RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                            AFD_WORD_OFFSET;
+                 *no_of_listed_files = 0;
+
+                 if (old_size != new_size)
+                 {
+                    char *ptr;
+
+                    ptr = (char *)rl - AFD_WORD_OFFSET;
+                    if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
+                    {
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "mmap_resize() error : %s", strerror(errno));
+                       (void)ftp_quit();
+                       exit(INCORRECT);
+                    }
+                    no_of_listed_files = (int *)ptr;
+                    ptr += AFD_WORD_OFFSET;
+                    rl = (struct retrieve_list *)ptr;
+                    if (*no_of_listed_files < 0)
+                    {
+                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+                       *no_of_listed_files = 0;
+                    }
+                 }
                  return(0);
               }
               else
@@ -391,9 +463,45 @@ get_remote_file_names_ftp(off_t *file_size_to_retrieve, int *more_files_in_list)
        */
       if (nlist == NULL)
       {
-         remove_ls_data(db.fra_pos);
+         size_t new_size,
+                old_size;
+
          trans_log(INFO_SIGN, NULL, 0, NULL, msg_str,
                    "No files found (%d).", status);
+         if (attach_ls_data() == INCORRECT)
+         {
+            (void)ftp_quit();
+            exit(INCORRECT);
+         }
+         new_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                    AFD_WORD_OFFSET;
+         old_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                     RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                    AFD_WORD_OFFSET;
+         *no_of_listed_files = 0;
+
+         if (old_size != new_size)
+         {
+            char *ptr;
+
+            ptr = (char *)rl - AFD_WORD_OFFSET;
+            if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "mmap_resize() error : %s", strerror(errno));
+               (void)ftp_quit();
+               exit(INCORRECT);
+            }
+            no_of_listed_files = (int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            rl = (struct retrieve_list *)ptr;
+            if (*no_of_listed_files < 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+               *no_of_listed_files = 0;
+            }
+         }
          return(files_to_retrieve);
       }
 

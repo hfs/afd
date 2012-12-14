@@ -127,6 +127,9 @@ int                        afd_file_dir_length,
                            fra_fd = -1,    /* Needed by fra_attach().    */
                            fsa_id,         /* ID of FSA.                 */
                            fsa_fd = -1,    /* Needed by fsa_attach().    */
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32,
+#endif
 #ifdef WITH_INOTIFY
                            inotify_fd,
                            *iwl,
@@ -200,6 +203,9 @@ gid_t                      afd_gid,
 char                       *p_mmap = NULL,
                            *p_work_dir,
                            first_time = YES,
+#ifdef LINUX
+                           hardlinks_protected = NEITHER,
+#endif
                            time_dir[MAX_PATH_LENGTH],
                            *p_time_dir,
 #ifndef _WITH_PTHREAD
@@ -457,6 +463,9 @@ main(int argc, char *argv[])
                       REPORT_DIR_TIME_INTERVAL + REPORT_DIR_TIME_INTERVAL;
    next_dir_check_time = (now / DIR_CHECK_TIME) * DIR_CHECK_TIME +
                          DIR_CHECK_TIME;
+#ifdef HAVE_HW_CRC32
+   have_hw_crc32 = detect_cpu_crc32();
+#endif
 
    /* Tell user we are starting dir_check. */
    system_log(INFO_SIGN, NULL, 0, "Starting %s (%s)",
@@ -706,6 +715,10 @@ main(int argc, char *argv[])
               {
                  if (((fra[de[i].fra_pos].dir_flag & DIR_DISABLED) == 0) &&
                      ((fra[de[i].fra_pos].dir_flag & DIR_STOPPED) == 0) &&
+# ifdef WITH_INOTIFY
+                     ((fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME) == 0) &&
+                     ((fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE) == 0) &&
+# endif
                      ((fra[de[i].fra_pos].fsa_pos != -1) ||
                       (fra[de[i].fra_pos].no_of_time_entries == 0) ||
                       (fra[de[i].fra_pos].next_check_time <= start_time)))
@@ -785,6 +798,10 @@ main(int argc, char *argv[])
               {
                  if (((fra[de[i].fra_pos].dir_flag & DIR_DISABLED) == 0) &&
                      ((fra[de[i].fra_pos].dir_flag & DIR_STOPPED) == 0) &&
+# ifdef WITH_INOTIFY
+                     ((fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME) == 0) &&
+                     ((fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE) == 0) &&
+# endif
                      ((fra[de[i].fra_pos].fsa_pos != -1) ||
                       (fra[de[i].fra_pos].no_of_time_entries == 0) ||
                       (fra[de[i].fra_pos].next_check_time <= start_time)))

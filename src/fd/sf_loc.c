@@ -99,6 +99,9 @@ DESCR__E_M1
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs = 0,
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
@@ -916,13 +919,19 @@ cross_link_error:
                              }
                         else if (ret == SUCCESS)
                              {
-                                errno = ENOENT;
                                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                          "Hmmm, directory does seem to be ok: %s",
-                                          strerror(errno));
-                                ret = MOVE_ERROR;
+                                          "Hmmm, directory does seem to be ok, someone else created it.");
+                                *p_file = '/';
+                                if (rename(if_name, ff_name) == -1)
+                                {
+                                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                             "Failed to rename() file `%s' to `%s' : %s",
+                                             if_name, ff_name, strerror(errno));
+                                   exit(RENAME_ERROR);
+                                }
                              }
-                        if (ret != CREATED_DIR)
+                        if ((ret != CREATED_DIR) && (ret != CHOWN_ERROR) &&
+                            (ret != SUCCESS))
                         {
                            exit(ret);
                         }
@@ -1627,8 +1636,10 @@ copy_file_mkdir(char *from, char *to)
          {
             if (stat_buf.st_size > 0)
             {
+               time_t end_transfer_time_file,
+                      start_transfer_time_file;
 #ifdef WITH_SPLICE_SUPPORT
-               int fd_pipe[2];
+               int    fd_pipe[2];
 
                if (pipe(fd_pipe) == -1)
                {
@@ -1643,6 +1654,10 @@ copy_file_mkdir(char *from, char *to)
                         bytes_written;
                   off_t bytes_left;
 
+                  if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                  {
+                     start_transfer_time_file = time(NULL);
+                  }
                   bytes_left = stat_buf.st_size;
                   while (bytes_left)
                   {
@@ -1671,6 +1686,30 @@ copy_file_mkdir(char *from, char *to)
                         }
                         bytes_read -= bytes_written;
                      }
+                     if ((db.fsa_pos != INCORRECT) &&
+                         (fsa->protocol_options & TIMEOUT_TRANSFER))
+                     {
+                        end_transfer_time_file = time(NULL);
+                        if (end_transfer_time_file < start_transfer_time_file)
+                        {
+                           start_transfer_time_file = end_transfer_time_file;
+                        }
+                        else
+                        {
+                           if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                           {
+                              trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                        "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                        "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                        fsa->job_status[(int)db.job_no].file_name_in_use,
+                                        (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                              exit(STILL_FILES_TO_SEND);
+                           }
+                        }   
+                     }
                   }
                   if ((close(fd_pipe[0]) == -1) || (close(fd_pipe[1]) == -1))
                   {
@@ -1691,6 +1730,10 @@ copy_file_mkdir(char *from, char *to)
                {
                   int bytes_buffered;
 
+                  if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                  {
+                     start_transfer_time_file = time(NULL);
+                  }
                   do
                   {
                      if ((bytes_buffered = read(from_fd, buffer,
@@ -1711,6 +1754,30 @@ copy_file_mkdir(char *from, char *to)
                                      to, strerror(errno));
                            ret = MOVE_ERROR;
                            break;
+                        }
+                        if ((db.fsa_pos != INCORRECT) &&
+                            (fsa->protocol_options & TIMEOUT_TRANSFER))
+                        {
+                           end_transfer_time_file = time(NULL);
+                           if (end_transfer_time_file < start_transfer_time_file)
+                           {
+                              start_transfer_time_file = end_transfer_time_file;
+                           }
+                           else
+                           {
+                              if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                              {
+                                 trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                           "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                           "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                           fsa->job_status[(int)db.job_no].file_name_in_use,
+                                           (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                 exit(STILL_FILES_TO_SEND);
+                              }
+                           }   
                         }
                      }
                   } while (bytes_buffered == stat_buf.st_blksize);

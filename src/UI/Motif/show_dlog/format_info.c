@@ -110,7 +110,7 @@ format_output_info(char **text)
 {
    int buffer_length = 8192,
        count,
-       length;
+       length = 0;
 
    if ((*text = malloc(buffer_length)) == NULL)
    {
@@ -118,7 +118,21 @@ format_output_info(char **text)
                  buffer_length, strerror(errno), __FILE__, __LINE__);
       return;
    }
-   max_x = sprintf(*text, "File name  : %s\n", id.file_name);
+   max_x = sprintf(*text, "File name  : ");
+   while (id.file_name[length] != '\0')
+   {
+      if (id.file_name[length] < ' ')
+      {
+         *(*text + max_x) = '?';
+      }
+      else
+      {
+         *(*text + max_x) = id.file_name[length];
+      }
+      length++; max_x++;
+   }
+   *(*text + max_x) = '\n';
+   max_x++;
    length = max_x;
    count = sprintf(*text + length, "File size  : %s Bytes\n", id.file_size);
    length += count;

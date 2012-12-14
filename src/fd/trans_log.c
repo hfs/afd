@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ DESCR__S_M3
  **   19.03.1999 H.Kiehl Created
  **   08.07.2000 H.Kiehl Revised to reduce code size in sf_xxx().
  **   21.03.2009 H.Kiehl Added function parameter.
+ **   10.08.2012 H.Kiehl Added some more length checking.
  **
  */
 DESCR__E_M3
@@ -87,11 +88,11 @@ trans_log(char *sign,
           ...)
 {
    int       tmp_errno = errno;
-   char      *ptr = tr_hostname;
    size_t    header_length,
              length = HOSTNAME_OFFSET;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1],
+             *ptr = tr_hostname;
    va_list   ap;
    struct tm *p_ts;
 

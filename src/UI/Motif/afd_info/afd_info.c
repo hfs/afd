@@ -41,6 +41,7 @@ DESCR__S_M1
  **   06.08.2004 H.Kiehl Write window ID to a common file.
  **   15.08.2004 H.Kiehl Added HTTP and SSL support.
  **   23.08.2010 H.Kiehl Make information editable.
+ **   04.11.2012 H.Kiehl Make active passive sign work again.
  **
  */
 DESCR__E_M1
@@ -241,7 +242,7 @@ main(int argc, char *argv[])
    init_color(display);
    ximage.width = ACTIVE_PASSIVE_WIDTH;
    ximage.height = ACTIVE_PASSIVE_HEIGHT;
-   ximage.data = (char *)active_passive_bits;
+   ximage.data = active_passive_bits;
    ximage.xoffset = 0;
    ximage.format = XYBitmap;
    ximage.byte_order = MSBFirst;
@@ -310,6 +311,17 @@ main(int argc, char *argv[])
                                   rowcol1,
                                   XmNfractionBase, 41,
                                   NULL);
+      label_l_widget[i] = XtVaCreateManagedWidget(label_l[i],
+                              xmLabelGadgetClass,  fsa_text,
+                              XmNfontList,         fontlist,
+                              XmNtopAttachment,    XmATTACH_POSITION,
+                              XmNtopPosition,      1,
+                              XmNbottomAttachment, XmATTACH_POSITION,
+                              XmNbottomPosition,   40,
+                              XmNleftAttachment,   XmATTACH_POSITION,
+                              XmNleftPosition,     1,
+                              XmNalignment,        XmALIGNMENT_END,
+                              NULL);
       if ((i == 0) && (fsa[host_position].host_toggle_str[0] != '\0') &&
           (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
           (passive_pixmap != XmUNSPECIFIED_PIXMAP))
@@ -343,17 +355,6 @@ main(int argc, char *argv[])
                                     NULL);
          }
       }
-      label_l_widget[i] = XtVaCreateManagedWidget(label_l[i],
-                              xmLabelGadgetClass,  fsa_text,
-                              XmNfontList,         fontlist,
-                              XmNtopAttachment,    XmATTACH_POSITION,
-                              XmNtopPosition,      1,
-                              XmNbottomAttachment, XmATTACH_POSITION,
-                              XmNbottomPosition,   40,
-                              XmNleftAttachment,   XmATTACH_POSITION,
-                              XmNleftPosition,     1,
-                              XmNalignment,        XmALIGNMENT_END,
-                              NULL);
       text_wl[i] = XtVaCreateManagedWidget("text_wl",
                                            xmTextWidgetClass,        fsa_text,
                                            XmNfontList,              fontlist,
@@ -455,6 +456,16 @@ main(int argc, char *argv[])
                                   rowcol2,
                                   XmNfractionBase, 41,
                                   NULL);
+      label_r_widget[i] = XtVaCreateManagedWidget(label_r[i], xmLabelGadgetClass, fsa_text,
+                              XmNfontList,         fontlist,
+                              XmNtopAttachment,    XmATTACH_POSITION,
+                              XmNtopPosition,      1,
+                              XmNbottomAttachment, XmATTACH_POSITION,
+                              XmNbottomPosition,   40,
+                              XmNleftAttachment,   XmATTACH_POSITION,
+                              XmNleftPosition,     1,
+                              XmNalignment,        XmALIGNMENT_END,
+                              NULL);
       if ((i == 0) && (fsa[host_position].host_toggle_str[0] != '\0') &&
           (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
           (passive_pixmap != XmUNSPECIFIED_PIXMAP) &&
@@ -487,16 +498,6 @@ main(int argc, char *argv[])
                                     NULL);
          }
       }
-      label_r_widget[i] = XtVaCreateManagedWidget(label_r[i], xmLabelGadgetClass, fsa_text,
-                              XmNfontList,         fontlist,
-                              XmNtopAttachment,    XmATTACH_POSITION,
-                              XmNtopPosition,      1,
-                              XmNbottomAttachment, XmATTACH_POSITION,
-                              XmNbottomPosition,   40,
-                              XmNleftAttachment,   XmATTACH_POSITION,
-                              XmNleftPosition,     1,
-                              XmNalignment,        XmALIGNMENT_END,
-                              NULL);
       text_wr[i] = XtVaCreateManagedWidget("text_wr", xmTextWidgetClass, fsa_text,
                                            XmNfontList,              fontlist,
                                            XmNcolumns,               AFD_INFO_STR_LENGTH,
@@ -860,7 +861,7 @@ init_afd_info(int *argc, char *argv[])
    }
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, NULL) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");

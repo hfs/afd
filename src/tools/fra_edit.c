@@ -178,6 +178,101 @@ main(int argc, char *argv[])
                     (void)scanf("%11u", &value);
                     fra[position].error_counter = value;
                     break;
+         case '6' : (void)fprintf(stdout, "\033[2J\033[3;1H");
+                    (void)fprintf(stdout, "\n\n\n");
+                    (void)fprintf(stdout, "     Reset to zero.................(0)\n");
+                    (void)fprintf(stdout, "     MAX_COPIED [%d]...............(1)\n",
+                                  (fra[position].dir_flag & MAX_COPIED) ? 1 : 0);
+                    (void)fprintf(stdout, "     FILES_IN_QUEUE [%d]...........(2)\n",
+                                  (fra[position].dir_flag & FILES_IN_QUEUE) ? 1 : 0);
+                    (void)fprintf(stdout, "     ADD_TIME_ENTRY [%d]...........(3)\n",
+                                  (fra[position].dir_flag & ADD_TIME_ENTRY) ? 1 : 0);
+                    (void)fprintf(stdout, "     LINK_NO_EXEC [%d].............(4)\n",
+                                  (fra[position].dir_flag & LINK_NO_EXEC) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_DISABLED [%d].............(5)\n",
+                                  (fra[position].dir_flag & DIR_DISABLED) ? 1 : 0);
+                    (void)fprintf(stdout, "     ACCEPT_DOT_FILES [%d].........(6)\n",
+                                  (fra[position].dir_flag & ACCEPT_DOT_FILES) ? 1 : 0);
+                    (void)fprintf(stdout, "     DONT_GET_DIR_LIST [%d]........(7)\n",
+                                  (fra[position].dir_flag & DONT_GET_DIR_LIST) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_ERROR_SET [%d]............(8)\n",
+                                  (fra[position].dir_flag & DIR_ERROR_SET) ? 1 : 0);
+                    (void)fprintf(stdout, "     WARN_TIME_REACHED [%d]........(9)\n",
+                                  (fra[position].dir_flag & WARN_TIME_REACHED) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_ERROR_ACKN [%d]...........(a)\n",
+                                  (fra[position].dir_flag & DIR_ERROR_ACKN) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_ERROR_OFFLINE [%d]........(b)\n",
+                                  (fra[position].dir_flag & DIR_ERROR_OFFLINE) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_ERROR_ACKN_T [%d].........(c)\n",
+                                  (fra[position].dir_flag & DIR_ERROR_ACKN_T) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_ERROR_OFFL_T [%d].........(d)\n",
+                                  (fra[position].dir_flag & DIR_ERROR_OFFL_T) ? 1 : 0);
+                    (void)fprintf(stdout, "     DIR_STOPPED [%d]..............(e)\n",
+                                  (fra[position].dir_flag & DIR_ERROR_OFFL_T) ? 1 : 0);
+#ifdef WITH_INOTIFY
+                    (void)fprintf(stdout, "     INOTIFY_RENAME [%d]...........(f)\n",
+                                  (fra[position].dir_flag & INOTIFY_RENAME) ? 1 : 0);
+                    (void)fprintf(stdout, "     INOTIFY_CLOSE [%d]............(g)\n",
+                                  (fra[position].dir_flag & INOTIFY_CLOSE) ? 1 : 0);
+#endif
+                    (void)fprintf(stdout, "     ALL_DISABLED [%d].............(h)\n",
+                                  (fra[position].dir_flag & ALL_DISABLED) ? 1 : 0);
+                    (void)fprintf(stdout, "     CREATE_R_SRC_DIR [%d].........(i)\n",
+                                  (fra[position].dir_flag & CREATE_R_SRC_DIR) ? 1 : 0);
+                    (void)fprintf(stderr, "     None..........................(Z) ");
+
+                    switch (get_key())
+                    {
+                       case '0' : fra[position].dir_flag = 0;
+                                  break;
+                       case '1' : fra[position].dir_flag ^= MAX_COPIED;
+                                  break;
+                       case '2' : fra[position].dir_flag ^= FILES_IN_QUEUE;
+                                  break;
+                       case '3' : fra[position].dir_flag ^= ADD_TIME_ENTRY;
+                                  break;
+                       case '4' : fra[position].dir_flag ^= LINK_NO_EXEC;
+                                  break;
+                       case '5' : fra[position].dir_flag ^= DIR_DISABLED;
+                                  break;
+                       case '6' : fra[position].dir_flag ^= ACCEPT_DOT_FILES;
+                                  break;
+                       case '7' : fra[position].dir_flag ^= DONT_GET_DIR_LIST;
+                                  break;
+                       case '8' : fra[position].dir_flag ^= DIR_ERROR_SET;
+                                  break;
+                       case '9' : fra[position].dir_flag ^= WARN_TIME_REACHED;
+                                  break;
+                       case 'a' : fra[position].dir_flag ^= DIR_ERROR_ACKN;
+                                  break;
+                       case 'b' : fra[position].dir_flag ^= DIR_ERROR_OFFLINE;
+                                  break;
+                       case 'c' : fra[position].dir_flag ^= DIR_ERROR_ACKN_T;
+                                  break;
+                       case 'd' : fra[position].dir_flag ^= DIR_ERROR_OFFL_T;
+                                  break;
+                       case 'e' : fra[position].dir_flag ^= DIR_STOPPED;
+                                  break;
+#ifdef WITH_INOTIFY
+                       case 'f' : fra[position].dir_flag ^= INOTIFY_RENAME;
+                                  break;
+                       case 'g' : fra[position].dir_flag ^= INOTIFY_CLOSE;
+                                  break;
+#endif
+                       case 'h' : fra[position].dir_flag ^= ALL_DISABLED;
+                                  break;
+                       case 'i' : fra[position].dir_flag ^= CREATE_R_SRC_DIR;
+                                  break;
+                       case 'Z' : break;
+                       default  : (void)printf(_("Wrong choice!\n"));
+                                  (void)sleep(1);
+                                  break;
+                    }
+                    break;
+         case '7' : (void)fprintf(stderr, _("\n\n     Enter value [7] : "));
+                    (void)scanf("%11u", &value);
+                    fra[position].queued = (char)value;
+                    break;
          case 'x' :
          case 'Q' :
          case 'q' : leave_flag = YES;
@@ -224,6 +319,8 @@ menu(int position)
    (void)fprintf(stdout, "        |  4  |bytes_in_queue    | %14lld |\n", (pri_off_t)fra[position].bytes_in_queue);
 #endif
    (void)fprintf(stdout, "        |  5  |error counter     | %14d |\n", fra[position].error_counter);
+   (void)fprintf(stdout, "        |  6  |dir_flag          | %14u |\n", fra[position].dir_flag);
+   (void)fprintf(stdout, "        |  7  |queued            | %14d |\n", (int)fra[position].queued);
    (void)fprintf(stdout, "        +-----+------------------+----------------+\n");
 
    return;

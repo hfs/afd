@@ -64,6 +64,8 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
+/* Global variables. */
+unsigned int               special_flag = 0;
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_retrieve_shown = 0,
@@ -128,6 +130,8 @@ main(int argc, char *argv[])
                     file_size_to_retrieve = 0,
                     tmp_content_length;
    clock_t          clktck;
+   time_t           end_transfer_time_file,
+                    start_transfer_time_file;
    char             *buffer,
                     *chunkbuffer = NULL,
                     local_file[MAX_PATH_LENGTH],
@@ -465,7 +469,7 @@ main(int argc, char *argv[])
                if ((status == 301) || /* Moved Permanently. */
                    (status == 404))   /* Not Found. */
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             "Failed to open remote file %s (%d).",
                             rl[i].file_name, status);
 
@@ -629,6 +633,11 @@ main(int argc, char *argv[])
                      {
                         init_limit_transfer_rate();
                      }
+                     if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                     {
+                        start_transfer_time_file = time(NULL);
+                     }
+
                      if (status == SUCCESS)
                      {
                         if (content_length == -1)
@@ -697,6 +706,30 @@ main(int argc, char *argv[])
                                  fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                                  fsa->job_status[(int)db.job_no].file_size_done += status;
                                  fsa->job_status[(int)db.job_no].bytes_send += status;
+                                 if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                                 {
+                                    end_transfer_time_file = time(NULL);
+                                    if (end_transfer_time_file < start_transfer_time_file)
+                                    {
+                                       start_transfer_time_file = end_transfer_time_file;
+                                    }
+                                    else
+                                    {
+                                       if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                                       {
+                                          trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                                    "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                                    "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                                    fsa->job_status[(int)db.job_no].file_name_in_use,
+                                                    (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                          http_quit();
+                                          exit(STILL_FILES_TO_SEND);
+                                       }
+                                    }
+                                 }
                               }
                            } while (status != 0);
                         }
@@ -773,6 +806,30 @@ main(int argc, char *argv[])
                                  fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                                  fsa->job_status[(int)db.job_no].file_size_done += status;
                                  fsa->job_status[(int)db.job_no].bytes_send += status;
+                                 if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                                 {
+                                    end_transfer_time_file = time(NULL);
+                                    if (end_transfer_time_file < start_transfer_time_file)
+                                    {
+                                       start_transfer_time_file = end_transfer_time_file;
+                                    }
+                                    else
+                                    {
+                                       if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                                       {
+                                          trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                                    "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                                    "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                                    fsa->job_status[(int)db.job_no].file_name_in_use,
+                                                    (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                          http_quit();
+                                          exit(STILL_FILES_TO_SEND);
+                                       }
+                                    }
+                                 }
                               }
                            }
                         }

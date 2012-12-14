@@ -161,6 +161,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.dir_mode = 0;
    db.dir_mode_str[0] = '\0';
    db.trans_rename_rule[0] = '\0';
+   db.password[0] = '\0';
    db.user_rename_rule[0] = '\0';
    db.lock_file_name = NULL;
    db.rename_file_busy = '\0';
@@ -421,6 +422,18 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       exitflag = 0;
       exit(NO_FILES_TO_SEND);
    }
+
+   /*
+    * For bursting we need to set the following active values.
+    * Otherwise if during a burst all files are deleted, the
+    * following burst will then think those values are set.
+    */
+   (void)strcpy(db.active_user, db.user);
+   (void)strcpy(db.active_target_dir, db.target_dir);
+   db.active_transfer_mode = db.transfer_mode;
+#ifdef WITH_SSL
+   db.active_auth = db.auth;
+#endif
 
    /* Do we want to display the status? */
    if (gsf_check_fsa((struct job *)&db) != NEITHER)

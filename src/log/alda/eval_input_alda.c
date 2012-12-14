@@ -109,6 +109,7 @@ DESCR__S_M3
  **              %[Z]OZ<time char>      - job creation time
  **              %[Z]OU                 - unique number
  **              %[Z]OL                 - split job number
+ **              %[Y]OM                 - mail queue ID
  **              %[Y]Oh                 - target real hostname/IP
  **              %[Y]OH                 - target alias name
  **              %[Y]OR                 - Recipient of job
@@ -1112,61 +1113,67 @@ store_name_alias_id(char *input, int dir_host_type)
       if (*ptr == '%')
       {
          ptr++;
-         if (dir_host_type == START_HOST_TYPE)
+         if (p_alias_counter == NULL)
          {
-            max_length = MAX_AFDNAME_LENGTH + 1;
-            p_alias = &start_alias;
-            p_alias_counter = &start_alias_counter;
+            if (dir_host_type == START_HOST_TYPE)
+            {
+               max_length = MAX_AFDNAME_LENGTH + 1;
+               p_alias = &start_alias;
+               p_alias_counter = &start_alias_counter;
+            }
+            else if (dir_host_type == END_HOST_TYPE)
+                 {
+                    max_length = MAX_AFDNAME_LENGTH + 1;
+                    p_alias = &end_alias;
+                    p_alias_counter = &end_alias_counter;
+                 }
+            else if (dir_host_type == SEARCH_HOST_TYPE)
+                 {
+                    max_length = MAX_HOSTNAME_LENGTH + 1;
+                    p_alias = &search_host_alias;
+                    p_alias_counter = &search_host_alias_counter;
+                 }
+                 else
+                 {
+                    max_length = MAX_DIR_ALIAS_LENGTH + 1;
+                    p_alias = &search_dir_alias;
+                    p_alias_counter = &search_dir_alias_counter;
+                 }
+            *p_alias_counter = 0;
+            max_alias_length = 0;
+            type = ALIAS_TYPE;
          }
-         else if (dir_host_type == END_HOST_TYPE)
-              {
-                 max_length = MAX_AFDNAME_LENGTH + 1;
-                 p_alias = &end_alias;
-                 p_alias_counter = &end_alias_counter;
-              }
-         else if (dir_host_type == SEARCH_HOST_TYPE)
-              {
-                 max_length = MAX_HOSTNAME_LENGTH + 1;
-                 p_alias = &search_host_alias;
-                 p_alias_counter = &search_host_alias_counter;
-              }
-              else
-              {
-                 max_length = MAX_DIR_ALIAS_LENGTH + 1;
-                 p_alias = &search_dir_alias;
-                 p_alias_counter = &search_dir_alias_counter;
-              }
-         *p_alias_counter = 0;
-         max_alias_length = 0;
-         type = ALIAS_TYPE;
       }
       else if (*ptr == '#')
            {
               ptr++;
-              if (dir_host_type == START_HOST_TYPE)
+              if (p_id_counter == NULL)
               {
-                 p_id = &start_id;
-                 p_id_counter = &start_id_counter;
+                 if (dir_host_type == START_HOST_TYPE)
+                 {
+                    p_id = &start_id;
+                    p_id_counter = &start_id_counter;
+                 }
+                 else if (dir_host_type == END_HOST_TYPE)
+                      {
+                         p_id = &end_id;
+                         p_id_counter = &end_id_counter;
+                      }
+                 else if (dir_host_type == SEARCH_HOST_TYPE)
+                      {
+                         p_id = &search_host_id;
+                         p_id_counter = &search_host_id_counter;
+                      }
+                      else
+                      {
+                         p_id = &search_dir_id;
+                         p_id_counter = &search_dir_id_counter;
+                      }
+                 *p_id_counter = 0;
+                 max_length = MAX_INT_LENGTH;
+                 max_id_length = 0;
+                 type = ID_TYPE;
               }
-              else if (dir_host_type == END_HOST_TYPE)
-                   {
-                      p_id = &end_id;
-                      p_id_counter = &end_id_counter;
-                   }
-              else if (dir_host_type == SEARCH_HOST_TYPE)
-                   {
-                      p_id = &search_host_id;
-                      p_id_counter = &search_host_id_counter;
-                   }
-                   else
-                   {
-                      p_id = &search_dir_id;
-                      p_id_counter = &search_dir_id_counter;
-                   }
-              *p_id_counter = 0;
-              max_length = MAX_INT_LENGTH;
-              max_id_length = 0;
-              type = ID_TYPE;
            }
            else
            {
@@ -1174,33 +1181,36 @@ store_name_alias_id(char *input, int dir_host_type)
               {
                  ptr++;
               }
-              if (dir_host_type == START_HOST_TYPE)
+              if (p_name_counter == NULL)
               {
-                 max_length = MAX_REAL_HOSTNAME_LENGTH;
-                 p_name = &start_name;
-                 p_name_counter = &start_name_counter;
+                 if (dir_host_type == START_HOST_TYPE)
+                 {
+                    max_length = MAX_REAL_HOSTNAME_LENGTH;
+                    p_name = &start_name;
+                    p_name_counter = &start_name_counter;
+                 }
+                 else if (dir_host_type == END_HOST_TYPE)
+                      {
+                         max_length = MAX_REAL_HOSTNAME_LENGTH;
+                         p_name = &end_name;
+                         p_name_counter = &end_name_counter;
+                      }
+                 else if (dir_host_type == SEARCH_HOST_TYPE)
+                      {
+                         max_length = MAX_REAL_HOSTNAME_LENGTH;
+                         p_name = &search_host_name;
+                         p_name_counter = &search_host_name_counter;
+                      }
+                      else
+                      {
+                         max_length = MAX_PATH_LENGTH;
+                         p_name = &search_dir_name;
+                         p_name_counter = &search_dir_name_counter;
+                      }
+                 *p_name_counter = 0;
+                 max_name_length = 0;
+                 type = NAME_TYPE;
               }
-              else if (dir_host_type == END_HOST_TYPE)
-                   {
-                      max_length = MAX_REAL_HOSTNAME_LENGTH;
-                      p_name = &end_name;
-                      p_name_counter = &end_name_counter;
-                   }
-              else if (dir_host_type == SEARCH_HOST_TYPE)
-                   {
-                      max_length = MAX_REAL_HOSTNAME_LENGTH;
-                      p_name = &search_host_name;
-                      p_name_counter = &search_host_name_counter;
-                   }
-                   else
-                   {
-                      max_length = MAX_PATH_LENGTH;
-                      p_name = &search_dir_name;
-                      p_name_counter = &search_dir_name_counter;
-                   }
-              *p_name_counter = 0;
-              max_name_length = 0;
-              type = NAME_TYPE;
            }
 
       length = 0;
@@ -1292,6 +1302,7 @@ store_name_alias_id(char *input, int dir_host_type)
    if (p_alias_counter != NULL)
    {
       RT_ARRAY(*p_alias, (*p_alias_counter), (max_alias_length + 1), char);
+      *p_alias_counter = 0;
    }
    if (p_id_counter != NULL)
    {
@@ -1301,10 +1312,12 @@ store_name_alias_id(char *input, int dir_host_type)
                        "ERROR  : Failed to malloc() %lu bytes.\n",
                        (long unsigned int)((*p_id_counter) * sizeof(unsigned int)));
       }
+      *p_id_counter = 0;
    }
    if (p_name_counter != NULL)
    {
       RT_ARRAY(*p_name, (*p_name_counter), (max_name_length + 1), char);
+      *p_name_counter = 0;
    }
 
    /* Lets store the input in the allocated area. */
@@ -1336,10 +1349,10 @@ store_name_alias_id(char *input, int dir_host_type)
             {
                ptr++;
             }
-            (*p_alias)[(*p_alias_counter) - 1][length] = *(ptr + length);
+            (*p_alias)[(*p_alias_counter)][length] = *(ptr + length);
             length++;
          } while ((*(ptr + length) != ',') && (*(ptr + length)  != '\0'));
-         (*p_alias)[(*p_alias_counter) - 1][length] = '\0';
+         (*p_alias)[(*p_alias_counter)][length] = '\0';
          (*p_alias_counter)++;
       }
       else if (type == ID_TYPE)
@@ -1359,7 +1372,7 @@ store_name_alias_id(char *input, int dir_host_type)
               {
                  tmp_ptr = NULL;
               }
-              *p_id[(*p_id_counter) - 1] = (unsigned int)strtoul(ptr, NULL, 16);
+              *p_id[(*p_id_counter)] = (unsigned int)strtoul(ptr, NULL, 16);
               if (tmp_ptr != NULL)
               {
                  *tmp_ptr = ',';
@@ -1374,10 +1387,10 @@ store_name_alias_id(char *input, int dir_host_type)
                  {
                     ptr++;
                  }
-                 (*p_name)[(*p_name_counter) - 1][length] = *(ptr + length);
+                 (*p_name)[(*p_name_counter)][length] = *(ptr + length);
                  length++;
               } while ((*(ptr + length) != ',') && (*(ptr + length)  != '\0'));
-              (*p_name)[(*p_name_counter) - 1][length] = '\0';
+              (*p_name)[(*p_name_counter)][length] = '\0';
               (*p_name_counter)++;
            }
 
@@ -1388,28 +1401,6 @@ store_name_alias_id(char *input, int dir_host_type)
          length = 0;
       }
    } while (*ptr != '\0');
-
-   if (type == ALIAS_TYPE)
-   {
-      if ((*p_alias_counter) > 1)
-      {
-         (*p_alias_counter)--;
-      }
-   }
-   else if (type == ID_TYPE)
-        {
-           if ((*p_id_counter) > 1)
-           {
-              (*p_id_counter)--;
-           }
-        }
-        else
-        {
-           if ((*p_name_counter) > 1)
-           {
-              (*p_name_counter)--;
-           }
-        }
 
    return;
 }
@@ -2032,6 +2023,7 @@ usage(char *progname)
    (void)fprintf(stderr, "              %%[Z]OZ<time char>      - job creation time\n");
    (void)fprintf(stderr, "              %%[Z]OU                 - unique number\n");
    (void)fprintf(stderr, "              %%[Z]OL                 - split job number\n");
+   (void)fprintf(stderr, "              %%[Y]OM                 - mail queue ID\n");
    (void)fprintf(stderr, "              %%[Y]Oh                 - target real hostname/IP\n");
    (void)fprintf(stderr, "              %%[Y]OH                 - target alias name\n");
    (void)fprintf(stderr, "              %%[Y]OR                 - Recipient of job\n");

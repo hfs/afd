@@ -98,6 +98,9 @@ DESCR__E_M1
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
 #include <unistd.h>                    /* unlink(), close()              */
+#ifndef HAVE_GETTEXT
+# include <locale.h>                   /* setlocale()                    */
+#endif
 #include <errno.h>
 #include "fddefs.h"
 #include "smtpdefs.h"
@@ -107,9 +110,13 @@ DESCR__E_M1
 /*       implications.                                               */
 
 /* Global variables. */
+unsigned int               special_flag = 0;
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete, /* NOT USED. */
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
@@ -187,6 +194,8 @@ static void                sf_smtp_exit(void),
                            sig_kill(int),
                            sig_exit(int);
 
+/* #define _SIMULATE_SLOW_TRANSFER 2L */
+
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
@@ -201,12 +210,15 @@ main(int argc, char *argv[])
                     loops,
                     rest,
                     mail_header_size = 0,
+                    mail_id_length,
                     blocksize,
                     *unique_counter,
                     write_size;
    off_t            no_of_bytes;
    clock_t          clktck;
-   time_t           last_update_time,
+   time_t           end_transfer_time_file,
+                    start_transfer_time_file,
+                    last_update_time,
                     now;
 #ifdef _WITH_BURST_2       
    int              cb2_ret;
@@ -225,7 +237,8 @@ main(int argc, char *argv[])
                     fullname[MAX_PATH_LENGTH],
                     file_path[MAX_PATH_LENGTH],
                     *extra_mail_header_buffer = NULL,
-                    *mail_header_buffer = NULL;
+                    *mail_header_buffer = NULL,
+                    mail_id[1 + MAX_MAIL_ID_LENGTH + 1];
    struct stat      stat_buf;
    struct job       *p_db;
 #ifdef SA_FULLDUMP
@@ -447,7 +460,8 @@ main(int argc, char *argv[])
 #else
    timeout_flag = OFF;
 #endif
-   if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
+   if ((status = smtp_connect(db.smtp_server, db.port,
+                              db.sndbuf_size)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                 "SMTP connection to <%s> at port %d failed (%d).",
@@ -458,7 +472,9 @@ main(int argc, char *argv[])
    {
       if (fsa->debug > NORMAL_MODE)
       {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Connected.");
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                      "Connected to <%s> at port %d.",
+                      db.smtp_server, db.port);
       }
    }
 
@@ -1125,13 +1141,31 @@ main(int argc, char *argv[])
          }
 
          /* Read (local) and write (remote) file */
+         mail_id_length = 0;
          no_of_bytes = 0;
          loops = *p_file_size_buffer / blocksize;
          rest = *p_file_size_buffer % blocksize;
 
          if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
          {
+            time_t current_time;
             size_t length;
+
+            /* Write Date: field to header. */
+            current_time = time(NULL);
+            (void)setlocale(LC_TIME, "C");
+            length = strftime(buffer, blocksize,
+                              "Date: %a, %d %b %Y %T %z\r\n",
+                              localtime(&current_time));
+            (void)setlocale(LC_TIME, "");
+            if (smtp_write(buffer, NULL, length) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         "Failed to write Date to SMTP-server.");
+               (void)smtp_quit();
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
+            }
+            no_of_bytes = length;
 
             if (db.from != NULL)
             {
@@ -1143,7 +1177,7 @@ main(int argc, char *argv[])
                   (void)smtp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
-               no_of_bytes = length;
+               no_of_bytes += length;
             }
 
             if (db.reply_to != NULL)
@@ -1308,7 +1342,25 @@ main(int argc, char *argv[])
             {
                if (p_db->user[0] == MAIL_GROUP_IDENTIFIER)
                {
-                  length = sprintf(buffer, "To: %s\r\n", &p_db->user[1]);
+                  if ((db.special_flag & SHOW_ALL_GROUP_MEMBERS) == 0)
+                  {
+                     length = sprintf(buffer, "To: %s\r\n", &p_db->user[1]);
+                  }
+                  else
+                  {
+                     int k;
+
+                     length = sprintf(buffer, "To: %s", db.group_list[0]);
+                     for (k = 1; k < db.no_listed; k++)
+                     {
+                        length += sprintf(buffer + length, ", %s",
+                                          db.group_list[k]);
+                     }
+                     buffer[length] = '\r';
+                     buffer[length + 1] = '\n';
+                     buffer[length + 2] = '\0';
+                     length += 2;
+                  }
                }
                else
                {
@@ -1330,7 +1382,7 @@ main(int argc, char *argv[])
                if (multipart_boundary[0] != '\0')
                {
                   length = sprintf(buffer,
-                                   "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
+                                   "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: multipart/mixed; boundary=\"%s\"\r\n",
                                    PACKAGE_VERSION, multipart_boundary);
                   buffer_ptr = buffer;
                }
@@ -1659,8 +1711,16 @@ main(int argc, char *argv[])
          {
             init_limit_transfer_rate();
          }
+         if (fsa->protocol_options & TIMEOUT_TRANSFER)
+         {
+            start_transfer_time_file = time(NULL);
+         }
+
          for (;;)
          {
+#ifdef _SIMULATE_SLOW_TRANSFER
+            (void)sleep(_SIMULATE_SLOW_TRANSFER);
+#endif
             for (j = 0; j < loops; j++)
             {
                if (read(fd, buffer, blocksize) != blocksize)
@@ -1720,6 +1780,30 @@ main(int argc, char *argv[])
                   fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
                   fsa->job_status[(int)db.job_no].file_size_done += write_size;
                   fsa->job_status[(int)db.job_no].bytes_send += write_size;
+                  if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                  {
+                     end_transfer_time_file = time(NULL);
+                     if (end_transfer_time_file < start_transfer_time_file)
+                     {
+                        start_transfer_time_file = end_transfer_time_file;
+                     }
+                     else
+                     {
+                        if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                        {
+                           trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                     "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                     "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                     fsa->job_status[(int)db.job_no].file_name_in_use,
+                                     (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                           (void)smtp_quit();
+                           exit(STILL_FILES_TO_SEND);
+                        }
+                     }
+                  }
                }
             }
             if (rest > 0)
@@ -1884,6 +1968,72 @@ main(int argc, char *argv[])
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
                                "Closing data mode.");
                }
+
+               /*
+                * Try get queue ID under which the server has queued
+                * the mail. Unfortunatly I do not know if there is some
+                * standard way, so lets first implement the one we
+                * know: 250 2.0.0 Ok: queued as 79095820F6<0D><0A>
+                        250 Ok: queued as 79095820F6<0D><0A>
+                */
+               if ((msg_str[0] == '2') && (msg_str[1] == '5') &&
+                   (msg_str[2] == '0') && (msg_str[3] == ' '))
+               {
+                  int pos_offset;
+
+                  if ((msg_str[4] == 'O') && (msg_str[5] == 'k') &&
+                      (msg_str[6] == ':') && (msg_str[7] == ' ') &&
+                      (msg_str[8] == 'q') && (msg_str[9] == 'u') &&
+                      (msg_str[10] == 'e') && (msg_str[11] == 'u') &&
+                      (msg_str[12] == 'e') && (msg_str[13] == 'd') &&
+                      (msg_str[14] == ' ') && (msg_str[15] == 'a') &&
+                      (msg_str[16] == 's') && (msg_str[17] == ' '))
+                  {
+                     pos_offset = 18;
+                  }
+                  else if ((msg_str[4] == '2') && (msg_str[5] == '.') &&
+                           (msg_str[6] == '0') && (msg_str[7] == '.') &&
+                           (msg_str[8] == '0') && (msg_str[9] == ' ') &&
+                           (msg_str[10] == 'O') && (msg_str[11] == 'k') &&
+                           (msg_str[12] == ':') && (msg_str[13] == ' ') &&
+                           (msg_str[14] == 'q') && (msg_str[15] == 'u') &&
+                           (msg_str[16] == 'e') && (msg_str[17] == 'u') &&
+                           (msg_str[18] == 'e') && (msg_str[19] == 'd') &&
+                           (msg_str[20] == ' ') && (msg_str[21] == 'a') &&
+                           (msg_str[22] == 's') && (msg_str[23] == ' '))
+                       {
+                          pos_offset = 24;
+                       }
+                       else
+                       {
+                          pos_offset = 0;
+                       }
+
+                  if (pos_offset > 0)
+                  {
+                     int pos = pos_offset;
+
+                     mail_id[0] = ' ';
+                     while ((msg_str[pos] != 13) && (msg_str[pos] != 10) &&
+                            ((pos - pos_offset) < MAX_MAIL_ID_LENGTH))
+                     {
+                        mail_id[1 + pos - pos_offset] = msg_str[pos];
+                        pos++;
+                     }
+                     mail_id[1 + pos - pos_offset] = '\0';
+                     mail_id_length = pos - pos_offset;
+                  }
+                  else
+                  {
+                     mail_id[0] = '\0';
+                     mail_id_length = 0;
+                  }
+               }
+               else
+               {
+                  mail_id[0] = '\0';
+                  mail_id_length = 0;
+               }
             }
          }
 
@@ -1981,7 +2131,16 @@ main(int argc, char *argv[])
                if (db.output_log == YES)
                {
                   (void)memcpy(ol_file_name, db.p_unique_name, db.unl);
-                  (void)strcpy(ol_file_name + db.unl, p_file_name_buffer);
+                  if (mail_id_length > 0)
+                  {
+                     (void)memcpy(ol_file_name + db.unl, mail_id, mail_id_length);
+                     *ol_unl = db.unl + mail_id_length;
+                  }
+                  else
+                  {
+                     *ol_unl = db.unl;
+                  }
+                  (void)strcpy(ol_file_name + *ol_unl, p_file_name_buffer);
                   *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                   ol_file_name[*ol_file_name_length] = SEPARATOR_CHAR;
                   ol_file_name[*ol_file_name_length + 1] = '\0';
@@ -1989,7 +2148,6 @@ main(int argc, char *argv[])
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
                   *ol_retries = db.retries;
-                  *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = 0;
                   *ol_output_type = OT_NORMAL_DELIVERED + '0';
@@ -2014,7 +2172,16 @@ main(int argc, char *argv[])
                if (db.output_log == YES)
                {
                   (void)memcpy(ol_file_name, db.p_unique_name, db.unl);
-                  (void)strcpy(ol_file_name + db.unl, p_file_name_buffer);
+                  if (mail_id_length > 0)
+                  {
+                     (void)memcpy(ol_file_name + db.unl, mail_id, mail_id_length);
+                     *ol_unl = db.unl + mail_id_length;
+                  }
+                  else
+                  {
+                     *ol_unl = db.unl;
+                  }
+                  (void)strcpy(ol_file_name + *ol_unl, p_file_name_buffer);
                   *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                   ol_file_name[*ol_file_name_length] = SEPARATOR_CHAR;
                   ol_file_name[*ol_file_name_length + 1] = '\0';
@@ -2023,7 +2190,6 @@ main(int argc, char *argv[])
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
                   *ol_retries = db.retries;
-                  *ol_unl = db.unl;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
                   *ol_output_type = OT_NORMAL_DELIVERED + '0';
@@ -2065,7 +2231,16 @@ try_again_unlink:
             if (db.output_log == YES)
             {
                (void)memcpy(ol_file_name, db.p_unique_name, db.unl);
-               (void)strcpy(ol_file_name + db.unl, p_file_name_buffer);
+               if (mail_id_length > 0)
+               {
+                  (void)memcpy(ol_file_name + db.unl, mail_id, mail_id_length);
+                  *ol_unl = db.unl + mail_id_length;
+               }
+               else
+               {
+                  *ol_unl = db.unl;
+               }
+               (void)strcpy(ol_file_name + *ol_unl, p_file_name_buffer);
                *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                ol_file_name[*ol_file_name_length] = SEPARATOR_CHAR;
                ol_file_name[*ol_file_name_length + 1] = '\0';
@@ -2073,7 +2248,6 @@ try_again_unlink:
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa->job_status[(int)db.job_no].job_id;
                *ol_retries = db.retries;
-               *ol_unl = db.unl;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = 0;
                *ol_output_type = OT_NORMAL_DELIVERED + '0';

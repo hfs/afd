@@ -93,6 +93,7 @@ format_info(char **text)
 {
    int buffer_length = 8192,
        count,
+       i = 0,
        length;
 
    if ((*text = malloc(buffer_length)) == NULL)
@@ -104,7 +105,21 @@ format_info(char **text)
    max_x = sprintf(*text, "DIR_CONFIG : %s\n", id.dir_config_file);
    length = max_x;
    max_y = 1;
-   count = sprintf(*text + length, "Local name : %s\n", id.local_file_name);
+   count = sprintf(*text + length, "Local name : ");
+   while (id.local_file_name[i] != '\0')
+   {
+      if (id.local_file_name[i] < ' ')
+      {
+         *(*text + length + count) = '?';
+      }
+      else
+      {
+         *(*text + length + count) = id.local_file_name[i];
+      }
+      i++; count++;
+   }
+   *(*text + length + count) = '\n';
+   count++;
    length += count;
    if (count > max_x)
    {
@@ -113,7 +128,22 @@ format_info(char **text)
    max_y++;
    if (id.remote_file_name[0] != '\0')
    {
-      count = sprintf(*text + length, "Remote name: %s\n", id.remote_file_name);
+      count = sprintf(*text + length, "Remote name: ");
+      i = 0;
+      while (id.remote_file_name[i] != '\0')
+      {
+         if (id.remote_file_name[i] < ' ')
+         {
+            *(*text + length + count) = '?';
+         }
+         else
+         {
+            *(*text + length + count) = id.remote_file_name[i];
+         }
+         i++; count++;
+      }
+      *(*text + length + count) = '\n';
+      count++;
       length += count;
       if (count > max_x)
       {
@@ -361,6 +391,17 @@ format_info(char **text)
       max_x = count;
    }
    max_y++;
+
+   if (id.mail_id[0] != '\0')
+   {
+      count = sprintf(*text + length, "\nMailqueueno: %s", id.mail_id);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+   }
 
    /* Show archive directory if it is available. */
    if (id.archive_dir[0] != '\0')

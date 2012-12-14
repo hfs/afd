@@ -77,10 +77,11 @@ extern struct filetransfer_status *fsa;
 void
 trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
 {
-   char      *ptr = fsa[fsa_pos].host_alias;
+   int       tmp_errno = errno;
    size_t    length = HOSTNAME_OFFSET;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1],
+             *ptr = fsa[fsa_pos].host_alias;
    va_list   ap;
    struct tm *p_ts;
 
@@ -103,7 +104,7 @@ trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
    buf[14] = sign[2];
    buf[15] = ' ';
 
-   while (*ptr != '\0')
+   while ((*ptr != '\0') && (length < (MAX_LINE_LENGTH + MAX_LINE_LENGTH)))
    {
       buf[length] = *ptr;
       ptr++; length++;
@@ -121,7 +122,12 @@ trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
    length += 5;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length],
+                       (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if (timeout_flag == ON)
@@ -138,9 +144,16 @@ trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
          {
             length--;
          }
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length],
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            " due to timeout (%lds). (%s %d)\n",
+                            fsa[fsa_pos].transfer_timeout, file, line);
+#else
          length += sprintf(&buf[length],
                            " due to timeout (%lds). (%s %d)\n",
                            fsa[fsa_pos].transfer_timeout, file, line);
+#endif
       }
    }
    else
@@ -152,11 +165,21 @@ trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
       }
       else
       {
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length],
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            " (%s %d)\n", file, line);
+#else
          length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
       }
    }
 
-   (void)write(transfer_log_fd, buf, length);
+   if (write(transfer_log_fd, buf, length) != length)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "write() error : %s", strerror(errno));
+   }
 
    if (fsa[fsa_pos].debug > NORMAL_MODE)
    {
@@ -206,6 +229,7 @@ trans_log(char *sign, char *file, int line, int job_pos, char *fmt, ...)
          }
       }
    }
+   errno = tmp_errno;
 
    return;
 }

@@ -573,6 +573,12 @@ print_alda_data(void)
                         ptr++;
                         break;
 
+                     case 'M' : /* Mail Queue ID. */
+                        i += pri_string(right_side, max_length, olog.mail_id,
+                                        olog.mail_id_length, i);
+                        ptr++;
+                        break;
+
                      case 'E' : /* Final output file name/directory. */
                         if (olog.remote_name[0] == '\0')
                         {

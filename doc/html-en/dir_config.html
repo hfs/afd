@@ -587,9 +587,9 @@ follow some more additional options that one can insert into the file filter:
 </tr>
 </table>
 <p>
-The buffer for storing the file names of this section is allocated as
-needed, so there is no restriction. The number of file groups is also
-unlimited.
+The number file mask entries is unlimited, however the maximum length
+of a single entry should not exceed 256 (FILE_MASK_STEP_SIZE) characters.
+There is also no limit to the numner of file groups.
 </p>
 <h3 align=center><u><a name="destination">The destination entry [destination]</a></u></h3>
 <p>
@@ -712,10 +712,10 @@ The type= option has the following meaning:
 </tr>
 </table>
 <p>
-Another useful feature for the mailto scheme is the possibility to
-group several mail addresses into one group. Under recipient it is then
-only necessary to specify one group name and not each recipient each
-on a separate line. This can be done as follows:
+<a name="group_list">Another useful feature</a> for the mailto scheme is
+the possibility to group several mail addresses into one group. Under
+recipient it is then only necessary to specify one group name and not
+each recipient each on a separate line. This can be done as follows:
 </p>
 <pre>
          [recipient]
@@ -848,7 +848,7 @@ each may not be longer then 256 (MAX_RECIPIENT_LENGTH) characters.
 <h3 align=center><u><a name="options">The options entry [options]</a></u></h3>
 <p>
 For each destination section you may specify one options section and
-may contain up to 10 (MAX_NO_OPTIONS) options each 256
+may contain up to 15 (MAX_NO_OPTIONS) options each 256
 (MAX_OPTION_LENGTH) characters long. All options specified
 here count for all recipients that are specified in the recipient
 section. Valid options can be taken from the following table:
@@ -1029,6 +1029,18 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
 </tr>
 <tr>
    <td><a name="toupper">toupper</a></td>
@@ -1237,6 +1249,18 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
+</tr>
+<tr>
    <td><a name="tiff2gts">tiff2gts</a></td>
    <td>Converts T4-coded TIFF files to T4-files having a GTS header and end.</td>
    <td align=center>X</td>
@@ -1391,6 +1415,11 @@ section. Valid options can be taken from the following table:
 	     This is the current WMO standard.</td>
       </tr>
       <tr>
+         <td><b>WMO+DUMMY</b></td>
+         <td>Same as WMO above but with a dummy length indicator at
+             end of file.</td>
+      </tr>
+      <tr>
          <td><b>ASCII</b></td>
          <td>No length indicator. The data of the next file is always
              appended, no matter if it contains binary or ascii data.</td>
@@ -1429,6 +1458,18 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
 </tr>
 <tr>
    <td><a name="convert">convert &lt;type&gt;</a></td>
@@ -1619,6 +1660,18 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
+</tr>
+<tr>
    <td><a name="exec">exec [-d|-D|-l|-L|-s|-t] &lt;command&gt;</a></td>
    <td>Executes a command specified in &lt;command&gt; for each file to be
        distributed. The file name can be supplied with %s. There may be up
@@ -1786,6 +1839,18 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
+</tr>
+<tr>
    <td><a name="archive">archive x[d|h|m|s]</a></td>
    <td>Tells the AFD to archive files to this user for x days if no
        unit [d|h|m|s] is specified. The meaning of the units is as
@@ -1946,6 +2011,32 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <td><a name="show_all_group_members">show all group members</a></td>
+   <td>When using <a href="#group_list">groups</a> the name of each member
+       is not shown in the To: line. It will just show the group name. When
+       this option is set it will show all group names.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
+</tr>
+<tr>
    <td><a name="subject_file">subject &lt;full path to subject file&gt; [rename rule]</a></td>
    <td>Adds the subject in the &lt;subject file&gt; to the mail. It
        is possible to insert the current date or filename, for more details
@@ -2078,6 +2169,18 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <th width="30%">Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>sftp</th>
+   <th>scp</th>
+   <th>exec</th>
+</tr>
+<tr>
    <td><a name="file_name_is_header">file name is header</a></td>
    <td>The file name is send as WMO header. This can only be used when
        sending files via TCP according to WMO regulations. The file
@@ -2089,7 +2192,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
-   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="sequence_numbering">sequence numbering</a></td>
@@ -2555,7 +2658,7 @@ to 30 minutes, it needs to be done as follows:
    <td width="90%"><address><small>
    Copyright &copy; 1997 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 04.06.2012
+   Last updated: 08.11.2012
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

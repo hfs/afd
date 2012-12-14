@@ -30,4 +30,4 @@
 # |            |       |  |  |  |    |   +-----------> Remote cmd
 # |            |       |  |  |  |    |   |    +------> Convert user name
 # |            |       |  |  |  |    |   |    |
-Central-AFD ducktown 4444 5 30 600 1024 rsh donald->daisy
+Central-AFD ducktown 4444 5 30 600 1024 ssh donald->daisy

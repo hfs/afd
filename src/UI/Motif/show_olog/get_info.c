@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,6 +48,7 @@ DESCR__S_M3
  **   16.04.1997 H.Kiehl Created
  **   14.01.1998 H.Kiehl Support for remote file name.
  **   31.12.2003 H.Kiehl Read file masks from separate file.
+ **   05.11.2012 H.Kiehl Handle mail ID's.
  **
  */
 DESCR__E_M3
@@ -572,11 +573,27 @@ get_all(int item)
       }
       ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + type_offset + 2];
       i = 0;
-      while (*ptr != SEPARATOR_CHAR)
+      while ((*ptr != SEPARATOR_CHAR) && (i < MAX_FILENAME_LENGTH))
       {
          id.local_file_name[i] = *ptr;
          i++; ptr++;
       }
+      if (i == MAX_FILENAME_LENGTH)
+      {
+         id.local_file_name[i - 2] = ' ';
+         id.local_file_name[i - 1] = '\0';
+         id.remote_file_name[0] = ' ';
+         id.remote_file_name[1] = '\0';
+         id.file_size[0] = '0';
+         id.file_size[1] = '\0';
+         id.trans_time[0] = '\0';
+         id.unique_name[0] = '\0';
+         id.mail_id[0] = '\0';
+         id.archive_dir[0] = '\0';
+
+         return(0U);
+      }
+
       id.local_file_name[i] = '\0';
       ptr++;
 
@@ -584,10 +601,23 @@ get_all(int item)
       i = 0;
       if (*ptr != SEPARATOR_CHAR)
       {
-         while (*ptr != SEPARATOR_CHAR)
+         while ((*ptr != SEPARATOR_CHAR) && (i < MAX_FILENAME_LENGTH))
          {
             id.remote_file_name[i] = *ptr;
             i++; ptr++;
+         }
+         if (i == MAX_FILENAME_LENGTH)
+         {
+            id.remote_file_name[i - 2] = ' ';
+            id.remote_file_name[i - 1] = '\0';
+            id.file_size[0] = '0';
+            id.file_size[1] = '\0';
+            id.trans_time[0] = '\0';
+            id.unique_name[0] = '\0';
+            id.mail_id[0] = '\0';
+            id.archive_dir[0] = '\0';
+
+            return(0U);
          }
       }
       ptr++;
@@ -665,12 +695,44 @@ get_all(int item)
 
          /* Away with unique string. */
          i = 0;
-         while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+         while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (*ptr != ' ') &&
+                (i < MAX_ADD_FNL))
          {
             id.unique_name[i] = *ptr;
             i++; ptr++;
          }
          id.unique_name[i] = '\0';
+         if (i == MAX_ADD_FNL)
+         {
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (*ptr != ' '))
+            {
+               ptr++;
+            }
+         }
+         if (*ptr == ' ')
+         {
+            ptr++;
+            i = 0;
+
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) &&
+                   (i < MAX_MAIL_ID_LENGTH))
+            {
+               id.mail_id[i] = *ptr;
+               i++; ptr++;
+            }
+            id.mail_id[i] = '\0';
+            if (i == MAX_MAIL_ID_LENGTH)
+            {
+               while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+               {
+                  ptr++;
+               }
+            }
+         }
+         else
+         {
+            id.mail_id[0] = '\0';
+         }
 
          if (*ptr == SEPARATOR_CHAR)
          {

@@ -301,6 +301,26 @@ host. See below for a description of each entry.
           <td>Sort the files by their names before they are going to
               be transmitted.</td>
        </tr>
+       <tr>
+          <td align=center>16</td>
+          <td align=center>32768</td>
+          <td>When set, the priority does not decrease when it fails to
+              transmitt the file.</td>
+       </tr>
+       <tr>
+          <td align=center>17</td>
+          <td align=center>65536</td>
+          <td>If set this will check the size on the remote host matches
+              the size on the local host.</td>
+       </tr>
+       <tr>
+          <td align=center>18</td>
+          <td align=center>131072</td>
+          <td>This will timeout the tansfer of a single file.
+              If the tranmission takes more then the number of seconds
+              specified by "Transfer Timeout" above and will count this
+              as a failure.</td>
+       </tr>
        </table>
        The default is zero.</td>
 </tr>
@@ -343,6 +363,7 @@ host. See below for a description of each entry.
       4 (8)          - Checksum of filename without last suffix.
       5 (16)         - Checksum of filename and size.
       16(32768)      - Do a CRC32 checksum.
+      17(65536)      - Do a CRC32c checksum.
       24(8388608)    - Delete the file.
       25(16777216)   - Store the duplicate file.
       26(33554432)   - Warn in SYSTEM_LOG.
@@ -351,9 +372,8 @@ host. See below for a description of each entry.
 </tr>
 <tr>
    <th valign=top><a name="keep_connected">Keep connected</a></th>
-   <td>Keep connection for the given number of seconds after all files
-       have been transmitted or a directory listing. Note this has
-       only been implemented for retrieving.</td>
+   <td>The number of seconds that the connection should be kept
+       open for retrieving and/or sending files.</td>
 </tr>
 <tr>
    <th valign=top><a name="warn_time">Warn time</a></th>
@@ -369,9 +389,9 @@ host. See below for a description of each entry.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1997 - 2009 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 15.10.2009
+   Last updated: 27.11.2012
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

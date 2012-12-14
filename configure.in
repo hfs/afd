@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.59])
-AC_INIT([afd], [1.4.4-6], [Holger.Kiehl@dwd.de])
+AC_INIT([afd], [1.4.5-3], [Holger.Kiehl@dwd.de])
 AC_CONFIG_SRCDIR(src/init_afd/afd.c)
 AC_CONFIG_AUX_DIR(ac-tools)
 dnl# AC_PREFIX_DEFAULT("/usr/local/afd")
@@ -11,6 +11,7 @@ AC_GNU_SOURCE
 
 REQUIRES=""
 BUILD_REQUIRES=""
+BUILD_REQUIRES_REDHAT=""
 
 AC_TRY_COMPILE(,[long long i;],
                AC_DEFINE(HAVE_LONG_LONG, 1, [Define if C compiler supports long long type.]))
@@ -60,16 +61,26 @@ AC_ARG_ENABLE(production_log,
 
 AC_ARG_ENABLE(alda_cache_positioning,
    [  --disable-alda_cache_positioning disable ALDA cache positioning support],
-   [AM_CONDITIONAL(WITH_ALDA_CACHE_POSITIONING, false)
-    ac_cv_alda_cache=""],
    [AC_DEFINE([WITH_LOG_CACHE], [], [With ALDA cache positioning support])
     ac_cv_alda_cache="ALDA-Cache "
-    AM_CONDITIONAL(WITH_ALDA_CACHE_POSITIONING, true)])
+    AM_CONDITIONAL(WITH_ALDA_CACHE_POSITIONING, true)],
+   [AM_CONDITIONAL(WITH_ALDA_CACHE_POSITIONING, false)
+    ac_cv_alda_cache=""])
 
 AC_ARG_ENABLE(ncurses_ui,
    [  --disable-ncurses_ui            disable nCurses support],
    [ac_cv_ncurses_ui="no"],
    [ac_cv_ncurses_ui="yes "])
+
+AC_ARG_ENABLE(sse42,
+   [  --disable-sse42                 disable SSE4.2 optimizations],
+   [ac_cv_allow_sse42="no"],
+   [ac_cv_allow_sse42="yes"])
+
+AC_ARG_ENABLE(new_motif_name,
+   [  --disable-new_motif_name        when motif is required sets package name to openmotif],
+   [ac_cv_new_motif_name="openmotif"],
+   [ac_cv_new_motif_name="motif"])
 
 AC_ARG_ENABLE(error_queue,
    [  --disable-error_queue           disable error_queue support],
@@ -516,7 +527,7 @@ AC_ARG_WITH(sysconfigdir,
    [ if test x"$withval" = xprefix; then SYSCONFIGDIR=${prefix}; else
          SYSCONFIGDIR="$withval"; fi ])
 AC_SUBST(SYSCONFIGDIR)
-cleaned_configure_args=""  
+cleaned_configure_args=""
 for j in ${ac_configure_args}
 do
    case $j in
@@ -630,19 +641,9 @@ in
              fi ;;
    linux*)   if test "${compile_64_bit}" = "true"
              then
-                if test "${use_fortify}" = "true"
-                then
-                   OS_FLAG="-m64 -DLINUX -D_FORTIFY_SOURCE=2"
-                else
-                   OS_FLAG="-m64 -DLINUX"
-                fi
+                OS_FLAG="-m64 -DLINUX"
              else
-                if test "${use_fortify}" = "true"
-                then
-                   OS_FLAG="-DLINUX -D_FORTIFY_SOURCE=2"
-                else
-                   OS_FLAG="-DLINUX"
-                fi
+                OS_FLAG="-DLINUX"
              fi
              ;;
    netbsd*)  OS_FLAG="" ;;
@@ -692,8 +693,9 @@ if test "${compiler_security}" = "true"
 then
    if test "x${GCC}" = "xyes"
    then
-      AX_CHECK_COMPILER_FLAGS("-D_FORTIFY_SOURCE=2", [SECURITY_FLAG="-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG=""])
+      AX_CHECK_COMPILER_FLAGS("-fstack-protector", [SECURITY_FLAG="${SECURITY_FLAG} -fstack-protector"], [SECURITY_FLAG="${SECURITY_FLAG}"])
       AX_CHECK_COMPILER_FLAGS("-pie", [SECURITY_FLAG="${SECURITY_FLAG} -pie"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+      AX_CHECK_COMPILER_FLAGS("-fPIC", [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
    fi
 fi
 
@@ -714,6 +716,18 @@ then
    fi
 else
    DEBUG_FLAG=""
+   if test "x${GCC}" = "xyes"
+   then
+      if test "${use_fortify}" = "true"
+      then
+         AX_CHECK_COMPILER_FLAGS("-D_FORTIFY_SOURCE=2", [SECURITY_FLAG="-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG=""])
+      fi
+   fi
+fi
+
+if test "x${GCC}" = "xyes"
+then
+   AX_CHECK_COMPILER_FLAGS("-fPIC", [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
 fi
 
 if test "${compiler_optimizations}" = "true" || test "${compiler_debug}" = "true"
@@ -730,9 +744,61 @@ if test "${compiler_profiling}" = "true"
 then
    CFLAGS="$CFLAGS -pg"
 fi
+
+dnl Test if we can compile in support for CPU CRC calculation
+if test "$ac_cv_allow_sse42" = "yes"
+then
+   if test "x${GCC}" = "xyes"
+   then
+      AX_CHECK_COMPILER_FLAGS("-msse4.2",
+                              [CRCFLAGS="-msse4.2"],
+                              [CRCFLAGS=""])
+      if test "x$CRCFLAGS" != "x"
+      then
+         SAVE_CFLAGS="$CFLAGS"
+         CFLAGS="$CFLAGS $CRCFLAGS"
+
+         AC_MSG_CHECKING([whether the compiler has the __get_cpuid intrinsic])
+         AC_TRY_COMPILE([#include <cpuid.h>],
+                        [unsigned int eax, ebx, ecx, edx;
+                         __get_cpuid(1, &eax, &ebx, &ecx, &edx); return 0;],
+                         HAVE_GET_CPUID=yes, HAVE_GET_CPUID=no)
+         if test "x$HAVE_GET_CPUID" = "xyes"
+         then
+            AC_MSG_RESULT(yes)
+
+            AC_MSG_CHECKING([whether the compiler has the CRC32 intrinsic])
+            AC_TRY_COMPILE([#include <stdint.h>],
+                           [unsigned int crc;
+                            char *mem;
+                            crc = __builtin_ia32_crc32si(crc, *(uint32_t *)mem);
+                            crc = __builtin_ia32_crc32qi(crc, *mem++);
+                            crc = __builtin_ia32_crc32hi(crc, *(uint16_t *)mem);
+                            return 0;],
+                            HAVE_CPU_CRC32=yes, HAVE_CPU_CRC32=no)
+            if test "x$HAVE_CPU_CRC32" = "xyes"
+            then
+               AC_MSG_RESULT(yes)
+               AC_DEFINE(HAVE_HW_CRC32, 1, [Adding support for SSE4.2 (CRC32) instructions])
+            else
+               AC_MSG_RESULT(no)
+               CFLAGS="$SAVE_CFLAGS"
+            fi
+         else
+            AC_MSG_RESULT(no)
+            CFLAGS="$SAVE_CFLAGS"
+         fi
+      fi
+   fi
+fi
+
 if test "${compiler_warn}" = "true"
 then
    VL_PROG_CC_WARNINGS
+   if test "x${GCC}" = "xyes"
+   then
+      CFLAGS="$CFLAGS -Wno-format-y2k"
+   fi
 fi
 
 dnl Some programs with suid
@@ -953,16 +1019,17 @@ then
    GUIS_STRING="Motif"
    if test "$REQUIRES" = ""
    then
-      REQUIRES="openmotif"
+      REQUIRES="$ac_cv_new_motif_name"
    else
-      REQUIRES="`echo $REQUIRES`, openmotif"
+      REQUIRES="`echo $REQUIRES`, $ac_cv_new_motif_name"
    fi
    if test "$BUILD_REQUIRES" = ""
    then
-      BUILD_REQUIRES="openmotif-devel"
+      BUILD_REQUIRES="${ac_cv_new_motif_name}-devel"
    else
-      BUILD_REQUIRES="`echo $BUILD_REQUIRES`, openmotif-devel"
+      BUILD_REQUIRES="`echo $BUILD_REQUIRES`, ${ac_cv_new_motif_name}-devel"
    fi
+   BUILD_REQUIRES_REDHAT="libXpm-devel, libXaw-devel"
    AC_SUBST(AFD_MOTIF_INCLUDES)
    AC_SUBST(AFD_MOTIF_LIBS)
    AC_SUBST(AFD_XAW_INCLUDES)
@@ -975,6 +1042,13 @@ else
    AC_MSG_RESULT(no)
 fi
 AM_CONDITIONAL(HAVE_MOTIF, $compile_with_motif)
+
+if test "$BUILD_REQUIRES_REDHAT" = ""
+then
+   BUILD_REQUIRES_REDHAT="`echo $BUILD_REQUIRES`"
+else
+   BUILD_REQUIRES_REDHAT="`echo $BUILD_REQUIRES`, `echo $BUILD_REQUIRES_REDHAT`"
+fi
 
 AC_MSG_CHECKING(whether Gtk+ support is requested)
 if test "x$afd_gui" = "xgtk"
@@ -1065,9 +1139,9 @@ AC_SUBST(AFD_RELEASE)
 AC_SUBST(ac_configure_args)
 AC_SUBST(REQUIRES)
 AC_SUBST(BUILD_REQUIRES)
+AC_SUBST(BUILD_REQUIRES_REDHAT)
 
 
-AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h unistd.h errno.h \
@@ -1178,9 +1252,10 @@ AC_CHECK_FUNC([mmap],
               [AM_CONDITIONAL(WITHOUT_MMAP, false)
                AC_DEFINE([HAVE_MMAP], [], [With mmap support])],
               [AM_CONDITIONAL(WITHOUT_MMAP, true)])
-AC_CHECK_FUNCS(fdatasync getline gethostname memcpy mkdir mkfifo mktime rmdir\
-               select setpriority seteuid setreuid snprintf socket strerror\
-               strtod strtol strtoll strtoul strtoull unsetenv vsnprintf)
+AC_CHECK_FUNCS(fdatasync gai_strerror getline getaddrinfo gethostname memcpy\
+               mkdir mkfifo mktime rmdir select setpriority seteuid setreuid\
+               snprintf socket strerror strtod strtol strtoll strtoul strtoull\
+               unsetenv vsnprintf)
 
 AM_GNU_GETTEXT([external])
 if test "x$LIBINTL" != "x"

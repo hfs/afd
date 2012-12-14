@@ -1,6 +1,6 @@
 /*
  *  asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,6 +79,7 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables. */
+unsigned int         special_flag = 0;
 int                  line_length = 0,  /* encode_base64()                */
                      *no_of_listed_files,
                      sys_log_fd = STDERR_FILENO,
@@ -177,7 +178,8 @@ main(int argc, char *argv[])
    sigpipe_flag = timeout_flag = OFF;
 
    /* Connect to remote SMTP-server. */
-   if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
+   if ((status = smtp_connect(db.smtp_server, db.port,
+                              db.sndbuf_size)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                 _("SMTP connection to <%s> at port %d failed (%d)."),

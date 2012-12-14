@@ -114,7 +114,7 @@ main(int argc, char *argv[])
    }
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, stdout) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");
@@ -382,16 +382,6 @@ main(int argc, char *argv[])
             {
                (void)fprintf(stdout, "DIR_DISABLED ");
             }
-#ifdef WITH_INOTIFY
-            if (fra[i].dir_flag & INOTIFY_RENAME)
-            {
-               (void)fprintf(stdout, "INOTIFY_RENAME ");
-            }
-            if (fra[i].dir_flag & INOTIFY_CLOSE)
-            {
-               (void)fprintf(stdout, "INOTIFY_CLOSE ");
-            }
-#endif
             if (fra[i].dir_flag & ACCEPT_DOT_FILES)
             {
                (void)fprintf(stdout, "ACCEPT_DOT_FILES ");
@@ -404,13 +394,47 @@ main(int argc, char *argv[])
             {
                (void)fprintf(stdout, "DIR_ERROR_SET ");
             }
-            if (fra[i].dir_flag & CREATE_R_SRC_DIR)
-            {
-               (void)fprintf(stdout, "CREATE_R_SRC_DIR ");
-            }
             if (fra[i].dir_flag & WARN_TIME_REACHED)
             {
                (void)fprintf(stdout, "WARN_TIME_REACHED");
+            }
+            if (fra[i].dir_flag & DIR_ERROR_ACKN)
+            {
+               (void)fprintf(stdout, "DIR_ERROR_ACKN");
+            }
+            if (fra[i].dir_flag & DIR_ERROR_OFFLINE)
+            {
+               (void)fprintf(stdout, "DIR_ERROR_OFFLINE");
+            }
+            if (fra[i].dir_flag & DIR_ERROR_ACKN_T)
+            {
+               (void)fprintf(stdout, "DIR_ERROR_ACKN_T");
+            }
+            if (fra[i].dir_flag & DIR_ERROR_OFFL_T)
+            {
+               (void)fprintf(stdout, "DIR_ERROR_OFFL_T");
+            }
+            if (fra[i].dir_flag & DIR_STOPPED)
+            {
+               (void)fprintf(stdout, "DIR_STOPPED");
+            }
+#ifdef WITH_INOTIFY
+            if (fra[i].dir_flag & INOTIFY_RENAME)
+            {
+               (void)fprintf(stdout, "INOTIFY_RENAME ");
+            }
+            if (fra[i].dir_flag & INOTIFY_CLOSE)
+            {
+               (void)fprintf(stdout, "INOTIFY_CLOSE ");
+            }
+#endif
+            if (fra[i].dir_flag & ALL_DISABLED)
+            {
+               (void)fprintf(stdout, "ALL_DISABLED");
+            }
+            if (fra[i].dir_flag & CREATE_R_SRC_DIR)
+            {
+               (void)fprintf(stdout, "CREATE_R_SRC_DIR ");
             }
             (void)fprintf(stdout, "\n");
          }
@@ -507,14 +531,30 @@ main(int argc, char *argv[])
                  {
                     (void)fprintf(stdout, "UNKNOWN_TYPE ");
                  }
+            if (fra[i].dup_check_flag & DC_DELETE)
+            {
+               (void)fprintf(stdout, "DELETE ");
+            }
+            else if (fra[i].dup_check_flag & DC_STORE)
+                 {
+                    (void)fprintf(stdout, "STORE ");
+                 }
+            else if (fra[i].dup_check_flag & DC_WARN)
+                 {
+                    (void)fprintf(stdout, "WARN ");
+                 }
             if (fra[i].dup_check_flag & DC_CRC32)
             {
                (void)fprintf(stdout, "CRC32");
             }
-            else
-            {
-               (void)fprintf(stdout, "UNKNOWN_CRC");
-            }
+            else if (fra[i].dup_check_flag & DC_CRC32C)
+                 {
+                    (void)fprintf(stdout, "CRC32C");
+                 }
+                 else
+                 {
+                    (void)fprintf(stdout, "UNKNOWN_CRC");
+                 }
             (void)fprintf(stdout, "\n");
          }
 #endif

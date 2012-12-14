@@ -1151,7 +1151,8 @@ init_show_dlog(int *argc, char *argv[])
                     (1 << (RENAME_OVERWRITE + 1)) |
                     (1 << (RECIPIENT_REJECTED + 1)) |
                     (1 << (MIRROR_REMOVE + 1)) |
-                    (1 << (MKDIR_QUEUE_ERROR + 1))) + 1;
+                    (1 << (MKDIR_QUEUE_ERROR + 1)) |
+                    (1 << (INTERNAL_LINK_FAILED + 1))) + 1;
 
    /* Get the maximum number of logfiles we keep for history. */
    get_max_log_values(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,

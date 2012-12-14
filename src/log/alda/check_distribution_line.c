@@ -716,6 +716,10 @@ check_distribution_line(char         *line,
    }
    else
    {
+# ifndef HAVE_GETLINE
+      register int i = 0;
+# endif
+
       if ((prev_file_name == NULL) && (mode & ALDA_FORWARD_MODE) &&
           (start_time_end != 0) && (ulog.distribution_time > start_time_end))
       {

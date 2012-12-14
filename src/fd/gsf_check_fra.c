@@ -1,6 +1,6 @@
 /*
  *  gsf_check_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,70 +79,82 @@ gsf_check_fra(void)
    }
    else
    {
-      if ((fra != NULL) && (no_of_dirs < 0))
+      if (fra != NULL)
       {
-         unsigned char prev_no_of_time_entries;
+         char *ptr;
 
-         prev_no_of_time_entries = fra[db.fra_pos].no_of_time_entries;
+         ptr = (char *)fra;
+         ptr -= AFD_WORD_OFFSET;
 
-         /* Detach from FRA. */
-#ifdef HAVE_MMAP
-         if (munmap(((char *)fra - AFD_WORD_OFFSET), fra_size) != -1)
-#else
-         if (munmap_emu((void *)((char *)fra - AFD_WORD_OFFSET)) != -1)
-#endif
+         if (*(int *)ptr == STALE)
          {
-            fra = NULL;
-            if (fra_attach() == SUCCESS)
+            unsigned char prev_no_of_time_entries;
+
+            prev_no_of_time_entries = fra[db.fra_pos].no_of_time_entries;
+
+            /* Detach from FRA. */
+#ifdef HAVE_MMAP
+            if (munmap(((char *)fra - AFD_WORD_OFFSET), fra_size) != -1)
+#else
+            if (munmap_emu((void *)((char *)fra - AFD_WORD_OFFSET)) != -1)
+#endif
             {
-               db.fra_pos = get_dir_position(fra, db.dir_alias, no_of_dirs);
-               if (db.fra_pos != INCORRECT)
+               fra = NULL;
+               if (fra_attach() == SUCCESS)
                {
-                  if (fra[db.fra_pos].no_of_time_entries == 0)
+                  db.fra_pos = get_dir_position(fra, db.dir_alias, no_of_dirs);
+                  if (db.fra_pos != INCORRECT)
                   {
-                     if (prev_no_of_time_entries > 0)
+                     if (fra[db.fra_pos].no_of_time_entries == 0)
                      {
-                        if ((db.te = malloc(sizeof(struct bd_time_entry))) == NULL)
+                        if (prev_no_of_time_entries > 0)
                         {
-                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Could not malloc() memory : %s",
-                                      strerror(errno));
-                           exit(ALLOC_ERROR);
-                        }
-                        if (eval_time_str("* * * * *", &db.te[0]) != SUCCESS)
-                        {
-                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                      "Failed to evaluate time string.");
-                           exit(INCORRECT);
+                           if ((db.te = malloc(sizeof(struct bd_time_entry))) == NULL)
+                           {
+                              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                         "Could not malloc() memory : %s",
+                                         strerror(errno));
+                              exit(ALLOC_ERROR);
+                           }
+                           if (eval_time_str("* * * * *", &db.te[0]) != SUCCESS)
+                           {
+                              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                         "Failed to evaluate time string.");
+                              exit(INCORRECT);
+                           }
                         }
                      }
+                     else
+                     {
+                        if (prev_no_of_time_entries == 0)
+                        {
+                           free(db.te);
+                        }
+                        db.te = &fra[db.fra_pos].te[0];
+                     }
+                     ret = YES;
                   }
                   else
                   {
-                     if (prev_no_of_time_entries == 0)
-                     {
-                        free(db.te);
-                     }
-                     db.te = &fra[db.fra_pos].te[0];
+                     ret = NEITHER;
                   }
-                  ret = YES;
                }
                else
                {
+                  db.fra_pos = INCORRECT;
                   ret = NEITHER;
                }
             }
             else
             {
-               db.fra_pos = INCORRECT;
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to unmap from FRA : %s", strerror(errno));
                ret = NEITHER;
             }
          }
          else
          {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to unmap from FRA : %s", strerror(errno));
-            ret = NEITHER;
+            ret = NO;
          }
       }
       else

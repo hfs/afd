@@ -28,7 +28,7 @@ EOF
       dnl GCC
       if test "$GCC" = "yes"; then
         if test -z "$ansi"; then
-          vl_cv_prog_cc_warnings="-fno-common -Wall -Wpointer-arith -Wstrict-prototypes -Wformat -Wno-format-extra-args -Wformat-security -Wformat-nonliteral -Wformat=2"
+          vl_cv_prog_cc_warnings="-fno-common -Wall -Wpointer-arith -Wstrict-prototypes -Wformat -Wformat-security"
         else
           vl_cv_prog_cc_warnings="-fno-common -Wall -ansi -pedantic -Wpointer-arith -Wstrict-prototypes"
         fi

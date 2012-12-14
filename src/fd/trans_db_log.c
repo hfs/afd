@@ -1,6 +1,6 @@
 /*
  *  trans_db_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006  Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2012  Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,11 +73,11 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
 {
    register int i = 0;
    int          tmp_errno = errno;
-   char         *ptr;
    size_t       header_length,
                 length;
    time_t       tvalue;
-   char         buf[MAX_LINE_LENGTH + 1];
+   char         buf[MAX_LINE_LENGTH + 1],
+                *ptr;
    va_list      ap;
    struct tm    *p_ts;
 

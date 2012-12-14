@@ -300,6 +300,10 @@ eval_host_config(int              *hosts_found,
       while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
              (i < MAX_REAL_HOSTNAME_LENGTH))
       {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
          (*hl)[host_counter].real_hostname[0][i] = *ptr;
          ptr++; i++;
       }
@@ -315,6 +319,10 @@ eval_host_config(int              *hosts_found,
          }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
+            if (*ptr == '\\')
+            {
+               ptr++;
+            }
             ptr++;
          }
          (*hl)[host_counter].real_hostname[0][i - 1] = '\0';
@@ -371,6 +379,10 @@ eval_host_config(int              *hosts_found,
       while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
              (i < MAX_REAL_HOSTNAME_LENGTH))
       {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
          (*hl)[host_counter].real_hostname[1][i] = *ptr;
          ptr++; i++;
       }
@@ -386,6 +398,10 @@ eval_host_config(int              *hosts_found,
          }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
+            if (*ptr == '\\')
+            {
+               ptr++;
+            }
             ptr++;
          }
          (*hl)[host_counter].real_hostname[1][i - 1] = '\0';
@@ -1721,7 +1737,8 @@ eval_host_config(int              *hosts_found,
        * have different values. So we must do this check here.
        */
       if (((*hl)[host_counter].protocol_options != 0) &&
-          (((*hl)[host_counter].protocol_options > (CHECK_SIZE |
+          (((*hl)[host_counter].protocol_options > (TIMEOUT_TRANSFER |
+                                                    CHECK_SIZE |
                                                     NO_AGEING_JOBS |
                                                     SORT_FILE_NAMES |
                                                     KEEP_TIME_STAMP |
@@ -1749,7 +1766,8 @@ eval_host_config(int              *hosts_found,
                     _("Unknown protocol option <%d> for host %s, largest value is %d and smallest %d."),
                     (*hl)[host_counter].protocol_options,
                     (*hl)[host_counter].host_alias,
-                    (CHECK_SIZE |
+                    (TIMEOUT_TRANSFER |
+                     CHECK_SIZE |
                      NO_AGEING_JOBS |
                      SORT_FILE_NAMES |
                      KEEP_TIME_STAMP |

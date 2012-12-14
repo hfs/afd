@@ -85,6 +85,7 @@ DESCR__S_M1
  **   14.09.2008 H.Kiehl Increase transfer block size up to 8 MiB.
  **   07.04.2009 H.Kiehl Added warn time.
  **   19.04.2009 H.Kiehl Added compression for protocol options.
+ **   24.11.2012 H.Kiehl Added support for selecting CRC type.
  **
  */
 DESCR__E_M1
@@ -154,6 +155,10 @@ Widget                     active_mode_w,
                            dc_timeout_w,
                            dc_type_w,
                            dc_warn_w,
+                           dc_crc_label_w,
+                           dc_crc_w,
+                           dc_crc32_w,
+                           dc_crc32c_w,
 #endif
                            do_not_delete_data_toggle_w,
                            extended_mode_w,
@@ -185,7 +190,6 @@ Widget                     active_mode_w,
                            no_source_icon_w,
                            passive_mode_w,
                            passive_redirect_w,
-                           proxy_box_w,
                            proxy_name_w,
                            real_hostname_1_w,
                            real_hostname_2_w,
@@ -206,6 +210,7 @@ Widget                     active_mode_w,
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                            tcp_keepalive_w,
 #endif
+                           timeout_transfer_w,
                            transfer_rate_limit_label_w,
                            transfer_rate_limit_w,
                            transfer_timeout_label_w,
@@ -617,7 +622,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)host_switch_toggle,
                  (XtPointer)HOST_SWITCHING);
 
-   host_1_label_w = XtVaCreateManagedWidget("Host 1:",
+   host_1_label_w = XtVaCreateManagedWidget("Host toggle character 1:",
                        xmLabelGadgetClass, box_w,
                        XmNfontList,         fontlist,
                        XmNtopAttachment,    XmATTACH_FORM,
@@ -647,7 +652,7 @@ main(int argc, char *argv[])
                  NULL);
    XtAddCallback(host_1_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)HOST_1_ID);
-   host_2_label_w = XtVaCreateManagedWidget("Host 2:",
+   host_2_label_w = XtVaCreateManagedWidget("Host toggle character 2:",
                        xmLabelGadgetClass,  box_w,
                        XmNfontList,         fontlist,
                        XmNtopAttachment,    XmATTACH_FORM,
@@ -714,7 +719,6 @@ main(int argc, char *argv[])
                                          args, argcount);
    XtManageChild(h_separator_top_w);
 
-
 /*-----------------------------------------------------------------------*/
 /*                           Real Hostname Box                           */
 /*                           -----------------                           */
@@ -732,34 +736,17 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNleftWidget,      v_separator_w);
    argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightOffset,     SIDE_OFFSET);
-   argcount++;
    XtSetArg(args[argcount], XmNfractionBase,    62);
    argcount++;
    box_w = XmCreateForm(form_w, "real_hostname_box_w", args, argcount);
 
-   XtVaCreateManagedWidget("Real Hostname/IP Number:",
+   first_label_w = XtVaCreateManagedWidget("Host/IP 1:",
                        xmLabelGadgetClass,  box_w,
                        XmNfontList,         fontlist,
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
                        XmNleftAttachment,   XmATTACH_POSITION,
-                       XmNleftPosition,     1,
-                       XmNrightAttachment,  XmATTACH_POSITION,
-                       XmNrightPosition,    40,
-                       XmNbottomAttachment, XmATTACH_POSITION,
-                       XmNbottomPosition,   30,
-                       XmNalignment,        XmALIGNMENT_BEGINNING,
-                       NULL);
-   first_label_w = XtVaCreateManagedWidget("Host 1:",
-                       xmLabelGadgetClass,  box_w,
-                       XmNfontList,         fontlist,
-                       XmNtopAttachment,    XmATTACH_POSITION,
-                       XmNtopPosition,      31,
-                       XmNleftAttachment,   XmATTACH_POSITION,
-                       XmNleftPosition,     1,
+                       XmNleftPosition,     0,
                        XmNbottomAttachment, XmATTACH_POSITION,
                        XmNbottomPosition,   61,
                        XmNalignment,        XmALIGNMENT_BEGINNING,
@@ -772,7 +759,7 @@ main(int argc, char *argv[])
                        XmNmarginWidth,      1,
                        XmNshadowThickness,  1,
                        XmNtopAttachment,    XmATTACH_POSITION,
-                       XmNtopPosition,      31,
+                       XmNtopPosition,      1,
                        XmNleftAttachment,   XmATTACH_WIDGET,
                        XmNleftWidget,       first_label_w,
                        XmNbottomAttachment, XmATTACH_POSITION,
@@ -784,11 +771,11 @@ main(int argc, char *argv[])
    XtAddCallback(real_hostname_1_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)REAL_HOST_NAME_1);
 
-   second_label_w = XtVaCreateManagedWidget("Host 2:",
+   second_label_w = XtVaCreateManagedWidget("2:",
                        xmLabelGadgetClass,  box_w,
                        XmNfontList,         fontlist,
                        XmNtopAttachment,    XmATTACH_POSITION,
-                       XmNtopPosition,      31,
+                       XmNtopPosition,      1,
                        XmNleftAttachment,   XmATTACH_WIDGET,
                        XmNleftWidget,       real_hostname_1_w,
                        XmNbottomAttachment, XmATTACH_POSITION,
@@ -803,19 +790,49 @@ main(int argc, char *argv[])
                        XmNmarginWidth,      1,
                        XmNshadowThickness,  1,
                        XmNtopAttachment,    XmATTACH_POSITION,
-                       XmNtopPosition,      31,
+                       XmNtopPosition,      1,
                        XmNleftAttachment,   XmATTACH_WIDGET,
                        XmNleftWidget,       second_label_w,
                        XmNbottomAttachment, XmATTACH_POSITION,
                        XmNbottomPosition,   61,
-                       XmNrightAttachment,  XmATTACH_FORM,
-                       XmNrightOffset,      SIDE_OFFSET,
                        XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                        NULL);
    XtAddCallback(real_hostname_2_w, XmNvalueChangedCallback, value_change,
                  NULL);
    XtAddCallback(real_hostname_2_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)REAL_HOST_NAME_2);
+
+   label_w = XtVaCreateManagedWidget("Proxy Name:",
+                       xmLabelGadgetClass,  box_w,
+                       XmNfontList,         fontlist,
+                       XmNtopAttachment,    XmATTACH_POSITION,
+                       XmNtopPosition,      1,
+                       XmNleftAttachment,   XmATTACH_POSITION,
+                       XmNleftPosition,     33,
+                       XmNbottomAttachment, XmATTACH_POSITION,
+                       XmNbottomPosition,   61,
+                       XmNalignment,        XmALIGNMENT_BEGINNING,
+                       NULL);
+   proxy_name_w = XtVaCreateManagedWidget("",
+                       xmTextWidgetClass,   box_w,
+                       XmNfontList,         fontlist,
+                       XmNcolumns,          36,
+                       XmNmarginHeight,     1,
+                       XmNmarginWidth,      1,
+                       XmNshadowThickness,  1,
+                       XmNtopAttachment,    XmATTACH_POSITION,
+                       XmNtopPosition,      1,
+                       XmNleftAttachment,   XmATTACH_WIDGET,
+                       XmNleftWidget,       label_w,
+                       XmNbottomAttachment, XmATTACH_POSITION,
+                       XmNbottomPosition,   61,
+                       XmNrightAttachment,  XmATTACH_FORM,
+                       XmNrightOffset,      SIDE_OFFSET,
+                       XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
+                       NULL);
+   XtAddCallback(proxy_name_w, XmNvalueChangedCallback, value_change, NULL);
+   XtAddCallback(proxy_name_w, XmNlosingFocusCallback, save_input,
+                 (XtPointer)PROXY_NAME);
    XtManageChild(box_w);
 
    argcount = 0;
@@ -827,16 +844,14 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNleftWidget,      v_separator_w);
    argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightOffset,     SIDE_OFFSET);
-   argcount++;
    box_w = XmCreateForm(form_w, "real_hostname_box_w", args, argcount);
    use_file_when_local_w = XtVaCreateManagedWidget("Use scheme file when hostname matches local nodename",
                        xmToggleButtonGadgetClass, box_w,
                        XmNfontList,               fontlist,
                        XmNtopAttachment,          XmATTACH_FORM,
                        XmNleftAttachment,         XmATTACH_FORM,
+                       XmNleftOffset,             SIDE_OFFSET,
+                       XmNbottomAttachment,       XmATTACH_FORM,
                        XmNset,                    False,
                        NULL);
    XtAddCallback(use_file_when_local_w, XmNvalueChangedCallback,
@@ -888,11 +903,11 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNrightOffset,     SIDE_OFFSET);
    argcount++;
-   XtSetArg(args[argcount], XmNfractionBase,    100);
+   XtSetArg(args[argcount], XmNfractionBase,    60);
    argcount++;
    box_w = XmCreateForm(form_w, "text_input_box", args, argcount);
 
-   transfer_timeout_label_w = XtVaCreateManagedWidget("Transfer timeout  :",
+   transfer_timeout_label_w = XtVaCreateManagedWidget("Transfer timeout:",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -911,7 +926,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      0,
+                           XmNtopPosition,      1,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       transfer_timeout_label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -922,39 +937,54 @@ main(int argc, char *argv[])
                  NULL);
    XtAddCallback(transfer_timeout_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)TRANSFER_TIMEOUT);
-
-   label_w = XtVaCreateManagedWidget("Retry interval  :",
-                           xmLabelGadgetClass,  box_w,
-                           XmNfontList,         fontlist,
-                           XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      0,
-                           XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     51,
-                           XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   20,
-                           XmNalignment,        XmALIGNMENT_BEGINNING,
+   timeout_transfer_w = XtVaCreateManagedWidget("Interrupt",
+                           xmToggleButtonGadgetClass, box_w,
+                           XmNfontList,               fontlist,
+                           XmNtopAttachment,          XmATTACH_POSITION,
+                           XmNtopPosition,            0,
+                           XmNleftAttachment,         XmATTACH_WIDGET,
+                           XmNleftWidget,             transfer_timeout_w,
+                           XmNbottomAttachment,       XmATTACH_POSITION,
+                           XmNbottomPosition,         20,
+                           XmNset,                    False,
                            NULL);
-   retry_interval_w = XtVaCreateManagedWidget("",
-                           xmTextWidgetClass,   box_w,
-                           XmNfontList,         fontlist,
-                           XmNcolumns,          4,
-                           XmNmarginHeight,     1,
-                           XmNmarginWidth,      1,
-                           XmNshadowThickness,  1,
-                           XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      0,
-                           XmNleftAttachment,   XmATTACH_WIDGET,
-                           XmNleftWidget,       label_w,
-                           XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
-                           NULL);
-   XtAddCallback(retry_interval_w, XmNmodifyVerifyCallback, check_nummeric,
-                 NULL);
-   XtAddCallback(retry_interval_w, XmNvalueChangedCallback, value_change,
-                 NULL);
-   XtAddCallback(retry_interval_w, XmNlosingFocusCallback, save_input,
-                 (XtPointer)RETRY_INTERVAL);
+   XtAddCallback(timeout_transfer_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)TIMEOUT_TRANSFER_CHANGED);
 
-   label_w = XtVaCreateManagedWidget("Maximum errors    :",
+
+   ignore_errors_toggle_w = XtVaCreateManagedWidget("Ignore errors+warnings",
+                           xmToggleButtonGadgetClass, box_w,
+                           XmNfontList,               fontlist,
+                           XmNtopAttachment,          XmATTACH_POSITION,
+                           XmNtopPosition,            0,
+                           XmNleftAttachment,         XmATTACH_POSITION,
+                           XmNleftPosition,           29,
+                           XmNbottomAttachment,       XmATTACH_POSITION,
+                           XmNbottomPosition,         20,
+                           XmNset,                    False,
+                           NULL);
+   XtAddCallback(ignore_errors_toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)ERROR_OFFLINE_STATIC_CHANGED);
+
+   do_not_delete_data_toggle_w = XtVaCreateManagedWidget("Do not delete data",
+                           xmToggleButtonGadgetClass, box_w,
+                           XmNfontList,               fontlist,
+                           XmNtopAttachment,          XmATTACH_POSITION,
+                           XmNtopPosition,            0,
+                           XmNleftAttachment,         XmATTACH_POSITION,
+                           XmNleftPosition,           43,
+                           XmNbottomAttachment,       XmATTACH_POSITION,
+                           XmNbottomPosition,         20,
+                           XmNset,                    False,
+                           NULL);
+   XtAddCallback(do_not_delete_data_toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)DO_NOT_DELETE_DATA_CHANGED);
+
+
+   label_w = XtVaCreateManagedWidget("Maximum errors  :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -973,42 +1003,26 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      20,
+                           XmNtopPosition,      21,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
-   XtAddCallback(max_errors_w, XmNmodifyVerifyCallback, check_nummeric,
-                 NULL);
-   XtAddCallback(max_errors_w, XmNvalueChangedCallback, value_change,
-                 NULL);
+   XtAddCallback(max_errors_w, XmNmodifyVerifyCallback, check_nummeric, NULL);
+   XtAddCallback(max_errors_w, XmNvalueChangedCallback, value_change, NULL);
    XtAddCallback(max_errors_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)MAXIMUM_ERRORS);
 
-   ignore_errors_toggle_w = XtVaCreateManagedWidget("Ignore errors+warnings",
-                           xmToggleButtonGadgetClass, box_w,
-                           XmNfontList,               fontlist,
-                           XmNtopAttachment,          XmATTACH_POSITION,
-                           XmNtopPosition,            20,
-                           XmNleftAttachment,         XmATTACH_POSITION,
-                           XmNleftPosition,           51,
-                           XmNbottomAttachment,       XmATTACH_POSITION,
-                           XmNbottomPosition,         40,
-                           XmNset,                    False,
-                           NULL);
-   XtAddCallback(ignore_errors_toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggle_button2,
-                 (XtPointer)ERROR_OFFLINE_STATIC_CHANGED);
-
-   successful_retries_label_w = XtVaCreateManagedWidget("Successful retries:",
+   successful_retries_label_w = XtVaCreateManagedWidget("Successful retries :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      40,
-                           XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     1,
+                           XmNtopPosition,      20,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       max_errors_w,
+                           XmNleftOffset,       5,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   60,
+                           XmNbottomPosition,   40,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    successful_retries_w = XtVaCreateManagedWidget("",
@@ -1019,7 +1033,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      40,
+                           XmNtopPosition,      21,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       successful_retries_label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1031,30 +1045,47 @@ main(int argc, char *argv[])
    XtAddCallback(successful_retries_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)SUCCESSFUL_RETRIES);
 
-   do_not_delete_data_toggle_w = XtVaCreateManagedWidget("Do not delete data",
-                           xmToggleButtonGadgetClass, box_w,
-                           XmNfontList,               fontlist,
-                           XmNtopAttachment,          XmATTACH_POSITION,
-                           XmNtopPosition,            40,
-                           XmNleftAttachment,         XmATTACH_POSITION,
-                           XmNleftPosition,           51,
-                           XmNbottomAttachment,       XmATTACH_POSITION,
-                           XmNbottomPosition,         60,
-                           XmNset,                    False,
-                           NULL);
-   XtAddCallback(do_not_delete_data_toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggle_button2,
-                 (XtPointer)DO_NOT_DELETE_DATA_CHANGED);
-
-   label_w = XtVaCreateManagedWidget("Keep connected    :",
+   label_w = XtVaCreateManagedWidget("Retry interval :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      60,
+                           XmNtopPosition,      20,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       successful_retries_w,
+                           XmNleftOffset,       5,
+                           XmNbottomAttachment, XmATTACH_POSITION,
+                           XmNbottomPosition,   40,
+                           XmNalignment,        XmALIGNMENT_BEGINNING,
+                           NULL);
+   retry_interval_w = XtVaCreateManagedWidget("",
+                           xmTextWidgetClass,   box_w,
+                           XmNfontList,         fontlist,
+                           XmNcolumns,          4,
+                           XmNmarginHeight,     1,
+                           XmNmarginWidth,      1,
+                           XmNshadowThickness,  1,
+                           XmNtopAttachment,    XmATTACH_POSITION,
+                           XmNtopPosition,      21,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       label_w,
+                           XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
+                           NULL);
+   XtAddCallback(retry_interval_w, XmNmodifyVerifyCallback, check_nummeric,
+                 NULL);
+   XtAddCallback(retry_interval_w, XmNvalueChangedCallback, value_change,
+                 NULL);
+   XtAddCallback(retry_interval_w, XmNlosingFocusCallback, save_input,
+                 (XtPointer)RETRY_INTERVAL);
+
+   label_w = XtVaCreateManagedWidget("Keep connected  :",
+                           xmLabelGadgetClass,  box_w,
+                           XmNfontList,         fontlist,
+                           XmNtopAttachment,    XmATTACH_POSITION,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_POSITION,
                            XmNleftPosition,     1,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   80,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    keep_connected_w = XtVaCreateManagedWidget("",
@@ -1065,7 +1096,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      60,
+                           XmNtopPosition,      41,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1080,15 +1111,15 @@ main(int argc, char *argv[])
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_POSITION);
    argcount++;
-   XtSetArg(args[argcount], XmNtopPosition,      60);
+   XtSetArg(args[argcount], XmNtopPosition,      40);
    argcount++;
-   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_POSITION);
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNleftPosition,     51);
+   XtSetArg(args[argcount], XmNleftWidget,       keep_connected_w);
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_POSITION);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomPosition,   80);
+   XtSetArg(args[argcount], XmNbottomPosition,   60);
    argcount++;
    XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
    argcount++;
@@ -1123,15 +1154,15 @@ main(int argc, char *argv[])
                  (XtCallbackProc)kc_radio_button, (XtPointer)KC_SEND_ONLY_SEL);
    XtManageChild(keep_connected_radio_w);
 
-   label_w = XtVaCreateManagedWidget("Warn time         :",
+   label_w = XtVaCreateManagedWidget("Warn time :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     1,
+                           XmNleftPosition,     30,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   100,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    warn_time_days_w = XtVaCreateManagedWidget("",
@@ -1142,7 +1173,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      41,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1157,11 +1188,11 @@ main(int argc, char *argv[])
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       warn_time_days_w,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   100,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    warn_time_hours_w = XtVaCreateManagedWidget("",
@@ -1172,7 +1203,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      41,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1187,11 +1218,11 @@ main(int argc, char *argv[])
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       warn_time_hours_w,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   100,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    warn_time_mins_w = XtVaCreateManagedWidget("",
@@ -1202,7 +1233,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      41,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1217,11 +1248,11 @@ main(int argc, char *argv[])
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       warn_time_mins_w,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   100,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    warn_time_secs_w = XtVaCreateManagedWidget("",
@@ -1232,7 +1263,7 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      41,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1247,11 +1278,11 @@ main(int argc, char *argv[])
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      80,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       warn_time_secs_w,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   100,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    XtManageChild(box_w);
@@ -1304,7 +1335,7 @@ main(int argc, char *argv[])
    box_w = XmCreateForm(form_w, "transfer_input_box", args, argcount);
 
    transfer_rate_limit_label_w = XtVaCreateManagedWidget(
-                           "Transfer rate limit (in kilobytes):",
+                           "Transfer rate limit (in kilobytes) :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -1312,7 +1343,7 @@ main(int argc, char *argv[])
                            XmNleftAttachment,   XmATTACH_POSITION,
                            XmNleftPosition,     1,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   20,
+                           XmNbottomPosition,   30,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    transfer_rate_limit_w = XtVaCreateManagedWidget("",
@@ -1324,11 +1355,11 @@ main(int argc, char *argv[])
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
                            XmNtopPosition,      1,
-                           XmNrightAttachment,  XmATTACH_WIDGET,
-                           XmNrightWidget,      box_w,
-                           XmNrightOffset,      SIDE_OFFSET,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       transfer_rate_limit_label_w,
+                           XmNleftOffset,       SIDE_OFFSET,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   20,
+                           XmNbottomPosition,   30,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(transfer_rate_limit_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -1338,15 +1369,15 @@ main(int argc, char *argv[])
    XtAddCallback(transfer_rate_limit_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)TRANSFER_RATE_LIMIT);
    socket_send_buffer_size_label_w = XtVaCreateManagedWidget(
-                           "Socket send buffer size (in kilobytes):",
+                           "Socket send buffer size (in kilobytes)    :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      21,
+                           XmNtopPosition,      1,
                            XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     1,
+                           XmNleftPosition,     29,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   40,
+                           XmNbottomPosition,   30,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    socket_send_buffer_size_w = XtVaCreateManagedWidget("",
@@ -1357,12 +1388,11 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      21,
-                           XmNrightAttachment,  XmATTACH_WIDGET,
-                           XmNrightWidget,      box_w,
-                           XmNrightOffset,      SIDE_OFFSET,
+                           XmNtopPosition,      1,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       socket_send_buffer_size_label_w,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   40,
+                           XmNbottomPosition,   30,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(socket_send_buffer_size_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -1372,13 +1402,13 @@ main(int argc, char *argv[])
    XtAddCallback(socket_send_buffer_size_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)SOCKET_SEND_BUFFER);
    socket_receive_buffer_size_label_w = XtVaCreateManagedWidget(
-                           "Socket receive buffer size (in kilobytes):",
+                           "Socket receive buffer size (in kilobytes) :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      41,
+                           XmNtopPosition,      31,
                            XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     1,
+                           XmNleftPosition,     29,
                            XmNbottomAttachment, XmATTACH_POSITION,
                            XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
@@ -1391,10 +1421,9 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      41,
-                           XmNrightAttachment,  XmATTACH_WIDGET,
-                           XmNrightWidget,      box_w,
-                           XmNrightOffset,      SIDE_OFFSET,
+                           XmNtopPosition,      31,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       socket_receive_buffer_size_label_w,
                            XmNbottomAttachment, XmATTACH_POSITION,
                            XmNbottomPosition,   60,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
@@ -1492,6 +1521,16 @@ main(int argc, char *argv[])
                  (XtPointer)DISABLE_DUPCHECK_SEL);
    XtManageChild(dupcheck_w);
 
+   dc_timeout_label_w = XtVaCreateManagedWidget("Timeout:",
+                            xmLabelGadgetClass,  box_w,
+                            XmNfontList,         fontlist,
+                            XmNtopAttachment,    XmATTACH_FORM,
+                            XmNleftAttachment,   XmATTACH_WIDGET,
+                            XmNleftWidget,       dupcheck_w,
+                            XmNleftOffset,       SIDE_OFFSET,
+                            XmNbottomAttachment, XmATTACH_FORM,
+                            XmNalignment,        XmALIGNMENT_BEGINNING,
+                            NULL);
    dc_timeout_w = XtVaCreateManagedWidget("",
                             xmTextWidgetClass,   box_w,
                             XmNfontList,         fontlist,
@@ -1501,23 +1540,59 @@ main(int argc, char *argv[])
                             XmNshadowThickness,  1,
                             XmNtopAttachment,    XmATTACH_FORM,
                             XmNtopOffset,        SIDE_OFFSET,
-                            XmNrightAttachment,  XmATTACH_FORM,
-                            XmNrightOffset,      SIDE_OFFSET,
+                            XmNleftAttachment,   XmATTACH_WIDGET,
+                            XmNleftWidget,       dc_timeout_label_w,
                             XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                             NULL);
    XtAddCallback(dc_timeout_w, XmNmodifyVerifyCallback, check_nummeric, NULL);
    XtAddCallback(dc_timeout_w, XmNvalueChangedCallback, value_change, NULL);
    XtAddCallback(dc_timeout_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)DC_TIMEOUT);
-   dc_timeout_label_w = XtVaCreateManagedWidget("Timeout:",
+
+   dc_ref_label_w = XtVaCreateManagedWidget("Reference :",
                             xmLabelGadgetClass,  box_w,
                             XmNfontList,         fontlist,
-                            XmNtopAttachment,    XmATTACH_FORM,
-                            XmNrightAttachment,  XmATTACH_WIDGET,
-                            XmNrightWidget,      dc_timeout_w,
+                            XmNalignment,        XmALIGNMENT_END,
+                            XmNtopAttachment,    XmATTACH_WIDGET,
+                            XmNtopWidget,        h_separator_top_w,
+                            XmNleftAttachment,   XmATTACH_WIDGET,
+                            XmNleftWidget,       dc_timeout_w,
+                            XmNleftOffset,       10,
                             XmNbottomAttachment, XmATTACH_FORM,
-                            XmNalignment,        XmALIGNMENT_BEGINNING,
                             NULL);
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,        h_separator_top_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       dc_ref_label_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNpacking,          XmPACK_TIGHT);
+   argcount++;
+   XtSetArg(args[argcount], XmNnumColumns,       1);
+   argcount++;
+   dc_reference_w = XmCreateRadioBox(box_w, "radiobox", args, argcount);
+   dc_alias_w = XtVaCreateManagedWidget("Alias",
+                            xmToggleButtonGadgetClass, dc_reference_w,
+                            XmNfontList,               fontlist,
+                            XmNset,                    True,
+                            NULL);
+   XtAddCallback(dc_alias_w, XmNdisarmCallback,
+                 (XtCallbackProc)dc_ref_radio_button,
+                 (XtPointer)ALIAS_DUPCHECK_SEL);
+   dc_recipient_w = XtVaCreateManagedWidget("Recipient",
+                            xmToggleButtonGadgetClass, dc_reference_w,
+                            XmNfontList,               fontlist,
+                            XmNset,                    False,
+                            NULL);
+   XtAddCallback(dc_recipient_w, XmNdisarmCallback,
+                 (XtCallbackProc)dc_ref_radio_button,
+                 (XtPointer)RECIPIENT_DUPCHECK_SEL);
+   XtManageChild(dc_reference_w);
    XtManageChild(box_w);
 
    argcount = 0;
@@ -1627,7 +1702,7 @@ main(int argc, char *argv[])
    XtAddCallback(dc_warn_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button, (XtPointer)DC_WARN_CHANGED);
 
-   dc_ref_label_w = XtVaCreateManagedWidget("Reference :",
+   dc_crc_label_w = XtVaCreateManagedWidget("CRC type :",
                             xmLabelGadgetClass,  box_w,
                             XmNfontList,         fontlist,
                             XmNalignment,        XmALIGNMENT_END,
@@ -1645,7 +1720,7 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       dc_ref_label_w);
+   XtSetArg(args[argcount], XmNleftWidget,       dc_crc_label_w);
    argcount++;
    XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
    argcount++;
@@ -1653,24 +1728,24 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNnumColumns,       1);
    argcount++;
-   dc_reference_w = XmCreateRadioBox(box_w, "radiobox", args, argcount);
-   dc_alias_w = XtVaCreateManagedWidget("Alias",
-                            xmToggleButtonGadgetClass, dc_reference_w,
+   dc_crc_w = XmCreateRadioBox(box_w, "radiobox", args, argcount);
+   dc_crc32_w = XtVaCreateManagedWidget("CRC-32",
+                            xmToggleButtonGadgetClass, dc_crc_w,
                             XmNfontList,               fontlist,
                             XmNset,                    True,
                             NULL);
-   XtAddCallback(dc_alias_w, XmNdisarmCallback,
-                 (XtCallbackProc)dc_ref_radio_button,
-                 (XtPointer)ALIAS_DUPCHECK_SEL);
-   dc_recipient_w = XtVaCreateManagedWidget("Recipient",
-                            xmToggleButtonGadgetClass, dc_reference_w,
+   XtAddCallback(dc_crc32_w, XmNdisarmCallback,
+                 (XtCallbackProc)dc_crc_radio_button,
+                 (XtPointer)CRC32_DUPCHECK_SEL);
+   dc_crc32c_w = XtVaCreateManagedWidget("CRC-32c",
+                            xmToggleButtonGadgetClass, dc_crc_w,
                             XmNfontList,               fontlist,
                             XmNset,                    False,
                             NULL);
-   XtAddCallback(dc_recipient_w, XmNdisarmCallback,
-                 (XtCallbackProc)dc_ref_radio_button,
-                 (XtPointer)RECIPIENT_DUPCHECK_SEL);
-   XtManageChild(dc_reference_w);
+   XtAddCallback(dc_crc32c_w, XmNdisarmCallback,
+                 (XtCallbackProc)dc_crc_radio_button,
+                 (XtPointer)CRC32C_DUPCHECK_SEL);
+   XtManageChild(dc_crc_w);
    XtManageChild(box_w);
 #endif /* WITH_DUP_CHECK */
 
@@ -1721,41 +1796,41 @@ main(int argc, char *argv[])
    box_w = XmCreateForm(form_w, "text_input_box", args, argcount);
 
    /* Parallel transfers. */
-   label_w = XtVaCreateManagedWidget("Max. parallel transfers     :",
+   label_w = XtVaCreateManagedWidget("Max. parallel transfers:",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
                                      XmNtopPosition,      1,
                                      XmNbottomAttachment, XmATTACH_POSITION,
-                                     XmNbottomPosition,   20,
+                                     XmNbottomPosition,   60,
                                      XmNleftAttachment,   XmATTACH_POSITION,
-                                     XmNleftPosition,     1,
+                                     XmNleftPosition,     0,
                                      NULL);
    create_option_menu_pt(box_w, label_w, fontlist);
 
    /* Transfer blocksize. */
-   label_w = XtVaCreateManagedWidget("Transfer Blocksize          :",
+   label_w = XtVaCreateManagedWidget("Transfer Blocksize:",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
-                                     XmNtopPosition,      21,
+                                     XmNtopPosition,      1,
                                      XmNbottomAttachment, XmATTACH_POSITION,
-                                     XmNbottomPosition,   40,
+                                     XmNbottomPosition,   60,
                                      XmNleftAttachment,   XmATTACH_POSITION,
-                                     XmNleftPosition,     1,
+                                     XmNleftPosition,     19,
                                      NULL);
    create_option_menu_tb(box_w, label_w, fontlist);
 
    /* File size offset. */
-   label_w = XtVaCreateManagedWidget("File size offset for append :",
+   label_w = XtVaCreateManagedWidget("File size offset for append:",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
-                                     XmNtopPosition,      41,
+                                     XmNtopPosition,      1,
                                      XmNbottomAttachment, XmATTACH_POSITION,
                                      XmNbottomPosition,   60,
                                      XmNleftAttachment,   XmATTACH_POSITION,
-                                     XmNleftPosition,     1,
+                                     XmNleftPosition,     39,
                                      NULL);
    create_option_menu_fso(box_w, label_w, fontlist);
    XtManageChild(box_w);
@@ -1940,29 +2015,14 @@ main(int argc, char *argv[])
    XtAddCallback(ftp_fast_cd_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button, 
                  (XtPointer)FTP_FAST_CD_CHANGED);
-   XtManageChild(box_w);
-
-   argcount = 0;
-   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopWidget,        box_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightOffset,      SIDE_OFFSET);
-   argcount++;
-   box_w = XmCreateForm(form_w, "protocol_specific2_box_w", args, argcount);
    ftp_ignore_bin_w = XtVaCreateManagedWidget("Ignore type I",
                        xmToggleButtonGadgetClass, box_w,
                        XmNfontList,               fontlist,
                        XmNset,                    False,
                        XmNtopAttachment,          XmATTACH_FORM,
                        XmNtopOffset,              SIDE_OFFSET,
-                       XmNleftAttachment,         XmATTACH_FORM,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             ftp_fast_cd_w,
                        XmNbottomAttachment,       XmATTACH_FORM,
                        NULL);
    XtAddCallback(ftp_ignore_bin_w, XmNvalueChangedCallback,
@@ -2002,27 +2062,6 @@ main(int argc, char *argv[])
                  (XtCallbackProc)toggle_button2,
                  (XtPointer)TCP_KEEPALIVE_CHANGED);
 #endif
-   sequence_locking_w = XtVaCreateManagedWidget("Seq. Locking",
-                       xmToggleButtonGadgetClass, box_w,
-                       XmNfontList,               fontlist,
-                       XmNset,                    False,
-                       XmNtopAttachment,          XmATTACH_FORM,
-                       XmNtopOffset,              SIDE_OFFSET,
-                       XmNleftAttachment,         XmATTACH_WIDGET,
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-                       XmNleftWidget,             tcp_keepalive_w,
-#else
-# ifdef _WITH_BURST_2
-                       XmNleftWidget,             allow_burst_w,
-# else
-                       XmNleftWidget,             ftp_ignore_bin_w,
-# endif
-#endif
-                       XmNbottomAttachment,       XmATTACH_FORM,
-                       NULL);
-   XtAddCallback(sequence_locking_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggle_button2,
-                 (XtPointer)USE_SEQUENCE_LOCKING_CHANGED);
    XtManageChild(box_w);
 
    argcount = 0;
@@ -2038,14 +2077,31 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNrightOffset,      SIDE_OFFSET);
    argcount++;
-   box_w = XmCreateForm(form_w, "protocol_specific3_box_w", args, argcount);
-   compression_w = XtVaCreateManagedWidget("Compression",
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,     h_separator_bottom_w);
+   argcount++;
+   box_w = XmCreateForm(form_w, "protocol_specific2_box_w", args, argcount);
+   sequence_locking_w = XtVaCreateManagedWidget("Seq. Locking",
                        xmToggleButtonGadgetClass, box_w,
                        XmNfontList,               fontlist,
                        XmNset,                    False,
                        XmNtopAttachment,          XmATTACH_FORM,
                        XmNtopOffset,              SIDE_OFFSET,
                        XmNleftAttachment,         XmATTACH_FORM,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(sequence_locking_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)USE_SEQUENCE_LOCKING_CHANGED);
+   compression_w = XtVaCreateManagedWidget("Compression",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             sequence_locking_w,
                        XmNbottomAttachment,       XmATTACH_FORM,
                        NULL);
    XtAddCallback(compression_w, XmNvalueChangedCallback,
@@ -2089,110 +2145,19 @@ main(int argc, char *argv[])
    XtAddCallback(no_ageing_jobs_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button2,
                  (XtPointer)NO_AGEING_JOBS_CHANGED);
-   XtManageChild(box_w);
-
-   argcount = 0;
-   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopWidget,        box_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightOffset,      SIDE_OFFSET);
-   argcount++;
-   box_w = XmCreateForm(form_w, "protocol_specific4_box_w", args, argcount);
    match_size_w = XtVaCreateManagedWidget("Match size",
                        xmToggleButtonGadgetClass, box_w,
                        XmNfontList,               fontlist,
                        XmNset,                    False,
                        XmNtopAttachment,          XmATTACH_FORM,
                        XmNtopOffset,              SIDE_OFFSET,
-                       XmNleftAttachment,         XmATTACH_FORM,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             no_ageing_jobs_w,
                        XmNbottomAttachment,       XmATTACH_FORM,
                        NULL);
    XtAddCallback(match_size_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button2, (XtPointer)CHECK_SIZE_CHANGED);
    XtManageChild(box_w);
-
-/*-----------------------------------------------------------------------*/
-/*                         Horizontal Separator                          */
-/*-----------------------------------------------------------------------*/
-   argcount = 0;
-   XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopWidget,        box_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopOffset,        SIDE_OFFSET);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
-   argcount++;
-   h_separator_top_w = XmCreateSeparator(form_w, "h_separator_top",
-                                         args, argcount);
-   XtManageChild(h_separator_top_w);
-
-/*-----------------------------------------------------------------------*/
-/*                            Proxy Name Box                             */
-/*                            --------------                             */
-/* One text widget in which the user can enter the proxy name.           */
-/*-----------------------------------------------------------------------*/
-   /* Create managing widget for the proxy name box. */
-   argcount = 0;
-   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopWidget,        h_separator_top_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNbottomWidget,     h_separator_bottom_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
-   argcount++;
-   XtSetArg(args[argcount], XmNrightOffset,      SIDE_OFFSET);
-   argcount++;
-   proxy_box_w = XmCreateForm(form_w, "proxy_name_box_w", args, argcount);
-
-   label_w = XtVaCreateManagedWidget("Proxy Name:",
-                           xmLabelGadgetClass,  proxy_box_w,
-                           XmNfontList,         fontlist,
-                           XmNtopAttachment,    XmATTACH_FORM,
-                           XmNleftAttachment,   XmATTACH_FORM,
-                           XmNleftOffset,       5,
-                           XmNbottomAttachment, XmATTACH_FORM,
-                           XmNalignment,        XmALIGNMENT_BEGINNING,
-                           NULL);
-   proxy_name_w = XtVaCreateManagedWidget("",
-                           xmTextWidgetClass,   proxy_box_w,
-                           XmNfontList,         fontlist,
-                           XmNmarginHeight,     1,
-                           XmNmarginWidth,      1,
-                           XmNshadowThickness,  1,
-                           XmNtopAttachment,    XmATTACH_FORM,
-                           XmNleftAttachment,   XmATTACH_WIDGET,
-                           XmNleftWidget,       label_w,
-                           XmNbottomAttachment, XmATTACH_FORM,
-                           XmNrightAttachment,  XmATTACH_FORM,
-                           XmNrightOffset,      5,
-                           XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
-                           NULL);
-   XtAddCallback(proxy_name_w, XmNvalueChangedCallback, value_change,
-                 NULL);
-   XtAddCallback(proxy_name_w, XmNlosingFocusCallback, save_input,
-                 (XtPointer)PROXY_NAME);
-   XtManageChild(proxy_box_w);
    XtManageChild(form_w);
 
    /* Free font list. */
@@ -2249,7 +2214,7 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    }
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, NULL) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");
@@ -2444,7 +2409,7 @@ create_option_menu_pt(Widget parent, Widget label_w, XmFontList fontlist)
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_POSITION);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomPosition,   20);
+   XtSetArg(args[argcount], XmNbottomPosition,   60);
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
@@ -2514,11 +2479,11 @@ create_option_menu_tb(Widget parent, Widget label_w, XmFontList fontlist)
    argcount++;
    XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_POSITION);
    argcount++;
-   XtSetArg(args[argcount], XmNtopPosition,      21);
+   XtSetArg(args[argcount], XmNtopPosition,      1);
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_POSITION);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomPosition,   40);
+   XtSetArg(args[argcount], XmNbottomPosition,   60);
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
@@ -2571,7 +2536,7 @@ create_option_menu_fso(Widget parent, Widget label_w, XmFontList fontlist)
    argcount++;
    XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_POSITION);
    argcount++;
-   XtSetArg(args[argcount], XmNtopPosition,      41);
+   XtSetArg(args[argcount], XmNtopPosition,      1);
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_POSITION);
    argcount++;

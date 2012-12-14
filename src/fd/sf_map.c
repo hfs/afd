@@ -73,6 +73,9 @@ int                        counter_fd = -1,    /* NOT USED */
                            event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,    /* NOT USED */
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */

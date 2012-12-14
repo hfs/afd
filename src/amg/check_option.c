@@ -672,7 +672,12 @@ check_option(char *option)
                 ((*(ptr + 3) == ' ') || (*(ptr + 3) == '\t') || (*(ptr + 3) == '\0'))) ||
                ((*ptr == 'A') && (*(ptr + 1) == 'S') && (*(ptr + 2) == 'C') &&
                 (*(ptr + 3) == 'I') && (*(ptr + 4) == 'I') &&
-                ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\t') || (*(ptr + 5) == '\0'))))
+                ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\t') || (*(ptr + 5) == '\0'))) ||
+               ((*ptr == 'W') && (*(ptr + 1) == 'M') && (*(ptr + 2) == 'O') &&
+                (*(ptr + 3) == '+') && (*(ptr + 4) == 'D') &&
+                (*(ptr + 5) == 'U') && (*(ptr + 6) == 'M') &&
+                (*(ptr + 7) == 'M') && (*(ptr + 8) == 'Y') &&
+                ((*(ptr + 9) == ' ') || (*(ptr + 9) == '\t') || (*(ptr + 9) == '\0'))))
            {
               /* OK */;
            }
@@ -1451,6 +1456,8 @@ check_option(char *option)
 #endif
             ((CHECK_STRNCMP(option, MIRROR_DIR_ID, MIRROR_DIR_ID_LENGTH) == 0) &&
              (*(option + MIRROR_DIR_ID_LENGTH) == '\0')) ||
+            ((CHECK_STRNCMP(option, SHOW_ALL_GROUP_MEMBERS_ID, SHOW_ALL_GROUP_MEMBERS_ID_LENGTH) == 0) &&
+             (*(option + SHOW_ALL_GROUP_MEMBERS_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, ENCODE_ANSI_ID, ENCODE_ANSI_ID_LENGTH) == 0) &&
              (*(option + ENCODE_ANSI_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, ACTIVE_FTP_MODE, ACTIVE_FTP_MODE_LENGTH) == 0) &&

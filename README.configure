@@ -84,6 +84,12 @@
                                   FIFO for reading and writting. With this
                                   option set AFD will use two file descriptors
                                   one for reading and one for writting.
+--disable-sse42                 - Disables SSE4.2 optimizations ie. support
+                                  for hardware CRC-32 checksum calculation.
+--disable-new_motif_name        - Openmotif has been renamed to motif. To
+                                  solve problems on distributions that still
+                                  use openmotif provide this option to use
+                                  the old name.
 --enable-map_support            - Enable support for DWD's MAP weather
                                   visualisation tool. With the option
                                   --with-map-libraries=DIR one can specify
@@ -198,6 +204,11 @@
 --enable-use_fortify            - Turns on fortify option of glibc/gcc.
                                   Note this does not work with
                                   --enable-compiler-debug
+                                  [Default: disabled]
+--enable-compiler-security      - On gcc this will turn on the compiler option
+                                  -pie (position independent executables)
+                                  and -fstack-protector (check for buffer
+                                  overflows).
                                   [Default: disabled]
 --enable-compile-64-bit         - This forces AFD be compiled as 64 bit
                                   application on system that support both

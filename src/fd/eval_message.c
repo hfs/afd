@@ -167,6 +167,7 @@ static void store_mode(char *, struct job *, char *, int);
 #define SOCK_RCV_BUF_SIZE_FLAG      4
 #define FILE_NAME_IS_TARGET_FLAG    8
 #define MIRROR_DIR_FLAG             16
+#define SHOW_ALL_GROUP_MEMBERS_FLAG 32
 
 
 #define MAX_HUNK                    4096
@@ -794,6 +795,21 @@ eval_message(char *message_name, struct job *p_db)
                  {
                     used2 |= MIRROR_DIR_FLAG;
                     p_db->special_flag |= MIRROR_DIR;
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used2 & SHOW_ALL_GROUP_MEMBERS_FLAG) == 0) &&
+                     (CHECK_STRNCMP(ptr, SHOW_ALL_GROUP_MEMBERS_ID,
+                                    SHOW_ALL_GROUP_MEMBERS_ID_LENGTH) == 0))
+                 {
+                    used2 |= SHOW_ALL_GROUP_MEMBERS_FLAG;
+                    p_db->special_flag |= SHOW_ALL_GROUP_MEMBERS;
                     while ((*ptr != '\n') && (*ptr != '\0'))
                     {
                        ptr++;
@@ -1989,7 +2005,7 @@ eval_message(char *message_name, struct job *p_db)
                              }
                              else
                              {
-                                register struct hostent *p_host = NULL;
+                                register struct hostent *p_host;
 
                                 if ((p_host = gethostbyname(local_host)) == NULL)
                                 {

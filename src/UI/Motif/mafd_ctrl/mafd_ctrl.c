@@ -678,7 +678,7 @@ init_mafd_ctrl(int *argc, char *argv[], char *window_title)
 #endif
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, stdout) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");

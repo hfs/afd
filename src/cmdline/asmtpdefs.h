@@ -21,8 +21,8 @@
 #define __asmtpdefs_h
 
 #ifndef _STANDALONE_
-#include "afddefs.h"
-#include "fddefs.h"
+# include "afddefs.h"
+# include "fddefs.h"
 #endif
 #include "cmdline.h"
 

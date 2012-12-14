@@ -571,7 +571,22 @@ format_info(char **text, int with_alda_data)
       }
    }
 
-   length = sprintf(*text, "File name   : %s\n", id.file_name);
+   length = sprintf(*text, "File name   : ");
+   count = 0;
+   while (id.file_name[count] != '\0')
+   {
+      if (id.file_name[count] < ' ')
+      {
+         *(*text + length) = '?';
+      }
+      else
+      {
+         *(*text + length) = id.file_name[count];
+      }
+      count++; length++;
+   }
+   *(*text + length) = '\n';
+   length++;
    length += sprintf(*text + length, "File size   : %s bytes\n", id.file_size);
    length += sprintf(*text + length, "Input time  : %s", ctime(&id.arrival_time));
 #if SIZEOF_TIME_T == 4

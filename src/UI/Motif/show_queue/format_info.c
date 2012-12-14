@@ -122,7 +122,7 @@ format_output_info(char **text, int pos)
 {
    int buffer_length = 8192,
        count,
-       length;
+       length = 0;
 
    if ((*text = malloc(buffer_length)) == NULL)
    {
@@ -130,7 +130,21 @@ format_output_info(char **text, int pos)
                  buffer_length, strerror(errno), __FILE__, __LINE__);
       return;
    }
-   max_x = sprintf(*text, "File name  : %s\n", qfl[pos].file_name);
+   max_x = sprintf(*text, "File name  : ");
+   while (qfl[pos].file_name[length] != '\0')
+   {
+      if (qfl[pos].file_name[length] < ' ')
+      {
+         *(*text + max_x) = '?';
+      }
+      else
+      {
+         *(*text + max_x) = qfl[pos].file_name[length];
+      }
+      length++; max_x++;
+   }
+   *(*text + max_x) = '\n';
+   max_x++;
    length = max_x;
 
    /* Show message name. */
@@ -503,7 +517,7 @@ format_input_info(char **text, int pos)
    int                 count,
                        fd,
                        jobs_found = 0,
-                       length;
+                       length = 0;
    off_t               dnb_size;
    char                fullname[MAX_PATH_LENGTH],
                        *p_begin_underline = NULL,
@@ -517,7 +531,21 @@ format_input_info(char **text, int pos)
                  MAX_INPUT_INFO_SIZE, strerror(errno), __FILE__, __LINE__);
       return;
    }
-   max_x = sprintf(*text, "File name  : %s\n", qfl[pos].file_name);
+   max_x = sprintf(*text, "File name  : ");
+   while (qfl[pos].file_name[length] != '\0')
+   {
+      if (qfl[pos].file_name[length] < ' ')
+      {
+         *(*text + max_x) = '?';
+      }
+      else
+      {
+         *(*text + max_x) = qfl[pos].file_name[length];
+      }
+      length++; max_x++;
+   }
+   *(*text + max_x) = '\n';
+   max_x++;
    length = max_x;
 
    /* Show hostname. */

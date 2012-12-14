@@ -111,7 +111,7 @@ main(int argc, char *argv[])
    }
 
    /* Do not start if binary dataset matches the one stort on disk. */
-   if (check_typesize_data() > 0)
+   if (check_typesize_data(NULL, stdout) > 0)
    {
       (void)fprintf(stderr,
                     "The compiled binary does not match stored database.\n");
@@ -378,6 +378,10 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "no_ageing_jobs ");
       }
+      if (fsa[j].protocol_options & TIMEOUT_TRANSFER)
+      {
+         (void)fprintf(stdout, "timeout_transfer ");
+      }
       (void)fprintf(stdout, "\n");
       (void)fprintf(stdout, "Direction            : ");
       if (fsa[j].protocol & SEND_FLAG)
@@ -451,11 +455,11 @@ main(int argc, char *argv[])
       }
       else
       {
-#if SIZEOF_TIME_T == 4
+# if SIZEOF_TIME_T == 4
          (void)fprintf(stdout, "Dupcheck timeout     : %ld\n",
-#else
+# else
          (void)fprintf(stdout, "Dupcheck timeout     : %lld\n",
-#endif
+# endif
                        (pri_time_t)fsa[j].dup_check_timeout);
          (void)fprintf(stdout, "Dupcheck flag        : ");
          if (fsa[j].dup_check_flag & DC_FILENAME_ONLY)
@@ -482,18 +486,30 @@ main(int argc, char *argv[])
               {
                  (void)fprintf(stdout, "UNKNOWN_TYPE ");
               }
-         if (fsa[j].dup_check_flag & DC_WARN)
+         if (fsa[j].dup_check_flag & DC_DELETE)
          {
-            (void)fprintf(stdout, "WARN ");
+            (void)fprintf(stdout, "DELETE ");
          }
+         else if (fsa[j].dup_check_flag & DC_STORE)
+              {
+                 (void)fprintf(stdout, "STORE ");
+              }
+         else if (fsa[j].dup_check_flag & DC_WARN)
+              {
+                 (void)fprintf(stdout, "WARN ");
+              }
          if (fsa[j].dup_check_flag & DC_CRC32)
          {
             (void)fprintf(stdout, "CRC32 ");
          }
-         else
-         {
-            (void)fprintf(stdout, "UNKNOWN_CRC ");
-         }
+         else if (fsa[j].dup_check_flag & DC_CRC32C)
+              {
+                 (void)fprintf(stdout, "CRC32C ");
+              }
+              else
+              {
+                 (void)fprintf(stdout, "UNKNOWN_CRC ");
+              }
          if (fsa[j].dup_check_flag & USE_RECIPIENT_ID)
          {
             (void)fprintf(stdout, "USE_RECIPIENT_ID");

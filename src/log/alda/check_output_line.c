@@ -432,13 +432,17 @@ check_output_line(char         *line,
                                                 ptr += i + 1;
                                                 i = 0;
                                                 while ((*(ptr + i) != SEPARATOR_CHAR) &&
+                                                       (*(ptr + i) != ' ') &&
                                                        (*(ptr + i) != '\0') &&
+                                                       (*(ptr + i) != '\n') &&
                                                        (i < MAX_INT_HEX_LENGTH))
                                                 {
                                                    i++;
                                                 }
                                                 if ((*(ptr + i) == SEPARATOR_CHAR) ||
-                                                    (*(ptr + i) == '\0'))
+                                                    (*(ptr + i) == ' ') ||
+                                                    (*(ptr + i) == '\0') ||
+                                                    (*(ptr + i) == '\n'))
                                                 {
                                                    tmp_char = *(ptr + i);
                                                    *(ptr + i) = '\0';
@@ -447,6 +451,30 @@ check_output_line(char         *line,
                                                    if ((prev_split_job_counter == NULL) ||
                                                        (olog.split_job_counter == *prev_split_job_counter))
                                                    {
+                                                      if (tmp_char == ' ')
+                                                      {
+                                                         ptr += i + 1;
+                                                         i = 0;
+                                                         while ((*(ptr + i) != SEPARATOR_CHAR) &&
+                                                                (*(ptr + i) != '\n') &&
+                                                                (*(ptr + i) != '\0') &&
+                                                                (i < MAX_MAIL_ID_LENGTH))
+                                                         {
+                                                            olog.mail_id[i] = *(ptr + i);
+                                                            i++;
+                                                         }
+                                                         olog.mail_id[i] = '\0';
+                                                         olog.mail_id_length = i;
+                                                         if (i == MAX_MAIL_ID_LENGTH)
+                                                         {
+                                                            while ((*(ptr + i) != SEPARATOR_CHAR) &&
+                                                                   (*(ptr + i) != '\n') &&
+                                                                   (*(ptr + i) != '\0'))
+                                                            {
+                                                               i++;
+                                                            }
+                                                         }
+                                                      }
                                                       if (tmp_char == SEPARATOR_CHAR)
                                                       {
                                                          ptr += i + 1;
@@ -976,6 +1004,10 @@ check_output_line(char         *line,
    }
    else
    {
+# ifndef HAVE_GETLINE
+      register int i = 0;
+# endif
+
       if ((prev_file_name == NULL) && (mode & ALDA_FORWARD_MODE) &&
           (start_time_end != 0) && (olog.output_time > start_time_end))
       {

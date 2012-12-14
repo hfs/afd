@@ -155,8 +155,6 @@ main(int argc, char *argv[])
    /* Initialise global values. */
    init_nafd_ctrl(&argc, argv);
 
-   /* Setup colors. */
-
    /* Set some signal handlers. */
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
        (signal(SIGQUIT, sig_exit) == SIG_ERR) ||
@@ -178,6 +176,11 @@ main(int argc, char *argv[])
    }
 
    initscr();
+
+   /* Setup colors. */
+   start_color();
+   init_pair(1, COLOR_WHITE, COLOR_BLUE);
+
    noecho();
    nodelay(stdscr, TRUE);
    for (;;)

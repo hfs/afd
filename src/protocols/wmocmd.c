@@ -53,6 +53,8 @@ DESCR__S_M3
  **   28.05.1998 H.Kiehl Created
  **   10.11.1998 H.Kiehl Added function wmp_check_reply().
  **   08.07.2000 H.Kiehl Cleaned up log output to reduce code size.
+ **   18.08.2012 H.Kiehl Use getaddrinfo() instead of gethostname() to
+ **                      support IPv6.
  **
  */
 DESCR__E_M3
@@ -77,6 +79,7 @@ DESCR__E_M3
 
 /* External global variables. */
 extern int                timeout_flag;
+extern unsigned int       special_flag;
 #ifdef LINUX
 extern char               *h_errlist[];  /* for gethostbyname()          */
 extern int                h_nerr;        /* for gethostbyname()          */
@@ -86,7 +89,7 @@ extern char               tr_hostname[];
 extern struct job         db;
 
 /* Local global variables. */
-static int                sock_fd;
+static int                wmo_fd;
 static struct timeval     timeout;
 
 #define MAX_CHARS_IN_LINE 45
@@ -96,25 +99,123 @@ static struct timeval     timeout;
 int
 wmo_connect(char *hostname, int port, int sndbuf_size)
 {
-   int                     loop_counter = 0;
 #ifdef WITH_TRACE
-   char                    line[26 + MAX_REAL_HOSTNAME_LENGTH + MAX_INT_LENGTH + 1];
+   int             length;
+   char            line[MAX_RET_MSG_LENGTH];
 #endif
+#ifdef FTX
+   struct linger   l;
+#endif
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+   int             reply;
+   char            str_port[MAX_INT_LENGTH];
+   struct addrinfo hints,
+                   *result,
+                   *rp;
+
+   (void)memset((struct addrinfo *) &hints, 0, sizeof(struct addrinfo));
+   hints.ai_family = (special_flag & DISABLE_IPV6_FLAG) ? AF_INET : AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+/* ???   hints.ai_flags = AI_CANONNAME; */
+
+   (void)sprintf(str_port, "%d", port);
+   reply = getaddrinfo(hostname, str_port, &hints, &result);
+   if (reply != 0)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                _("Failed to getaddrinfo() %s : %s"),
+                hostname, gai_strerror(reply));
+      return(INCORRECT);
+   }
+
+   /*
+    * getaddrinfo() returns a list of address structures.
+    * Try each address until we successfully connect(). If socket()
+    * (or connect()) fails, we (close the socket and) try the next
+    * address.
+    */
+   for (rp = result; rp != NULL; rp = rp->ai_next)
+   {
+      if ((wmo_fd = socket(rp->ai_family, rp->ai_socktype,
+                               rp->ai_protocol)) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(line, _("socket() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, line, length, NULL);
+# endif
+         continue;
+      }
+
+      if (sndbuf_size > 0)
+      {
+         if (setsockopt(wmo_fd, SOL_SOCKET, SO_SNDBUF,
+                        (char *)&sndbuf_size, sizeof(sndbuf_size)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("setsockopt() error : %s"), strerror(errno));
+         }
+      }
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      if (timeout_flag != OFF)
+      {
+         reply = 1;
+         if (setsockopt(wmo_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("setsockopt() SO_KEEPALIVE error : %s"),
+                      strerror(errno));
+         }
+#  ifdef TCP_KEEPALIVE
+         reply = timeout_flag;
+         if (setsockopt(wmo_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("setsockopt() TCP_KEEPALIVE error : %s"),
+                      strerror(errno));
+         }
+#  endif
+         timeout_flag = OFF;
+      }
+# endif
+
+      if (connect(wmo_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(line, _("connect() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, line, length, NULL);
+# endif
+         (void)close(wmo_fd);
+         continue;
+      }
+
+      break; /* Success */
+   }
+
+   /* Ensure that we succeeded in finding an address. */
+   if (rp == NULL)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      return(INCORRECT);
+   }
+
+   freeaddrinfo(result);
+#else
+   int                     loop_counter = 0;
    struct sockaddr_in      sin;
    register struct hostent *p_host = NULL;
-#ifdef FTX
-   struct linger           l;
-#endif
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
    if ((sin.sin_addr.s_addr = inet_addr(hostname)) == -1)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
          {
-#ifdef LINUX
+#  ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
@@ -127,21 +228,21 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
                          _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          hostname, h_errno, strerror(errno));
             }
-#else
+#  else
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                       _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       hostname, h_errno, strerror(errno));
-#endif
+#  endif
          }
          else
          {
-#endif /* !_HPUX && !_SCO */
+# endif /* !_HPUX && !_SCO */
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                       _("Failed to gethostbyname() %s : %s"),
                       hostname, strerror(errno));
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          }
-#endif
+# endif
          return(INCORRECT);
       }
 
@@ -149,7 +250,7 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       memcpy((char *)&sin.sin_addr, p_host->h_addr, p_host->h_length);
    }
 
-   if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if ((wmo_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                 _("socket() error : %s"), strerror(errno));
@@ -158,47 +259,47 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
    sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    if (timeout_flag != OFF)
    {
       int reply = 1;
 
-      if (setsockopt(sock_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+      if (setsockopt(wmo_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
                      sizeof(reply)) < 0)
       {
          trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                    _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
       }
-# ifdef TCP_KEEPALIVE
+#  ifdef TCP_KEEPALIVE
       reply = timeout_flag;
-      if (setsockopt(sock_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+      if (setsockopt(wmo_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
                      sizeof(reply)) < 0)
       {
          trans_log(WARN_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                    _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
       }
-# endif
+#  endif
       timeout_flag = OFF;
    }
-#endif
+# endif
 
-   while (connect(sock_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
+   while (connect(wmo_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
       loop_counter++;
 
-#ifdef ETIMEDOUT
-# ifdef ECONNREFUSED
+# ifdef ETIMEDOUT
+#  ifdef ECONNREFUSED
       if ((loop_counter <= 8) && (errno != ETIMEDOUT) && (errno != ECONNREFUSED))
-# else
+#  else
       if ((loop_counter <= 8) && (errno != ETIMEDOUT))
-# endif
-#else
-# ifdef ECONNREFUSED
-      if ((loop_counter <= 8) && (errno != ECONNREFUSED))
+#  endif
 # else
+#  ifdef ECONNREFUSED
+      if ((loop_counter <= 8) && (errno != ECONNREFUSED))
+#  else
       if (loop_counter <= 8)
+#  endif
 # endif
-#endif
       {
          /*
           * Lets not give up to early. When we just have closed
@@ -209,61 +310,62 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       }
       else
       {
-#ifdef ETIMEDOUT
+# ifdef ETIMEDOUT
          if (errno == ETIMEDOUT)
          {
             timeout_flag = ON;
          }
-# ifdef ECONNREFUSED
+#  ifdef ECONNREFUSED
          else if (errno == ECONNREFUSED)
               {
                  timeout_flag = CON_REFUSED;
               }
-# endif
-#else
-# ifdef ECONNREFUSED
+#  endif
+# else
+#  ifdef ECONNREFUSED
          if (errno == ECONNREFUSED)
          {
             timeout_flag = CON_REFUSED;
          }
+#  endif
 # endif
-#endif
          trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                    _("Failed to connect() to %s, have tried %d times : %s"),
                    hostname, loop_counter, strerror(errno));
-         (void)close(sock_fd);
-         sock_fd = -1;
+         (void)close(wmo_fd);
+         wmo_fd = -1;
          return(INCORRECT);
       }
-      if (close(sock_fd) == -1)
+      if (close(wmo_fd) == -1)
       {
          trans_log(DEBUG_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                    _("close() error : %s"), strerror(errno));
       }
-      if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+      if ((wmo_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
                    _("socket() error : %s"), strerror(errno));
-         (void)close(sock_fd);
+         (void)close(wmo_fd);
          return(INCORRECT);
       }
    }
-#ifdef WITH_TRACE
+# ifdef WITH_TRACE
    if (loop_counter)
    {
-      loop_counter = sprintf(line, _("Connected to %s after %d tries"),
-                             hostname, loop_counter);
+      length = sprintf(line, _("Connected to %s after %d tries"),
+                       hostname, loop_counter);
    }
    else
    {
-      loop_counter = sprintf(line, _("Connected to %s"), hostname);
+      length = sprintf(line, _("Connected to %s"), hostname);
    }
-   trace_log(NULL, 0, C_TRACE, line, loop_counter, NULL);
+   trace_log(NULL, 0, C_TRACE, line, length, NULL);
+# endif
 #endif
 
 #ifdef FTX
    l.l_onoff = 1; l.l_linger = 240;
-   if (setsockopt(sock_fd, SOL_SOCKET, SO_LINGER, (char *)&l,
+   if (setsockopt(wmo_fd, SOL_SOCKET, SO_LINGER, (char *)&l,
                   sizeof(struct linger)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
@@ -285,12 +387,12 @@ wmo_write(char *block, int size)
 
    /* Initialise descriptor set. */
    FD_ZERO(&wset);
-   FD_SET(sock_fd, &wset);
+   FD_SET(wmo_fd, &wset);
    timeout.tv_usec = 0L;
    timeout.tv_sec = transfer_timeout;
 
    /* Wait for message x seconds and then continue. */
-   status = select(sock_fd + 1, NULL, &wset, NULL, &timeout);
+   status = select(wmo_fd + 1, NULL, &wset, NULL, &timeout);
 
    if (status == 0)
    {
@@ -298,10 +400,10 @@ wmo_write(char *block, int size)
       timeout_flag = ON;
       return(INCORRECT);
    }
-   else if (FD_ISSET(sock_fd, &wset))
+   else if (FD_ISSET(wmo_fd, &wset))
         {
 #ifdef _WITH_SEND
-           if ((status = send(sock_fd, block, size, 0)) != size)
+           if ((status = send(wmo_fd, block, size, 0)) != size)
            {
               if ((errno == ECONNRESET) || (errno == EBADF))
               {
@@ -312,7 +414,7 @@ wmo_write(char *block, int size)
               return(errno);
            }
 #else
-           if ((status = write(sock_fd, block, size)) != size)
+           if ((status = write(wmo_fd, block, size)) != size)
            {
               if ((errno == ECONNRESET) || (errno == EBADF))
               {
@@ -348,7 +450,7 @@ wmo_check_reply(void)
    int  n = 0;
    char buffer[10];
 
-   if ((n = readn(sock_fd, buffer, 10)) == 10)
+   if ((n = readn(wmo_fd, buffer, 10)) == 10)
    {
       if ((buffer[0] == '0') && (buffer[1] == '0') &&
           (buffer[2] == '0') && (buffer[3] == '0') &&
@@ -432,11 +534,11 @@ wmo_check_reply(void)
 void
 wmo_quit(void)
 {
-   if (sock_fd != -1)
+   if (wmo_fd != -1)
    {
       if ((timeout_flag != ON) && (timeout_flag != CON_RESET))
       {
-         if (shutdown(sock_fd, 1) < 0)
+         if (shutdown(wmo_fd, 1) < 0)
          {
             trans_log(DEBUG_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
                       _("shutdown() error : %s"), strerror(errno));
@@ -449,21 +551,21 @@ wmo_quit(void)
 
             /* Initialise descriptor set. */
             FD_ZERO(&rset);
-            FD_SET(sock_fd, &rset);
+            FD_SET(wmo_fd, &rset);
             timeout.tv_usec = 0L;
             timeout.tv_sec = transfer_timeout;
 
             /* Wait for message x seconds and then continue. */
-            status = select(sock_fd + 1, &rset, NULL, NULL, &timeout);
+            status = select(wmo_fd + 1, &rset, NULL, NULL, &timeout);
 
             if (status == 0)
             {
                /* Timeout has arrived. */
                timeout_flag = ON;
             }
-            else if (FD_ISSET(sock_fd, &rset))
+            else if (FD_ISSET(wmo_fd, &rset))
                  {
-                    if ((status = read(sock_fd, buffer, 32)) < 0)
+                    if ((status = read(wmo_fd, buffer, 32)) < 0)
                     {
                        trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
                                  _("read() error (%d) : %s"),
@@ -482,12 +584,12 @@ wmo_quit(void)
                  }
          }
       }
-      if (close(sock_fd) == -1)
+      if (close(wmo_fd) == -1)
       {
          trans_log(DEBUG_SIGN, __FILE__, __LINE__, "wmo_quit", NULL,
                    _("close() error : %s"), strerror(errno));
       }
-      sock_fd = -1;
+      wmo_fd = -1;
    }
 
    return;

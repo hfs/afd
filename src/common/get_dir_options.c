@@ -45,6 +45,7 @@ DESCR__S_M3
  **                      suffix.
  **   16.02.2007 H.Kiehl Added 'warn time' option.
  **   24.02.2007 H.Kiehl Added 'inotify' option.
+ **   24.11.2012 H.Kiehl Added support for another CRC type.
  **
  */
 DESCR__E_M3
@@ -710,12 +711,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                if (fra[i].dup_check_flag & DC_WARN)
                {
                   length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                    " %d %d", DC_DELETE_WARN_BIT, DC_CRC32_BIT);
+                                    " %d", DC_DELETE_WARN_BIT);
                }
                else
                {
                   length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                    " %d %d", DC_DELETE_BIT, DC_CRC32_BIT);
+                                    " %d", DC_DELETE_BIT);
                }
             }
             else if (fra[i].dup_check_flag & DC_STORE)
@@ -723,22 +724,32 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                     if (fra[i].dup_check_flag & DC_WARN)
                     {
                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                         " %d %d",
-                                         DC_STORE_WARN_BIT, DC_CRC32_BIT);
+                                         " %d",
+                                         DC_STORE_WARN_BIT);
                     }
                     else
                     {
                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                         " %d %d",
-                                         DC_STORE_BIT, DC_CRC32_BIT);
+                                         " %d",
+                                         DC_STORE_BIT);
                     }
                  }
                  else
                  {
                     length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                      " %d %d",
-                                      DC_WARN_BIT, DC_CRC32_BIT);
+                                      " %d",
+                                      DC_WARN_BIT);
                  }
+            if (fra[i].dup_check_flag & DC_CRC32C)
+            {
+               length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                 " %d", DC_CRC32C_BIT);
+            }
+            else
+            {
+               length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                 " %d", DC_CRC32_BIT);
+            }
             d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)

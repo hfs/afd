@@ -37,10 +37,6 @@
    */
 #undef HAVE_DCGETTEXT
 
-/* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
-   */
-#undef HAVE_DIRENT_H
-
 /* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
 #undef HAVE_DOPRNT
 
@@ -56,6 +52,12 @@
 /* Define to 1 if you have the `fdatasync' function. */
 #undef HAVE_FDATASYNC
 
+/* Define to 1 if you have the `gai_strerror' function. */
+#undef HAVE_GAI_STRERROR
+
+/* Define to 1 if you have the `getaddrinfo' function. */
+#undef HAVE_GETADDRINFO
+
 /* Define to 1 if you have the `gethostname' function. */
 #undef HAVE_GETHOSTNAME
 
@@ -67,6 +69,9 @@
 
 /* Define if the GNU gettext() function is already present or preinstalled. */
 #undef HAVE_GETTEXT
+
+/* Adding support for SSE4.2 (CRC32) instructions */
+#undef HAVE_HW_CRC32
 
 /* Define if you have the iconv() function and it works. */
 #undef HAVE_ICONV
@@ -112,9 +117,6 @@
 
 /* Define if you have ncurses.h */
 #undef HAVE_NCURSES_H
-
-/* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
-#undef HAVE_NDIR_H
 
 /* Define to 1 if you have the <netdb.h> header file. */
 #undef HAVE_NETDB_H
@@ -188,16 +190,8 @@
 /* Define to 1 if you have the `strtoull' function. */
 #undef HAVE_STRTOULL
 
-/* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
-   */
-#undef HAVE_SYS_DIR_H
-
 /* Define to 1 if you have the <sys/file.h> header file. */
 #undef HAVE_SYS_FILE_H
-
-/* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
-   */
-#undef HAVE_SYS_NDIR_H
 
 /* Define to 1 if you have the <sys/param.h> header file. */
 #undef HAVE_SYS_PARAM_H

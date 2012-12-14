@@ -71,6 +71,9 @@ DESCR__S_M1
  **   16.07.2005 H.Kiehl Made old_file_time and delete_files_flag
  **                      configurable via AFD_CONFIG.
  **   14.02.2011 H.Kiehl Added onetime support.
+ **   27.10.2012 H.Kiehl On Linux check if hardlink protection is enabled
+ **                      and if this is the case, warn user and tell him
+ **                      what he can do.
  **
  */
 DESCR__E_M1
@@ -136,6 +139,9 @@ int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
                            amg_flag = YES;
 unsigned int               max_copied_files = MAX_COPIED_FILES;
 pid_t                      dc_pid;      /* dir_check pid                 */
+#ifdef WITH_INOTIFY
+pid_t                      ic_pid;      /* inotify_check pid             */
+#endif
 off_t                      fra_size,
                            fsa_size,
                            max_copied_file_size = MAX_COPIED_FILE_SIZE * MAX_COPIED_FILE_SIZE_UNIT;
@@ -734,6 +740,14 @@ main(int argc, char *argv[])
       {
          *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
       }
+#ifdef WITH_INOTIFY
+      ic_pid = make_process_amg(work_dir, IC_PROC_NAME, rescan_time,
+                                max_no_proc);
+      if (pid_list != NULL)
+      {
+         *(pid_t *)(pid_list + ((DC_NO + 2) * sizeof(pid_t))) = ic_pid;
+      }
+#endif
    }
    else
    {
@@ -751,10 +765,14 @@ main(int argc, char *argv[])
    system_log(DEBUG_SIGN, NULL, 0,
               _("AMG Configuration: Max process per directory %d"),
               max_process_per_dir);
+#ifdef HAVE_HW_CRC32
+    system_log(DEBUG_SIGN, NULL, 0,
+               "CRC32 CPU support: %s",
+               (detect_cpu_crc32() == YES) ? "Yes" : "No");
+#endif
    if (default_delete_files_flag != 0)
    {
-      char *ptr,
-           tmp_str[22];
+      char tmp_str[22];
 
       ptr = tmp_str;
       if (default_delete_files_flag & UNKNOWN_FILES)
@@ -825,7 +843,11 @@ main(int argc, char *argv[])
             {
                int j;
 
+#ifdef WITH_INOTIFY
+               if (com(STOP, DC_FIFOS) == INCORRECT)
+#else
                if (com(STOP) == INCORRECT)
+#endif
                {
                   system_log(INFO_SIGN, NULL, 0,
                              _("Giving it another try ..."));
@@ -846,6 +868,33 @@ main(int argc, char *argv[])
                   }
                }
             }
+#ifdef WITH_INOTIFY
+            if (ic_pid > 0)
+            {
+               int j;
+
+               if (com(STOP, IC_FIFOS) == INCORRECT)
+               {
+                  system_log(INFO_SIGN, NULL, 0,
+                             _("Giving it another try ..."));
+                  (void)com(STOP);
+               }
+
+               /* Wait for the child to terminate. */
+               for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
+               {
+                  if (waitpid(ic_pid, NULL, WNOHANG) == ic_pid)
+                  {
+                     ic_pid = NOT_RUNNING;
+                     break;
+                  }
+                  else
+                  {
+                     (void)sleep(1);
+                  }
+               }
+            }
+#endif
 
             stop_flag = 1;
 

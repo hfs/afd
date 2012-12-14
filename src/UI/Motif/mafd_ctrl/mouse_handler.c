@@ -54,6 +54,8 @@ DESCR__S_M3
  **                      AUTO_PAUSE_QUEUE_STAT.
  **   21.10.2009 H.Kiehl If we select host and we want to view the
  **                      Receive Log, only show data of the selected hosts.
+ **   25.07.2012 H.Kiehl When selecting a host with retrieve select the
+ **                      directory for this host as well.
  **
  */
 DESCR__E_M3
@@ -86,6 +88,8 @@ DESCR__E_M3
 #include "mafd_ctrl.h"
 #include "permission.h"
 #include "logdefs.h"
+
+/* #define SHOW_CALLS */
 
 /* External global variables. */
 extern Display                    *display;
@@ -188,16 +192,18 @@ size_t                            current_jd_size = 0;
 static int                        no_of_dids_found = 0,
                                   no_of_jids;
 static unsigned int               *dids = NULL;
+static char                       **str_dids = NULL;
 static size_t                     jid_size = 0;
 static struct job_id_data         *jid = NULL;
 
 /* Local function prototypes. */
 static int                        in_ec_area(int, XEvent *),
                                   in_host_area(int, XEvent *),
+                                  insert_dir_ids_input(int),
                                   to_long(int, int, int),
                                   to_short(int, int, int);
 static void                       cleanup_did_data(void),
-                                  insert_dir_ids(int),
+                                  insert_dir_ids_recieve(int),
                                   read_reply(XtPointer, int *, XtInputId *),
                                   redraw_long(int),
                                   redraw_short(void);
@@ -1169,7 +1175,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                     cmd[2],
 #endif
        	            err_msg[1025 + 100];
-   size_t           new_size = (no_of_hosts + 11) * sizeof(char *);
+   size_t           new_size = (no_of_hosts + 12) * sizeof(char *);
    struct host_list *hl = NULL;
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
@@ -1186,7 +1192,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                  "You must first select a host!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
-   RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 2), char);
+   RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 4 + 2), char);
    if ((args = malloc(new_size)) == NULL)
    {
       (void)xrec(FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
@@ -1194,6 +1200,9 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
       FREE_RT_ARRAY(hosts);
       return;
    }
+#ifdef SHOW_CALLS
+   args[0] = NULL;
+#endif
 
    switch (sel_typ)
    {
@@ -1382,6 +1391,11 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          else
          {
             offset = 5;
+         }
+         if (no_selected > 0)
+         {
+            args[offset] = "-h";
+            offset++;
          }
          (void)strcpy(progname, SHOW_ILOG);
          break;
@@ -2289,7 +2303,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   if ((fsa[i].toggle_pos > 0) &&
                       (fsa[i].host_toggle_str[0] != '\0'))
                   {
-                     char tmp_host_alias[MAX_HOSTNAME_LENGTH + 2];
+                     char tmp_host_alias[MAX_HOSTNAME_LENGTH + 4 + 2];
 
                      if (fsa[i].host_toggle == HOST_ONE)
                      {
@@ -2563,7 +2577,6 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                break;
 
             case E_LOG_SEL :
-            case I_LOG_SEL :
             case O_LOG_SEL :
             case D_LOG_SEL :
             case SHOW_QUEUE_SEL :
@@ -2572,15 +2585,33 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                k++;
                break;
 
+            case I_LOG_SEL :
+               if (connect_data[i].status_led[2] != 1)
+               {
+                  if (insert_dir_ids_input(i) == NO)
+                  {
+                     (void)strcpy(hosts[k], fsa[i].host_alias);
+                     args[k + offset] = hosts[k];
+                     k++;
+                  }
+               }
+               else
+               {
+                  (void)strcpy(hosts[k], fsa[i].host_alias);
+                  args[k + offset] = hosts[k];
+                  k++;
+               }
+               break;
+
             case R_LOG_SEL :
                /*
                 * Insert FRA ID's for the selected host.
                 */
-               insert_dir_ids(i);
+               insert_dir_ids_recieve(i);
                break;
 
             case TD_LOG_SEL :
-            case T_LOG_SEL : /* Start Debug/Transfer Log. */
+            case T_LOG_SEL : /* View Debug/Transfer Log. */
                (void)strcpy(hosts[k], fsa[i].host_alias);
                if (fsa[i].host_toggle_str[0] != '\0')
                {
@@ -2717,7 +2748,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
            if (no_of_dids_found > no_of_hosts)
            {
-              new_size = (no_of_dids_found + 11) * sizeof(char *);
+              new_size = (no_of_dids_found + 12) * sizeof(char *);
               if ((args = realloc(args, new_size)) == NULL)
               {
                  (void)xrec(FATAL_DIALOG, "realloc() error : %s [%d] (%s %d)",
@@ -2760,9 +2791,37 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
            make_xprocess(progname, progname, args, -1);
            (void)fra_detach();
         }
+   else if (sel_typ == I_LOG_SEL)
+        {
+           if (no_of_dids_found > 0)
+           {
+              new_size = (no_of_dids_found + no_of_hosts + 12) * sizeof(char *);
+              if ((args = realloc(args, new_size)) == NULL)
+              {
+                 (void)xrec(FATAL_DIALOG, "realloc() error : %s [%d] (%s %d)",
+                            strerror(errno), errno, __FILE__, __LINE__);
+                 FREE_RT_ARRAY(hosts)
+                 cleanup_did_data();
+                 return;
+              }
+              args[k + offset] = "-d";
+              for (i = 0; i < no_of_dids_found; i++)
+              {
+                 args[k + offset + 1 + i] = str_dids[i];
+              }
+              i += 1; /* for -d parameter */
+           }
+           else
+           {
+              i = 0;
+           }
+
+           args[k + offset + i] = NULL;
+           make_xprocess(progname, progname, args, -1);
+        }
    else if ((sel_typ == EVENT_SEL) || (sel_typ == E_LOG_SEL) ||
             (sel_typ == O_LOG_SEL) || (sel_typ == D_LOG_SEL) ||
-            (sel_typ == I_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
+            (sel_typ == SHOW_QUEUE_SEL))
         {
            args[k + offset] = NULL;
            make_xprocess(progname, progname, args, -1);
@@ -2795,6 +2854,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                    }
            }
         }
+
+#ifdef SHOW_CALLS
+   i = 0;
+   while (args[i] != NULL)
+   {
+      (void)printf("%s ", args[i]);
+      i++;
+   }
+   (void)printf("\n");
+#endif
 
    /* Memory for arg list stuff no longer needed. */
    free(args);
@@ -4075,9 +4144,59 @@ redraw_short(void)
 }
 
 
-/*-------------------------- insert_dir_ids() --------------------------*/
+/*----------------------- insert_dir_ids_input() -----------------------*/
+static int
+insert_dir_ids_input(int fsa_pos)
+{
+   int gotcha = NO,
+       i;
+
+   if ((i = fra_attach_passive()) != SUCCESS)
+   {
+      if (i == INCORRECT_VERSION)
+      {
+         (void)xrec(WARN_DIALOG,
+                    "This program is not able to attach to the FRA due to incorrect version! (%s %d)",
+                    __FILE__, __LINE__);
+      }
+      else
+      {
+         (void)xrec(WARN_DIALOG, "Failed to attach to FRA! (%s %d)",
+                    __FILE__, __LINE__);
+      }
+      exit(INCORRECT);
+   }
+   for (i = 0; i < no_of_dirs; i++)
+   {
+      if ((fra[i].host_alias[0] != '\0') &&
+          (strcmp(fra[i].host_alias, fsa[fsa_pos].host_alias) == 0))
+      {
+         if (no_of_dids_found == 0)
+         {
+            RT_ARRAY(str_dids, DID_STEP_SIZE,
+                     (MAX_INT_HEX_LENGTH + 1), char);
+         }
+         else if ((no_of_dids_found % DID_STEP_SIZE) == 0)
+              {
+                 REALLOC_RT_ARRAY(str_dids,
+                                  (no_of_dids_found + DID_STEP_SIZE),
+                                  (MAX_INT_HEX_LENGTH + 1), char);
+              }
+         (void)sprintf(str_dids[no_of_dids_found], "%x", fra[i].dir_id);
+         no_of_dids_found++;
+         gotcha = YES;
+      }
+   } /* for (i = 0; i < no_of_dirs; i++) */
+
+   (void)fra_detach();
+
+   return(gotcha);
+}
+
+
+/*---------------------- insert_dir_ids_receive() ----------------------*/
 static void
-insert_dir_ids(int fsa_pos)
+insert_dir_ids_recieve(int fsa_pos)
 {
    int gotcha,
        i, j, k;
@@ -4167,7 +4286,7 @@ insert_dir_ids(int fsa_pos)
                      break;
                   }
                }
-               if (gotcha == NO)
+               if (gotcha == YES)
                {
                   if (no_of_dids_found == 0)
                   {
@@ -4240,6 +4359,11 @@ cleanup_did_data(void)
    {
       free(dids);
       dids = NULL;
+   }
+   if (str_dids != NULL)
+   {
+      FREE_RT_ARRAY(str_dids);
+      str_dids = NULL;
    }
    no_of_dids_found = 0;
 

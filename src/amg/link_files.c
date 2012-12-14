@@ -63,6 +63,9 @@ DESCR__S_M3
  **                      specified in 'age-limit' option.
  **   17.10.2004 H.Kiehl Put files directly to the outgoing directory
  **                      when there are no local options.
+ **   27.10.2012 H.Kiehl On Linux check if hardlink protection is enabled
+ **                      and if this is the case, warn user and tell him
+ **                      what he can do, so AFD must not do a copy.
  **
  */
 DESCR__E_M3
@@ -73,7 +76,7 @@ DESCR__E_M3
 # include <stdlib.h>               /* realloc()                          */
 #endif
 #include <sys/types.h>
-#include <unistd.h>                /* link()                             */
+#include <unistd.h>                /* link(), access()                   */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -84,6 +87,9 @@ extern time_t                     *file_mtime_pool;
 extern char                       *file_name_buffer,
                                   **file_name_pool;
 extern unsigned char              *file_length_pool;
+#endif
+#ifdef LINUX
+extern char                       hardlinks_protected;
 #endif
 #ifdef _DELETE_LOG
 extern struct delete_log          dl;
@@ -386,8 +392,17 @@ link_files(char                   *src_file_path,
                      }
                   }
                }
+#ifdef LINUX
+               else if ((p_db->lfs & DO_NOT_LINK_FILES) ||
+                        ((hardlinks_protected == YES) &&
+                         (access(src_file_path, W_OK) != 0)))
+#else
                else if (p_db->lfs & DO_NOT_LINK_FILES)
+#endif
                     {
+#ifdef LINUX
+try_copy_file:
+#endif
                        if ((retstat = copy_file(src_file_path, dest_file_path,
                                                 NULL)) < 0)
                        {
@@ -428,10 +443,54 @@ link_files(char                   *src_file_path,
                           }
                           else
                           {
-                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                             int    tmp_errno = errno;
+#ifdef _DELETE_LOG
+                             size_t dl_real_size;
+#endif
+
+#ifdef LINUX
+                             if ((tmp_errno == EPERM) &&
+                                 (hardlinks_protected == NEITHER))
+                             {
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "Hardlinks are protected! You need to unset this in /proc/sys/fs/protected_hardlinks. Otherwise AFD must copy files!");
+                                hardlinks_protected = YES;
+
+                                goto try_copy_file;
+                             }
+#endif
+
+                             system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to link file %s to %s : %s",
                                         src_file_path, dest_file_path,
-                                        strerror(errno));
+                                        strerror(tmp_errno));
+
+#ifdef _DELETE_LOG
+                             (void)memcpy(dl.file_name, file_name_pool[i],
+                                          (size_t)(file_length_pool[i] + 1));
+                             (void)sprintf(dl.host_name, "%-*s %03x",
+                                           MAX_HOSTNAME_LENGTH,
+                                           p_db->host_alias,
+                                           INTERNAL_LINK_FAILED);
+                             *dl.file_size = file_size_pool[i];
+                             *dl.dir_id = p_de->dir_id;
+                             *dl.job_id = p_db->job_id;
+                             *dl.input_time = 0L;
+                             *dl.split_job_counter = 0;
+                             *dl.unique_number = 0;
+                             *dl.file_name_length = file_length_pool[i];
+                             dl_real_size = *dl.file_name_length + dl.size +
+                                            sprintf((dl.file_name + *dl.file_name_length + 1),
+                                                    "%s%c>%s (%s %d)",
+                                                    DIR_CHECK, SEPARATOR_CHAR,
+                                                    strerror(tmp_errno),
+                                                    __FILE__, __LINE__);
+                             if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                             {
+                                system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                           "write() error : %s", strerror(errno));
+                             }
+#endif
                           }
                        }
                     }

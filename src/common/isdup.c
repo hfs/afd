@@ -1,6 +1,6 @@
 /*
  *  isdup.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,14 +25,16 @@ DESCR__S_M3
  **   isdup - checks for duplicates
  **
  ** SYNOPSIS
- **   int isdup(char *fullname, off_t size, unsigned int id, time_t timeout,
- **             int flag, int rm_flag)
+ **   int  isdup(char *fullname, off_t size, unsigned int id, time_t timeout,
+ **              int flag, int rm_flag, int have_hw_crc32, int stay_attached,
+ **              int lock)
+ **   void isdup_detach(void)
  **
  ** DESCRIPTION
  **   The function isdup() checks if this file is a duplicate.
  **
  ** RETURN VALUES
- **   If n is not reached SUCCESS will be returned, otherwise -1 is
+ **   isdup() returns YES if the file is duplicate, otherwise NO is
  **   returned.
  **
  ** AUTHOR
@@ -43,6 +45,10 @@ DESCR__S_M3
  **   09.03.2006 H.Kiehl Added parameter to remove a CRC.
  **   20.12.2006 H.Kiehl Added option to ignore last suffix of filename.
  **   05.03.2008 H.Kiehl Added option to test for filename and size.
+ **   19.11.2012 H.Kiehl Added option to stay attached.
+ **   21.11.2012 H.Kiehl Added option to disable locking.
+ **   23.11.2012 H.Kiehl Included support for another CRC-32 algoritm
+ **                      which also supports SSE4.2 on some CPU's.
  **
  */
 DESCR__E_M3
@@ -59,6 +65,11 @@ DESCR__E_M3
 /* External global variables. */
 extern char *p_work_dir;
 
+/* Local global variables. */
+static int            cdb_fd = -1,
+                      *no_of_crcs;
+static struct crc_buf *cdb = NULL;
+
 
 /*############################### isdup() ###############################*/
 int
@@ -67,18 +78,19 @@ isdup(char         *fullname,
       unsigned int id,
       time_t       timeout,
       int          flag,
-      int          rm_flag)
+      int          rm_flag,
+#ifdef HAVE_HW_CRC32
+      int          have_hw_crc32,
+#endif
+      int          stay_attached,
+      int          lock)
 {
-   int            dup,
-                  fd,
-                  i,
-                  *no_of_crcs;
-   unsigned int   crc;
-   size_t         new_size;
-   time_t         current_time;
-   char           crcfile[MAX_PATH_LENGTH],
-                  *ptr;
-   struct crc_buf *cdb;
+   int          dup,
+                i;
+   unsigned int crc;
+   time_t       current_time;
+   char         crcfile[MAX_PATH_LENGTH],
+                *ptr;
 
    if (flag & DC_FILENAME_ONLY)
    {
@@ -92,7 +104,19 @@ isdup(char         *fullname,
       if (*ptr == '/')
       {
          ptr++;
-         crc = get_checksum(ptr, (p_end - ptr));
+         if (flag & DC_CRC32C)
+         {
+            crc = get_checksum_crc32c(INITIAL_CRC, ptr,
+#ifdef HAVE_HW_CRC32
+                                      (p_end - ptr), have_hw_crc32);
+#else
+                                      (p_end - ptr));
+#endif
+         }
+         else
+         {
+            crc = get_checksum(INITIAL_CRC, ptr, (p_end - ptr));
+         }
       }
       else
       {
@@ -121,7 +145,20 @@ isdup(char         *fullname,
               }
               filename_size[i++] = ' ';
               (void)memcpy(&filename_size[i], &size, sizeof(off_t));
-              crc = get_checksum(filename_size, i + sizeof(off_t));
+              if (flag & DC_CRC32C)
+              {
+                 crc = get_checksum_crc32c(INITIAL_CRC, filename_size,
+#ifdef HAVE_HW_CRC32
+                                           i + sizeof(off_t), have_hw_crc32);
+#else
+                                           i + sizeof(off_t));
+#endif
+              }
+              else
+              {
+                 crc = get_checksum(INITIAL_CRC, filename_size,
+                                    i + sizeof(off_t));
+              }
            }
            else
            {
@@ -150,7 +187,19 @@ isdup(char         *fullname,
            if (*ptr == '/')
            {
               ptr++;
-              crc = get_checksum(ptr, (p_end - ptr));
+              if (flag & DC_CRC32C)
+              {
+                 crc = get_checksum_crc32c(INITIAL_CRC, ptr,
+#ifdef HAVE_HW_CRC32
+                                           (p_end - ptr), have_hw_crc32);
+#else
+                                           (p_end - ptr));
+#endif
+              }
+              else
+              {
+                 crc = get_checksum(INITIAL_CRC, ptr, (p_end - ptr));
+              }
            }
            else
            {
@@ -161,6 +210,8 @@ isdup(char         *fullname,
         }
    else if (flag & DC_FILE_CONTENT)
         {
+           int  fd,
+                ret;
            char buffer[4096];
 
            if ((fd = open(fullname, O_RDONLY)) == -1)
@@ -171,7 +222,20 @@ isdup(char         *fullname,
               return(NO);
            }
 
-           if (get_file_checksum(fd, buffer, 4096, 0, &crc) != SUCCESS)
+           if (flag & DC_CRC32C)
+           {
+              ret = get_file_checksum_crc32c(fd, buffer, 4096, 0,
+#ifdef HAVE_HW_CRC32
+                                             &crc, have_hw_crc32);
+#else
+                                             &crc);
+#endif
+           }
+           else
+           {
+              ret = get_file_checksum(fd, buffer, 4096, 0, &crc);
+           }
+           if (ret != SUCCESS)
            {
               system_log(WARN_SIGN, __FILE__, __LINE__,
                          _("Failed to determine checksum for `%s'."), fullname);
@@ -197,6 +261,8 @@ isdup(char         *fullname,
            }
            if (*ptr == '/')
            {
+              int  fd,
+                   ret;
               char buffer[4096];
 
               ptr++;
@@ -210,8 +276,20 @@ isdup(char         *fullname,
                  return(NO);
               }
 
-              if (get_file_checksum(fd, buffer, 4096,
-                                    (p_end - ptr), &crc) != SUCCESS)
+              if (flag & DC_CRC32C)
+              {
+                 ret = get_file_checksum_crc32c(fd, buffer, 4096, (p_end - ptr),
+#ifdef HAVE_HW_CRC32
+                                                &crc, have_hw_crc32);
+#else
+                                                &crc);
+#endif
+              }
+              else
+              {
+                 ret = get_file_checksum(fd, buffer, 4096, (p_end - ptr), &crc);
+              }
+              if (ret != SUCCESS)
               {
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             _("Failed to determine checksum for `%s'."),
@@ -235,29 +313,46 @@ isdup(char         *fullname,
            }
         }
 
-   /*
-    * Map to checksum file of this job. If it does not exist create it.
-    */
-   (void)sprintf(crcfile, "%s%s%s/%x", p_work_dir, AFD_FILE_DIR, CRC_DIR, id);
-   new_size = (CRC_STEP_SIZE * sizeof(struct crc_buf)) + AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(crcfile, &fd, &new_size, "isdup()",
-                         FILE_MODE, YES)) == (caddr_t) -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 _("Failed to mmap() `%s' : %s"), crcfile, strerror(errno));
-      return(NO);
-   }
    current_time = time(NULL);
-   no_of_crcs = (int *)ptr;
-
-   /* Check check time has sane value (it's not initialized). */
-   if ((*(time_t *)(ptr + SIZEOF_INT + 4) < 100000) ||
-       (*(time_t *)(ptr + SIZEOF_INT + 4) > (current_time - DUPCHECK_CHECK_TIME)))
+   if ((stay_attached == NO) || (cdb == NULL))
    {
-      *(time_t *)(ptr + SIZEOF_INT + 4) = current_time;
+      size_t new_size;
+
+      /*
+       * Map to checksum file of this job. If it does not exist create it.
+       */
+      (void)sprintf(crcfile, "%s%s%s/%x", p_work_dir, AFD_FILE_DIR, CRC_DIR, id);
+      new_size = (CRC_STEP_SIZE * sizeof(struct crc_buf)) + AFD_WORD_OFFSET;
+      if ((ptr = attach_buf(crcfile, &cdb_fd, &new_size,
+                            (lock == YES) ? "isdup()" : NULL,
+                            FILE_MODE, YES)) == (caddr_t) -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    _("Failed to mmap() `%s' : %s"), crcfile, strerror(errno));
+         return(NO);
+      }
+      no_of_crcs = (int *)ptr;
+
+      /* Check that time has sane value (it's not initialized). */
+      if ((*(time_t *)(ptr + SIZEOF_INT + 4) < 100000) ||
+          (*(time_t *)(ptr + SIZEOF_INT + 4) > (current_time - DUPCHECK_MIN_CHECK_TIME)))
+      {
+         *(time_t *)(ptr + SIZEOF_INT + 4) = current_time;
+      }
+
+      ptr += AFD_WORD_OFFSET;
+      cdb = (struct crc_buf *)ptr;
    }
-   ptr += AFD_WORD_OFFSET;
-   cdb = (struct crc_buf *)ptr;
+#ifdef THIS_DOES_NOT_WORK
+   else if (lock == YES)
+        {
+#ifdef LOCK_DEBUG
+           lock_region_w(cdb_fd, 0, __FILE__, __LINE__);
+#else
+           lock_region_w(cdb_fd, 0);
+#endif
+        }
+#endif /* THIS_DOES_NOT_WORK */
    dup = NO;
 
    if (rm_flag != YES)
@@ -266,8 +361,23 @@ isdup(char         *fullname,
        * At certain intervalls always check if the crc values we have
        * stored have not timed out. If so remove them from the list.
        */
-      if (current_time > *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4))
+      if (current_time > *(time_t *)((char *)cdb + SIZEOF_INT + 4))
       {
+         time_t dupcheck_check_time;
+
+         if (timeout > DUPCHECK_MAX_CHECK_TIME)
+         {
+            dupcheck_check_time = DUPCHECK_MAX_CHECK_TIME;
+         }
+         else if (timeout < DUPCHECK_MIN_CHECK_TIME)
+              {
+                 dupcheck_check_time = DUPCHECK_MIN_CHECK_TIME;
+              }
+              else
+              {
+                 dupcheck_check_time = timeout;
+              }
+
          for (i = 0; i < *no_of_crcs; i++)
          {
             if (cdb[i].timeout <= current_time)
@@ -289,10 +399,10 @@ isdup(char         *fullname,
                (*no_of_crcs) -= (end_pos - 1 - i);
             }
          }
-         *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4) =
-                                             ((time(NULL) / DUPCHECK_CHECK_TIME) *
-                                              DUPCHECK_CHECK_TIME) +
-                                             DUPCHECK_CHECK_TIME;
+         *(time_t *)((char *)cdb + SIZEOF_INT + 4) =
+                                      ((time(NULL) / dupcheck_check_time) *
+                                       dupcheck_check_time) +
+                                      dupcheck_check_time;
       }
 
       if (timeout > 0L)
@@ -320,15 +430,17 @@ isdup(char         *fullname,
          if ((*no_of_crcs != 0) &&
              ((*no_of_crcs % CRC_STEP_SIZE) == 0))
          {
+            size_t new_size;
+
             new_size = (((*no_of_crcs / CRC_STEP_SIZE) + 1) *
                         CRC_STEP_SIZE * sizeof(struct crc_buf)) +
                        AFD_WORD_OFFSET;
             ptr = (char *)cdb - AFD_WORD_OFFSET;
-            if ((ptr = mmap_resize(fd, ptr, new_size)) == (caddr_t) -1)
+            if ((ptr = mmap_resize(cdb_fd, ptr, new_size)) == (caddr_t) -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           _("mmap_resize() error : %s"), strerror(errno));
-               (void)close(fd);
+               (void)close(cdb_fd);
                return(NO);
             }
             no_of_crcs = (int *)ptr;
@@ -367,7 +479,37 @@ isdup(char         *fullname,
       }
    }
 
-   unmap_data(fd, (void *)&cdb);
+   if (stay_attached == NO)
+   {
+      unmap_data(cdb_fd, (void *)&cdb);
+      cdb_fd = -1;
+
+      /* Note: cdb is set to NULL by unmap_data(). */
+   }
+#ifdef THIS_DOES_NOT_WORK
+   else if (lock == YES)
+        {
+#ifdef LOCK_DEBUG
+           unlock_region(cdb_fd, 0, __FILE__, __LINE__);
+#else                                                                   
+           unlock_region(cdb_fd, 0);
+#endif
+        }
+#endif /* THIS_DOES_NOT_WORK */
 
    return(dup);
+}
+
+
+/*############################ isdup_detach() ###########################*/
+void
+isdup_detach(void)
+{
+   if (cdb != NULL)
+   {
+      unmap_data(cdb_fd, (void *)&cdb);
+      cdb_fd = -1;
+   }
+
+   return;
 }

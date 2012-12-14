@@ -971,6 +971,8 @@ check_delete_line(char         *line,
    else
    {
 # ifndef HAVE_GETLINE
+      register int i = 0;
+
       while (*(ptr + i) != '\0')
       {
          i++;

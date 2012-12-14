@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -197,6 +197,7 @@
 #define LF2CRCRLF                  20
 #define CRCRLF2LF                  21
 #define ISO8859_2ASCII             22
+#define WMO_WITH_DUMMY_MESSAGE     23
 
 /* Definitions for the different extract options. */
 #define EXTRACT_ADD_SOH_ETX          1
@@ -221,6 +222,12 @@
 /* with the above jobs.                           */
 #define DC_CMD_FIFO                "/dc_cmd.fifo"
 #define DC_RESP_FIFO               "/dc_resp.fifo"
+#ifdef WITH_INOTIFY
+# define DC_FIFOS                  1
+# define IC_FIFOS                  2
+# define IC_CMD_FIFO               "/ic_cmd.fifo"
+# define IC_RESP_FIFO              "/ic_resp.fifo"
+#endif
 #ifdef WITH_ONETIME
 # define OT_JOB_FIFO               "/ot_job.fifo"
 #endif
@@ -228,6 +235,9 @@
 /* Definitions of the process names that are started */
 /* by the AMG main process.                          */
 #define DC_PROC_NAME               "dir_check"
+#ifdef WITH_INOTIFY
+# define IC_PROC_NAME              "inotify_check"
+#endif
 #ifdef WITH_ONETIME
 # define OT_PROC_NAME              "onetime_check"
 #endif
@@ -480,7 +490,8 @@ struct dir_data
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*|17-32 | Not used.        |*/
+                                            /*|18-32 | Not used.        |*/
+                                            /*|   17 | DC_CRC32C        |*/
                                             /*|   16 | DC_CRC32         |*/
                                             /*| 4-15 | Not used.        |*/
                                             /*|    3 | DC_FILE_CONT_NAME|*/
@@ -727,7 +738,11 @@ extern int    amg_zombie_check(pid_t *, int),
               check_list(struct directory_entry *, char *, struct stat *),
               check_option(char *),
               check_time_str(char *),
+#ifdef WITH_INOTIFY
+              com(char, int),
+#else
               com(char),
+#endif
               convert(char *, char *, int, off_t *),
 #ifdef _WITH_PTHREAD
               check_files(struct directory_entry *, char *, int, char *,

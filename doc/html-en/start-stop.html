@@ -21,9 +21,15 @@ used for this task. The program can take the following parameters:
        -d                        only start afd_ctrl dialog
        -h[ &lt;timeout in seconds&gt;] only check for heartbeat
        -H[ &lt;timeout in seconds&gt;] check if heartbeat is active, if not start AFD
-       -i                        initialize AFD, by deleting fifodir
+       -i[1-9]                   initialize AFD, the optional number is the
+                                 level of initialization. The higher the number
+                                 the more data will be deleted. If no number is
+                                 specified the level will be 5. 9 is the same
+                                 as -I below.
        -I                        initialize AFD, by deleting everything
                                  except for etc directory
+       -n                        in combination with -i or -I just print
+                                 and do not execute.
        -r                        removes blocking startup of AFD
        -s                        shutdown AFD
        -S                        silent AFD shutdown
@@ -96,9 +102,9 @@ by init_afd.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 2005 - 2011 by H.Kiehl<br>
+   Copyright &copy; 2005 - 2012 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 23.10.2011
+   Last updated: 29.11.2012
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

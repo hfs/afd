@@ -126,6 +126,8 @@ main(int argc, char *argv[])
                     file_size_to_retrieve = 0,
                     tmp_content_length;
    clock_t          clktck;
+   time_t           end_transfer_time_file,
+                    start_transfer_time_file;
    char             *buffer,
                     *chunkbuffer = NULL,
                     local_file[MAX_PATH_LENGTH],
@@ -435,6 +437,11 @@ main(int argc, char *argv[])
                   {
                      init_limit_transfer_rate();
                   }
+                  if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                  {
+                     start_transfer_time_file = time(NULL);
+                  }
+
                   if (status == SUCCESS)
                   {
                      do
@@ -476,6 +483,30 @@ main(int argc, char *argv[])
                            fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                            fsa->job_status[(int)db.job_no].file_size_done += status;
                            fsa->job_status[(int)db.job_no].bytes_send += status;
+                           if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                           {
+                              end_transfer_time_file = time(NULL);
+                              if (end_transfer_time_file < start_transfer_time_file)
+                              {
+                                 start_transfer_time_file = end_transfer_time_file;
+                              }
+                              else
+                              {
+                                 if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                                 {
+                                    trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                              "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                              "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                              fsa->job_status[(int)db.job_no].file_name_in_use,
+                                              (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                    sql_quit();
+                                    exit(STILL_FILES_TO_SEND);
+                                 }
+                              }
+                           }
                         }
                      } while ((status != 0) && (bytes_done < content_length));
                   }

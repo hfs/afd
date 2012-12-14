@@ -1,6 +1,6 @@
 /*
  *  display_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,8 @@ extern int                     file_name_toggle_set,
                                no_of_search_hosts,
                                special_button_flag,
                                file_name_length;
-extern unsigned int            total_no_files;
+extern unsigned int            total_no_files,
+                               unprintable_chars;
 extern XT_PTR_TYPE             toggles_set;
 extern char                    summary_str[],
                                total_summary_str[];
@@ -113,7 +114,15 @@ display_data(void)
       j = 0;
       while ((j < file_name_length) && (qfl[lines_displayed].file_name[j] != '\0'))
       {
-         *(p_file_name + j) = qfl[lines_displayed].file_name[j];
+         if (qfl[lines_displayed].file_name[j] < ' ')
+         {
+            *(p_file_name + j) = '?';
+            unprintable_chars++;
+         }
+         else
+         {
+            *(p_file_name + j) = qfl[lines_displayed].file_name[j];
+         }
          j++;
       }
       while (j < file_name_length)

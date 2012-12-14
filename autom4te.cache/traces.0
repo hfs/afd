@@ -1183,10 +1183,10 @@ m4trace:/usr/share/aclocal/xsize.m4:7: -1- AC_DEFUN([gl_XSIZE], [
 m4trace:/usr/share/aclocal-1.11/amversion.m4:17: -1- AC_DEFUN([AM_AUTOMAKE_VERSION], [am__api_version='1.11'
 dnl Some users find AM_AUTOMAKE_VERSION and mistake it for a way to
 dnl require some minimum version.  Point them to the right macro.
-m4_if([$1], [1.11.3], [],
+m4_if([$1], [1.11.6], [],
       [AC_FATAL([Do not call $0, use AM_INIT_AUTOMAKE([$1]).])])dnl
 ])
-m4trace:/usr/share/aclocal-1.11/amversion.m4:36: -1- AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION], [AM_AUTOMAKE_VERSION([1.11.3])dnl
+m4trace:/usr/share/aclocal-1.11/amversion.m4:36: -1- AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION], [AM_AUTOMAKE_VERSION([1.11.6])dnl
 m4_ifndef([AC_AUTOCONF_VERSION],
   [m4_copy([m4_PACKAGE_VERSION], [AC_AUTOCONF_VERSION])])dnl
 _AM_AUTOCONF_VERSION(m4_defn([AC_AUTOCONF_VERSION]))])
@@ -4220,7 +4220,7 @@ EOF
       dnl GCC
       if test "$GCC" = "yes"; then
         if test -z "$ansi"; then
-          vl_cv_prog_cc_warnings="-fno-common -Wall -Wpointer-arith -Wstrict-prototypes -Wformat -Wno-format-extra-args -Wformat-security -Wformat-nonliteral -Wformat=2"
+          vl_cv_prog_cc_warnings="-fno-common -Wall -Wpointer-arith -Wstrict-prototypes -Wformat -Wformat-security"
         else
           vl_cv_prog_cc_warnings="-fno-common -Wall -ansi -pedantic -Wpointer-arith -Wstrict-prototypes"
         fi
@@ -4593,7 +4593,7 @@ m4trace:configure.in:3: -1- m4_pattern_allow([^target_alias$])
 m4trace:configure.in:8: -1- AM_INIT_AUTOMAKE([dist-bzip2])
 m4trace:configure.in:8: -1- m4_pattern_allow([^AM_[A-Z]+FLAGS$])
 m4trace:configure.in:8: -1- AM_SET_CURRENT_AUTOMAKE_VERSION
-m4trace:configure.in:8: -1- AM_AUTOMAKE_VERSION([1.11.3])
+m4trace:configure.in:8: -1- AM_AUTOMAKE_VERSION([1.11.6])
 m4trace:configure.in:8: -1- _AM_AUTOCONF_VERSION([2.68])
 m4trace:configure.in:8: -1- m4_pattern_allow([^INSTALL_PROGRAM$])
 m4trace:configure.in:8: -1- m4_pattern_allow([^INSTALL_SCRIPT$])
@@ -4719,760 +4719,772 @@ m4trace:configure.in:10: -1- m4_pattern_allow([^_ALL_SOURCE$])
 m4trace:configure.in:10: -1- m4_pattern_allow([^_GNU_SOURCE$])
 m4trace:configure.in:10: -1- m4_pattern_allow([^_POSIX_PTHREAD_SEMANTICS$])
 m4trace:configure.in:10: -1- m4_pattern_allow([^_TANDEM_SOURCE$])
-m4trace:configure.in:16: -2- m4_pattern_allow([^HAVE_LONG_LONG$])
-m4trace:configure.in:15: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+m4trace:configure.in:17: -2- m4_pattern_allow([^HAVE_LONG_LONG$])
+m4trace:configure.in:16: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
-configure.in:15: the top level])
-m4trace:configure.in:21: -1- AM_CONDITIONAL([WITH_INPUT_LOG], [false])
-m4trace:configure.in:21: -1- m4_pattern_allow([^WITH_INPUT_LOG_TRUE$])
-m4trace:configure.in:21: -1- m4_pattern_allow([^WITH_INPUT_LOG_FALSE$])
-m4trace:configure.in:21: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_TRUE])
-m4trace:configure.in:21: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_FALSE])
-m4trace:configure.in:21: -1- m4_pattern_allow([^_INPUT_LOG$])
-m4trace:configure.in:21: -1- AM_CONDITIONAL([WITH_INPUT_LOG], [true])
-m4trace:configure.in:21: -1- m4_pattern_allow([^WITH_INPUT_LOG_TRUE$])
-m4trace:configure.in:21: -1- m4_pattern_allow([^WITH_INPUT_LOG_FALSE$])
-m4trace:configure.in:21: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_TRUE])
-m4trace:configure.in:21: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_FALSE])
-m4trace:configure.in:29: -1- AM_CONDITIONAL([WITH_DISTRIBUTION_LOG], [false])
-m4trace:configure.in:29: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_TRUE$])
-m4trace:configure.in:29: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_FALSE$])
-m4trace:configure.in:29: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_TRUE])
-m4trace:configure.in:29: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_FALSE])
-m4trace:configure.in:29: -1- m4_pattern_allow([^_DISTRIBUTION_LOG$])
-m4trace:configure.in:29: -1- AM_CONDITIONAL([WITH_DISTRIBUTION_LOG], [true])
-m4trace:configure.in:29: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_TRUE$])
-m4trace:configure.in:29: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_FALSE$])
-m4trace:configure.in:29: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_TRUE])
-m4trace:configure.in:29: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_FALSE])
-m4trace:configure.in:37: -1- AM_CONDITIONAL([WITH_OUTPUT_LOG], [false])
-m4trace:configure.in:37: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_TRUE$])
-m4trace:configure.in:37: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_FALSE$])
-m4trace:configure.in:37: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_TRUE])
-m4trace:configure.in:37: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_FALSE])
-m4trace:configure.in:37: -1- m4_pattern_allow([^_OUTPUT_LOG$])
-m4trace:configure.in:37: -1- AM_CONDITIONAL([WITH_OUTPUT_LOG], [true])
-m4trace:configure.in:37: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_TRUE$])
-m4trace:configure.in:37: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_FALSE$])
-m4trace:configure.in:37: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_TRUE])
-m4trace:configure.in:37: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_FALSE])
-m4trace:configure.in:45: -1- AM_CONDITIONAL([WITH_DELETE_LOG], [false])
-m4trace:configure.in:45: -1- m4_pattern_allow([^WITH_DELETE_LOG_TRUE$])
-m4trace:configure.in:45: -1- m4_pattern_allow([^WITH_DELETE_LOG_FALSE$])
-m4trace:configure.in:45: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_TRUE])
-m4trace:configure.in:45: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_FALSE])
-m4trace:configure.in:45: -1- m4_pattern_allow([^_DELETE_LOG$])
-m4trace:configure.in:45: -1- AM_CONDITIONAL([WITH_DELETE_LOG], [true])
-m4trace:configure.in:45: -1- m4_pattern_allow([^WITH_DELETE_LOG_TRUE$])
-m4trace:configure.in:45: -1- m4_pattern_allow([^WITH_DELETE_LOG_FALSE$])
-m4trace:configure.in:45: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_TRUE])
-m4trace:configure.in:45: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_FALSE])
-m4trace:configure.in:53: -1- AM_CONDITIONAL([WITH_PRODUCTION_LOG], [false])
-m4trace:configure.in:53: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_TRUE$])
-m4trace:configure.in:53: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_FALSE$])
-m4trace:configure.in:53: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_TRUE])
-m4trace:configure.in:53: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_FALSE])
-m4trace:configure.in:53: -1- m4_pattern_allow([^_PRODUCTION_LOG$])
-m4trace:configure.in:53: -1- AM_CONDITIONAL([WITH_PRODUCTION_LOG], [true])
-m4trace:configure.in:53: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_TRUE$])
-m4trace:configure.in:53: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_FALSE$])
-m4trace:configure.in:53: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_TRUE])
-m4trace:configure.in:53: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_FALSE])
-m4trace:configure.in:61: -1- AM_CONDITIONAL([WITH_ALDA_CACHE_POSITIONING], [false])
-m4trace:configure.in:61: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_TRUE$])
-m4trace:configure.in:61: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_FALSE$])
-m4trace:configure.in:61: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_TRUE])
-m4trace:configure.in:61: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_FALSE])
-m4trace:configure.in:61: -1- m4_pattern_allow([^WITH_LOG_CACHE$])
-m4trace:configure.in:61: -1- AM_CONDITIONAL([WITH_ALDA_CACHE_POSITIONING], [true])
-m4trace:configure.in:61: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_TRUE$])
-m4trace:configure.in:61: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_FALSE$])
-m4trace:configure.in:61: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_TRUE])
-m4trace:configure.in:61: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_FALSE])
-m4trace:configure.in:74: -1- AM_CONDITIONAL([ERROR_QUEUE_SUPPORT], [false])
-m4trace:configure.in:74: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_TRUE$])
-m4trace:configure.in:74: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_FALSE$])
-m4trace:configure.in:74: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_TRUE])
-m4trace:configure.in:74: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_FALSE])
-m4trace:configure.in:74: -1- m4_pattern_allow([^WITH_ERROR_QUEUE$])
-m4trace:configure.in:74: -1- AM_CONDITIONAL([ERROR_QUEUE_SUPPORT], [true])
-m4trace:configure.in:74: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_TRUE$])
-m4trace:configure.in:74: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_FALSE$])
-m4trace:configure.in:74: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_TRUE])
-m4trace:configure.in:74: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_FALSE])
-m4trace:configure.in:82: -1- AM_CONDITIONAL([WITH_FIFO_RW_SUPPORT], [false])
-m4trace:configure.in:82: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_TRUE$])
-m4trace:configure.in:82: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_FALSE$])
-m4trace:configure.in:82: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_TRUE])
-m4trace:configure.in:82: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_FALSE])
-m4trace:configure.in:82: -1- m4_pattern_allow([^WITHOUT_FIFO_RW_SUPPORT$])
-m4trace:configure.in:82: -1- AM_CONDITIONAL([WITH_FIFO_RW_SUPPORT], [true])
-m4trace:configure.in:82: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_TRUE$])
-m4trace:configure.in:82: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_FALSE$])
-m4trace:configure.in:82: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_TRUE])
-m4trace:configure.in:82: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_FALSE])
-m4trace:configure.in:90: -1- AM_CONDITIONAL([WITH_WMO_SUPPORT], [false])
-m4trace:configure.in:90: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_TRUE$])
-m4trace:configure.in:90: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_FALSE$])
-m4trace:configure.in:90: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_TRUE])
-m4trace:configure.in:90: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_FALSE])
-m4trace:configure.in:90: -1- m4_pattern_allow([^_WITH_WMO_SUPPORT$])
-m4trace:configure.in:90: -1- AM_CONDITIONAL([WITH_WMO_SUPPORT], [true])
-m4trace:configure.in:90: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_TRUE$])
-m4trace:configure.in:90: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_FALSE$])
-m4trace:configure.in:90: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_TRUE])
-m4trace:configure.in:90: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_FALSE])
-m4trace:configure.in:98: -1- AM_CONDITIONAL([WITH_LOC_SUPPORT], [false])
-m4trace:configure.in:98: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_TRUE$])
-m4trace:configure.in:98: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_FALSE$])
-m4trace:configure.in:98: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_TRUE])
-m4trace:configure.in:98: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_FALSE])
-m4trace:configure.in:98: -1- m4_pattern_allow([^_WITH_LOC_SUPPORT$])
-m4trace:configure.in:98: -1- AM_CONDITIONAL([WITH_LOC_SUPPORT], [true])
-m4trace:configure.in:98: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_TRUE$])
-m4trace:configure.in:98: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_FALSE$])
-m4trace:configure.in:98: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_TRUE])
-m4trace:configure.in:98: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_FALSE])
-m4trace:configure.in:106: -1- AM_CONDITIONAL([WITH_FD_EXEC_SUPPORT], [false])
-m4trace:configure.in:106: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_TRUE$])
-m4trace:configure.in:106: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_FALSE$])
-m4trace:configure.in:106: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_TRUE])
-m4trace:configure.in:106: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_FALSE])
-m4trace:configure.in:106: -1- m4_pattern_allow([^_WITH_FD_EXEC_SUPPORT$])
-m4trace:configure.in:106: -1- AM_CONDITIONAL([WITH_FD_EXEC_SUPPORT], [true])
-m4trace:configure.in:106: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_TRUE$])
-m4trace:configure.in:106: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_FALSE$])
-m4trace:configure.in:106: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_TRUE])
-m4trace:configure.in:106: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_FALSE])
-m4trace:configure.in:114: -1- AM_CONDITIONAL([WITH_FTP_SUPPORT], [false])
-m4trace:configure.in:114: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_TRUE$])
-m4trace:configure.in:114: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_FALSE$])
-m4trace:configure.in:114: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_TRUE])
-m4trace:configure.in:114: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_FALSE])
-m4trace:configure.in:114: -1- m4_pattern_allow([^_WITH_FTP_SUPPORT$])
-m4trace:configure.in:114: -1- AM_CONDITIONAL([WITH_FTP_SUPPORT], [true])
-m4trace:configure.in:114: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_TRUE$])
-m4trace:configure.in:114: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_FALSE$])
-m4trace:configure.in:114: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_TRUE])
-m4trace:configure.in:114: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_FALSE])
-m4trace:configure.in:122: -1- AM_CONDITIONAL([WITH_SCP_SUPPORT], [false])
-m4trace:configure.in:122: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_TRUE$])
-m4trace:configure.in:122: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_FALSE$])
-m4trace:configure.in:122: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_TRUE])
-m4trace:configure.in:122: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_FALSE])
-m4trace:configure.in:122: -1- m4_pattern_allow([^_WITH_SCP_SUPPORT$])
-m4trace:configure.in:122: -1- AM_CONDITIONAL([WITH_SCP_SUPPORT], [true])
-m4trace:configure.in:122: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_TRUE$])
-m4trace:configure.in:122: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_FALSE$])
-m4trace:configure.in:122: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_TRUE])
-m4trace:configure.in:122: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_FALSE])
-m4trace:configure.in:130: -1- AM_CONDITIONAL([WITH_SMTP_SUPPORT], [false])
-m4trace:configure.in:130: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_TRUE$])
-m4trace:configure.in:130: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_FALSE$])
-m4trace:configure.in:130: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_TRUE])
-m4trace:configure.in:130: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_FALSE])
-m4trace:configure.in:130: -1- m4_pattern_allow([^_WITH_SMTP_SUPPORT$])
-m4trace:configure.in:130: -1- AM_CONDITIONAL([WITH_SMTP_SUPPORT], [true])
-m4trace:configure.in:130: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_TRUE$])
-m4trace:configure.in:130: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_FALSE$])
-m4trace:configure.in:130: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_TRUE])
-m4trace:configure.in:130: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_FALSE])
-m4trace:configure.in:138: -1- AM_CONDITIONAL([WITH_HTTP_SUPPORT], [false])
-m4trace:configure.in:138: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_TRUE$])
-m4trace:configure.in:138: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_FALSE$])
-m4trace:configure.in:138: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_TRUE])
-m4trace:configure.in:138: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_FALSE])
-m4trace:configure.in:138: -1- m4_pattern_allow([^_WITH_HTTP_SUPPORT$])
-m4trace:configure.in:138: -1- AM_CONDITIONAL([WITH_HTTP_SUPPORT], [true])
-m4trace:configure.in:138: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_TRUE$])
-m4trace:configure.in:138: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_FALSE$])
-m4trace:configure.in:138: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_TRUE])
-m4trace:configure.in:138: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_FALSE])
-m4trace:configure.in:146: -1- AM_CONDITIONAL([WITH_SFTP_SUPPORT], [false])
-m4trace:configure.in:146: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_TRUE$])
-m4trace:configure.in:146: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_FALSE$])
-m4trace:configure.in:146: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_TRUE])
-m4trace:configure.in:146: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_FALSE])
-m4trace:configure.in:146: -1- m4_pattern_allow([^_WITH_SFTP_SUPPORT$])
-m4trace:configure.in:146: -1- AM_CONDITIONAL([WITH_SFTP_SUPPORT], [true])
-m4trace:configure.in:146: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_TRUE$])
-m4trace:configure.in:146: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_FALSE$])
-m4trace:configure.in:146: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_TRUE])
-m4trace:configure.in:146: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_FALSE])
-m4trace:configure.in:154: -1- AM_CONDITIONAL([WITH_ONETIME_SUPPORT], [true])
-m4trace:configure.in:154: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_TRUE$])
-m4trace:configure.in:154: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_FALSE$])
-m4trace:configure.in:154: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_TRUE])
-m4trace:configure.in:154: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_FALSE])
-m4trace:configure.in:154: -1- m4_pattern_allow([^WITH_ONETIME$])
-m4trace:configure.in:154: -1- AM_CONDITIONAL([WITH_ONETIME_SUPPORT], [false])
-m4trace:configure.in:154: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_TRUE$])
-m4trace:configure.in:154: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_FALSE$])
-m4trace:configure.in:154: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_TRUE])
-m4trace:configure.in:154: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_FALSE])
-m4trace:configure.in:162: -1- AM_CONDITIONAL([WITHOUT_DUPCHECK], [true])
-m4trace:configure.in:162: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_TRUE$])
-m4trace:configure.in:162: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_FALSE$])
-m4trace:configure.in:162: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_TRUE])
-m4trace:configure.in:162: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_FALSE])
-m4trace:configure.in:162: -1- m4_pattern_allow([^WITH_DUP_CHECK$])
-m4trace:configure.in:162: -1- AM_CONDITIONAL([WITHOUT_DUPCHECK], [false])
-m4trace:configure.in:162: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_TRUE$])
-m4trace:configure.in:162: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_FALSE$])
-m4trace:configure.in:162: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_TRUE])
-m4trace:configure.in:162: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_FALSE])
-m4trace:configure.in:170: -1- AM_CONDITIONAL([WITH_TRANS_EXEC], [false])
-m4trace:configure.in:170: -1- m4_pattern_allow([^WITH_TRANS_EXEC_TRUE$])
-m4trace:configure.in:170: -1- m4_pattern_allow([^WITH_TRANS_EXEC_FALSE$])
-m4trace:configure.in:170: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_TRUE])
-m4trace:configure.in:170: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_FALSE])
-m4trace:configure.in:170: -1- m4_pattern_allow([^_WITH_TRANS_EXEC$])
-m4trace:configure.in:170: -1- AM_CONDITIONAL([WITH_TRANS_EXEC], [true])
-m4trace:configure.in:170: -1- m4_pattern_allow([^WITH_TRANS_EXEC_TRUE$])
-m4trace:configure.in:170: -1- m4_pattern_allow([^WITH_TRANS_EXEC_FALSE$])
-m4trace:configure.in:170: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_TRUE])
-m4trace:configure.in:170: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_FALSE])
-m4trace:configure.in:183: -1- m4_pattern_allow([^_VERIFY_FSA$])
-m4trace:configure.in:183: -1- m4_pattern_allow([^_VERIFY_FSA$])
-m4trace:configure.in:190: -1- m4_pattern_allow([^IGNORE_DUPLICATE_JOB_IDS$])
-m4trace:configure.in:190: -1- m4_pattern_allow([^IGNORE_DUPLICATE_JOB_IDS$])
-m4trace:configure.in:197: -1- m4_pattern_allow([^WITH_CTRL_ACCELERATOR$])
-m4trace:configure.in:203: -1- m4_pattern_allow([^AFDBENCH_CONFIG$])
-m4trace:configure.in:209: -1- m4_pattern_allow([^WITH_AUTO_CONFIG$])
-m4trace:configure.in:215: -1- m4_pattern_allow([^AFD_CTRL_PROC_CHECK$])
-m4trace:configure.in:221: -1- m4_pattern_allow([^REPORT_EMPTY_DIR_SCANS$])
-m4trace:configure.in:227: -1- m4_pattern_allow([^EXPAND_PATH_IN_MESSAGE$])
-m4trace:configure.in:233: -1- m4_pattern_allow([^WITH_SETUID_PROGS$])
-m4trace:configure.in:233: -1- AM_CONDITIONAL([WITH_SETUID], [true])
-m4trace:configure.in:233: -1- m4_pattern_allow([^WITH_SETUID_TRUE$])
-m4trace:configure.in:233: -1- m4_pattern_allow([^WITH_SETUID_FALSE$])
-m4trace:configure.in:233: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_TRUE])
-m4trace:configure.in:233: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_FALSE])
-m4trace:configure.in:233: -1- AM_CONDITIONAL([WITH_SETUID], [false])
-m4trace:configure.in:233: -1- m4_pattern_allow([^WITH_SETUID_TRUE$])
-m4trace:configure.in:233: -1- m4_pattern_allow([^WITH_SETUID_FALSE$])
-m4trace:configure.in:233: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_TRUE])
-m4trace:configure.in:233: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_FALSE])
-m4trace:configure.in:241: -1- AM_CONDITIONAL([WITH_SERVER_SUPPORT], [true])
-m4trace:configure.in:241: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_TRUE$])
-m4trace:configure.in:241: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_FALSE$])
-m4trace:configure.in:241: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_TRUE])
-m4trace:configure.in:241: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_FALSE])
-m4trace:configure.in:241: -1- m4_pattern_allow([^_WITH_SERVER_SUPPORT$])
-m4trace:configure.in:241: -1- AM_CONDITIONAL([WITH_SERVER_SUPPORT], [false])
-m4trace:configure.in:241: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_TRUE$])
-m4trace:configure.in:241: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_FALSE$])
-m4trace:configure.in:241: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_TRUE])
-m4trace:configure.in:241: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_FALSE])
-m4trace:configure.in:249: -1- m4_pattern_allow([^WITH_UNLINK_DELAY$])
-m4trace:configure.in:255: -1- m4_pattern_allow([^WITH_MULTI_DIR_SCANS$])
-m4trace:configure.in:261: -1- m4_pattern_allow([^FTP_REUSE_DATA_PORT$])
-m4trace:configure.in:267: -1- m4_pattern_allow([^WITH_MS_ERROR_WORKAROUND$])
-m4trace:configure.in:273: -1- m4_pattern_allow([^GROUP_CAN_WRITE$])
-m4trace:configure.in:279: -1- m4_pattern_allow([^LOCK_DEBUG$])
-m4trace:configure.in:285: -1- m4_pattern_allow([^SHOW_EXEC_TIMES$])
-m4trace:configure.in:291: -1- m4_pattern_allow([^WITH_SENDFILE$])
-m4trace:configure.in:297: -1- m4_pattern_allow([^WITH_SPLICE_SUPPORT$])
-m4trace:configure.in:303: -1- m4_pattern_allow([^WITH_READY_FILES$])
-m4trace:configure.in:309: -1- m4_pattern_allow([^_WITH_MAP_SUPPORT$])
-m4trace:configure.in:309: -1- AM_CONDITIONAL([WITH_MAP_SUPPORT], [true])
-m4trace:configure.in:309: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_TRUE$])
-m4trace:configure.in:309: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_FALSE$])
-m4trace:configure.in:309: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_TRUE])
-m4trace:configure.in:309: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_FALSE])
-m4trace:configure.in:309: -1- AM_CONDITIONAL([WITH_MAP_SUPPORT], [false])
-m4trace:configure.in:309: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_TRUE$])
-m4trace:configure.in:309: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_FALSE$])
-m4trace:configure.in:309: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_TRUE])
-m4trace:configure.in:309: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_FALSE])
-m4trace:configure.in:309: -1- AM_CONDITIONAL([WITH_MAP_SUPPORT], [false])
-m4trace:configure.in:309: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_TRUE$])
-m4trace:configure.in:309: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_FALSE$])
-m4trace:configure.in:309: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_TRUE])
-m4trace:configure.in:309: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_FALSE])
-m4trace:configure.in:328: -1- m4_pattern_allow([^AFD_MAP_LIBS$])
-m4trace:configure.in:330: -1- m4_pattern_allow([^WITH_PASSWD_IN_MSG$])
-m4trace:configure.in:344: -2- AM_CONDITIONAL([WITH_MISC_LIB], [true])
-m4trace:configure.in:344: -2- m4_pattern_allow([^WITH_MISC_LIB_TRUE$])
-m4trace:configure.in:344: -2- m4_pattern_allow([^WITH_MISC_LIB_FALSE$])
-m4trace:configure.in:344: -2- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_TRUE])
-m4trace:configure.in:344: -2- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_FALSE])
-m4trace:configure.in:336: -1- m4_pattern_allow([^WITH_EUMETSAT_HEADERS$])
-m4trace:configure.in:336: -1- AM_CONDITIONAL([WITH_MISC_LIB], [true])
-m4trace:configure.in:336: -1- m4_pattern_allow([^WITH_MISC_LIB_TRUE$])
-m4trace:configure.in:336: -1- m4_pattern_allow([^WITH_MISC_LIB_FALSE$])
-m4trace:configure.in:336: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_TRUE])
-m4trace:configure.in:336: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_FALSE])
-m4trace:configure.in:336: -1- AM_CONDITIONAL([WITH_MISC_LIB], [false])
-m4trace:configure.in:336: -1- m4_pattern_allow([^WITH_MISC_LIB_TRUE$])
-m4trace:configure.in:336: -1- m4_pattern_allow([^WITH_MISC_LIB_FALSE$])
-m4trace:configure.in:336: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_TRUE])
-m4trace:configure.in:336: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_FALSE])
-m4trace:configure.in:366: -1- m4_pattern_allow([^WITH_EDITRES$])
-m4trace:configure.in:389: -1- m4_pattern_allow([^WITH_AFD_MON$])
-m4trace:configure.in:397: -1- AM_CONDITIONAL([WITH_AFD_MON_ONLY], [$compile_afd_mon_only])
-m4trace:configure.in:397: -1- m4_pattern_allow([^WITH_AFD_MON_ONLY_TRUE$])
-m4trace:configure.in:397: -1- m4_pattern_allow([^WITH_AFD_MON_ONLY_FALSE$])
-m4trace:configure.in:397: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_ONLY_TRUE])
-m4trace:configure.in:397: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_ONLY_FALSE])
-m4trace:configure.in:401: -1- m4_pattern_allow([^WITH_AFD_MON$])
-m4trace:configure.in:410: -1- AM_CONDITIONAL([WITH_AFD_MON], [$afd_mon])
-m4trace:configure.in:410: -1- m4_pattern_allow([^WITH_AFD_MON_TRUE$])
-m4trace:configure.in:410: -1- m4_pattern_allow([^WITH_AFD_MON_FALSE$])
-m4trace:configure.in:410: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_TRUE])
-m4trace:configure.in:410: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_FALSE])
-m4trace:configure.in:483: -1- m4_pattern_allow([^DISTRO_STYLE_RPMS$])
-m4trace:configure.in:502: -1- m4_pattern_allow([^INITDIR$])
-m4trace:configure.in:518: -1- m4_pattern_allow([^SYSCONFIGDIR$])
-m4trace:configure.in:527: -1- m4_pattern_allow([^cleaned_configure_args$])
-m4trace:configure.in:564: -1- m4_pattern_allow([^BINARY_OWNER$])
-m4trace:configure.in:571: -1- m4_pattern_allow([^BINARY_GROUP$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^build$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^build_cpu$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^build_vendor$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^build_os$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^host$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^host_cpu$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^host_vendor$])
-m4trace:configure.in:574: -1- m4_pattern_allow([^host_os$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CC$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CFLAGS$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^LDFLAGS$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^LIBS$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CPPFLAGS$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CC$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CC$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CC$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CC$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^ac_ct_CC$])
-m4trace:configure.in:578: -1- _AM_DEPENDENCIES([CC])
-m4trace:configure.in:578: -1- m4_pattern_allow([^CCDEPMODE$])
-m4trace:configure.in:578: -1- AM_CONDITIONAL([am__fastdepCC], [
+configure.in:16: the top level])
+m4trace:configure.in:22: -1- AM_CONDITIONAL([WITH_INPUT_LOG], [false])
+m4trace:configure.in:22: -1- m4_pattern_allow([^WITH_INPUT_LOG_TRUE$])
+m4trace:configure.in:22: -1- m4_pattern_allow([^WITH_INPUT_LOG_FALSE$])
+m4trace:configure.in:22: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_TRUE])
+m4trace:configure.in:22: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_FALSE])
+m4trace:configure.in:22: -1- m4_pattern_allow([^_INPUT_LOG$])
+m4trace:configure.in:22: -1- AM_CONDITIONAL([WITH_INPUT_LOG], [true])
+m4trace:configure.in:22: -1- m4_pattern_allow([^WITH_INPUT_LOG_TRUE$])
+m4trace:configure.in:22: -1- m4_pattern_allow([^WITH_INPUT_LOG_FALSE$])
+m4trace:configure.in:22: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_TRUE])
+m4trace:configure.in:22: -1- _AM_SUBST_NOTMAKE([WITH_INPUT_LOG_FALSE])
+m4trace:configure.in:30: -1- AM_CONDITIONAL([WITH_DISTRIBUTION_LOG], [false])
+m4trace:configure.in:30: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_TRUE$])
+m4trace:configure.in:30: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_FALSE$])
+m4trace:configure.in:30: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_TRUE])
+m4trace:configure.in:30: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_FALSE])
+m4trace:configure.in:30: -1- m4_pattern_allow([^_DISTRIBUTION_LOG$])
+m4trace:configure.in:30: -1- AM_CONDITIONAL([WITH_DISTRIBUTION_LOG], [true])
+m4trace:configure.in:30: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_TRUE$])
+m4trace:configure.in:30: -1- m4_pattern_allow([^WITH_DISTRIBUTION_LOG_FALSE$])
+m4trace:configure.in:30: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_TRUE])
+m4trace:configure.in:30: -1- _AM_SUBST_NOTMAKE([WITH_DISTRIBUTION_LOG_FALSE])
+m4trace:configure.in:38: -1- AM_CONDITIONAL([WITH_OUTPUT_LOG], [false])
+m4trace:configure.in:38: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_TRUE$])
+m4trace:configure.in:38: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_FALSE$])
+m4trace:configure.in:38: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_TRUE])
+m4trace:configure.in:38: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_FALSE])
+m4trace:configure.in:38: -1- m4_pattern_allow([^_OUTPUT_LOG$])
+m4trace:configure.in:38: -1- AM_CONDITIONAL([WITH_OUTPUT_LOG], [true])
+m4trace:configure.in:38: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_TRUE$])
+m4trace:configure.in:38: -1- m4_pattern_allow([^WITH_OUTPUT_LOG_FALSE$])
+m4trace:configure.in:38: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_TRUE])
+m4trace:configure.in:38: -1- _AM_SUBST_NOTMAKE([WITH_OUTPUT_LOG_FALSE])
+m4trace:configure.in:46: -1- AM_CONDITIONAL([WITH_DELETE_LOG], [false])
+m4trace:configure.in:46: -1- m4_pattern_allow([^WITH_DELETE_LOG_TRUE$])
+m4trace:configure.in:46: -1- m4_pattern_allow([^WITH_DELETE_LOG_FALSE$])
+m4trace:configure.in:46: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_TRUE])
+m4trace:configure.in:46: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_FALSE])
+m4trace:configure.in:46: -1- m4_pattern_allow([^_DELETE_LOG$])
+m4trace:configure.in:46: -1- AM_CONDITIONAL([WITH_DELETE_LOG], [true])
+m4trace:configure.in:46: -1- m4_pattern_allow([^WITH_DELETE_LOG_TRUE$])
+m4trace:configure.in:46: -1- m4_pattern_allow([^WITH_DELETE_LOG_FALSE$])
+m4trace:configure.in:46: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_TRUE])
+m4trace:configure.in:46: -1- _AM_SUBST_NOTMAKE([WITH_DELETE_LOG_FALSE])
+m4trace:configure.in:54: -1- AM_CONDITIONAL([WITH_PRODUCTION_LOG], [false])
+m4trace:configure.in:54: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_TRUE$])
+m4trace:configure.in:54: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_FALSE$])
+m4trace:configure.in:54: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_TRUE])
+m4trace:configure.in:54: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_FALSE])
+m4trace:configure.in:54: -1- m4_pattern_allow([^_PRODUCTION_LOG$])
+m4trace:configure.in:54: -1- AM_CONDITIONAL([WITH_PRODUCTION_LOG], [true])
+m4trace:configure.in:54: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_TRUE$])
+m4trace:configure.in:54: -1- m4_pattern_allow([^WITH_PRODUCTION_LOG_FALSE$])
+m4trace:configure.in:54: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_TRUE])
+m4trace:configure.in:54: -1- _AM_SUBST_NOTMAKE([WITH_PRODUCTION_LOG_FALSE])
+m4trace:configure.in:62: -1- m4_pattern_allow([^WITH_LOG_CACHE$])
+m4trace:configure.in:62: -1- AM_CONDITIONAL([WITH_ALDA_CACHE_POSITIONING], [true])
+m4trace:configure.in:62: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_TRUE$])
+m4trace:configure.in:62: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_FALSE$])
+m4trace:configure.in:62: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_TRUE])
+m4trace:configure.in:62: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_FALSE])
+m4trace:configure.in:62: -1- AM_CONDITIONAL([WITH_ALDA_CACHE_POSITIONING], [false])
+m4trace:configure.in:62: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_TRUE$])
+m4trace:configure.in:62: -1- m4_pattern_allow([^WITH_ALDA_CACHE_POSITIONING_FALSE$])
+m4trace:configure.in:62: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_TRUE])
+m4trace:configure.in:62: -1- _AM_SUBST_NOTMAKE([WITH_ALDA_CACHE_POSITIONING_FALSE])
+m4trace:configure.in:85: -1- AM_CONDITIONAL([ERROR_QUEUE_SUPPORT], [false])
+m4trace:configure.in:85: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_TRUE$])
+m4trace:configure.in:85: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_FALSE$])
+m4trace:configure.in:85: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_TRUE])
+m4trace:configure.in:85: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_FALSE])
+m4trace:configure.in:85: -1- m4_pattern_allow([^WITH_ERROR_QUEUE$])
+m4trace:configure.in:85: -1- AM_CONDITIONAL([ERROR_QUEUE_SUPPORT], [true])
+m4trace:configure.in:85: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_TRUE$])
+m4trace:configure.in:85: -1- m4_pattern_allow([^ERROR_QUEUE_SUPPORT_FALSE$])
+m4trace:configure.in:85: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_TRUE])
+m4trace:configure.in:85: -1- _AM_SUBST_NOTMAKE([ERROR_QUEUE_SUPPORT_FALSE])
+m4trace:configure.in:93: -1- AM_CONDITIONAL([WITH_FIFO_RW_SUPPORT], [false])
+m4trace:configure.in:93: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_TRUE$])
+m4trace:configure.in:93: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_FALSE$])
+m4trace:configure.in:93: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_TRUE])
+m4trace:configure.in:93: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_FALSE])
+m4trace:configure.in:93: -1- m4_pattern_allow([^WITHOUT_FIFO_RW_SUPPORT$])
+m4trace:configure.in:93: -1- AM_CONDITIONAL([WITH_FIFO_RW_SUPPORT], [true])
+m4trace:configure.in:93: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_TRUE$])
+m4trace:configure.in:93: -1- m4_pattern_allow([^WITH_FIFO_RW_SUPPORT_FALSE$])
+m4trace:configure.in:93: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_TRUE])
+m4trace:configure.in:93: -1- _AM_SUBST_NOTMAKE([WITH_FIFO_RW_SUPPORT_FALSE])
+m4trace:configure.in:101: -1- AM_CONDITIONAL([WITH_WMO_SUPPORT], [false])
+m4trace:configure.in:101: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_TRUE$])
+m4trace:configure.in:101: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_FALSE$])
+m4trace:configure.in:101: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_TRUE])
+m4trace:configure.in:101: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_FALSE])
+m4trace:configure.in:101: -1- m4_pattern_allow([^_WITH_WMO_SUPPORT$])
+m4trace:configure.in:101: -1- AM_CONDITIONAL([WITH_WMO_SUPPORT], [true])
+m4trace:configure.in:101: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_TRUE$])
+m4trace:configure.in:101: -1- m4_pattern_allow([^WITH_WMO_SUPPORT_FALSE$])
+m4trace:configure.in:101: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_TRUE])
+m4trace:configure.in:101: -1- _AM_SUBST_NOTMAKE([WITH_WMO_SUPPORT_FALSE])
+m4trace:configure.in:109: -1- AM_CONDITIONAL([WITH_LOC_SUPPORT], [false])
+m4trace:configure.in:109: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_TRUE$])
+m4trace:configure.in:109: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_FALSE$])
+m4trace:configure.in:109: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_TRUE])
+m4trace:configure.in:109: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_FALSE])
+m4trace:configure.in:109: -1- m4_pattern_allow([^_WITH_LOC_SUPPORT$])
+m4trace:configure.in:109: -1- AM_CONDITIONAL([WITH_LOC_SUPPORT], [true])
+m4trace:configure.in:109: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_TRUE$])
+m4trace:configure.in:109: -1- m4_pattern_allow([^WITH_LOC_SUPPORT_FALSE$])
+m4trace:configure.in:109: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_TRUE])
+m4trace:configure.in:109: -1- _AM_SUBST_NOTMAKE([WITH_LOC_SUPPORT_FALSE])
+m4trace:configure.in:117: -1- AM_CONDITIONAL([WITH_FD_EXEC_SUPPORT], [false])
+m4trace:configure.in:117: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_TRUE$])
+m4trace:configure.in:117: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_FALSE$])
+m4trace:configure.in:117: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_TRUE])
+m4trace:configure.in:117: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_FALSE])
+m4trace:configure.in:117: -1- m4_pattern_allow([^_WITH_FD_EXEC_SUPPORT$])
+m4trace:configure.in:117: -1- AM_CONDITIONAL([WITH_FD_EXEC_SUPPORT], [true])
+m4trace:configure.in:117: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_TRUE$])
+m4trace:configure.in:117: -1- m4_pattern_allow([^WITH_FD_EXEC_SUPPORT_FALSE$])
+m4trace:configure.in:117: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_TRUE])
+m4trace:configure.in:117: -1- _AM_SUBST_NOTMAKE([WITH_FD_EXEC_SUPPORT_FALSE])
+m4trace:configure.in:125: -1- AM_CONDITIONAL([WITH_FTP_SUPPORT], [false])
+m4trace:configure.in:125: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_TRUE$])
+m4trace:configure.in:125: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_FALSE$])
+m4trace:configure.in:125: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_TRUE])
+m4trace:configure.in:125: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_FALSE])
+m4trace:configure.in:125: -1- m4_pattern_allow([^_WITH_FTP_SUPPORT$])
+m4trace:configure.in:125: -1- AM_CONDITIONAL([WITH_FTP_SUPPORT], [true])
+m4trace:configure.in:125: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_TRUE$])
+m4trace:configure.in:125: -1- m4_pattern_allow([^WITH_FTP_SUPPORT_FALSE$])
+m4trace:configure.in:125: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_TRUE])
+m4trace:configure.in:125: -1- _AM_SUBST_NOTMAKE([WITH_FTP_SUPPORT_FALSE])
+m4trace:configure.in:133: -1- AM_CONDITIONAL([WITH_SCP_SUPPORT], [false])
+m4trace:configure.in:133: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_TRUE$])
+m4trace:configure.in:133: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_FALSE$])
+m4trace:configure.in:133: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_TRUE])
+m4trace:configure.in:133: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_FALSE])
+m4trace:configure.in:133: -1- m4_pattern_allow([^_WITH_SCP_SUPPORT$])
+m4trace:configure.in:133: -1- AM_CONDITIONAL([WITH_SCP_SUPPORT], [true])
+m4trace:configure.in:133: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_TRUE$])
+m4trace:configure.in:133: -1- m4_pattern_allow([^WITH_SCP_SUPPORT_FALSE$])
+m4trace:configure.in:133: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_TRUE])
+m4trace:configure.in:133: -1- _AM_SUBST_NOTMAKE([WITH_SCP_SUPPORT_FALSE])
+m4trace:configure.in:141: -1- AM_CONDITIONAL([WITH_SMTP_SUPPORT], [false])
+m4trace:configure.in:141: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_TRUE$])
+m4trace:configure.in:141: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_FALSE$])
+m4trace:configure.in:141: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_TRUE])
+m4trace:configure.in:141: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_FALSE])
+m4trace:configure.in:141: -1- m4_pattern_allow([^_WITH_SMTP_SUPPORT$])
+m4trace:configure.in:141: -1- AM_CONDITIONAL([WITH_SMTP_SUPPORT], [true])
+m4trace:configure.in:141: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_TRUE$])
+m4trace:configure.in:141: -1- m4_pattern_allow([^WITH_SMTP_SUPPORT_FALSE$])
+m4trace:configure.in:141: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_TRUE])
+m4trace:configure.in:141: -1- _AM_SUBST_NOTMAKE([WITH_SMTP_SUPPORT_FALSE])
+m4trace:configure.in:149: -1- AM_CONDITIONAL([WITH_HTTP_SUPPORT], [false])
+m4trace:configure.in:149: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_TRUE$])
+m4trace:configure.in:149: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_FALSE$])
+m4trace:configure.in:149: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_TRUE])
+m4trace:configure.in:149: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_FALSE])
+m4trace:configure.in:149: -1- m4_pattern_allow([^_WITH_HTTP_SUPPORT$])
+m4trace:configure.in:149: -1- AM_CONDITIONAL([WITH_HTTP_SUPPORT], [true])
+m4trace:configure.in:149: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_TRUE$])
+m4trace:configure.in:149: -1- m4_pattern_allow([^WITH_HTTP_SUPPORT_FALSE$])
+m4trace:configure.in:149: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_TRUE])
+m4trace:configure.in:149: -1- _AM_SUBST_NOTMAKE([WITH_HTTP_SUPPORT_FALSE])
+m4trace:configure.in:157: -1- AM_CONDITIONAL([WITH_SFTP_SUPPORT], [false])
+m4trace:configure.in:157: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_TRUE$])
+m4trace:configure.in:157: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_FALSE$])
+m4trace:configure.in:157: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_TRUE])
+m4trace:configure.in:157: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_FALSE])
+m4trace:configure.in:157: -1- m4_pattern_allow([^_WITH_SFTP_SUPPORT$])
+m4trace:configure.in:157: -1- AM_CONDITIONAL([WITH_SFTP_SUPPORT], [true])
+m4trace:configure.in:157: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_TRUE$])
+m4trace:configure.in:157: -1- m4_pattern_allow([^WITH_SFTP_SUPPORT_FALSE$])
+m4trace:configure.in:157: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_TRUE])
+m4trace:configure.in:157: -1- _AM_SUBST_NOTMAKE([WITH_SFTP_SUPPORT_FALSE])
+m4trace:configure.in:165: -1- AM_CONDITIONAL([WITH_ONETIME_SUPPORT], [true])
+m4trace:configure.in:165: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_TRUE$])
+m4trace:configure.in:165: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_FALSE$])
+m4trace:configure.in:165: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_TRUE])
+m4trace:configure.in:165: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_FALSE])
+m4trace:configure.in:165: -1- m4_pattern_allow([^WITH_ONETIME$])
+m4trace:configure.in:165: -1- AM_CONDITIONAL([WITH_ONETIME_SUPPORT], [false])
+m4trace:configure.in:165: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_TRUE$])
+m4trace:configure.in:165: -1- m4_pattern_allow([^WITH_ONETIME_SUPPORT_FALSE$])
+m4trace:configure.in:165: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_TRUE])
+m4trace:configure.in:165: -1- _AM_SUBST_NOTMAKE([WITH_ONETIME_SUPPORT_FALSE])
+m4trace:configure.in:173: -1- AM_CONDITIONAL([WITHOUT_DUPCHECK], [true])
+m4trace:configure.in:173: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_TRUE$])
+m4trace:configure.in:173: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_FALSE$])
+m4trace:configure.in:173: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_TRUE])
+m4trace:configure.in:173: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_FALSE])
+m4trace:configure.in:173: -1- m4_pattern_allow([^WITH_DUP_CHECK$])
+m4trace:configure.in:173: -1- AM_CONDITIONAL([WITHOUT_DUPCHECK], [false])
+m4trace:configure.in:173: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_TRUE$])
+m4trace:configure.in:173: -1- m4_pattern_allow([^WITHOUT_DUPCHECK_FALSE$])
+m4trace:configure.in:173: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_TRUE])
+m4trace:configure.in:173: -1- _AM_SUBST_NOTMAKE([WITHOUT_DUPCHECK_FALSE])
+m4trace:configure.in:181: -1- AM_CONDITIONAL([WITH_TRANS_EXEC], [false])
+m4trace:configure.in:181: -1- m4_pattern_allow([^WITH_TRANS_EXEC_TRUE$])
+m4trace:configure.in:181: -1- m4_pattern_allow([^WITH_TRANS_EXEC_FALSE$])
+m4trace:configure.in:181: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_TRUE])
+m4trace:configure.in:181: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_FALSE])
+m4trace:configure.in:181: -1- m4_pattern_allow([^_WITH_TRANS_EXEC$])
+m4trace:configure.in:181: -1- AM_CONDITIONAL([WITH_TRANS_EXEC], [true])
+m4trace:configure.in:181: -1- m4_pattern_allow([^WITH_TRANS_EXEC_TRUE$])
+m4trace:configure.in:181: -1- m4_pattern_allow([^WITH_TRANS_EXEC_FALSE$])
+m4trace:configure.in:181: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_TRUE])
+m4trace:configure.in:181: -1- _AM_SUBST_NOTMAKE([WITH_TRANS_EXEC_FALSE])
+m4trace:configure.in:194: -1- m4_pattern_allow([^_VERIFY_FSA$])
+m4trace:configure.in:194: -1- m4_pattern_allow([^_VERIFY_FSA$])
+m4trace:configure.in:201: -1- m4_pattern_allow([^IGNORE_DUPLICATE_JOB_IDS$])
+m4trace:configure.in:201: -1- m4_pattern_allow([^IGNORE_DUPLICATE_JOB_IDS$])
+m4trace:configure.in:208: -1- m4_pattern_allow([^WITH_CTRL_ACCELERATOR$])
+m4trace:configure.in:214: -1- m4_pattern_allow([^AFDBENCH_CONFIG$])
+m4trace:configure.in:220: -1- m4_pattern_allow([^WITH_AUTO_CONFIG$])
+m4trace:configure.in:226: -1- m4_pattern_allow([^AFD_CTRL_PROC_CHECK$])
+m4trace:configure.in:232: -1- m4_pattern_allow([^REPORT_EMPTY_DIR_SCANS$])
+m4trace:configure.in:238: -1- m4_pattern_allow([^EXPAND_PATH_IN_MESSAGE$])
+m4trace:configure.in:244: -1- m4_pattern_allow([^WITH_SETUID_PROGS$])
+m4trace:configure.in:244: -1- AM_CONDITIONAL([WITH_SETUID], [true])
+m4trace:configure.in:244: -1- m4_pattern_allow([^WITH_SETUID_TRUE$])
+m4trace:configure.in:244: -1- m4_pattern_allow([^WITH_SETUID_FALSE$])
+m4trace:configure.in:244: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_TRUE])
+m4trace:configure.in:244: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_FALSE])
+m4trace:configure.in:244: -1- AM_CONDITIONAL([WITH_SETUID], [false])
+m4trace:configure.in:244: -1- m4_pattern_allow([^WITH_SETUID_TRUE$])
+m4trace:configure.in:244: -1- m4_pattern_allow([^WITH_SETUID_FALSE$])
+m4trace:configure.in:244: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_TRUE])
+m4trace:configure.in:244: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_FALSE])
+m4trace:configure.in:252: -1- AM_CONDITIONAL([WITH_SERVER_SUPPORT], [true])
+m4trace:configure.in:252: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_TRUE$])
+m4trace:configure.in:252: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_FALSE$])
+m4trace:configure.in:252: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_TRUE])
+m4trace:configure.in:252: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_FALSE])
+m4trace:configure.in:252: -1- m4_pattern_allow([^_WITH_SERVER_SUPPORT$])
+m4trace:configure.in:252: -1- AM_CONDITIONAL([WITH_SERVER_SUPPORT], [false])
+m4trace:configure.in:252: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_TRUE$])
+m4trace:configure.in:252: -1- m4_pattern_allow([^WITH_SERVER_SUPPORT_FALSE$])
+m4trace:configure.in:252: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_TRUE])
+m4trace:configure.in:252: -1- _AM_SUBST_NOTMAKE([WITH_SERVER_SUPPORT_FALSE])
+m4trace:configure.in:260: -1- m4_pattern_allow([^WITH_UNLINK_DELAY$])
+m4trace:configure.in:266: -1- m4_pattern_allow([^WITH_MULTI_DIR_SCANS$])
+m4trace:configure.in:272: -1- m4_pattern_allow([^FTP_REUSE_DATA_PORT$])
+m4trace:configure.in:278: -1- m4_pattern_allow([^WITH_MS_ERROR_WORKAROUND$])
+m4trace:configure.in:284: -1- m4_pattern_allow([^GROUP_CAN_WRITE$])
+m4trace:configure.in:290: -1- m4_pattern_allow([^LOCK_DEBUG$])
+m4trace:configure.in:296: -1- m4_pattern_allow([^SHOW_EXEC_TIMES$])
+m4trace:configure.in:302: -1- m4_pattern_allow([^WITH_SENDFILE$])
+m4trace:configure.in:308: -1- m4_pattern_allow([^WITH_SPLICE_SUPPORT$])
+m4trace:configure.in:314: -1- m4_pattern_allow([^WITH_READY_FILES$])
+m4trace:configure.in:320: -1- m4_pattern_allow([^_WITH_MAP_SUPPORT$])
+m4trace:configure.in:320: -1- AM_CONDITIONAL([WITH_MAP_SUPPORT], [true])
+m4trace:configure.in:320: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_TRUE$])
+m4trace:configure.in:320: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_FALSE$])
+m4trace:configure.in:320: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_TRUE])
+m4trace:configure.in:320: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_FALSE])
+m4trace:configure.in:320: -1- AM_CONDITIONAL([WITH_MAP_SUPPORT], [false])
+m4trace:configure.in:320: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_TRUE$])
+m4trace:configure.in:320: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_FALSE$])
+m4trace:configure.in:320: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_TRUE])
+m4trace:configure.in:320: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_FALSE])
+m4trace:configure.in:320: -1- AM_CONDITIONAL([WITH_MAP_SUPPORT], [false])
+m4trace:configure.in:320: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_TRUE$])
+m4trace:configure.in:320: -1- m4_pattern_allow([^WITH_MAP_SUPPORT_FALSE$])
+m4trace:configure.in:320: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_TRUE])
+m4trace:configure.in:320: -1- _AM_SUBST_NOTMAKE([WITH_MAP_SUPPORT_FALSE])
+m4trace:configure.in:339: -1- m4_pattern_allow([^AFD_MAP_LIBS$])
+m4trace:configure.in:341: -1- m4_pattern_allow([^WITH_PASSWD_IN_MSG$])
+m4trace:configure.in:355: -2- AM_CONDITIONAL([WITH_MISC_LIB], [true])
+m4trace:configure.in:355: -2- m4_pattern_allow([^WITH_MISC_LIB_TRUE$])
+m4trace:configure.in:355: -2- m4_pattern_allow([^WITH_MISC_LIB_FALSE$])
+m4trace:configure.in:355: -2- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_TRUE])
+m4trace:configure.in:355: -2- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_FALSE])
+m4trace:configure.in:347: -1- m4_pattern_allow([^WITH_EUMETSAT_HEADERS$])
+m4trace:configure.in:347: -1- AM_CONDITIONAL([WITH_MISC_LIB], [true])
+m4trace:configure.in:347: -1- m4_pattern_allow([^WITH_MISC_LIB_TRUE$])
+m4trace:configure.in:347: -1- m4_pattern_allow([^WITH_MISC_LIB_FALSE$])
+m4trace:configure.in:347: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_TRUE])
+m4trace:configure.in:347: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_FALSE])
+m4trace:configure.in:347: -1- AM_CONDITIONAL([WITH_MISC_LIB], [false])
+m4trace:configure.in:347: -1- m4_pattern_allow([^WITH_MISC_LIB_TRUE$])
+m4trace:configure.in:347: -1- m4_pattern_allow([^WITH_MISC_LIB_FALSE$])
+m4trace:configure.in:347: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_TRUE])
+m4trace:configure.in:347: -1- _AM_SUBST_NOTMAKE([WITH_MISC_LIB_FALSE])
+m4trace:configure.in:377: -1- m4_pattern_allow([^WITH_EDITRES$])
+m4trace:configure.in:400: -1- m4_pattern_allow([^WITH_AFD_MON$])
+m4trace:configure.in:408: -1- AM_CONDITIONAL([WITH_AFD_MON_ONLY], [$compile_afd_mon_only])
+m4trace:configure.in:408: -1- m4_pattern_allow([^WITH_AFD_MON_ONLY_TRUE$])
+m4trace:configure.in:408: -1- m4_pattern_allow([^WITH_AFD_MON_ONLY_FALSE$])
+m4trace:configure.in:408: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_ONLY_TRUE])
+m4trace:configure.in:408: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_ONLY_FALSE])
+m4trace:configure.in:412: -1- m4_pattern_allow([^WITH_AFD_MON$])
+m4trace:configure.in:421: -1- AM_CONDITIONAL([WITH_AFD_MON], [$afd_mon])
+m4trace:configure.in:421: -1- m4_pattern_allow([^WITH_AFD_MON_TRUE$])
+m4trace:configure.in:421: -1- m4_pattern_allow([^WITH_AFD_MON_FALSE$])
+m4trace:configure.in:421: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_TRUE])
+m4trace:configure.in:421: -1- _AM_SUBST_NOTMAKE([WITH_AFD_MON_FALSE])
+m4trace:configure.in:494: -1- m4_pattern_allow([^DISTRO_STYLE_RPMS$])
+m4trace:configure.in:513: -1- m4_pattern_allow([^INITDIR$])
+m4trace:configure.in:529: -1- m4_pattern_allow([^SYSCONFIGDIR$])
+m4trace:configure.in:538: -1- m4_pattern_allow([^cleaned_configure_args$])
+m4trace:configure.in:575: -1- m4_pattern_allow([^BINARY_OWNER$])
+m4trace:configure.in:582: -1- m4_pattern_allow([^BINARY_GROUP$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^build$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^build_cpu$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^build_vendor$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^build_os$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^host$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^host_cpu$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^host_vendor$])
+m4trace:configure.in:585: -1- m4_pattern_allow([^host_os$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CC$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CFLAGS$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^LDFLAGS$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^LIBS$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CPPFLAGS$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CC$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CC$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CC$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CC$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^ac_ct_CC$])
+m4trace:configure.in:589: -1- _AM_DEPENDENCIES([CC])
+m4trace:configure.in:589: -1- m4_pattern_allow([^CCDEPMODE$])
+m4trace:configure.in:589: -1- AM_CONDITIONAL([am__fastdepCC], [
   test "x$enable_dependency_tracking" != xno \
   && test "$am_cv_CC_dependencies_compiler_type" = gcc3])
-m4trace:configure.in:578: -1- m4_pattern_allow([^am__fastdepCC_TRUE$])
-m4trace:configure.in:578: -1- m4_pattern_allow([^am__fastdepCC_FALSE$])
-m4trace:configure.in:578: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_TRUE])
-m4trace:configure.in:578: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_FALSE])
-m4trace:configure.in:579: -1- m4_pattern_allow([^RANLIB$])
-m4trace:configure.in:667: -1- AX_GCC_ARCHFLAG([no], [OPTIMIZE_FLAG="-O2 ${ax_cv_gcc_archflag}"], [OPTIMIZE_FLAG="-O2"])
-m4trace:configure.in:667: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
+m4trace:configure.in:589: -1- m4_pattern_allow([^am__fastdepCC_TRUE$])
+m4trace:configure.in:589: -1- m4_pattern_allow([^am__fastdepCC_FALSE$])
+m4trace:configure.in:589: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_TRUE])
+m4trace:configure.in:589: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_FALSE])
+m4trace:configure.in:590: -1- m4_pattern_allow([^RANLIB$])
+m4trace:configure.in:668: -1- AX_GCC_ARCHFLAG([no], [OPTIMIZE_FLAG="-O2 ${ax_cv_gcc_archflag}"], [OPTIMIZE_FLAG="-O2"])
+m4trace:configure.in:668: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 ../../lib/autoconf/general.m4:1482: AC_ARG_WITH is expanded from...
 ac-tools/ax_gcc_archflag.m4:36: AX_GCC_ARCHFLAG is expanded from...
-configure.in:667: the top level])
-m4trace:configure.in:667: -1- AX_GCC_X86_CPUID([0])
-m4trace:configure.in:667: -1- AX_GCC_X86_CPUID([1])
-m4trace:configure.in:667: -1- AX_GCC_X86_CPUID([0x80000006])
-m4trace:configure.in:667: -1- m4_pattern_allow([^PRTDIAG$])
-m4trace:configure.in:667: -1- AX_CHECK_COMPILER_FLAGS([$flag], [ax_cv_gcc_archflag=$flag; break])
-m4trace:configure.in:695: -1- AX_CHECK_COMPILER_FLAGS(["-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG="-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG=""])
-m4trace:configure.in:696: -1- AX_CHECK_COMPILER_FLAGS(["-pie"], [SECURITY_FLAG="${SECURITY_FLAG} -pie"], [SECURITY_FLAG="${SECURITY_FLAG}"])
-m4trace:configure.in:735: -1- VL_PROG_CC_WARNINGS
-m4trace:configure.in:741: -1- m4_pattern_allow([^WITH_SETUID$])
-m4trace:configure.in:747: -1- m4_pattern_allow([^_FILE_OFFSET_BITS$])
-m4trace:configure.in:747: -1- m4_pattern_allow([^_LARGE_FILES$])
-m4trace:configure.in:754: -1- ETR_SOCKET_NSL
-m4trace:configure.in:754: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:668: the top level])
+m4trace:configure.in:668: -1- AX_GCC_X86_CPUID([0])
+m4trace:configure.in:668: -1- AX_GCC_X86_CPUID([1])
+m4trace:configure.in:668: -1- AX_GCC_X86_CPUID([0x80000006])
+m4trace:configure.in:668: -1- m4_pattern_allow([^PRTDIAG$])
+m4trace:configure.in:668: -1- AX_CHECK_COMPILER_FLAGS([$flag], [ax_cv_gcc_archflag=$flag; break])
+m4trace:configure.in:696: -1- AX_CHECK_COMPILER_FLAGS(["-fstack-protector"], [SECURITY_FLAG="${SECURITY_FLAG} -fstack-protector"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+m4trace:configure.in:697: -1- AX_CHECK_COMPILER_FLAGS(["-pie"], [SECURITY_FLAG="${SECURITY_FLAG} -pie"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+m4trace:configure.in:698: -1- AX_CHECK_COMPILER_FLAGS(["-fPIC"], [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+m4trace:configure.in:723: -1- AX_CHECK_COMPILER_FLAGS(["-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG="-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG=""])
+m4trace:configure.in:730: -1- AX_CHECK_COMPILER_FLAGS(["-fPIC"], [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+m4trace:configure.in:753: -1- AX_CHECK_COMPILER_FLAGS(["-msse4.2"], [CRCFLAGS="-msse4.2"], [CRCFLAGS=""])
+m4trace:configure.in:762: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
+configure.in:762: the top level])
+m4trace:configure.in:771: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
+configure.in:771: the top level])
+m4trace:configure.in:782: -1- m4_pattern_allow([^HAVE_HW_CRC32$])
+m4trace:configure.in:797: -1- VL_PROG_CC_WARNINGS
+m4trace:configure.in:807: -1- m4_pattern_allow([^WITH_SETUID$])
+m4trace:configure.in:813: -1- m4_pattern_allow([^_FILE_OFFSET_BITS$])
+m4trace:configure.in:813: -1- m4_pattern_allow([^_LARGE_FILES$])
+m4trace:configure.in:820: -1- ETR_SOCKET_NSL
+m4trace:configure.in:820: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/etr_socket_nsl.m4:12: ETR_SOCKET_NSL is expanded from...
-configure.in:754: the top level])
-m4trace:configure.in:754: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:820: the top level])
+m4trace:configure.in:820: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/etr_socket_nsl.m4:12: ETR_SOCKET_NSL is expanded from...
-configure.in:754: the top level])
-m4trace:configure.in:754: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:820: the top level])
+m4trace:configure.in:820: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/etr_socket_nsl.m4:12: ETR_SOCKET_NSL is expanded from...
-configure.in:754: the top level])
-m4trace:configure.in:754: -1- m4_pattern_allow([^EXTRA_SOCKET_LIBS$])
-m4trace:configure.in:766: -1- m4_pattern_allow([^PKGCONFIG$])
-m4trace:configure.in:807: -1- m4_pattern_allow([^AFD_SSL_INCLUDES$])
-m4trace:configure.in:808: -1- m4_pattern_allow([^AFD_SSL_LIBS$])
-m4trace:configure.in:809: -1- m4_pattern_allow([^WITH_SSL$])
-m4trace:configure.in:817: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
+configure.in:820: the top level])
+m4trace:configure.in:820: -1- m4_pattern_allow([^EXTRA_SOCKET_LIBS$])
+m4trace:configure.in:832: -1- m4_pattern_allow([^PKGCONFIG$])
+m4trace:configure.in:873: -1- m4_pattern_allow([^AFD_SSL_INCLUDES$])
+m4trace:configure.in:874: -1- m4_pattern_allow([^AFD_SSL_LIBS$])
+m4trace:configure.in:875: -1- m4_pattern_allow([^WITH_SSL$])
+m4trace:configure.in:883: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
-configure.in:817: the top level])
-m4trace:configure.in:817: -1- _m4_warn([cross], [AC_RUN_IFELSE called without default to allow cross compiling], [../../lib/autoconf/general.m4:2749: AC_RUN_IFELSE is expanded from...
+configure.in:883: the top level])
+m4trace:configure.in:883: -1- _m4_warn([cross], [AC_RUN_IFELSE called without default to allow cross compiling], [../../lib/autoconf/general.m4:2749: AC_RUN_IFELSE is expanded from...
 ../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
-configure.in:817: the top level])
-m4trace:configure.in:867: -1- m4_pattern_allow([^XMKMF$])
-m4trace:configure.in:867: -1- m4_pattern_allow([^X_DISPLAY_MISSING$])
-m4trace:configure.in:867: -1- m4_pattern_allow([^X_CFLAGS$])
-m4trace:configure.in:867: -1- m4_pattern_allow([^X_PRE_LIBS$])
-m4trace:configure.in:867: -1- m4_pattern_allow([^X_LIBS$])
-m4trace:configure.in:867: -1- m4_pattern_allow([^X_EXTRA_LIBS$])
-m4trace:configure.in:888: -1- AC_FIND_LIBXP
-m4trace:configure.in:888: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:883: the top level])
+m4trace:configure.in:933: -1- m4_pattern_allow([^XMKMF$])
+m4trace:configure.in:933: -1- m4_pattern_allow([^X_DISPLAY_MISSING$])
+m4trace:configure.in:933: -1- m4_pattern_allow([^X_CFLAGS$])
+m4trace:configure.in:933: -1- m4_pattern_allow([^X_PRE_LIBS$])
+m4trace:configure.in:933: -1- m4_pattern_allow([^X_LIBS$])
+m4trace:configure.in:933: -1- m4_pattern_allow([^X_EXTRA_LIBS$])
+m4trace:configure.in:954: -1- AC_FIND_LIBXP
+m4trace:configure.in:954: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/xp.m4:15: AC_FIND_LIBXP is expanded from...
-configure.in:888: the top level])
-m4trace:configure.in:888: -1- m4_pattern_allow([^HAVE_LIB_XP$])
-m4trace:configure.in:888: -1- m4_pattern_allow([^AFD_XP_LIB$])
-m4trace:configure.in:889: -1- AC_FIND_MOTIF
-m4trace:configure.in:889: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+configure.in:954: the top level])
+m4trace:configure.in:954: -1- m4_pattern_allow([^HAVE_LIB_XP$])
+m4trace:configure.in:954: -1- m4_pattern_allow([^AFD_XP_LIB$])
+m4trace:configure.in:955: -1- AC_FIND_MOTIF
+m4trace:configure.in:955: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ac-tools/motif.m4:19: AC_FIND_MOTIF is expanded from...
-configure.in:889: the top level])
-m4trace:configure.in:889: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:955: the top level])
+m4trace:configure.in:955: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ac-tools/motif.m4:19: AC_FIND_MOTIF is expanded from...
-configure.in:889: the top level])
-m4trace:configure.in:889: -1- m4_pattern_allow([^HAVE_MOTIF$])
-m4trace:configure.in:889: -1- m4_pattern_allow([^link_motif$])
-m4trace:configure.in:889: -1- m4_pattern_allow([^include_motif$])
-m4trace:configure.in:895: -1- AC_CHECK_MOTIF_VERSION
-m4trace:configure.in:895: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
+configure.in:955: the top level])
+m4trace:configure.in:955: -1- m4_pattern_allow([^HAVE_MOTIF$])
+m4trace:configure.in:955: -1- m4_pattern_allow([^link_motif$])
+m4trace:configure.in:955: -1- m4_pattern_allow([^include_motif$])
+m4trace:configure.in:961: -1- AC_CHECK_MOTIF_VERSION
+m4trace:configure.in:961: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
 ac-tools/motif_version.m4:5: AC_CHECK_MOTIF_VERSION is expanded from...
-configure.in:895: the top level])
-m4trace:configure.in:895: -1- _m4_warn([cross], [AC_RUN_IFELSE called without default to allow cross compiling], [../../lib/autoconf/general.m4:2749: AC_RUN_IFELSE is expanded from...
+configure.in:961: the top level])
+m4trace:configure.in:961: -1- _m4_warn([cross], [AC_RUN_IFELSE called without default to allow cross compiling], [../../lib/autoconf/general.m4:2749: AC_RUN_IFELSE is expanded from...
 ../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
 ac-tools/motif_version.m4:5: AC_CHECK_MOTIF_VERSION is expanded from...
-configure.in:895: the top level])
-m4trace:configure.in:896: -1- AC_CHECK_LESSTIF_VERSION
-m4trace:configure.in:896: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
+configure.in:961: the top level])
+m4trace:configure.in:962: -1- AC_CHECK_LESSTIF_VERSION
+m4trace:configure.in:962: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
 ac-tools/lesstif_version.m4:5: AC_CHECK_LESSTIF_VERSION is expanded from...
-configure.in:896: the top level])
-m4trace:configure.in:896: -1- _m4_warn([cross], [AC_RUN_IFELSE called without default to allow cross compiling], [../../lib/autoconf/general.m4:2749: AC_RUN_IFELSE is expanded from...
+configure.in:962: the top level])
+m4trace:configure.in:962: -1- _m4_warn([cross], [AC_RUN_IFELSE called without default to allow cross compiling], [../../lib/autoconf/general.m4:2749: AC_RUN_IFELSE is expanded from...
 ../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
 ac-tools/lesstif_version.m4:5: AC_CHECK_LESSTIF_VERSION is expanded from...
-configure.in:896: the top level])
-m4trace:configure.in:896: -1- m4_pattern_allow([^LESSTIF_WORKAROUND$])
-m4trace:configure.in:907: -1- AC_FIND_XPM
-m4trace:configure.in:907: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+configure.in:962: the top level])
+m4trace:configure.in:962: -1- m4_pattern_allow([^LESSTIF_WORKAROUND$])
+m4trace:configure.in:973: -1- AC_FIND_XPM
+m4trace:configure.in:973: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ac-tools/xpm.m4:17: AC_FIND_XPM is expanded from...
-configure.in:907: the top level])
-m4trace:configure.in:907: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:973: the top level])
+m4trace:configure.in:973: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ac-tools/xpm.m4:17: AC_FIND_XPM is expanded from...
-configure.in:907: the top level])
-m4trace:configure.in:907: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:973: the top level])
+m4trace:configure.in:973: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ac-tools/xpm.m4:17: AC_FIND_XPM is expanded from...
-configure.in:907: the top level])
-m4trace:configure.in:907: -1- m4_pattern_allow([^HAVE_XPM$])
-m4trace:configure.in:907: -1- m4_pattern_allow([^XPM_CFLAGS$])
-m4trace:configure.in:907: -1- m4_pattern_allow([^XPM_LIBS$])
-m4trace:configure.in:911: -1- AM_CONDITIONAL([WITH_XPM], [false])
-m4trace:configure.in:911: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
-m4trace:configure.in:911: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
-m4trace:configure.in:911: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
-m4trace:configure.in:911: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
-m4trace:configure.in:915: -1- AM_CONDITIONAL([WITH_XPM], [true])
-m4trace:configure.in:915: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
-m4trace:configure.in:915: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
-m4trace:configure.in:915: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
-m4trace:configure.in:915: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
-m4trace:configure.in:966: -1- m4_pattern_allow([^AFD_MOTIF_INCLUDES$])
-m4trace:configure.in:967: -1- m4_pattern_allow([^AFD_MOTIF_LIBS$])
-m4trace:configure.in:968: -1- m4_pattern_allow([^AFD_XAW_INCLUDES$])
-m4trace:configure.in:969: -1- m4_pattern_allow([^AFD_XAW_LIBS$])
-m4trace:configure.in:971: -1- m4_pattern_allow([^AFD_MATH_LIB$])
-m4trace:configure.in:973: -1- AM_CONDITIONAL([WITH_XPM], [false])
-m4trace:configure.in:973: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
-m4trace:configure.in:973: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
-m4trace:configure.in:973: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
-m4trace:configure.in:973: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
-m4trace:configure.in:977: -1- AM_CONDITIONAL([HAVE_MOTIF], [$compile_with_motif])
-m4trace:configure.in:977: -1- m4_pattern_allow([^HAVE_MOTIF_TRUE$])
-m4trace:configure.in:977: -1- m4_pattern_allow([^HAVE_MOTIF_FALSE$])
-m4trace:configure.in:977: -1- _AM_SUBST_NOTMAKE([HAVE_MOTIF_TRUE])
-m4trace:configure.in:977: -1- _AM_SUBST_NOTMAKE([HAVE_MOTIF_FALSE])
-m4trace:configure.in:998: -1- PKG_CHECK_MODULES([AFD_GTK], [gtk+-2.0 >= 2.2 glib-2.0 >= 2.2])
-m4trace:configure.in:998: -1- PKG_PROG_PKG_CONFIG
-m4trace:configure.in:998: -1- m4_pattern_forbid([^_?PKG_[A-Z_]+$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^PKG_CONFIG(_PATH)?$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^PKG_CONFIG$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^PKG_CONFIG_PATH$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^PKG_CONFIG_LIBDIR$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^PKG_CONFIG$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^AFD_GTK_CFLAGS$])
-m4trace:configure.in:998: -1- m4_pattern_allow([^AFD_GTK_LIBS$])
-m4trace:configure.in:998: -1- PKG_CHECK_EXISTS([gtk+-2.0 >= 2.2 glib-2.0 >= 2.2], [pkg_cv_[]AFD_GTK_CFLAGS=`$PKG_CONFIG --[]cflags "gtk+-2.0 >= 2.2 glib-2.0 >= 2.2" 2>/dev/null`], [pkg_failed=yes])
-m4trace:configure.in:998: -1- PKG_CHECK_EXISTS([gtk+-2.0 >= 2.2 glib-2.0 >= 2.2], [pkg_cv_[]AFD_GTK_LIBS=`$PKG_CONFIG --[]libs "gtk+-2.0 >= 2.2 glib-2.0 >= 2.2" 2>/dev/null`], [pkg_failed=yes])
-m4trace:configure.in:998: -1- _PKG_SHORT_ERRORS_SUPPORTED
-m4trace:configure.in:1001: -1- m4_pattern_allow([^AFD_GTK_CFLAGS$])
-m4trace:configure.in:1002: -1- m4_pattern_allow([^AFD_GTK_LIBS$])
-m4trace:configure.in:1004: -1- AM_CONDITIONAL([WITH_XPM], [true])
-m4trace:configure.in:1004: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
-m4trace:configure.in:1004: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
-m4trace:configure.in:1004: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
-m4trace:configure.in:1004: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
-m4trace:configure.in:1008: -1- AM_CONDITIONAL([WITH_GTK], [$compile_with_gtk])
-m4trace:configure.in:1008: -1- m4_pattern_allow([^WITH_GTK_TRUE$])
-m4trace:configure.in:1008: -1- m4_pattern_allow([^WITH_GTK_FALSE$])
-m4trace:configure.in:1008: -1- _AM_SUBST_NOTMAKE([WITH_GTK_TRUE])
-m4trace:configure.in:1008: -1- _AM_SUBST_NOTMAKE([WITH_GTK_FALSE])
-m4trace:configure.in:1018: -1- MP_WITH_NCURSES
-m4trace:configure.in:1018: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:973: the top level])
+m4trace:configure.in:973: -1- m4_pattern_allow([^HAVE_XPM$])
+m4trace:configure.in:973: -1- m4_pattern_allow([^XPM_CFLAGS$])
+m4trace:configure.in:973: -1- m4_pattern_allow([^XPM_LIBS$])
+m4trace:configure.in:977: -1- AM_CONDITIONAL([WITH_XPM], [false])
+m4trace:configure.in:977: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
+m4trace:configure.in:977: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
+m4trace:configure.in:977: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
+m4trace:configure.in:977: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
+m4trace:configure.in:981: -1- AM_CONDITIONAL([WITH_XPM], [true])
+m4trace:configure.in:981: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
+m4trace:configure.in:981: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
+m4trace:configure.in:981: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
+m4trace:configure.in:981: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
+m4trace:configure.in:1033: -1- m4_pattern_allow([^AFD_MOTIF_INCLUDES$])
+m4trace:configure.in:1034: -1- m4_pattern_allow([^AFD_MOTIF_LIBS$])
+m4trace:configure.in:1035: -1- m4_pattern_allow([^AFD_XAW_INCLUDES$])
+m4trace:configure.in:1036: -1- m4_pattern_allow([^AFD_XAW_LIBS$])
+m4trace:configure.in:1038: -1- m4_pattern_allow([^AFD_MATH_LIB$])
+m4trace:configure.in:1040: -1- AM_CONDITIONAL([WITH_XPM], [false])
+m4trace:configure.in:1040: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
+m4trace:configure.in:1040: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
+m4trace:configure.in:1040: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
+m4trace:configure.in:1040: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
+m4trace:configure.in:1044: -1- AM_CONDITIONAL([HAVE_MOTIF], [$compile_with_motif])
+m4trace:configure.in:1044: -1- m4_pattern_allow([^HAVE_MOTIF_TRUE$])
+m4trace:configure.in:1044: -1- m4_pattern_allow([^HAVE_MOTIF_FALSE$])
+m4trace:configure.in:1044: -1- _AM_SUBST_NOTMAKE([HAVE_MOTIF_TRUE])
+m4trace:configure.in:1044: -1- _AM_SUBST_NOTMAKE([HAVE_MOTIF_FALSE])
+m4trace:configure.in:1072: -1- PKG_CHECK_MODULES([AFD_GTK], [gtk+-2.0 >= 2.2 glib-2.0 >= 2.2])
+m4trace:configure.in:1072: -1- PKG_PROG_PKG_CONFIG
+m4trace:configure.in:1072: -1- m4_pattern_forbid([^_?PKG_[A-Z_]+$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^PKG_CONFIG(_PATH)?$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^PKG_CONFIG$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^PKG_CONFIG_PATH$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^PKG_CONFIG_LIBDIR$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^PKG_CONFIG$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^AFD_GTK_CFLAGS$])
+m4trace:configure.in:1072: -1- m4_pattern_allow([^AFD_GTK_LIBS$])
+m4trace:configure.in:1072: -1- PKG_CHECK_EXISTS([gtk+-2.0 >= 2.2 glib-2.0 >= 2.2], [pkg_cv_[]AFD_GTK_CFLAGS=`$PKG_CONFIG --[]cflags "gtk+-2.0 >= 2.2 glib-2.0 >= 2.2" 2>/dev/null`], [pkg_failed=yes])
+m4trace:configure.in:1072: -1- PKG_CHECK_EXISTS([gtk+-2.0 >= 2.2 glib-2.0 >= 2.2], [pkg_cv_[]AFD_GTK_LIBS=`$PKG_CONFIG --[]libs "gtk+-2.0 >= 2.2 glib-2.0 >= 2.2" 2>/dev/null`], [pkg_failed=yes])
+m4trace:configure.in:1072: -1- _PKG_SHORT_ERRORS_SUPPORTED
+m4trace:configure.in:1075: -1- m4_pattern_allow([^AFD_GTK_CFLAGS$])
+m4trace:configure.in:1076: -1- m4_pattern_allow([^AFD_GTK_LIBS$])
+m4trace:configure.in:1078: -1- AM_CONDITIONAL([WITH_XPM], [true])
+m4trace:configure.in:1078: -1- m4_pattern_allow([^WITH_XPM_TRUE$])
+m4trace:configure.in:1078: -1- m4_pattern_allow([^WITH_XPM_FALSE$])
+m4trace:configure.in:1078: -1- _AM_SUBST_NOTMAKE([WITH_XPM_TRUE])
+m4trace:configure.in:1078: -1- _AM_SUBST_NOTMAKE([WITH_XPM_FALSE])
+m4trace:configure.in:1082: -1- AM_CONDITIONAL([WITH_GTK], [$compile_with_gtk])
+m4trace:configure.in:1082: -1- m4_pattern_allow([^WITH_GTK_TRUE$])
+m4trace:configure.in:1082: -1- m4_pattern_allow([^WITH_GTK_FALSE$])
+m4trace:configure.in:1082: -1- _AM_SUBST_NOTMAKE([WITH_GTK_TRUE])
+m4trace:configure.in:1082: -1- _AM_SUBST_NOTMAKE([WITH_GTK_FALSE])
+m4trace:configure.in:1092: -1- MP_WITH_NCURSES
+m4trace:configure.in:1092: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/mp_with_ncurses.m4:51: MP_WITH_NCURSES is expanded from...
-configure.in:1018: the top level])
-m4trace:configure.in:1018: -1- m4_pattern_allow([^HAVE_NCURSES_H$])
-m4trace:configure.in:1022: -1- m4_pattern_allow([^AFD_NCURSES_LIB$])
-m4trace:configure.in:1023: -1- AM_CONDITIONAL([WITH_NCURSES], [true])
-m4trace:configure.in:1023: -1- m4_pattern_allow([^WITH_NCURSES_TRUE$])
-m4trace:configure.in:1023: -1- m4_pattern_allow([^WITH_NCURSES_FALSE$])
-m4trace:configure.in:1023: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_TRUE])
-m4trace:configure.in:1023: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_FALSE])
-m4trace:configure.in:1025: -1- AM_CONDITIONAL([WITH_NCURSES], [false])
-m4trace:configure.in:1025: -1- m4_pattern_allow([^WITH_NCURSES_TRUE$])
-m4trace:configure.in:1025: -1- m4_pattern_allow([^WITH_NCURSES_FALSE$])
-m4trace:configure.in:1025: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_TRUE])
-m4trace:configure.in:1025: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_FALSE])
-m4trace:configure.in:1028: -1- AM_CONDITIONAL([WITH_NCURSES], [false])
-m4trace:configure.in:1028: -1- m4_pattern_allow([^WITH_NCURSES_TRUE$])
-m4trace:configure.in:1028: -1- m4_pattern_allow([^WITH_NCURSES_FALSE$])
-m4trace:configure.in:1028: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_TRUE])
-m4trace:configure.in:1028: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_FALSE])
-m4trace:configure.in:1034: -1- m4_pattern_allow([^HAVE_LIBEFENCE$])
-m4trace:configure.in:1035: -1- m4_pattern_allow([^WITH_EFENCE$])
-m4trace:configure.in:1041: -1- AM_CONDITIONAL([WITH_SETUID_PROGS], [true])
-m4trace:configure.in:1041: -1- m4_pattern_allow([^WITH_SETUID_PROGS_TRUE$])
-m4trace:configure.in:1041: -1- m4_pattern_allow([^WITH_SETUID_PROGS_FALSE$])
-m4trace:configure.in:1041: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_TRUE])
-m4trace:configure.in:1041: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_FALSE])
-m4trace:configure.in:1043: -1- AM_CONDITIONAL([WITH_SETUID_PROGS], [false])
-m4trace:configure.in:1043: -1- m4_pattern_allow([^WITH_SETUID_PROGS_TRUE$])
-m4trace:configure.in:1043: -1- m4_pattern_allow([^WITH_SETUID_PROGS_FALSE$])
-m4trace:configure.in:1043: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_TRUE])
-m4trace:configure.in:1043: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_FALSE])
-m4trace:configure.in:1047: -1- m4_pattern_allow([^RPM$])
-m4trace:configure.in:1050: -1- m4_pattern_allow([^RPM$])
-m4trace:configure.in:1053: -1- m4_pattern_allow([^PING_CMD$])
-m4trace:configure.in:1054: -1- m4_pattern_allow([^TRACEROUTE_CMD$])
-m4trace:configure.in:1055: -1- m4_pattern_allow([^GZIP_CMD$])
-m4trace:configure.in:1058: -1- AC_DEFUN([AC_DATAROOTDIR_CHECKED])
-m4trace:configure.in:1062: -1- m4_pattern_allow([^AFD_VERSION$])
-m4trace:configure.in:1064: -1- m4_pattern_allow([^AFD_RELEASE$])
-m4trace:configure.in:1065: -1- m4_pattern_allow([^ac_configure_args$])
-m4trace:configure.in:1066: -1- m4_pattern_allow([^REQUIRES$])
-m4trace:configure.in:1067: -1- m4_pattern_allow([^BUILD_REQUIRES$])
-m4trace:configure.in:1071: -1- m4_pattern_allow([^STDC_HEADERS$])
-m4trace:configure.in:1072: -1- m4_pattern_allow([^HAVE_SYS_WAIT_H$])
-m4trace:configure.in:1080: -1- m4_pattern_allow([^HAVE_SYS_PARAM_H$])
-m4trace:configure.in:1081: -1- m4_pattern_allow([^HAVE_NETINET_IN_H$])
-m4trace:configure.in:1084: -1- m4_pattern_allow([^HAVE_NETINET_IP_H$])
-m4trace:configure.in:1085: -1- m4_pattern_allow([^HAVE_NETINET_IN_SYSTM_H$])
-m4trace:configure.in:1087: -1- m4_pattern_allow([^HAVE_NETINET_IN_SYSTM_H$])
-m4trace:configure.in:1092: -1- m4_pattern_allow([^HAVE_NETINET_IP_H$])
-m4trace:configure.in:1096: -1- m4_pattern_allow([^HAVE_NETINET_IP_H$])
-m4trace:configure.in:1104: -1- m4_pattern_allow([^const$])
-m4trace:configure.in:1105: -1- m4_pattern_allow([^uid_t$])
-m4trace:configure.in:1105: -1- m4_pattern_allow([^gid_t$])
-m4trace:configure.in:1106: -1- m4_pattern_allow([^mode_t$])
-m4trace:configure.in:1107: -1- m4_pattern_allow([^off_t$])
-m4trace:configure.in:1108: -1- m4_pattern_allow([^pid_t$])
-m4trace:configure.in:1109: -1- m4_pattern_allow([^size_t$])
-m4trace:configure.in:1110: -1- m4_pattern_allow([^TIME_WITH_SYS_TIME$])
-m4trace:configure.in:1111: -1- m4_pattern_allow([^TM_IN_SYS_TIME$])
-m4trace:configure.in:1112: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_off_t])], [(long int) (sizeof (off_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_off_t])" = yes; then
+configure.in:1092: the top level])
+m4trace:configure.in:1092: -1- m4_pattern_allow([^HAVE_NCURSES_H$])
+m4trace:configure.in:1096: -1- m4_pattern_allow([^AFD_NCURSES_LIB$])
+m4trace:configure.in:1097: -1- AM_CONDITIONAL([WITH_NCURSES], [true])
+m4trace:configure.in:1097: -1- m4_pattern_allow([^WITH_NCURSES_TRUE$])
+m4trace:configure.in:1097: -1- m4_pattern_allow([^WITH_NCURSES_FALSE$])
+m4trace:configure.in:1097: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_TRUE])
+m4trace:configure.in:1097: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_FALSE])
+m4trace:configure.in:1099: -1- AM_CONDITIONAL([WITH_NCURSES], [false])
+m4trace:configure.in:1099: -1- m4_pattern_allow([^WITH_NCURSES_TRUE$])
+m4trace:configure.in:1099: -1- m4_pattern_allow([^WITH_NCURSES_FALSE$])
+m4trace:configure.in:1099: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_TRUE])
+m4trace:configure.in:1099: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_FALSE])
+m4trace:configure.in:1102: -1- AM_CONDITIONAL([WITH_NCURSES], [false])
+m4trace:configure.in:1102: -1- m4_pattern_allow([^WITH_NCURSES_TRUE$])
+m4trace:configure.in:1102: -1- m4_pattern_allow([^WITH_NCURSES_FALSE$])
+m4trace:configure.in:1102: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_TRUE])
+m4trace:configure.in:1102: -1- _AM_SUBST_NOTMAKE([WITH_NCURSES_FALSE])
+m4trace:configure.in:1108: -1- m4_pattern_allow([^HAVE_LIBEFENCE$])
+m4trace:configure.in:1109: -1- m4_pattern_allow([^WITH_EFENCE$])
+m4trace:configure.in:1115: -1- AM_CONDITIONAL([WITH_SETUID_PROGS], [true])
+m4trace:configure.in:1115: -1- m4_pattern_allow([^WITH_SETUID_PROGS_TRUE$])
+m4trace:configure.in:1115: -1- m4_pattern_allow([^WITH_SETUID_PROGS_FALSE$])
+m4trace:configure.in:1115: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_TRUE])
+m4trace:configure.in:1115: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_FALSE])
+m4trace:configure.in:1117: -1- AM_CONDITIONAL([WITH_SETUID_PROGS], [false])
+m4trace:configure.in:1117: -1- m4_pattern_allow([^WITH_SETUID_PROGS_TRUE$])
+m4trace:configure.in:1117: -1- m4_pattern_allow([^WITH_SETUID_PROGS_FALSE$])
+m4trace:configure.in:1117: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_TRUE])
+m4trace:configure.in:1117: -1- _AM_SUBST_NOTMAKE([WITH_SETUID_PROGS_FALSE])
+m4trace:configure.in:1121: -1- m4_pattern_allow([^RPM$])
+m4trace:configure.in:1124: -1- m4_pattern_allow([^RPM$])
+m4trace:configure.in:1127: -1- m4_pattern_allow([^PING_CMD$])
+m4trace:configure.in:1128: -1- m4_pattern_allow([^TRACEROUTE_CMD$])
+m4trace:configure.in:1129: -1- m4_pattern_allow([^GZIP_CMD$])
+m4trace:configure.in:1132: -1- AC_DEFUN([AC_DATAROOTDIR_CHECKED])
+m4trace:configure.in:1136: -1- m4_pattern_allow([^AFD_VERSION$])
+m4trace:configure.in:1138: -1- m4_pattern_allow([^AFD_RELEASE$])
+m4trace:configure.in:1139: -1- m4_pattern_allow([^ac_configure_args$])
+m4trace:configure.in:1140: -1- m4_pattern_allow([^REQUIRES$])
+m4trace:configure.in:1141: -1- m4_pattern_allow([^BUILD_REQUIRES$])
+m4trace:configure.in:1142: -1- m4_pattern_allow([^BUILD_REQUIRES_REDHAT$])
+m4trace:configure.in:1145: -1- m4_pattern_allow([^STDC_HEADERS$])
+m4trace:configure.in:1146: -1- m4_pattern_allow([^HAVE_SYS_WAIT_H$])
+m4trace:configure.in:1154: -1- m4_pattern_allow([^HAVE_SYS_PARAM_H$])
+m4trace:configure.in:1155: -1- m4_pattern_allow([^HAVE_NETINET_IN_H$])
+m4trace:configure.in:1158: -1- m4_pattern_allow([^HAVE_NETINET_IP_H$])
+m4trace:configure.in:1159: -1- m4_pattern_allow([^HAVE_NETINET_IN_SYSTM_H$])
+m4trace:configure.in:1161: -1- m4_pattern_allow([^HAVE_NETINET_IN_SYSTM_H$])
+m4trace:configure.in:1166: -1- m4_pattern_allow([^HAVE_NETINET_IP_H$])
+m4trace:configure.in:1170: -1- m4_pattern_allow([^HAVE_NETINET_IP_H$])
+m4trace:configure.in:1178: -1- m4_pattern_allow([^const$])
+m4trace:configure.in:1179: -1- m4_pattern_allow([^uid_t$])
+m4trace:configure.in:1179: -1- m4_pattern_allow([^gid_t$])
+m4trace:configure.in:1180: -1- m4_pattern_allow([^mode_t$])
+m4trace:configure.in:1181: -1- m4_pattern_allow([^off_t$])
+m4trace:configure.in:1182: -1- m4_pattern_allow([^pid_t$])
+m4trace:configure.in:1183: -1- m4_pattern_allow([^size_t$])
+m4trace:configure.in:1184: -1- m4_pattern_allow([^TIME_WITH_SYS_TIME$])
+m4trace:configure.in:1185: -1- m4_pattern_allow([^TM_IN_SYS_TIME$])
+m4trace:configure.in:1186: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_off_t])], [(long int) (sizeof (off_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_off_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (off_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_off_t])=0
    fi])
-m4trace:configure.in:1112: -1- m4_pattern_allow([^SIZEOF_OFF_T$])
-m4trace:configure.in:1113: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_pid_t])], [(long int) (sizeof (pid_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_pid_t])" = yes; then
+m4trace:configure.in:1186: -1- m4_pattern_allow([^SIZEOF_OFF_T$])
+m4trace:configure.in:1187: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_pid_t])], [(long int) (sizeof (pid_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_pid_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (pid_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_pid_t])=0
    fi])
-m4trace:configure.in:1113: -1- m4_pattern_allow([^SIZEOF_PID_T$])
-m4trace:configure.in:1114: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_time_t])], [(long int) (sizeof (time_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_time_t])" = yes; then
+m4trace:configure.in:1187: -1- m4_pattern_allow([^SIZEOF_PID_T$])
+m4trace:configure.in:1188: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_time_t])], [(long int) (sizeof (time_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_time_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (time_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_time_t])=0
    fi])
-m4trace:configure.in:1114: -1- m4_pattern_allow([^SIZEOF_TIME_T$])
-m4trace:configure.in:1115: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_nlink_t])], [(long int) (sizeof (nlink_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_nlink_t])" = yes; then
+m4trace:configure.in:1188: -1- m4_pattern_allow([^SIZEOF_TIME_T$])
+m4trace:configure.in:1189: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_nlink_t])], [(long int) (sizeof (nlink_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_nlink_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (nlink_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_nlink_t])=0
    fi])
-m4trace:configure.in:1115: -1- m4_pattern_allow([^SIZEOF_NLINK_T$])
-m4trace:configure.in:1116: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_size_t])], [(long int) (sizeof (size_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_size_t])" = yes; then
+m4trace:configure.in:1189: -1- m4_pattern_allow([^SIZEOF_NLINK_T$])
+m4trace:configure.in:1190: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_size_t])], [(long int) (sizeof (size_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_size_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (size_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_size_t])=0
    fi])
-m4trace:configure.in:1116: -1- m4_pattern_allow([^SIZEOF_SIZE_T$])
-m4trace:configure.in:1117: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_ssize_t])], [(long int) (sizeof (ssize_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_ssize_t])" = yes; then
+m4trace:configure.in:1190: -1- m4_pattern_allow([^SIZEOF_SIZE_T$])
+m4trace:configure.in:1191: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_ssize_t])], [(long int) (sizeof (ssize_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_ssize_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (ssize_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_ssize_t])=0
    fi])
-m4trace:configure.in:1117: -1- m4_pattern_allow([^SIZEOF_SSIZE_T$])
-m4trace:configure.in:1118: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_ino_t])], [(long int) (sizeof (ino_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_ino_t])" = yes; then
+m4trace:configure.in:1191: -1- m4_pattern_allow([^SIZEOF_SSIZE_T$])
+m4trace:configure.in:1192: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_ino_t])], [(long int) (sizeof (ino_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_ino_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (ino_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_ino_t])=0
    fi])
-m4trace:configure.in:1118: -1- m4_pattern_allow([^SIZEOF_INO_T$])
-m4trace:configure.in:1119: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_uid_t])], [(long int) (sizeof (uid_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_uid_t])" = yes; then
+m4trace:configure.in:1192: -1- m4_pattern_allow([^SIZEOF_INO_T$])
+m4trace:configure.in:1193: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_uid_t])], [(long int) (sizeof (uid_t))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_uid_t])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (uid_t)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_uid_t])=0
    fi])
-m4trace:configure.in:1119: -1- m4_pattern_allow([^SIZEOF_UID_T$])
-m4trace:configure.in:1120: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_short])], [(long int) (sizeof (short))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_short])" = yes; then
+m4trace:configure.in:1193: -1- m4_pattern_allow([^SIZEOF_UID_T$])
+m4trace:configure.in:1194: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_short])], [(long int) (sizeof (short))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_short])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (short)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_short])=0
    fi])
-m4trace:configure.in:1120: -1- m4_pattern_allow([^SIZEOF_SHORT$])
-m4trace:configure.in:1121: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_int])], [(long int) (sizeof (int))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_int])" = yes; then
+m4trace:configure.in:1194: -1- m4_pattern_allow([^SIZEOF_SHORT$])
+m4trace:configure.in:1195: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_int])], [(long int) (sizeof (int))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_int])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (int)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_int])=0
    fi])
-m4trace:configure.in:1121: -1- m4_pattern_allow([^SIZEOF_INT$])
-m4trace:configure.in:1122: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_long])], [(long int) (sizeof (long))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_long])" = yes; then
+m4trace:configure.in:1195: -1- m4_pattern_allow([^SIZEOF_INT$])
+m4trace:configure.in:1196: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_long])], [(long int) (sizeof (long))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_long])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (long)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_long])=0
    fi])
-m4trace:configure.in:1122: -1- m4_pattern_allow([^SIZEOF_LONG$])
-m4trace:configure.in:1123: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_long long])], [(long int) (sizeof (long long))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_long long])" = yes; then
+m4trace:configure.in:1196: -1- m4_pattern_allow([^SIZEOF_LONG$])
+m4trace:configure.in:1197: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_long long])], [(long int) (sizeof (long long))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_long long])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (long long)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_long long])=0
    fi])
-m4trace:configure.in:1123: -1- m4_pattern_allow([^SIZEOF_LONG_LONG$])
-m4trace:configure.in:1124: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_char])], [(long int) (sizeof (char))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_char])" = yes; then
+m4trace:configure.in:1197: -1- m4_pattern_allow([^SIZEOF_LONG_LONG$])
+m4trace:configure.in:1198: -1- AC_COMPUTE_INT([AS_TR_SH([ac_cv_sizeof_char])], [(long int) (sizeof (char))], [AC_INCLUDES_DEFAULT([])], [if test "$AS_TR_SH([ac_cv_type_char])" = yes; then
      AC_MSG_FAILURE([cannot compute sizeof (char)], 77)
    else
      AS_TR_SH([ac_cv_sizeof_char])=0
    fi])
-m4trace:configure.in:1124: -1- m4_pattern_allow([^SIZEOF_CHAR$])
-m4trace:configure.in:1129: -1- m4_pattern_allow([^my_socklen_t$])
-m4trace:configure.in:1133: -1- m4_pattern_allow([^my_socklen_t$])
-m4trace:configure.in:1135: -1- TYPE_SOCKLEN_T
-m4trace:configure.in:1135: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+m4trace:configure.in:1198: -1- m4_pattern_allow([^SIZEOF_CHAR$])
+m4trace:configure.in:1203: -1- m4_pattern_allow([^my_socklen_t$])
+m4trace:configure.in:1207: -1- m4_pattern_allow([^my_socklen_t$])
+m4trace:configure.in:1209: -1- TYPE_SOCKLEN_T
+m4trace:configure.in:1209: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/type_socklen_t.m4:10: TYPE_SOCKLEN_T is expanded from...
-configure.in:1135: the top level])
-m4trace:configure.in:1135: -1- m4_pattern_allow([^my_socklen_t$])
-m4trace:configure.in:1135: -1- m4_pattern_allow([^my_socklen_t$])
-m4trace:configure.in:1138: -1- TYPE_SOCKLEN_T
-m4trace:configure.in:1138: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
+configure.in:1209: the top level])
+m4trace:configure.in:1209: -1- m4_pattern_allow([^my_socklen_t$])
+m4trace:configure.in:1209: -1- m4_pattern_allow([^my_socklen_t$])
+m4trace:configure.in:1212: -1- TYPE_SOCKLEN_T
+m4trace:configure.in:1212: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2615: AC_TRY_COMPILE is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/type_socklen_t.m4:10: TYPE_SOCKLEN_T is expanded from...
-configure.in:1138: the top level])
-m4trace:configure.in:1138: -1- m4_pattern_allow([^my_socklen_t$])
-m4trace:configure.in:1138: -1- m4_pattern_allow([^my_socklen_t$])
-m4trace:configure.in:1143: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.in:1144: -1- _m4_warn([obsolete], [The macro `AC_FUNC_SETVBUF_REVERSED' is obsolete.  Remove it and all references to SETVBUF_REVERSED.], [../../lib/autoconf/functions.m4:1714: AC_FUNC_SETVBUF_REVERSED is expanded from...
-configure.in:1144: the top level])
-m4trace:configure.in:1145: -1- _m4_warn([obsolete], [The macro `AC_TYPE_SIGNAL' is obsolete.
+configure.in:1212: the top level])
+m4trace:configure.in:1212: -1- m4_pattern_allow([^my_socklen_t$])
+m4trace:configure.in:1212: -1- m4_pattern_allow([^my_socklen_t$])
+m4trace:configure.in:1217: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.in:1218: -1- _m4_warn([obsolete], [The macro `AC_FUNC_SETVBUF_REVERSED' is obsolete.  Remove it and all references to SETVBUF_REVERSED.], [../../lib/autoconf/functions.m4:1714: AC_FUNC_SETVBUF_REVERSED is expanded from...
+configure.in:1218: the top level])
+m4trace:configure.in:1219: -1- _m4_warn([obsolete], [The macro `AC_TYPE_SIGNAL' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/types.m4:738: AC_TYPE_SIGNAL is expanded from...
-configure.in:1145: the top level])
-m4trace:configure.in:1145: -1- m4_pattern_allow([^RETSIGTYPE$])
-m4trace:configure.in:1146: -1- m4_pattern_allow([^HAVE_STRFTIME$])
-m4trace:configure.in:1146: -1- m4_pattern_allow([^HAVE_STRFTIME$])
-m4trace:configure.in:1147: -1- AC_DEFUN([_AC_Header_utime_h], [m4_divert_text([INIT_PREPARE], [AS_VAR_APPEND([ac_header_list], [" utime.h"])])
+configure.in:1219: the top level])
+m4trace:configure.in:1219: -1- m4_pattern_allow([^RETSIGTYPE$])
+m4trace:configure.in:1220: -1- m4_pattern_allow([^HAVE_STRFTIME$])
+m4trace:configure.in:1220: -1- m4_pattern_allow([^HAVE_STRFTIME$])
+m4trace:configure.in:1221: -1- AC_DEFUN([_AC_Header_utime_h], [m4_divert_text([INIT_PREPARE], [AS_VAR_APPEND([ac_header_list], [" utime.h"])])
 _AC_HEADERS_EXPANSION])
-m4trace:configure.in:1147: -1- m4_pattern_allow([^HAVE_UTIME_NULL$])
-m4trace:configure.in:1148: -1- m4_pattern_allow([^HAVE_VPRINTF$])
-m4trace:configure.in:1148: -1- m4_pattern_allow([^HAVE_DOPRNT$])
-m4trace:configure.in:1157: -1- m4_pattern_allow([^HAVE_OPENPTY$])
-m4trace:configure.in:1168: -1- m4_pattern_allow([^AFD_UTIL_LIB$])
-m4trace:configure.in:1169: -1- AM_CONDITIONAL([HAVE_EACCESS], [true])
-m4trace:configure.in:1169: -1- m4_pattern_allow([^HAVE_EACCESS_TRUE$])
-m4trace:configure.in:1169: -1- m4_pattern_allow([^HAVE_EACCESS_FALSE$])
-m4trace:configure.in:1169: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_TRUE])
-m4trace:configure.in:1169: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_FALSE])
-m4trace:configure.in:1169: -1- m4_pattern_allow([^HAVE_EACCESS$])
-m4trace:configure.in:1169: -1- AM_CONDITIONAL([HAVE_EACCESS], [false])
-m4trace:configure.in:1169: -1- m4_pattern_allow([^HAVE_EACCESS_TRUE$])
-m4trace:configure.in:1169: -1- m4_pattern_allow([^HAVE_EACCESS_FALSE$])
-m4trace:configure.in:1169: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_TRUE])
-m4trace:configure.in:1169: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_FALSE])
-m4trace:configure.in:1173: -1- AM_CONDITIONAL([HAVE_WAIT4], [true])
-m4trace:configure.in:1173: -1- m4_pattern_allow([^HAVE_WAIT4_TRUE$])
-m4trace:configure.in:1173: -1- m4_pattern_allow([^HAVE_WAIT4_FALSE$])
-m4trace:configure.in:1173: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_TRUE])
-m4trace:configure.in:1173: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_FALSE])
-m4trace:configure.in:1173: -1- m4_pattern_allow([^HAVE_WAIT4$])
-m4trace:configure.in:1173: -1- AM_CONDITIONAL([HAVE_WAIT4], [false])
-m4trace:configure.in:1173: -1- m4_pattern_allow([^HAVE_WAIT4_TRUE$])
-m4trace:configure.in:1173: -1- m4_pattern_allow([^HAVE_WAIT4_FALSE$])
-m4trace:configure.in:1173: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_TRUE])
-m4trace:configure.in:1173: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_FALSE])
-m4trace:configure.in:1177: -1- AM_CONDITIONAL([WITHOUT_MMAP], [false])
-m4trace:configure.in:1177: -1- m4_pattern_allow([^WITHOUT_MMAP_TRUE$])
-m4trace:configure.in:1177: -1- m4_pattern_allow([^WITHOUT_MMAP_FALSE$])
-m4trace:configure.in:1177: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_TRUE])
-m4trace:configure.in:1177: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_FALSE])
-m4trace:configure.in:1177: -1- m4_pattern_allow([^HAVE_MMAP$])
-m4trace:configure.in:1177: -1- AM_CONDITIONAL([WITHOUT_MMAP], [true])
-m4trace:configure.in:1177: -1- m4_pattern_allow([^WITHOUT_MMAP_TRUE$])
-m4trace:configure.in:1177: -1- m4_pattern_allow([^WITHOUT_MMAP_FALSE$])
-m4trace:configure.in:1177: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_TRUE])
-m4trace:configure.in:1177: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_FALSE])
-m4trace:configure.in:1185: -1- AM_GNU_GETTEXT([external])
-m4trace:configure.in:1185: -1- AM_GNU_GETTEXT_NEED([])
-m4trace:configure.in:1185: -1- AM_PO_SUBDIRS
-m4trace:configure.in:1185: -1- AM_NLS
-m4trace:configure.in:1185: -1- m4_pattern_allow([^USE_NLS$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^GETTEXT_MACRO_VERSION$])
-m4trace:configure.in:1185: -1- AM_PATH_PROG_WITH_TEST([MSGFMT], [msgfmt], [$ac_dir/$ac_word --statistics /dev/null >&5 2>&1 &&
+m4trace:configure.in:1221: -1- m4_pattern_allow([^HAVE_UTIME_NULL$])
+m4trace:configure.in:1222: -1- m4_pattern_allow([^HAVE_VPRINTF$])
+m4trace:configure.in:1222: -1- m4_pattern_allow([^HAVE_DOPRNT$])
+m4trace:configure.in:1231: -1- m4_pattern_allow([^HAVE_OPENPTY$])
+m4trace:configure.in:1242: -1- m4_pattern_allow([^AFD_UTIL_LIB$])
+m4trace:configure.in:1243: -1- AM_CONDITIONAL([HAVE_EACCESS], [true])
+m4trace:configure.in:1243: -1- m4_pattern_allow([^HAVE_EACCESS_TRUE$])
+m4trace:configure.in:1243: -1- m4_pattern_allow([^HAVE_EACCESS_FALSE$])
+m4trace:configure.in:1243: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_TRUE])
+m4trace:configure.in:1243: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_FALSE])
+m4trace:configure.in:1243: -1- m4_pattern_allow([^HAVE_EACCESS$])
+m4trace:configure.in:1243: -1- AM_CONDITIONAL([HAVE_EACCESS], [false])
+m4trace:configure.in:1243: -1- m4_pattern_allow([^HAVE_EACCESS_TRUE$])
+m4trace:configure.in:1243: -1- m4_pattern_allow([^HAVE_EACCESS_FALSE$])
+m4trace:configure.in:1243: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_TRUE])
+m4trace:configure.in:1243: -1- _AM_SUBST_NOTMAKE([HAVE_EACCESS_FALSE])
+m4trace:configure.in:1247: -1- AM_CONDITIONAL([HAVE_WAIT4], [true])
+m4trace:configure.in:1247: -1- m4_pattern_allow([^HAVE_WAIT4_TRUE$])
+m4trace:configure.in:1247: -1- m4_pattern_allow([^HAVE_WAIT4_FALSE$])
+m4trace:configure.in:1247: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_TRUE])
+m4trace:configure.in:1247: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_FALSE])
+m4trace:configure.in:1247: -1- m4_pattern_allow([^HAVE_WAIT4$])
+m4trace:configure.in:1247: -1- AM_CONDITIONAL([HAVE_WAIT4], [false])
+m4trace:configure.in:1247: -1- m4_pattern_allow([^HAVE_WAIT4_TRUE$])
+m4trace:configure.in:1247: -1- m4_pattern_allow([^HAVE_WAIT4_FALSE$])
+m4trace:configure.in:1247: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_TRUE])
+m4trace:configure.in:1247: -1- _AM_SUBST_NOTMAKE([HAVE_WAIT4_FALSE])
+m4trace:configure.in:1251: -1- AM_CONDITIONAL([WITHOUT_MMAP], [false])
+m4trace:configure.in:1251: -1- m4_pattern_allow([^WITHOUT_MMAP_TRUE$])
+m4trace:configure.in:1251: -1- m4_pattern_allow([^WITHOUT_MMAP_FALSE$])
+m4trace:configure.in:1251: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_TRUE])
+m4trace:configure.in:1251: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_FALSE])
+m4trace:configure.in:1251: -1- m4_pattern_allow([^HAVE_MMAP$])
+m4trace:configure.in:1251: -1- AM_CONDITIONAL([WITHOUT_MMAP], [true])
+m4trace:configure.in:1251: -1- m4_pattern_allow([^WITHOUT_MMAP_TRUE$])
+m4trace:configure.in:1251: -1- m4_pattern_allow([^WITHOUT_MMAP_FALSE$])
+m4trace:configure.in:1251: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_TRUE])
+m4trace:configure.in:1251: -1- _AM_SUBST_NOTMAKE([WITHOUT_MMAP_FALSE])
+m4trace:configure.in:1260: -1- AM_GNU_GETTEXT([external])
+m4trace:configure.in:1260: -1- AM_GNU_GETTEXT_NEED([])
+m4trace:configure.in:1260: -1- AM_PO_SUBDIRS
+m4trace:configure.in:1260: -1- AM_NLS
+m4trace:configure.in:1260: -1- m4_pattern_allow([^USE_NLS$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^GETTEXT_MACRO_VERSION$])
+m4trace:configure.in:1260: -1- AM_PATH_PROG_WITH_TEST([MSGFMT], [msgfmt], [$ac_dir/$ac_word --statistics /dev/null >&5 2>&1 &&
      (if $ac_dir/$ac_word --statistics /dev/null 2>&1 >/dev/null | grep usage >/dev/null; then exit 1; else exit 0; fi)], [:])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^MSGFMT$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^GMSGFMT$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^MSGFMT_015$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^GMSGFMT_015$])
-m4trace:configure.in:1185: -1- AM_PATH_PROG_WITH_TEST([XGETTEXT], [xgettext], [$ac_dir/$ac_word --omit-header --copyright-holder= --msgid-bugs-address= /dev/null >&5 2>&1 &&
+m4trace:configure.in:1260: -1- m4_pattern_allow([^MSGFMT$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^GMSGFMT$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^MSGFMT_015$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^GMSGFMT_015$])
+m4trace:configure.in:1260: -1- AM_PATH_PROG_WITH_TEST([XGETTEXT], [xgettext], [$ac_dir/$ac_word --omit-header --copyright-holder= --msgid-bugs-address= /dev/null >&5 2>&1 &&
      (if $ac_dir/$ac_word --omit-header --copyright-holder= --msgid-bugs-address= /dev/null 2>&1 >/dev/null | grep usage >/dev/null; then exit 1; else exit 0; fi)], [:])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^XGETTEXT$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^XGETTEXT_015$])
-m4trace:configure.in:1185: -1- AM_PATH_PROG_WITH_TEST([MSGMERGE], [msgmerge], [$ac_dir/$ac_word --update -q /dev/null /dev/null >&5 2>&1], [:])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^MSGMERGE$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^localedir$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^XGETTEXT_EXTRA_OPTIONS$])
-m4trace:configure.in:1185: -1- AC_LIB_PREPARE_PREFIX
-m4trace:configure.in:1185: -1- AC_LIB_RPATH
-m4trace:configure.in:1185: -1- AC_LIB_PROG_LD
-m4trace:configure.in:1185: -1- AC_LIB_PROG_LD_GNU
-m4trace:configure.in:1185: -1- AM_ICONV_LINKFLAGS_BODY
-m4trace:configure.in:1185: -1- AC_LIB_LINKFLAGS_BODY([iconv])
-m4trace:configure.in:1185: -1- AC_LIB_PREPARE_MULTILIB
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([
+m4trace:configure.in:1260: -1- m4_pattern_allow([^XGETTEXT$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^XGETTEXT_015$])
+m4trace:configure.in:1260: -1- AM_PATH_PROG_WITH_TEST([MSGMERGE], [msgmerge], [$ac_dir/$ac_word --update -q /dev/null /dev/null >&5 2>&1], [:])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^MSGMERGE$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^localedir$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^XGETTEXT_EXTRA_OPTIONS$])
+m4trace:configure.in:1260: -1- AC_LIB_PREPARE_PREFIX
+m4trace:configure.in:1260: -1- AC_LIB_RPATH
+m4trace:configure.in:1260: -1- AC_LIB_PROG_LD
+m4trace:configure.in:1260: -1- AC_LIB_PROG_LD_GNU
+m4trace:configure.in:1260: -1- AM_ICONV_LINKFLAGS_BODY
+m4trace:configure.in:1260: -1- AC_LIB_LINKFLAGS_BODY([iconv])
+m4trace:configure.in:1260: -1- AC_LIB_PREPARE_MULTILIB
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([
     eval additional_includedir=\"$includedir\"
     eval additional_libdir=\"$libdir\"
   ])
-m4trace:configure.in:1185: -1- AC_LIB_ARG_WITH([libiconv-prefix], [  --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
+m4trace:configure.in:1260: -1- AC_LIB_ARG_WITH([libiconv-prefix], [  --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
   --without-libiconv-prefix     don't search for libiconv in includedir and libdir], [
     if test "X$withval" = "Xno"; then
       use_additional=no
@@ -5488,78 +5500,78 @@ m4trace:configure.in:1185: -1- AC_LIB_ARG_WITH([libiconv-prefix], [  --with-libi
       fi
     fi
 ])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([
           eval additional_includedir=\"$includedir\"
           eval additional_libdir=\"$libdir\"
         ])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- gt_INTL_MACOSX
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- gt_INTL_MACOSX
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 /usr/share/aclocal/intlmacosx.m4:18: gt_INTL_MACOSX is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^HAVE_CFPREFERENCESCOPYAPPVALUE$])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^HAVE_CFPREFERENCESCOPYAPPVALUE$])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 /usr/share/aclocal/intlmacosx.m4:18: gt_INTL_MACOSX is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^HAVE_CFLOCALECOPYCURRENT$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^INTL_MACOSX_LIBS$])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^HAVE_CFLOCALECOPYCURRENT$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^INTL_MACOSX_LIBS$])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- AM_ICONV_LINK
-m4trace:configure.in:1185: -1- AC_LIB_APPENDTOVAR([CPPFLAGS], [$INCICONV])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
-You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
-../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
-../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
-../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
-ac-tools/iconv.m4:20: AM_ICONV_LINK is expanded from...
-ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- AM_ICONV_LINK
+m4trace:configure.in:1260: -1- AC_LIB_APPENDTOVAR([CPPFLAGS], [$INCICONV])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/iconv.m4:20: AM_ICONV_LINK is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
+../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
+../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
+../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
+ac-tools/iconv.m4:20: AM_ICONV_LINK is expanded from...
+ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_RUN' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2765: AC_TRY_RUN is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/iconv.m4:20: AM_ICONV_LINK is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^HAVE_ICONV$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^LIBICONV$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^LTLIBICONV$])
-m4trace:configure.in:1185: -1- AC_LIB_LINKFLAGS_BODY([intl])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^HAVE_ICONV$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^LIBICONV$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^LTLIBICONV$])
+m4trace:configure.in:1260: -1- AC_LIB_LINKFLAGS_BODY([intl])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([
     eval additional_includedir=\"$includedir\"
     eval additional_libdir=\"$libdir\"
   ])
-m4trace:configure.in:1185: -1- AC_LIB_ARG_WITH([libintl-prefix], [  --with-libintl-prefix[=DIR]  search for libintl in DIR/include and DIR/lib
+m4trace:configure.in:1260: -1- AC_LIB_ARG_WITH([libintl-prefix], [  --with-libintl-prefix[=DIR]  search for libintl in DIR/include and DIR/lib
   --without-libintl-prefix     don't search for libintl in includedir and libdir], [
     if test "X$withval" = "Xno"; then
       use_additional=no
@@ -5575,44 +5587,44 @@ m4trace:configure.in:1185: -1- AC_LIB_ARG_WITH([libintl-prefix], [  --with-libin
       fi
     fi
 ])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([
           eval additional_includedir=\"$includedir\"
           eval additional_libdir=\"$libdir\"
         ])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- _m4_warn([obsolete], [The macro `AC_TRY_LINK' is obsolete.
 You should run autoupdate.], [../../lib/autoconf/general.m4:2688: AC_TRY_LINK is expanded from...
 ../../lib/m4sugar/m4sh.m4:606: AS_IF is expanded from...
 ../../lib/autoconf/general.m4:2032: AC_CACHE_VAL is expanded from...
 ../../lib/autoconf/general.m4:2053: AC_CACHE_CHECK is expanded from...
 ac-tools/gettext.m4:57: AM_GNU_GETTEXT is expanded from...
-configure.in:1185: the top level])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^ENABLE_NLS$])
-m4trace:configure.in:1185: -1- AC_LIB_APPENDTOVAR([CPPFLAGS], [$INCINTL])
-m4trace:configure.in:1185: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^HAVE_GETTEXT$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^HAVE_DCGETTEXT$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^INTLLIBS$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^LIBINTL$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^LTLIBINTL$])
-m4trace:configure.in:1185: -1- m4_pattern_allow([^POSUB$])
-m4trace:configure.in:1261: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.in:1261: -1- m4_pattern_allow([^LTLIBOBJS$])
-m4trace:configure.in:1261: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
-m4trace:configure.in:1261: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
-m4trace:configure.in:1261: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
-m4trace:configure.in:1261: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
-m4trace:configure.in:1261: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
-m4trace:configure.in:1261: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
-m4trace:configure.in:1261: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS
+configure.in:1260: the top level])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^ENABLE_NLS$])
+m4trace:configure.in:1260: -1- AC_LIB_APPENDTOVAR([CPPFLAGS], [$INCINTL])
+m4trace:configure.in:1260: -1- AC_LIB_WITH_FINAL_PREFIX([eval x=\"$x\"])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^HAVE_GETTEXT$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^HAVE_DCGETTEXT$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^INTLLIBS$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^LIBINTL$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^LTLIBINTL$])
+m4trace:configure.in:1260: -1- m4_pattern_allow([^POSUB$])
+m4trace:configure.in:1336: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.in:1336: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.in:1336: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
+m4trace:configure.in:1336: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
+m4trace:configure.in:1336: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
+m4trace:configure.in:1336: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
+m4trace:configure.in:1336: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
+m4trace:configure.in:1336: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
+m4trace:configure.in:1336: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

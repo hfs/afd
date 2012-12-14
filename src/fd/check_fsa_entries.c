@@ -1,6 +1,6 @@
 /*
  *  check_fsa_entries.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,8 @@ DESCR__S_M3
  **   07.04.2002 H.Kiehl Added some more checks for the job_status struct.
  **   10.05.2004 H.Kiehl Reset the queued flag in FRA when we reset the
  **                      active_transfers to zero.
+ **   18.09.2012 H.Kiehl Put in more checks in case the FSA has been
+ **                      corrupted.
  **
  */
 DESCR__E_M3
@@ -184,33 +186,50 @@ check_fsa_entries(void)
             fsa[i].error_history[0] = 0;
             fsa[i].error_history[1] = 0;
          }
-         for (j = 0; j < fsa[i].allowed_transfers; j++)
+         if (fsa[i].allowed_transfers <= MAX_NO_PARALLEL_JOBS)
          {
-            if (fsa[i].job_status[j].connect_status != DISCONNECT)
+            for (j = 0; j < fsa[i].allowed_transfers; j++)
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Connect status %d for host %s is %d. It should be %d. Correcting.",
-                          j, fsa[i].host_dsp_name,
-                          fsa[i].job_status[j].connect_status, DISCONNECT);
-               fsa[i].job_status[j].connect_status = DISCONNECT;
-            }
-            if (fsa[i].job_status[j].proc_id != -1)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Process ID in job %d for host %s is %d. It should be -1. Correcting.",
-                          j, fsa[i].host_dsp_name, fsa[i].job_status[j].proc_id);
-               fsa[i].job_status[j].proc_id = -1;
-            }
+               if (fsa[i].job_status[j].connect_status != DISCONNECT)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Connect status %d for host %s is %d. It should be %d. Correcting.",
+                             j, fsa[i].host_dsp_name,
+                             fsa[i].job_status[j].connect_status, DISCONNECT);
+                  fsa[i].job_status[j].connect_status = DISCONNECT;
+               }
+               if (fsa[i].job_status[j].proc_id != -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Process ID in job %d for host %s is %d. It should be -1. Correcting.",
+                             j, fsa[i].host_dsp_name, fsa[i].job_status[j].proc_id);
+                  fsa[i].job_status[j].proc_id = -1;
+               }
 #ifdef _WITH_BURST_2
-            if (fsa[i].job_status[j].job_id != NO_ID)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Job ID in job %d for host %s is %d. It should be %d. Correcting.",
-                          j, fsa[i].host_dsp_name, fsa[i].job_status[j].job_id,
-                          NO_ID);
-               fsa[i].job_status[j].job_id = NO_ID;
-            }
+               if (fsa[i].job_status[j].job_id != NO_ID)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Job ID in job %d for host %s is %d. It should be %d. Correcting.",
+                             j, fsa[i].host_dsp_name, fsa[i].job_status[j].job_id,
+                             NO_ID);
+                  fsa[i].job_status[j].job_id = NO_ID;
+               }
 #endif
+            }
+         }
+         else
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "The maximum number of allowed transfers for %s is to large (%d)!",
+                       fsa[i].host_dsp_name, fsa[i].allowed_transfers);
+            for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
+            {
+               fsa[i].job_status[j].connect_status = DISCONNECT;
+               fsa[i].job_status[j].proc_id = -1;
+#ifdef _WITH_BURST_2
+               fsa[i].job_status[j].job_id = NO_ID;
+#endif
+            }
          }
       } /* if (gotcha == NO) */
    } /* for (i = 0; i < no_of_hosts; i++) */

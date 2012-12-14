@@ -163,7 +163,8 @@ struct info_data
           char               archive_dir[MAX_PATH_LENGTH];
           char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char               trans_time[MAX_INT_LENGTH + MAX_INT_LENGTH];
-          char               unique_name[9 + 1 + 9 + 1 + 9 + 2];
+          char               unique_name[MAX_ADD_FNL + 1];
+          char               mail_id[MAX_MAIL_ID_LENGTH + 1];
           char               priority;
           struct dir_options d_o;
        };

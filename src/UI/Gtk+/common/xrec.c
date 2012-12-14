@@ -1,6 +1,6 @@
 /*
  *  xrec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,14 +70,18 @@ int
 xrec(char type, char *fmt, ...)
 {
    int       answer;
-   char      buf[MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + 1];
    va_list   ap;
    GtkWidget *dialog;
    GtkMessageType msg_type;
    GtkButtonsType button_type;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   (void)vsnprintf(buf, MAX_LINE_LENGTH, fmt, ap);
+#else
    (void)vsprintf(buf, fmt, ap);
+#endif
 
    switch (type)
    {

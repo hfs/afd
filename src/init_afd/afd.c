@@ -34,9 +34,15 @@ DESCR__S_M1
  **    -d                        only start afd_ctrl dialog
  **    -h[ <timeout in seconds>] only check for heartbeat
  **    -H[ <timeout in seconds>] check if heartbeat is active, if not start AFD
- **    -i                        initialize AFD, by deleting fifodir
+ **    -i[1-9]                   initialize AFD, the optional number is the
+ **                              level of initialization. The higher the number
+ **                              the more data will be deleted. If no number is
+ **                              specified the level will be 5. 9 is the same
+ **                              as -I below.
  **    -I                        initialize AFD, by deleting everything except
  **                              for the etc directory
+ **    -n                        in combination with -i or -I just print
+ **                              and do not execute.
  **    -p <role>                 use the given user role
  **    -r                        remove blocking startup of AFD
  **    -T                        check if data types match current binary
@@ -101,6 +107,7 @@ DESCR__S_M1
  **                      crc, incoming/file_mask and incoming/ls_data
  **                      directory.
  **   20.10.2011 H.Kiehl Added -T option.
+ **   28.11.2012 H.Kiehl Let user choose the level of initialization.
  **
  */
 DESCR__E_M1
@@ -108,6 +115,7 @@ DESCR__E_M1
 #include <stdio.h>            /* fprintf(), remove(), NULL               */
 #include <string.h>           /* strcpy(), strcat(), strerror()          */
 #include <stdlib.h>           /* exit()                                  */
+#include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>
 #ifdef HAVE_MMAP
 # include <sys/mman.h>        /* mmap(), munmap()                        */
@@ -135,8 +143,7 @@ DESCR__E_M1
 #define AFD_HEARTBEAT_CHECK_ONLY 10
 #define AFD_HEARTBEAT_CHECK      11
 #define AFD_INITIALIZE           12
-#define AFD_FULL_INITIALIZE      13
-#define SET_SHUTDOWN_BIT         14
+#define SET_SHUTDOWN_BIT         13
 
 /* External global variables. */
 #ifdef AFDBENCH_CONFIG
@@ -158,10 +165,12 @@ static int        check_database(void);
 int
 main(int argc, char *argv[])
 {
-   int         start_up,
-               afd_ctrl_perm,
+   int         afd_ctrl_perm,
+               dry_run = NO,
                initialize_perm,
+               init_level = 0,
                startup_perm,
+               start_up,
                shutdown_perm,
                user_offset;
    long        default_heartbeat_timeout;
@@ -289,8 +298,10 @@ main(int argc, char *argv[])
    {
       if ((argc == 2) ||
           ((argc == 3) && (argv[1][0] == '-') &&
-           ((argv[1][1] == 'C') || (argv[1][1] == 'c')) &&
-           (argv[1][2] == '\0')))
+           ((((argv[1][1] == 'C') || (argv[1][1] == 'c') ||
+              (argv[1][1] == 'I') || (argv[1][1] == 'i')) &&
+             (argv[1][2] == '\0')) ||
+            ((argv[1][1] == 'i') && (isdigit((int)argv[1][2]))))))
       {
          if (strcmp(argv[1], "-a") == 0) /* Start AFD. */
          {
@@ -397,7 +408,44 @@ main(int argc, char *argv[])
                                   _("You do not have the permission to initialize the AFD.\n"));
                     exit(INCORRECT);
                  }
+                 init_level = 5;
                  start_up = AFD_INITIALIZE;
+                 if (argc == 3)
+                 {
+                    if (strcmp(argv[2], "-n") == 0) /* Just print, do not execute. */
+                    {
+                       dry_run = YES;
+                    }
+                    else
+                    {
+                       usage(argv[0]);
+                       exit(1);
+                    }
+                 }
+              }
+         else if ((argv[1][0] == '-') && (argv[1][1] == 'i') && /* Initialize AFD with init level. */
+                  (isdigit((int)argv[1][2])) && (argv[1][3] == '\0'))
+              {
+                 if (initialize_perm != YES)
+                 {
+                    (void)fprintf(stderr,
+                                  _("You do not have the permission to initialize the AFD.\n"));
+                    exit(INCORRECT);
+                 }
+                 init_level = (int)argv[1][2] - 48;
+                 start_up = AFD_INITIALIZE;
+                 if (argc == 3)
+                 {
+                    if (strcmp(argv[2], "-n") == 0) /* Just print, do not execute. */
+                    {
+                       dry_run = YES;
+                    }
+                    else
+                    {
+                       usage(argv[0]);
+                       exit(1);
+                    }
+                 }
               }
          else if (strcmp(argv[1], "-I") == 0) /* Full Initialization of AFD. */
               {
@@ -407,7 +455,20 @@ main(int argc, char *argv[])
                                   _("You do not have the permission to do a full initialization of AFD.\n"));
                     exit(INCORRECT);
                  }
-                 start_up = AFD_FULL_INITIALIZE;
+                 init_level = 9;
+                 start_up = AFD_INITIALIZE;
+                 if (argc == 3)
+                 {
+                    if (strcmp(argv[2], "-n") == 0) /* Just print, do not execute. */
+                    {
+                       dry_run = YES;
+                    }
+                    else
+                    {
+                       usage(argv[0]);
+                       exit(1);
+                    }
+                 }
               }
          else if (strcmp(argv[1], "-s") == 0) /* Shutdown AFD. */
               {
@@ -440,7 +501,7 @@ main(int argc, char *argv[])
               {
                  int changes;
 
-                 changes = check_typesize_data();
+                 changes = check_typesize_data(NULL, stdout);
                  if (changes > 0)
                  {
                     (void)fprintf(stdout,
@@ -892,7 +953,7 @@ main(int argc, char *argv[])
            }
            exit(SUCCESS);
         }
-   else if ((start_up == AFD_INITIALIZE) || (start_up == AFD_FULL_INITIALIZE))
+   else if (start_up == AFD_INITIALIZE)
         {
            if (check_afd_heartbeat(DEFAULT_HEARTBEAT_TIMEOUT, NO) == 1)
            {
@@ -902,7 +963,7 @@ main(int argc, char *argv[])
            }
            else
            {
-              initialize_db((start_up == AFD_FULL_INITIALIZE) ? YES : NO);
+              initialize_db(init_level, NULL, dry_run);
               exit(SUCCESS);
            }
         }
@@ -1119,9 +1180,15 @@ usage(char *progname)
    (void)fprintf(stderr, _("    -d                        only start afd_ctrl dialog\n"));
    (void)fprintf(stderr, _("    -h[ <timeout in seconds>] only check for heartbeat\n"));
    (void)fprintf(stderr, _("    -H[ <timeout in seconds>] check if heartbeat is active, if not start AFD\n"));
-   (void)fprintf(stderr, _("    -i                        initialize AFD, by deleting fifodir\n"));
+   (void)fprintf(stderr, _("    -i[1-9]                   initialize AFD, the optional number is the\n"));
+   (void)fprintf(stderr, _("                              level of initialization. The higher the number\n"));
+   (void)fprintf(stderr, _("                              the more data will be deleted. If no number is\n"));
+   (void)fprintf(stderr, _("                              specified the level will be 5. 9 is the same\n"));
+   (void)fprintf(stderr, _("                              as -I below.\n"));
    (void)fprintf(stderr, _("    -I                        initialize AFD, by deleting everything\n"));
    (void)fprintf(stderr, _("                              except for etc directory\n"));
+   (void)fprintf(stderr, _("    -n                        in combination with -i or -I just print\n"));
+   (void)fprintf(stderr, _("                              and do not execute.\n"));
    (void)fprintf(stderr, _("    -r                        removes blocking startup of AFD\n"));
    (void)fprintf(stderr, _("    -s                        shutdown AFD\n"));
    (void)fprintf(stderr, _("    -S                        silent AFD shutdown\n"));

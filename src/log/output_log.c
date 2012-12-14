@@ -65,13 +65,13 @@ DESCR__S_M1
  **   This data is then written to the output log file in the following
  **   format:
  **
- **   40bae084  btx      0 0 1|dat.txt|[/...]|14a0|0.03|0|4a|40bae085_184_0|btx/emp/0/9_863042081_0239
- **      |       |       | | |    |      |     |     |  |  |            |        |
- |       |       |  +----+ | |    |      |     |     |  |  |            |        |
- **      |       |  | +----+ |    |      |     |     |  |  +-----+      |        |
- **      |       |  | |      |    |      |     |     |  +----+   |      |        |
- **   Transfer Host | | Transfer Local Remote File Transfer  |  Job   Unique   Archive
- **    time    name | |   type   file   file  size duration  | number   ID    directory
+ **   40bae084  btx      0 0 1|dat.txt|[/...]|14a0|0.03|0|4a|40bae085_184_0[ 79095820F6][|btx/emp/0/9_863042081_0239]
+ **      |       |       | | |    |      |     |     |  |  |            |        |               |
+ |       |       |  +----+ | |    |      |     |     |  |  |            |     +--+               |
+ **      |       |  | +----+ |    |      |     |     |  |  +-----+      |     |       +----------+
+ **      |       |  | |      |    |      |     |     |  +----+   |      |     |       |
+ **   Transfer Host | | Transfer Local Remote File Transfer  |  Job   Unique Mail  Archive
+ **    time    name | |   type   file   file  size duration  | number   ID    ID  directory
  **           +-----+ |          name   name                 |
  **           |       |                                      |
  **         Output Current                           Number of retries
@@ -161,7 +161,7 @@ main(int argc, char *argv[])
                   *work_dir,
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH],
-                  unique_string[MAX_ADD_FNL + 1];
+                  unique_string[MAX_ADD_FNL + 1 + MAX_MAIL_ID_LENGTH + 1];
    unsigned short *archive_name_length,
                   *file_name_length,
                   *unl;
@@ -546,14 +546,14 @@ main(int argc, char *argv[])
                     }
                     else
                     {
-                       if (*unl > MAX_ADD_FNL)
+                       if (*unl > (MAX_ADD_FNL + 1 + MAX_MAIL_ID_LENGTH))
                        {
                           unique_string[0] = unique_string[2] = unique_string[4] = '0';
                           unique_string[1] = unique_string[3] = '_';
                           unique_string[5] = '\0';
                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                      "unique name offset is %d long, thus longer then %d",
-                                     *unl, MAX_ADD_FNL);
+                                     *unl, MAX_ADD_FNL + 1 + MAX_MAIL_ID_LENGTH);
                        }
                        else
                        {

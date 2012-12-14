@@ -112,8 +112,8 @@ retry_check:
          status++;
          if ((status > 1) && ((status % 100) == 0))
          {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("Timeout arrived for waiting for AMG to finish writting to JID structure."));
+            system_log(INFO_SIGN, __FILE__, __LINE__,
+                       _("AFDD: Timeout arrived for waiting for AMG to finish writting to JID structure."));
          }
       }
 

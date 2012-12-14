@@ -1,6 +1,6 @@
 /*
  *  lookup_job_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,8 @@ DESCR__S_M3
  **   17.10.2004 H.Kiehl Create outgoing job directory.
  **   26.06.2008 H.Kiehl Added recipient + host ID.
  **   26.10.2009 H.Kiehl Use host ID to calculate CRC checksum.
+ **   17.10.2012 H.Kiehl Make loptions MAX_NO_OPTIONS * MAX_OPTION_LENGTH
+ **                      long.
  **
  */
 DESCR__E_M3
@@ -235,7 +237,11 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
               sizeof(int) +                         /* p_db->no_of_soptions */
               MAX_RECIPIENT_LENGTH +                /* p_db->recipient */
               p_db->fbl +                           /* p_db->files */
+#ifdef _NEW_JID
+              (MAX_NO_OPTIONS * MAX_OPTION_LENGTH) +/* p_db->loptions */
+#else
               MAX_OPTION_LENGTH +                   /* p_db->loptions */
+#endif
               MAX_OPTION_LENGTH;                    /* p_db->soptions */
    if ((buffer = malloc(buf_size)) == NULL)
    {
@@ -294,15 +300,27 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
 
       length = 0;
       ptr = p_db->loptions;
+#ifdef _NEW_JID
+      for (i = 0; ((i < p_db->no_of_loptions) && (length < (MAX_NO_OPTIONS * MAX_OPTION_LENGTH))); i++)
+#else
       for (i = 0; ((i < p_db->no_of_loptions) && (length < MAX_OPTION_LENGTH)); i++)
+#endif
       {
+#ifdef _NEW_JID
+         while ((*ptr != '\0') && ((length + 1) < (MAX_NO_OPTIONS * MAX_OPTION_LENGTH)))
+#else
          while ((*ptr != '\0') && ((length + 1) < MAX_OPTION_LENGTH))
+#endif
          {
             ptr++; length++;
          }
          ptr++; length++;
       }
+#ifdef _NEW_JID
+      if (length >= (MAX_NO_OPTIONS * MAX_OPTION_LENGTH))
+#else
       if (length >= MAX_OPTION_LENGTH)
+#endif
       {
          int j;
 
@@ -317,8 +335,13 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
          length = ptr - p_db->loptions;
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Unable to store all AMG options in job data structure [%d >= %d].",
+#ifdef _NEW_JID
+                    length, (MAX_NO_OPTIONS * MAX_OPTION_LENGTH));
+         length = (MAX_NO_OPTIONS * MAX_OPTION_LENGTH) - 1;
+#else
                     length, MAX_OPTION_LENGTH);
          length = MAX_OPTION_LENGTH - 1;
+#endif
          (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions, length);
          (void)memcpy(&buffer[offset], p_db->loptions, length);
          jd[*no_of_job_ids].loptions[length] = '\0';
@@ -375,7 +398,7 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
     * checksum is unique, check that it does not appear anywhere in
     * struct job_id_data.
     */
-   *jid_number = get_checksum(buffer, offset);
+   *jid_number = get_checksum(INITIAL_CRC, buffer, offset);
    for (i = 0; i < *no_of_job_ids; i++)
    {
       if (jd[i].job_id == *jid_number)
@@ -415,7 +438,8 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
                           *jid_number);
                break;
             }
-         } while ((new_jid_number = get_checksum(buffer, offset)) == *jid_number);
+         } while ((new_jid_number = get_checksum(INITIAL_CRC, buffer,
+                                                 offset)) == *jid_number);
 
          if (new_jid_number != *jid_number)
          {

@@ -23,7 +23,6 @@
 #include "motif_common_defs.h"
 #include "mondefs.h"
 
-#define MAX_INFO_STRING_LENGTH   40
 #define NO_OF_MSA_ROWS           6
 #define MSA_INFO_TEXT_WIDTH_L    15
 #define MSA_INFO_TEXT_WIDTH_R    18

@@ -395,7 +395,7 @@ get_all(int item)
       int          i;
       unsigned int tmp_id;
       char         *ptr,
-                   buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
+                   buffer[4 + MAX_FILENAME_LENGTH + MAX_PATH_LENGTH],
                    str_hex_number[2 + MAX_OFF_T_HEX_LENGTH + 1];
 
       if (fseek(il[file_no].fp, (long)il[file_no].line_offset[pos] - 4,
@@ -432,11 +432,25 @@ get_all(int item)
       (void)strcpy(id.reason_str, drstr[id.delete_reason_no]);
 
       i = 0;
-      while (*ptr != SEPARATOR_CHAR)
+      while ((*ptr != SEPARATOR_CHAR) && (i < MAX_FILENAME_LENGTH))
       {
          id.file_name[i] = *ptr;
          i++; ptr++;
       }
+      if (i == MAX_FILENAME_LENGTH)
+      {
+         id.file_name[i - 2] = ' ';
+         id.file_name[i - 1] = '\0';
+         id.file_size[0] = '0';
+         id.file_size[1] = '\0';
+         id.proc_user[0] = '\0';
+         id.extra_reason[0] = '\0';
+         id.dir_id = 0;
+         id.job_id = 0;
+
+         return;
+      }
+
       id.file_name[i] = '\0';
       ptr++;
 

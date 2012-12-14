@@ -121,8 +121,7 @@ check_burst_2(char         *file_path,
    if ((fsa->protocol_options & DISABLE_BURSTING) == 0)
    {
       int              in_keep_connected_loop;
-      unsigned int     alarm_sleep_time,
-                       prev_job_id;
+      unsigned int     alarm_sleep_time;
       time_t           start_time;
       sigset_t         newmask,
                        oldmask,
@@ -152,10 +151,10 @@ check_burst_2(char         *file_path,
       do
       {
          ret = NO;
-         prev_job_id = 0;
 
          /* It could be that the FSA changed. */
-         if ((gsf_check_fsa((struct job *)&db) == YES) && (db.fsa_pos == INCORRECT))
+         if ((gsf_check_fsa((struct job *)&db) == YES) &&
+             (db.fsa_pos == INCORRECT))
          {
             /*
              * Host is no longer in FSA, so there is
@@ -536,7 +535,8 @@ check_burst_2(char         *file_path,
          }
 
          /* It could be that the FSA changed. */
-         if ((gsf_check_fsa((struct job *)&db) == YES) && (db.fsa_pos == INCORRECT))
+         if ((gsf_check_fsa((struct job *)&db) == YES) &&
+             (db.fsa_pos == INCORRECT))
          {
             /*
              * Host is no longer in FSA, so there is
@@ -556,7 +556,6 @@ check_burst_2(char         *file_path,
             {
                char msg_name[MAX_PATH_LENGTH];
 
-               prev_job_id = db.job_id;
                db.job_id = fsa->job_status[(int)db.job_no].job_id;
                if ((p_new_db = malloc(sizeof(struct job))) == NULL)
                {
@@ -567,30 +566,30 @@ check_burst_2(char         *file_path,
 
                if (fsa->protocol_options & FTP_IGNORE_BIN)
                {
-                  p_new_db->transfer_mode     = 'N';
+                  p_new_db->transfer_mode       = 'N';
                }
                else
                {
-                  p_new_db->transfer_mode     = DEFAULT_TRANSFER_MODE;
+                  p_new_db->transfer_mode       = DEFAULT_TRANSFER_MODE;
                }
-               p_new_db->special_ptr          = NULL;
-               p_new_db->subject              = NULL;
-               p_new_db->from                 = NULL;
-               p_new_db->reply_to             = NULL;
-               p_new_db->charset              = NULL;
-               p_new_db->lock_file_name       = NULL;
+               p_new_db->special_ptr            = NULL;
+               p_new_db->subject                = NULL;
+               p_new_db->from                   = NULL;
+               p_new_db->reply_to               = NULL;
+               p_new_db->charset                = NULL;
+               p_new_db->lock_file_name         = NULL;
 #ifdef _WITH_TRANS_EXEC
-               p_new_db->trans_exec_cmd       = NULL;
-               p_new_db->trans_exec_timeout   = DEFAULT_EXEC_TIMEOUT;
-               p_new_db->set_trans_exec_lock  = NO;
+               p_new_db->trans_exec_cmd         = NULL;
+               p_new_db->trans_exec_timeout     = DEFAULT_EXEC_TIMEOUT;
+               p_new_db->set_trans_exec_lock    = NO;
 #endif
-               p_new_db->special_flag         = 0;
-               p_new_db->mode_flag            = 0;
-               p_new_db->archive_time         = DEFAULT_ARCHIVE_TIME;
+               p_new_db->special_flag           = 0;
+               p_new_db->mode_flag              = 0;
+               p_new_db->archive_time           = DEFAULT_ARCHIVE_TIME;
                if ((fsa->job_status[(int)db.job_no].file_name_in_use[0] == '\0') &&
                    (fsa->job_status[(int)db.job_no].file_name_in_use[1] == 1))
                {
-                  p_new_db->retries           = (unsigned int)atoi(&fsa->job_status[(int)db.job_no].file_name_in_use[2]);
+                  p_new_db->retries             = (unsigned int)atoi(&fsa->job_status[(int)db.job_no].file_name_in_use[2]);
                   if (p_new_db->retries > 0)
                   {
                      p_new_db->special_flag |= OLD_ERROR_JOB;
@@ -598,34 +597,36 @@ check_burst_2(char         *file_path,
                }
                else
                {
-                  p_new_db->retries           = 0;
+                  p_new_db->retries             = 0;
                }
-               p_new_db->age_limit            = DEFAULT_AGE_LIMIT;
+               p_new_db->age_limit              = DEFAULT_AGE_LIMIT;
 #ifdef _OUTPUT_LOG
-               p_new_db->output_log           = YES;
+               p_new_db->output_log             = YES;
 #endif
-               p_new_db->lock                 = DEFAULT_LOCK;
-               p_new_db->http_proxy[0]        = '\0';
-               p_new_db->smtp_server[0]       = '\0';
-               p_new_db->chmod_str[0]         = '\0';
-               p_new_db->dir_mode             = 0;
-               p_new_db->dir_mode_str[0]      = '\0';
-               p_new_db->trans_rename_rule[0] = '\0';
-               p_new_db->user_rename_rule[0]  = '\0';
-               p_new_db->rename_file_busy     = '\0';
-               p_new_db->group_list           = NULL;
-               p_new_db->no_of_restart_files  = 0;
-               p_new_db->restart_file         = NULL;
-               p_new_db->user_id              = -1;
-               p_new_db->group_id             = -1;
+               p_new_db->lock                   = DEFAULT_LOCK;
+               p_new_db->http_proxy[0]          = '\0';
+               p_new_db->smtp_server[0]         = '\0';
+               p_new_db->chmod_str[0]           = '\0';
+               p_new_db->dir_mode               = 0;
+               p_new_db->dir_mode_str[0]        = '\0';
+               p_new_db->trans_rename_rule[0]   = '\0';
+               p_new_db->user_rename_rule[0]    = '\0';
+               p_new_db->rename_file_busy       = '\0';
+               p_new_db->group_list             = NULL;
+               p_new_db->no_of_restart_files    = 0;
+               p_new_db->restart_file           = NULL;
+               p_new_db->user_id                = -1;
+               p_new_db->group_id               = -1;
+               p_new_db->filename_pos_subject   = -1;
+               p_new_db->subject_rename_rule[0] = '\0';
 #ifdef WITH_DUP_CHECK
-               p_new_db->dup_check_flag       = fsa->dup_check_flag;
-               p_new_db->dup_check_timeout    = fsa->dup_check_timeout;
+               p_new_db->dup_check_flag         = fsa->dup_check_flag;
+               p_new_db->dup_check_timeout      = fsa->dup_check_timeout;
 #endif
 #ifdef WITH_SSL
-               p_new_db->auth                 = NO;
+               p_new_db->auth                   = NO;
 #endif
-               p_new_db->ssh_protocol         = 0;
+               p_new_db->ssh_protocol           = 0;
                if (db.protocol & FTP_FLAG)
                {
                   p_new_db->port = DEFAULT_FTP_PORT;
@@ -674,6 +675,7 @@ check_burst_2(char         *file_path,
                p_new_db->default_from = db.default_from;
                p_new_db->protocol = db.protocol;
                p_new_db->job_id = db.job_id;
+               p_new_db->password[0] = '\0';
 #ifdef HAVE_SETPRIORITY
                p_new_db->afd_config_mtime = db.afd_config_mtime;
 #endif
@@ -756,8 +758,7 @@ check_burst_2(char         *file_path,
 
          if (ret == YES)
          {
-            *files_to_send = init_sf_burst2(p_new_db, file_path, values_changed,
-                                            prev_job_id);
+            *files_to_send = init_sf_burst2(p_new_db, file_path, values_changed);
             if (*files_to_send < 1)
             {
                ret = RETRY;

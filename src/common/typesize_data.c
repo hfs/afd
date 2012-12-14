@@ -1,6 +1,6 @@
 /*
  *  typesize_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ DESCR__S_M3
  **                         by the AFD database
  **
  ** SYNOPSIS
- **   int check_typesize_data(void)
+ **   int check_typesize_data(int *old_value_list, FILE *output_fp)
  **   int write_typesize_data(void)
  **
  ** DESCRIPTION
@@ -62,6 +62,7 @@ DESCR__E_M3
 #endif
 #include <unistd.h>              /* close()                              */
 #include <errno.h>
+#include "version.h"
 
 #define MAX_VAR_STR_LENGTH 30
 #define CHAR_STR           "char"
@@ -80,7 +81,7 @@ extern char *p_work_dir;
 
 /*######################## check_typesize_data() ########################*/
 int
-check_typesize_data(void)
+check_typesize_data(int *old_value_list, FILE *output_fp)
 {
    int  fd,
         not_match = 0;
@@ -163,33 +164,37 @@ check_typesize_data(void)
                     val_str[MAX_INT_LENGTH + 1],
                     *varlist[] =
                     {
-                       MAX_MSG_NAME_LENGTH_STR,
-                       MAX_FILENAME_LENGTH_STR,
-                       MAX_HOSTNAME_LENGTH_STR,
-                       MAX_REAL_HOSTNAME_LENGTH_STR,
-                       MAX_PROXY_NAME_LENGTH_STR,
-                       MAX_TOGGLE_STR_LENGTH_STR,
-                       ERROR_HISTORY_LENGTH_STR,
-                       MAX_NO_PARALLEL_JOBS_STR,
-                       MAX_DIR_ALIAS_LENGTH_STR,
-                       MAX_RECIPIENT_LENGTH_STR,
-                       MAX_WAIT_FOR_LENGTH_STR,
-                       MAX_FRA_TIME_ENTRIES_STR,
-                       MAX_OPTION_LENGTH_STR,
-                       MAX_PATH_LENGTH_STR,
-                       MAX_USER_NAME_LENGTH_STR,
-                       CHAR_STR,
-                       INT_STR,
-                       OFF_T_STR,
-                       TIME_T_STR,
-                       SHORT_STR,
+                       MAX_MSG_NAME_LENGTH_STR,     /* MAX_MSG_NAME_LENGTH_NR */
+                       MAX_FILENAME_LENGTH_STR,     /* MAX_FILENAME_LENGTH_NR */
+                       MAX_HOSTNAME_LENGTH_STR,     /* MAX_HOSTNAME_LENGTH_NR */
+                       MAX_REAL_HOSTNAME_LENGTH_STR,/* MAX_REAL_HOSTNAME_LENGTH_NR */
+                       MAX_PROXY_NAME_LENGTH_STR,   /* MAX_PROXY_NAME_LENGTH_NR */
+                       MAX_TOGGLE_STR_LENGTH_STR,   /* MAX_TOGGLE_STR_LENGTH_NR */
+                       ERROR_HISTORY_LENGTH_STR,    /* ERROR_HISTORY_LENGTH_NR */
+                       MAX_NO_PARALLEL_JOBS_STR,    /* MAX_NO_PARALLEL_JOBS_NR */
+                       MAX_DIR_ALIAS_LENGTH_STR,    /* MAX_DIR_ALIAS_LENGTH_NR */
+                       MAX_RECIPIENT_LENGTH_STR,    /* MAX_RECIPIENT_LENGTH_NR */
+                       MAX_WAIT_FOR_LENGTH_STR,     /* MAX_WAIT_FOR_LENGTH_NR */
+                       MAX_FRA_TIME_ENTRIES_STR,    /* MAX_FRA_TIME_ENTRIES_NR */
+                       MAX_OPTION_LENGTH_STR,       /* MAX_OPTION_LENGTH_NR */
+                       MAX_PATH_LENGTH_STR,         /* MAX_PATH_LENGTH_NR */
+                       MAX_USER_NAME_LENGTH_STR,    /* MAX_USER_NAME_LENGTH_NR */
+                       CHAR_STR,                    /* CHAR_NR */
+                       INT_STR,                     /* INT_NR */
+                       OFF_T_STR,                   /* OFF_T_NR */
+                       TIME_T_STR,                  /* TIME_T_NR */
+                       SHORT_STR,                   /* SHORT_NR */
 #ifdef HAVE_LONG_LONG
-                       LONG_LONG_STR,
+                       LONG_LONG_STR,               /* LONG_LONG_NR */
 #endif
-                       PID_T_STR
+                       PID_T_STR                    /* PID_T_NR */
                     },
                     var_str[MAX_VAR_STR_LENGTH + 1];
 
+               if (old_value_list != NULL)
+               {
+                  (void)memset(old_value_list, 0, MAX_CHANGEABLE_VARS * sizeof(int));
+               }
                do
                {
                   if (*ptr == '#')
@@ -238,11 +243,79 @@ check_typesize_data(void)
                                     val = atoi(val_str);
                                     if (val != vallist[j])
                                     {
-                                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                  "[%d] %s %d != %d",
-                                                  not_match, varlist[j], val,
-                                                  vallist[j]);
+                                       if (output_fp == NULL)
+                                       {
+                                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                     "[%d] %s %d != %d",
+                                                     not_match, varlist[j], val,
+                                                     vallist[j]);
+                                       }
+                                       else
+                                       {
+                                          (void)fprintf(output_fp,
+                                                        "[%d] %s %d != %d\n",
+                                                        not_match, varlist[j],
+                                                        val, vallist[j]);
+                                       }
                                        not_match++;
+                                       if (old_value_list != NULL)
+                                       {
+                                          old_value_list[j + 1] = val;
+                                          switch (j)
+                                          {
+                                             case  0 : old_value_list[0] |= MAX_MSG_NAME_LENGTH_NR;
+                                                       break;
+                                             case  1 : old_value_list[0] |= MAX_FILENAME_LENGTH_NR;
+                                                       break;
+                                             case  2 : old_value_list[0] |= MAX_HOSTNAME_LENGTH_NR;
+                                                       break;
+                                             case  3 : old_value_list[0] |= MAX_REAL_HOSTNAME_LENGTH_NR;
+                                                       break;
+                                             case  4 : old_value_list[0] |= MAX_PROXY_NAME_LENGTH_NR;
+                                                       break;
+                                             case  5 : old_value_list[0] |= MAX_TOGGLE_STR_LENGTH_NR;
+                                                       break;
+                                             case  6 : old_value_list[0] |= ERROR_HISTORY_LENGTH_NR;
+                                                       break;
+                                             case  7 : old_value_list[0] |= MAX_NO_PARALLEL_JOBS_NR;
+                                                       break;
+                                             case  8 : old_value_list[0] |= MAX_DIR_ALIAS_LENGTH_NR;
+                                                       break;
+                                             case  9 : old_value_list[0] |= MAX_RECIPIENT_LENGTH_NR;
+                                                       break;
+                                             case 10 : old_value_list[0] |= MAX_WAIT_FOR_LENGTH_NR;
+                                                       break;
+                                             case 11 : old_value_list[0] |= MAX_FRA_TIME_ENTRIES_NR;
+                                                       break;
+                                             case 12 : old_value_list[0] |= MAX_OPTION_LENGTH_NR;
+                                                       break;
+                                             case 13 : old_value_list[0] |= MAX_PATH_LENGTH_NR;
+                                                       break;
+                                             case 14 : old_value_list[0] |= MAX_USER_NAME_LENGTH_NR;
+                                                       break;
+                                             case 15 : old_value_list[0] |= CHAR_NR;
+                                                       break;
+                                             case 16 : old_value_list[0] |= INT_NR;
+                                                       break;
+                                             case 17 : old_value_list[0] |= OFF_T_NR;
+                                                       break;
+                                             case 18 : old_value_list[0] |= TIME_T_NR;
+                                                       break;
+                                             case 19 : old_value_list[0] |= SHORT_NR;
+                                                       break;
+#ifdef HAVE_LONG_LONG
+                                             case 20 : old_value_list[0] |= LONG_LONG_NR;
+                                                       break;
+#endif
+                                             case 21 : old_value_list[0] |= PID_T_NR;
+                                                       break;
+                                             default : /* Not known. */
+                                                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                                  "Programmer needs to extend the code. Please contact maintainer: %s",
+                                                                  AFD_MAINTAINER);
+                                                       break;
+                                          }
+                                       }
                                     }
                                  }
                               }

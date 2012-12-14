@@ -333,15 +333,15 @@ handle_options(int          position,
                else
                {
 #ifndef _WITH_PTHREAD
-                  int  file_counter = *files_to_send;
+                  int file_counter = *files_to_send;
 #else
-                  int  file_counter = 0;
+                  int file_counter;
 
-                  if ((file_counter = get_file_names(file_path,
-                                                     &file_name_buffer,
-                                                     &p_file_name)) > 0)
-                  {
+                  file_counter = get_file_names(file_path, &file_name_buffer,
+                                                &p_file_name);
 #endif
+                  if (file_counter > 0)
+                  {
                      register int k,
                                   overwrite,
                                   ret;
@@ -465,8 +465,8 @@ handle_options(int          position,
 #endif
                                                         &new_name_buffer);
 
-#ifdef _WITH_PTHREAD
                   }
+#ifdef _WITH_PTHREAD
 
                   free(file_name_buffer);
 #endif
@@ -485,7 +485,7 @@ handle_options(int          position,
 #ifndef _WITH_PTHREAD
          int    file_counter = *files_to_send;
 #else
-         int    file_counter = 0;
+         int    file_counter;
 #endif
          int    lock_all_jobs = NO,
                 lock_one_job_only = NO,
@@ -1319,14 +1319,16 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, BASENAME_ID, BASENAME_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int file_counter = 0;
+         int file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int  file_counter = *files_to_send;
+         int file_counter = *files_to_send;
 #endif
+
+         if (file_counter > 0)
+         {
             int  overwrite;
             char *new_name_buffer,
                  *p_overwrite,
@@ -1405,8 +1407,8 @@ handle_options(int          position,
                                                split_job_counter, options,
 #endif
                                                &new_name_buffer);
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif
@@ -1419,14 +1421,15 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, EXTENSION_ID, EXTENSION_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int  file_counter = *files_to_send;
+         int  file_counter = *files_to_send;
 #endif
+         if (file_counter > 0)
+         {
             int  overwrite;
             char *new_name_buffer,
                  *p_overwrite,
@@ -1504,8 +1507,8 @@ handle_options(int          position,
                                                split_job_counter, options,
 #endif
                                                &new_name_buffer);
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif
@@ -1518,7 +1521,7 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, ADD_PREFIX_ID, ADD_PREFIX_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 #else
          int  file_counter = *files_to_send;
 #endif
@@ -1595,7 +1598,7 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, DEL_PREFIX_ID, DEL_PREFIX_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 #else
          int  file_counter = *files_to_send;
 #endif
@@ -1910,7 +1913,7 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 #else
          int  file_counter = *files_to_send;
 #endif
@@ -1975,7 +1978,7 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, TOLOWER_ID, TOLOWER_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 #else
          int  file_counter = *files_to_send;
 #endif
@@ -2041,14 +2044,16 @@ handle_options(int          position,
           (CHECK_STRCMP(options, AFW2WMO_ID) == 0))
       {
 # ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 # else
-            int  file_counter = *files_to_send;
+         int  file_counter = *files_to_send;
 # endif
+
+         if (file_counter > 0)
+         {
             int  length,
                  ret;
             char *buffer;
@@ -2191,8 +2196,8 @@ handle_options(int          position,
                }
                p_file_name += MAX_FILENAME_LENGTH;
             }
-# ifdef _WITH_PTHREAD
          }
+# ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 # endif
@@ -2208,14 +2213,16 @@ handle_options(int          position,
            (CHECK_STRNCMP(options, FAX2GTS_ID, FAX2GTS_ID_LENGTH) == 0)))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int  file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int file_counter = *files_to_send;
+         int file_counter = *files_to_send;
 #endif
+
+         if (file_counter > 0)
+         {
             int fax_format,
                 recount_files_var = NO;
 
@@ -2343,8 +2350,8 @@ handle_options(int          position,
                *files_to_send = restore_files(file_path, file_size);
 #endif
             }
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif
@@ -2357,14 +2364,16 @@ handle_options(int          position,
           (CHECK_STRCMP(options, GTS2TIFF_ID) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int  file_counter = *files_to_send;
+         int file_counter = *files_to_send;
 #endif
+
+         if (file_counter > 0)
+         {
             int  recount_files_var = NO;
 #ifdef _PRODUCTION_LOG
             char orig_file_name[MAX_FILENAME_LENGTH];
@@ -2436,8 +2445,8 @@ handle_options(int          position,
                *files_to_send = restore_files(file_path, file_size);
 #endif
             }
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif
@@ -2450,14 +2459,16 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int  file_counter = *files_to_send;
+         int file_counter = *files_to_send;
 #endif
+
+         if (file_counter > 0)
+         {
             int  recount_files_var = NO;
             char cccc[4],
                  *p_cccc;
@@ -2557,8 +2568,8 @@ handle_options(int          position,
                *files_to_send = restore_files(file_path, file_size);
 #endif
             }
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif
@@ -2768,6 +2779,16 @@ handle_options(int          position,
               {
                  extract_typ = WMO_STANDARD;
                  p_extract_id += 3;
+              }
+         else if ((*p_extract_id == 'W') && (*(p_extract_id + 1) == 'M') &&
+                  (*(p_extract_id + 2) == 'O') && (*(p_extract_id + 3) == '+') &&
+                  (*(p_extract_id + 4) == 'D') && (*(p_extract_id + 5) == 'U') && 
+                  (*(p_extract_id + 6) == 'M') && (*(p_extract_id + 7) == 'M') && 
+                  (*(p_extract_id + 8) == 'Y') &&
+                  ((*(p_extract_id + 9) == ' ') || (*(p_extract_id + 9) == '\0')))
+              {
+                 extract_typ = WMO_WITH_DUMMY_MESSAGE;
+                 p_extract_id += 9;
               }
          else if ((*p_extract_id == 'A') && (*(p_extract_id + 1) == 'S') &&
                   (*(p_extract_id + 2) == 'C') &&
@@ -3106,14 +3127,16 @@ handle_options(int          position,
           (CHECK_STRNCMP(options, CONVERT_ID, CONVERT_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int file_counter = 0;
+         int file_counter;
                                                                     
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int  file_counter = *files_to_send;
+         int  file_counter = *files_to_send;
 #endif
+
+         if (file_counter > 0)
+         {
             int  convert_type,
                  ret;
             char *p_convert_id;
@@ -3270,8 +3293,8 @@ handle_options(int          position,
 #endif
                p_file_name += MAX_FILENAME_LENGTH;
             }
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif
@@ -3284,14 +3307,15 @@ handle_options(int          position,
           (CHECK_STRCMP(options, WMO2ASCII_ID) == 0))
       {
 #ifdef _WITH_PTHREAD
-         int  file_counter = 0;
+         int file_counter;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
-         {
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
 #else
-            int file_counter = *files_to_send;
+         int file_counter = *files_to_send;
 #endif
+         if (file_counter > 0)
+         {
             int recount_files_var = NO;
 
             *file_size = 0;
@@ -3344,8 +3368,8 @@ handle_options(int          position,
                *files_to_send = restore_files(file_path, file_size);
 #endif
             }
-#ifdef _WITH_PTHREAD
          }
+#ifdef _WITH_PTHREAD
 
          free(file_name_buffer);
 #endif

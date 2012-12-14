@@ -149,7 +149,7 @@ config_log(unsigned int event_class,
    if (alias == NULL)
    {
 #ifdef HAVE_SNPRINTF
-      length += snprintf(&buf[length], MAX_LINE_LENGTH, "%s",
+      length += snprintf(&buf[length], MAX_LINE_LENGTH - length, "%s",
                          eastr[event_action]);
 #else
       length += sprintf(&buf[length], "%s", eastr[event_action]);
@@ -168,7 +168,7 @@ config_log(unsigned int event_class,
          alias_length = MAX_DIR_ALIAS_LENGTH;
       }
 #ifdef HAVE_SNPRINTF
-      length += snprintf(&buf[length], MAX_LINE_LENGTH, "%-*s: %s",
+      length += snprintf(&buf[length], MAX_LINE_LENGTH - length, "%-*s: %s",
                          alias_length, alias, eastr[event_action]);
 #else
       length += sprintf(&buf[length], "%-*s: %s",
@@ -181,7 +181,7 @@ config_log(unsigned int event_class,
       pos1 = length;
       va_start(ap, fmt);
 #ifdef HAVE_VSNPRINTF
-      length += vsnprintf(&buf[length], MAX_LINE_LENGTH, fmt, ap);
+      length += vsnprintf(&buf[length], MAX_LINE_LENGTH - length, fmt, ap);
 #else
       length += vsprintf(&buf[length], fmt, ap);
 #endif
@@ -190,7 +190,7 @@ config_log(unsigned int event_class,
 
    pos2 = length;
 #ifdef HAVE_SNPRINTF
-   length += snprintf(&buf[length], MAX_LINE_LENGTH, " (%s)\n", user);
+   length += snprintf(&buf[length], MAX_LINE_LENGTH - length, " (%s)\n", user);
 #else
    length += sprintf(&buf[length], " (%s)\n", user);
 #endif

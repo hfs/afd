@@ -58,29 +58,29 @@ DESCR__E_M3
 #include "show_ilog.h"
 
 /* External global variables. */
-extern Display     *display;
-extern Widget      listbox_w,
-                   printshell,
-                   statusbox_w,
-                   summarybox_w;
-extern char        file_name[],
-                   header_line[],
-                   search_file_name[],
-                   **search_dir,
-                   **search_dirid,
-                   **search_recipient,
-                   search_file_size_str[],
-                   summary_str[],
-                   total_summary_str[];
-extern int         no_of_search_dirs,
-                   no_of_search_dirids,
-                   no_of_search_hosts,
-                   sum_line_length;
-extern XT_PTR_TYPE device_type,
-                   range_type;
-extern time_t      start_time_val,
-                   end_time_val;
-extern FILE        *fp;
+extern Display      *display;
+extern Widget       listbox_w,
+                    printshell,
+                    statusbox_w,
+                    summarybox_w;
+extern char         file_name[],
+                    header_line[],
+                    search_file_name[],
+                    **search_dir,
+                    **search_recipient,
+                    search_file_size_str[],
+                    summary_str[],
+                    total_summary_str[];
+extern int          no_of_search_dirs,
+                    no_of_search_dirids,
+                    no_of_search_hosts,
+                    sum_line_length;
+extern unsigned int *search_dirid;
+extern XT_PTR_TYPE  device_type,
+                    range_type;
+extern time_t       start_time_val,
+                    end_time_val;
+extern FILE         *fp;
 
 /* Local function prototypes. */
 static void        write_header(int, char *),
@@ -371,11 +371,11 @@ write_header(int fd, char *sum_sep_line)
       }
       if (no_of_search_dirids > 0)
       {
-         length += sprintf(&buffer[length], "\tDir Identifier: %s",
+         length += sprintf(&buffer[length], "\tDir Identifier: %x",
                            search_dirid[0]);
          for (i = 1; i < no_of_search_dirids; i++)
          {
-            length += sprintf(&buffer[length], ", %s", search_dirid[i]);
+            length += sprintf(&buffer[length], ", %x", search_dirid[i]);
          }
          length += sprintf(&buffer[length], "\n");
       }

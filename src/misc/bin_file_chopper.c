@@ -749,8 +749,18 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
             ((char *)&data_length)[2] = *(ptr + 2);
             ((char *)&data_length)[3] = *(ptr + 3);
          }
-         (void)sprintf(length_indicator, "%08u00\01\015\015\012",
-                       data_length + 4 + 4);
+         if (data_length > 99999991)
+         {
+            (void)strcpy(length_indicator, "9999999900\01\015\015\012");
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                        "Data length (%u) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+                        data_length + 4 + 4);
+         }
+         else
+         {
+            (void)sprintf(length_indicator, "%08u00\01\015\015\012",
+                          data_length + 4 + 4);
+         }
          if (write(to_fd, length_indicator, 14) != 14)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -916,12 +926,26 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
                data_length = message_length;
             }
 
+            if (data_length > 99999991)
+            {
+               (void)strcpy(length_indicator, "99999999");
+               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
 #if SIZEOF_OFF_T == 4
-            (void)sprintf(length_indicator, "%08ld00",
+                           "Data length (%ld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
 #else
-            (void)sprintf(length_indicator, "%08lld00",
+                           "Data length (%lld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
 #endif
-                          (pri_off_t)(data_length + 8));
+                           (pri_off_t)(data_length + 8));
+            }
+            else
+            {
+#if SIZEOF_OFF_T == 4
+               (void)sprintf(length_indicator, "%08ld00",
+#else
+               (void)sprintf(length_indicator, "%08lld00",
+#endif
+                             (pri_off_t)(data_length + 8));
+            }
             length_indicator[10] = 1;
             length_indicator[11] = 13;
             length_indicator[12] = 13;

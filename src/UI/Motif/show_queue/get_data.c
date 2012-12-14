@@ -44,6 +44,7 @@ DESCR__S_M3
  **   22.07.2001 H.Kiehl Created
  **   03.01.2005 H.Kiehl Adapted to new message names.
  **   11.06.2006 H.Kiehl Show retrieve jobs.
+ **   19.11.2012 H.Kiehl Check if retrieve jobs ae in given time frame.
  **
  */
 DESCR__E_M3
@@ -92,7 +93,8 @@ extern int                        radio_set,
                                   special_button_flag,
                                   file_name_length;
 extern unsigned int               *search_dirid,
-                                  total_no_files;
+                                  total_no_files,
+                                  unprintable_chars;
 extern XT_PTR_TYPE                toggles_set;
 extern size_t                     search_file_size;
 extern time_t                     start_time_val,
@@ -280,6 +282,7 @@ get_data(void)
    limit_reached = NO;
    total_file_size = 0.0;
    total_no_files = 0;
+   unprintable_chars = 0;
    if ((toggles_set & SHOW_OUTPUT) || (toggles_set & SHOW_UNSENT_OUTPUT))
    {
       get_output_files();
@@ -321,22 +324,32 @@ get_data(void)
       display_data();
       end = time(NULL);
 #if SIZEOF_TIME_T == 4
-      (void)sprintf(status_message, "Search time: %lds",
+      fd = sprintf(status_message, "Search time: %lds",
 #else
-      (void)sprintf(status_message, "Search time: %llds",
+      fd = sprintf(status_message, "Search time: %llds",
 #endif
-                    (pri_time_t)(end - start));
+                   (pri_time_t)(end - start));
+      if (unprintable_chars > 0)
+      {
+         (void)sprintf(status_message + fd, " (%u unprintable chars!)",
+                       unprintable_chars);
+      }
       SHOW_MESSAGE();
    }
    else
    {
       end = time(NULL);
 #if SIZEOF_TIME_T == 4
-      (void)sprintf(status_message, "No data found. Search time: %lds",
+      fd = sprintf(status_message, "No data found. Search time: %lds",
 #else
-      (void)sprintf(status_message, "No data found. Search time: %llds",
+      fd = sprintf(status_message, "No data found. Search time: %llds",
 #endif
-                    (pri_time_t)(end - start));
+                   (pri_time_t)(end - start));
+      if (unprintable_chars > 0)
+      {
+         (void)sprintf(status_message + fd, " (%u unprintable chars!)",
+                       unprintable_chars);
+      }
       SHOW_MESSAGE();
    }
 
@@ -668,87 +681,95 @@ get_retrieve_jobs(void)
                                  }
                               }
                            }
+
                            if (gotcha == YES)
                            {
-                              int  j;
-                              char queue_typ;
-
-                              if (qb[i].pid == PENDING)
+                              /* If necessary check if its in the time span. */
+                              if (((start_time_val == -1) ||
+                                   (qb[i].creation_time >= start_time_val)) &&
+                                  ((end_time_val == -1) ||
+                                   (qb[i].creation_time <= end_time_val)))
                               {
-                                 queue_typ = SHOW_PENDING_RETRIEVES;
-                              }
-                              else
-                              {
-                                 queue_typ = SHOW_RETRIEVES;
-                              }
+                                 int  j;
+                                 char queue_typ;
 
-                              /* Insert job. */
-                              if ((total_no_files % 50) == 0)
-                              {
-                                 size_t new_size = (((total_no_files / 50) + 1) * 50) *
-                                                   sizeof(struct queued_file_list);
-
-                                 if (total_no_files == 0)
+                                 if (qb[i].pid == PENDING)
                                  {
-                                    if ((qfl = malloc(new_size)) == NULL)
-                                    {
-                                       (void)xrec(FATAL_DIALOG,
-                                                  "malloc() error : %s (%s %d)",
-                                                  strerror(errno),
-                                                  __FILE__, __LINE__);
-                                       return;
-                                    }
+                                    queue_typ = SHOW_PENDING_RETRIEVES;
                                  }
                                  else
                                  {
-                                    struct queued_file_list *tmp_qfl;
-
-                                    if ((tmp_qfl = realloc((char *)qfl, new_size)) == NULL)
-                                    {
-                                       int tmp_errno = errno;
-
-                                       free(qfl);
-                                       (void)xrec(FATAL_DIALOG,
-                                                  "realloc() error : %s (%s %d)",
-                                                  strerror(tmp_errno),
-                                                  __FILE__, __LINE__);
-                                       return;
-                                    }
-                                    qfl = tmp_qfl;
+                                    queue_typ = SHOW_RETRIEVES;
                                  }
-                              }
-                              if ((qfl[total_no_files].file_name = malloc(1)) == NULL)
-                              {
-                                 (void)xrec(FATAL_DIALOG,
-                                            "malloc() error : %s (%s %d)",
-                                            strerror(errno), __FILE__, __LINE__);
-                                 return;
-                              }
-                              qfl[total_no_files].msg_number = qb[i].msg_number;
-                              qfl[total_no_files].pos = qb[i].pos;
-                              qfl[total_no_files].job_id = 0;
-                              qfl[total_no_files].dir_id = fra[qb[i].pos].dir_id;
-                              qfl[total_no_files].size = 0;
-                              qfl[total_no_files].mtime = qb[i].creation_time;
-                              qfl[total_no_files].dir_id_pos = 0;
-                              for (j = 0; j < no_of_dnb_dirs; j++)
-                              {
-                                 if (qfl[total_no_files].dir_id == dnb[j].dir_id)
+
+                                 /* Insert job. */
+                                 if ((total_no_files % 50) == 0)
                                  {
-                                    qfl[total_no_files].dir_id_pos = j;
-                                    break;
+                                    size_t new_size = (((total_no_files / 50) + 1) * 50) *
+                                                      sizeof(struct queued_file_list);
+
+                                    if (total_no_files == 0)
+                                    {
+                                       if ((qfl = malloc(new_size)) == NULL)
+                                       {
+                                          (void)xrec(FATAL_DIALOG,
+                                                     "malloc() error : %s (%s %d)",
+                                                     strerror(errno),
+                                                     __FILE__, __LINE__);
+                                          return;
+                                       }
+                                    }
+                                    else
+                                    {
+                                       struct queued_file_list *tmp_qfl;
+
+                                       if ((tmp_qfl = realloc((char *)qfl, new_size)) == NULL)
+                                       {
+                                          int tmp_errno = errno;
+
+                                          free(qfl);
+                                          (void)xrec(FATAL_DIALOG,
+                                                     "realloc() error : %s (%s %d)",
+                                                     strerror(tmp_errno),
+                                                     __FILE__, __LINE__);
+                                          return;
+                                       }
+                                       qfl = tmp_qfl;
+                                    }
                                  }
+                                 if ((qfl[total_no_files].file_name = malloc(1)) == NULL)
+                                 {
+                                    (void)xrec(FATAL_DIALOG,
+                                               "malloc() error : %s (%s %d)",
+                                               strerror(errno), __FILE__, __LINE__);
+                                    return;
+                                 }
+                                 qfl[total_no_files].msg_number = qb[i].msg_number;
+                                 qfl[total_no_files].pos = qb[i].pos;
+                                 qfl[total_no_files].job_id = 0;
+                                 qfl[total_no_files].dir_id = fra[qb[i].pos].dir_id;
+                                 qfl[total_no_files].size = 0;
+                                 qfl[total_no_files].mtime = qb[i].creation_time;
+                                 qfl[total_no_files].dir_id_pos = 0;
+                                 for (j = 0; j < no_of_dnb_dirs; j++)
+                                 {
+                                    if (qfl[total_no_files].dir_id == dnb[j].dir_id)
+                                    {
+                                       qfl[total_no_files].dir_id_pos = j;
+                                       break;
+                                    }
+                                 }
+                                 qfl[total_no_files].queue_type = queue_typ;
+                                 qfl[total_no_files].priority = 0;
+                                 (void)strcpy(qfl[total_no_files].hostname,
+                                              fra[qb[i].pos].host_alias);
+                                 (void)strcpy(qfl[total_no_files].dir_alias,
+                                              fra[qb[i].pos].dir_alias);
+                                 qfl[total_no_files].file_name[0] = '\0';
+                                 qfl[total_no_files].msg_name[0] = '\0';
+                                 qfl[total_no_files].queue_tmp_buf_pos = -1;
+                                 total_no_files++;
                               }
-                              qfl[total_no_files].queue_type = queue_typ;
-                              qfl[total_no_files].priority = 0;
-                              (void)strcpy(qfl[total_no_files].hostname,
-                                           fra[qb[i].pos].host_alias);
-                              (void)strcpy(qfl[total_no_files].dir_alias,
-                                           fra[qb[i].pos].dir_alias);
-                              qfl[total_no_files].file_name[0] = '\0';
-                              qfl[total_no_files].msg_name[0] = '\0';
-                              qfl[total_no_files].queue_tmp_buf_pos = -1;
-                              total_no_files++;
                            }
                         }
                      }

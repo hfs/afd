@@ -110,7 +110,7 @@ main(int argc, char *argv[])
       int i;
 
       (void)fprintf(stdout,
-                    "Message number  Pid    time        Pos  FC  FS         Ret CP R Message name\n");
+                    "Message number  Pid    time        Pos  FC  FS         Ret CP RH Message name\n");
       for (i = 0; i < *no_msg_queued; i++)
       {
 #if SIZEOF_PID_T == 4
@@ -124,14 +124,15 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "%-11lld ", (pri_time_t)qb[i].creation_time);
 #endif
 #if SIZEOF_OFF_T == 4
-         (void)fprintf(stdout, "%-4d %-3u %-10ld %-3u %-3d%c %s\n",
+         (void)fprintf(stdout, "%-4d %-3u %-10ld %-3u %-3d%c%c %s\n",
 #else
-         (void)fprintf(stdout, "%-4d %-3u %-10lld %-3u %-3d%c %s\n",
+         (void)fprintf(stdout, "%-4d %-3u %-10lld %-3u %-3d%c%c %s\n",
 #endif
                        qb[i].pos, qb[i].files_to_send,
                        (pri_off_t)qb[i].file_size_to_send,
                        qb[i].retries, qb[i].connect_pos,
                        (qb[i].special_flag & RESEND_JOB) ? 'X' : ' ',
+                       (qb[i].special_flag & HELPER_JOB) ? 'X' : ' ',
                        qb[i].msg_name);
       }
    }

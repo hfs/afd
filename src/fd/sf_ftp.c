@@ -107,9 +107,13 @@ DESCR__E_M1
 #endif
 
 /* Global variables. */
+unsigned int               special_flag = 0;
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs,
                            no_of_hosts,
                            *p_no_of_hosts = NULL,
@@ -211,7 +215,9 @@ main(int argc, char *argv[])
                     *unique_counter;
    off_t            no_of_bytes;
    clock_t          clktck;
-   time_t           last_update_time,
+   time_t           end_transfer_time_file,
+                    start_transfer_time_file,
+                    last_update_time,
                     now,
                     *p_file_mtime_buffer;
 #ifdef _WITH_BURST_2
@@ -220,6 +226,7 @@ main(int argc, char *argv[])
    unsigned int     values_changed = 0;
 #endif
 #ifdef _OUTPUT_LOG
+   int              additional_length;
    clock_t          end_time = 0,
                     start_time = 0;
    struct tms       tmsdummy;
@@ -453,10 +460,11 @@ main(int argc, char *argv[])
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
 # ifdef WITH_SSL
-                         "%s Bursting.", (db.auth == NO) ? "FTP" : "FTPS");
+                         "%s Bursting. [values_changed=%u]", (db.auth == NO) ? "FTP" : "FTPS",
 # else
-                         "FTP Bursting.");
+                         "FTP Bursting. [values_changed=%u]",
 # endif
+                         values_changed);
          }
          (void)strcpy(fullname, file_path);
          p_fullname = fullname + strlen(fullname);
@@ -891,6 +899,11 @@ main(int argc, char *argv[])
                   *p_remote_filename = '/';
                   p_remote_filename++;
                }
+               if (fsa->debug > NORMAL_MODE)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                               "Changed directory to %s.", db.target_dir);
+               }
             }
             else
             {
@@ -1048,6 +1061,9 @@ main(int argc, char *argv[])
       for (files_send = 0; files_send < files_to_send; files_send++)
       {
          /* Write status to FSA? */
+#ifdef _OUTPUT_LOG
+         additional_length = 0;
+#endif
          if (gsf_check_fsa(p_db) != NEITHER)
          {
             if ((fsa->active_transfers > 1) &&
@@ -1657,6 +1673,9 @@ main(int argc, char *argv[])
                      fsa->job_status[(int)db.job_no].bytes_send += header_length;
                   }
                   free(p_header);
+# ifdef _OUTPUT_LOG
+                  additional_length += header_length;
+# endif
                }
             }
 #endif
@@ -1757,11 +1776,18 @@ main(int argc, char *argv[])
                   fsa->job_status[(int)db.job_no].file_size_done += header_length;
                   fsa->job_status[(int)db.job_no].bytes_send += header_length;
                }
+#ifdef _OUTPUT_LOG
+               additional_length = header_length;
+#endif
             }
 
             if (fsa->trl_per_process > 0)
             {
                init_limit_transfer_rate();
+            }
+            if (fsa->protocol_options & TIMEOUT_TRANSFER)
+            {
+               start_transfer_time_file = time(NULL);
             }
 
 #ifdef WITH_SENDFILE
@@ -1837,38 +1863,63 @@ main(int argc, char *argv[])
                      {
                         if (gsf_check_fsa(p_db) != NEITHER)
                         {
-                              fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
-                              fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
-                              fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
-                        }
-                     }
+                           fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
+                           fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
+                           fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
 # ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-                     if ((db.fsa_pos != INCORRECT) &&
-                         (fsa->protocol_options & STAT_KEEPALIVE))
-                     {
-                        time_t tmp_time = time(NULL);
-
-                        if ((tmp_time - keep_alive_time) >= keep_alive_timeout)
-                        {
-                           keep_alive_time = tmp_time;
-                           if ((status = ftp_keepalive()) != SUCCESS)
+                           if (fsa->protocol_options & STAT_KEEPALIVE)
                            {
-                              trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                                        "Failed to send STAT command (%d).",
-                                        status);
-                              if (timeout_flag == ON)
+                              time_t tmp_time = time(NULL);
+
+                              if ((tmp_time - keep_alive_time) >= keep_alive_timeout)
                               {
-                                 timeout_flag = OFF;
+                                 keep_alive_time = tmp_time;
+                                 if ((status = ftp_keepalive()) != SUCCESS)
+                                 {
+                                    trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                                              "Failed to send STAT command (%d).",
+                                              status);
+                                    if (timeout_flag == ON)
+                                    {
+                                       timeout_flag = OFF;
+                                    }
+                                 }
+                                 else if (fsa->debug > NORMAL_MODE)
+                                      {
+                                         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                                                      "Send STAT command.");
+                                      }
                               }
                            }
-                           else if (fsa->debug > NORMAL_MODE)
-                                {
-                                   trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                                "Send STAT command.");
-                                }
+# endif
                         }
                      }
+                  } /* if (bytes_buffered > 0) */
+
+                  if ((db.fsa_pos != INCORRECT) &&
+                      (fsa->protocol_options & TIMEOUT_TRANSFER))
+                  {
+                     end_transfer_time_file = time(NULL);
+                     if (end_transfer_time_file < start_transfer_time_file)
+                     {
+                        start_transfer_time_file = end_transfer_time_file;
+                     }
+                     else
+                     {
+                        if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                        {
+                           trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+# if SIZEOF_TIME_T == 4
+                                     "Transfer timeout reached for `%s' after %ld seconds.",
+# else
+                                     "Transfer timeout reached for `%s' after %lld seconds.",
 # endif
+                                     fsa->job_status[(int)db.job_no].file_name_in_use,
+                                     (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                           (void)ftp_quit();
+                           exit(STILL_FILES_TO_SEND);
+                        }
+                     }
                   }
                } while (bytes_buffered > 0);
             }
@@ -1972,37 +2023,61 @@ main(int argc, char *argv[])
                      {
                         if (gsf_check_fsa(p_db) != NEITHER)
                         {
-                              fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
-                              fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
-                              fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
-                        }
-                     }
+                           fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
+                           fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
+                           fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-                     if (fsa->protocol_options & STAT_KEEPALIVE)
-                     {
-                        time_t tmp_time = time(NULL);
-
-                        if ((tmp_time - keep_alive_time) >= keep_alive_timeout)
-                        {
-                           keep_alive_time = tmp_time;
-                           if ((status = ftp_keepalive()) != SUCCESS)
+                           if (fsa->protocol_options & STAT_KEEPALIVE)
                            {
-                              trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                                        "Failed to send STAT command (%d).",
-                                        status);
-                              if (timeout_flag == ON)
+                              time_t tmp_time = time(NULL);
+
+                              if ((tmp_time - keep_alive_time) >= keep_alive_timeout)
                               {
-                                 timeout_flag = OFF;
+                                 keep_alive_time = tmp_time;
+                                 if ((status = ftp_keepalive()) != SUCCESS)
+                                 {
+                                    trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                                              "Failed to send STAT command (%d).",
+                                              status);
+                                    if (timeout_flag == ON)
+                                    {
+                                       timeout_flag = OFF;
+                                    }
+                                 }
+                                 else if (fsa->debug > NORMAL_MODE)
+                                      {
+                                         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                                                      "Send STAT command.");
+                                      }
                               }
                            }
-                           else if (fsa->debug > NORMAL_MODE)
-                                {
-                                   trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                                "Send STAT command.");
-                                }
+#endif
+                           if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                           {
+                              end_transfer_time_file = time(NULL);
+                              if (end_transfer_time_file < start_transfer_time_file)
+                              {
+                                 start_transfer_time_file = end_transfer_time_file;
+                              }
+                              else
+                              {
+                                 if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                                 {
+                                    trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                              "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                              "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                              fsa->job_status[(int)db.job_no].file_name_in_use,
+                                              (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                    (void)ftp_quit();
+                                    exit(STILL_FILES_TO_SEND);
+                                 }
+                              }
+                           }
                         }
                      }
-#endif
                   } /* if (bytes_buffered > 0) */
                } while (bytes_buffered == blocksize);
 #ifdef WITH_SENDFILE
@@ -2096,6 +2171,9 @@ main(int argc, char *argv[])
                      fsa->job_status[(int)db.job_no].bytes_send += 4;
                   }
                }
+#ifdef _OUTPUT_LOG
+               additional_length += 4;
+#endif
             }
 
             /* Close remote file. */
@@ -2704,7 +2782,7 @@ main(int argc, char *argv[])
                                                                     p_remote_filename) +
                                                                     db.unl;
                   }
-                  *ol_file_size = no_of_bytes + append_offset;
+                  *ol_file_size = no_of_bytes + append_offset + additional_length;
                   *ol_job_number = db.job_id;
                   *ol_retries = db.retries;
                   *ol_unl = db.unl;
@@ -2751,7 +2829,7 @@ main(int argc, char *argv[])
                   }
                   (void)strcpy(&ol_file_name[*ol_file_name_length + 1],
                                &db.archive_dir[db.archive_offset]);
-                  *ol_file_size = no_of_bytes + append_offset;
+                  *ol_file_size = no_of_bytes + append_offset + additional_length;
                   *ol_job_number = db.job_id;
                   *ol_retries = db.retries;
                   *ol_unl = db.unl;
@@ -2813,7 +2891,7 @@ try_again_unlink:
                                                                  p_remote_filename) +
                                                                  db.unl;
                }
-               *ol_file_size = no_of_bytes + append_offset;
+               *ol_file_size = no_of_bytes + append_offset + additional_length;
                *ol_job_number = db.job_id;
                *ol_retries = db.retries;
                *ol_unl = db.unl;

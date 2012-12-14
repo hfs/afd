@@ -325,8 +325,22 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        size = stat_buf.st_size;
                        offset = 0;
                     }
-                    (void)sprintf(length_indicator, "%08lu",
-                                  (unsigned long)size);
+                    if (size > 99999999)
+                    {
+                       (void)strcpy(length_indicator, "99999999");
+                       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+#if SIZEOF_OFF_T == 4
+                                   "Data length (%ld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+#else
+                                   "Data length (%lld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+#endif
+                                   (pri_off_t)size);
+                    }
+                    else
+                    {
+                       (void)sprintf(length_indicator, "%08lu",
+                                     (unsigned long)size);
+                    }
                     length_indicator[8] = '0';
                     length_indicator[9] = '1';
                     if (write(to_fd, length_indicator, 10) != 10)
@@ -543,8 +557,22 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                end_offset = 0;
                             }
                     }
-                    (void)sprintf(length_indicator, "%08lu",
-                                  (unsigned long)stat_buf.st_size - front_offset - end_offset + additional_length);
+                    if ((stat_buf.st_size - front_offset - end_offset + additional_length) > 99999999)
+                    {
+                       (void)strcpy(length_indicator, "99999999");
+                       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+#if SIZEOF_OFF_T == 4
+                                   "Data length (%ld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+#else
+                                   "Data length (%lld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+#endif
+                                    (pri_off_t)(stat_buf.st_size - front_offset - end_offset + additional_length));
+                    }
+                    else
+                    {
+                       (void)sprintf(length_indicator, "%08lu",
+                                     (unsigned long)stat_buf.st_size - front_offset - end_offset + additional_length);
+                    }
                     length_indicator[8] = '0';
                     length_indicator[9] = '0';
                     if (writen(to_fd, length_indicator, length,
@@ -778,8 +806,22 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                         length -= 1;
                                      }
                              }
-                             (void)sprintf(length_indicator, "%08lu",
-                                           (unsigned long)(length + end_length));
+                             if ((length + end_length) > 99999999)
+                             {
+                                (void)strcpy(length_indicator, "99999999");
+                                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+#if SIZEOF_OFF_T == 4
+                                            "Data length (%ld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+#else
+                                            "Data length (%lld) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
+#endif
+                                             (pri_off_t)(length + end_length));
+                             }
+                             else
+                             {
+                                 (void)sprintf(length_indicator, "%08lu",
+                                               (unsigned long)(length + end_length));
+                             }
                              length_indicator[8] = '0';
                              if (write(to_fd, length_indicator,
                                        start_length) != start_length)

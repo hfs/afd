@@ -22,41 +22,41 @@
 
 #include "motif_common_defs.h"
 
-#define MAX_INFO_STRING_LENGTH   60
-#define DIR_INFO_TEXT_WIDTH_L    15
-#define DIR_INFO_TEXT_WIDTH_R    18
-#define DIR_INFO_LENGTH_L        20
-#define DIR_INFO_LENGTH_R        20
+#define MAX_DIR_INFO_STRING_LENGTH 60
+#define DIR_INFO_TEXT_WIDTH_L      15
+#define DIR_INFO_TEXT_WIDTH_R      18
+#define DIR_INFO_LENGTH_L          20
+#define DIR_INFO_LENGTH_R          20
 
 /* Definitions for the left labels. */
-#define ALIAS_DIR_NAME_POS       0
-#define STUPID_MODE_POS          1
-#define FORCE_REREAD_POS         2
-#define ACCUMULATE_POS           3
-#define DELETE_UNKNOWN_POS       4
-#define DELETE_QUEUED_POS        5
-#define IGNORE_FILE_TIME_POS     6
-#define END_CHARACTER_POS        7
-#define BYTES_RECEIVED_POS       8
-#define LAST_RETRIEVAL_POS       9
+#define ALIAS_DIR_NAME_POS         0
+#define STUPID_MODE_POS            1
+#define FORCE_REREAD_POS           2
+#define ACCUMULATE_POS             3
+#define DELETE_UNKNOWN_POS         4
+#define DELETE_QUEUED_POS          5
+#define IGNORE_FILE_TIME_POS       6
+#define END_CHARACTER_POS          7
+#define BYTES_RECEIVED_POS         8
+#define LAST_RETRIEVAL_POS         9
 
 /* Definitions for the right labels. */
-#define DIRECTORY_ID_POS         0
-#define REMOVE_FILES_POS         1
-#define WAIT_FOR_FILENAME_POS    2
-#define ACCUMULATE_SIZE_POS      3
-#define REPORT_UNKNOWN_FILES_POS 4
-#define DELETE_LOCKED_FILES_POS  5
-#define IGNORE_SIZE_POS          6
-#define MAX_COPIED_FILES_POS     7
-#define FILES_RECEIVED_POS       8
-#define NEXT_CHECK_TIME_POS      9
+#define DIRECTORY_ID_POS           0
+#define REMOVE_FILES_POS           1
+#define WAIT_FOR_FILENAME_POS      2
+#define ACCUMULATE_SIZE_POS        3
+#define REPORT_UNKNOWN_FILES_POS   4
+#define DELETE_LOCKED_FILES_POS    5
+#define IGNORE_SIZE_POS            6
+#define MAX_COPIED_FILES_POS       7
+#define FILES_RECEIVED_POS         8
+#define NEXT_CHECK_TIME_POS        9
 
-#define NO_OF_LABELS_PER_ROW     10
+#define NO_OF_LABELS_PER_ROW       10
 
 
-#define UPDATE_INTERVAL          1000
-#define FILE_UPDATE_INTERVAL     4
+#define UPDATE_INTERVAL            1000
+#define FILE_UPDATE_INTERVAL       4
 
 struct prev_values
        {

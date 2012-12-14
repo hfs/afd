@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -451,10 +451,20 @@ get_all(int item)
 
       /* Store file name. */
       i = 0;
-      while (*ptr != SEPARATOR_CHAR)
+      while ((*ptr != SEPARATOR_CHAR) && (i < MAX_FILENAME_LENGTH))
       {
          id.file_name[i] = *ptr;
          i++; ptr++;
+      }
+      if (i == MAX_FILENAME_LENGTH)
+      {
+         id.file_name[i - 2] = ' ';
+         id.file_name[i - 1] = '\0';
+         id.file_size[0] = '0';
+         id.file_size[1] = '\0';    
+         id.unique_number = -1;
+
+         return(0);
       }
       id.file_name[i] = '\0';
       ptr++;

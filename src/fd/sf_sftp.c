@@ -91,6 +91,9 @@ DESCR__E_M1
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs,
                            no_of_hosts,
                            *p_no_of_hosts = NULL,
@@ -169,6 +172,8 @@ static void                sf_sftp_exit(void),
                            sig_kill(int),
                            sig_exit(int);
 
+/* #define _SIMULATE_SLOW_TRANSFER 2L */
+
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
@@ -187,7 +192,9 @@ main(int argc, char *argv[])
                     *unique_counter;
    off_t            no_of_bytes;
    clock_t          clktck;
-   time_t           now,
+   time_t           end_transfer_time_file,
+                    start_transfer_time_file,
+                    now,
                     last_update_time,
                     *p_file_mtime_buffer;
 #ifdef _WITH_BURST_2
@@ -1121,6 +1128,10 @@ main(int argc, char *argv[])
             {
                init_limit_transfer_rate();
             }
+            if (fsa->protocol_options & TIMEOUT_TRANSFER)
+            {
+               start_transfer_time_file = time(NULL);
+            }
 
             do
             {
@@ -1166,6 +1177,30 @@ main(int argc, char *argv[])
                         fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
                         fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
                         fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
+                        if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                        {
+                           end_transfer_time_file = time(NULL);
+                           if (end_transfer_time_file < start_transfer_time_file)
+                           {
+                              start_transfer_time_file = end_transfer_time_file;
+                           }
+                           else
+                           {
+                              if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                              {
+                                 trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                           "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                           "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                           fsa->job_status[(int)db.job_no].file_name_in_use,
+                                           (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                 sftp_quit();
+                                 exit(STILL_FILES_TO_SEND);
+                              }
+                           }
+                        }
                      }
                   }
                } /* if (bytes_buffered > 0) */

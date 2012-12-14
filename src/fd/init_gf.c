@@ -308,6 +308,18 @@ init_gf(int argc, char *argv[], int protocol)
       }
    }
 
+   /*
+    * For bursting we need to set the following active values.
+    * Otherwise if during a burst all files are deleted, the
+    * following burst will then think those values are set.
+    */
+   (void)strcpy(db.active_user, db.user);
+   (void)strcpy(db.active_target_dir, db.target_dir);
+   db.active_transfer_mode = db.transfer_mode;
+#ifdef WITH_SSL
+   db.active_auth = db.auth;
+#endif
+
    /* Set the transfer timeout value. */
    transfer_timeout = fsa->transfer_timeout;
 

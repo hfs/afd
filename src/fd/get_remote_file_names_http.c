@@ -424,7 +424,43 @@ get_remote_file_names_http(off_t *file_size_to_retrieve,
             if (!((timeout_flag == ON) || (timeout_flag == CON_RESET) ||
                   (timeout_flag == CON_REFUSED)))
             {
-               remove_ls_data(db.fra_pos);
+               size_t new_size,
+                      old_size;
+
+               if (attach_ls_data() == INCORRECT)
+               {
+                  http_quit();
+                  exit(INCORRECT);
+               }
+               new_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                          AFD_WORD_OFFSET;
+               old_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                           RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                          AFD_WORD_OFFSET;
+               *no_of_listed_files = 0;
+
+               if (old_size != new_size)
+               {
+                  char *ptr;
+
+                  ptr = (char *)rl - AFD_WORD_OFFSET;
+                  if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "mmap_resize() error : %s", strerror(errno));
+                     http_quit();
+                     exit(INCORRECT);
+                  }
+                  no_of_listed_files = (int *)ptr;
+                  ptr += AFD_WORD_OFFSET;
+                  rl = (struct retrieve_list *)ptr;
+                  if (*no_of_listed_files < 0)
+                  {
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+                     *no_of_listed_files = 0;
+                  }
+               }
             }
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to open remote directory %s (%d).",
@@ -1832,36 +1868,35 @@ check_list(char   *file,
             }
          }
       } /* for (i = 0; i < *no_of_listed_files; i++) */
-
-      /* Add this file to the list. */
-      if ((*no_of_listed_files != 0) &&
-          ((*no_of_listed_files % RETRIEVE_LIST_STEP_SIZE) == 0))
-      {
-         char   *ptr;
-         size_t new_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
-                            RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
-                            AFD_WORD_OFFSET;
-
-         ptr = (char *)rl - AFD_WORD_OFFSET;
-         if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "mmap_resize() error : %s", strerror(errno));
-            http_quit();
-            exit(INCORRECT);
-         }
-         no_of_listed_files = (int *)ptr;
-         ptr += AFD_WORD_OFFSET;
-         rl = (struct retrieve_list *)ptr;
-         if (*no_of_listed_files < 0)
-         {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
-            *no_of_listed_files = 0;
-         }
-      }
    }
 
+   /* Add this file to the list. */
+   if ((*no_of_listed_files != 0) &&
+       ((*no_of_listed_files % RETRIEVE_LIST_STEP_SIZE) == 0))
+   {
+      char   *ptr;
+      size_t new_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                         RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                         AFD_WORD_OFFSET;
+
+      ptr = (char *)rl - AFD_WORD_OFFSET;
+      if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "mmap_resize() error : %s", strerror(errno));
+         http_quit();
+         exit(INCORRECT);
+      }
+      no_of_listed_files = (int *)ptr;
+      ptr += AFD_WORD_OFFSET;
+      rl = (struct retrieve_list *)ptr;
+      if (*no_of_listed_files < 0)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+         *no_of_listed_files = 0;
+      }
+   }
    (void)strcpy(rl[*no_of_listed_files].file_name, file);
    rl[*no_of_listed_files].retrieved = NO;
    rl[*no_of_listed_files].in_list = YES;
@@ -2058,7 +2093,7 @@ extract_feed_date(char *time_str)
                          (isdigit(time_str[pos + 2])) &&
                          (time_str[pos + 3] == ':') &&
                          (isdigit(time_str[pos + 4])) &&
-                         (isdigit(time_str[pos + 5]))
+                         (isdigit(time_str[pos + 5])))
                      {
                         tmp_str[0] = time_str[pos + 1];
                         tmp_str[1] = time_str[pos + 2];

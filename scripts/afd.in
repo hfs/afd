@@ -406,7 +406,7 @@ case "$1" in
 	         fi
 	      else
 	         IS_STOPPED="`echo $IS_STOPPED` $afduser"
-	         RETVAL=7
+	         RETVAL=3
 	      fi
 	   else
 	      counter=0
@@ -430,7 +430,7 @@ case "$1" in
 	            fi
 	         else
 	            IS_STOPPED="`echo $IS_STOPPED` $afduser[$afddir]"
-	            RETVAL=7
+	            RETVAL=3
 	         fi
 	         counter=`expr "$counter" + 1`
 	      done
@@ -442,20 +442,41 @@ case "$1" in
 	   then
 	      if [ "$IS_STOPPED" = "" ]
 	      then
-	         echo "AFD for ${IS_RUNNING} is running."
-	         RETVAL=0
+	         if [ "$IS_RUNNING" = "" ]
+	         then
+	            echo "Unable to determine status of AFD."
+	            RETVAL=4
+	         else
+	            echo "AFD for ${IS_RUNNING} is running."
+	            RETVAL=0
+	         fi
 	      else
-	         echo "AFD for ${IS_RUNNING} is running and for ${IS_STOPPED} it is stopped."
-	         RETVAL=7
+	         if [ "$IS_RUNNING" = "" ]
+	         then
+	            echo "AFD for ${IS_STOPPED} is stopped."
+	         else
+	            echo "AFD for ${IS_RUNNING} is running and for ${IS_STOPPED} it is stopped."
+	         fi
+	         RETVAL=3
 	      fi
 	   else
 	      if [ "$IS_STOPPED" = "" ]
 	      then
-	         echo "AFD for ${IS_RUNNING} is running and for ${IS_DISABLED} it is disabled."
+	         if [ "$IS_RUNNING" = "" ]
+	         then
+	            echo "AFD for ${IS_DISABLED} is disabled."
+	         else
+	            echo "AFD for ${IS_RUNNING} is running and for ${IS_DISABLED} it is disabled."
+	         fi
 	         RETVAL=0
 	      else
-	         echo "AFD for ${IS_RUNNING} is running, for ${IS_DISABLED} it is disabled and for ${IS_STOPPED} it is stopped."
-	         RETVAL=7
+	         if [ "$IS_RUNNING" = "" ]
+	         then
+	            echo "AFD for ${IS_DISABLED} is disabled and for ${IS_STOPPED} it is stopped."
+	         else
+	            echo "AFD for ${IS_RUNNING} is running, for ${IS_DISABLED} it is disabled and for ${IS_STOPPED} it is stopped."
+	         fi
+	         RETVAL=3
 	      fi
 	   fi
 	else

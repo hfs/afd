@@ -138,6 +138,9 @@ extern void my_usleep(unsigned long),
 extern int  rec(int, char *, char *, ...);
 #endif /* _STANDALONE_ */
 
+#ifndef MAX_RET_MSG_LENGTH
+# define MAX_RET_MSG_LENGTH  4096
+#endif
 #define TRANSFER_MODE        1
 #define RETRIEVE_MODE        2
 #define TEST_MODE            3

@@ -1,7 +1,7 @@
 /*
  *  eval_dupcheck_options.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,8 @@ DESCR__S_M3
  **                        33 - Delete and warn.
  **                        34 - Store and warn.
  **        <CRC type>   - What type of CRC check is to be performed.
- **                       Currently only 16 (CRC32) is supported.
+ **                        16 - CRC-32
+ **                        17 - CRC-32c
  **
  ** RETURN VALUES
  **   Ruturns a ptr to the end of the given string.
@@ -71,6 +72,7 @@ DESCR__S_M3
  **   20.12.2006 H.Kiehl Added option filename without last suffix.
  **   20.05.2007 H.Kiehl Added warn option so caller knows if we had a
  **                      warning.
+ **   24.11.2012 H.Kiehl Added support for CRC-32c.
  **
  */
 DESCR__E_M3
@@ -228,26 +230,30 @@ eval_dupcheck_options(char         *ptr,
             {
                number[length] = '\0';
                val = atoi(number);
-               if (val != DC_CRC32_BIT)
-               {
-                  *flag |= DC_CRC32;
-                  if (warn == NULL)
-                  {
-                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                                _("Unkown duplicate check CRC type %d using default %d."),
-                                val, DC_CRC32_BIT);
-                  }
-                  else
-                  {
-                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                                _("Unkown duplicate check CRC type %d."), val);
-                     *warn = 1;
-                  }
-               }
-               else
+               if (val == DC_CRC32_BIT)
                {
                   *flag |= DC_CRC32;
                }
+               else if (val == DC_CRC32C_BIT)
+                    {
+                       *flag |= DC_CRC32C;
+                    }
+                    else
+                    {
+                       *flag |= DC_CRC32;
+                       if (warn == NULL)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     _("Unkown duplicate check CRC type %d using default %d."),
+                                     val, DC_CRC32_BIT);
+                       }
+                       else
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     _("Unkown duplicate check CRC type %d."), val);
+                          *warn = 1;
+                       }
+                    }
             }
             else
             {

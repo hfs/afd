@@ -48,6 +48,9 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef HAVE_WAIT4
+# include <sys/time.h>                /* struct timeval                  */
+#endif
 
 #ifdef HAVE_GETTEXT
 # include <locale.h>
@@ -308,7 +311,8 @@ typedef unsigned long       u_long_64;
 # define RECIPIENT_REJECTED         20
 # define MIRROR_REMOVE              21
 # define MKDIR_QUEUE_ERROR          22
-# define MAX_DELETE_REASONS         22
+# define INTERNAL_LINK_FAILED       23
+# define MAX_DELETE_REASONS         23
 # define UKN_DEL_REASON_STR         "Unknown delete reason"
 # define UKN_DEL_REASON_STR_LENGTH  (sizeof(UKN_DEL_REASON_STR) - 1)
 /* NOTE: Only 4096 (0 - fff) may be defined here. */
@@ -622,6 +626,7 @@ typedef unsigned long       u_long_64;
 #define GET_FTP_FLAG               32768
 #define GET_HTTP_FLAG              65536
 #define GET_SFTP_FLAG              131072
+#define DISABLE_IPV6_FLAG          268435456
 #define SEND_FLAG                  1073741824
 #define RETRIEVE_FLAG              2147483648U
 
@@ -698,6 +703,7 @@ typedef unsigned long       u_long_64;
 #define SORT_FILE_NAMES            16384
 #define NO_AGEING_JOBS             32768
 #define CHECK_SIZE                 65536
+#define TIMEOUT_TRANSFER           131072
 
 #define FTP_SHEME                  "ftp"
 #define FTP_SHEME_LENGTH           (sizeof(FTP_SHEME) - 1)
@@ -818,82 +824,84 @@ typedef unsigned long       u_long_64;
 #endif
 
 /* Definitions for FD [options]. */
-#define OUTPUT_LOG_ID                   "no log output"
-#define OUTPUT_LOG_ID_LENGTH            (sizeof(OUTPUT_LOG_ID) - 1)
-#define ARCHIVE_ID                      "archive"                  
-#define ARCHIVE_ID_LENGTH               (sizeof(ARCHIVE_ID) - 1)
-#define LOCK_ID                         "lock"
-#define LOCK_ID_LENGTH                  (sizeof(LOCK_ID) - 1)
-#define ULOCK_ID                        "ulock"
-#define ULOCK_ID_LENGTH                 (sizeof(ULOCK_ID) - 1)
-#define LOCK_POSTFIX_ID                 "lockp"
-#define LOCK_POSTFIX_ID_LENGTH          (sizeof(LOCK_POSTFIX_ID) - 1)
-#define RESTART_FILE_ID                 "restart"
-#define RESTART_FILE_ID_LENGTH          (sizeof(RESTART_FILE_ID) - 1)
-#define TRANS_RENAME_ID                 "trans_rename"
-#define TRANS_RENAME_ID_LENGTH          (sizeof(TRANS_RENAME_ID) - 1)
+#define OUTPUT_LOG_ID                    "no log output"
+#define OUTPUT_LOG_ID_LENGTH             (sizeof(OUTPUT_LOG_ID) - 1)
+#define ARCHIVE_ID                       "archive"                  
+#define ARCHIVE_ID_LENGTH                (sizeof(ARCHIVE_ID) - 1)
+#define LOCK_ID                          "lock"
+#define LOCK_ID_LENGTH                   (sizeof(LOCK_ID) - 1)
+#define ULOCK_ID                         "ulock"
+#define ULOCK_ID_LENGTH                  (sizeof(ULOCK_ID) - 1)
+#define LOCK_POSTFIX_ID                  "lockp"
+#define LOCK_POSTFIX_ID_LENGTH           (sizeof(LOCK_POSTFIX_ID) - 1)
+#define RESTART_FILE_ID                  "restart"
+#define RESTART_FILE_ID_LENGTH           (sizeof(RESTART_FILE_ID) - 1)
+#define TRANS_RENAME_ID                  "trans_rename"
+#define TRANS_RENAME_ID_LENGTH           (sizeof(TRANS_RENAME_ID) - 1)
 #ifdef _WITH_WMO_SUPPORT
-# define WITH_SEQUENCE_NUMBER_ID        "sequence numbering"
-# define WITH_SEQUENCE_NUMBER_ID_LENGTH (sizeof(WITH_SEQUENCE_NUMBER_ID) - 1)
-# define CHECK_REPLY_ID                 "check reply"
-# define CHECK_REPLY_ID_LENGTH          (sizeof(CHECK_REPLY_ID) - 1)
+# define WITH_SEQUENCE_NUMBER_ID         "sequence numbering"
+# define WITH_SEQUENCE_NUMBER_ID_LENGTH  (sizeof(WITH_SEQUENCE_NUMBER_ID) - 1)
+# define CHECK_REPLY_ID                  "check reply"
+# define CHECK_REPLY_ID_LENGTH           (sizeof(CHECK_REPLY_ID) - 1)
 #endif
-#define FILE_NAME_IS_HEADER_ID          "file name is header"
-#define FILE_NAME_IS_HEADER_ID_LENGTH   (sizeof(FILE_NAME_IS_HEADER_ID) - 1)
-#define FILE_NAME_IS_USER_ID            "file name is user"
-#define FILE_NAME_IS_USER_ID_LENGTH     (sizeof(FILE_NAME_IS_USER_ID) - 1)
-#define FILE_NAME_IS_TARGET_ID          "file name is target"
-#define FILE_NAME_IS_TARGET_ID_LENGTH   (sizeof(FILE_NAME_IS_TARGET_ID) - 1)
-#define FILE_NAME_IS_SUBJECT_ID         "file name is subject"
-#define FILE_NAME_IS_SUBJECT_ID_LENGTH  (sizeof(FILE_NAME_IS_SUBJECT_ID) - 1)
-#define ADD_MAIL_HEADER_ID              "mail header"
-#define ADD_MAIL_HEADER_ID_LENGTH       (sizeof(ADD_MAIL_HEADER_ID) - 1)
-#define ATTACH_FILE_ID                  "attach file"
-#define ATTACH_FILE_ID_LENGTH           (sizeof(ATTACH_FILE_ID) - 1)
-#define ATTACH_ALL_FILES_ID             "attach all files"
-#define ATTACH_ALL_FILES_ID_LENGTH      (sizeof(ATTACH_ALL_FILES_ID) - 1)
-#define REPLY_TO_ID                     "reply-to"
-#define REPLY_TO_ID_LENGTH              (sizeof(REPLY_TO_ID) - 1)
-#define FROM_ID                         "from"
-#define FROM_ID_LENGTH                  (sizeof(FROM_ID) - 1)
-#define CHARSET_ID                      "charset"
-#define CHARSET_ID_LENGTH               (sizeof(CHARSET_ID) - 1)
+#define FILE_NAME_IS_HEADER_ID           "file name is header"
+#define FILE_NAME_IS_HEADER_ID_LENGTH    (sizeof(FILE_NAME_IS_HEADER_ID) - 1)
+#define FILE_NAME_IS_USER_ID             "file name is user"
+#define FILE_NAME_IS_USER_ID_LENGTH      (sizeof(FILE_NAME_IS_USER_ID) - 1)
+#define FILE_NAME_IS_TARGET_ID           "file name is target"
+#define FILE_NAME_IS_TARGET_ID_LENGTH    (sizeof(FILE_NAME_IS_TARGET_ID) - 1)
+#define FILE_NAME_IS_SUBJECT_ID          "file name is subject"
+#define FILE_NAME_IS_SUBJECT_ID_LENGTH   (sizeof(FILE_NAME_IS_SUBJECT_ID) - 1)
+#define ADD_MAIL_HEADER_ID               "mail header"
+#define ADD_MAIL_HEADER_ID_LENGTH        (sizeof(ADD_MAIL_HEADER_ID) - 1)
+#define ATTACH_FILE_ID                   "attach file"
+#define ATTACH_FILE_ID_LENGTH            (sizeof(ATTACH_FILE_ID) - 1)
+#define ATTACH_ALL_FILES_ID              "attach all files"
+#define ATTACH_ALL_FILES_ID_LENGTH       (sizeof(ATTACH_ALL_FILES_ID) - 1)
+#define REPLY_TO_ID                      "reply-to"
+#define REPLY_TO_ID_LENGTH               (sizeof(REPLY_TO_ID) - 1)
+#define FROM_ID                          "from"
+#define FROM_ID_LENGTH                   (sizeof(FROM_ID) - 1)
+#define CHARSET_ID                       "charset"
+#define CHARSET_ID_LENGTH                (sizeof(CHARSET_ID) - 1)
 #ifdef WITH_EUMETSAT_HEADERS
-# define EUMETSAT_HEADER_ID             "eumetsat"
-# define EUMETSAT_HEADER_ID_LENGTH      (sizeof(EUMETSAT_HEADER_ID) - 1)
+# define EUMETSAT_HEADER_ID              "eumetsat"
+# define EUMETSAT_HEADER_ID_LENGTH       (sizeof(EUMETSAT_HEADER_ID) - 1)
 #endif
-#define CHMOD_ID                        "chmod"
-#define CHMOD_ID_LENGTH                 (sizeof(CHMOD_ID) - 1)
-#define CHOWN_ID                        "chown"
-#define CHOWN_ID_LENGTH                 (sizeof(CHOWN_ID) - 1)
-#define ENCODE_ANSI_ID                  "encode ansi"
-#define ENCODE_ANSI_ID_LENGTH           (sizeof(ENCODE_ANSI_ID) - 1)
-#define SUBJECT_ID                      "subject"                   
-#define SUBJECT_ID_LENGTH               (sizeof(SUBJECT_ID) - 1)
-#define FORCE_COPY_ID                   "force copy"
-#define FORCE_COPY_ID_LENGTH            (sizeof(FORCE_COPY_ID) - 1)
-#define RENAME_FILE_BUSY_ID             "file busy rename"
-#define RENAME_FILE_BUSY_ID_LENGTH      (sizeof(RENAME_FILE_BUSY_ID) - 1)
-#define ACTIVE_FTP_MODE                 "mode active"
-#define ACTIVE_FTP_MODE_LENGTH          (sizeof(ACTIVE_FTP_MODE) - 1)
-#define PASSIVE_FTP_MODE                "mode passive"
-#define PASSIVE_FTP_MODE_LENGTH         (sizeof(PASSIVE_FTP_MODE) - 1)
-#define FTP_EXEC_CMD                    "site"
-#define FTP_EXEC_CMD_LENGTH             (sizeof(FTP_EXEC_CMD) - 1)
-#define LOGIN_SITE_CMD                  "login site"
-#define LOGIN_SITE_CMD_LENGTH           (sizeof(LOGIN_SITE_CMD) - 1)
-#define CREATE_TARGET_DIR_ID            "create target dir"
-#define CREATE_TARGET_DIR_ID_LENGTH     (sizeof(CREATE_TARGET_DIR_ID) - 1)
-#define DONT_CREATE_TARGET_DIR          "do not create target dir"
-#define DONT_CREATE_TARGET_DIR_LENGTH   (sizeof(DONT_CREATE_TARGET_DIR) - 1)
-#define SEQUENCE_LOCKING_ID             "sequence locking"
-#define SEQUENCE_LOCKING_ID_LENGTH      (sizeof(SEQUENCE_LOCKING_ID) - 1)
-#define SOCKET_SEND_BUFFER_ID           "socket send buffer"
-#define SOCKET_SEND_BUFFER_ID_LENGTH    (sizeof(SOCKET_SEND_BUFFER_ID) - 1)
-#define SOCKET_RECEIVE_BUFFER_ID        "socket receive buffer"
-#define SOCKET_RECEIVE_BUFFER_ID_LENGTH (sizeof(SOCKET_RECEIVE_BUFFER_ID) - 1)
-#define MIRROR_DIR_ID                   "mirror source"
-#define MIRROR_DIR_ID_LENGTH            (sizeof(MIRROR_DIR_ID) - 1)
+#define CHMOD_ID                         "chmod"
+#define CHMOD_ID_LENGTH                  (sizeof(CHMOD_ID) - 1)
+#define CHOWN_ID                         "chown"
+#define CHOWN_ID_LENGTH                  (sizeof(CHOWN_ID) - 1)
+#define ENCODE_ANSI_ID                   "encode ansi"
+#define ENCODE_ANSI_ID_LENGTH            (sizeof(ENCODE_ANSI_ID) - 1)
+#define SUBJECT_ID                       "subject"                   
+#define SUBJECT_ID_LENGTH                (sizeof(SUBJECT_ID) - 1)
+#define FORCE_COPY_ID                    "force copy"
+#define FORCE_COPY_ID_LENGTH             (sizeof(FORCE_COPY_ID) - 1)
+#define RENAME_FILE_BUSY_ID              "file busy rename"
+#define RENAME_FILE_BUSY_ID_LENGTH       (sizeof(RENAME_FILE_BUSY_ID) - 1)
+#define ACTIVE_FTP_MODE                  "mode active"
+#define ACTIVE_FTP_MODE_LENGTH           (sizeof(ACTIVE_FTP_MODE) - 1)
+#define PASSIVE_FTP_MODE                 "mode passive"
+#define PASSIVE_FTP_MODE_LENGTH          (sizeof(PASSIVE_FTP_MODE) - 1)
+#define FTP_EXEC_CMD                     "site"
+#define FTP_EXEC_CMD_LENGTH              (sizeof(FTP_EXEC_CMD) - 1)
+#define LOGIN_SITE_CMD                   "login site"
+#define LOGIN_SITE_CMD_LENGTH            (sizeof(LOGIN_SITE_CMD) - 1)
+#define CREATE_TARGET_DIR_ID             "create target dir"
+#define CREATE_TARGET_DIR_ID_LENGTH      (sizeof(CREATE_TARGET_DIR_ID) - 1)
+#define DONT_CREATE_TARGET_DIR           "do not create target dir"
+#define DONT_CREATE_TARGET_DIR_LENGTH    (sizeof(DONT_CREATE_TARGET_DIR) - 1)
+#define SEQUENCE_LOCKING_ID              "sequence locking"
+#define SEQUENCE_LOCKING_ID_LENGTH       (sizeof(SEQUENCE_LOCKING_ID) - 1)
+#define SOCKET_SEND_BUFFER_ID            "socket send buffer"
+#define SOCKET_SEND_BUFFER_ID_LENGTH     (sizeof(SOCKET_SEND_BUFFER_ID) - 1)
+#define SOCKET_RECEIVE_BUFFER_ID         "socket receive buffer"
+#define SOCKET_RECEIVE_BUFFER_ID_LENGTH  (sizeof(SOCKET_RECEIVE_BUFFER_ID) - 1)
+#define MIRROR_DIR_ID                    "mirror source"
+#define MIRROR_DIR_ID_LENGTH             (sizeof(MIRROR_DIR_ID) - 1)
+#define SHOW_ALL_GROUP_MEMBERS_ID        "show all group members"
+#define SHOW_ALL_GROUP_MEMBERS_ID_LENGTH (sizeof(SHOW_ALL_GROUP_MEMBERS_ID) - 1)
 
 /* Default definitions. */
 #define AFD_CONFIG_FILE                  "/AFD_CONFIG"
@@ -1156,6 +1164,9 @@ typedef unsigned long       u_long_64;
                                             /* responce when updating       */
                                             /* configuration.               */
 #define MAX_ALIAS_NAME_LENGTH        16
+#define MAX_MAIL_ID_LENGTH           17     /* The maximum length of the    */
+                                            /* mail queue ID returned by    */
+                                            /* the SMTP server.             */
 #define MAX_EXEC_FILE_SUBSTITUTION   10     /* The maximum number of %s     */
                                             /* substitutions that may be in */
                                             /* the exec or pexec option or  */
@@ -1401,7 +1412,7 @@ typedef unsigned long       u_long_64;
 #define DC_LIST_FILE               "/dc_name_data"
 #define DIR_NAME_FILE              "/directory_names"
 #define JOB_ID_DATA_FILE           "/job_id_data"
-#define DCPL_FILE_NAME             "/dcpl_data"
+#define DCPL_FILE_NAME             "/dcpl_data"  /* dir_check process list */
 #ifdef WITH_ONETIME
 # define OTPL_FILE_NAME            "/otpl_data"
 #endif
@@ -1566,6 +1577,8 @@ typedef unsigned long       u_long_64;
 # define DC_FILENAME_AND_SIZE_BIT  5
 # define DC_CRC32                  32768
 # define DC_CRC32_BIT              16
+# define DC_CRC32C                 65536
+# define DC_CRC32C_BIT             17
 # define DC_DELETE                 8388608
 # define DC_DELETE_BIT             24
 # define DC_STORE                  16777216
@@ -1704,6 +1717,55 @@ typedef unsigned long       u_long_64;
 #define CONNECT_STATUS             20
 
 #define AFDD_SHUTDOWN_MESSAGE      "500 AFDD shutdown."
+
+/* In case some key values of any structure are changed. */
+#define MAX_MSG_NAME_LENGTH_NR      1
+#define MAX_FILENAME_LENGTH_NR      2
+#define MAX_HOSTNAME_LENGTH_NR      4
+#define MAX_REAL_HOSTNAME_LENGTH_NR 8
+#define MAX_PROXY_NAME_LENGTH_NR    16
+#define MAX_TOGGLE_STR_LENGTH_NR    32
+#define ERROR_HISTORY_LENGTH_NR     64
+#define MAX_NO_PARALLEL_JOBS_NR     128
+#define MAX_DIR_ALIAS_LENGTH_NR     256
+#define MAX_RECIPIENT_LENGTH_NR     512
+#define MAX_WAIT_FOR_LENGTH_NR      1024
+#define MAX_FRA_TIME_ENTRIES_NR     2048
+#define MAX_OPTION_LENGTH_NR        4096
+#define MAX_PATH_LENGTH_NR          8192
+#define MAX_USER_NAME_LENGTH_NR     16384
+#define CHAR_NR                     32768
+#define INT_NR                      65536
+#define OFF_T_NR                    131072
+#define TIME_T_NR                   262144
+#define SHORT_NR                    524288
+#define LONG_LONG_NR                1048576
+#define PID_T_NR                    2097152
+#define MAX_CHANGEABLE_VARS         1 + 22 /* First is used as flag*/
+                                       /* which of the below values*/
+                                       /* are set.                 */
+                                       /* MAX_MSG_NAME_LENGTH      */
+                                       /* MAX_FILENAME_LENGTH      */
+                                       /* MAX_HOSTNAME_LENGTH      */
+                                       /* MAX_REAL_HOSTNAME_LENGTH */
+                                       /* MAX_PROXY_NAME_LENGTH    */
+                                       /* MAX_TOGGLE_STR_LENGTH    */
+                                       /* ERROR_HISTORY_LENGTH     */
+                                       /* MAX_NO_PARALLEL_JOBS     */
+                                       /* MAX_DIR_ALIAS_LENGTH     */
+                                       /* MAX_RECIPIENT_LENGTH     */
+                                       /* MAX_WAIT_FOR_LENGTH      */
+                                       /* MAX_FRA_TIME_ENTRIES     */
+                                       /* MAX_OPTION_LENGTH        */
+                                       /* MAX_PATH_LENGTH          */
+                                       /* MAX_USER_NAME_LENGTH     */
+                                       /* CHAR                     */
+                                       /* INT                      */
+                                       /* OFF_T                    */
+                                       /* TIME_T                   */
+                                       /* SHORT                    */
+                                       /* LONG_LONG                */
+                                       /* PID_T                    */
 
 /* Definitions for the different lock positions in the FSA. */
 #define LOCK_FIU                   3   /* File name in use (job_status) */
@@ -1890,7 +1952,8 @@ struct filetransfer_status
                                             /*| 32   | RETRIEVE         |*/
                                             /*| 31   | SEND             |*/
                                             /*| 30   | SSL              |*/
-                                            /*| 19-29| Not used.        |*/
+                                            /*| 29   | DISABLE_IPV6     |*/
+                                            /*| 19-28| Not used.        |*/
                                             /*| 18   | GET_SFTP         |*/
                                             /*| 17   | GET_HTTP  [SSL]  |*/
                                             /*| 16   | GET_FTP   [SSL]  |*/
@@ -1910,7 +1973,8 @@ struct filetransfer_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 18-32| Not used.        |*/
+                                            /*| 19-32| Not used.        |*/
+                                            /*| 18   | TIMEOUT_TRANSFER |*/
                                             /*| 17   | CHECK_SIZE       |*/
                                             /*| 16   | NO_AGEING_JOBS   |*/
                                             /*| 15   | SORT_FILE_NAMES  |*/
@@ -1953,7 +2017,8 @@ struct filetransfer_status
                                             /*|   26| DC_WARN           |*/
                                             /*|   25| DC_STORE          |*/
                                             /*|   24| DC_DELETE         |*/
-                                            /*|17-23| Not used.         |*/
+                                            /*|18-23| Not used.         |*/
+                                            /*|   17| DC_CRC32C         |*/
                                             /*|   16| DC_CRC32          |*/
                                             /*| 6-15| Not used.         |*/
                                             /*|    5| DC_FILENAME_AND_SIZE|*/
@@ -2114,7 +2179,8 @@ struct host_list
                                             /*|   26 | DC_WARN          |*/
                                             /*|   25 | DC_STORE         |*/
                                             /*|   24 | DC_DELETE        |*/
-                                            /*|17-23 | Not used.        |*/
+                                            /*|18-23 | Not used.        |*/
+                                            /*|   17 | DC_CRC32C        |*/
                                             /*|   16 | DC_CRC32         |*/
                                             /*| 6-15 | Not used.        |*/
                                             /*|    5 | DC_FILENAME_AND_SIZE|*/
@@ -2342,7 +2408,8 @@ struct fileretrieve_status
                                             /*|   26 | DC_WARN          |*/
                                             /*|   25 | DC_STORE         |*/
                                             /*|   24 | DC_DELETE        |*/
-                                            /*|17-23 | Not used.        |*/
+                                            /*|18-23 | Not used.        |*/
+                                            /*|   17 | DC_CRC32C        |*/
                                             /*|   16 | DC_CRC32         |*/
                                             /*| 6-15 | Not used.        |*/
                                             /*|    5 | DC_FILENAME_AND_SIZE|*/
@@ -2576,7 +2643,11 @@ struct job_id_data
                                         /* dir_name_buf.                 */
           int          no_of_loptions;
           int          no_of_soptions;
+#ifdef _NEW_JID
+          char         loptions[MAX_NO_OPTIONS * MAX_OPTION_LENGTH];
+#else
           char         loptions[MAX_OPTION_LENGTH];
+#endif
           char         soptions[MAX_OPTION_LENGTH]; /* NOTE: The last    */
                                         /* character is used to change   */
                                         /* CRC value in the very unusal  */
@@ -2678,8 +2749,10 @@ struct delete_log
 
 #ifdef WITH_DUP_CHECK
 /* Definition for structure holding CRC values for duplicate checks. */
-# define CRC_STEP_SIZE       200
-# define DUPCHECK_CHECK_TIME 120
+# define INITIAL_CRC             ~0u
+# define CRC_STEP_SIZE           1000
+# define DUPCHECK_MAX_CHECK_TIME 40
+# define DUPCHECK_MIN_CHECK_TIME 5
 struct crc_buf
        {
           unsigned int crc;
@@ -3217,7 +3290,14 @@ extern char         *convert_ls_data(int, char *, off_t *, int, char *,
                     *lock_proc(int, int),
                     *lposi(char *, char *, const size_t),
                     *posi(char *, char *);
-extern unsigned int get_checksum(char *, int),
+extern unsigned int get_checksum(const unsigned int, char *, int),
+#ifdef HAVE_HW_CRC32
+                    get_checksum_crc32c(const unsigned int, char *, size_t, int),
+                    get_str_checksum_crc32c(char *, int),
+#else
+                    get_checksum_crc32c(const unsigned int, char *, size_t),
+                    get_str_checksum_crc32c(char *),
+#endif
                     get_str_checksum(char *),
                     url_evaluate(char *, unsigned int *, char *,
                                  unsigned char *, char *,
@@ -3259,7 +3339,7 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                     check_lock(char *, char),
                     check_msa(void),
                     check_msg_name(char *),
-                    check_typesize_data(void),
+                    check_typesize_data(int *, FILE *),
                     coe_open(char *, int, ...),
                     convert_grib2wmo(char *, off_t *, char *),
                     copy_file(char *, char *, struct stat *),
@@ -3269,6 +3349,9 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                     create_remote_dir(char *, char *, char *, char *, char *,
                                       int *),
                     detach_afd_status(void),
+#ifdef HAVE_HW_CRC32
+                    detect_cpu_crc32(void),
+#endif
 #ifndef HAVE_EACCESS
                     eaccess(char *, int),
 #endif
@@ -3305,6 +3388,12 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                                         unsigned int, int),
                     get_dir_position(struct fileretrieve_status *, char *, int),
                     get_file_checksum(int, char *, int, int, unsigned int *),
+                    get_file_checksum_crc32c(int, char *, int, int,
+#ifdef HAVE_HW_CRC32
+                                             unsigned int *, int),
+#else
+                                             unsigned int *),
+#endif
                     get_host_id_position(struct filetransfer_status *,
                                          unsigned int, int),
                     get_host_position(struct filetransfer_status *,
@@ -3314,7 +3403,11 @@ extern int          assemble(char *, char *, int, char *, int, unsigned int,
                     get_pw(char *, char *, int),
                     get_rule(char *, int),
 #ifdef WITH_DUP_CHECK
-                    isdup(char *, off_t, unsigned int, time_t, int, int),
+                    isdup(char *, off_t, unsigned int, time_t, int, int,
+# ifdef HAVE_HW_CRC32
+                          int,
+# endif
+                          int, int),
 #endif
                     is_msgname(const char *),
                     lock_file(char *, int),
@@ -3404,7 +3497,10 @@ extern void         *attach_buf(char *, int *, size_t *, char *, mode_t, int),
                     ia_trans_log(char *, char *, int, int, char *, ...),
                     inform_fd_about_fsa_change(void),
                     init_fifos_afd(void),
-                    initialize_db(int),
+                    initialize_db(int, int *, int),
+#ifdef WITH_DUP_CHECK
+                    isdup_detach(void),
+#endif
 #ifdef LOCK_DEBUG
                     lock_region_w(int, off_t, char *, int),
 #else
@@ -3435,6 +3531,7 @@ extern void         *attach_buf(char *, int *, size_t *, char *, mode_t, int),
                     set_afd_euid(char *),
 #endif
                     set_fl(int, int),
+                    store_real_hostname(char *, char *),
                     system_log(char *, char *, int, char *, ...),
 #ifdef LOCK_DEBUG
                     unlock_region(int, off_t, char *, int),

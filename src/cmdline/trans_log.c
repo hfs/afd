@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,9 +18,9 @@
  */
 
 #ifdef _STANDALONE_
-#include "cmdline.h"
+# include "cmdline.h"
 #else
-#include "afddefs.h"
+# include "afddefs.h"
 #endif
 
 DESCR__S_M3
@@ -61,7 +61,10 @@ DESCR__E_M3
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
-#include "cmdline.h"
+#include <errno.h>
+#ifndef _STANDALONE_
+# include "cmdline.h"
+#endif
 
 extern int  timeout_flag,
             transfer_log_fd;
@@ -78,10 +81,11 @@ trans_log(char *sign,
           char *fmt,
           ...)
 {
+   int       tmp_errno = errno;
    size_t    header_length,
              length;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
    va_list   ap;
    struct tm *p_ts;
 
@@ -113,7 +117,12 @@ trans_log(char *sign,
    header_length = length;
 
    va_start(ap, fmt);
+#ifdef HAVE_VSNPRINTF
+   length += vsnprintf(&buf[length],
+                       (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length, fmt, ap);
+#else
    length += vsprintf(&buf[length], fmt, ap);
+#endif
    va_end(ap);
 
    if (timeout_flag == ON)
@@ -130,13 +139,26 @@ trans_log(char *sign,
       }
       if ((file == NULL) || (line == 0))
       {
+#ifdef HAVE_SNPRINTF
+         length += snprintf(tmp_ptr,
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            _(" due to timeout (%lds).\n"), transfer_timeout);
+#else
          length += sprintf(tmp_ptr, _(" due to timeout (%lds).\n"),
                            transfer_timeout);
+#endif
       }
       else
       {
+#ifdef HAVE_SNPRINTF
+         length += snprintf(tmp_ptr,
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            _(" due to timeout (%lds). (%s %d)\n"),
+                            transfer_timeout, file, line);
+#else
          length += sprintf(tmp_ptr, _(" due to timeout (%lds). (%s %d)\n"),
                            transfer_timeout, file, line);
+#endif
       }
    }
    else
@@ -148,7 +170,13 @@ trans_log(char *sign,
       }
       else
       {
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length],
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            " (%s %d)\n", file, line);
+#else
          length += sprintf(&buf[length], " (%s %d)\n", file, line);
+#endif
       }
    }
    if ((msg_str != NULL) && (timeout_flag == OFF) && (msg_str[0] != '\0'))
@@ -167,7 +195,8 @@ trans_log(char *sign,
             end_ptr++;
          }
          ptr = end_ptr;
-         while ((*end_ptr != '\n') && (*end_ptr != '\r') &&
+         while (((end_ptr - msg_str) < MAX_RET_MSG_LENGTH) &&
+                (*end_ptr != '\n') && (*end_ptr != '\r') &&
                 (*end_ptr != '\0'))
          {
             /* Replace any unprintable characters with a dot. */
@@ -182,11 +211,23 @@ trans_log(char *sign,
             *end_ptr = '\0';
             end_ptr++;
          }
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buf[length],
+                            (MAX_LINE_LENGTH + MAX_LINE_LENGTH) - length,
+                            "%s%s\n", buf, ptr);
+#else
          length += sprintf(&buf[length], "%s%s\n", buf, ptr);
+#endif
+         if ((length >= (MAX_LINE_LENGTH + MAX_LINE_LENGTH)) ||
+             ((end_ptr - msg_str) >= MAX_RET_MSG_LENGTH))
+         {
+            break;
+         }
       } while (*end_ptr != '\0');
       buf[header_length] = tmp_char;
    }
    (void)write(transfer_log_fd, buf, length);
+   errno = tmp_errno;
 
    return;
 }

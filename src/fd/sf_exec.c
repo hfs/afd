@@ -75,6 +75,9 @@ DESCR__E_M1
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs = 0,
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
@@ -369,8 +372,9 @@ main(int argc, char *argv[])
 #ifdef HAVE_SETPRIORITY
                                    sched_priority,
 #endif
-                                   job_str, (time_t)transfer_timeout, YES,
-                                   YES)) != 0)
+                                   job_str,
+                                   (fsa->protocol_options & TIMEOUT_TRANSFER) ? (time_t)transfer_timeout : 0L,
+                                   YES, YES)) != 0)
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
                             "Failed to execute command %s [Return code = %d]",
@@ -471,7 +475,8 @@ main(int argc, char *argv[])
 #ifdef HAVE_SETPRIORITY
                                 sched_priority,
 #endif
-                                job_str, (time_t)transfer_timeout,
+                                job_str,
+                                (fsa->protocol_options & TIMEOUT_TRANSFER) ? (time_t)transfer_timeout : 0L,
                                 YES, YES)) != 0) /* ie != SUCCESS */
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,

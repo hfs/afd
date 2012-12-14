@@ -67,6 +67,8 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
+/* Global variables. */
+unsigned int               special_flag = 0;
 int                        event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_retrieve_shown = 0,
@@ -123,6 +125,8 @@ main(int argc, char *argv[])
    off_t            file_size_retrieved = 0,
                     file_size_to_retrieve;
    clock_t          clktck;
+   time_t           end_transfer_time_file,
+                    start_transfer_time_file;
 #ifdef SA_FULLDUMP
    struct sigaction sact;
 #endif
@@ -463,6 +467,8 @@ main(int argc, char *argv[])
          {
             fsa->job_status[(int)db.job_no].no_of_files += files_to_retrieve;
             fsa->job_status[(int)db.job_no].file_size += file_size_to_retrieve;
+            files_to_retrieve_shown += files_to_retrieve;
+            file_size_to_retrieve_shown += file_size_to_retrieve;
 
             /* Number of connections. */
             fsa->connections += 1;
@@ -480,8 +486,6 @@ main(int argc, char *argv[])
 #else
             unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
 #endif
-            files_to_retrieve_shown += files_to_retrieve;
-            file_size_to_retrieve_shown += file_size_to_retrieve;
          }
 
          (void)gsf_check_fra();
@@ -595,6 +599,7 @@ main(int argc, char *argv[])
                      lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
 #endif
                      fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
+                     fsa->job_status[(int)db.job_no].no_of_files_done++;
                      fsa->job_status[(int)db.job_no].file_size_in_use = 0;
                      fsa->job_status[(int)db.job_no].file_size_in_use_done = 0;
 
@@ -660,6 +665,8 @@ main(int argc, char *argv[])
                   }
                   files_retrieved++;
                   file_size_retrieved += rl[i].size;
+
+                  continue;
                }
                else /* status == SUCCESS */
                {
@@ -747,6 +754,11 @@ main(int argc, char *argv[])
                   {
                      init_limit_transfer_rate();
                   }
+                  if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                  {
+                     start_transfer_time_file = time(NULL);
+                  }
+
                   do
                   {
                      if ((status = ftp_read(buffer, blocksize)) == INCORRECT)
@@ -802,6 +814,30 @@ main(int argc, char *argv[])
                         fsa->job_status[(int)db.job_no].file_size_in_use_done = bytes_done;
                         fsa->job_status[(int)db.job_no].file_size_done += status;
                         fsa->job_status[(int)db.job_no].bytes_send += status;
+                        if (fsa->protocol_options & TIMEOUT_TRANSFER)
+                        {
+                           end_transfer_time_file = time(NULL);
+                           if (end_transfer_time_file < start_transfer_time_file)
+                           {
+                              start_transfer_time_file = end_transfer_time_file;
+                           }
+                           else
+                           {
+                              if ((end_transfer_time_file - start_transfer_time_file) > transfer_timeout)
+                              {
+                                 trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+#if SIZEOF_TIME_T == 4
+                                           "Transfer timeout reached for `%s' after %ld seconds.",
+#else
+                                           "Transfer timeout reached for `%s' after %lld seconds.",
+#endif
+                                           fsa->job_status[(int)db.job_no].file_name_in_use,
+                                           (pri_time_t)(end_transfer_time_file - start_transfer_time_file));
+                                 (void)ftp_quit();
+                                 exit(STILL_FILES_TO_SEND);
+                              }
+                           }
+                        }
                      }
                   } while (status != 0);
 

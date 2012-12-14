@@ -501,9 +501,9 @@ main(int argc, char *argv[])
                }
 #endif
 #ifdef _WITH_SMTP_SUPPORT
-               if (((scheme & mask) || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))) &&
+               if ((((scheme & mask) == 0) || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))) &&
 #else
-               if ((scheme & mask) &&
+               if (((scheme & mask) == 0) &&
 #endif
                    (CHECK_STRCMP(uh_name, user) != 0))
                {
@@ -581,9 +581,9 @@ main(int argc, char *argv[])
                   }
 #endif
 #ifdef _WITH_SMTP_SUPPORT
-                  if (((scheme & mask) || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))) &&
+                  if ((((scheme & mask) == 0) || ((scheme & SMTP_FLAG) && (smtp_auth == SMTP_AUTH_NONE))) &&
 #else
-                  if ((scheme & mask) &&
+                  if (((scheme & mask) == 0) &&
 #endif
                       (CHECK_STRCMP(uh_name, user) != 0))
                   {
@@ -662,7 +662,7 @@ main(int argc, char *argv[])
       unsigned char tmp_passwd[MAX_USER_NAME_LENGTH],
                     *uptr;
 
-      scanf("%79s", tmp_passwd);
+      (void)scanf("%79s", tmp_passwd);
       uptr = tmp_passwd;
       while ((*uptr != '\0') && (i < (MAX_USER_NAME_LENGTH - 1)))
       {

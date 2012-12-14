@@ -364,6 +364,10 @@ check_input_line(char         *line,
    }
    else
    {
+# ifndef HAVE_GETLINE
+      register int i = 0;
+# endif
+
       if ((start_time_end != 0) && (ilog.input_time > start_time_end))
       {
          return(SEARCH_TIME_UP);

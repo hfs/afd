@@ -60,6 +60,8 @@ DESCR__S_M3
  **   28.04.2004 H.Kiehl Handle chunked reading.
  **   16.08.2006 H.Kiehl Added http_head() function.
  **   17.08.2006 H.Kiehl Added appending to http_get().
+ **   12.08.2012 H.Kiehl Use getaddrinfo() instead of gethostname() to
+ **                      support IPv6.
  */
 DESCR__E_M3
 
@@ -113,6 +115,7 @@ SSL                              *ssl_con = NULL;
 
 /* External global variables. */
 extern int                       timeout_flag;
+extern unsigned int              special_flag;
 extern char                      msg_str[];
 #ifdef LINUX
 extern char                      *h_errlist[];  /* for gethostbyname()   */
@@ -158,6 +161,129 @@ http_connect(char *hostname,
    int                length;
 #endif
    char               *p_hostname;
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
+   int                reply;
+   char               str_port[MAX_INT_LENGTH];
+   struct addrinfo    hints,
+                      *result,
+                      *rp;
+
+   if (http_proxy[0] == '\0')
+   {
+      p_hostname = hostname;
+   }
+   else
+   {
+      p_hostname = http_proxy;
+   }
+   (void)memset((struct addrinfo *) &hints, 0, sizeof(struct addrinfo));
+   hints.ai_family = (special_flag & DISABLE_IPV6_FLAG) ? AF_INET : AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+/* ???   hints.ai_flags = AI_CANONNAME; */
+
+   (void)sprintf(str_port, "%d", port);
+   reply = getaddrinfo(p_hostname, str_port, &hints, &result);
+   if (reply != 0)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                _("Failed to getaddrinfo() %s : %s"),
+                p_hostname, gai_strerror(reply));
+      return(INCORRECT);
+   }
+
+   /*
+    * getaddrinfo() returns a list of address structures.
+    * Try each address until we successfully connect(). If socket()
+    * (or connect()) fails, we (close the socket and) try the next
+    * address.
+    */
+   for (rp = result; rp != NULL; rp = rp->ai_next)
+   {
+      if ((http_fd = socket(rp->ai_family, rp->ai_socktype,
+                               rp->ai_protocol)) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(msg_str, _("socket() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
+         continue;
+      }
+
+      if (sndbuf_size > 0)
+      {
+         if (setsockopt(http_fd, SOL_SOCKET, SO_SNDBUF,
+                        (char *)&sndbuf_size, sizeof(sndbuf_size)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                      _("setsockopt() error : %s"), strerror(errno));
+         }
+         hmr.sndbuf_size = sndbuf_size;
+      }
+      else
+      {
+         hmr.sndbuf_size = 0;
+      }
+      if (rcvbuf_size > 0)
+      {
+         if (setsockopt(http_fd, SOL_SOCKET, SO_RCVBUF,
+                        (char *)&rcvbuf_size, sizeof(rcvbuf_size)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                      _("setsockopt() error : %s"), strerror(errno));
+         }
+         hmr.rcvbuf_size = rcvbuf_size;
+      }
+      else
+      {
+         hmr.rcvbuf_size = 0;
+      }
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      if (timeout_flag != OFF)
+      {
+         reply = 1;
+         if (setsockopt(http_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                      _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
+         }
+#  ifdef TCP_KEEPALIVE
+         reply = timeout_flag;
+         if (setsockopt(http_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
+                        sizeof(reply)) < 0)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                      _("setsockopt() TCP_KEEPALIVE error : %s"),
+                      strerror(errno));
+         }
+#  endif
+         timeout_flag = OFF;
+      }
+# endif
+
+      if (connect(http_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      {
+# ifdef WITH_TRACE
+         length = sprintf(msg_str, _("connect() error : %s"), strerror(errno));
+         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+# endif
+         (void)close(http_fd);
+         continue;
+      }
+
+      break; /* Success */
+   }
+
+   /* Ensure that we succeeded in finding an address. */
+   if (rp == NULL)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      return(INCORRECT);
+   }
+
+   freeaddrinfo(result);
+#else
    struct sockaddr_in sin;
 
    if (http_proxy[0] == '\0')
@@ -175,10 +301,10 @@ http_connect(char *hostname,
 
       if ((p_host = gethostbyname(p_hostname)) == NULL)
       {
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
          {
-#ifdef LINUX
+# ifdef LINUX
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
@@ -191,21 +317,21 @@ http_connect(char *hostname,
                          _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                          p_hostname, h_errno, strerror(errno));
             }
-#else
+# else
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
                       _("Failed to gethostbyname() %s (h_errno = %d) : %s"),
                       p_hostname, h_errno, strerror(errno));
-#endif
+# endif
          }
          else
          {
-#endif /* !_HPUX && !_SCO */
+# endif /* !_HPUX && !_SCO */
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
                       _("Failed to gethostbyname() %s : %s"),
                       p_hostname, strerror(errno));
-#if !defined (_HPUX) && !defined (_SCO)
+# if !defined (_HPUX) && !defined (_SCO)
          }
-#endif
+# endif
          return(INCORRECT);
       }
 
@@ -250,7 +376,7 @@ http_connect(char *hostname,
    {
       hmr.rcvbuf_size = 0;
    }
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    if (timeout_flag != OFF)
    {
       int reply = 1;
@@ -261,7 +387,7 @@ http_connect(char *hostname,
          trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
                    _("setsockopt() SO_KEEPALIVE error : %s"), strerror(errno));
       }
-# ifdef TCP_KEEPALIVE
+#  ifdef TCP_KEEPALIVE
       reply = timeout_flag;
       if (setsockopt(http_fd, IPPROTO_IP, TCP_KEEPALIVE, (char *)&reply,
                      sizeof(reply)) < 0)
@@ -269,32 +395,32 @@ http_connect(char *hostname,
          trans_log(WARN_SIGN, __FILE__, __LINE__, "http_connect", NULL,
                    _("setsockopt() TCP_KEEPALIVE error : %s"), strerror(errno));
       }
-# endif
+#  endif
       timeout_flag = OFF;
    }
-#endif
+# endif
 
    if (connect(http_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-#ifdef ETIMEDOUT
+# ifdef ETIMEDOUT
       if (errno == ETIMEDOUT)
       {
          timeout_flag = ON;
       }
-# ifdef ECONNREFUSED
+#  ifdef ECONNREFUSED
       else if (errno == ECONNREFUSED)
            {
               timeout_flag = CON_REFUSED;
            }
-# endif
-#else
-# ifdef ECONNREFUSED
+#  endif
+# else
+#  ifdef ECONNREFUSED
       if (errno == ECONNREFUSED)
       {
          timeout_flag = CON_REFUSED;
       }
+#  endif
 # endif
-#endif
       trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
                 _("Failed to connect() to %s : %s"),
                 p_hostname, strerror(errno));
@@ -302,6 +428,7 @@ http_connect(char *hostname,
       http_fd = -1;
       return(INCORRECT);
    }
+#endif
 #ifdef WITH_TRACE
    if (http_proxy[0] == '\0')
    {
@@ -617,13 +744,20 @@ retry_get:
          if (((reply = get_http_reply(&hmr.bytes_buffered)) == 200) ||
              (reply == 204)) /* No content. */
          {
-            if (hmr.chunked == YES)
+            if ((filename[0] != '\0') && (hmr.content_length == 0))
             {
-               reply = CHUNKED;
+               reply = NOTHING_TO_FETCH;
             }
             else
             {
-               reply = SUCCESS;
+               if (hmr.chunked == YES)
+               {
+                  reply = CHUNKED;
+               }
+               else
+               {
+                  reply = SUCCESS;
+               }
             }
             if ((*content_length != hmr.content_length) &&
                 (hmr.content_length != 0))

@@ -103,7 +103,8 @@ DESCR__E_M3
 #include <stdio.h>                 /* fprintf(), sprintf()               */
 #include <string.h>                /* strcmp(), strcpy(), strerror()     */
 #include <stdlib.h>                /* exit()                             */
-#include <unistd.h>                /* write(), read(), lseek(), close()  */
+#include <unistd.h>                /* write(), read(), lseek(), close(), */
+                                   /* access()                           */
 #ifdef _WITH_PTHREAD
 # include <pthread.h>
 #endif
@@ -126,6 +127,9 @@ DESCR__E_M3
 extern int                        afd_file_dir_length,
                                   amg_counter_fd,
                                   fra_fd; /* Needed by ABS_REDUCE_QUEUE()*/
+#ifdef HAVE_HW_CRC32
+extern int                        have_hw_crc32;
+#endif
 #ifdef _POSIX_SAVED_IDS
 extern int                        no_of_sgids;
 extern uid_t                      afd_uid;
@@ -631,6 +635,8 @@ check_files(struct directory_entry *p_de,
          /* Sure it is a normal file? */
          if (S_ISREG(stat_buf.st_mode))
          {
+            size_t file_name_length = strlen(p_dir->d_name);
+
             files_in_dir++;
             bytes_in_dir += stat_buf.st_size;
             if ((count_files == NO) || /* Paused dir. */
@@ -684,7 +690,7 @@ check_files(struct directory_entry *p_de,
                         p_dummy_job_id = &dummy_job_id;
                         dummy_proc_cycles = 0;
                         dis_log(DISABLED_DIS_TYPE, current_time, p_de->dir_id,
-                                0, p_dir->d_name, strlen(p_dir->d_name),
+                                0, p_dir->d_name, file_name_length,
                                 stat_buf.st_size, 1, &p_dummy_job_id,
                                 &dummy_proc_cycles, 1);
 #endif
@@ -699,7 +705,7 @@ check_files(struct directory_entry *p_de,
                         *dl.input_time = current_time;
                         *dl.split_job_counter = 0;
                         *dl.unique_number = 0;
-                        *dl.file_name_length = strlen(p_dir->d_name);
+                        *dl.file_name_length = file_name_length;
                         dl_real_size = *dl.file_name_length + dl.size +
                                        sprintf((dl.file_name + *dl.file_name_length + 1),
                                                "%s%c(%s %d)",
@@ -728,7 +734,12 @@ check_files(struct directory_entry *p_de,
                          (((is_duplicate = isdup(fullname, stat_buf.st_size,
                                                  p_de->dir_id,
                                                  fra[p_de->fra_pos].dup_check_timeout,
-                                                 fra[p_de->fra_pos].dup_check_flag, NO)) == NO) ||
+                                                 fra[p_de->fra_pos].dup_check_flag,
+                                                 NO,
+# ifdef HAVE_HW_CRC32
+                                                 have_hw_crc32,
+# endif
+                                                 YES, NO)) == NO) ||
                           (((fra[p_de->fra_pos].dup_check_flag & DC_DELETE) == 0) &&
                            ((fra[p_de->fra_pos].dup_check_flag & DC_STORE) == 0))))
                      {
@@ -869,17 +880,16 @@ check_files(struct directory_entry *p_de,
 
                               if (errno == ENOENT)
                               {
-                                 int         tmp_errno = errno;
-                                 char        tmp_char = *ptr;
-                                 struct stat tmp_stat_buf;
+                                 int  tmp_errno = errno;
+                                 char tmp_char = *ptr;
 
                                  *ptr = '\0';
-                                 if ((stat(fullname, &tmp_stat_buf) == -1) &&
+                                 if ((access(fullname, F_OK) == -1) &&
                                      (errno == ENOENT))
                                  {
                                     (void)strcpy(reason_str, "(source missing) ");
                                  }
-                                 else if ((stat(tmp_file_dir, &tmp_stat_buf) == -1) &&
+                                 else if ((access(tmp_file_dir, F_OK) == -1) &&
                                           (errno == ENOENT))
                                       {
                                          (void)strcpy(reason_str,
@@ -941,7 +951,12 @@ check_files(struct directory_entry *p_de,
                                  (void)isdup(fullname, stat_buf.st_size,
                                              p_de->dir_id,
                                              fra[p_de->fra_pos].dup_check_timeout,
-                                             fra[p_de->fra_pos].dup_check_flag, YES);
+                                             fra[p_de->fra_pos].dup_check_flag,
+                                             YES,
+# ifdef HAVE_HW_CRC32
+                                             have_hw_crc32,
+# endif
+                                             YES, NO);
                               }
 #endif
                            }
@@ -1055,7 +1070,7 @@ check_files(struct directory_entry *p_de,
                               {
                                  p_de->rl[rl_pos].retrieved = YES;
                               }
-                              file_length_pool[files_copied] = strlen(p_dir->d_name);
+                              file_length_pool[files_copied] = file_name_length;
                               (void)memcpy(file_name_pool[files_copied],
                                            p_dir->d_name,
                                            (size_t)(file_length_pool[files_copied] + 1));
@@ -1121,7 +1136,7 @@ check_files(struct directory_entry *p_de,
                               *il_time = current_time;
                               *il_dir_number = p_de->dir_id;
                               *il_unique_number = *unique_number;
-                              il_real_size = strlen(p_dir->d_name) + il_size;
+                              il_real_size = file_name_length + il_size;
                               if (write(il_fd, il_data, il_real_size) != il_real_size)
                               {
                                  system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1158,7 +1173,7 @@ check_files(struct directory_entry *p_de,
                                  dummy_proc_cycles = 0;
                                  dis_log(DUPCHECK_DIS_TYPE, current_time,
                                          p_de->dir_id, *unique_number,
-                                         p_dir->d_name, strlen(p_dir->d_name),
+                                         p_dir->d_name, file_name_length,
                                          stat_buf.st_size, 1, &p_dummy_job_id,
                                          &dummy_proc_cycles, 1);
 # endif
@@ -1173,19 +1188,7 @@ check_files(struct directory_entry *p_de,
                                  *dl.input_time = current_time;
                                  *dl.split_job_counter = split_job_counter;
                                  *dl.unique_number = *unique_number;
-#  ifdef _INPUT_LOG
-                                 if ((count_files == YES) ||
-                                     (count_files == PAUSED_REMOTE))
-                                 {
-                                    *dl.file_name_length = il_real_size - il_size;
-                                 }
-                                 else
-                                 {
-                                    *dl.file_name_length = strlen(p_dir->d_name);
-                                 }
-#  else
-                                 *dl.file_name_length = strlen(p_dir->d_name);
-#  endif
+                                 *dl.file_name_length = file_name_length;
                                  dl_real_size = *dl.file_name_length + dl.size +
                                                 sprintf((dl.file_name + *dl.file_name_length + 1),
                                                         "%s%c(%s %d)",
@@ -1275,7 +1278,7 @@ check_files(struct directory_entry *p_de,
                      *dl.input_time = 0L;
                      *dl.split_job_counter = 0;
                      *dl.unique_number = 0;
-                     *dl.file_name_length = strlen(p_dir->d_name);
+                     *dl.file_name_length = file_name_length;
                      dl_real_size = *dl.file_name_length + dl.size +
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
 # if SIZEOF_TIME_T == 4
@@ -1345,6 +1348,8 @@ check_files(struct directory_entry *p_de,
          /* Sure it is a normal file? */
          if (S_ISREG(stat_buf.st_mode))
          {
+            size_t file_name_length = strlen(p_dir->d_name);
+
             files_in_dir++;
             bytes_in_dir += stat_buf.st_size;
             if ((count_files == NO) || /* Paused dir. */
@@ -1398,7 +1403,7 @@ check_files(struct directory_entry *p_de,
                         p_dummy_job_id = &dummy_job_id;
                         dummy_proc_cycles = 0;
                         dis_log(DISABLED_DIS_TYPE, current_time, p_de->dir_id,
-                                0, p_dir->d_name, strlen(p_dir->d_name),
+                                0, p_dir->d_name, file_name_length,
                                 stat_buf.st_size, 1, &p_dummy_job_id,
                                 &dummy_proc_cycles, 1);
 #endif
@@ -1413,7 +1418,7 @@ check_files(struct directory_entry *p_de,
                         *dl.input_time = current_time;
                         *dl.split_job_counter = 0;
                         *dl.unique_number = 0;
-                        *dl.file_name_length = strlen(p_dir->d_name);
+                        *dl.file_name_length = file_name_length;
                         dl_real_size = *dl.file_name_length + dl.size +
                                        sprintf((dl.file_name + *dl.file_name_length + 1),
                                                "%s%c(%s %d)",
@@ -1461,7 +1466,12 @@ check_files(struct directory_entry *p_de,
                                                           stat_buf.st_size,
                                                           p_de->dir_id,
                                                           fra[p_de->fra_pos].dup_check_timeout,
-                                                          fra[p_de->fra_pos].dup_check_flag, NO)) == NO) ||
+                                                          fra[p_de->fra_pos].dup_check_flag,
+                                                          NO,
+# ifdef HAVE_HW_CRC32
+                                                          have_hw_crc32,
+# endif
+                                                          YES, NO)) == NO) ||
                                    (((fra[p_de->fra_pos].dup_check_flag & DC_DELETE) == 0) &&
                                     ((fra[p_de->fra_pos].dup_check_flag & DC_STORE) == 0))))
                               {
@@ -1607,17 +1617,16 @@ check_files(struct directory_entry *p_de,
 
                                        if (errno == ENOENT)
                                        {
-                                          int         tmp_errno = errno;
-                                          char        tmp_char = *ptr;
-                                          struct stat tmp_stat_buf;
+                                          int  tmp_errno = errno;
+                                          char tmp_char = *ptr;
 
                                           *ptr = '\0';
-                                          if ((stat(fullname, &tmp_stat_buf) == -1) &&
+                                          if ((access(fullname, F_OK) == -1) &&
                                               (errno == ENOENT))
                                           {
                                              (void)strcpy(reason_str, "(source missing) ");
                                           }
-                                          else if ((stat(tmp_file_dir, &tmp_stat_buf) == -1) &&
+                                          else if ((access(tmp_file_dir, F_OK) == -1) &&
                                                    (errno == ENOENT))
                                                {
                                                   (void)strcpy(reason_str,
@@ -1679,7 +1688,12 @@ check_files(struct directory_entry *p_de,
                                           (void)isdup(fullname, stat_buf.st_size,
                                                       p_de->dir_id,
                                                       fra[p_de->fra_pos].dup_check_timeout,
-                                                      fra[p_de->fra_pos].dup_check_flag, YES);
+                                                      fra[p_de->fra_pos].dup_check_flag,
+                                                      YES,
+# ifdef HAVE_HW_CRC32
+                                                      have_hw_crc32,
+# endif
+                                                      YES, NO);
 
                                           /*
                                            * We must set gotcha to yes, otherwise
@@ -1797,7 +1811,7 @@ check_files(struct directory_entry *p_de,
 # endif
                                        }
 #endif
-                                       file_length_pool[files_copied] = strlen(p_dir->d_name);
+                                       file_length_pool[files_copied] = file_name_length;
                                        (void)memcpy(file_name_pool[files_copied],
                                                     p_dir->d_name,
                                                     (size_t)(file_length_pool[files_copied] + 1));
@@ -1874,7 +1888,7 @@ check_files(struct directory_entry *p_de,
                                        *il_time = current_time;
                                        *il_dir_number = p_de->dir_id;
                                        *il_unique_number = *unique_number;
-                                       il_real_size = strlen(p_dir->d_name) + il_size;
+                                       il_real_size = file_name_length + il_size;
                                        if (write(il_fd, il_data, il_real_size) != il_real_size)
                                        {
                                           system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1913,7 +1927,7 @@ check_files(struct directory_entry *p_de,
                                           dis_log(DUPCHECK_DIS_TYPE, current_time,
                                                   p_de->dir_id, *unique_number,
                                                   p_dir->d_name,
-                                                  strlen(p_dir->d_name),
+                                                  file_name_length,
                                                   stat_buf.st_size, 1,
                                                   &p_dummy_job_id,
                                                   &dummy_proc_cycles, 1);
@@ -1929,19 +1943,7 @@ check_files(struct directory_entry *p_de,
                                           *dl.input_time = current_time;
                                           *dl.split_job_counter = split_job_counter;
                                           *dl.unique_number = *unique_number;
-#  ifdef _INPUT_LOG
-                                          if ((count_files == YES) ||
-                                              (count_files == PAUSED_REMOTE))
-                                          {
-                                             *dl.file_name_length = il_real_size - il_size;
-                                          }
-                                          else
-                                          {
-                                             *dl.file_name_length = strlen(p_dir->d_name);
-                                          }
-#  else
-                                          *dl.file_name_length = strlen(p_dir->d_name);
-#  endif
+                                          *dl.file_name_length = file_name_length;
                                           dl_real_size = *dl.file_name_length + dl.size +
                                                          sprintf((dl.file_name + *dl.file_name_length + 1),
                                                                  "%s%c(%s %d)",
@@ -2055,7 +2057,7 @@ check_files(struct directory_entry *p_de,
                               *dl.input_time = 0L;
                               *dl.split_job_counter = 0;
                               *dl.unique_number = 0;
-                              *dl.file_name_length = strlen(p_dir->d_name);
+                              *dl.file_name_length = file_name_length;
                               dl_real_size = *dl.file_name_length + dl.size +
                                              sprintf((dl.file_name + *dl.file_name_length + 1),
 # if SIZEOF_TIME_T == 4
@@ -2111,7 +2113,7 @@ check_files(struct directory_entry *p_de,
                      *dl.input_time = 0L;
                      *dl.split_job_counter = 0;
                      *dl.unique_number = 0;
-                     *dl.file_name_length = strlen(p_dir->d_name);
+                     *dl.file_name_length = file_name_length;
                      dl_real_size = *dl.file_name_length + dl.size +
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
 # if SIZEOF_TIME_T == 4
@@ -2174,6 +2176,10 @@ done:
                  _("Failed  to closedir() `%s' : %s"),
                  src_file_path, strerror(errno));
    }
+
+#ifdef WITH_DUP_CHECK
+   isdup_detach();
+#endif
 
    if (p_de->rl_fd > -1)
    {

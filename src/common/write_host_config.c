@@ -300,6 +300,7 @@ DESCR__E_M3
 #                                           suffix.\n\
 #                          5 (16)         - Checksum of filename and size.\n\
 #                          16(32768)      - Do a CRC32 checksum.\n\
+#                          17(65536)      - Do a CRC32C checksum.\n\
 #                          24(8388608)    - Delete the file.\n\
 #                          25(16777216)   - Store the duplicate file.\n\
 #                          26(33554432)   - Warn in SYSTEM_LOG.\n\
@@ -373,7 +374,8 @@ write_host_config(int              no_of_hosts,
 #endif
                              2],                    /* \n and \0         */
                  *new_name,
-                 *ptr;
+                 *ptr,
+                 tmp_real_hostname[2][MAX_REAL_HOSTNAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH];
    struct stat   stat_buf;
 
    if ((lock_fd = lock_file(host_config_file, ON)) == INCORRECT)
@@ -448,6 +450,8 @@ write_host_config(int              no_of_hosts,
    /* Commit data line by line. */
    for (i = 0; i < no_of_hosts; i++)
    {
+      store_real_hostname(tmp_real_hostname[0], p_hl[i].real_hostname[0]);
+      store_real_hostname(tmp_real_hostname[1], p_hl[i].real_hostname[1]);
       length = sprintf(line_buffer,
 #ifdef WITH_DUP_CHECK
 # if SIZEOF_TIME_T == 4
@@ -463,8 +467,8 @@ write_host_config(int              no_of_hosts,
 # endif
 #endif
                        p_hl[i].host_alias,
-                       p_hl[i].real_hostname[0],
-                       p_hl[i].real_hostname[1],
+                       tmp_real_hostname[0],
+                       tmp_real_hostname[1],
                        p_hl[i].host_toggle_str,
                        p_hl[i].proxy_name,
                        p_hl[i].allowed_transfers,

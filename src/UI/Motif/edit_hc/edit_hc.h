@@ -66,6 +66,8 @@
 # define DC_STORE_SEL           11
 # define ALIAS_DUPCHECK_SEL     12
 # define RECIPIENT_DUPCHECK_SEL 13
+# define CRC32_DUPCHECK_SEL     14
+# define CRC32C_DUPCHECK_SEL    15
 #endif
 
 #define MAX_TB_BUTTONS          15
@@ -132,17 +134,19 @@
 #define DO_NOT_DELETE_DATA_CHANGED    64
 #ifdef WITH_DUP_CHECK
 # define DC_REF_CHANGED               128
+# define DC_CRC_CHANGED               256
 #endif
-#define USE_SEQUENCE_LOCKING_CHANGED  256
-#define WARN_TIME_DAYS_CHANGED        512
-#define WARN_TIME_HOURS_CHANGED       1024
-#define WARN_TIME_MINS_CHANGED        2048
-#define WARN_TIME_SECS_CHANGED        4096
-#define COMPRESION_CHANGED            8192
-#define KEEP_TIME_STAMP_CHANGED       16384
-#define SORT_FILE_NAMES_CHANGED       32768
-#define NO_AGEING_JOBS_CHANGED        65536
-#define CHECK_SIZE_CHANGED            131072
+#define USE_SEQUENCE_LOCKING_CHANGED  512
+#define WARN_TIME_DAYS_CHANGED        1024
+#define WARN_TIME_HOURS_CHANGED       2048
+#define WARN_TIME_MINS_CHANGED        4096
+#define WARN_TIME_SECS_CHANGED        8192
+#define COMPRESION_CHANGED            16384
+#define KEEP_TIME_STAMP_CHANGED       32768
+#define SORT_FILE_NAMES_CHANGED       65536
+#define NO_AGEING_JOBS_CHANGED        131072
+#define CHECK_SIZE_CHANGED            262144
+#define TIMEOUT_TRANSFER_CHANGED      524288
 
 /* Structure holding all changed entries of one host. */
 struct changed_entry
@@ -204,6 +208,7 @@ extern int  remove_host(char *);
 extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             close_button(Widget, XtPointer, XtPointer),
 #ifdef WITH_DUP_CHECK
+            dc_crc_radio_button(Widget, XtPointer, XtPointer),
             dc_ref_radio_button(Widget, XtPointer, XtPointer),
             dc_type_radio_button(Widget, XtPointer, XtPointer),
             edc_radio_button(Widget, XtPointer, XtPointer),
