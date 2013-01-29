@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -86,6 +86,9 @@ DESCR__E_M1
                                    /* exit(), abort()                    */
 #include <time.h>                  /* time(), strftime()                 */
 #include <sys/types.h>
+#ifdef HAVE_WAIT4
+# include <sys/resource.h>         /* struct rusage                      */
+#endif
 #include <sys/wait.h>              /* waitpid()                          */
 #include <sys/stat.h>
 #include <sys/time.h>              /* struct timeval                     */
