@@ -799,6 +799,10 @@ ftp_ssl_init(char type)
                }
             }
          }
+         else
+         {
+            reply = INCORRECT;
+         }
       }
    }
 

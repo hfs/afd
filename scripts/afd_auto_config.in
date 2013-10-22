@@ -64,9 +64,9 @@ fi
 
 if [ ! -f $AFD_WORK_DIR/etc/afd.name ]
 then
-   if [ -f @prefix@/etc/afd.users.sample ]
+   if [ -f @prefix@/etc/afd.name.sample ]
    then
-      if [ ! -f $AFD_WORK_DIR/etc/afd.users.sample ]
+      if [ ! -f $AFD_WORK_DIR/etc/afd.name.sample ]
       then
          cp @prefix@/etc/afd.name.sample $AFD_WORK_DIR/etc
       fi
