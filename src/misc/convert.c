@@ -1,6 +1,6 @@
 /*
  *  convert.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,12 @@ DESCR__S_M3
  **   convert - converts a file from one format to another
  **
  ** SYNOPSIS
- **   int convert(char *file_path, char *file_name, int type, off_t *file_size)
+ **   int convert(char         *file_path,
+ **               char         *file_name,
+ **               int          type,
+ **               int          nnn_length,
+ **               unsigned int job_id,
+ **               off_t        *file_size)
  **
  ** DESCRIPTION
  **   The function converts the file from one format to another. The
@@ -74,6 +79,8 @@ DESCR__S_M3
  **   19.11.2008 H.Kiehl Added unix2dos, dos2unix, lf2crcrlf and crcrlf2lf.
  **   29.06.2011 H.Kiehl For sohetx, if it already contains SOH and ETX,
  **                      do not create a new file of zero length.
+ **   06.08.2013 H.Kiehl Added option to add WMO nnn counter to SOHETX2WMO0,
+ **                      SOHETX2WMO1, SOHETX, SOHETXWMO and ONLY_WMO.
  **
  */
 DESCR__E_M3
@@ -96,18 +103,51 @@ DESCR__E_M3
 # define MAP_FILE 0  /* All others do not need it */
 #endif
 
+/* Macro definition that clears things when we call return(). */
+#ifdef HAVE_MMAP
+#define CONVERT_CLEAN_UP()                                  \
+        {                                                   \
+           (void)close(from_fd);                            \
+           (void)munmap((void *)src_ptr, stat_buf.st_size); \
+           if (nnn_length > 0)                              \
+           {                                                \
+              close_counter_file(counter_fd, &counter);     \
+           }                                                \
+        }
+#else
+#define CONVERT_CLEAN_UP()                              \
+        {                                               \
+           (void)close(from_fd);                        \
+           (void)munmap_emu((void *)src_ptr);           \
+           if (nnn_length > 0)                          \
+           {                                            \
+              close_counter_file(counter_fd, &counter); \
+           }                                            \
+        }
+#endif
+
+/* External global variables. */
+extern char *p_work_dir;
+
 /* Local function prototypes. */
-static int crcrlf2lf(char *, char *, off_t *, off_t *),
-           dos2unix(char *, char *, off_t *, off_t *),
-           lf2crcrlf(char *, char *, off_t *, off_t *),
-           unix2dos(char *, char *, off_t *, off_t *);
+static int  crcrlf2lf(char *, char *, off_t *, off_t *),
+            dos2unix(char *, char *, off_t *, off_t *),
+            lf2crcrlf(char *, char *, off_t *, off_t *),
+            unix2dos(char *, char *, off_t *, off_t *);
 
 
 /*############################### convert() #############################*/
 int
-convert(char *file_path, char *file_name, int type, off_t *file_size)
+convert(char         *file_path,
+        char         *file_name,
+        int          type,
+        int          nnn_length,
+        unsigned int job_id,
+        off_t        *file_size)
 {
-   int   no_change = NO;
+   int   *counter,
+         counter_fd,
+         no_change = NO;
    off_t new_length = 0,
          orig_size = 0;
    char  fullname[MAX_PATH_LENGTH],
@@ -153,7 +193,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
         }
         else
         {
-           int         from_fd,
+           int         add_nnn_length,
+                       from_fd,
                        to_fd;
            char        *src_ptr;
            struct stat stat_buf;
@@ -203,11 +244,43 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
               return(INCORRECT);
            }
 
+           if (nnn_length > 0)
+           {
+              char counter_file[MAX_FILENAME_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+              (void)snprintf(counter_file, MAX_FILENAME_LENGTH, "%s.%x",
+#else
+              (void)sprintf(counter_file, "%s.%x",
+#endif
+                            NNN_FILE, job_id);
+
+              /* Open counter file. */
+              if ((counter_fd = open_counter_file(counter_file, &counter)) == -1)
+              {
+                 receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                             _("Failed to open counter file %s"),
+                             counter_file);
+                 (void)close(from_fd);
+#ifdef HAVE_MMAP
+                 (void)munmap((void *)src_ptr, stat_buf.st_size);
+#else
+                 (void)munmap_emu((void *)src_ptr);
+#endif
+                 return(INCORRECT);
+              }
+              add_nnn_length = nnn_length + 3;
+           }
+           else
+           {
+              add_nnn_length = 0;
+           }
 
            switch (type)
            {
               case SOHETX :
-                 if ((*src_ptr != 1) && (*(src_ptr + stat_buf.st_size - 1) != 3))
+                 if ((*src_ptr != 1) &&
+                     (*(src_ptr + stat_buf.st_size - 1) != 3))
                  {
                     char buffer[4];
 
@@ -217,12 +290,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to open() %s : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
+                       CONVERT_CLEAN_UP();
                        return(INCORRECT);
                     }
                     buffer[0] = 1;
@@ -234,16 +302,32 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to write() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += 4;
+
+                    if (nnn_length > 0)
+                    {
+                       int  add_length;
+                       char nnn[MAX_INT_LENGTH + 3 + 1];
+
+                       (void)next_counter(counter_fd, counter,
+                                          my_power(10, nnn_length) - 1);
+                       add_length = sprintf(nnn, "%0*d\r\r\n",
+                                            nnn_length, *counter);
+                       if (write(to_fd, nnn, add_length) != add_length)
+                       {
+                          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Failed to write() to `%s' : %s"),
+                                      new_name, strerror(errno));
+                          CONVERT_CLEAN_UP();
+                          (void)close(to_fd);
+                          return(INCORRECT);
+                       }
+                       new_length += add_length;
+                    }
 
                     if (writen(to_fd, src_ptr, stat_buf.st_size,
                                stat_buf.st_blksize) != stat_buf.st_size)
@@ -251,13 +335,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to writen() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += stat_buf.st_size;
@@ -270,13 +349,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to write() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += 4;
@@ -299,12 +373,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to open() %s : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
+                       CONVERT_CLEAN_UP();
                        return(INCORRECT);
                     }
 
@@ -318,11 +387,11 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                         (*(src_ptr + stat_buf.st_size - 1) == 3))
                     {
                        offset = 4;
-                       size = stat_buf.st_size - 8;
+                       size = stat_buf.st_size - 8 + add_nnn_length;
                     }
                     else
                     {
-                       size = stat_buf.st_size;
+                       size = stat_buf.st_size + add_nnn_length;
                        offset = 0;
                     }
                     if (size > 99999999)
@@ -338,7 +407,11 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                     }
                     else
                     {
+#ifdef HAVE_SNPRINTF
+                       (void)snprintf(length_indicator, 10, "%08lu",
+#else
                        (void)sprintf(length_indicator, "%08lu",
+#endif
                                      (unsigned long)size);
                     }
                     length_indicator[8] = '0';
@@ -348,16 +421,35 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to write() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += 10;
+
+                    if (nnn_length > 0)
+                    {
+                       int  add_length;
+                       char nnn[3 + MAX_INT_LENGTH + 1];
+
+                       (void)next_counter(counter_fd, counter,
+                                          my_power(10, nnn_length) - 1);
+                       nnn[0] = 13;
+                       nnn[1] = 13;
+                       nnn[2] = 10;
+                       add_length = sprintf(&nnn[3], "%0*d",
+                                            nnn_length, *counter);
+                       if (write(to_fd, nnn, add_length) != add_length)
+                       {
+                          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Failed to write() to `%s' : %s"),
+                                      new_name, strerror(errno));
+                          CONVERT_CLEAN_UP();
+                          (void)close(to_fd);
+                          return(INCORRECT);
+                       }
+                       new_length += add_length;
+                    }
 
                     if (writen(to_fd, (src_ptr + offset), size,
                                stat_buf.st_blksize) != size)
@@ -365,13 +457,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to writen() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += size;
@@ -393,12 +480,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to open() %s : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
+                       CONVERT_CLEAN_UP();
                        return(INCORRECT);
                     }
 
@@ -557,7 +639,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                end_offset = 0;
                             }
                     }
-                    if ((stat_buf.st_size - front_offset - end_offset + additional_length) > 99999999)
+                    if ((stat_buf.st_size - front_offset - end_offset + additional_length + add_nnn_length) > 99999999)
                     {
                        (void)strcpy(length_indicator, "99999999");
                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
@@ -570,8 +652,12 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                     }
                     else
                     {
+#ifdef HAVE_SNPRINTF
+                       (void)snprintf(length_indicator, 14, "%08lu",
+#else
                        (void)sprintf(length_indicator, "%08lu",
-                                     (unsigned long)stat_buf.st_size - front_offset - end_offset + additional_length);
+#endif
+                                     (unsigned long)stat_buf.st_size - front_offset - end_offset + additional_length + add_nnn_length);
                     }
                     length_indicator[8] = '0';
                     length_indicator[9] = '0';
@@ -581,16 +667,32 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to writen() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += length;
+
+                    if (nnn_length > 0)
+                    {
+                       int  add_length;
+                       char nnn[MAX_INT_LENGTH + 3 + 1];
+
+                       (void)next_counter(counter_fd, counter,
+                                          my_power(10, nnn_length) - 1);
+                       add_length = sprintf(nnn, "%0*d\r\r\n",
+                                            nnn_length, *counter);
+                       if (write(to_fd, nnn, add_length) != add_length)
+                       {
+                          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                      _("Failed to write() to `%s' : %s"),
+                                      new_name, strerror(errno));
+                          CONVERT_CLEAN_UP();
+                          (void)close(to_fd);
+                          return(INCORRECT);
+                       }
+                       new_length += add_length;
+                    }
 
                     write_length = stat_buf.st_size - (front_offset + end_offset);
                     if (writen(to_fd, src_ptr + front_offset, write_length,
@@ -599,13 +701,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to writen() to `%s' : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
                        return(INCORRECT);
                     }
                     new_length += write_length;
@@ -623,13 +720,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                           receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                       _("Failed to write() to `%s' : %s"),
                                       new_name, strerror(errno));
-                          (void)close(from_fd);
+                          CONVERT_CLEAN_UP();
                           (void)close(to_fd);
-#ifdef HAVE_MMAP
-                          (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                          (void)munmap_emu((void *)src_ptr);
-#endif
                           return(INCORRECT);
                        }
                        new_length += 4;
@@ -642,7 +734,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                  {
                     int    add_sohcrcrlf;
                     size_t length;
-                    char   length_indicator[14],
+                    char   length_indicator[14 + MAX_INT_LENGTH + 3],
                            *ptr,
                            *ptr_start;
 
@@ -652,12 +744,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to open() %s : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
+                       CONVERT_CLEAN_UP();
                        return(INCORRECT);
                     }
 
@@ -755,7 +842,8 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
 
                           if (*ptr == 3)
                           {
-                             int end_length,
+                             int add_offset = 0,
+                                 end_length,
                                  start_length;
 
                              if (type == SOHETX2WMO1)
@@ -806,7 +894,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                         length -= 1;
                                      }
                              }
-                             if ((length + end_length) > 99999999)
+                             if ((length + end_length + add_nnn_length) > 99999999)
                              {
                                 (void)strcpy(length_indicator, "99999999");
                                 receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
@@ -819,8 +907,13 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                              }
                              else
                              {
-                                 (void)sprintf(length_indicator, "%08lu",
-                                               (unsigned long)(length + end_length));
+#ifdef HAVE_SNPRINTF
+                                 (void)snprintf(length_indicator, 14,
+#else
+                                 (void)sprintf(length_indicator,
+#endif
+                                               "%08lu",
+                                               (unsigned long)(length + end_length + add_nnn_length));
                              }
                              length_indicator[8] = '0';
                              if (write(to_fd, length_indicator,
@@ -829,17 +922,53 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                 receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                             _("Failed to write() to `%s' : %s"),
                                             new_name, strerror(errno));
-                                (void)close(from_fd);
+                                CONVERT_CLEAN_UP();
                                 (void)close(to_fd);
                                 return(INCORRECT);
                              }
-                             if (writen(to_fd, ptr_start, length,
-                                        stat_buf.st_blksize) != length)
+                             if (nnn_length > 0)
+                             {
+                                int  add_length;
+                                char nnn[MAX_INT_LENGTH + 3 + 1];
+
+                                (void)next_counter(counter_fd, counter,
+                                                   my_power(10, nnn_length) - 1);
+                                if (add_sohcrcrlf == YES)
+                                {
+                                   add_length = sprintf(nnn, "%0*d\r\r\n",
+                                                        nnn_length, *counter);
+                                }
+                                else
+                                {
+                                   if (*ptr_start == 1)
+                                   {
+                                      nnn[0] = 1;
+                                      add_offset = 1;
+                                   }
+                                   add_length = sprintf(&nnn[add_offset],
+                                                        "\r\r\n%0*d",
+                                                        nnn_length, *counter) +
+                                                        add_offset;
+                                }
+                                if (write(to_fd, nnn, add_length) != add_length)
+                                {
+                                   receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                               _("Failed to write() to `%s' : %s"),
+                                               new_name, strerror(errno));
+                                   CONVERT_CLEAN_UP();
+                                   (void)close(to_fd);
+                                   return(INCORRECT);
+                                }
+                                new_length += add_length;
+                             }
+                             if (writen(to_fd, ptr_start + add_offset,
+                                       length - add_offset,
+                                        stat_buf.st_blksize) != (length - add_offset))
                              {
                                 receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                             _("Failed to writen() to `%s' : %s"),
                                             new_name, strerror(errno));
-                                (void)close(from_fd);
+                                CONVERT_CLEAN_UP();
                                 (void)close(to_fd);
                                 return(INCORRECT);
                              }
@@ -855,7 +984,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                                    receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                                _("Failed to write() to `%s' : %s"),
                                                new_name, strerror(errno));
-                                   (void)close(from_fd);
+                                   CONVERT_CLEAN_UP();
                                    (void)close(to_fd);
                                    return(INCORRECT);
                                 }
@@ -903,12 +1032,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("Failed to open() %s : %s"),
                                    new_name, strerror(errno));
-                       (void)close(from_fd);
-#ifdef HAVE_MMAP
-                       (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                       (void)munmap_emu((void *)src_ptr);
-#endif
+                       CONVERT_CLEAN_UP();
                        return(INCORRECT);
                     }
 
@@ -917,7 +1041,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    _("malloc() error : %s"),
                                    strerror(errno));
-                       (void)close(from_fd);
+                       CONVERT_CLEAN_UP();
                        (void)close(to_fd);
                        return(INCORRECT);
                     }
@@ -937,7 +1061,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                           receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                       _("Failed to writen() to `%s' : %s"),
                                       new_name, strerror(errno));
-                          (void)close(from_fd);
+                          CONVERT_CLEAN_UP();
                           (void)close(to_fd);
                           (void)free(dst);
                           return(INCORRECT);
@@ -950,12 +1074,7 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
               default            : /* Impossible! */
                  receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                              _("Unknown convert type (%d)."), type);
-#ifdef HAVE_MMAP
-                 (void)munmap((void *)src_ptr, stat_buf.st_size);
-#else
-                 (void)munmap_emu((void *)src_ptr);
-#endif
-                 (void)close(from_fd);
+                 CONVERT_CLEAN_UP();
                  return(INCORRECT);
            }
 
@@ -983,6 +1102,11 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
               }
            }
            orig_size = stat_buf.st_size;
+
+           if (nnn_length > 0)
+           {
+              close_counter_file(counter_fd, &counter);
+           }
         }
 
    /* Remove the file that has just been extracted. */

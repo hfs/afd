@@ -148,10 +148,16 @@ production_log(time_t       creation_time,
    }
 
    length = sizeof(short);
-#if SIZEOF_TIME_T == 4
-   length += sprintf(&production_buffer[length], "%x:%x%c%lx_%x_%x%c%x%c%x%c",
+#ifdef HAVE_SNPRINTF
+   length += snprintf(&production_buffer[length],
+                      (MAX_INT_LENGTH + MAX_PRODUCTION_BUFFER_LENGTH) - length,
 #else
-   length += sprintf(&production_buffer[length], "%x:%x%c%llx_%x_%x%c%x%c%x%c",
+   length += sprintf(&production_buffer[length],
+#endif
+#if SIZEOF_TIME_T == 4
+                     "%x:%x%c%lx_%x_%x%c%x%c%x%c",
+#else
+                     "%x:%x%c%llx_%x_%x%c%x%c%x%c",
 #endif
                      ratio_1, ratio_2, SEPARATOR_CHAR,
                      (pri_time_t)creation_time, unique_number,

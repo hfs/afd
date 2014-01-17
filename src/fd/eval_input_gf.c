@@ -1,6 +1,6 @@
 /*
  *  eval_input_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@ DESCR__S_M3
  **
  **    gf_xxx <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]
  **        OPTIONS
+ **          -c                        Enable support for hardware CRC-32.
  **          -d                        Distributed helper job.
  **          -h <HTTP proxy>[:<port>]  Proxy where to send the HTTP requests.
  **          -i <interval>             Interval at which we should retry.
@@ -50,6 +51,7 @@ DESCR__S_M3
  **   12.04.2003 H.Kiehl Rewrite to accomodate to new syntax.
  **   09.07.2009 H.Kiehl Added -i option.
  **   28.12.2011 H.Kiehl Added -h to specify HTTP proxy.
+ **   25.01.2013 H.Kiehl Added -c for hardware CRC-32 support.
  **
  */
 DESCR__E_M3
@@ -63,6 +65,9 @@ DESCR__E_M3
 
 /* Global variables. */
 extern int                        fsa_id;
+#ifdef HAVE_HW_CRC32
+extern int                        have_hw_crc32;
+#endif
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 
@@ -158,6 +163,11 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                         {
                            switch (argv[i][1])
                            {
+#ifdef HAVE_HW_CRC32
+                              case 'c' : /* CPU supports CRC32 in HW. */
+                                 have_hw_crc32 = YES;
+                                 break;
+#endif
                               case 'd' : /* Distribution helper job. */
                                  p_db->special_flag |= DISTRIBUTED_HELPER_JOB;
                                  break;
@@ -243,7 +253,7 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                                     ret = SYNTAX_ERROR;
                                  }
                                  break;
-                              case 'o' : /* This is an old/erro job. */
+                              case 'o' : /* This is an old/error job. */
                                  p_db->special_flag |= OLD_ERROR_JOB;
                                  if (((i + 1) < argc) &&
                                      (argv[i + 1][0] != '-'))
@@ -339,6 +349,9 @@ usage(char *name)
    (void)fprintf(stderr, "SYNTAX: %s <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]\n\n", name);
    (void)fprintf(stderr, "OPTIONS                       DESCRIPTION\n");
    (void)fprintf(stderr, "  --version                 - Show current version\n");
+#ifdef HAVE_HW_CRC32
+   (void)fprintf(stderr, "  -c                        - Enable support for hardware CRC-32.\n");
+#endif
    (void)fprintf(stderr, "  -d                        - this is a distributed helper job\n");
    (void)fprintf(stderr, "  -h <HTTP proxy>[:<port>]  - Proxy where to send the HTTP request.\n");
    (void)fprintf(stderr, "  -i <interval>             - interval at which we should retry\n");

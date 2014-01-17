@@ -1,6 +1,6 @@
 /*
  *  wmod.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -289,7 +289,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (fsa_attach() == INCORRECT)
+   if (fsa_attach(WMOD) == INCORRECT)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Could not attach to FSA!");
       exit(INCORRECT);

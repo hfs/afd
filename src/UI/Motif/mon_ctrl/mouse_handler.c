@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ DESCR__S_M3
  **   void change_mon_row_cb(Widget w, XtPointer client_data, XtPointer call_data)
  **   void change_mon_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
  **   void change_mon_history_cb(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void change_mon_other_cb(Widget w, XtPointer client_data, XtPointer call_data)
  **
  ** DESCRIPTION
  **
@@ -82,6 +83,7 @@ extern Widget                  fw[],
                                hlw[],
                                line_window_w,
                                lsw[],
+                               oow[],
                                rw[],
                                tw[];
 extern Window                  button_window,
@@ -134,6 +136,7 @@ extern char                    *p_work_dir,
                                *ptr_ping_cmd,
                                *traceroute_cmd,
                                *ptr_traceroute_cmd,
+                               other_options,
                                line_style,
                                fake_user[],
                                font_name[],
@@ -369,24 +372,27 @@ mon_input(Widget w, XtPointer client_data, XEvent *event)
                       else
                       {
                          destroy_error_history();
-                         if (connect_data[select_no].inverse == ON)
+                         if ((other_options & FORCE_SHIFT_SELECT) == 0)
                          {
-                            connect_data[select_no].inverse = OFF;
-                            no_selected--;
-                         }
-                         else if (connect_data[select_no].inverse == STATIC)
-                              {
-                                 connect_data[select_no].inverse = OFF;
-                                 no_selected_static--;
-                              }
-                              else
-                              {
-                                 connect_data[select_no].inverse = ON;
-                                 no_selected++;
-                              }
+                            if (connect_data[select_no].inverse == ON)
+                            {
+                               connect_data[select_no].inverse = OFF;
+                               no_selected--;
+                            }
+                            else if (connect_data[select_no].inverse == STATIC)
+                                 {
+                                    connect_data[select_no].inverse = OFF;
+                                    no_selected_static--;
+                                 }
+                                 else
+                                 {
+                                    connect_data[select_no].inverse = ON;
+                                    no_selected++;
+                                 }
 
-                         draw_line_status(select_no, 1);
-                         XFlush(display);
+                            draw_line_status(select_no, 1);
+                            XFlush(display);
+                         }
                       }
 
                  last_motion_pos = select_no;
@@ -974,7 +980,7 @@ mon_popup_cb(Widget    w,
                   else
                   {
                      if (xrec(QUESTION_DIALOG,
-                              "Are you shure that you want to disable %s\nThis AFD will then not be monitored.",
+                              "Are you sure that you want to disable %s\nThis AFD will then not be monitored.",
                               msa[i].afd_alias) == YES)
                      {
                         int  fd;
@@ -2176,9 +2182,9 @@ change_mon_style_cb(Widget    w,
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
+         (void)xrec(WARN_DIALOG, "Impossible style selection (%d).", item_no);
 #else
-         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
+         (void)xrec(WARN_DIALOG, "Impossible style selection (%ld).", item_no);
 #endif
          return;
    }
@@ -2321,6 +2327,59 @@ change_mon_history_cb(Widget    w,
 
       XFlush(display);
    }
+
+   return;
+}
+
+
+/*######################## change_mon_other_cb() ########################*/
+void
+change_mon_other_cb(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
+
+   switch (item_no)
+   {
+      case FORCE_SHIFT_SELECT_W :
+         if (other_options & FORCE_SHIFT_SELECT)
+         {
+            other_options &= ~FORCE_SHIFT_SELECT;
+            XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, False, NULL);
+         }
+         else
+         {
+            other_options |= FORCE_SHIFT_SELECT;
+            XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, True, NULL);
+         }
+         break;
+
+      default  :
+#if SIZEOF_LONG == 4
+         (void)xrec(WARN_DIALOG, "Impossible other selection (%d).", item_no);
+#else
+         (void)xrec(WARN_DIALOG, "Impossible other selection (%ld).", item_no);
+#endif
+         return;
+   }
+
+#ifdef _DEBUG
+   switch (item_no)
+   {
+      case FORCE_SHIFT_SELECT_W :
+         if (other_options & FORCE_SHIFT_SELECT)
+         {
+            (void)fprintf(stderr, "Adding force shift select.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing force shift select.\n");
+         }
+         break;
+
+      default : /* IMPOSSIBLE !!! */
+         break;
+   }
+#endif
 
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  event_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -137,10 +137,16 @@ event_log(time_t       event_time,
 
    if (fmt == NULL)
    {
-#if SIZEOF_TIME_T == 4
-      length = sprintf(event_buffer, "%-*lx %x %x %x",
+#ifdef HAVE_SNPRINTF
+      length = snprintf(event_buffer,
+                        MAX_TIME_T_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_DIR_ALIAS_LENGTH + MAX_HOSTNAME_LENGTH + MAX_USER_NAME_LENGTH + MAX_EVENT_REASON_LENGTH + 1,
 #else
-      length = sprintf(event_buffer, "%-*llx %x %x %x",
+      length = sprintf(event_buffer,
+#endif
+#if SIZEOF_TIME_T == 4
+                       "%-*lx %x %x %x",
+#else
+                       "%-*llx %x %x %x",
 #endif
                        LOG_DATE_LENGTH, (pri_time_t)event_time, event_class,
                        event_type, event_action);
@@ -149,10 +155,16 @@ event_log(time_t       event_time,
    {
       va_list ap;
 
-#if SIZEOF_TIME_T == 4
-      length = sprintf(event_buffer, "%-*lx %x %x %x%c",
+#ifdef HAVE_SNPRINTF
+      length = snprintf(event_buffer,
+                        MAX_TIME_T_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 1 + MAX_DIR_ALIAS_LENGTH + MAX_HOSTNAME_LENGTH + MAX_USER_NAME_LENGTH + MAX_EVENT_REASON_LENGTH + 1,
 #else
-      length = sprintf(event_buffer, "%-*llx %x %x %x%c",
+      length = sprintf(event_buffer,
+#endif
+#if SIZEOF_TIME_T == 4
+                       "%-*lx %x %x %x%c",
+#else
+                       "%-*llx %x %x %x%c",
 #endif
                        LOG_DATE_LENGTH, (pri_time_t)event_time, event_class,
                        event_type, event_action, SEPARATOR_CHAR);

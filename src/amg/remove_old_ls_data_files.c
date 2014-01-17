@@ -1,7 +1,7 @@
 /*
  *  remove_old_ls_data_files.c - Part of AFD, an automatic file distribution
  *                               program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,11 +66,16 @@ remove_old_ls_data_files(void)
         *ptr;
    DIR  *dp;
 
-   ptr = listfile + sprintf(listfile, "%s%s%s%s/", p_work_dir, AFD_FILE_DIR,
+#ifdef HAVE_SNPRINTF
+   ptr = listfile + snprintf(listfile, MAX_PATH_LENGTH,
+#else
+   ptr = listfile + sprintf(listfile,
+#endif
+                            "%s%s%s%s/", p_work_dir, AFD_FILE_DIR,
                             INCOMING_DIR, LS_DATA_DIR);
    if ((dp = opendir(listfile)) == NULL)
    {
-      system_log(WARN_SIGN, __FILE__, __LINE__,
+      system_log((errno == ENOENT) ? DEBUG_SIGN : WARN_SIGN, __FILE__, __LINE__,
                  "Failed to opendir() `%s' to remove old ls data files : %s",
                  listfile, strerror(errno));
    }

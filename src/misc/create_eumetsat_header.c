@@ -1,8 +1,8 @@
 /*
  *  create_eumetsat_header.c - Part of AFD, an automatic file distribution
  *                             program.
- *  Copyright (c) 1999 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -145,6 +145,49 @@ create_eumetsat_header(unsigned char *source_cpu_id, /* 4 unsigned chars */
    }
 
    offset = 20;
+#ifdef HAVE_SNPRINTF
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, HEADER_VERSION_NO_NAME,
+                      HEADER_VERSION_NO);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, FILE_TYPE, 2);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SUB_HEADER_TYPE, 1);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SOURCE_FACILITY_ID, 131);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SOURCE_ENV_ID, 0);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SOURCE_INSTANCE_ID, 0);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SOURCE_SU_ID, 0);
+   (void)snprintf((char *)source_cpu_id_str, 16, "%u.%u.%u.%u",
+                  (unsigned int)source_cpu_id[0],
+                  (unsigned int)source_cpu_id[1],
+                  (unsigned int)source_cpu_id[2],
+                  (unsigned int)source_cpu_id[3]);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15s",
+                      MAX_FIELD_NAME_LENGTH, SOURCE_CPU_ID, source_cpu_id_str);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, DEST_FACILITY_ID, 3);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, DEST_ENV_ID,
+                      (int)dest_env_id);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d\r\n",
+                      MAX_FIELD_NAME_LENGTH, DATA_FIELD_LENGTH,
+                      (int)data_length);
+#else
    offset += sprintf((char *)(p_header + offset), "\r\n%-*s%-15d",
                      MAX_FIELD_NAME_LENGTH, HEADER_VERSION_NO_NAME,
                      HEADER_VERSION_NO);
@@ -176,6 +219,7 @@ create_eumetsat_header(unsigned char *source_cpu_id, /* 4 unsigned chars */
    offset += sprintf((char *)(p_header + offset), "\r\n%-*s%-15d\r\n",
                      MAX_FIELD_NAME_LENGTH, DATA_FIELD_LENGTH,
                      (int)data_length);
+#endif
 
    *(p_header + offset) = 0;       /* sub_header_version_no : 0               */
    *(p_header + offset + 1) = 162; /* service_type          : GTSDataDelivery */
@@ -211,6 +255,24 @@ create_eumetsat_header(unsigned char *source_cpu_id, /* 4 unsigned chars */
    *(p_header + offset + 10) = 0;
 
    offset += 11;
+#ifdef HAVE_SNPRINTF
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SUB_HEADER_VERSION_NO, 0);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SERVICE_TYPE, 162);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%-15d",
+                      MAX_FIELD_NAME_LENGTH, SERVICE_SUB_TYPE, 1);
+   offset += snprintf((char *)(p_header + offset), *header_size - offset,
+                      "\r\n%-*s%.6d:%.8d",
+                      MAX_FIELD_NAME_LENGTH, FILE_TIME, day,
+                      milliseconds_of_day);
+   (void)snprintf((char *)(p_header + offset), *header_size - offset,
+                  "\r\n%-*s%-15d\r\n",
+                  MAX_FIELD_NAME_LENGTH, SPACECRAFT_ID, 0);
+#else
    offset += sprintf((char *)(p_header + offset), "\r\n%-*s%-15d",
                      MAX_FIELD_NAME_LENGTH, SUB_HEADER_VERSION_NO, 0);
    offset += sprintf((char *)(p_header + offset), "\r\n%-*s%-15d",
@@ -222,6 +284,7 @@ create_eumetsat_header(unsigned char *source_cpu_id, /* 4 unsigned chars */
                      milliseconds_of_day);
    (void)sprintf((char *)(p_header + offset), "\r\n%-*s%-15d\r\n",
                  MAX_FIELD_NAME_LENGTH, SPACECRAFT_ID, 0);
+#endif
 
    return((char *)p_header);
 }

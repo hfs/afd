@@ -1,6 +1,6 @@
 /*
  *  fra_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,23 +159,53 @@ main(int argc, char *argv[])
       {
          case 0   : break;
          case '1' : (void)fprintf(stderr, _("\n\n     Enter value [1] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fra[position].files_in_dir = (int)value;
                     break;
          case '2' : (void)fprintf(stderr, _("\n\n     Enter value [2] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fra[position].bytes_in_dir = value;
                     break;
          case '3' : (void)fprintf(stderr, _("\n\n     Enter value [3] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fra[position].files_queued = value;
                     break;
          case '4' : (void)fprintf(stderr, _("\n\n     Enter value [4] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fra[position].bytes_in_queue = value;
                     break;
          case '5' : (void)fprintf(stderr, _("\n\n     Enter value [5] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fra[position].error_counter = value;
                     break;
          case '6' : (void)fprintf(stdout, "\033[2J\033[3;1H");
@@ -214,10 +244,12 @@ main(int argc, char *argv[])
                                   (fra[position].dir_flag & INOTIFY_RENAME) ? 1 : 0);
                     (void)fprintf(stdout, "     INOTIFY_CLOSE [%d]............(g)\n",
                                   (fra[position].dir_flag & INOTIFY_CLOSE) ? 1 : 0);
+                    (void)fprintf(stdout, "     INOTIFY_CREATE [%d]...........(h)\n",
+                                  (fra[position].dir_flag & INOTIFY_CREATE) ? 1 : 0);
 #endif
-                    (void)fprintf(stdout, "     ALL_DISABLED [%d].............(h)\n",
+                    (void)fprintf(stdout, "     ALL_DISABLED [%d].............(i)\n",
                                   (fra[position].dir_flag & ALL_DISABLED) ? 1 : 0);
-                    (void)fprintf(stdout, "     CREATE_R_SRC_DIR [%d].........(i)\n",
+                    (void)fprintf(stdout, "     CREATE_R_SRC_DIR [%d].........(j)\n",
                                   (fra[position].dir_flag & CREATE_R_SRC_DIR) ? 1 : 0);
                     (void)fprintf(stderr, "     None..........................(Z) ");
 
@@ -258,10 +290,12 @@ main(int argc, char *argv[])
                                   break;
                        case 'g' : fra[position].dir_flag ^= INOTIFY_CLOSE;
                                   break;
-#endif
-                       case 'h' : fra[position].dir_flag ^= ALL_DISABLED;
+                       case 'h' : fra[position].dir_flag ^= INOTIFY_CREATE;
                                   break;
-                       case 'i' : fra[position].dir_flag ^= CREATE_R_SRC_DIR;
+#endif
+                       case 'i' : fra[position].dir_flag ^= ALL_DISABLED;
+                                  break;
+                       case 'j' : fra[position].dir_flag ^= CREATE_R_SRC_DIR;
                                   break;
                        case 'Z' : break;
                        default  : (void)printf(_("Wrong choice!\n"));
@@ -270,7 +304,13 @@ main(int argc, char *argv[])
                     }
                     break;
          case '7' : (void)fprintf(stderr, _("\n\n     Enter value [7] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fra[position].queued = (char)value;
                     break;
          case 'x' :

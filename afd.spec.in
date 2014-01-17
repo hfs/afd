@@ -28,7 +28,7 @@ URL: http://www.dwd.de/AFD/
    %define mandir     %{_mandir}
    %define docdir     %{_docdir}
    %define share      %{_datadir}
-   %define sysconfdir %{_sysconfdir}
+   %define sysconfdir %{_sysconfdir}/sysconfig
 %else
    %define prefix     @prefix@
    %define bindir     @bindir@
@@ -98,7 +98,7 @@ else
       mkdir -p $RPM_BUILD_ROOT/%{sysconfdir}
    fi
 fi
-make DESTDIR=$RPM_BUILD_ROOT install-strip
+make DESTDIR=$RPM_BUILD_ROOT install
 install -p -m755 scripts/afd $RPM_BUILD_ROOT/%{INITDIR}
 install -p -m755 scripts/afdmon $RPM_BUILD_ROOT/%{INITDIR}
 install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT/%{sysconfdir}/afd
@@ -135,6 +135,12 @@ then
    else
       AFD_USERS=""
    fi
+   if [ -d /var/lock/subsys ]
+   then
+      SYS_LOCKDIR="/var/lock/subsys"
+   else
+      SYS_LOCKDIR="/var/lock"
+   fi
    if [ ! "$AFD_USERS" = "" ]
    then
       for afduser in $AFD_USERS
@@ -145,12 +151,12 @@ then
             su - $afduser -c "afd -c" > /dev/null 2>&1
             if [ "$?" = 5 ]
             then
-               touch /var/lock/subsys/restart_afd.$afduser
+               touch $SYS_LOCKDIR/restart_afd.$afduser
             fi
             su - $afduser -c "afd -S"
             if [ $? -eq 0 ]
             then
-               rm -f /var/lock/subsys/afd.$afduser
+               rm -f $SYS_LOCKDIR/afd.$afduser
             fi
          else
             counter=0
@@ -159,12 +165,12 @@ then
                su - $afduser -c "afd -w $afddir -c" > /dev/null 2>&1
                if [ "$?" = 5 ]
                then
-                  touch /var/lock/subsys/restart_afd.$afduser-$counter
+                  touch $SYS_LOCKDIR/restart_afd.$afduser-$counter
                fi
                su - $afduser -c "afd -w $afddir -S"
                if [ $? -eq 0 ]
                then
-                  rm -f /var/lock/subsys/afd.$afduser-$counter
+                  rm -f $SYS_LOCKDIR/afd.$afduser-$counter
                fi
                counter=`expr "$counter" + 1`
             done
@@ -184,12 +190,12 @@ then
          su - $afduser -c "mafd -c" > /dev/null 2>&1
          if [ "$?" = 5 ]
          then
-            touch /var/lock/subsys/restart_afdmon.$afduser
+            touch $SYS_LOCKDIR/restart_afdmon.$afduser
          fi
          su - $afduser -c "mafd -S"
          if [ $? -eq 0 ]
          then
-            rm -f /var/lock/subsys/afdmon.$afduser
+            rm -f $SYS_LOCKDIR/afdmon.$afduser
          fi
       done
    fi
@@ -247,17 +253,9 @@ exit 0
 %{prefix}/bin/*
 %{prefix}/sbin/*
 %{prefix}/%{_lib}/*
-%{prefix}/etc/AFD_CONFIG.sample
-%{prefix}/etc/host.info.sample
-%{prefix}/etc/INFO-LOOP.sample
-%{prefix}/etc/rename.rule.sample
-%{prefix}/etc/afd.users.sample
-%{prefix}/etc/afd.name.sample
-%defattr(600,%{BINARY_OWNER},%{BINARY_GROUP})
-%{prefix}/etc/DIR_CONFIG.sample
-%defattr(755,root,root)
 %{INITDIR}/afd
 %{INITDIR}/afdmon
+
 
 %changelog
 *Mon Feb 07 2011 Holger Kiehl <Holger.Kiehl@dwd.de>

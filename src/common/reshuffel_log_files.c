@@ -1,7 +1,7 @@
 /*
  *  reshuffel_log_files.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,9 +68,18 @@ reshuffel_log_files(int  log_number,
    {
       for (i = log_number; i > shift_offset; i--)
       {
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(p_end, MAX_PATH_LENGTH - (p_end - log_file), "%d", i);
+#else
          (void)sprintf(p_end, "%d", i);
-         (void)strcpy(dst, log_file);
-         (void)sprintf(p_end, "%d", i - 1);
+#endif
+         (void)my_strncpy(dst, log_file, MAX_PATH_LENGTH);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(p_end, MAX_PATH_LENGTH - (p_end - log_file),
+#else
+         (void)sprintf(p_end,
+#endif
+                       "%d", i - 1);
 
          if (rename(log_file, dst) < 0)
          {

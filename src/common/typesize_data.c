@@ -1,6 +1,6 @@
 /*
  *  typesize_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,11 @@ check_typesize_data(int *old_value_list, FILE *output_fp)
         not_match = 0;
    char typesize_filename[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(typesize_filename, MAX_PATH_LENGTH, "%s%s%s",
+#else
    (void)sprintf(typesize_filename, "%s%s%s",
+#endif
                  p_work_dir, FIFO_DIR, TYPESIZE_DATA_FILE);
    if ((fd = open(typesize_filename, O_RDONLY)) == -1)
    {
@@ -193,7 +197,8 @@ check_typesize_data(int *old_value_list, FILE *output_fp)
 
                if (old_value_list != NULL)
                {
-                  (void)memset(old_value_list, 0, MAX_CHANGEABLE_VARS * sizeof(int));
+                  (void)memset(old_value_list, 0,
+                               ((MAX_CHANGEABLE_VARS) * sizeof(int)));
                }
                do
                {
@@ -324,7 +329,7 @@ check_typesize_data(int *old_value_list, FILE *output_fp)
                                  while ((*ptr != '\n') && (*ptr != '\r') &&
                                         ((ptr - p_start) < stat_buf.st_size))
                                  {
-                                    k++;
+                                    ptr++;
                                  }
                               }
                               while (((*ptr == '\n') || (*ptr == '\r')) &&
@@ -388,7 +393,11 @@ write_typesize_data(void)
    FILE *fp;
    char typesize_filename[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(typesize_filename, MAX_PATH_LENGTH, "%s%s%s",
+#else
    (void)sprintf(typesize_filename, "%s%s%s",
+#endif
                  p_work_dir, FIFO_DIR, TYPESIZE_DATA_FILE);
    if ((fd = open(typesize_filename, (O_RDWR | O_CREAT | O_TRUNC),
                   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH))) == -1)

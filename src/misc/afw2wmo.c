@@ -1,6 +1,6 @@
 /*
  *  afw2wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -665,7 +665,12 @@ show_error(char *is, char *expect)
    {
       if (is[i] < ' ')
       {
-         buf_length += sprintf(&tmp_buf[buf_length], "<%d>", (int)is[i]);
+# ifdef HAVE_SNPRINTF
+         buf_length += snprintf(&tmp_buf[buf_length], length + 1 - buf_length,
+# else
+         buf_length += sprintf(&tmp_buf[buf_length],
+# endif
+                               "<%d>", (int)is[i]);
       }
       else
       {

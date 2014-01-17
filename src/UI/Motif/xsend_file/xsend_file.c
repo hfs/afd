@@ -361,8 +361,6 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNlabelString,    label);
    argcount++;
-   XtSetArg(args[argcount], XmNfontList,       fontlist);
-   argcount++;
    XtSetArg(args[argcount], XmNleftAttachment, XmATTACH_FORM);
    argcount++;
    XtSetArg(args[argcount], XmNtopAttachment,  XmATTACH_FORM);
@@ -373,6 +371,11 @@ main(int argc, char *argv[])
                                       args, argcount);
    XtManageChild(option_menu_w);
    XmStringFree(label);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNfontList,       fontlist);
+   argcount++;
+   XtSetValues(XmOptionLabelGadget(option_menu_w), args, argcount);
 
    /* Add all possible buttons. */
    argcount = 0;

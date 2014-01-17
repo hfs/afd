@@ -50,6 +50,7 @@ the new value:
           11 (1024)  - Output Log
           12 (2048)  - Delete Log
           15 (16384) - Event Log
+          16 (32768) - Distribution Log
        </pre>
        Just add the values in brackets to set the wanted logs.</td>
    <td valign=top>0</td>
@@ -569,10 +570,11 @@ the new value:
    <td valign=top><a name="view_data_prog">VIEW_DATA_PROG</a></td>
    <td>Program to view data of show_olog and show_queue dialog. This may
        be used multiple times in AFD_CONFIG to configure different
-       programs for different file types (patterns). The syntax is as
-       follows:
+       programs for different file types (patterns). The optional
+       parameter --with-show_cmd can be used for programs that just
+       write to STDOUT and/or STDERR. The syntax is as follows:
        <pre>
-VIEW_DATA_PROG &lt;progname&gt; &lt;pattern&gt;
+VIEW_DATA_PROG [--with-show_cmd] &lt;progname&gt; &lt;pattern&gt;
 
    &lt;progname&gt; - Is the program name of the program to be
                 called. If parameters need to be added,
@@ -585,6 +587,26 @@ VIEW_DATA_PROG &lt;progname&gt; &lt;pattern&gt;
        </td>
    <td valign=top><pre>&nbsp;</pre></td>
    <td valign=top>show_olog, show_queue</td>
+</tr>
+<tr>
+   <td valign=top><a name="view_data_no_filter_prog">VIEW_DATA_NO_FILTER_PROG</a></td>
+   <td>In dialog show_olog it is possible to set the view mode. The default
+       is set to an internal program showing the content of the file in hex
+       view. With VIEW_DATA_NO_FILTER_PROG one can specify another program.
+       It is possible to specify multiple VIEW_DATA_NO_FILTER_PROG programs.
+       Note the first value is always the alias name of the program name that
+       is shown in show_olog. This may only be 8 characters long. With the
+       option --with-show_cmd one can show the output of programs that just
+       write to STDOUT and/or STDERR. here some example entries:
+       <pre>
+VIEW_DATA_NO_FILTER_PROG    XV   /usr/bin/xv
+VIEW_DATA_NO_FILTER_PROG    Xpdf xpdf
+VIEW_DATA_NO_FILTER_PROG    od --with-show_cmd "od -A x -t x1z -v"
+VIEW_DATA_NO_FILTER_PROG    bufr --with-show_cmd "bufrtool -d -t ~/afd/usr/tables_v2 -i %s -o - "
+       </pre>
+       </td>
+   <td valign=top><pre>&nbsp;</pre></td>
+   <td valign=top>show_olog</td>
 </tr>
 <tr>
    <td valign=top><a name="fake_user">FAKE_USER &lt;fake user name&gt;</a></td>
@@ -619,9 +641,9 @@ restarted.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1999 - 2012 by H.Kiehl<br>
+   Copyright &copy; 1999 - 2013 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 28.05.2012
+   Last updated: 24.11.2013
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

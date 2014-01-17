@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -107,7 +107,8 @@ extern int             continues_toggle_set,
                        no_of_search_host_alias,
                        special_button_flag;
 extern unsigned int    ea_toggles_set_1,
-                       ea_toggles_set_2;
+                       ea_toggles_set_2,
+                       ea_toggles_set_3;
 extern XT_PTR_TYPE     toggles_set;
 extern time_t          start_time_val,
                        end_time_val;
@@ -744,13 +745,20 @@ search_data(register char *ptr,
                IGNORE_ENTRY();
             }
          }
-         else
-         {
-            if ((ea_toggles_set_2 & (1 << (event_action_no - EA_DISABLE_HOST))) == 0)
-            {
-               IGNORE_ENTRY();
-            }
-         }
+         else if (event_action_no < EA_INFO_TIME_SET)
+              {
+                 if ((ea_toggles_set_2 & (1 << (event_action_no - EA_DISABLE_HOST))) == 0)
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+              else
+              {
+                 if ((ea_toggles_set_3 & (1 << (event_action_no - EA_DISABLE_CREATE_SOURCE_DIR))) == 0)
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
          ptr += k;
          if ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
          {

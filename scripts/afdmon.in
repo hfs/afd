@@ -18,6 +18,12 @@
 
 
 CURRENT_SCRIPT_NAME="`basename $0`"
+if [ -d /var/lock/subsys ]
+then
+   SYS_LOCKDIR="/var/lock/subsys"
+else
+   SYS_LOCKDIR="/var/lock"
+fi
 if [ -r @SYSCONFIGDIR@/afdmon ]
 then
    if [ "$CURRENT_SCRIPT_NAME" = "afdmonha" ]
@@ -42,13 +48,13 @@ case "$1" in
 	   if [ $? -eq 0 ]
 	   then
 	      RETVAL=0
-	      touch /var/lock/subsys/afdmon.$afduser
+	      touch $SYS_LOCKDIR/afdmon.$afduser
 	      echo "Done"
 	   else
 	      echo "Failed"
 	   fi
 	done
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/afdmon
+	[ $RETVAL -eq 0 ] && touch $SYS_LOCKDIR/afdmon
 	;;
   stop)
 	RETVAL=1
@@ -59,12 +65,12 @@ case "$1" in
 	   case $? in
 	      0)
 	         RETVAL=0
-	         rm -f /var/lock/subsys/afdmon.$afduser
+	         rm -f $SYS_LOCKDIR/afdmon.$afduser
 	         echo "Done"
 	         ;;
 	      10)
 	         RETVAL=0
-	         rm -f /var/lock/subsys/afdmon.$afduser
+	         rm -f $SYS_LOCKDIR/afdmon.$afduser
 	         echo "Is already stopped"
 	         ;;
 	      *)
@@ -72,7 +78,7 @@ case "$1" in
 	         ;;
 	   esac
 	done
-	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/afdmon
+	[ $RETVAL -eq 0 ] && rm -f $SYS_LOCKDIR/afdmon
 	;;
   restart)
 	$0 stop
@@ -84,19 +90,19 @@ case "$1" in
 	RETVAL=1
 	for afduser in $AFDMON_USERS
 	do
-	   if [ -f /var/lock/subsys/restart_afdmon.$afduser ]
+	   if [ -f $SYS_LOCKDIR/restart_afdmon.$afduser ]
 	   then
 	      echo -n "Starting AFD Monitor for $afduser : "
 	      su - $afduser -c "mafd -a"
 	      if [ $? -eq 0 ]
 	      then
 	         RETVAL=0
-	         touch /var/lock/subsys/afdmon.$afduser
+	         touch $SYS_LOCKDIR/afdmon.$afduser
 	         echo "Done"
 	      else
 	         echo "Failed"
 	      fi
-	      rm -f /var/lock/subsys/restart_afdmon.$afduser
+	      rm -f $SYS_LOCKDIR/restart_afdmon.$afduser
 	   else
 	      su - $afduser -c "mafd -S"
 	      if [ $? -eq 0 ]
@@ -106,7 +112,7 @@ case "$1" in
 	         if [ $? -eq 0 ]
 	         then
 	            RETVAL=0
-	            touch /var/lock/subsys/afdmon.$afduser
+	            touch $SYS_LOCKDIR/afdmon.$afduser
 	            echo "Done"
 	         else
 	            echo "Failed"
@@ -124,23 +130,23 @@ case "$1" in
 	   fi
 	   for afduser in $AFDMON_HA_USERS
 	   do
-	      if [ -f /var/lock/subsys/restart_afdmon.$afduser ]
+	      if [ -f $SYS_LOCKDIR/restart_afdmon.$afduser ]
 	      then
 	         echo -n "Starting AFD Monitor for $afduser : "
 	         su - $afduser -c "mafd -a"
 	         if [ $? -eq 0 ]
 	         then
 	            RETVAL=0
-	            touch /var/lock/subsys/afdmon.$afduser
+	            touch $SYS_LOCKDIR/afdmon.$afduser
 	            echo "Done"
 	         else
 	            echo "Failed"
 	         fi
-	         rm -f /var/lock/subsys/restart_afdmon.$afduser
+	         rm -f $SYS_LOCKDIR/restart_afdmon.$afduser
 	      fi
 	   done
 	fi
-	rm -f /var/lock/subsys/afdmon.restart
+	rm -f $SYS_LOCKDIR/afdmon.restart
 	;;
   status)
 	NOT_RUNNING=""

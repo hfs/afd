@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -102,7 +102,8 @@ extern int              continues_toggle_set,
                         *search_dir_length,
                         special_button_flag,
                         file_name_length,
-                        no_of_log_files;
+                        no_of_log_files,
+                        view_archived_only;
 extern unsigned int     all_list_items,
                         *search_dirid;
 extern XT_PTR_TYPE      toggles_set;
@@ -273,7 +274,18 @@ static void   check_log_updates(Widget),
            ptr++;\
            if (type_offset > 1)\
            {\
-              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
+              int  count = 0;\
+              char retries_str[MAX_INT_HEX_LENGTH + 1];\
+\
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&\
+                     (count < MAX_INT_HEX_LENGTH))\
+              {\
+                 retries_str[count] = *ptr;\
+                 count++; ptr++;\
+              }\
+              retries_str[count] = '\0';\
+              id.retries = (unsigned int)strtoul(retries_str, NULL, 16);\
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))\
               {\
                  ptr++;\
               }\
@@ -290,7 +302,7 @@ static void   check_log_updates(Widget),
               int  count = 0;\
               char job_id_str[15 + 1];\
 \
-              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))\
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (count < 15))\
               {\
                  job_id_str[count] = *ptr;\
                  count++; ptr++;\
@@ -319,7 +331,7 @@ static void   check_log_updates(Widget),
                  }\
                  else\
                  {\
-                    if (sfilter(search_user[current_search_host], id.user, ' ') != 0)\
+                    if (sfilter(search_user[current_search_host], (char *)id.user, ' ') != 0)\
                     {\
                        IGNORE_ENTRY();\
                     }\
@@ -332,7 +344,7 @@ static void   check_log_updates(Widget),
 \
                  id.dir[0] = '\0';\
                  get_info(GOT_JOB_ID_DIR_ONLY);\
-                 count = strlen(id.dir);\
+                 count = strlen((char *)id.dir);\
                  id.dir[count] = SEPARATOR_CHAR;\
                  id.dir[count + 1] = '\0';\
                  for (kk = 0; kk < no_of_search_dirids; kk++)\
@@ -349,7 +361,7 @@ static void   check_log_updates(Widget),
                     {\
                        if (search_dir_filter[kk] == YES)\
                        {\
-                          if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                          if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)\
                           {\
                              gotcha = YES;\
                              break;\
@@ -359,7 +371,7 @@ static void   check_log_updates(Widget),
                        {\
                           if (search_dir_length[kk] == count)\
                           {\
-                             if (strncmp(search_dir[kk], id.dir, count) == 0)\
+                             if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)\
                              {\
                                 gotcha = YES;\
                                 break;\
@@ -376,14 +388,14 @@ static void   check_log_updates(Widget),
            }\
            else\
            {\
-              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))\
               {\
                  ptr++;\
               }\
            }\
            trans_time += strtod(tmp_ptr, NULL);\
            ptr++;\
-           while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))\
+           while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))\
            {\
               ptr++;\
            }\
@@ -438,6 +450,10 @@ static void   check_log_updates(Widget),
            else\
            {\
               *p_archive_flag = 'N';\
+           }\
+           if ((*p_archive_flag != 'Y') && (view_archived_only == YES))\
+           {\
+              IGNORE_ENTRY();\
            }\
            item_counter++;\
            str_list[i] = XmStringCreateLocalized(line);\
@@ -754,7 +770,7 @@ static void   check_log_updates(Widget),
                      j = 0;                                \
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))\
                      {                                     \
-                        if (*(ptr + j) < ' ')              \
+                        if ((unsigned char)(*(ptr + j)) < ' ')\
                         {                                  \
                            *(p_file_name + j) = '?';       \
                            unprintable_chars++;            \
@@ -1450,6 +1466,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
         }
 
    /* Free all memory we have allocated. */
+   get_info_free();
 #ifdef HAVE_MMAP
    if (munmap(src, stat_buf.st_size) < 0)
    {
@@ -1576,6 +1593,7 @@ check_log_updates(Widget w)
                             __FILE__, __LINE__);
               }
 
+         get_info_free();
          free(ptr_start);
          log_offset = stat_buf.st_size;
          XmListSetBottomPos(listbox_w, 0);
@@ -1993,7 +2011,7 @@ no_criteria(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -2117,7 +2135,18 @@ no_criteria(register char *ptr,
          /* Ignore retries. */
          if (type_offset > 1)
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            int  count = 0;
+            char retries_str[MAX_INT_HEX_LENGTH + 1];
+
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
+                   (count < MAX_INT_HEX_LENGTH))
+            {
+               retries_str[count] = *ptr;
+               count++; ptr++;
+            }
+            retries_str[count] = '\0';
+            id.retries = (unsigned int)strtoul(retries_str, NULL, 16);
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
             {
                ptr++;
             }
@@ -2136,7 +2165,7 @@ no_criteria(register char *ptr,
             int  count = 0;
             char job_id_str[15 + 1];
 
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (count < 15))
             {
                job_id_str[count] = *ptr;
                count++; ptr++;
@@ -2167,7 +2196,7 @@ no_criteria(register char *ptr,
                }
                else
                {
-                  if (sfilter(search_user[current_search_host], id.user, ' ') != 0)
+                  if (sfilter(search_user[current_search_host], (char *)id.user, ' ') != 0)
                   {
                      IGNORE_ENTRY();
                   }
@@ -2180,7 +2209,7 @@ no_criteria(register char *ptr,
 
                id.dir[0] = '\0';
                get_info(GOT_JOB_ID_DIR_ONLY);
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
 
@@ -2198,7 +2227,7 @@ no_criteria(register char *ptr,
                   {
                      if (search_dir_filter[kk] == YES)
                      {
-                        if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                        if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                         {
                            gotcha = YES;
                            break;
@@ -2208,7 +2237,7 @@ no_criteria(register char *ptr,
                      {
                         if (search_dir_length[kk] == count)
                         {
-                           if (strncmp(search_dir[kk], id.dir, count) == 0)
+                           if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                            {
                               gotcha = YES;
                               break;
@@ -2225,14 +2254,14 @@ no_criteria(register char *ptr,
          }
          else
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
             {
                ptr++;
             }
          }
          trans_time += strtod(tmp_ptr, NULL);
          ptr++;
-         while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
          {
             ptr++;
          }
@@ -2288,6 +2317,10 @@ no_criteria(register char *ptr,
          else
          {
             *p_archive_flag = 'N';
+         }
+         if ((*p_archive_flag != 'Y') && (view_archived_only == YES))
+         {
+            IGNORE_ENTRY();
          }
          item_counter++;
 
@@ -2439,7 +2472,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2475,7 +2508,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2511,7 +2544,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2547,7 +2580,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2583,7 +2616,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2619,7 +2652,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2655,7 +2688,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2691,7 +2724,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2727,7 +2760,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2764,7 +2797,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2800,7 +2833,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2836,7 +2869,7 @@ file_name_only(register char *ptr,
                      j = 0;
                      while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                      {
-                        if (*(ptr + j) < ' ')
+                        if ((unsigned char)(*(ptr + j)) < ' ')
                         {
                            *(p_file_name + j) = '?';
                            unprintable_chars++;
@@ -2870,7 +2903,7 @@ file_name_only(register char *ptr,
                   j = 0;
                   while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                   {
-                     if (*(ptr + j) < ' ')
+                     if ((unsigned char)(*(ptr + j)) < ' ')
                      {
                         *(p_file_name + j) = '?';
                         unprintable_chars++;
@@ -3271,7 +3304,7 @@ file_size_only(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -3806,7 +3839,7 @@ file_name_and_size(register char *ptr,
          }
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -4354,7 +4387,7 @@ recipient_only(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -4478,7 +4511,18 @@ recipient_only(register char *ptr,
          /* Ignore retries. */
          if (type_offset > 1)
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            int  count = 0;
+            char retries_str[MAX_INT_HEX_LENGTH + 1];
+
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
+                   (count < MAX_INT_HEX_LENGTH))
+            {
+               retries_str[count] = *ptr;
+               count++; ptr++;
+            }
+            retries_str[count] = '\0';
+            id.retries = (unsigned int)strtoul(retries_str, NULL, 16);
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
             {
                ptr++;
             }
@@ -4497,7 +4541,7 @@ recipient_only(register char *ptr,
             int  count = 0;
             char job_id_str[15 + 1];
 
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (count < 15))
             {
                job_id_str[count] = *ptr;
                count++; ptr++;
@@ -4528,7 +4572,7 @@ recipient_only(register char *ptr,
                }
                else
                {
-                  if (sfilter(search_user[current_search_host], id.user, ' ') != 0)
+                  if (sfilter(search_user[current_search_host], (char *)id.user, ' ') != 0)
                   {
                      IGNORE_ENTRY();
                   }
@@ -4541,7 +4585,7 @@ recipient_only(register char *ptr,
 
                id.dir[0] = '\0';
                get_info(GOT_JOB_ID_DIR_ONLY);
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
 
@@ -4559,7 +4603,7 @@ recipient_only(register char *ptr,
                   {
                      if (search_dir_filter[kk] == YES)
                      {
-                        if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                        if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                         {
                            gotcha = YES;
                            break;
@@ -4569,7 +4613,7 @@ recipient_only(register char *ptr,
                      {
                         if (search_dir_length[kk] == count)
                         {
-                           if (strncmp(search_dir[kk], id.dir, count) == 0)
+                           if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                            {
                               gotcha = YES;
                               break;
@@ -4586,14 +4630,14 @@ recipient_only(register char *ptr,
          }
          else
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
             {
                ptr++;
             }
          }
          trans_time += strtod(tmp_ptr, NULL);
          ptr++;
-         while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
          {
             ptr++;
          }
@@ -4649,6 +4693,10 @@ recipient_only(register char *ptr,
          else
          {
             *p_archive_flag = 'N';
+         }
+         if ((*p_archive_flag != 'Y') && (view_archived_only == YES))
+         {
+            IGNORE_ENTRY();
          }
          item_counter++;
 
@@ -4868,7 +4916,7 @@ file_name_and_recipient(register char *ptr,
                         j = 0;
                         while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
                         {
-                           if (*(ptr + j) < ' ')
+                           if ((unsigned char)(*(ptr + j)) < ' ')
                            {
                               *(p_file_name + j) = '?';
                               unprintable_chars++;
@@ -5271,7 +5319,7 @@ file_size_and_recipient(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -6042,7 +6090,7 @@ file_name_size_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;

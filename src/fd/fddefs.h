@@ -1,6 +1,6 @@
 /*
  *  fddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -221,6 +221,7 @@
 #define BIN_CMD_W_TRACE          5
 #define W_TRACE                  6
 #define C_TRACE                  7
+#define LIST_R_TRACE             8
 
 /* Default definitions. */
 #define DEFAULT_ERROR_REPEAT     1
@@ -266,6 +267,7 @@
 #define MIRROR_DIR                     2097152
 #define EXEC_ONCE_ONLY                 4194304
 #define SHOW_ALL_GROUP_MEMBERS         8388608
+#define MATCH_REMOTE_SIZE              16777216
 
 #ifdef _WITH_BURST_2
 /* Definition for values that have changed during a burst. */
@@ -569,8 +571,10 @@ struct job
                                          /*|23 | EXEC: Execute command  |*/
                                          /*|   |       for all files    |*/
                                          /*|   |       once only.       |*/
-                                         /*|24 | Show all members of a  |*/
-                                         /*|   | group in the To: line. |*/
+                                         /*|24 | SMTP: Show all members |*/
+                                         /*|   |       of a group in the|*/
+                                         /*|   |       To: line.        |*/
+                                         /*|25 | Match file size.       |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
           unsigned int  dup_check_flag;  /* Flag storing the type of     */
@@ -580,7 +584,8 @@ struct job
                                          /*|Bit(s)|       Meaning       |*/
                                          /*+------+---------------------+*/
                                          /*|   32 | USE_RECIPIENT_ID    |*/
-                                         /*|27-31 | Not used.           |*/
+                                         /*|   31 | TIMEOUT_IS_FIXED    |*/
+                                         /*|27-30 | Not used.           |*/
                                          /*|   26 | DC_WARN             |*/
                                          /*|   25 | DC_STORE            |*/
                                          /*|   24 | DC_DELETE           |*/
@@ -596,11 +601,13 @@ struct job
                                          /* duplicate checks are no      */
                                          /* longer valid. Value is in    */
                                          /* seconds.                     */
+          unsigned int  trans_dup_check_flag;
+          time_t        trans_dup_check_timeout;
 #endif
           int           filename_pos_subject;
                                          /* Where in subject the file-   */
                                          /* name is to be positioned.    */
-          char          job_no;          /* The job number of current    */
+          unsigned char job_no;          /* The job number of current    */
                                          /* transfer process.            */
 #ifdef _OUTPUT_LOG
           char          output_log;      /* When the file name is to be  */
@@ -630,24 +637,24 @@ struct job
 /* Structure that holds all the informations of current connections. */
 struct connection
        {
-          int          job_no;           /* Job number of this host.       */
-          int          fsa_pos;          /* Position of host in FSA        */
+          int           fsa_pos;         /* Position of host in FSA        */
                                          /* structure.                     */
-          int          fra_pos;          /* Position of directory in FRA   */
+          int           fra_pos;         /* Position of directory in FRA   */
                                          /* structure.                     */
-          pid_t        pid;              /* Process ID of job transferring */
+          pid_t         pid;             /* Process ID of job transferring */
                                          /* the files.                     */
-          int          protocol;         /* Transmission protocol, either  */
+          int           protocol;        /* Transmission protocol, either  */
                                          /* FTP, SMTP or LOC.              */
-          unsigned int host_id;          /* CRC-32 checksum of hostname.   */
-          char         hostname[MAX_HOSTNAME_LENGTH + 1];
-          char         msg_name[MAX_MSG_NAME_LENGTH];
-          char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
-          char         temp_toggle;      /* When host has been toggled     */
+          unsigned int  host_id;         /* CRC-32 checksum of hostname.   */
+          char          hostname[MAX_HOSTNAME_LENGTH + 1];
+          char          msg_name[MAX_MSG_NAME_LENGTH];
+          char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          short         job_no;          /* Job number of this host.       */
+          char          temp_toggle;     /* When host has been toggled     */
                                          /* automatically we occasionally  */
                                          /* have to see if the original    */
                                          /* host is working again.         */
-          char         resend;           /* Is this a resend job from      */
+          char          resend;          /* Is this a resend job from      */
                                          /* show_olog?                     */
        };
 
@@ -715,6 +722,7 @@ extern int   append_compare(char *, char *),
              get_file_names(char *, off_t *),
              get_job_data(unsigned int, int, time_t, off_t),
              get_remote_file_names_ftp(off_t *, int *),
+             get_remote_file_names_ftp_mlst(off_t *, int *),
              get_remote_file_names_http(off_t *, int *),
              get_remote_file_names_sftp(off_t *, int *),
              gsf_check_fra(void),

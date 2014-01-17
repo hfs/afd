@@ -1,6 +1,6 @@
 /*
  *  show_dir_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,12 @@ show_dir_list(FILE *p_data)
    (void)fprintf(p_data, "ND %d\r\n", no_of_dirs);
    (void)fflush(p_data);
 
-   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, DIR_NAME_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(fullname, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,

@@ -1,6 +1,6 @@
 /*
  *  common.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int     command(int fd, char *fmt, ...)
  **   ssize_t ssl_write(SSL *ssl, const char *buf, size_t count)
- **   char    *ssl_error_msg(char *function, SSL *ssl, int reply, char *msg_str)
+ **   char    *ssl_error_msg(char *function, SSL *ssl, int *ssl_ret, int reply, char *msg_str)
+ **   int     connect_with_timeout(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
  **
  ** DESCRIPTION
  **
@@ -39,6 +40,7 @@ DESCR__S_M3
  ** HISTORY
  **   10.03.2004 H.Kiehl Created
  **   26.06.2005 H.Kiehl Don't show password during a trace.
+ **   27.02.2013 H.Kiehl Added function connect_with_timeout().
  */
 DESCR__E_M3
 
@@ -61,6 +63,7 @@ DESCR__E_M3
 
 /* External global variables. */
 extern int  timeout_flag;
+extern long transfer_timeout;
 #ifdef WITH_SSL
 extern SSL  *ssl_con;
 #endif
@@ -231,53 +234,90 @@ ssl_write(SSL *ssl, const char *buf, size_t count)
 
 /*########################### ssl_error_msg() ###########################*/
 char *
-ssl_error_msg(char *function, SSL *ssl, int reply, char *msg_str)
+ssl_error_msg(char *function, SSL *ssl, int *ssl_ret, int reply, char *msg_str)
 {
    int len,
+       *p_ret,
        ret;
 
-   ret = SSL_get_error(ssl_con, reply);
-   switch (ret)
+   if (ssl_ret == NULL)
+   {
+      p_ret = &ret;
+   }
+   else
+   {
+      p_ret = ssl_ret;
+   }
+   *p_ret = SSL_get_error(ssl, reply);
+   switch (*p_ret)
    {
       case SSL_ERROR_NONE :
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_NONE : The TLS/SSL I/O operation completed."),
                        function);
          break;
 
       case SSL_ERROR_ZERO_RETURN :
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_ZERO_RETURN : The TLS/SSL connection has been closed."),
                        function);
          break;
 
       case SSL_ERROR_WANT_WRITE :
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_WANT_WRITE : Operation not complete, try again later."),
                        function);
          break;
 
       case SSL_ERROR_WANT_READ :
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_WANT_READ : Operation not complete, try again later."),
                        function);
          break;
 
 #ifdef SSL_ERROR_WANT_ACCEPT
       case SSL_ERROR_WANT_ACCEPT :
+# ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+# else
          len = sprintf(msg_str,
+# endif
                        _("%s error SSL_ERROR_WANT_ACCEPT : Operation not complete, try again later."),
                        function);
          break;
 #endif
       case SSL_ERROR_WANT_CONNECT :
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_WANT_CONNECT : Operation not complete, try again later."),
                        function);
          break;
 
       case SSL_ERROR_WANT_X509_LOOKUP :
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_WANT_X509_LOOKUP : Operation not complete, tray again."),
                        function);
          break;
@@ -291,19 +331,31 @@ ssl_error_msg(char *function, SSL *ssl, int reply, char *msg_str)
             {
                if (reply == 0)
                {
+#ifdef HAVE_SNPRINTF
+                  len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
                   len = sprintf(msg_str,
+#endif
                                 _("%s error SSL_ERROR_SYSCALL : Observed EOF which violates the protocol."),
                                  function);
                }
                else if (reply == -1)
                     {
+#ifdef HAVE_SNPRINTF
+                       len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
                        len = sprintf(msg_str,
+#endif
                                      _("%s error SSL_ERROR_SYSCALL : %s"),
                                      function, strerror(errno));
                     }
                     else
                     {
+#ifdef HAVE_SNPRINTF
+                        len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
                         len = sprintf(msg_str,
+#endif
                                       _("%s error SSL_ERROR_SYSCALL : No error queued."),
                                       function);
                     }
@@ -311,7 +363,11 @@ ssl_error_msg(char *function, SSL *ssl, int reply, char *msg_str)
             else
             {
                SSL_load_error_strings();
+#ifdef HAVE_SNPRINTF
+               len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
                len = sprintf(msg_str,
+#endif
                              _("%s error SSL_ERROR_SYSCALL : %s"),
                              function, ERR_error_string(queued, NULL));
                ERR_free_strings();
@@ -321,14 +377,23 @@ ssl_error_msg(char *function, SSL *ssl, int reply, char *msg_str)
 
       case SSL_ERROR_SSL :
          SSL_load_error_strings();
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
          len = sprintf(msg_str,
+#endif
                        _("%s error SSL_ERROR_SSL : %s"),
                        function, ERR_error_string(ERR_get_error(), NULL));
          ERR_free_strings();
          break;
 
       default :
-         len = sprintf(msg_str, _("%s error unknown (%d)."), function, ret);
+#ifdef HAVE_SNPRINTF
+         len = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
+         len = sprintf(msg_str,
+#endif
+                       _("%s error unknown (%d)."), function, *p_ret);
    }
    return(msg_str + len);
 }

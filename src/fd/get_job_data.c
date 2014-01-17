@@ -1,6 +1,6 @@
 /*
  *  get_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -90,7 +90,11 @@ get_job_data(unsigned int job_id,
                 user[MAX_USER_NAME_LENGTH + 1],
                 smtp_server[MAX_REAL_HOSTNAME_LENGTH + 1];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(p_msg_dir, MAX_PATH_LENGTH - (p_msg_dir - msg_dir), "%x", job_id);
+#else
    (void)sprintf(p_msg_dir, "%x", job_id);
+#endif
 
 retry:
    if ((fd = open(msg_dir, O_RDONLY)) == -1)

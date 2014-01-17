@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2011 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,29 +17,36 @@
 ##
 
 if WITH_DELETE_LOG
-   REMOVE_POOL_DIR     = remove_pool_directory.c
-   EXTRA_RM_POOL_DIR   =
+   REMOVE_POOL_DIR           = remove_pool_directory.c
+   EXTRA_RM_POOL_DIR         =
 else
-   REMOVE_POOL_DIR     =
-   EXTRA_RM_POOL_DIR   = remove_pool_directory.c
+   REMOVE_POOL_DIR           =
+   EXTRA_RM_POOL_DIR         = remove_pool_directory.c
 endif
 if WITH_DISTRIBUTION_LOG
-   DIS_LOG             = dis_log.c
-   EXTRA_DIS_LOG       =
+   DIS_LOG                   = dis_log.c
+   EXTRA_DIS_LOG             =
 else
-   DIS_LOG             =
-   EXTRA_DIS_LOG       = dis_log.c
+   DIS_LOG                   =
+   EXTRA_DIS_LOG             = dis_log.c
 endif
 if WITH_ONETIME_SUPPORT
-   CHECK_OT_CONF       = check_onetime_config.c receive_log.c
-   EXTRA_CHECK_OT_CONF =
+   CHECK_OT_CONF             = check_onetime_config.c receive_log.c
+   EXTRA_CHECK_OT_CONF       =
 else
-   CHECK_OT_CONF       =
-   EXTRA_CHECK_OT_CONF = check_onetime_config.c
+   CHECK_OT_CONF             =
+   EXTRA_CHECK_OT_CONF       = check_onetime_config.c
+endif
+if WITH_INOTIFY_SUPPORT
+   CHECK_INOTIFY_FILES       = check_inotify_files.c del_unknown_inotify_files.c
+   EXTRA_CHECK_INOTIFY_FILES =
+else
+   CHECK_INOTIFY_FILES       =
+   EXTRA_CHECK_INOTIFY_FILES = check_inotify_files.c del_unknown_inotify_files.c
 endif
 
 noinst_HEADERS         = amgdefs.h
-INCLUDES               = -I.. -I../init_afd -I../fd
+AM_CPPFLAGS            = -I.. -I../init_afd -I../fd
 bin_PROGRAMS           = amg dir_check $(ONETIME_PROG)
 EXTRA_PROGRAMS         = test_in_time test_time show_amg_data
 EXTRA_DIST             = $(EXTRA_RM_POOL_DIR) $(EXTRA_DIS_LOG) $(EXTRA_CHECK_OT_CONF)
@@ -79,6 +86,8 @@ dir_check_SOURCES      = check_file_dir.c\
                          $(DIS_LOG)\
                          enter_time_job.c\
                          eval_bul_rep_config.c\
+                         get_last_char.c\
+                         $(CHECK_INOTIFY_FILES)\
                          handle_options.c\
                          handle_retrieve_list.c\
                          handle_time_jobs.c\

@@ -1,6 +1,6 @@
 /*
  *  ftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,39 +25,40 @@ DESCR__S_M3
  **   ftpcmd - commands to send files via FTP
  **
  ** SYNOPSIS
- **   int  ftp_account(char *user)
- **   int  ftp_block_write(char *block, unsigned short size, char descriptor)
- **   int  ftp_mode(char mode)
- **   int  ftp_open(char *filename, int seek)
- **   int  ftp_cd(char *directory, int create_dir, char *dir_mode,
- **               char *created_path)
- **   int  ftp_chmod(char *filename, char *mode)
- **   int  ftp_close_data(void)
- **   int  ftp_connect(char *hostname, int port)
- **   int  ftp_auth_data(void)
- **   int  ftp_ssl_auth(void)
- **   int  ftp_ssl_init(char type)
- **   int  ftp_data(char *filename, off_t seek, int mode, int type)
- **   int  ftp_date(char *filenname, time_t *file_mtime)
- **   int  ftp_dele(char *filename)
- **   int  ftp_exec(char *cmd, char *filename)
- **   int  ftp_get_reply(void)
- **   int  ftp_idle(int timeout)
- **   int  ftp_keepalive(void)
- **   int  ftp_list(int mode, int type, ...)
- **   int  ftp_move(char *from, char *to, int fast_move, int create_dir,
- **                 char *dir_mode, char *created_path)
- **   int  ftp_noop(void)
- **   int  ftp_pass(char *password)
- **   int  ftp_pwd(void)
- **   int  ftp_quit(void)
- **   int  ftp_read(char *block, int blocksize)
- **   int  ftp_sendfile(int source_fd, off_t *offset, int size)
- **   int  ftp_set_date(char *filename, time_t file_mtime)
- **   int  ftp_size(char *filename, off_t *remote_size)
- **   int  ftp_type(char type)
- **   int  ftp_user(char *user)
- **   int  ftp_write(char *block, char *buffer, int size)
+ **   int ftp_account(char *user)
+ **   int ftp_block_write(char *block, unsigned short size, char descriptor)
+ **   int ftp_mode(char mode)
+ **   int ftp_open(char *filename, int seek)
+ **   int ftp_cd(char *directory, int create_dir, char *dir_mode,
+ **              char *created_path)
+ **   int ftp_chmod(char *filename, char *mode)
+ **   int ftp_close_data(void)
+ **   int ftp_connect(char *hostname, int port)
+ **   int ftp_auth_data(void)
+ **   int ftp_ssl_auth(void)
+ **   int ftp_ssl_init(char type)
+ **   int ftp_feat(unsigned int *)
+ **   int ftp_data(char *filename, off_t seek, int mode, int type)
+ **   int ftp_date(char *filenname, time_t *file_mtime)
+ **   int ftp_dele(char *filename)
+ **   int ftp_exec(char *cmd, char *filename)
+ **   int ftp_get_reply(void)
+ **   int ftp_idle(int timeout)
+ **   int ftp_keepalive(void)
+ **   int ftp_list(int mode, int type, ...)
+ **   int ftp_move(char *from, char *to, int fast_move, int create_dir,
+ **                char *dir_mode, char *created_path)
+ **   int ftp_noop(void)
+ **   int ftp_pass(char *password)
+ **   int ftp_pwd(void)
+ **   int ftp_quit(void)
+ **   int ftp_read(char *block, int blocksize)
+ **   int ftp_sendfile(int source_fd, off_t *offset, int size)
+ **   int ftp_set_date(char *filename, time_t file_mtime)
+ **   int ftp_size(char *filename, off_t *remote_size)
+ **   int ftp_type(char type)
+ **   int ftp_user(char *user)
+ **   int ftp_write(char *block, char *buffer, int size)
  **
  ** DESCRIPTION
  **   ftpcmd provides a set of commands to communicate with an FTP
@@ -281,7 +282,7 @@ static int                control_fd,
                           data_fd = -1;
 #ifdef WITH_SSL
 static SSL                *ssl_data = NULL;
-static SSL_CTX            *ssl_ctx;
+static SSL_CTX            *ssl_ctx = NULL;
 #endif
 static sigjmp_buf         env_alrm;
 static struct sockaddr_in ctrl,
@@ -289,7 +290,8 @@ static struct sockaddr_in ctrl,
 static struct timeval     timeout;
 
 /* Local function prototypes. */
-static int                check_data_socket(int, int, int *, char *),
+static int                check_data_socket(int, int, int *, char *, int,
+                                            char *, char *),
                           get_extended_number(char *),
                           get_number(char **, char),
                           get_reply(void),
@@ -322,7 +324,11 @@ ftp_connect(char *hostname, int port)
    hints.ai_socktype = SOCK_STREAM;
 /* ???   hints.ai_flags = AI_CANONNAME; */
 
+# ifdef HAVE_SNPRINTF
+   (void)snprintf(str_port, MAX_INT_LENGTH, "%d", port);
+# else
    (void)sprintf(str_port, "%d", port);
+# endif
    reply = getaddrinfo(hostname, str_port, &hints, &result);
    if (reply != 0)
    {
@@ -344,7 +350,12 @@ ftp_connect(char *hostname, int port)
                                rp->ai_protocol)) == -1)
       {
 # ifdef WITH_TRACE
-         length = sprintf(msg_str, _("socket() error : %s"), strerror(errno));
+#  ifdef HAVE_SNPRINTF
+         length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#  else
+         length = sprintf(msg_str,
+#  endif
+                          _("socket() error : %s"), strerror(errno));
          trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
          continue;
@@ -374,15 +385,31 @@ ftp_connect(char *hostname, int port)
       }
 # endif
 
-      if (connect(control_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      reply = connect_with_timeout(control_fd, rp->ai_addr, rp->ai_addrlen);
+      if (reply == INCORRECT)
       {
+         if (errno != 0)
+         {
 # ifdef WITH_TRACE
-         length = sprintf(msg_str, _("connect() error : %s"), strerror(errno));
-         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+#  ifdef HAVE_SNPRINTF
+            length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#  else
+            length = sprintf(msg_str,
+#  endif
+                             _("connect() error : %s"), strerror(errno));
+            trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
+         }
          (void)close(control_fd);
          continue;
       }
+      else if (reply == PERMANENT_INCORRECT)
+           {
+              (void)close(control_fd);
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                        _("Failed to connect() to %s"), hostname);
+              return(INCORRECT);
+           }
 
       break; /* Success */
    }
@@ -390,8 +417,17 @@ ftp_connect(char *hostname, int port)
    /* Ensure that we succeeded in finding an address. */
    if (rp == NULL)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
-                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      if (errno)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                   _("Failed to connect() to %s : %s"),
+                   hostname, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                   _("Failed to connect() to %s"), hostname);
+      }
       return(INCORRECT);
    }
 
@@ -494,34 +530,47 @@ ftp_connect(char *hostname, int port)
    }
 # endif
 
-   if (connect(control_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
+   if (connect_with_timeout(control_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-# ifdef ETIMEDOUT
-      if (errno == ETIMEDOUT)
+      if (errno)
       {
-         timeout_flag = ON;
-      }
+# ifdef ETIMEDOUT
+         if (errno == ETIMEDOUT)
+         {
+            timeout_flag = ON;
+         }
 #  ifdef ECONNREFUSED
-      else if (errno == ECONNREFUSED)
-           {
-              timeout_flag = CON_REFUSED;
-           }
+         else if (errno == ECONNREFUSED)
+              {
+                 timeout_flag = CON_REFUSED;
+              }
 #  endif
 # else
 #  ifdef ECONNREFUSED
-      if (errno == ECONNREFUSED)
-      {
-         timeout_flag = CON_REFUSED;
-      }
+         if (errno == ECONNREFUSED)
+         {
+            timeout_flag = CON_REFUSED;
+         }
 #  endif
 # endif
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
-                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                   _("Failed to connect() to %s : %s"),
+                   hostname, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_connect", NULL,
+                   _("Failed to connect() to %s"), hostname);
+      }
       (void)close(control_fd);
       return(INCORRECT);
    }
 # ifdef WITH_TRACE
+#  ifdef HAVE_SNPRINTF
+   length = snprintf(msg_str, MAX_RET_MSG_LENGTH, _("Connected to %s"), hostname);
+#  else
    length = sprintf(msg_str, _("Connected to %s"), hostname);
+#  endif
    trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
 #endif
@@ -580,6 +629,10 @@ ftp_ssl_auth(void)
             char *p_env,
                  *p_env1;
 
+            if (ssl_ctx != NULL)
+            {
+               SSL_CTX_free(ssl_ctx);
+            }
             SSLeay_add_ssl_algorithms();
             ssl_ctx=(SSL_CTX *)SSL_CTX_new(SSLv23_client_method());
             SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
@@ -612,35 +665,44 @@ ftp_ssl_auth(void)
             SSL_set_connect_state(ssl_con);
             SSL_set_fd(ssl_con, control_fd);
 
-            if (SSL_connect(ssl_con) <= 0)
+            if ((reply = SSL_connect(ssl_con)) <= 0)
             {
                char *ptr;
 
-               ptr = ssl_error_msg("SSL_connect", ssl_con, reply, msg_str);
+               ptr = ssl_error_msg("SSL_connect", ssl_con, NULL, reply, msg_str);
                reply = SSL_get_verify_result(ssl_con);
                if (reply == X509_V_ERR_CRL_SIGNATURE_FAILURE)
                {
-                  (void)strcpy(ptr,
-                               _(" | Verify result: The signature of the certificate is invalid!"));
+                  (void)my_strncpy(ptr,
+                                   _(" | Verify result: The signature of the certificate is invalid!"),
+                                   MAX_RET_MSG_LENGTH - (ptr - msg_str));
                }
                else if (reply == X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD)
                     {
-                        (void)strcpy(ptr,
-                                     _(" | Verify result: The CRL nextUpdate field contains an invalid time."));
+                       (void)my_strncpy(ptr,
+                                        _(" | Verify result: The CRL nextUpdate field contains an invalid time."),
+                                        MAX_RET_MSG_LENGTH - (ptr - msg_str));
                     }
                else if (reply == X509_V_ERR_CRL_HAS_EXPIRED)
                     {
-                        (void)strcpy(ptr,
-                                     _(" | Verify result: The CRL has expired."));
+                       (void)my_strncpy(ptr,
+                                        _(" | Verify result: The CRL has expired."),
+                                        MAX_RET_MSG_LENGTH - (ptr - msg_str));
                     }
                else if (reply == X509_V_ERR_CERT_REVOKED)
                     {
-                       (void)strcpy(ptr,
-                                    _(" | Verify result: Certificate revoked."));
+                       (void)my_strncpy(ptr,
+                                        _(" | Verify result: Certificate revoked."),
+                                        MAX_RET_MSG_LENGTH - (ptr - msg_str));
                     }
                else if (reply > X509_V_OK)
                     {
-                       (void)sprintf(ptr, _(" | Verify result: %d"), reply);
+# ifdef HAVE_SNPRINTF
+                       (void)snprintf(ptr, MAX_RET_MSG_LENGTH - (ptr - msg_str),
+# else
+                       (void)sprintf(ptr,
+# endif
+                                     _(" | Verify result: %d"), reply);
                     }
                reply = INCORRECT;
             }
@@ -655,7 +717,12 @@ ftp_ssl_auth(void)
                ssl_cipher = SSL_get_current_cipher(ssl_con);
                SSL_CIPHER_get_bits(ssl_cipher, &ssl_bits);
                length = strlen(msg_str);
-               (void)sprintf(&msg_str[length], "  <%s, cipher %s, %d bits>",
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(&msg_str[length], MAX_RET_MSG_LENGTH - length,
+# else
+               (void)sprintf(&msg_str[length],
+# endif
+                             "  <%s, cipher %s, %d bits>",
                              ssl_version, SSL_CIPHER_get_name(ssl_cipher),
                              ssl_bits);
                reply = SUCCESS;
@@ -706,10 +773,38 @@ ftp_user(char *user)
     *       password is required. Thus we do have to return the 230
     *       so the apllication knows what to do with it.
     */
-   if ((reply == 331) || (reply == 332))
+   if (reply == 331)
    {
-      reply = SUCCESS;
+      /*
+       * Some broken FTP servers return 331 instead of 4xx or 5xx
+       * when logging in to another user is not permitted. This is
+       * really broken because a 3xx reply suggest one must continue
+       * with a PASS instruction. So check if this is the case by
+       * looking for the following string:
+       *    331 Can't change to another user.
+       */
+      if (!((msg_str[4] == 'C') && (msg_str[5] == 'a') &&
+            (msg_str[6] == 'n') && (msg_str[7] == '\'') &&
+            (msg_str[8] == 't') && (msg_str[9] == ' ') &&
+            (msg_str[10] == 'c') && (msg_str[11] == 'h') &&
+            (msg_str[12] == 'a') && (msg_str[13] == 'n') &&
+            (msg_str[14] == 'g') && (msg_str[15] == 'e') &&
+            (msg_str[16] == ' ') && (msg_str[17] == 't') &&
+            (msg_str[18] == 'o') && (msg_str[19] == ' ') &&
+            (msg_str[20] == 'a') && (msg_str[21] == 'n') &&
+            (msg_str[22] == 'o') && (msg_str[23] == 't') &&
+            (msg_str[24] == 'h') && (msg_str[25] == 'e') &&
+            (msg_str[26] == 'r') && (msg_str[27] == ' ') &&
+            (msg_str[28] == 'u') && (msg_str[29] == 's') &&
+            (msg_str[30] == 'e') && (msg_str[31] == 'r')))
+      {
+         reply = SUCCESS;
+      }
    }
+   else if (reply == 332)
+        {
+           reply = SUCCESS;
+        }
 
    return(reply);
 }
@@ -809,6 +904,137 @@ ftp_ssl_init(char type)
    return(reply);
 }
 #endif /* WITH_SSL */
+
+
+/*############################## ftp_feat() #############################*/
+int
+ftp_feat(unsigned int *ftp_options)
+{
+   int reply;
+
+   *ftp_options = 0;
+   if ((reply = command(control_fd, "FEAT")) == SUCCESS)
+   {
+      if (read_msg() == INCORRECT)
+      {
+         return(INCORRECT);
+      }
+      if ((msg_str[0] == '2') && (msg_str[1] == '1') &&
+          (msg_str[2] == '1') && (msg_str[3] == '-'))
+      {
+         for (;;)
+         {
+            if (read_msg() == INCORRECT)
+            {
+               return(INCORRECT);
+            }
+
+            if ((msg_str[0] == '2') && (msg_str[1] == '1') &&
+                (msg_str[2] == '1') && (msg_str[3] != '-'))
+            {
+               *ftp_options |= FTP_OPTION_FEAT;
+               break;
+            }
+                 /* MDTM - File Modification Time */
+            else if ((msg_str[0] == ' ') &&
+                     ((msg_str[1] == 'M') || (msg_str[1] == 'm')) &&
+                     ((msg_str[2] == 'D') || (msg_str[2] == 'd')) &&
+                     ((msg_str[3] == 'T') || (msg_str[3] == 't')) &&
+                     ((msg_str[4] == 'M') || (msg_str[4] == 'm')))
+                 {
+                    *ftp_options |= FTP_OPTION_MDTM;
+                 }
+                 /* SIZE - File Size */
+            else if ((msg_str[0] == ' ') &&
+                     ((msg_str[1] == 'S') || (msg_str[1] == 's')) &&
+                     ((msg_str[2] == 'I') || (msg_str[2] == 'i')) &&
+                     ((msg_str[3] == 'Z') || (msg_str[3] == 'z')) &&
+                     ((msg_str[4] == 'E') || (msg_str[4] == 'e')))
+                 {
+                    *ftp_options |= FTP_OPTION_SIZE;
+                 }
+                 /* MLST - List Single Object + List Directory */
+            else if ((msg_str[0] == ' ') &&
+                     ((msg_str[1] == 'M') || (msg_str[1] == 'm')) &&
+                     ((msg_str[2] == 'L') || (msg_str[2] == 'l')) &&
+                     ((msg_str[3] == 'S') || (msg_str[3] == 's')) &&
+                     ((msg_str[4] == 'T') || (msg_str[4] == 't')))
+                 {
+                    *ftp_options |= FTP_OPTION_MLST;
+                    if (msg_str[5] == ' ')
+                    {
+                       int i = 6;
+
+                       do
+                       {
+                          /* modify*; */
+                          if (((msg_str[i] == 'M') || (msg_str[i] == 'm')) &&
+                              ((msg_str[i + 1] == 'O') || (msg_str[i + 1] == 'o')) &&
+                              ((msg_str[i + 2] == 'D') || (msg_str[i + 2] == 'd')) &&
+                              ((msg_str[i + 3] == 'I') || (msg_str[i + 3] == 'i')) &&
+                              ((msg_str[i + 4] == 'F') || (msg_str[i + 4] == 'f')) &&
+                              ((msg_str[i + 5] == 'Y') || (msg_str[i + 5] == 'y')) &&
+                              (msg_str[i + 6] == '*') && (msg_str[i + 7] == ';'))
+                          {
+                             *ftp_options |= FTP_OPTION_MLST_MODIFY;
+                             i += 8;
+                          }
+                               /* perm*; */
+                          else if (((msg_str[i] == 'P') || (msg_str[i] == 'p')) &&
+                                   ((msg_str[i + 1] == 'E') || (msg_str[i + 1] == 'e')) &&
+                                   ((msg_str[i + 2] == 'R') || (msg_str[i + 2] == 'r')) &&
+                                   ((msg_str[i + 3] == 'M') || (msg_str[i + 3] == 'm')) &&
+                                   (msg_str[i + 4] == '*') && (msg_str[i + 5] == ';'))
+                               {
+                                  *ftp_options |= FTP_OPTION_MLST_PERM;
+                                  i += 6;
+                               }
+                               /* size*; */
+                          else if (((msg_str[i] == 'S') || (msg_str[i] == 's')) &&
+                                   ((msg_str[i + 1] == 'I') || (msg_str[i + 1] == 'i')) &&
+                                   ((msg_str[i + 2] == 'Z') || (msg_str[i + 2] == 'z')) &&
+                                   ((msg_str[i + 3] == 'E') || (msg_str[i + 3] == 'e')) &&
+                                   (msg_str[i + 4] == '*') && (msg_str[i + 5] == ';'))
+                               {
+                                  *ftp_options |= FTP_OPTION_MLST_SIZE;
+                                  i += 6;
+                               }
+                               /* type*; */
+                          else if (((msg_str[i] == 'T') || (msg_str[i] == 't')) &&
+                                   ((msg_str[i + 1] == 'Y') || (msg_str[i + 1] == 'y')) &&
+                                   ((msg_str[i + 2] == 'P') || (msg_str[i + 2] == 'p')) &&
+                                   ((msg_str[i + 3] == 'E') || (msg_str[i + 3] == 'e')) &&
+                                   (msg_str[i + 4] == '*') && (msg_str[i + 5] == ';'))
+                               {
+                                  *ftp_options |= FTP_OPTION_MLST_TYPE;
+                                  i += 6;
+                               }
+                               else /* Ignore other features. */
+                               {
+                                  while ((msg_str[i] != ';') &&
+                                         (msg_str[i] != '\r') &&
+                                         (msg_str[i] != '\n') &&
+                                         (msg_str[i] != '\0'))
+                                  {
+                                     i++;
+                                  }
+                                  if (msg_str[i] == ';')
+                                  {
+                                     i++;
+                                  }
+                               }
+                       } while ((msg_str[i] != '\0') && (msg_str[i] != '\r') &&
+                                (msg_str[i] != '\n'));
+                    }
+                 }
+         } /* for (;;) */
+
+         reply = SUCCESS;
+      }
+   }
+
+   return(reply);
+}
 
 
 /*############################## ftp_idle() #############################*/
@@ -1697,31 +1923,39 @@ ftp_list(int mode, int type, ...)
                (void)close(new_sock_fd);
                return(INCORRECT);
             }
-            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            if (connect_with_timeout(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
             {
-#ifdef ETIMEDOUT
-                if (errno == ETIMEDOUT)
+                if (errno)
                 {
-                   timeout_flag = ON;
-                }
+#ifdef ETIMEDOUT
+                   if (errno == ETIMEDOUT)
+                   {
+                      timeout_flag = ON;
+                   }
 # ifdef ECONNREFUSED
-               else if (errno == ECONNREFUSED)
-                    {
-                       timeout_flag = CON_REFUSED;
-                    }
+                   else if (errno == ECONNREFUSED)
+                        {
+                           timeout_flag = CON_REFUSED;
+                        }
 # endif
 #else
 # ifdef ECONNREFUSED
-               if (errno == ECONNREFUSED)
-               {
-                  timeout_flag = CON_REFUSED;
-               }
+                   if (errno == ECONNREFUSED)
+                   {
+                      timeout_flag = CON_REFUSED;
+                   }
 # endif
 #endif
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                         _("connect() error : %s"), strerror(errno));
-               (void)close(new_sock_fd);
-               return(INCORRECT);
+                   trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                             _("connect() error : %s"), strerror(errno));
+                }
+                else
+                {
+                   trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                             _("connect() error"));
+                }
+                (void)close(new_sock_fd);
+                return(INCORRECT);
             }
          }
          else
@@ -1823,29 +2057,37 @@ ftp_list(int mode, int type, ...)
                (void)close(new_sock_fd);
                return(INCORRECT);
             }
-            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            if (connect_with_timeout(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
             {
+               if (errno)
+               {
 #ifdef ETIMEDOUT
-                if (errno == ETIMEDOUT)
-                {
-                   timeout_flag = ON;
-                }
+                  if (errno == ETIMEDOUT)
+                  {
+                     timeout_flag = ON;
+                  }
 # ifdef ECONNREFUSED
-               else if (errno == ECONNREFUSED)
-                    {
-                       timeout_flag = CON_REFUSED;
-                    }
+                  else if (errno == ECONNREFUSED)
+                       {
+                          timeout_flag = CON_REFUSED;
+                       }
 # endif
 #else
 # ifdef ECONNREFUSED
-               if (errno == ECONNREFUSED)
-               {
-                  timeout_flag = CON_REFUSED;
-               }
+                  if (errno == ECONNREFUSED)
+                  {
+                     timeout_flag = CON_REFUSED;
+                  }
 # endif
 #endif
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
-                         _("connect() error : %s"), strerror(errno));
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                            _("connect() error : %s"), strerror(errno));
+               }
+               else
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
+                            _("connect() error"));
+               }
                (void)close(new_sock_fd);
                return(INCORRECT);
             }
@@ -1853,14 +2095,18 @@ ftp_list(int mode, int type, ...)
          }
 #endif
 
-         if (type & NLIST_CMD)
+         if (type & MLSD_CMD)
          {
-            reply = command(control_fd, "NLST");
+            reply = command(control_fd, "MLSD");
          }
-         else
-         {
-            reply = command(control_fd, "LIST %s", filename);
-         }
+         else if (type & NLIST_CMD)
+              {
+                 reply = command(control_fd, "NLST");
+              }
+              else
+              {
+                 reply = command(control_fd, "LIST %s", filename);
+              }
 
          if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
          {
@@ -1942,7 +2188,7 @@ ftp_list(int mode, int type, ...)
 
          if (inet_ntop(AF_INET6, &data.sin6_addr, buf, sizeof(buf)) == NULL)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_list", NULL,
                       "Cannot get address of local socket : %s",
                       strerror(errno));
             (void)close(sock_fd);
@@ -1950,12 +2196,8 @@ ftp_list(int mode, int type, ...)
          }
 
          /* Note, only extended mode is supported in IPv6. */
-         if (command(control_fd, "EPRT |2|%s|%d|",
-                     buf, (int)ntohs(data.sin6_port)) != SUCCESS)
-         {
-            (void)close(sock_fd);
-            return(INCORRECT);
-         }
+         reply = command(control_fd, "EPRT |2|%s|%d|",
+                         buf, (int)ntohs(data.sin6_port));
       }
       else
       {
@@ -2040,14 +2282,18 @@ ftp_list(int mode, int type, ...)
          return(reply);
       }
 
-      if (type & NLIST_CMD)
+      if (type & MLSD_CMD)
       {
-         reply = command(control_fd, "NLST");
+         reply = command(control_fd, "MLSD");
       }
-      else
-      {
-         reply = command(control_fd, "LIST %s", filename);
-      }
+      else if (type & NLIST_CMD)
+           {
+              reply = command(control_fd, "NLST");
+           }
+           else
+           {
+              reply = command(control_fd, "LIST %s", filename);
+           }
 
       if ((reply != SUCCESS) || ((reply = get_reply()) < 0))
       {
@@ -2170,7 +2416,14 @@ ftp_list(int mode, int type, ...)
 
 /*############################## ftp_data() #############################*/
 int
-ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
+ftp_data(char  *filename,
+         off_t seek,
+         int   mode,
+         int   type,
+         int   sockbuf_size,
+         int   create_dir,
+         char  *dir_mode,
+         char  *created_path)
 {
    int           new_sock_fd,
                  on = 1,
@@ -2334,29 +2587,37 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
                             _("setsockopt() error : %s"), strerror(errno));
                }
             }
-            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            if (connect_with_timeout(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
             {
-#ifdef ETIMEDOUT
-               if (errno == ETIMEDOUT)
+               if (errno)
                {
-                  timeout_flag = ON;
-               }
+#ifdef ETIMEDOUT
+                  if (errno == ETIMEDOUT)
+                  {
+                     timeout_flag = ON;
+                  }
 # ifdef ECONNREFUSED
-               else if (errno == ECONNREFUSED)
-                    {
-                       timeout_flag = CON_REFUSED;
-                    }
+                  else if (errno == ECONNREFUSED)
+                       {
+                          timeout_flag = CON_REFUSED;
+                       }
 # endif
 #else
 # ifdef ECONNREFUSED
-               if (errno == ECONNREFUSED)
-               {
-                  timeout_flag = CON_REFUSED;
-               }
+                  if (errno == ECONNREFUSED)
+                  {
+                     timeout_flag = CON_REFUSED;
+                  }
 # endif
 #endif
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                         _("connect() error : %s"), strerror(errno));
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("connect() error : %s"), strerror(errno));
+               }
+               else
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("connect() error"));
+               }
                (void)close(new_sock_fd);
                return(INCORRECT);
             }
@@ -2478,38 +2739,49 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
                             _("setsockopt() error : %s"), strerror(errno));
                }
             }
-            if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+            if (connect_with_timeout(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
             {
                char *h,
                     *p;
 
-#ifdef ETIMEDOUT
-               if (errno == ETIMEDOUT)
+               h = (char *)&data.sin_addr;
+               p = (char *)&data.sin_port;
+               if (errno)
                {
-                  timeout_flag = ON;
-               }
+#ifdef ETIMEDOUT
+                  if (errno == ETIMEDOUT)
+                  {
+                     timeout_flag = ON;
+                  }
 # ifdef ECONNREFUSED
-               else if (errno == ECONNREFUSED)
-                    {
-                       timeout_flag = CON_REFUSED;
-                    }
+                  else if (errno == ECONNREFUSED)
+                       {
+                          timeout_flag = CON_REFUSED;
+                       }
 # endif
 #else
 # ifdef ECONNREFUSED
-               if (errno == ECONNREFUSED)
-               {
-                  timeout_flag = CON_REFUSED;
-               }
+                  if (errno == ECONNREFUSED)
+                  {
+                     timeout_flag = CON_REFUSED;
+                  }
 # endif
 #endif
-               h = (char *)&data.sin_addr;
-               p = (char *)&data.sin_port;
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
-                         _("connect() error (%d,%d,%d,%d,%d,%d) : %s"),
-                         (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
-                         (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
-                         (((int)p[0]) & 0xff), (((int)p[1]) & 0xff),
-                         strerror(errno));
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("connect() error (%d,%d,%d,%d,%d,%d) : %s"),
+                            (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
+                            (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
+                            (((int)p[0]) & 0xff), (((int)p[1]) & 0xff),
+                            strerror(errno));
+               }
+               else
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data", NULL,
+                            _("connect() error (%d,%d,%d,%d,%d,%d)"),
+                            (((int)h[0]) & 0xff), (((int)h[1]) & 0xff),
+                            (((int)h[2]) & 0xff), (((int)h[3]) & 0xff),
+                            (((int)p[0]) & 0xff), (((int)p[1]) & 0xff));
+               }
                (void)close(new_sock_fd);
                return(INCORRECT);
             }
@@ -2579,7 +2851,7 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
             /*
              * Assume that we may not overwrite the remote file so let's
              * just delete it and try again.
-             * This is not 100% correct since there is no shure way to
+             * This is not 100% correct since there is no sure way to
              * tell that this is an overwrite error, since there are
              * just to many different return codes possible:
              *    553 (Upload)
@@ -2615,6 +2887,82 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
                {
                   (void)close(new_sock_fd);
                   return(INCORRECT);
+               }
+            }
+       else if (((reply == 550) || (reply == 553)) && (create_dir == YES))
+            {
+               char *ptr,
+                    to_dir[MAX_PATH_LENGTH];
+
+               (void)strcpy(to_dir, filename);
+               ptr = to_dir + strlen(to_dir) - 1;
+               while ((*ptr == '/') && (ptr > to_dir))
+               {
+                  ptr--;
+               }
+               while ((*ptr != '/') && (ptr > to_dir))
+               {
+                  ptr--;
+               }
+               if ((*ptr == '/') && (to_dir != ptr))
+               {
+                  *ptr = '\0';
+                  *(ptr + 1) = '\0';
+                  if (ftp_pwd() == SUCCESS)
+                  {
+                     char current_dir[MAX_PATH_LENGTH];
+
+                     (void)strcpy(current_dir, msg_str);
+
+                     /* The following will actually create the directory. */
+                     if (ftp_cd(to_dir, YES, dir_mode, created_path) == SUCCESS)
+                     {
+                        if (ftp_cd(current_dir, NO, "", NULL) == SUCCESS)
+                        {
+                           if (command(control_fd, "%s %s", cmd, filename) != SUCCESS)
+                           {
+                              (void)close(new_sock_fd);
+                              return(INCORRECT);
+                           }
+                           if ((reply = get_reply()) < 0)
+                           {
+                              if (timeout_flag == OFF)
+                              {
+                                 trans_log(WARN_SIGN, __FILE__, __LINE__, "ftp_data", msg_str,
+                                           _("Failed to get proper reply (%d)."), reply);
+                              }
+                              (void)close(new_sock_fd);
+                              return(INCORRECT);
+                           }
+
+                           if ((reply != 150) && (reply != 125))
+                           {
+                              (void)close(new_sock_fd);
+                              return(reply);
+                           }
+                        }
+                        else
+                        {
+                           (void)close(new_sock_fd);
+                           return(reply);
+                        }
+                     }
+                     else
+                     {
+                        (void)close(new_sock_fd);
+                        return(reply);
+                     }
+                  }
+                  else
+                  {
+                     (void)close(new_sock_fd);
+                     return(reply);
+                  }
+               }
+               else
+               {
+                  (void)close(new_sock_fd);
+                  return(reply);
                }
             }
             else
@@ -2972,7 +3320,9 @@ try_again:
             (void)close(sock_fd);
             return(INCORRECT);
          }
-      } while ((ret = check_data_socket(reply, sock_fd, &retries, filename)) == 1);
+      } while ((ret = check_data_socket(reply, sock_fd, &retries,
+                                        filename, create_dir,
+                                        dir_mode, created_path)) == 1);
 
       if (ret < 0)
       {
@@ -3069,7 +3419,13 @@ ftp_auth_data(void)
 
 /*+++++++++++++++++++++++++ check_data_socket() +++++++++++++++++++++++++*/
 static int
-check_data_socket(int reply, int sock_fd, int *retries, char *filename)
+check_data_socket(int  reply,
+                  int  sock_fd,
+                  int  *retries,
+                  char *filename,
+                  int  create_dir,
+                  char *dir_mode,
+                  char *created_path)
 {
    /*
     * The replies for STOR and APPE should be the same.
@@ -3109,6 +3465,58 @@ check_data_socket(int reply, int sock_fd, int *retries, char *filename)
 
          return(1);
       }
+      else if (((reply == 550) || (reply == 553)) && (create_dir == YES))
+           {
+              char *ptr,
+                   to_dir[MAX_PATH_LENGTH];
+
+              (void)strcpy(to_dir, filename);
+              ptr = to_dir + strlen(to_dir) - 1;
+              while ((*ptr == '/') && (ptr > to_dir))
+              {
+                 ptr--;
+              }
+              while ((*ptr != '/') && (ptr > to_dir))
+              {
+                 ptr--;
+              }
+              if ((*ptr == '/') && (to_dir != ptr))
+              {
+                 *ptr = '\0';
+                 *(ptr + 1) = '\0';
+                 if (ftp_pwd() == SUCCESS)
+                 {
+                    char current_dir[MAX_PATH_LENGTH];
+
+                    (void)strcpy(current_dir, msg_str);
+
+                    /* The following will actually create the directory. */
+                    if (ftp_cd(to_dir, YES, dir_mode, created_path) == SUCCESS)
+                    {
+                       if (ftp_cd(current_dir, NO, "", NULL) == SUCCESS)
+                       {
+                          return(1);
+                       }
+                       else
+                       {
+                          return(-3);
+                       }
+                    }
+                    else
+                    {
+                       return(-3);
+                    }
+                 }
+                 else
+                 {
+                    return(-3);
+                 }
+              }
+              else
+              {
+                 return(-3);
+              }
+           }
 
       return(-1);
    }
@@ -3132,31 +3540,40 @@ encrypt_data_connection(int fd)
    {
       char *ptr;
 
-      ptr = ssl_error_msg("SSL_connect", ssl_con, reply, msg_str);
+      ptr = ssl_error_msg("SSL_connect", ssl_con, NULL, reply, msg_str);
       reply = SSL_get_verify_result(ssl_con);
       if (reply == X509_V_ERR_CRL_SIGNATURE_FAILURE)
       {
-         (void)strcpy(ptr,
-                      _(" | Verify result: The signature of the certificate is invalid!"));
+         (void)my_strncpy(ptr,
+                          _(" | Verify result: The signature of the certificate is invalid!"),
+                          MAX_RET_MSG_LENGTH - (ptr - msg_str));
       }
       else if (reply == X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD)
            {
-               (void)strcpy(ptr,
-                            _(" | Verify result: The CRL nextUpdate field contains an invalid time."));
+              (void)my_strncpy(ptr,
+                               _(" | Verify result: The CRL nextUpdate field contains an invalid time."),
+                               MAX_RET_MSG_LENGTH - (ptr - msg_str));
            }
       else if (reply == X509_V_ERR_CRL_HAS_EXPIRED)
            {
-               (void)strcpy(ptr,
-                            _(" | Verify result: The CRL has expired."));
+              (void)my_strncpy(ptr,
+                               _(" | Verify result: The CRL has expired."),
+                               MAX_RET_MSG_LENGTH - (ptr - msg_str));
            }
       else if (reply == X509_V_ERR_CERT_REVOKED)
            {
-              (void)strcpy(ptr,
-                           _(" | Verify result: Certificate revoked."));
+              (void)my_strncpy(ptr,
+                               _(" | Verify result: Certificate revoked."),
+                               MAX_RET_MSG_LENGTH - (ptr - msg_str));
            }
       else if (reply > X509_V_OK)
            {
-              (void)sprintf(ptr, _(" | Verify result: %d"), reply);
+# ifdef HAVE_SNPRINTF
+              (void)snprintf(ptr, MAX_RET_MSG_LENGTH - (ptr - msg_str),
+# else
+              (void)sprintf(ptr,
+# endif
+                            _(" | Verify result: %d"), reply);
            }
       reply = INCORRECT;
    }
@@ -3173,9 +3590,13 @@ encrypt_data_connection(int fd)
       ssl_cipher = SSL_get_current_cipher(ssl_data);
       SSL_CIPHER_get_bits(ssl_cipher, &ssl_bits);
       length = strlen(msg_str);
-      (void)sprintf(&msg_str[length], "  <%s, cipher %s, %d bits>",
-                    ssl_version, SSL_CIPHER_get_name(ssl_cipher),
-                    ssl_bits);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(&msg_str[length], MAX_RET_MSG_LENGTH - length,
+#else
+      (void)sprintf(&msg_str[length],
+#endif
+                    "  <%s, cipher %s, %d bits>",
+                    ssl_version, SSL_CIPHER_get_name(ssl_cipher), ssl_bits);
 
       /* Get server certifcates for ctrl and data connection. */
       x509_ssl_con = SSL_get_peer_certificate(ssl_con);
@@ -3185,8 +3606,9 @@ encrypt_data_connection(int fd)
       /* if it matches with that from ctrl connection.    */
       if ((x509_ssl_con != NULL) && (x509_ssl_data == NULL))
       {
-         (void)strcpy(msg_str,
-                      _("Server did not present a certificate for data connection."));
+         (void)my_strncpy(msg_str,
+                          _("Server did not present a certificate for data connection."),
+                          MAX_RET_MSG_LENGTH);
          SSL_free(ssl_data);
          ssl_data = NULL;
          (void)close(fd);
@@ -3195,7 +3617,11 @@ encrypt_data_connection(int fd)
       else if ((x509_ssl_con == NULL) &&
                ((x509_ssl_data == NULL) || (x509_ssl_data != NULL)))
            {
+#ifdef HAVE_SNPRINTF
+              (void)snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#else
               (void)sprintf(msg_str,
+#endif
                             _("Failed to compare server certificates for control and data connection (%d)."),
                             reply);
               SSL_free(ssl_data);
@@ -3608,23 +4034,10 @@ ftp_read(char *block, int blocksize)
    {
       if ((bytes_read = SSL_read(ssl_data, block, blocksize)) == INCORRECT)
       {
-         int status;
+         ssl_error_msg("SSL_read", ssl_con, NULL, bytes_read, msg_str);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_read", msg_str,
+                   _("SSL_read() error"));
 
-         if ((status = SSL_get_error(ssl_data,
-                                     bytes_read)) == SSL_ERROR_SYSCALL)
-         {
-            if (errno == ECONNRESET)
-            {
-               timeout_flag = CON_RESET;
-            }
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_read", NULL,
-                      _("SSL_read() error : %s"), strerror(errno));
-         }
-         else
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_read", NULL,
-                      _("SSL_read() error %d"), status);
-         }
          return(INCORRECT);
       }
 # ifdef WITH_TRACE
@@ -3675,21 +4088,10 @@ ftp_read(char *block, int blocksize)
                  if ((bytes_read = SSL_read(ssl_data, block,
                                             blocksize)) == INCORRECT)
                  {
-                    if ((status = SSL_get_error(ssl_data,
-                                                bytes_read)) == SSL_ERROR_SYSCALL)
-                    {
-                       if (errno == ECONNRESET)
-                       {
-                          timeout_flag = CON_RESET;
-                       }
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_read", NULL,
-                                 _("SSL_read() error : %s"), strerror(errno));
-                    }
-                    else
-                    {
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_read", NULL,
-                                 _("SSL_read() error %d"), status);
-                    }
+                    ssl_error_msg("SSL_read", ssl_con, NULL,
+                                  bytes_read, msg_str);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_read", msg_str,
+                              _("SSL_read() error %d"), status);
                     return(INCORRECT);
                  }
               }
@@ -3938,23 +4340,11 @@ read_data_line(int read_fd, char *line)
                        }
                        else
                        {
-                          if ((status = SSL_get_error(ssl,
-                                                      bytes_read)) == SSL_ERROR_SYSCALL)
-                          {
-                             if (errno == ECONNRESET)
-                             {
-                                timeout_flag = CON_RESET;
-                             }
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_line", NULL,
-                                       _("SSL_read() error (after reading %d bytes) : %s"),
-                                       bytes_buffered, strerror(errno));
-                          }
-                          else
-                          {
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_line", NULL,
-                                       _("SSL_read() error (after reading %d bytes) (%d)"),
-                                       bytes_buffered, status);
-                          }
+                          ssl_error_msg("SSL_read", ssl_con, NULL,
+                                        bytes_read, msg_str);
+                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_line", msg_str,
+                                    _("SSL_read() error (after reading %d bytes) (%d)"),
+                                    bytes_buffered, status);
                        }
                        return(bytes_read);
                     }
@@ -4065,23 +4455,15 @@ read_data_to_buffer(int read_fd, char ***buffer)
                  {
                     if (bytes_read == -1)
                     {
-                       if ((status = SSL_get_error(ssl,
-                                                   bytes_read)) == SSL_ERROR_SYSCALL)
+                       ssl_error_msg("SSL_read", ssl_con, NULL,
+                                     bytes_read, msg_str);
+                       if (errno == ECONNRESET)
                        {
-                          if (errno == ECONNRESET)
-                          {
-                             timeout_flag = CON_RESET;
-                          }
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_to_buffer", NULL,
-                                    _("SSL_read() error (after reading %d bytes) : %s"),
-                                    bytes_buffered, strerror(errno));
+                          timeout_flag = CON_RESET;
                        }
-                       else
-                       {
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_to_buffer", NULL,
-                                    _("SSL_read() error (after reading %d bytes) (%d)"),
-                                    bytes_buffered, status);
-                       }
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_data_to_buffer", msg_str,
+                                 _("SSL_read() error (after reading %d bytes) (%d)"),
+                                 bytes_buffered, status);
                        bytes_buffered = INCORRECT;
                     }
                     else
@@ -4096,7 +4478,7 @@ read_data_to_buffer(int read_fd, char ***buffer)
               }
 #endif
 #ifdef WITH_TRACE
-              trace_log(NULL, 0, BIN_R_TRACE, tmp_buffer, bytes_read, NULL);
+              trace_log(NULL, 0, LIST_R_TRACE, tmp_buffer, bytes_read, NULL);
 #endif
               if (**buffer == NULL)
               {
@@ -4168,6 +4550,10 @@ read_msg(void)
    {
       if (bytes_read <= 0)
       {
+#ifdef WITH_SSL
+try_again_read_msg:
+#endif
+
          /* Initialise descriptor set. */
          FD_SET(control_fd, &rset);
          timeout.tv_usec = 0L;
@@ -4227,22 +4613,25 @@ read_msg(void)
                        }
                        else
                        {
-                          if ((status = SSL_get_error(ssl_con,
-                                                      bytes_read)) == SSL_ERROR_SYSCALL)
+                          int ssl_ret;
+
+                          ssl_error_msg("SSL_read", ssl_con, &ssl_ret,
+                                        bytes_read, msg_str);
+                          trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", msg_str,
+                                    _("SSL_read() error (after reading %d bytes) (%d)"),
+                                    bytes_buffered, status);
+
+                          /*
+                           * Some FTP servers drop back to clear text.
+                           * Check if that is the case and try read
+                           * the clear text responce.
+                           */
+                          if (ssl_ret == SSL_ERROR_SSL)
                           {
-                             if (errno == ECONNRESET)
-                             {
-                                timeout_flag = CON_RESET;
-                             }
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
-                                       _("SSL_read() error (after reading %d bytes) : %s"),
-                                       bytes_buffered, strerror(errno));
-                          }
-                          else
-                          {
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, "read_msg", NULL,
-                                       _("SSL_read() error (after reading %d bytes) (%d)"),
-                                       bytes_buffered, status);
+                             SSL_shutdown(ssl_con);
+                             SSL_free(ssl_con);
+                             ssl_con = NULL;
+                             goto try_again_read_msg;
                           }
                           bytes_read = 0;
                        }
@@ -4274,9 +4663,16 @@ read_msg(void)
       /* Evaluate what we have read. */
       do
       {
-         if ((*read_ptr == '\n') && (*(read_ptr - 1) == '\r'))
+         if (*read_ptr == '\n')
          {
-            *(read_ptr - 1) = '\0';
+            if (*(read_ptr - 1) == '\r')
+            {
+               *(read_ptr - 1) = '\0';
+            }
+            else
+            {
+               *read_ptr = '\0';
+            }
             bytes_read--;
             return(bytes_buffered);
          }
@@ -4303,7 +4699,7 @@ get_extended_number(char *ptr)
       {
          ptr++;
 #if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
-         if (((*ptr != '1') || (*ptr != '2')) && (*(ptr + 1) != delimiter))
+         if ((*ptr != '1') && (*ptr != '2') && (*(ptr + 1) != delimiter))
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, "get_extended_number", NULL,
                       _("Can only handle IPv4 or IPv6."));

@@ -1,6 +1,6 @@
 /*
  *  draw_dir_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -481,6 +481,10 @@ draw_dir_type(int pos, int x, int y)
          str[0] = 'S'; str[1] = 'F'; str[2] = 'T'; str[3] = 'P';
          break;
 
+      case EXEC : 
+         str[0] = 'E'; str[1] = 'X'; str[2] = 'E'; str[3] = 'C';
+         break;
+
 #ifdef _WITH_WMO_SUPPORT
       case WMO : 
          str[0] = ' '; str[1] = 'W'; str[2] = 'M'; str[3] = 'O';
@@ -493,6 +497,7 @@ draw_dir_type(int pos, int x, int y)
          break;
 #endif
       default : /* That's not possible! */
+         str[0] = 'U'; str[1] = 'N'; str[2] = 'K'; str[3] = 'N';
          (void)xrec(ERROR_DIALOG, "Unknown protocol type %d. (%s %d)",
                     fra[pos].protocol, __FILE__, __LINE__);
          return;
@@ -527,7 +532,9 @@ draw_dir_type(int pos, int x, int y)
 void
 draw_dir_chars(int pos, char type, int x, int y)
 {
-   int        length,
+   int        bc,   /* background color */
+              fc,   /* foreground color */
+              length,
               x_offset;
    char       *ptr = NULL;
    XGCValues  gc_values;
@@ -539,48 +546,72 @@ draw_dir_chars(int pos, char type, int x, int y)
          ptr = connect_data[pos].str_files_in_dir;
          x_offset = 0;
          length = 4;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case BYTES_IN_DIR :
          ptr = connect_data[pos].str_bytes_in_dir;
          x_offset = 5 * glyph_width;
          length = 4;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case FILES_QUEUED :
          ptr = connect_data[pos].str_files_queued;
          x_offset = 10 * glyph_width;
          length = 4;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case BYTES_QUEUED :
          ptr = connect_data[pos].str_bytes_queued;
          x_offset = 15 * glyph_width;
          length = 4;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case NO_OF_DIR_PROCESS :
          ptr = connect_data[pos].str_np;
          x_offset = 20 * glyph_width;
          length = 2;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case BYTE_RATE :
          ptr = connect_data[pos].str_tr;
          x_offset = 23 * glyph_width;
          length = 4;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case FILE_RATE :
          ptr = connect_data[pos].str_fr;
          x_offset = 28 * glyph_width;
          length = 4;
+         bc = CHAR_BACKGROUND;
+         fc = BLACK;
          break;
 
       case DIR_ERRORS :
          ptr = connect_data[pos].str_ec;
          x_offset = 33 * glyph_width;
          length = 2;
+         if (connect_data[pos].error_counter > 0)
+         {
+            bc = NOT_WORKING2;
+            fc = WHITE;
+         }
+         else
+         {
+            bc = CHAR_BACKGROUND;
+            fc = BLACK;
+         }
          break;
 
       default : /* That's not possible! */
@@ -602,8 +633,8 @@ draw_dir_chars(int pos, char type, int x, int y)
    }
    else
    {
-      gc_values.background = color_pool[CHAR_BACKGROUND];
-      gc_values.foreground = color_pool[BLACK];
+      gc_values.background = color_pool[bc];
+      gc_values.foreground = color_pool[fc];
       XChangeGC(display, color_letter_gc, GCBackground | GCForeground,
                 &gc_values);
       tmp_gc = color_letter_gc;

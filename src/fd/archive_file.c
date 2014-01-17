@@ -1,6 +1,6 @@
 /*
  *  archive_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -225,7 +225,12 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
             p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
             return(INCORRECT);
          }
-         length = sprintf(ptr, "/%x/", dir_number);
+#ifdef HAVE_SNPRINTF
+         length = snprintf(ptr, MAX_PATH_LENGTH - (ptr - p_db->archive_dir),
+#else
+         length = sprintf(ptr,
+#endif
+                          "/%x/", dir_number);
       }
 
       while (create_archive_dir(p_db->archive_dir, p_db->archive_time, now,
@@ -255,7 +260,13 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                     p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                     return(INCORRECT);
                  }
-                 length = sprintf(ptr, "/%x/", dir_number);
+#ifdef HAVE_SNPRINTF
+                 length = snprintf(ptr,
+                                   MAX_PATH_LENGTH - (ptr - p_db->archive_dir),
+#else
+                 length = sprintf(ptr,
+#endif
+                                  "/%x/", dir_number);
               }
          else if (errno == ENOSPC) /* No space left on device. */
               {
@@ -315,10 +326,15 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Hmm, `%s' this does not look like a message.",
                     p_db->msg_name);
-# if SIZEOF_TIME_T == 4
-         (void)sprintf(ptr, "%lx_%x_%x_%s",
+# ifdef HAVE_SNPRINTF
+         (void)snprintf(ptr, MAX_PATH_LENGTH - (ptr - newname),
 # else
-         (void)sprintf(ptr, "%llx_%x_%x_%s",
+         (void)sprintf(ptr,
+# endif
+# if SIZEOF_TIME_T == 4
+                       "%lx_%x_%x_%s",
+# else
+                       "%llx_%x_%x_%s",
 # endif
                        (pri_time_t)p_db->creation_time, p_db->unique_number,
                        p_db->split_job_counter, filename);
@@ -329,10 +345,15 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Hmm, `%s' this does not look like a message.",
                  p_db->msg_name);
-# if SIZEOF_TIME_T == 4
-      (void)sprintf(ptr, "%lx_%x_%x_%s",
+# ifdef HAVE_SNPRINTF
+      (void)snprintf(ptr, MAX_PATH_LENGTH - (ptr - newname),
 # else
-      (void)sprintf(ptr, "%llx_%x_%x_%s",
+      (void)sprintf(ptr,
+# endif
+# if SIZEOF_TIME_T == 4
+                    "%lx_%x_%x_%s",
+# else
+                    "%llx_%x_%x_%s",
 # endif
                     (pri_time_t)p_db->creation_time, p_db->unique_number,
                     p_db->split_job_counter, filename);
@@ -423,7 +444,11 @@ get_archive_dir_number(char *directory)
 
    for (i = 0; i < link_max; i++)
    {
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(&fulldir[length], MAX_PATH_LENGTH - length, "%x", i);
+#else
       (void)sprintf(&fulldir[length], "%x", i);
+#endif
       if (stat(fulldir, &stat_buf) == -1)
       {
          if (errno == ENOENT)
@@ -491,10 +516,15 @@ create_archive_dir(char         *p_path,
                    char         *msg_name)
 {
    archive_start_time = now;
-#if SIZEOF_TIME_T == 4
-   (void)sprintf(msg_name, "%lx_%x",
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(msg_name, MAX_PATH_LENGTH - (msg_name - p_path),
 #else
-   (void)sprintf(msg_name, "%llx_%x",
+   (void)sprintf(msg_name,
+#endif
+#if SIZEOF_TIME_T == 4
+                 "%lx_%x",
+#else
+                 "%llx_%x",
 #endif
                  (pri_time_t)(((archive_start_time + archive_time) /
                   ARCHIVE_STEP_TIME) * ARCHIVE_STEP_TIME),

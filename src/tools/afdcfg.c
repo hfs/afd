@@ -1,6 +1,6 @@
 /*
  *  afdcfg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -318,7 +318,7 @@ main(int argc, char *argv[])
 
    if (action == STATUS_SEL)
    {
-      if ((ret = fsa_attach_passive(NO)) < 0)
+      if ((ret = fsa_attach_passive(NO, "afdcfg")) < 0)
       {
          if (ret == INCORRECT_VERSION)
          {
@@ -365,7 +365,7 @@ main(int argc, char *argv[])
           (action == DISABLE_HOST_WARN_TIME_SEL) ||
           (action == ENABLE_RETRIEVE_SEL) || (action == DISABLE_RETRIEVE_SEL))
       {
-         if ((ret = fsa_attach()) < 0)
+         if ((ret = fsa_attach("afdcfg")) < 0)
          {
             if (ret == INCORRECT_VERSION)
             {

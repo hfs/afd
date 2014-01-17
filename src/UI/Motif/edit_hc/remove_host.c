@@ -1,6 +1,6 @@
 /*
  *  remove_host.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,9 @@ DESCR__S_M3
  **   int remove_host(char *host_name)
  **
  ** DESCRIPTION
+ **   The function remove_host() removes any NNN files created via
+ **   the assemble() and convert() option and removes the host from
+ **   the HOST_CONFIG file.
  **
  ** RETURN VALUES
  **   SUCCESS when the host host_name has been remove from the
@@ -39,6 +42,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.10.1998 H.Kiehl Created
+ **   19.08.2013 H.Kiehl Added removing of NNN files.
  **
  */
 DESCR__E_M3
@@ -72,10 +76,13 @@ remove_host(char *host_name)
         *ptr_start,
         search_string[MAX_HOSTNAME_LENGTH + 3];
 
+   /* First remove any nnn counter files for this host. */
+   remove_nnn_files(get_str_checksum(host_name));
+
    (void)sprintf(host_config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
 
-   if (read_file_no_cr(host_config_file, &file_buffer) == INCORRECT)
+   if (read_file_no_cr(host_config_file, &file_buffer, __FILE__, __LINE__) == INCORRECT)
    {
       char tmp_file[256];
 

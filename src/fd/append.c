@@ -1,6 +1,6 @@
 /*
  *  append.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,7 +75,11 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
                msg[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(msg, MAX_PATH_LENGTH, "%s%s/%x", p_work_dir, AFD_MSG_DIR, p_db->job_id);
+#else
    (void)sprintf(msg, "%s%s/%x", p_work_dir, AFD_MSG_DIR, p_db->job_id);
+#endif
 
    if ((fd = lock_file(msg, ON)) < 0)
    {
@@ -109,7 +113,12 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
    msg_file_size = stat_buf.st_size;
 
    /* Get the date of the current file. */
-   (void)sprintf(msg, "%s%s%s/%s/%s", p_work_dir, AFD_FILE_DIR,
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(msg, MAX_PATH_LENGTH, "%s%s%s/%s/%s",
+#else
+   (void)sprintf(msg, "%s%s%s/%s/%s",
+#endif
+                 p_work_dir, AFD_FILE_DIR,
                  OUTGOING_DIR, p_db->msg_name, source_file_name);
    if (stat(msg, &stat_buf) == -1)
    {
@@ -126,7 +135,12 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
    {
       /* Add the option and restart identifier. */
       ptr = buffer + msg_file_size;
-      ptr += sprintf(ptr, "\n%s\n%s", OPTION_IDENTIFIER, RESTART_FILE_ID);
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, buf_size - msg_file_size, "\n%s\n%s",
+#else
+      ptr += sprintf(ptr, "\n%s\n%s",
+#endif
+                     OPTION_IDENTIFIER, RESTART_FILE_ID);
    }
    else
    {
@@ -137,17 +151,23 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
                            RESTART_FILE_ID_LENGTH)) != NULL)
       {
          char *end_ptr,
-              file_and_date_str[MAX_FILENAME_LENGTH + 20],
+              file_and_date_str[MAX_FILENAME_LENGTH + MAX_TIME_T_LENGTH],
               tmp_char;
 
          while (*tmp_ptr == ' ')
          {
             tmp_ptr++;
          }
-#if SIZEOF_TIME_T == 4
-         (void)sprintf(file_and_date_str, "%s|%ld\n",
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(file_and_date_str,
+                        MAX_FILENAME_LENGTH + MAX_TIME_T_LENGTH,
 #else
-         (void)sprintf(file_and_date_str, "%s|%lld\n",
+         (void)sprintf(file_and_date_str,
+#endif
+#if SIZEOF_TIME_T == 4
+                       "%s|%ld\n",
+#else
+                       "%s|%lld\n",
 #endif
                        file_name, (pri_time_t)stat_buf.st_mtime);
 
@@ -178,10 +198,15 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
                      r_length++;
                   }
                   tmp_char_2 = *end_ptr_2;
-#if SIZEOF_TIME_T == 4
-                  w_length = sprintf(end_ptr + 1, "%ld",
+#ifdef HAVE_SNPRINTF
+                  w_length = snprintf(end_ptr + 1, MAX_TIME_T_LENGTH,
 #else
-                  w_length = sprintf(end_ptr + 1, "%lld",
+                  w_length = sprintf(end_ptr + 1,
+#endif
+#if SIZEOF_TIME_T == 4
+                                     "%ld",
+#else
+                                     "%lld",
 #endif
                                      (pri_time_t)stat_buf.st_mtime);
                   if (w_length > r_length)
@@ -267,16 +292,25 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
       else
       {
          ptr = buffer + msg_file_size;
+#ifdef HAVE_SNPRINTF
+         ptr += snprintf(ptr, buf_size - msg_file_size, "%s", RESTART_FILE_ID);
+#else
          ptr += sprintf(ptr, "%s", RESTART_FILE_ID);
+#endif
       }
    }
 
    /* Append the file name. */
    *(ptr++) = ' ';
-#if SIZEOF_TIME_T == 4
-   ptr += sprintf(ptr, "%s|%ld\n", file_name, (pri_time_t)stat_buf.st_mtime);
+#ifdef HAVE_SNPRINTF
+   ptr += snprintf(ptr, buf_size - msg_file_size,
 #else
-   ptr += sprintf(ptr, "%s|%lld\n", file_name, (pri_time_t)stat_buf.st_mtime);
+   ptr += sprintf(ptr,
+#endif
+#if SIZEOF_TIME_T == 4
+                  "%s|%ld\n", file_name, (pri_time_t)stat_buf.st_mtime);
+#else
+                  "%s|%lld\n", file_name, (pri_time_t)stat_buf.st_mtime);
 #endif
    *ptr = '\0';
    buf_size = strlen(buffer);
@@ -333,7 +367,11 @@ remove_append(unsigned int job_id, char *file_name)
                *search_str;
    struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(msg, MAX_PATH_LENGTH, "%s%s/%x", p_work_dir, AFD_MSG_DIR, job_id);
+#else
    (void)sprintf(msg, "%s%s/%x", p_work_dir, AFD_MSG_DIR, job_id);
+#endif
 
    if ((fd = lock_file(msg, ON)) < 0)
    {
@@ -382,7 +420,7 @@ remove_append(unsigned int job_id, char *file_name)
       return;
    }
 
-   if ((search_str = malloc(MAX_FILENAME_LENGTH + 20)) == NULL)
+   if ((search_str = malloc(MAX_FILENAME_LENGTH + MAX_TIME_T_LENGTH)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));
@@ -390,10 +428,15 @@ remove_append(unsigned int job_id, char *file_name)
       (void)close(fd);
       return;
    }
-#if SIZEOF_TIME_T == 4
-   length = sprintf(search_str, "%s|%ld", file_name, (pri_time_t)file_date);
+#ifdef HAVE_SNPRINTF
+   length = snprintf(search_str, MAX_FILENAME_LENGTH + MAX_TIME_T_LENGTH,
 #else
-   length = sprintf(search_str, "%s|%lld", file_name, (pri_time_t)file_date);
+   length = sprintf(search_str,
+#endif
+#if SIZEOF_TIME_T == 4
+                    "%s|%ld", file_name, (pri_time_t)file_date);
+#else
+                    "%s|%lld", file_name, (pri_time_t)file_date);
 #endif
 
    /* Locate the file name. */
@@ -498,7 +541,11 @@ remove_all_appends(unsigned int job_id)
                msg[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(msg, MAX_PATH_LENGTH, "%s%s/%x", p_work_dir, AFD_MSG_DIR, job_id);
+#else
    (void)sprintf(msg, "%s%s/%x", p_work_dir, AFD_MSG_DIR, job_id);
+#endif
 
    if ((fd = lock_file(msg, ON)) < 0)
    {

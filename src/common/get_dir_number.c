@@ -1,6 +1,6 @@
 /*
  *  get_dir_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,8 +48,8 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>
-#include <string.h>                   /* strcpy(), strcat(), strerror()  */
+#include <stdio.h>                    /* sprintf()                       */
+#include <string.h>                   /* strerror()                      */
 #include <unistd.h>                   /* mkdir(), pathconf()             */
 #include <sys/types.h>
 #include <sys/stat.h>                 /* stat()                          */
@@ -92,7 +92,12 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
 
    for (i = 0; i < link_max; i++)
    {
-      (void)sprintf(&fulldir[length], "%x/%x", id, i);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(&fulldir[length], MAX_PATH_LENGTH - length,
+#else
+      (void)sprintf(&fulldir[length],
+#endif
+                    "%x/%x", id, i);
       if (stat(fulldir, &stat_buf) == -1)
       {
          if (errno == ENOENT)
@@ -105,7 +110,12 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
                return(INCORRECT);
             }
 
-            (void)sprintf(&fulldir[length], "%x", id);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(&fulldir[length], MAX_PATH_LENGTH - length,
+#else
+            (void)sprintf(&fulldir[length],
+#endif
+                          "%x", id);
             errno = 0;
             if ((stat(fulldir, &stat_buf) == -1) && (errno != ENOENT))
             {
@@ -129,7 +139,12 @@ get_dir_number(char *directory, unsigned int id, long *dirs_left)
                              _("Hmm, created directory `%s'"), fulldir);
                }
             }
-            (void)sprintf(&fulldir[length], "%x/%x", id, i);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(&fulldir[length], MAX_PATH_LENGTH - length,
+#else
+            (void)sprintf(&fulldir[length],
+#endif
+                          "%x/%x", id, i);
             if (mkdir(fulldir, DIR_MODE) < 0)
             {
                /*

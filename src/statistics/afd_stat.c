@@ -1,6 +1,6 @@
 /*
  *  afd_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -224,7 +224,7 @@ main(int argc, char *argv[])
 
    /* Attach to FSA (output) and FRA (input) so we can */
    /* accumulate the statistics for both.              */
-   if (fsa_attach() < 0)
+   if (fsa_attach(AFD_STAT) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
       exit(INCORRECT);
@@ -375,7 +375,7 @@ main(int argc, char *argv[])
           * size of the status is relative small, it seems to be
           * the best solution at this point.
           */
-         if (check_fsa(NO) == YES)
+         if (check_fsa(NO, AFD_STAT) == YES)
          {
             read_afd_stat_db(no_of_hosts);
          }
@@ -669,7 +669,7 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 

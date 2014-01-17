@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2014 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -89,6 +89,7 @@ DESCR__S_M3
  **   26.11.2010 H.Kiehl Do not go into an endless loop when we hit an
  **                      unknown pexec option.
  **   04.11.2011 H.Kiehl Added support for scheduling priorities.
+ **   11.01.2014 H.Kiehl Added support for trans_rename with dupcheck.
  **
  */
 DESCR__E_M3
@@ -168,6 +169,7 @@ static void store_mode(char *, struct job *, char *, int);
 #define FILE_NAME_IS_TARGET_FLAG    8
 #define MIRROR_DIR_FLAG             16
 #define SHOW_ALL_GROUP_MEMBERS_FLAG 32
+#define CHECK_REMOTE_SIZE_FLAG      64
 
 
 #define MAX_HUNK                    4096
@@ -588,6 +590,7 @@ eval_message(char *message_name, struct job *p_db)
                                {
                                   end_ptr++;
                                }
+                               /* primary_only */
                                if ((*end_ptr == 'p') &&
                                    (*(end_ptr + 1) == 'r') &&
                                    (*(end_ptr + 2) == 'i') &&
@@ -604,6 +607,7 @@ eval_message(char *message_name, struct job *p_db)
                                   p_db->special_flag |= TRANS_RENAME_PRIMARY_ONLY;
                                   end_ptr += 11;
                                }
+                                    /* secondary_only */
                                else if ((*end_ptr == 's') &&
                                         (*(end_ptr + 1) == 'e') &&
                                         (*(end_ptr + 2) == 'c') &&
@@ -622,6 +626,27 @@ eval_message(char *message_name, struct job *p_db)
                                        p_db->special_flag |= TRANS_RENAME_SECONDARY_ONLY;
                                        end_ptr += 13;
                                     }
+#ifdef WITH_DUP_CHECK
+                               else if (CHECK_STRNCMP(end_ptr, DUPCHECK_ID, DUPCHECK_ID_LENGTH) == 0)
+                                    {
+                                       end_ptr = eval_dupcheck_options(end_ptr,
+                                                                       &p_db->trans_dup_check_timeout,
+                                                                       &p_db->trans_dup_check_flag,
+                                                                       NULL);
+                                       p_db->crc_id = p_db->job_id;
+# ifdef DEBUG_DUP_CHECK
+                                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#  if SIZEOF_TIME_T == 4
+                                                  "crc_id=%x timeout=%ld flag=%u",
+#  else
+                                                  "crc_id=%x timeout=%lld flag=%u",
+#  endif
+                                                  p_db->crc_id,
+                                                  (pri_time_t)p_db->trans_dup_check_timeout,
+                                                  p_db->trans_dup_check_flag);
+# endif
+                                    }
+#endif
                             }
                        ptr = end_ptr;
                     }
@@ -810,6 +835,21 @@ eval_message(char *message_name, struct job *p_db)
                  {
                     used2 |= SHOW_ALL_GROUP_MEMBERS_FLAG;
                     p_db->special_flag |= SHOW_ALL_GROUP_MEMBERS;
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used2 & CHECK_REMOTE_SIZE_FLAG) == 0) &&
+                     (CHECK_STRNCMP(ptr, MATCH_REMOTE_SIZE_ID,
+                                    MATCH_REMOTE_SIZE_ID_LENGTH) == 0))
+                 {
+                    used2 |= CHECK_REMOTE_SIZE_FLAG;
+                    p_db->special_flag |= MATCH_REMOTE_SIZE;
                     while ((*ptr != '\n') && (*ptr != '\0'))
                     {
                        ptr++;
@@ -1197,71 +1237,93 @@ eval_message(char *message_name, struct job *p_db)
                                             switch (*read_ptr)
                                             {
                                                case 'a': /* short day of the week 'Tue' */
-                                                  number = strftime(write_ptr, 4,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%a", localtime(&time_buf));
                                                   break;
                                                case 'b': /* short month 'Jan' */
-                                                  number = strftime(write_ptr, 4,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%b", localtime(&time_buf));
                                                   break;
                                                case 'j': /* day of year [001,366] */
-                                                  number = strftime(write_ptr, 4,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%j", localtime(&time_buf));
                                                   break;
                                                case 'd': /* day of month [01,31] */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%d", localtime(&time_buf));
                                                   break;
                                                case 'M': /* minute [00,59] */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%M", localtime(&time_buf));
                                                   break;
                                                case 'm': /* month [01,12] */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%m", localtime(&time_buf));
                                                   break;
                                                case 'R': /* Sunday week number [00,53]. */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%U", localtime(&time_buf));
                                                   break;
                                                case 'w': /* Weekday [0=Sunday,6]. */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%w", localtime(&time_buf));
                                                   break;
                                                case 'W': /* Monday week number [00,53]. */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%W", localtime(&time_buf));
                                                   break;
                                                case 'y': /* year 2 chars [01,99] */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%y", localtime(&time_buf));
                                                   break;
                                                case 'H': /* hour [00,23] */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%H", localtime(&time_buf));
                                                   break;
                                                case 'S': /* second [00,59] */
-                                                  number = strftime(write_ptr, 3,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%S", localtime(&time_buf));
                                                   break;
                                                case 'Y': /* year 4 chars 1997 */
-                                                  number = strftime(write_ptr, 5,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%Y", localtime(&time_buf));
                                                   break;
                                                case 'A': /* long day of the week 'Tuesday' */
-                                                  number = strftime(write_ptr, 21,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%A", localtime(&time_buf));
                                                   break;
                                                case 'B': /* month 'January' */
-                                                  number = strftime(write_ptr, 21,
+                                                  number = strftime(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
                                                                     "%B", localtime(&time_buf));
                                                   break;
                                                case 'U': /* Unix time. */
-#if SIZEOF_TIME_T == 4
-                                                  number = sprintf(write_ptr, "%ld", (pri_time_t)time_buf);
+#ifdef HAVE_SNPRINTF
+                                                  number = snprintf(write_ptr,
+                                                                    new_length - (write_ptr - tmp_buffer),
 #else
-                                                  number = sprintf(write_ptr, "%lld", (pri_time_t)time_buf);
+                                                  number = sprintf(write_ptr,
 #endif
+#if SIZEOF_TIME_T == 4
+                                                                   "%ld",
+#else
+                                                                   "%lld",
+#endif
+                                                                   (pri_time_t)time_buf);
                                                   break;
                                                default:
                                                   number = 0;
@@ -2257,12 +2319,16 @@ eval_message(char *message_name, struct job *p_db)
                              char *buffer,
                                   config_file[MAX_PATH_LENGTH];
 
-                             (void)sprintf(config_file, "%s%s%s",
-                                           p_work_dir, ETC_DIR,
+# ifdef HAVE_SNPRINTF
+                             (void)snprintf(config_file, MAX_PATH_LENGTH,
+# else
+                             (void)sprintf(config_file,
+# endif
+                                           "%s%s%s", p_work_dir, ETC_DIR,
                                            AFD_CONFIG_FILE);
                              if ((eaccess(config_file, F_OK) == 0) &&
                                  (read_file_no_cr(config_file,
-                                                  &buffer) != INCORRECT))
+                                                  &buffer, __FILE__, __LINE__) != INCORRECT))
                              {
                                 char value[MAX_INT_LENGTH];
 
@@ -2296,8 +2362,13 @@ eval_message(char *message_name, struct job *p_db)
                              char        config_file[MAX_PATH_LENGTH];
                              struct stat stat_buf;
 
-                             (void)sprintf(config_file, "%s%s%s",
-                                           p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+#  ifdef HAVE_SNPRINTF
+                             (void)snprintf(config_file, MAX_PATH_LENGTH,
+#  else
+                             (void)sprintf(config_file,
+#  endif
+                                           "%s%s%s", p_work_dir, ETC_DIR,
+                                           AFD_CONFIG_FILE);
                              if ((eaccess(config_file, F_OK) == 0) &&
                                  (stat(config_file, &stat_buf) == 0))
                              {
@@ -2305,7 +2376,7 @@ eval_message(char *message_name, struct job *p_db)
                                 {
                                    char *buffer = NULL;
 
-                                   if (read_file_no_cr(config_file, &buffer) != INCORRECT)
+                                   if (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT)
                                    {
                                       char value[MAX_INT_LENGTH + 1];
 
@@ -2694,10 +2765,40 @@ store_mode(char *ptr, struct job *p_db, char *option, int type)
          if (type == CREATE_TARGET_DIR_FLAG)
          {
             p_db->dir_mode = mode;
+            if (p_db->protocol & SFTP_FLAG)
+            {
+               p_db->dir_mode_str[0] = *ptr;
+               p_db->dir_mode_str[1] = *(ptr + 1);
+               p_db->dir_mode_str[2] = *(ptr + 2);
+               if (n == 4)
+               {
+                  p_db->dir_mode_str[3] = *(ptr + 3);
+                  p_db->dir_mode_str[4] = '\0';
+               }
+               else
+               {
+                  p_db->dir_mode_str[3] = '\0';
+               }
+            }
          }
          else
          {
             p_db->chmod = mode;
+            if (p_db->protocol & SFTP_FLAG)
+            {
+               p_db->chmod_str[0] = *ptr;
+               p_db->chmod_str[1] = *(ptr + 1);
+               p_db->chmod_str[2] = *(ptr + 2);
+               if (n == 4)
+               {
+                  p_db->chmod_str[3] = *(ptr + 3);
+                  p_db->chmod_str[4] = '\0';
+               }
+               else
+               {
+                  p_db->chmod_str[3] = '\0';
+               }
+            }
             if (error_flag == NO)
             {
                p_db->special_flag |= CHANGE_PERMISSION;

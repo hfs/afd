@@ -1,6 +1,6 @@
 /*
  *  output_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -331,17 +331,32 @@ main(int argc, char *argv[])
                   OUTPUT_BUFFER_FILE,
                   OUTPUT_BUFFER_FILE_LENGTH,
                   NULL);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(current_log_file, MAX_PATH_LENGTH, "%s%s/%s0",
+#else
    (void)sprintf(current_log_file, "%s%s/%s0",
+#endif
                  work_dir, LOG_DIR, OUTPUT_BUFFER_FILE);
-   p_end = log_file;
-   p_end += sprintf(log_file, "%s%s/%s",
-                    work_dir, LOG_DIR, OUTPUT_BUFFER_FILE);
+#ifdef HAVE_SNPRINTF
+   p_end = log_file + snprintf(log_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   p_end = log_file + sprintf(log_file, "%s%s/%s",
+#endif
+                              work_dir, LOG_DIR, OUTPUT_BUFFER_FILE);
 #ifdef WITH_LOG_CACHE
+# ifdef HAVE_SNPRINTF
+   (void)snprintf(current_log_cache_file, MAX_PATH_LENGTH, "%s%s/%s0",
+# else
    (void)sprintf(current_log_cache_file, "%s%s/%s0",
+# endif
                  work_dir, LOG_DIR, OUTPUT_BUFFER_CACHE_FILE);
-   p_cache_end = log_cache_file;
-   p_cache_end += sprintf(log_cache_file, "%s%s/%s",
-                          work_dir, LOG_DIR, OUTPUT_BUFFER_CACHE_FILE);
+# ifdef HAVE_SNPRINTF
+   p_cache_end = log_cache_file + snprintf(log_cache_file, MAX_PATH_LENGTH,
+# else
+   p_cache_end = log_cache_file + sprintf(log_cache_file,
+# endif
+                                          "%s%s/%s", work_dir, LOG_DIR,
+                                          OUTPUT_BUFFER_CACHE_FILE);
 #endif
 
    /* Calculate time when we have to start a new file. */
@@ -739,7 +754,7 @@ main(int argc, char *argv[])
 
 
 #ifdef _TEST_FIFO_BUFFER
-#define MAX_CHARS_IN_LINE 60
+# define MAX_CHARS_IN_LINE 60
 /*++++++++++++++++++++++++++++++ show_buffer() ++++++++++++++++++++++++++*/
 static void
 show_buffer(char *buffer, int buffer_length)
@@ -756,11 +771,18 @@ show_buffer(char *buffer, int buffer_length)
          if (*ptr < ' ')
          {
             /* Yuck! Not printable. */
-#ifdef _SHOW_HEX
-            line_length += sprintf(&line[line_length], "<%x>", (int)*ptr);
-#else
-            line_length += sprintf(&line[line_length], "<%d>", (int)*ptr);
-#endif
+# ifdef HAVE_SNPRINTF
+            line_length += snprintf(&line[line_length],
+                                    MAX_CHARS_IN_LINE + 10 - line_length,
+# else
+            line_length += sprintf(&line[line_length],
+# endif
+# ifdef _SHOW_HEX
+                                   "<%x>",
+# else
+                                   "<%d>",
+# endif
+                                   (int)*ptr);
          }
          else
          {

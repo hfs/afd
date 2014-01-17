@@ -1,6 +1,6 @@
 /*
  *  window_size.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,7 @@ DESCR__S_M3
  ** HISTORY
  **   26.01.1996 H.Kiehl Created
  **   22.12.2001 H.Kiehl Added variable column length.
+ **   25.08.2013 H.Kiehl Added compact process status.
  **
  */
 DESCR__E_M3
@@ -50,7 +51,8 @@ DESCR__E_M3
 #include "mafd_ctrl.h"
 
 extern Display                    *display;
-extern int                        button_width,
+extern int                        bar_thickness_3,
+                                  button_width,
                                   *line_length,
                                   max_line_length,
                                   line_height,
@@ -113,7 +115,7 @@ window_size(int *window_width, int *window_height)
          exit(INCORRECT);
       }
       new_window_width = 0;
-      if (line_style & SHOW_JOBS)
+      if ((line_style & SHOW_JOBS) || (line_style & SHOW_JOBS_COMPACT))
       {
          int j,
              max_no_parallel_jobs = 0,
@@ -143,9 +145,27 @@ window_size(int *window_width, int *window_height)
                   break;
                }
             }
-            line_length[i] = max_line_length -
-                             (((MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs) *
-                              (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
+            if (line_style & SHOW_JOBS_COMPACT)
+            {
+               int p_jobs_less = MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs;
+
+               if (((max_no_parallel_jobs % 3) == 0) && (MAX_NO_PARALLEL_JOBS % 3))
+               {
+                  line_length[i] = max_line_length -
+                                   (((p_jobs_less / 3) + 1) * bar_thickness_3);
+               }
+               else
+               {
+                  line_length[i] = max_line_length -
+                                   ((p_jobs_less / 3) * bar_thickness_3);
+               }
+            }
+            else
+            {
+               line_length[i] = max_line_length -
+                                (((MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs) *
+                                 (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
+            }
             new_window_width += line_length[i];
             max_no_parallel_jobs = 0;
          }

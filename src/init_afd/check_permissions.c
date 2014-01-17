@@ -1,6 +1,6 @@
 /*
  *  check_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -267,11 +267,17 @@ check_permissions(void)
                         { NULL, 0, 0 }
                      };
 
-   ptr = fullname + sprintf(fullname, "%s%s", p_work_dir, FIFO_DIR);
+#ifdef HAVE_SNPRINTF
+   ptr = fullname + snprintf(fullname, MAX_PATH_LENGTH, "%s%s",
+#else
+   ptr = fullname + sprintf(fullname, "%s%s",
+#endif
+                            p_work_dir, FIFO_DIR);
    i = 0;
    do
    {
-      (void)strcpy(ptr, fifodir[i].file_name);
+      (void)my_strncpy(ptr, fifodir[i].file_name,
+                       MAX_PATH_LENGTH - (ptr - fullname));
       if (stat(fullname, &stat_buf) == -1)
       {
          if (errno != ENOENT)
@@ -300,13 +306,19 @@ check_permissions(void)
       i++;
    } while (fifodir[i].file_name != NULL);
 
-   ptr = fullname + sprintf(fullname, "%s%s/", p_work_dir, LOG_DIR);
+#ifdef HAVE_SNPRINTF
+   ptr = fullname + snprintf(fullname, MAX_PATH_LENGTH, "%s%s/",
+#else
+   ptr = fullname + sprintf(fullname, "%s%s/",
+#endif
+                            p_work_dir, LOG_DIR);
    i = 0;
    do
    {
       if (logdir[i].file_name[0] != '\0')
       {
-         (void)strcpy(ptr, logdir[i].file_name);
+         (void)my_strncpy(ptr, logdir[i].file_name,
+                          MAX_PATH_LENGTH - (ptr - fullname));
          if (i != 0)
          {
             (void)strcat(ptr, "0");

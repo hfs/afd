@@ -1,6 +1,6 @@
 /*
  *  handle_delete_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -559,14 +559,26 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
 # endif
                                                      }
 
-                                                     (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                                                     (void)snprintf(dl.host_name,
+                                                                    MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                                                     (void)sprintf(dl.host_name,
+# endif
+                                                                   "%-*s %03x",
                                                                    MAX_HOSTNAME_LENGTH,
                                                                    fsa[mdb[qb[i].pos].fsa_pos].host_alias,
                                                                    USER_DEL);
                                                   }
                                                   else
                                                   {
-                                                     (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                                                     (void)snprintf(dl.host_name,
+                                                                    MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                                                     (void)sprintf(dl.host_name,
+# endif
+                                                                   "%-*s %03x",
                                                                    MAX_HOSTNAME_LENGTH,
                                                                    "-",
                                                                    USER_DEL);
@@ -580,7 +592,12 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                                                   *dl.file_name_length = strlen(p_end + 1);
                                                   dl_real_size = *dl.file_name_length +
                                                                  dl.size +
+# ifdef HAVE_SNPRINTF
+                                                                 snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                                          MAX_FILENAME_LENGTH + 1,
+# else
                                                                  sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                                          "%s%c(%s %d)",
                                                                          FD, SEPARATOR_CHAR,
                                                                          __FILE__, __LINE__);

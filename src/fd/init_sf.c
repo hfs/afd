@@ -1,6 +1,6 @@
 /*
  *  init_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>                     /* fprintf(), sprintf()           */
+#include <stdio.h>                     /* fprintf()                      */
 #include <string.h>                    /* strcpy(), strcat(), strerror() */
 #include <stdlib.h>                    /* calloc() in RT_ARRAY()         */
 #include <sys/types.h>
@@ -103,7 +103,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
         }
    else if (protocol & SFTP_FLAG)
         {
-           db.port = DEFAULT_SSH_PORT;
+           db.port = SSH_PORT_UNSET;
         }
    else if (protocol & HTTP_FLAG)
         {
@@ -112,7 +112,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #ifdef _WITH_SCP_SUPPORT
    else if (protocol & SCP_FLAG)
         {
-           db.port = DEFAULT_SSH_PORT;
+           db.port = SSH_PORT_UNSET;
            db.chmod = FILE_MODE;
         }
 #endif
@@ -188,6 +188,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #endif
 #ifdef WITH_DUP_CHECK
    db.crc_id = 0;
+   db.trans_dup_check_timeout = 0L;
+   db.trans_dup_check_flag = 0;
 #endif
    db.my_pid = getpid();
 
@@ -210,18 +212,39 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          db.mode_flag = PASSIVE_MODE;
          if (fsa->protocol_options & FTP_EXTENDED_MODE)
          {
-            (void)strcpy(db.mode_str, "extended passive");
+            /* Write "extended passive" */
+            db.mode_str[0] = 'e'; db.mode_str[1] = 'x'; db.mode_str[2] = 't';
+            db.mode_str[3] = 'e'; db.mode_str[4] = 'n'; db.mode_str[5] = 'd';
+            db.mode_str[6] = 'e'; db.mode_str[7] = 'd'; db.mode_str[8] = ' ';
+            db.mode_str[9] = 'p'; db.mode_str[10] = 'a';
+            db.mode_str[11] = 's'; db.mode_str[12] = 's';
+            db.mode_str[13] = 'i'; db.mode_str[14] = 'v';
+            db.mode_str[15] = 'e'; db.mode_str[16] = '\0';
          }
          else
          {
             if (fsa->protocol_options & FTP_ALLOW_DATA_REDIRECT)
             {
-               (void)strcpy(db.mode_str, "passive (with redirect)");
+               /* Write "passive (with redirect)" */
+               db.mode_str[0] = 'p'; db.mode_str[1] = 'a'; db.mode_str[2] = 's';
+               db.mode_str[3] = 's'; db.mode_str[4] = 'i'; db.mode_str[5] = 'v';
+               db.mode_str[6] = 'e'; db.mode_str[7] = ' '; db.mode_str[8] = '(';
+               db.mode_str[9] = 'w'; db.mode_str[10] = 'i';
+               db.mode_str[11] = 't'; db.mode_str[12] = 'h';
+               db.mode_str[13] = ' '; db.mode_str[14] = 'r';
+               db.mode_str[15] = 'e'; db.mode_str[16] = 'd';
+               db.mode_str[17] = 'i'; db.mode_str[18] = 'r';
+               db.mode_str[19] = 'e'; db.mode_str[20] = 'c';
+               db.mode_str[21] = 't'; db.mode_str[22] = ')';
+               db.mode_str[23] = '\0';
                db.mode_flag |= ALLOW_DATA_REDIRECT;
             }
             else
             {
-               (void)strcpy(db.mode_str, "passive");
+               /* Write "passive" */
+               db.mode_str[0] = 'p'; db.mode_str[1] = 'a'; db.mode_str[2] = 's';
+               db.mode_str[3] = 's'; db.mode_str[4] = 'i'; db.mode_str[5] = 'v';
+               db.mode_str[6] = 'e'; db.mode_str[7] = '\0';
             }
          }
       }
@@ -230,11 +253,20 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          db.mode_flag = ACTIVE_MODE;
          if (fsa->protocol_options & FTP_EXTENDED_MODE)
          {
-            (void)strcpy(db.mode_str, "extended active");
+            /* Write "extended active" */
+            db.mode_str[0] = 'e'; db.mode_str[1] = 'x'; db.mode_str[2] = 't';
+            db.mode_str[3] = 'e'; db.mode_str[4] = 'n'; db.mode_str[5] = 'd';
+            db.mode_str[6] = 'e'; db.mode_str[7] = 'd'; db.mode_str[8] = ' ';
+            db.mode_str[9] = 'a'; db.mode_str[10] = 'c'; db.mode_str[11] = 't';
+            db.mode_str[12] = 'i'; db.mode_str[13] = 'v'; db.mode_str[14] = 'e';
+            db.mode_str[15] = '\0';
          }
          else
          {
-            (void)strcpy(db.mode_str, "active");
+            /* Write "active" */
+            db.mode_str[0] = 'a'; db.mode_str[1] = 'c'; db.mode_str[2] = 't';
+            db.mode_str[3] = 'i'; db.mode_str[4] = 'v'; db.mode_str[5] = 'e';
+            db.mode_str[6] = '\0';
          }
       }
       if (fsa->protocol_options & FTP_EXTENDED_MODE)

@@ -1,6 +1,6 @@
 /*
  *  remove_ls_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,12 @@ remove_ls_data(int fra_pos)
 {
    char list_file[MAX_PATH_LENGTH];
 
-   (void)sprintf(list_file, "%s%s%s%s/%s", p_work_dir, AFD_FILE_DIR,
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(list_file, MAX_PATH_LENGTH, "%s%s%s%s/%s",
+#else
+   (void)sprintf(list_file, "%s%s%s%s/%s",
+#endif
+                 p_work_dir, AFD_FILE_DIR,
                  INCOMING_DIR, LS_DATA_DIR, fra[fra_pos].dir_alias);
    if ((unlink(list_file) == -1) && (errno != ENOENT))
    {

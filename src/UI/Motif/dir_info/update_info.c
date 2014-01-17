@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -354,7 +354,7 @@ update_info(Widget w)
    if (prev.ignore_size != fra[fra_pos].ignore_size)
    {
       prev.ignore_size = fra[fra_pos].ignore_size;
-      if (prev.ignore_size == 0)
+      if (prev.ignore_size == -1)
       {
          (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Not set");
       }
@@ -457,6 +457,16 @@ update_info(Widget w)
               {
                  length += sprintf(&dupcheck_label_str[length],
                                    "File content and name");
+              }
+         else if (prev.dup_check_flag & DC_NAME_NO_SUFFIX)
+              {
+                 length += sprintf(&dupcheck_label_str[length],
+                                   "Filename no suffix");
+              }
+         else if (prev.dup_check_flag & DC_FILENAME_AND_SIZE)
+              {
+                 length += sprintf(&dupcheck_label_str[length],
+                                   "Filename and size");
               }
               else
               {

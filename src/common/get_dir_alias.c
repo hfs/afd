@@ -1,6 +1,6 @@
 /*
  *  get_dir_alias.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2010 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,7 +69,12 @@ get_dir_alias(unsigned int job_id, char *dir_alias)
    char         fullname[MAX_PATH_LENGTH];
 
    dir_alias[0] = '\0';
-   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(fullname, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,

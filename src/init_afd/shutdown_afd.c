@@ -182,10 +182,14 @@ shutdown_afd(char *user, long response_time, int afd_active_gone)
          exit(INCORRECT);
       }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-      (void)read(afd_cmd_readfd, buffer, DEFAULT_BUFFER_SIZE);
+      if (read(afd_cmd_readfd, buffer, DEFAULT_BUFFER_SIZE) == -1)
 #else
-      (void)read(afd_cmd_fd, buffer, DEFAULT_BUFFER_SIZE);
+      if (read(afd_cmd_fd, buffer, DEFAULT_BUFFER_SIZE) == -1)
 #endif
+      {
+         (void)fprintf(stderr, _("WARN    : read() error : %s (%s %d)\n"),
+                       strerror(errno), __FILE__, __LINE__);
+      }
 
       if (afd_active_gone == NO)
       {

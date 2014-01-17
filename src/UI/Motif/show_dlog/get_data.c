@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -256,7 +256,7 @@ static void             display_data(int, time_t, time_t),
                                                            \
               id.dir[0] = '\0';                            \
               get_info(GOT_JOB_ID_DIR_ONLY);               \
-              count = strlen(id.dir);                      \
+              count = strlen((char *)id.dir);              \
               id.dir[count] = SEPARATOR_CHAR;              \
               id.dir[count + 1] = '\0';                    \
                                                            \
@@ -272,7 +272,7 @@ static void             display_data(int, time_t, time_t),
               {                                            \
                  for (kk = 0; kk < no_of_search_dirs; kk++)\
                  {                                         \
-                    if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                    if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)\
                     {                                      \
                        gotcha = YES;                       \
                        break;                              \
@@ -414,7 +414,7 @@ static void             display_data(int, time_t, time_t),
                   j = 0;                                               \
                   while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))\
                   {                                                    \
-                     if (*(ptr + j) < ' ')                             \
+                     if ((unsigned char)(*(ptr + j)) < ' ')            \
                      {                                                 \
                         *(p_file_name + j) = '?';                      \
                         unprintable_chars++;                           \
@@ -841,6 +841,7 @@ extract_data(char *current_log_file, int file_no)
         }
 
    /* Free all memory we have allocated. */
+   get_info_free();
 #ifdef HAVE_MMAP
    if (munmap(src, stat_buf.st_size) < 0)
    {
@@ -1017,7 +1018,7 @@ no_criteria(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1158,7 +1159,7 @@ file_name_only(register char *ptr,
             j = 0;
             while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
             {
-               if (*(ptr + j) < ' ')
+               if ((unsigned char)(*(ptr + j)) < ' ')
                {
                   *(p_file_name + j) = '?';
                   unprintable_chars++;
@@ -1308,7 +1309,7 @@ file_size_only(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1489,7 +1490,7 @@ file_name_and_size(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1633,7 +1634,7 @@ recipient_only(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1887,7 +1888,7 @@ file_size_and_recipient(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -2078,7 +2079,7 @@ file_name_size_recipient(register char *ptr,
          j = 0;
          while ((*(ptr + j) != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*(ptr + j) < ' ')
+            if ((unsigned char)(*(ptr + j)) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;

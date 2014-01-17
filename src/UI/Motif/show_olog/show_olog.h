@@ -1,6 +1,6 @@
 /*
  *  show_olog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -139,6 +139,7 @@ struct info_data
           unsigned int       job_no;
           unsigned int       dir_id;
           int                no_of_files;
+          unsigned int       retries;
           time_t             date_send;
           char               *files;
 #ifdef _WITH_DYNAMIC_MEMORY
@@ -155,12 +156,12 @@ struct info_data
           char               dir_config_file[MAX_PATH_LENGTH];
           char               dir_id_str[MAX_DIR_ALIAS_LENGTH + 1];
           char               recipient[MAX_RECIPIENT_LENGTH];
-          char               user[MAX_RECIPIENT_LENGTH];
+          unsigned char      user[MAX_RECIPIENT_LENGTH];
           char               mail_destination[MAX_RECIPIENT_LENGTH];
-          char               local_file_name[MAX_FILENAME_LENGTH];
-          char               remote_file_name[MAX_FILENAME_LENGTH];
-          char               dir[MAX_PATH_LENGTH];
-          char               archive_dir[MAX_PATH_LENGTH];
+          unsigned char      local_file_name[MAX_FILENAME_LENGTH];
+          unsigned char      remote_file_name[MAX_FILENAME_LENGTH];
+          unsigned char      dir[MAX_PATH_LENGTH];
+          unsigned char      archive_dir[MAX_PATH_LENGTH];
           char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char               trans_time[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char               unique_name[MAX_ADD_FNL + 1];
@@ -258,9 +259,11 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             file_name_toggle(Widget, XtPointer, XtPointer),
             format_info(char **),
             get_info(int),
+            get_info_free(void),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),
+            only_archived_toggle(Widget, XtPointer, XtPointer),
             print_button(Widget, XtPointer, XtPointer),
             radio_button(Widget, XtPointer, XtPointer),
             resend_button(Widget, XtPointer, XtPointer),
@@ -272,6 +275,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
             select_all_button(Widget, XtPointer, XtPointer),
+            set_view_mode(Widget, XtPointer, XtPointer),
             toggled(Widget, XtPointer, XtPointer),
             view_button(Widget, XtPointer, XtPointer),
             view_files(int, int *);

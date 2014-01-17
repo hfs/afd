@@ -321,6 +321,18 @@ host. See below for a description of each entry.
               specified by "Transfer Timeout" above and will count this
               as a failure.</td>
        </tr>
+       <tr>
+          <td align=center>19</td>
+          <td align=center>262144</td>
+          <td>If this is set it will disable <a href="host_config.html#keep_connected">
+              keep connected</a> the option for fetching files.</td>
+       </tr>
+       <tr>
+          <td align=center>20</td>
+          <td align=center>524288</td>
+          <td>If this is set it will disable <a href="host_config.html#keep_connected">
+              keep connected</a> the option for sending files.</td>
+       </tr>
        </table>
        The default is zero.</td>
 </tr>
@@ -367,6 +379,7 @@ host. See below for a description of each entry.
       24(8388608)    - Delete the file.
       25(16777216)   - Store the duplicate file.
       26(33554432)   - Warn in SYSTEM_LOG.
+      31(1073741824) - The timeout value is fixed, not cumulative.
       32(2147483648) - Use full recipient as reference instead of alias name.
        </pre></td>
 </tr>
@@ -389,9 +402,9 @@ host. See below for a description of each entry.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1997 - 2012 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2014 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 27.11.2012
+   Last updated: 13.01.2014
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

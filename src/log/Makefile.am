@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2008 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -54,11 +54,11 @@ endif
 if WITH_AFD_MON
    AFD_MON_PROGS          =  mon_sys_log monitor_log
    EXTRA_MON_PROGS        =
-   INCLUDES               = -I.. -I../init_afd -I../afd_mon
+   AM_CPPFLAGS            = -I.. -I../init_afd -I../afd_mon
 else
    AFD_MON_PROGS          = 
    EXTRA_MON_PROGS        = mon_sys_log monitor_log
-   INCLUDES               = -I.. -I../init_afd
+   AM_CPPFLAGS            = -I.. -I../init_afd
 endif
 
 EXTRA_PROGRAMS           = $(EXTRA_INPUT_LOG) $(EXTRA_DISTRIBUTION_LOG)\

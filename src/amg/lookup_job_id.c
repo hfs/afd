@@ -1,6 +1,6 @@
 /*
  *  lookup_job_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -153,10 +153,19 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
          gotcha[i] = YES;
 #endif
          p_db->job_id = jd[i].job_id;
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(p_db->str_job_id, MAX_INT_HEX_LENGTH, "%x", jd[i].job_id);
+#else
          (void)sprintf(p_db->str_job_id, "%x", jd[i].job_id);
+#endif
 
          /* Touch the message file so FD knows this is a new file. */
-         (void)sprintf(p_msg_dir, "%x", p_db->job_id);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(p_msg_dir, MAX_PATH_LENGTH - (p_msg_dir - msg_dir),
+#else
+         (void)sprintf(p_msg_dir,
+#endif
+                       "%x", p_db->job_id);
          if (utime(msg_dir, NULL) == -1)
          {
             if (errno == ENOENT)
@@ -455,7 +464,11 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
    }
    free(buffer);
    p_db->job_id = *jid_number;
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(p_db->str_job_id, MAX_INT_HEX_LENGTH, "%x", *jid_number);
+#else
    (void)sprintf(p_db->str_job_id, "%x", *jid_number);
+#endif
    jd[*no_of_job_ids].job_id = *jid_number;
    (*no_of_job_ids)++;
 

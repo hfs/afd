@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -177,10 +177,18 @@ main(int argc, char *argv[])
    p_log_his = &p_afd_status->sys_log_history[0];
    get_log_number(&log_number, (max_system_log_files - 1),
                   SYSTEM_LOG_NAME, SYSTEM_LOG_NAME_LENGTH, NULL);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(current_log_file, MAX_PATH_LENGTH, "%s%s/%s0",
+#else
    (void)sprintf(current_log_file, "%s%s/%s0",
+#endif
                  p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
-   p_end = log_file;
-   p_end += sprintf(log_file, "%s%s/%s", p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
+#ifdef HAVE_SNPRINTF
+   p_end = log_file + snprintf(log_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   p_end = log_file + sprintf(log_file, "%s%s/%s",
+#endif
+                              p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
 
    while (log_stat == START)
    {

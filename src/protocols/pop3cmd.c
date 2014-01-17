@@ -1,6 +1,6 @@
 /*
  *  pop3cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@ DESCR__E_M3
 #include "commondefs.h"
 
 #ifdef WITH_SSL
-SSL                       *ssl_pop3 = NULL;
+SSL                       *ssl_con = NULL;
 #endif
 
 /* External global variables. */
@@ -450,7 +450,7 @@ pop3_read(char *block, int blocksize)
    if ((status > 0) && (FD_ISSET(pop3_fd, &rset)))
    {
 #ifdef WITH_SSL
-           if (ssl_pop3 == NULL)
+           if (ssl_con == NULL)
            {
 #endif
               if ((bytes_read = read(pop3_fd, &block[rb_offset],
@@ -468,10 +468,10 @@ pop3_read(char *block, int blocksize)
            }
            else
            {
-              if ((bytes_read = SSL_read(ssl_pop3, &block[rb_offset],
+              if ((bytes_read = SSL_read(ssl_con, &block[rb_offset],
                                          blocksize - rb_offset)) == INCORRECT)
               {
-                 if ((status = SSL_get_error(ssl_pop3,
+                 if ((status = SSL_get_error(ssl_con,
                                              bytes_read)) == SSL_ERROR_SYSCALL)
                  {
                     if (errno == ECONNRESET)
@@ -656,10 +656,10 @@ pop3_quit(void)
       }
 
 #ifdef WITH_SSL
-      if (ssl_pop3 != NULL)
+      if (ssl_con != NULL)
       {
-         SSL_free(ssl_pop3);
-         ssl_pop3 = NULL;
+         SSL_free(ssl_con);
+         ssl_con = NULL;
       }
 #endif
       if (close(pop3_fd) == -1)
@@ -756,7 +756,7 @@ read_msg(void)
          else if (FD_ISSET(pop3_fd, &rset))
               {
 #ifdef WITH_SSL
-                 if (ssl_pop3 == NULL)
+                 if (ssl_con == NULL)
                  {
 #endif
                     if ((bytes_read = read(pop3_fd, &msg_str[bytes_buffered],
@@ -785,7 +785,7 @@ read_msg(void)
                  }
                  else
                  {
-                    if ((bytes_read = SSL_read(ssl_pop3,
+                    if ((bytes_read = SSL_read(ssl_con,
                                                &msg_str[bytes_buffered],
                                                (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
                     {
@@ -797,7 +797,7 @@ read_msg(void)
                        }
                        else
                        {
-                          if ((status = SSL_get_error(ssl_pop3,
+                          if ((status = SSL_get_error(ssl_con,
                                                       bytes_read)) == SSL_ERROR_SYSCALL)
                           {
                              if (errno == ECONNRESET)

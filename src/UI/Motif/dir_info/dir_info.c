@@ -1,6 +1,6 @@
 /*
  *  dir_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -628,7 +628,7 @@ main(int argc, char *argv[])
                     prev.locked_file_time / 3600);
    }
    XmTextSetString(text_wr[DELETE_LOCKED_FILES_POS], str_line);
-   if (prev.ignore_size == 0)
+   if (prev.ignore_size == -1)
    {
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Not set");
    }
@@ -664,8 +664,23 @@ main(int argc, char *argv[])
    XmTextSetString(text_wr[FILES_RECEIVED_POS], str_line);
    if (prev.no_of_time_entries > 0)
    {
-      (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                     localtime(&prev.next_check_time));
+#if SIZEOF_TIME_T == 4
+      if (prev.next_check_time == LONG_MAX)
+#else
+# ifdef LLONG_MAX
+      if (prev.next_check_time == LLONG_MAX)
+# else
+      if (prev.next_check_time == LONG_MAX)
+# endif
+#endif
+      {
+         (void)strcpy(tmp_str_line, "<external>");
+      }
+      else
+      {
+         (void)strftime(tmp_str_line, MAX_DIR_INFO_STRING_LENGTH,
+                        "%d.%m.%Y  %H:%M:%S", localtime(&prev.next_check_time));
+      }
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
    }
    else

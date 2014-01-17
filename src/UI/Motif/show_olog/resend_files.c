@@ -1,6 +1,6 @@
 /*
  *  resend_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -183,7 +183,7 @@ resend_files(int no_selected, int *select_list)
                          p_work_dir, AFD_FILE_DIR, OUTGOING_DIR);
 
    /* Get the fsa_id and no of host of the FSA. */
-   if (fsa_attach() < 0)
+   if (fsa_attach(SHOW_OLOG) < 0)
    {
       (void)xrec(FATAL_DIALOG, "Failed to attach to FSA. (%s %d)",
                  __FILE__, __LINE__);
@@ -288,6 +288,7 @@ resend_files(int no_selected, int *select_list)
          {
             id.job_no = current_job_id = rl[i].job_id;
             get_info(GOT_JOB_ID_PRIORITY_ONLY);
+            get_info_free();
             break;
          }
       }
@@ -347,7 +348,9 @@ resend_files(int no_selected, int *select_list)
                   split_job_counter = 0;
                   if (create_name(dest_dir, id.priority, creation_time,
                                   current_job_id, &split_job_counter,
-                                  unique_number, p_msg_name, counter_fd) < 0)
+                                  unique_number, p_msg_name,
+                                  MAX_PATH_LENGTH - (p_msg_name - dest_dir),
+                                  counter_fd) < 0)
                   {
                      (void)xrec(FATAL_DIALOG,
                                 "Failed to create a unique directory : (%s %d)",
@@ -997,6 +1000,7 @@ write_fsa(int add, int files_to_send, off_t file_size_to_send)
                    user[MAX_USER_NAME_LENGTH + 1];
 
       get_info(GOT_JOB_ID);
+      get_info_free();
       if ((error_mask = url_evaluate(id.recipient, &scheme, user, NULL, NULL,
 #ifdef WITH_SSH_FINGERPRINT
                                      NULL, NULL,
@@ -1037,7 +1041,7 @@ write_fsa(int add, int files_to_send, off_t file_size_to_send)
 
             lock_offset = AFD_WORD_OFFSET +
                           (position * sizeof(struct filetransfer_status));
-            (void)check_fsa(NO);
+            (void)check_fsa(NO, SHOW_OLOG);
 #ifdef LOCK_DEBUG
             lock_region_w(fsa_fd, lock_offset + LOCK_TFC, __FILE__, __LINE__);
 #else
@@ -1097,7 +1101,7 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 

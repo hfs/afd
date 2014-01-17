@@ -1,6 +1,6 @@
 /*
  *  check_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   check_fsa - checks if FSA has been updated
  **
  ** SYNOPSIS
- **   int check_fsa(int passive)
+ **   int check_fsa(int passive, char *who)
  **
  ** DESCRIPTION
  **   This function checks if the FSA (Filetransfer Status Area)
@@ -74,7 +74,7 @@ extern struct filetransfer_status *fsa;
 
 /*############################ check_fsa() ##############################*/
 int
-check_fsa(int passive)
+check_fsa(int passive, char *who)
 {
    if (fsa != NULL)
    {
@@ -87,33 +87,33 @@ check_fsa(int passive)
          if (munmap(ptr, fsa_size) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] : %s"),
-                       fsa_id, fsa_size, strerror(errno));
+                       _("Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] [%s] : %s"),
+                       fsa_id, fsa_size, who, strerror(errno));
          }
 #else
          if (munmap_emu(ptr) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("Failed to munmap_emu() from FSA (%d) : %s"),
-                       fsa_id, strerror(errno));
+                       _("Failed to munmap_emu() from FSA (%d) [%s] : %s"),
+                       fsa_id, who, strerror(errno));
          }
 #endif
 
          if (passive == YES)
          {
-            if (fsa_attach_passive(YES) < 0)
+            if (fsa_attach_passive(YES, who) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          _("Passive attach to FSA failed."));
+                          _("Passive attach to FSA failed [%s]."), who);
                exit(INCORRECT);
             }
          }
          else
          {
-            if (fsa_attach() < 0)
+            if (fsa_attach(who) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          _("Failed to attach to FSA."));
+                          _("Failed to attach to FSA [%s]."), who);
                exit(INCORRECT);
             }
          }

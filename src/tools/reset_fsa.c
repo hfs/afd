@@ -1,6 +1,6 @@
 /*
  *  reset_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,7 +101,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((i = fsa_attach()) < 0)
+   if ((i = fsa_attach("reset_fsa")) < 0)
    {
       if (i == INCORRECT_VERSION)
       {

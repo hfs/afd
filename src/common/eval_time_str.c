@@ -1,6 +1,6 @@
 /*
  *  eval_time_str.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,7 @@ DESCR__S_M3
  **   29.04.1999 H.Kiehl Created
  **   21.05.2007 H.Kiehl Added check_time_str() to just check the time
  **                      string supplied.
+ **   14.11.2013 H.Kiehl Added support for 'time external'.
  **
  */
 DESCR__E_M3
@@ -74,6 +75,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
         str_number[3];
 
    memset(te, 0, sizeof(struct bd_time_entry));
+   if ((time_str[0] == 'e') && (time_str[1] == 'x') && (time_str[2] == 't') &&
+       (time_str[3] == 'e') && (time_str[4] == 'r') && (time_str[5] == 'n') &&
+       (time_str[6] == 'a') && (time_str[7] == 'l'))
+   {
+      te->month = TIME_EXTERNAL;
+      return(SUCCESS);
+   }
 
    /* Evaluate 'minute' field (0-59). */
    for (;;)
@@ -1337,6 +1345,13 @@ check_time_str(char *time_str)
         step_size = 0;
    char *ptr = time_str,
         str_number[3];
+
+   if ((time_str[0] == 'e') && (time_str[1] == 'x') && (time_str[2] == 't') &&
+       (time_str[3] == 'e') && (time_str[4] == 'r') && (time_str[5] == 'n') &&
+       (time_str[6] == 'a') && (time_str[7] == 'l'))
+   {
+      return(SUCCESS);
+   }
 
    /* Evaluate 'minute' field (0-59). */
    for (;;)

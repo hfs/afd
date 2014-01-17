@@ -1,6 +1,6 @@
 /*
  *  select_event_actions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007, 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,7 +69,8 @@ Widget              selectshell = (Widget)NULL,
 
 /* External global variables. */
 extern unsigned int ea_toggles_set_1,
-                    ea_toggles_set_2;
+                    ea_toggles_set_2,
+                    ea_toggles_set_3;
 extern Display      *display;
 extern Widget       appshell;
 extern char         font_name[];
@@ -300,6 +301,7 @@ ea_toggle_all(Widget w, XtPointer client_data, XtPointer call_data)
 
    ea_toggles_set_1 = ~ea_toggles_set_1;
    ea_toggles_set_2 = ~ea_toggles_set_2;
+   ea_toggles_set_3 = ~ea_toggles_set_3;
    for (i = 1; i < (toggle_counter + 1); i++)
    {
       if (i < EA_START_TRANSFER)
@@ -313,17 +315,28 @@ ea_toggle_all(Widget w, XtPointer client_data, XtPointer call_data)
             set_toggle = False;
          }
       }
-      else
-      {
-         if (ea_toggles_set_2 & (1 << (i - EA_DISABLE_HOST)))
-         {
-            set_toggle = True;
-         }
-         else
-         {
-            set_toggle = False;
-         }
-      }
+      else if (i < EA_INFO_TIME_SET)
+           {
+              if (ea_toggles_set_2 & (1 << (i - EA_DISABLE_HOST)))
+              {
+                 set_toggle = True;
+              }
+              else
+              {
+                 set_toggle = False;
+              }
+           }
+           else
+           {
+              if (ea_toggles_set_3 & (1 << (i - EA_DISABLE_CREATE_SOURCE_DIR)))
+              {
+                 set_toggle = True;
+              }
+              else
+              {
+                 set_toggle = False;
+              }
+           }
       XmToggleButtonGadgetSetState(toggle_w[i - 1], set_toggle, False);
    }
 
@@ -339,10 +352,14 @@ ea_toggled(Widget w, XtPointer client_data, XtPointer call_data)
    {
       ea_toggles_set_1 ^= (1 << (XT_PTR_TYPE)client_data);
    }
-   else
-   {
-      ea_toggles_set_2 ^= (1 << ((XT_PTR_TYPE)client_data - EA_DISABLE_HOST));
-   }
+   else if ((XT_PTR_TYPE)client_data < EA_INFO_TIME_SET)
+        {
+           ea_toggles_set_2 ^= (1 << ((XT_PTR_TYPE)client_data - EA_DISABLE_HOST));
+        }
+        else
+        {
+           ea_toggles_set_3 ^= (1 << ((XT_PTR_TYPE)client_data - EA_DISABLE_CREATE_SOURCE_DIR));
+        }
 
    return;
 }

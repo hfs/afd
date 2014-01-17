@@ -1,6 +1,6 @@
 /*
  *  initialize_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,11 +120,15 @@ DESCR__E_M3
 #define DC_RESP_FIFO_NO             52
 #define AFDD_LOG_FIFO_NO            53
 #define TYPESIZE_DATA_FILE_NO       54
+#define SYSTEM_DATA_FILE_NO         55
+#define MAX_FILE_LIST_LENGTH        56
 
 #define FSA_STAT_FILE_ALL_NO        0
 #define FRA_STAT_FILE_ALL_NO        1
 #define ALTERNATE_FILE_ALL_NO       2
 #define DB_UPDATE_REPLY_FIFO_ALL_NO 3
+#define NNN_FILE_ALL_NO             4
+#define MAX_MFILE_LIST_LENGTH       5
 
 #define AFD_MSG_DIR_FLAG            1
 #ifdef WITH_DUP_CHECK
@@ -149,11 +153,11 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
    int  delete_dir,
         offset;
    char dirs[MAX_PATH_LENGTH],
-        filelistflag[TYPESIZE_DATA_FILE_NO + 1],
-        mfilelistflag[DB_UPDATE_REPLY_FIFO_ALL_NO + 1];
+        filelistflag[MAX_FILE_LIST_LENGTH],
+        mfilelistflag[MAX_MFILE_LIST_LENGTH];
 
-   (void)memset(filelistflag, NO, (TYPESIZE_DATA_FILE_NO + 1));
-   (void)memset(mfilelistflag, NO, (DB_UPDATE_REPLY_FIFO_ALL_NO + 1));
+   (void)memset(filelistflag, NO, MAX_FILE_LIST_LENGTH);
+   (void)memset(mfilelistflag, NO, MAX_MFILE_LIST_LENGTH);
    if (old_value_list != NULL)
    {
       delete_dir = 0;
@@ -268,6 +272,7 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
          mfilelistflag[FSA_STAT_FILE_ALL_NO] = YES;
          mfilelistflag[FRA_STAT_FILE_ALL_NO] = YES;
          mfilelistflag[ALTERNATE_FILE_ALL_NO] = YES;
+         mfilelistflag[NNN_FILE_ALL_NO] = YES;
          delete_dir |= LS_DATA_DIR_FLAG;
       }
       if (old_value_list[0] & OFF_T_NR)
@@ -398,6 +403,7 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
          filelistflag[BLOCK_FILE_NO] = YES;
          filelistflag[AMG_COUNTER_FILE_NO] = YES;
          filelistflag[COUNTER_FILE_NO] = YES;
+         mfilelistflag[NNN_FILE_ALL_NO] = YES;
 #ifdef WITH_DUP_CHECK
          delete_dir |= CRC_DIR_FLAG;
 #endif
@@ -406,15 +412,24 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
       {
          filelistflag[PWB_DATA_FILE_NO] = YES;
          filelistflag[TYPESIZE_DATA_FILE_NO] = YES;
+         filelistflag[SYSTEM_DATA_FILE_NO] = YES;
          delete_dir |= LS_DATA_DIR_FLAG;
       }
    }
 
+#ifdef HAVE_SNPRINTF
+   offset = snprintf(dirs, MAX_PATH_LENGTH, "%s%s", p_work_dir, FIFO_DIR);
+#else
    offset = sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
+#endif
    delete_fifodir_files(dirs, offset, filelistflag, mfilelistflag, dry_run);
    if (delete_dir & AFD_MSG_DIR_FLAG)
    {
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dirs, MAX_PATH_LENGTH, "%s%s", p_work_dir, AFD_MSG_DIR);
+#else
       (void)sprintf(dirs, "%s%s", p_work_dir, AFD_MSG_DIR);
+#endif
       if (dry_run == YES)
       {
          (void)fprintf(stdout, "rm -rf %s\n", dirs);
@@ -432,7 +447,12 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
 #ifdef WITH_DUP_CHECK
    if (delete_dir & CRC_DIR_FLAG)
    {
-      (void)sprintf(dirs, "%s%s%s", p_work_dir, AFD_FILE_DIR, CRC_DIR);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dirs, MAX_PATH_LENGTH, "%s%s%s",
+#else
+      (void)sprintf(dirs, "%s%s%s",
+#endif
+                    p_work_dir, AFD_FILE_DIR, CRC_DIR);
       if (dry_run == YES)
       {
          (void)fprintf(stdout, "rm -rf %s\n", dirs);
@@ -450,8 +470,12 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
 #endif
    if (delete_dir & FILE_MASK_DIR_FLAG)
    {
-      (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
-                    INCOMING_DIR, FILE_MASK_DIR);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dirs, MAX_PATH_LENGTH, "%s%s%s%s",
+#else
+      (void)sprintf(dirs, "%s%s%s%s",
+#endif
+                    p_work_dir, AFD_FILE_DIR, INCOMING_DIR, FILE_MASK_DIR);
       if (dry_run == YES)
       {
          (void)fprintf(stdout, "rm -rf %s\n", dirs);
@@ -468,8 +492,12 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
    }
    if (delete_dir & LS_DATA_DIR_FLAG)
    {
-      (void)sprintf(dirs, "%s%s%s%s", p_work_dir, AFD_FILE_DIR,
-                    INCOMING_DIR, LS_DATA_DIR);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dirs, MAX_PATH_LENGTH, "%s%s%s%s",
+#else
+      (void)sprintf(dirs, "%s%s%s%s",
+#endif
+                    p_work_dir, AFD_FILE_DIR, INCOMING_DIR, LS_DATA_DIR);
       if (dry_run == YES)
       {
          (void)fprintf(stdout, "rm -rf %s\n", dirs);
@@ -486,7 +514,11 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
    }
    if (init_level > 8)
    {
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dirs, MAX_PATH_LENGTH, "%s%s", p_work_dir, AFD_FILE_DIR);
+#else
       (void)sprintf(dirs, "%s%s", p_work_dir, AFD_FILE_DIR);
+#endif
       if (dry_run == YES)
       {
          (void)fprintf(stdout, "rm -rf %s\n", dirs);
@@ -500,7 +532,11 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
                           dirs);
          }
       }
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(dirs, MAX_PATH_LENGTH, "%s%s", p_work_dir, AFD_ARCHIVE_DIR);
+#else
       (void)sprintf(dirs, "%s%s", p_work_dir, AFD_ARCHIVE_DIR);
+#endif
       if (dry_run == YES)
       {
          (void)fprintf(stdout, "rm -rf %s\n", dirs);
@@ -514,7 +550,11 @@ initialize_db(int init_level, int *old_value_list, int dry_run)
                           dirs);
          }
       }
+#ifdef HAVE_SNPRINTF
+      offset = snprintf(dirs, MAX_PATH_LENGTH, "%s%s", p_work_dir, LOG_DIR);
+#else
       offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
+#endif
       delete_log_files(dirs, offset, dry_run);
    }
 
@@ -617,14 +657,16 @@ delete_fifodir_files(char *fifodir,
            DC_CMD_FIFO, /* from amgdefs.h */
            DC_RESP_FIFO,
            AFDD_LOG_FIFO,
-           TYPESIZE_DATA_FILE
+           TYPESIZE_DATA_FILE,
+           SYSTEM_DATA_FILE
         },
         *mfilelist[] =
         {
            FSA_STAT_FILE_ALL,
            FRA_STAT_FILE_ALL,
            ALTERNATE_FILE_ALL,
-           DB_UPDATE_REPLY_FIFO_ALL
+           DB_UPDATE_REPLY_FIFO_ALL,
+           NNN_FILE_ALL
         };
 
    file_ptr = fifodir + offset;

@@ -45,7 +45,7 @@ See <a href="#recipient">recipient</a> for a more detailed description on
 how to use the fingerprint parameter and others.
 </p>
 <p>
-There are currently four schemes for fetching files supported:
+There are currently five schemes for fetching files supported:
 </p>
 <table border>
 <tr>
@@ -81,10 +81,15 @@ There are currently four schemes for fetching files supported:
    <td>HTTP transfers over secure sockets (TLS/SSL).</td>
    <td>https://donald@ducktown/directory</td>
 </tr>
+<tr>
+   <td>exec</td>
+   <td>Execute some external command to retrieve data.</td>
+   <td>exec://ext_fetch/fetch_command</td>
+</tr>
 </table>
 <p>
-For remote FTP directories it is possible to insert a date or current
-hostname with the following modifiers:
+For remote FTP, SFTP and HTTP directories it is possible to insert a date
+or current hostname with the following modifiers:
 </p>
 <table border>
 <tr>
@@ -151,6 +156,23 @@ defaults is shown in the table below:
    <th>Local Dir</th>
    <th>Remote Dir</th>
    <th>Default</th>
+</tr>
+<tr>
+   <td width="30%"><a name="inotify">inotify &lt;flag&gt;</a></td>
+   <td>This option uses a feature of the operating system that notifies
+       the application when some change occurs in the monitored directory.
+       It is much faster than scanning the directory for new files.
+       For the flag option it possible to specify 1 for rename event only,
+       2 for close event only and 4 for create event (link) only. One
+       can also combine the events. For example 3 for both rename and
+       close event. Or 5 for rename and create event. Do not use this
+       option together with: <a href="#dir_options_time">time</a>,
+       <a href="#force_reread">force reread</a>, <a href="#wait_for">
+       wait for</a>, <a href="#accumulate">accumulate</a> and
+       <a href="#accumulate_size">accumulate size</a></td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
 </tr>
 <tr>
    <td width="30%"><a name="delete_unknown_files">delete unknown files [time in hours]</a></td>
@@ -265,6 +287,14 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
+   <td width="30%"><a name="dir_options_time_external">time external</a></td>
+   <td>Setting this will allow one to trigger the scan event externally
+       via the command 'afdcmd -R'.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
    <td width="30%">do not get dir list</td>
    <td>Setting this option will disable the directory scanning for
        this directory. This can be used when directory listing are
@@ -338,6 +368,27 @@ defaults is shown in the table below:
    <td align=center>10</td>
 </tr>
 <tr>
+   <td width="30%">max errors &lt;value&gt;</td>
+   <td>The number of errors that may occur before this source/directory
+       will become red in dir_ctrl dialog or if an action is configured
+       this will activate this action.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>10</td>
+</tr>
+<tr>
+   <td width="30%">do not parallelize</td>
+   <td>Normally when AFD fetches files from a remote site it tries to
+       parallelize this. However, if you have many directories on a
+       remote host that are all fetched via the same alias, it can take
+       very long before AFD fetches files from the other directories.
+       If you set this option it does not parallelize the fetching of
+       one directory/source.</td>
+   <td>&nbsp;</td>
+   <td align=center>X</td>
+   <td align=center>not set</td>
+</tr>
+<tr>
    <td width="30%">ignore size &lt;[=|&gt;|&lt;] value&gt;</td>
    <td>If the files in the directory have the given size they will
        be ignored. A greater or less then sign may also be used to
@@ -396,7 +447,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width="30%">wait for &lt;file pattern&gt;</td>
+   <td width="30%"><a name="wait_for">wait for &lt;file pattern&gt;</a></td>
    <td>With this option it waits for the given file before it
        sends all the other files from this directory.</td>
    <td align=center>X</td>
@@ -412,7 +463,7 @@ defaults is shown in the table below:
    <td align=center>0 (disabled)</td>
 </tr>
 <tr>
-   <td width="30%">accumulate &lt;number of files&gt;</td>
+   <td width="30%"><a name="accumulate">accumulate &lt;number of files&gt;</a></td>
    <td>Waits for the given number of files before it accepts files from
        this directory.</td>
    <td align=center>X</td>
@@ -420,7 +471,7 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width="30%">accumulate size &lt;number of bytes&gt;</td>
+   <td width="30%"><a name="accumulate_size">accumulate size &lt;number of bytes&gt;</a></td>
    <td>Waits for the given number of bytes before it accepts files from
        this directory.</td>
    <td align=center>X</td>
@@ -505,8 +556,21 @@ defaults is shown in the table below:
        </tr>
        <tr>
           <td>CRC type</td>
-          <td>What type of CRC check is to be performed. Currently only
-              16 (CRC32) is supported.</td>
+          <td>What type of CRC check is to be performed. The following
+              values are possible:
+              <table border align=center>
+              <tr>
+                 <td><b>16</b></td>
+                 <td>CRC32</td>
+              </tr>
+              <tr>
+                 <td><b>17</b></td>
+                 <td>CRC32C. This CRC algorithm computes better checksums
+                     and if your CPU supports SSE4.2 calculation is done
+                     in hardware and is faster.</td>
+              </tr>
+              </table>
+          </td>
           <td>16</td>
        </tr>
        </table>
@@ -739,8 +803,9 @@ not be longer then 40 characters.
 </p>
 <p>
 The directory name may contain modifiers for which AFD will insert
-the current or a modified time or the current host name where
-AFD is running. The modifiers are:
+the current or a modified time, the current host name where
+AFD is running and/or the output of some program executed. The
+modifiers are as follows:
 </p>
 <table border>
 <tr>
@@ -785,6 +850,12 @@ AFD is running. The modifiers are:
        hostname.</td>
    <td><pre>ftp://donald@daisy/archive/%h/todo</pre></td>                  
    <td>ftp://donald@daisy/archive/ducktown/todo</td>
+</tr>
+<tr>
+   <td><b>%e`&lt;command to execute&gt;`</b></td>
+   <td>Insert the output of the executed command.</td>
+   <td><pre>ftp://donald@daisy/archive/%e`date "+%Y-%m-%d"`/todo</pre></td>                  
+   <td>ftp://donald@daisy/archive/2013-11-24/todo</td>
 </tr>
 </table>
 <p>
@@ -1117,7 +1188,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="trans_rename">trans_rename &lt;rule&gt; [primary_only|secondary_only]</a></td>
+   <td><a name="trans_rename">trans_rename &lt;rule&gt; [primary_only|secondary_only|dupcheck[see dupcheck options]]</a></td>
    <td>Rename files on the remote site after the files have been transmitted,
        as defined in the 'rule'-section of the
        <a href="rename_rules.html">etc/rename.rule</a> file. This renaming
@@ -1126,7 +1197,8 @@ section. Valid options can be taken from the following table:
        and the system has a secondary host specified, the renaming will only
        occur on the primary system. When secondary_only is set, the renaming
        will only happen on the secondary node. The rule name itself may not
-       be longer then 80 (MAX_RULE_HEADER_LENGTH) characters long.
+       be longer then 80 (MAX_RULE_HEADER_LENGTH) characters long. If dupcheck
+       is specified it will perform a duplicate check on the renamed file.
    </td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
@@ -1478,34 +1550,46 @@ section. Valid options can be taken from the following table:
        types can be converted:
       <table border>
       <tr>
-         <td><b>sohetx</b></td>
+         <td><b>sohetx[+nnn]</b></td>
          <td>Adds &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt; to the beginning
              of the file and &lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt;
-             to the end of the file.</td>
+             to the end of the file. Optionaly one can add with the plus
+             sign a sequence number. The maximum of digits is specified
+             by the number of n's. So for example +nnn would add a three
+             digit sequence number.</td>
       </tr>
       <tr>
-         <td><b>wmo</b></td>
+         <td><b>wmo[+nnn]</b></td>
          <td>Just add WMO 8 byte ascii length and 2 bytes type indicator.
              If the message contains &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;
              at start and &lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt; at the
-             end, these will be removed.</td>
+             end, these will be removed. Optionaly one can add with the plus
+             sign a sequence number. The maximum of digits is specified
+             by the number of n's. So for example +nnn would add a three
+             digit sequence number.</td>
       </tr>
       <tr>
-         <td><b>sohetxwmo</b></td>
+         <td><b>sohetxwmo[+nnn]</b></td>
          <td>Adds WMO 8 byte ascii length and 2 bytes type indicator plus
              &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt; at start and
              &lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt; to end if they are
-             not there.</td>
+             not there. Optionaly one can add with the plus sign a sequence
+             number. The maximum of digits is specified by the number of
+             n's. So for example +nnn would add a three digit sequence
+             number.</td>
       </tr>
       <tr>
-         <td><b>sohetx2wmo0</b></td>
+         <td><b>sohetx2wmo0[+nnn]</b></td>
          <td>converts a file that contains many ascii bulletins starting
              with SOH and ending with ETX to the WMO standard (8 byte ascii
              length and 2 bytes type indicators). The SOH and ETX will be
-             copied to the new file.</td>
+             copied to the new file. Optionaly one can add with the plus
+             sign a sequence number. The maximum of digits is specified
+             by the number of n's. So for example +nnn would add a three
+             digit sequence number.</td>
       </tr>
       <tr>
-         <td><b>sohetx2wmo1</b></td>
+         <td><b>sohetx2wmo1[+nnn]</b></td>
          <td>Same as sohetx2wmo0 only that the SOH and ETX will NOT be
              copied to the new file.</td>
       </tr>
@@ -1587,6 +1671,11 @@ section. Valid options can be taken from the following table:
       <td><b>WMO</b></td>
       <td>Eight byte ASCII length indicator plus two byte type
           indicator. This is the current WMO standard.</td>
+   </tr>
+   <tr>
+      <td><b>WMO+CHK</b></td>
+      <td>Eight byte ASCII length indicator plus two byte type
+          indicator plus a check if the length is correct.</td>
    </tr>
    <tr>
       <td><b>ASCII</b></td>
@@ -1897,6 +1986,20 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>X</td>
+</tr>
+<tr>
+   <td><a name="match_size">match size</a></td>
+   <td>After file is transmitted check the size of the destination file
+       with that of the local file just send. If they do not match, show
+       an error and then resend the file.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
    <td><a name="no_log_output">no log output</a></td>
@@ -2357,8 +2460,21 @@ section. Valid options can be taken from the following table:
        </tr>
        <tr>
           <td>CRC type</td>
-          <td>What type of CRC check is to be performed. Currently only
-              16 (CRC32) is supported.</td>
+          <td>What type of CRC check is to be performed. The following
+              values are possible:
+              <table border align=center>
+              <tr>
+                 <td><b>16</b></td>
+                 <td>CRC32</td>
+              </tr>
+              <tr>
+                 <td><b>17</b></td>
+                 <td>CRC32C. This CRC algorithm computes better checksums
+                     and if your CPU supports SSE4.2 calculation is done
+                     in hardware and is faster.</td>
+              </tr>
+              </table>
+          </td>
           <td>16</td>
        </tr>
        </table>
@@ -2439,226 +2555,13 @@ section. Valid options can be taken from the following table:
    <th>exec</th>
 </tr>
 </table>
-<h3 align=center><u><a name="example1">Example 1</a></u></h3>
-<p>
-An example entry in the DIR_CONFIG file might look as follows:
-</p>
-<pre>
-      [directory]
-      /usr/data/tmp
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     priority 1
-</pre>
-<p>
-The result of this entry would be that all files starting with abc in
-the directory /usr/data/tmp would be send to the user donald via FTP
-with the password secret at hollywood and there stored in the directory
-/home/user. They will also be send to daisy via SMTP. All files will be
-send with the priority 1 and will be archived for three days. The ftp
-files will be send with a dot first and only when a file is completely
-transmitted will it be renamed to its original name.
-</p>
-<h3 align=center><u><a name="example2">Example 2</a></u></h3>
-<p>
-In the following example we want different options when we send mails to
-daisy. For this we need to split the two recipients so that each have
-their own options as follows:
-</p>
-<pre>
-      [directory]
-      /usr/data/tmp
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-
-                     [options]
-                     archive 3
-                     priority 1
-
-                [destination]
-
-                     [recipient]
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     attach file
-                     priority 1
-</pre>
-<p>
-Now daisy gets the same files as in example 1 only this time the files
-are attached.
-</p>
-<h3 align=center><u><a name="example3">Example 3</a></u></h3>
-<p>
-If daisy should get more files we need to split up the above example
-another time:
-</p>
-<pre>
-      [directory]
-      /usr/data/tmp
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-
-                     [options]
-                     archive 3
-                     priority 1
-
-           [files]
-           abc*
-           def*
-           ghi*
-           jkl*
-
-                [destination]
-
-                     [recipient]
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     attach file
-                     priority 1
-</pre>
-<p>
-Daisy will now also get the additional files def*, ghi* and jkl*.
-</p>
-<h3 align=center><u><a name="example4">Example 4</a></u></h3>
-<p>
-The source directory for files can also be on another host. For this
-we just need to change the directory entry as follows:
-</p>
-<pre>
-      [directory]
-      ftp://micky:mouse@ducktown//usr/data/tmp
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     priority 1
-</pre>
-<p>
-The result of this entry will be similar to the one in
-<a href="#example1">example 1</a>, only that in this example AFD will
-look every minute on the host ducktown in the directory /usr/data/tmp
-for the files.
-</p>
-<p>
-If we do not like AFD to delete the files on the remote we can tell
-it via the <a href="#directory_options">[dir options]</a> to not remove
-the files on the remote host:
-</p>
-<pre>
-      [directory]
-      ftp://micky:mouse@ducktown//usr/data/tmp
-
-           [dir options]
-	   do not remove
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     priority 1
-</pre>
-<p>
-Now AFD will collect the same files every minute and send them to donald
-and daisy. If one does not wish to send the same files again one can
-add the following option:
-</p>
-<pre>
-      [directory]
-      ftp://micky:mouse@ducktown//usr/data/tmp
-
-           [dir options]
-	   do not remove
-	   store retrieve list
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     priority 1
-</pre>
-<p>
-With the option <a href="#store_retrieve_list">store retrieve list</a> only
-new files or those where the date and/or size has changed will be
-collected. If one wants to increase the poll interval from 1 minute
-to 30 minutes, it needs to be done as follows:
-</p>
-<pre>
-      [directory]
-      ftp://micky:mouse@ducktown//usr/data/tmp
-
-           [dir options]
-	   do not remove
-	   store remote list
-	   time */30 * * * *
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     priority 1
-</pre>
 <hr size=3 noshade>
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 1997 - 2012 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2014 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 08.11.2012
+   Last updated: 11.01.2014
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

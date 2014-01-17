@@ -1,6 +1,6 @@
 /*
  *  smtpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@
 # define MAX_RET_MSG_LENGTH     4096
 #endif
 #define MAX_CONTENT_TYPE_LENGTH 25
+#define MAX_SMTP_SUBJECT_LENGTH 512
 
 /* Most newer SMTP servers report there capabilities when issung EHLO. */
 struct smtp_server_capabilities

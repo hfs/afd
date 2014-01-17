@@ -1,6 +1,6 @@
 /*
  *  production_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -232,11 +232,18 @@ main(int argc, char *argv[])
     */
    get_log_number(&log_number, (max_production_log_files - 1),
                   PRODUCTION_BUFFER_FILE, PRODUCTION_BUFFER_FILE_LENGTH, NULL);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(current_log_file, MAX_PATH_LENGTH, "%s%s/%s0",
+#else
    (void)sprintf(current_log_file, "%s%s/%s0",
+#endif
                  work_dir, LOG_DIR, PRODUCTION_BUFFER_FILE);
-   p_end = log_file;
-   p_end += sprintf(log_file, "%s%s/%s",
-                    work_dir, LOG_DIR, PRODUCTION_BUFFER_FILE);
+#ifdef HAVE_SNPRINTF
+   p_end = log_file + snprintf(log_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   p_end = log_file + sprintf(log_file, "%s%s/%s",
+#endif
+                              work_dir, LOG_DIR, PRODUCTION_BUFFER_FILE);
 
    /* Calculate time when we have to start a new file. */
    next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +

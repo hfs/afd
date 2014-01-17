@@ -1,6 +1,6 @@
 /*
  *  nafd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -365,7 +365,7 @@ init_nafd_ctrl(int *argc, char *argv[])
     * Attach to the FSA and get the number of host
     * and the fsa_id of the FSA.
     */
-   if (fsa_attach() < 0)
+   if (fsa_attach("nafd_ctrl") < 0)
    {
       (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
                     __FILE__, __LINE__);
@@ -700,7 +700,7 @@ init_nafd_ctrl(int *argc, char *argv[])
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       int  str_length;
       char value[MAX_PATH_LENGTH];

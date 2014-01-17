@@ -1,7 +1,7 @@
 /*
  *  afd_load_callbacks.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ get_connection_value(Widget w, XtPointer client_data, XtPointer chart_value)
    register int i;
    double       connections = 0.0;
 
-   (void)check_fsa(YES);
+   (void)check_fsa(YES, AFDD);
    for (i = 0; i < no_of_hosts; i++)
    {
       connections += (double)fsa[i].connections;
@@ -113,7 +113,7 @@ get_file_value(Widget w, XtPointer client_data, XtPointer chart_value)
    register int i;
    double       no_of_files = 0.0;
 
-   (void)check_fsa(YES);
+   (void)check_fsa(YES, AFDD);
    for (i = 0; i < no_of_hosts; i++)
    {
       no_of_files += (double)fsa[i].file_counter_done;
@@ -145,7 +145,7 @@ get_kbyte_value(Widget w, XtPointer client_data, XtPointer chart_value)
    register int i;
    double       kbytes_send = 0.0;
 
-   (void)check_fsa(YES);
+   (void)check_fsa(YES, AFDD);
    for (i = 0; i < no_of_hosts; i++)
    {
       kbytes_send += (double)fsa[i].bytes_send;

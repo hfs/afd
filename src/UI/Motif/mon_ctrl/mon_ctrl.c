@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -123,13 +123,14 @@ Widget                  appshell,
                         tw[2],          /* Test (ping, traceroute) */
                         vw[10],         /* Remote view menu */
                         cw[8],          /* Remote control menu */
-                        sw[5],          /* Setup menu */
+                        sw[6],          /* Setup menu */
                         hw[3],          /* Help menu */
                         fw[NO_OF_FONTS],/* Select font */
                         rw[NO_OF_ROWS], /* Select rows */
                         hlw[NO_OF_HISTORY_LOGS],
                         lw[4],          /* AFD load */
                         lsw[3],         /* Select line style */
+                        oow[1],         /* Other options */
                         pw[6];          /* Popup menu */
 Window                  button_window,
                         label_window,
@@ -201,6 +202,7 @@ char                    work_dir[MAX_PATH_LENGTH],
                         *pid_list,
                         mon_active_file[MAX_PATH_LENGTH],
                         line_style,
+                        other_options,
                         fake_user[MAX_FULL_USER_ID_LENGTH],
                         font_name[20],
                         blink_flag,
@@ -227,6 +229,7 @@ static void             mon_ctrl_exit(void),
                         create_pullright_font(Widget),
                         create_pullright_history(Widget),
                         create_pullright_load(Widget),
+                        create_pullright_other_options(Widget),
                         create_pullright_row(Widget),
                         create_pullright_style(Widget),
                         create_pullright_test(Widget),
@@ -449,6 +452,10 @@ main(int argc, char *argv[])
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
       XtVaSetValues(rw[current_row], XmNset, True, NULL);
       XtVaSetValues(lsw[current_style], XmNset, True, NULL);
+      if (other_options & FORCE_SHIFT_SELECT)
+      {
+         XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, True, NULL);
+      }
       XtVaSetValues(hlw[current_his_log], XmNset, True, NULL);
 
       /* Setup popup menu. */
@@ -799,6 +806,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    /*
     * Read setup file of this user.
     */
+   other_options = DEFAULT_OTHER_OPTIONS;
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    his_log_set = DEFAULT_NO_OF_HISTORY_LOGS;
@@ -964,7 +972,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       int  str_length;
       char value[MAX_PATH_LENGTH];
@@ -1023,6 +1031,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             pullright_font,
             pullright_history,
             pullright_load,
+            pullright_other_options,
             pullright_row,
             pullright_test,
             pullright_line_style;
@@ -1485,6 +1494,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                               "pullright_line_style", NULL, 0);
    pullright_history = XmCreateSimplePulldownMenu(pull_down_w,
                                               "pullright_history", NULL, 0);
+   pullright_other_options = XmCreateSimplePulldownMenu(pull_down_w,
+                                              "pullright_other_options", NULL, 0);
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
@@ -1517,10 +1528,16 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            XmNsubMenuId,               pullright_history,
                            NULL);
    create_pullright_history(pullright_history);
+   sw[MON_OTHER_W] = XtVaCreateManagedWidget("Other options",
+                           xmCascadeButtonWidgetClass, pull_down_w,
+                           XmNfontList,                fontlist,
+                           XmNsubMenuId,               pullright_other_options,
+                           NULL);
+   create_pullright_other_options(pullright_other_options);
    XtVaCreateManagedWidget("Separator",
                            xmSeparatorWidgetClass, pull_down_w,
                            NULL);
-   sw[SAVE_W] = XtVaCreateManagedWidget("Save Setup",
+   sw[MON_SAVE_W] = XtVaCreateManagedWidget("Save Setup",
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
 #ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
@@ -1532,7 +1549,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            XmNaccelerator,          "Alt<Key>a",
 #endif
                            NULL);
-   XtAddCallback(sw[SAVE_W], XmNactivateCallback, save_mon_setup_cb,
+   XtAddCallback(sw[MON_SAVE_W], XmNactivateCallback, save_mon_setup_cb,
                  (XtPointer)0);
 
 #ifdef _WITH_HELP_PULLDOWN
@@ -1984,6 +2001,31 @@ create_pullright_history(Widget pullright_history)
       XtManageChild(hlw[i]);
       XmStringFree(x_string);
    }
+
+   return;
+}
+
+
+/*-------------------- create_pullright_other_options() -----------------*/
+static void
+create_pullright_other_options(Widget pullright_other_options)
+{
+   XmString x_string;
+   Arg      args[3];
+   Cardinal argcount;
+
+   /* Create pullright for "Other". */
+   argcount = 0;
+   x_string = XmStringCreateLocalized("Force shift select");
+   XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+   oow[FORCE_SHIFT_SELECT_W] = XmCreateToggleButton(pullright_other_options,
+                                            "other_0", args, argcount);
+   XtAddCallback(oow[FORCE_SHIFT_SELECT_W], XmNvalueChangedCallback,
+                 change_mon_other_cb, (XtPointer)FORCE_SHIFT_SELECT_W);
+   XtManageChild(oow[FORCE_SHIFT_SELECT_W]);
+   XmStringFree(x_string);
 
    return;
 }

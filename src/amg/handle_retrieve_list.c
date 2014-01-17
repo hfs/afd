@@ -1,7 +1,7 @@
 /*
  *  handle_retrieve_list.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -84,8 +84,13 @@ check_list(struct directory_entry *p_de,
                   *ptr;
       struct stat stat_buf;
 
-      (void)sprintf(list_file, "%s%s%s%s/%s", p_work_dir, AFD_FILE_DIR,
-                    INCOMING_DIR, LS_DATA_DIR, fra[p_de->fra_pos].dir_alias);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(list_file, MAX_PATH_LENGTH, "%s%s%s%s/%s",
+#else
+      (void)sprintf(list_file, "%s%s%s%s/%s",
+#endif
+                    p_work_dir, AFD_FILE_DIR, INCOMING_DIR, LS_DATA_DIR,
+                    fra[p_de->fra_pos].dir_alias);
       if ((p_de->rl_fd = open(list_file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -375,8 +380,13 @@ check_list(struct directory_entry *p_de,
                         RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                         AFD_WORD_OFFSET;
 
-      (void)sprintf(list_file, "%s%s%s%s/%s", p_work_dir, AFD_FILE_DIR,
-                    INCOMING_DIR, LS_DATA_DIR, fra[p_de->fra_pos].dir_alias);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(list_file, MAX_PATH_LENGTH, "%s%s%s%s/%s",
+#else
+      (void)sprintf(list_file, "%s%s%s%s/%s",
+#endif
+                    p_work_dir, AFD_FILE_DIR, INCOMING_DIR, LS_DATA_DIR,
+                    fra[p_de->fra_pos].dir_alias);
       ptr = (char *)p_de->rl - AFD_WORD_OFFSET;
       if ((ptr = mmap_resize(p_de->rl_fd, ptr, new_size)) == (caddr_t) -1)
       {

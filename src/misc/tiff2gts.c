@@ -241,14 +241,14 @@ tiff2gts(char *path, char* filename)
 static void
 byte_swap(char *ptr)
 {
-  char  tmp_byte;
+   char tmp_byte;
 
-  tmp_byte = ptr[0];
-  ptr[0] = ptr[3];
-  ptr[3] = tmp_byte;
-  tmp_byte = ptr[1];
-  ptr[1] = ptr[2];
-  ptr[2] = tmp_byte;
+   tmp_byte = ptr[0];
+   ptr[0] = ptr[3];
+   ptr[3] = tmp_byte;
+   tmp_byte = ptr[1];
+   ptr[1] = ptr[2];
+   ptr[2] = tmp_byte;
 
-  return;
+   return;
 }

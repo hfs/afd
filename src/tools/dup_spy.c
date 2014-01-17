@@ -1,6 +1,6 @@
 /*
  *  dup_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -194,6 +194,10 @@ main(int argc, char *argv[])
          if (cdb[i].flag & DC_WARN)
          {
             (void)fprintf(stdout, " WARN");
+         }
+         if (cdb[i].flag & TIMEOUT_IS_FIXED)
+         {
+            (void)fprintf(stdout, " TIMEOUT_IS_FIXED");
          }
          if (cdb[i].flag & USE_RECIPIENT_ID)
          {

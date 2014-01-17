@@ -1,6 +1,6 @@
 /*
  *  create_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -123,7 +123,12 @@ create_message(unsigned int job_id, char *recipient, char *options)
    }
 #endif
 
-   (void)sprintf(p_msg_dir, "%x", job_id);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(p_msg_dir, MAX_PATH_LENGTH - (p_msg_dir - msg_dir), "%x",
+#else
+   (void)sprintf(p_msg_dir, "%x",
+#endif
+                 job_id);
    if ((fd = open(msg_dir, O_RDWR | O_CREAT | O_TRUNC,
 #ifdef GROUP_CAN_WRITE
                   S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) != -1)
@@ -136,19 +141,36 @@ create_message(unsigned int job_id, char *recipient, char *options)
          int length;
 
 #ifdef EXPAND_PATH_IN_MESSAGE
+# ifdef HAVE_SNPRINTF
+         length = snprintf(buffer, 1 + MAX_RECIPIENT_LENGTH + 2 + 1, "\n%s\n\n", p_recipient);
+# else
          length = sprintf(buffer, "\n%s\n\n", p_recipient);
+# endif
 #else
 # ifdef WITH_PASSWD_IN_MSG
+#  ifdef HAVE_SNPRINTF
+         length = snprintf(buffer, 1 + MAX_RECIPIENT_LENGTH + 2 + 1, "\n%s\n\n", new_recipient);
+#  else
          length = sprintf(buffer, "\n%s\n\n", new_recipient);
+#  endif
 # else
+#  ifdef HAVE_SNPRINTF
+         length = snprintf(buffer, 1 + MAX_RECIPIENT_LENGTH + 2 + 1, "\n%s\n\n", recipient);
+#  else
          length = sprintf(buffer, "\n%s\n\n", recipient);
+#  endif
 # endif
 #endif
          if (write(fd, buffer, length) == length)
          {
             if (options != NULL)
             {
-               length = sprintf(buffer, "%s\n", OPTION_IDENTIFIER);
+#ifdef HAVE_SNPRINTF
+               length = snprintf(buffer, 1 + MAX_RECIPIENT_LENGTH + 2 + 1,
+#else
+               length = sprintf(buffer,
+#endif
+                                "%s\n", OPTION_IDENTIFIER);
                if (write(fd, buffer, length) == length)
                {
                   length = strlen(options);

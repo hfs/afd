@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,7 @@ DESCR__S_M3
  **                    char         *filter,
  **                    char         *rename_to_rule,
  **                    char         *new_name,
+ **                    int          max_new_name_length,
  **                    int          *counter_fd,
  **                    int          **counter,
  **                    unsigned int job_id)
@@ -94,6 +95,9 @@ DESCR__S_M3
  **   17.02.2011 H.Kiehl    Allow the following case: nsc????.*  *nsc????.*
  **                         That is more then one asterix if we have only
  **                         one in the filter part.
+ **   02.01.2013 H.Kiehl    To be able to check the maximum storage length
+ **                         of the new name added the parameter
+ **                         max_new_name_length.
  **
  */
 DESCR__E_M3
@@ -124,6 +128,7 @@ change_name(char         *orig_file_name,
             char         *filter,
             char         *rename_to_rule,
             char         *new_name,
+            int          max_new_name_length,
             int          *counter_fd,
             int          **counter,
             unsigned int job_id)
@@ -147,8 +152,9 @@ change_name(char         *orig_file_name,
           *ptr_filter,
           *ptr_filter_tmp,
           *ptr_rule = NULL,
-          *ptr_newname = NULL,
-          time_mod_sign = '+';
+          *ptr_newname,
+          time_mod_sign = '+',
+          *tmp_ptr;
    int    act_asterix = 0,
           act_questioner = 0,
           alternate,
@@ -272,7 +278,8 @@ change_name(char         *orig_file_name,
    /* Create new_name as specified in rename_to_rule. */
    ptr_rule = rename_to_rule;
    ptr_newname = new_name;
-   while (*ptr_rule != '\0')
+   while ((*ptr_rule != '\0') &&
+          (((ptr_newname + 1) - new_name) < max_new_name_length))
    {
       /* Work trough the rule and paste the name. */
       switch (*ptr_rule)
@@ -295,15 +302,27 @@ change_name(char         *orig_file_name,
                   ptr_rule += i;
                   string[i] = '\0';
                   number = atoi(string) - 1; /* Human count from 1 and computer from 0. */
-                  if (number >= count_asterix)
+                  if ((number >= count_asterix) || (number < 0))
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                _("illegal '*' addressed: %d"), number + 1);
+                                _("illegal '*' addressed: %d (%s %s) #%x"),
+                                number + 1, filter, rename_to_rule, job_id);
                   }
                   else
                   {
-                     (void)strcpy(ptr_newname, ptr_asterix[number]);
-                     ptr_newname += strlen(ptr_asterix[number]);
+                     tmp_ptr = ptr_newname + strlen(ptr_asterix[number]);
+                     if (((tmp_ptr + 1) - new_name) < max_new_name_length)
+                     {
+                        (void)strcpy(ptr_newname, ptr_asterix[number]);
+                        ptr_newname = tmp_ptr;
+                     }
+                     else
+                     {
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Storage for storing new name not large enough (%d > %d).",
+                                   ((tmp_ptr + 1) - new_name),
+                                   max_new_name_length);
+                     }
                   }
                   break;
 
@@ -321,17 +340,27 @@ change_name(char         *orig_file_name,
                   ptr_rule += i;
                   string[i] = '\0';
                   number = atoi(string) - 1; /* Human count from 1 and computer from 0. */
-                  if (number >= count_questioner)
+                  if ((number >= count_questioner) || (number < 0))
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                _("illegal '?' addressed: %d (%s %s)"),
-                                number + 1, filter, rename_to_rule);
+                                _("illegal '?' addressed: %d (%s %s) #%x"),
+                                number + 1, filter, rename_to_rule, job_id);
 
                   }
                   else
                   {
-                     *ptr_newname = *ptr_questioner[number];
-                     ptr_newname++;
+                     if (((ptr_newname + 1) - new_name) < max_new_name_length)
+                     {
+                        *ptr_newname = *ptr_questioner[number];
+                        ptr_newname++;
+                     }
+                     else
+                     {
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Storage for storing new name not large enough (%d > %d).",
+                                   ((ptr_newname + 1) - new_name),
+                                   max_new_name_length);
+                     }
                   }
                   break;
 
@@ -353,9 +382,28 @@ change_name(char         *orig_file_name,
                   ptr_rule += i;
                   string[i] = '\0';
                   number = atoi(string) - 1; /* Human count from 1 and computer from 0. */
-                  if (number <= original_filename_length)
+                  if (number == -1)
                   {
-                     *ptr_newname++ = *(orig_file_name + number);
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                _("No numeric value set for %%o option: (%s %s) #%x"),
+                                filter, rename_to_rule, job_id);
+                  }
+                  else
+                  {
+                     if (number <= original_filename_length)
+                     {
+                        if (((ptr_newname + 1) - new_name) < max_new_name_length)
+                        {
+                           *ptr_newname++ = *(orig_file_name + number);
+                        }
+                        else
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Storage for storing new name not large enough (%d > %d).",
+                                      ((ptr_newname + 1) - new_name),
+                                      max_new_name_length);
+                        }
+                     }
                   }
                   break;
 
@@ -396,8 +444,19 @@ change_name(char         *orig_file_name,
                         /* Read the end. */
                         if (*ptr_rule == '$') /* Means up to the end. */
                         {
-                           (void)strcpy(ptr_newname, ptr_oldname);
-                           ptr_newname += strlen(ptr_oldname);
+                           i = strlen(ptr_oldname);
+                           if (((ptr_newname + i + 1) - new_name) < max_new_name_length)
+                           {
+                              (void)strcpy(ptr_newname, ptr_oldname);
+                              ptr_newname += i;
+                           }
+                           else
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Storage for storing new name not large enough (%d > %d).",
+                                         ((ptr_newname + i + 1) - new_name),
+                                         max_new_name_length);
+                           }
                            ptr_rule++;
                         }
                         else
@@ -425,8 +484,18 @@ change_name(char         *orig_file_name,
                            }
                            else
                            {
-                              my_strncpy(ptr_newname, ptr_oldname, number + 1);
-                              ptr_newname += number;
+                              if (((ptr_newname + number + 1) - new_name) < max_new_name_length)
+                              {
+                                 my_strncpy(ptr_newname, ptr_oldname, number + 1);
+                                 ptr_newname += number;
+                              }
+                              else
+                              {
+                                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                                            "Storage for storing new name not large enough (%d > %d).",
+                                            ((ptr_newname + number + 1) - new_name),
+                                            max_new_name_length);
+                              }
                            }
                         }
                      }
@@ -441,18 +510,32 @@ change_name(char         *orig_file_name,
 
                case 'n' : /* Generate a unique number 4 characters. */
                   ptr_rule++;
-                  if (*counter_fd == -1)
+                  if (((ptr_newname + 4 + 1) - new_name) < max_new_name_length)
                   {
-                     if ((*counter_fd = open_counter_file(COUNTER_FILE, counter)) < 0)
+                     if (*counter_fd == -1)
                      {
-                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   _("Failed to open counter file, ignoring %n."));
-                        break;
+                        if ((*counter_fd = open_counter_file(COUNTER_FILE, counter)) < 0)
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      _("Failed to open counter file, ignoring %n."));
+                           break;
+                        }
                      }
+                     (void)next_counter(*counter_fd, *counter, MAX_MSG_PER_SEC);
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(ptr_newname, 5, "%04x", **counter);
+#else
+                     (void)sprintf(ptr_newname, "%04x", **counter);
+#endif
+                     ptr_newname += 4;
                   }
-                  (void)next_counter(*counter_fd, *counter, MAX_MSG_PER_SEC);
-                  (void)sprintf(ptr_newname, "%04x", **counter);
-                  ptr_newname += 4;
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Storage for storing new name not large enough (%d > %d).",
+                                ((ptr_newname + 4 + 1) - new_name),
+                                max_new_name_length);
+                  }
                   break;
 
                case 'h' : /* Insert local hostname. */
@@ -466,12 +549,36 @@ change_name(char         *orig_file_name,
 
                         if ((p_hostname = getenv("HOSTNAME")) != NULL)
                         {
-                           ptr_newname += sprintf(ptr_newname, "%s", p_hostname);
+                           i = strlen(p_hostname);
+                           if (((ptr_newname + i + 1) - new_name) < max_new_name_length)
+                           {
+                              (void)strcpy(ptr_newname, p_hostname);
+                              ptr_newname += i;
+                           }
+                           else
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Storage for storing new name not large enough (%d > %d).",
+                                         ((ptr_newname + i + 1) - new_name),
+                                         max_new_name_length);
+                           }
                         }
                      }
                      else
                      {
-                        ptr_newname += sprintf(ptr_newname, "%s", hostname);
+                        i = strlen(hostname);
+                        if (((ptr_newname + i + 1) - new_name) < max_new_name_length)
+                        {
+                           (void)strcpy(ptr_newname, hostname);
+                           ptr_newname += i;
+                        }
+                        else
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Storage for storing new name not large enough (%d > %d).",
+                                      ((ptr_newname + i + 1) - new_name),
+                                      max_new_name_length);
+                        }
                      }
                   }
                   break;
@@ -581,70 +688,91 @@ change_name(char         *orig_file_name,
                   switch (*ptr_rule)
                   {
                      case 'a' : /* Short day of the week 'Tue'. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%a", gmtime(&time_buf));
                         break;
                      case 'A' : /* Long day of the week 'Tuesday'. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%A", gmtime(&time_buf));
                         break;
                      case 'b' : /* Short month 'Jan'. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%b", gmtime(&time_buf));
                         break;
                      case 'B' : /* Month 'January'. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%B", gmtime(&time_buf));
                         break;
                      case 'd' : /* Day of month [01,31]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%d", gmtime(&time_buf));
                         break;
                      case 'j' : /* Day of year [001,366]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%j", gmtime(&time_buf));
                         break;
                      case 'm' : /* Month [01,12]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%m", gmtime(&time_buf));
                         break;
                      case 'R' : /* Sunday week number [00,53]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%U", gmtime(&time_buf));
                         break;
                      case 'w' : /* Weekday [0=Sunday,6]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%w", gmtime(&time_buf));
                         break;
                      case 'W' : /* Monday week number [00,53]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%W", gmtime(&time_buf));
                         break;
                      case 'y' : /* Year 2 chars [01,99]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%y", gmtime(&time_buf));
                         break;
                      case 'Y' : /* Year 4 chars 1997. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%Y", gmtime(&time_buf));
                         break;
                      case 'H' : /* Hour [00,23]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%H", gmtime(&time_buf));
                         break;
                      case 'M' : /* Minute [00,59]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%M", gmtime(&time_buf));
                         break;
                      case 'S' : /* Second [00,59]. */
-                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                        number = strftime(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
                                           "%S", gmtime(&time_buf));
                         break;
                      case 'U' : /* Unix time. */
-#if SIZEOF_TIME_T == 4
-                        number = sprintf(ptr_newname, "%ld",
+#ifdef HAVE_SNPRINTF
+                        number = snprintf(ptr_newname,
+                                          max_new_name_length - (ptr_newname - new_name),
 #else
-                        number = sprintf(ptr_newname, "%lld",
+                        number = sprintf(ptr_newname,
+#endif
+#if SIZEOF_TIME_T == 4
+                                         "%ld",
+#else
+                                         "%lld",
 #endif
                                          (pri_time_t)time_buf);
                         break;
@@ -660,98 +788,118 @@ change_name(char         *orig_file_name,
                   break;
 
                case '%' : /* Insert the '%' sign. */
-                  *ptr_newname = '%';
-                  ptr_newname++;
+                  if (((ptr_newname + 1 + 1) - new_name) < max_new_name_length)
+                  {
+                     *ptr_newname = '%';
+                     ptr_newname++;
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Storage for storing new name not large enough (%d > %d).",
+                                ((ptr_newname + 1 + 1) - new_name),
+                                max_new_name_length);
+                  }
                   ptr_rule++;
                   break;
 
                case 'a' : /* Insert an alternating character. */
                   ptr_rule++;
-                  if ((alternate = get_alternate_number(job_id)) == INCORRECT)
+                  if (((ptr_newname + 1 + 1) - new_name) < max_new_name_length)
                   {
-                     alternate = 0;
-                  }
-                  switch (*ptr_rule)
-                  {
-                     case 'b' : /* Binary. */
-                        if ((alternate % 2) == 0)
-                        {
-                           *ptr_newname = '0';
-                        }
-                        else
-                        {
-                           *ptr_newname = '1';
-                        }
-                        ptr_rule++;
-                        ptr_newname++;
-                        break;
-
-                     case 'd' : /* Decimal. */
-                        ptr_rule++;
-                        if (isdigit((int)*ptr_rule))
-                        {
-                           *ptr_newname = '0' + (alternate % (*ptr_rule + 1 - '0'));
+                     if ((alternate = get_alternate_number(job_id)) == INCORRECT)
+                     {
+                        alternate = 0;
+                     }
+                     switch (*ptr_rule)
+                     {
+                        case 'b' : /* Binary. */
+                           if ((alternate % 2) == 0)
+                           {
+                              *ptr_newname = '0';
+                           }
+                           else
+                           {
+                                 *ptr_newname = '1';
+                           }
                            ptr_rule++;
                            ptr_newname++;
-                        }
-                        else
-                        {
-                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      _("Illegal character (%c - not a decimal digit) found in rule %s"),
-                                      *ptr_rule, rename_to_rule);
-                        }
-                        break;
+                           break;
 
-                     case 'h' : /* Hexadecimal. */
-                        {
-                           char ul_char; /* Upper/lower character. */
-
+                        case 'd' : /* Decimal. */
                            ptr_rule++;
-                           if ((*ptr_rule >= '0') && (*ptr_rule <= '9'))
+                           if (isdigit((int)*ptr_rule))
                            {
-                              number = *ptr_rule + 1 - '0';
-                           }
-                           else if ((*ptr_rule >= 'A') && (*ptr_rule <= 'F'))
-                                {
-                                   number = 10 + *ptr_rule + 1 - 'A';
-                                   ul_char = 'A';
-                                }
-                           else if ((*ptr_rule >= 'a') && (*ptr_rule <= 'f'))
-                                {
-                                   number = 10 + *ptr_rule + 1 - 'a';
-                                   ul_char = 'a';
-                                }
-                                else
-                                {
-                                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                                              _("Illegal character (%c - not a hexadecimal digit) found in rule %s"),
-                                              *ptr_rule, rename_to_rule);
-                                   number = -1;
-                                }
-
-                           if (number != -1)
-                           {
-                              number = alternate % number;
-                              if (number >= 10)
-                              {
-                                 *ptr_newname = ul_char + number - 10;
-                              }
-                              else
-                              {
-                                 *ptr_newname = '0' + number;
-                              }
+                              *ptr_newname = '0' + (alternate % (*ptr_rule + 1 - '0'));
                               ptr_rule++;
                               ptr_newname++;
                            }
-                        }
-                        break;
+                           else
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         _("Illegal character (%c - not a decimal digit) found in rule %s"),
+                                         *ptr_rule, rename_to_rule);
+                           }
+                           break;
 
-                     default : /* Unknown character - ignore. */
-                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   _("Illegal character (%c) found in rule %s"),
-                                   *ptr_rule, rename_to_rule);
-                        ptr_rule++;
-                        break;
+                        case 'h' : /* Hexadecimal. */
+                           {
+                              char ul_char; /* Upper/lower character. */
+
+                              ptr_rule++;
+                              if ((*ptr_rule >= '0') && (*ptr_rule <= '9'))
+                              {
+                                 number = *ptr_rule + 1 - '0';
+                              }
+                              else if ((*ptr_rule >= 'A') && (*ptr_rule <= 'F'))
+                                   {
+                                      number = 10 + *ptr_rule + 1 - 'A';
+                                      ul_char = 'A';
+                                   }
+                              else if ((*ptr_rule >= 'a') && (*ptr_rule <= 'f'))
+                                   {
+                                      number = 10 + *ptr_rule + 1 - 'a';
+                                      ul_char = 'a';
+                                   }
+                                   else
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 _("Illegal character (%c - not a hexadecimal digit) found in rule %s"),
+                                                 *ptr_rule, rename_to_rule);
+                                      number = -1;
+                                   }
+
+                              if (number != -1)
+                              {
+                                 number = alternate % number;
+                                 if (number >= 10)
+                                 {
+                                    *ptr_newname = ul_char + number - 10;
+                                 }
+                                 else
+                                 {
+                                    *ptr_newname = '0' + number;
+                                 }
+                                 ptr_rule++;
+                                 ptr_newname++;
+                              }
+                           }
+                           break;
+
+                        default : /* Unknown character - ignore. */
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      _("Illegal character (%c) found in rule %s"),
+                                      *ptr_rule, rename_to_rule);
+                           ptr_rule++;
+                           break;
+                     }
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Storage for storing new name not large enough (%d > %d).",
+                                ((ptr_newname + 1 + 1) - new_name),
+                                max_new_name_length);
                   }
                   break;
 
@@ -769,8 +917,19 @@ change_name(char         *orig_file_name,
             {
                if (count_asterix == 1)
                {
-                  (void)strcpy(ptr_newname, ptr_asterix[0]);
-                  ptr_newname += strlen(ptr_asterix[0]);
+                  i = strlen(ptr_asterix[0]);
+                  if (((ptr_newname + i + 1) - new_name) < max_new_name_length)
+                  {
+                     (void)strcpy(ptr_newname, ptr_asterix[0]);
+                     ptr_newname += i;
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Storage for storing new name not large enough (%d > %d).",
+                                ((ptr_newname + i + 1) - new_name),
+                                max_new_name_length);
+                  }
                   act_asterix++;
                }
                else
@@ -784,8 +943,19 @@ change_name(char         *orig_file_name,
             }
             else
             {
-               (void)strcpy(ptr_newname, ptr_asterix[act_asterix]);
-               ptr_newname += strlen(ptr_asterix[act_asterix]);
+               i = strlen(ptr_asterix[act_asterix]);
+               if (((ptr_newname + i + 1) - new_name) < max_new_name_length)
+               {
+                  (void)strcpy(ptr_newname, ptr_asterix[act_asterix]);
+                  ptr_newname += i;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Storage for storing new name not large enough (%d > %d).",
+                             ((ptr_newname + i + 1) - new_name),
+                             max_new_name_length);
+               }
                act_asterix++;
             }
             ptr_rule++;
@@ -802,8 +972,18 @@ change_name(char         *orig_file_name,
             }
             else
             {
-               *ptr_newname = *ptr_questioner[act_questioner];
-               ptr_newname++;
+               if (((ptr_newname + 1 + 1) - new_name) < max_new_name_length)
+               {
+                  *ptr_newname = *ptr_questioner[act_questioner];
+                  ptr_newname++;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Storage for storing new name not large enough (%d > %d).",
+                             ((ptr_newname + 1 + 1) - new_name),
+                             max_new_name_length);
+               }
                act_questioner++;
             }
             ptr_rule++;
@@ -814,8 +994,18 @@ change_name(char         *orig_file_name,
             break;
 
          default  : /* Found an ordinary character -> append it. */
-            *ptr_newname = *ptr_rule;
-            ptr_newname++;
+            if (((ptr_newname + 1 + 1) - new_name) < max_new_name_length)
+            {
+               *ptr_newname = *ptr_rule;
+               ptr_newname++;
+            }
+            else
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Storage for storing new name not large enough (%d > %d).",
+                          ((ptr_newname + 1 + 1) - new_name),
+                          max_new_name_length);
+            }
             ptr_rule++;
             break;
       }
@@ -834,7 +1024,11 @@ get_alternate_number(unsigned int job_id)
         ret;
    char alternate_file[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(alternate_file, MAX_PATH_LENGTH, "%s%s%s%x",
+#else
    (void)sprintf(alternate_file, "%s%s%s%x",
+#endif
                  p_work_dir, FIFO_DIR, ALTERNATE_FILE, job_id);
    if ((fd = open(alternate_file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
    {

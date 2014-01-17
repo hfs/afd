@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -180,7 +180,7 @@ reread_host_config(time_t           *hc_old_time,
       *rewrite_host_config = eval_host_config(&no_of_hosts, host_config_file,
                                               &hl, warn_counter, NO);
       new_no_of_hosts = no_of_hosts;
-      if (fsa_attach() == INCORRECT)
+      if (fsa_attach(AMG) == INCORRECT)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__, "Could not attach to FSA!");
          exit(INCORRECT);
@@ -349,6 +349,22 @@ reread_host_config(time_t           *hc_old_time,
                else
                {
                   fsa[host_pos].special_flag &= ~HOST_DISABLED;
+               }
+               if (hl[i].protocol_options & KEEP_CON_NO_FETCH_2)
+               {
+                  fsa[host_pos].special_flag |= KEEP_CON_NO_FETCH;
+               }
+               else
+               {
+                  fsa[host_pos].special_flag &= ~KEEP_CON_NO_FETCH;
+               }
+               if (hl[i].protocol_options & KEEP_CON_NO_SEND_2)
+               {
+                  fsa[host_pos].special_flag |= KEEP_CON_NO_SEND;
+               }
+               else
+               {
+                  fsa[host_pos].special_flag &= ~KEEP_CON_NO_SEND;
                }
                fsa[host_pos].host_status = 0;
                if (hl[i].host_status & STOP_TRANSFER_STAT)

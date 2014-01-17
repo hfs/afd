@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl                                      
+## Copyright (C) 2001 - 2013 Holger Kiehl                                      
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ##                                                          
                       
 SUBDIRS              = filter
-INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd -I../log\
+AM_CPPFLAGS          = -I.. -I../init_afd -I../protocols -I../fd -I../log\
                        -I../afd_mon
 EXTRA_PROGRAMS       = als arg ahttp ascp bt change_name copy_file create_files\
                        encode64 testlock url_check

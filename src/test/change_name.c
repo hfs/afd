@@ -33,7 +33,7 @@ main(int argc, char *argv[])
       printf("Failed to open counter file.\n");
       exit(1);
    }
-   change_name(argv[1], argv[2], argv[3], new_name, &counter_fd, &counter, 0);
+   change_name(argv[1], argv[2], argv[3], new_name, MAX_PATH_LENGTH, &counter_fd, &counter, 0);
    printf("new name = %s\n", new_name);
 
    exit(0);

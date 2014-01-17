@@ -1,10 +1,19 @@
-/* ac-tools/config.h.in.  Generated from configure.in by autoheader.  */
+/* ac-tools/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Enables settings for running afdbench */
 #undef AFDBENCH_CONFIG
 
 /* With afd_ctrl dialog checking for main AFD process */
 #undef AFD_CTRL_PROC_CHECK
+
+/* The value of DEFAULT_ARCHIVE_UNIT determines the default archive unit in
+   seconds. Best is to leave this at it default for one day (86400 seconds).
+   */
+#undef DEFAULT_ARCHIVE_UNIT
+
+/* The value of DEFAULT_NO_PARALLEL_JOBS determines the default number of
+   parallel transfers per host. The default is 2. */
+#undef DEFAULT_NO_PARALLEL_JOBS
 
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
@@ -24,14 +33,6 @@
 
 /* Define to 1 if you have the <arpa/telnet.h> header file. */
 #undef HAVE_ARPA_TELNET_H
-
-/* Define to 1 if you have the MacOS X function CFLocaleCopyCurrent in the
-   CoreFoundation framework. */
-#undef HAVE_CFLOCALECOPYCURRENT
-
-/* Define to 1 if you have the MacOS X function CFPreferencesCopyAppValue in
-   the CoreFoundation framework. */
-#undef HAVE_CFPREFERENCESCOPYAPPVALUE
 
 /* Define if the GNU dcgettext() function is already present or preinstalled.
    */
@@ -250,6 +251,20 @@
 /* With debug messages of locking */
 #undef LOCK_DEBUG
 
+/* The value of MAX_DIR_ALIAS_LENGTH determines how long the directory alias
+   name length in the dir_ctrl dialog may be. */
+#undef MAX_DIR_ALIAS_LENGTH
+
+/* The value of MAX_HOSTNAME_LENGTH determines how long the host alias name
+   length in the afd_ctrl dialog may be. */
+#undef MAX_HOSTNAME_LENGTH
+
+/* The value of MAX_NO_PARALLEL_JOBS determines the number of parallel
+   transfers per host. The default is 5, which should be enough in most cases.
+   However, on some long distance lines or lines with high latencies it might
+   be necessary to increase this value. */
+#undef MAX_NO_PARALLEL_JOBS
+
 /* Name of package */
 #undef PACKAGE
 
@@ -312,6 +327,9 @@
 
 /* The size of `ssize_t', as computed by sizeof. */
 #undef SIZEOF_SSIZE_T
+
+/* The size of `suseconds_t', as computed by sizeof. */
+#undef SIZEOF_SUSECONDS_T
 
 /* The size of `time_t', as computed by sizeof. */
 #undef SIZEOF_TIME_T
@@ -380,6 +398,9 @@
 /* With eumetsat header support */
 #undef WITH_EUMETSAT_HEADERS
 
+/* With inotify support */
+#undef WITH_INOTIFY
+
 /* With ALDA cache positioning support */
 #undef WITH_LOG_CACHE
 
@@ -418,6 +439,11 @@
 
 /* Define to 1 if the X Window System is missing or not being used. */
 #undef X_DISPLAY_MISSING
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* With delete log support */
 #undef _DELETE_LOG

@@ -1,8 +1,8 @@
 /*
  *  eval_bul_rep_config.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 2011 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011 - 2013 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
-#include <stdio.h>             /* fprintf(), sprintf()                   */
+#include <stdio.h>             /* fprintf()                              */
 #include <string.h>            /* atoi(), strerror()                     */
 #include <stdlib.h>            /* malloc(), calloc(), free()             */
 #include <ctype.h>             /* isdigit()                              */
@@ -56,12 +56,16 @@ DESCR__E_M1
 #include <errno.h>
 #include "amgdefs.h"
 
+/* #define _DEBUG_BUL_REP */
+
 /* External global variables. */
-extern int                no_of_brc_entries;
-extern struct wmo_bul_rep *brcdb; /* Bulletin Report Configuration Database */
+extern int                 no_of_bc_entries,
+                           no_of_rc_entries;
+extern struct wmo_bul_list *bcdb; /* Bulletin Configuration Database */
+extern struct wmo_rep_list *rcdb; /* Report Configuration Database */
 
 /* Local function prototypes. */
-static void               get_report_data(struct wmo_bul_rep *, char *);
+static void                get_report_data(char *);
 
 
 /*######################### eval_bul_rep_config() #######################*/
@@ -164,9 +168,16 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
             {
                rep_header_end++;
             }
-         } /* if (stat_buf2.st_mtime != last_read_rep) */
+            get_report_data(rep_header_end);
 
-         last_read_bul = 0;
+            if (verbose == YES)
+            {
+               system_log(INFO_SIGN, NULL, 0,
+                          _("Found %d report rules in `%s'."),
+                          no_of_rc_entries, rep_file);
+            }
+            last_read_rep = stat_buf2.st_mtime;
+         } /* if (stat_buf2.st_mtime != last_read_rep) */
       }
 
       if (stat_buf.st_mtime != last_read_bul)
@@ -175,15 +186,18 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
          int          fd;
          char         *buffer,
                       *ptr;
+#ifdef _DEBUG_BUL_REP
+         FILE         *p_bul_rep_debug_file;
+#endif
 
          if (first_time == YES)
-         {      
+         {
             first_time = NO;
-         }      
-         else   
-         {      
+         }
+         else
+         {
             if (verbose == YES)
-            {   
+            {
                system_log(INFO_SIGN, NULL, 0,
                           _("Rereading message specification file."));
             }
@@ -196,8 +210,8 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
              * again lets release the memory we stored for the previous
              * structure of wmo_bul_rep.
              */
-            free(brcdb);
-            no_of_brc_entries = 0;
+            free(bcdb);
+            no_of_bc_entries = 0;
          }
 
          /* Allocate memory to store file. */
@@ -253,26 +267,21 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
             }
             if ((*ptr == '\n') || (*ptr == '\r'))
             {
-               no_of_brc_entries++;
+               no_of_bc_entries++;
                ptr++;
             }
             while ((*ptr == '\n') || (*ptr == '\r'))
             {
                ptr++;
             }
-            if (no_of_brc_entries > 1)
-            {
-               /* Ignore first description line. */
-               no_of_brc_entries--;
-            }
          }
 
-         if (no_of_brc_entries > 0)
+         if (no_of_bc_entries > 0)
          {
-            register int k;
+            register int j, k;
 
-            if ((brcdb = calloc(no_of_brc_entries,
-                                sizeof(struct wmo_bul_rep))) == NULL)
+            if ((bcdb = calloc(no_of_bc_entries,
+                               sizeof(struct wmo_bul_list))) == NULL)
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           _("calloc() error : %s (%s %d)\n"), strerror(errno));
@@ -281,16 +290,20 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
             }
             ptr = buffer;
 
-            for (i = 0; i < no_of_brc_entries; i++)
+            for (i = 0; i < no_of_bc_entries; i++)
             {
+               while ((*ptr == ' ') || (*ptr == '\t'))
+               {
+                  ptr++;
+               }
                k = 0;
                while ((k < 6) && (*ptr != ';') && (*ptr != '\n') &&
                       (*ptr != '\0') && (*ptr != '\r'))
                {
-                  brcdb[i].TTAAii[k] = *ptr;
+                  bcdb[i].TTAAii[k] = *ptr;
                   k++; ptr++;
                }
-               brcdb[i].TTAAii[k] = '\0';
+               bcdb[i].TTAAii[k] = '\0';
                if (*ptr != ';')
                {
                   while ((*ptr != ';') && (*ptr != '\n') &&
@@ -306,29 +319,37 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
                   while ((k < 4) && (*ptr != ';') && (*ptr != '\n') &&
                          (*ptr != '\0') && (*ptr != '\r'))
                   {
-                     brcdb[i].CCCC[k] = *ptr;
+                     bcdb[i].CCCC[k] = *ptr;
                      k++; ptr++;
                   }
-                  brcdb[i].CCCC[k] = '\0';
+                  bcdb[i].CCCC[k] = '\0';
                   if (*ptr != ';')
+                  {
+                     while ((*ptr != ';') && (*ptr != '\n') &&
+                            (*ptr != '\0') && (*ptr != '\r'))
+                     {
+                        ptr++;
+                     }
+                  }
+                  if (*ptr == ';')
                   {
                      ptr++;
                      if ((*ptr == 'i') && (*(ptr + 1) == 'n') &&
                          (*(ptr + 2) == 'p') && (*(ptr + 3) == ';'))
                      {
-                        brcdb[i].type = BUL_TYPE_INP;
+                        bcdb[i].type = BUL_TYPE_INP;
                         ptr += 3;
                      }
                      else if ((*ptr == 'i') && (*(ptr + 1) == 'g') &&
                               (*(ptr + 2) == 'n') && (*(ptr + 3) == ';'))
                           {
-                             brcdb[i].type = BUL_TYPE_IGN;
+                             bcdb[i].type = BUL_TYPE_IGN;
                              ptr += 3;
                           }
                      else if ((*ptr == 'c') && (*(ptr + 1) == 'm') &&
                               (*(ptr + 2) == 'p') && (*(ptr + 3) == ';'))
                           {
-                             brcdb[i].type = BUL_TYPE_CMP;
+                             bcdb[i].type = BUL_TYPE_CMP;
                              ptr += 3;
                           }
                           else
@@ -338,20 +359,28 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
                              {
                                 ptr++;
                              }
-                             brcdb[i].type = 0;
+                             bcdb[i].type = 0;
                           }
 
+                     if (*ptr != ';')
+                     {
+                        while ((*ptr != ';') && (*ptr != '\n') &&
+                               (*ptr != '\0') && (*ptr != '\r'))
+                        {
+                           ptr++;
+                        }
+                     }
                      if (*ptr == ';')
                      {
                         ptr++;
                         if (*ptr == 'D')
                         {
-                           brcdb[i].spec = BUL_SPEC_DUP;
+                           bcdb[i].spec = BUL_SPEC_DUP;
                            ptr++;
                         }
                         else
                         {
-                           brcdb[i].spec = 0;
+                           bcdb[i].spec = 0;
                         }
                         while ((*ptr != ';') && (*ptr != '\n') &&
                                (*ptr != '\0') && (*ptr != '\r'))
@@ -363,23 +392,31 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
                         {
                            ptr++;
 
-                           /* Ignore BTIME. */
+                           /* Store BTIME. */
+                           j = 0;
                            while ((*ptr != ';') && (*ptr != '\n') &&
-                                  (*ptr != '\0') && (*ptr != '\r'))
+                                  (*ptr != '\0') && (*ptr != '\r') &&
+                                  (j < 8))
                            {
-                              ptr++;
+                              bcdb[i].BTIME[j] = *ptr;
+                              ptr++; j++;
                            }
+                           bcdb[i].BTIME[j] = '\0';
 
                            if (*ptr == ';')
                            {
                               ptr++;
 
-                              /* Ignore ITIME */
+                              /* Store ITIME */
+                              j = 0;
                               while ((*ptr != ';') && (*ptr != '\n') &&
-                                     (*ptr != '\0') && (*ptr != '\r'))
+                                     (*ptr != '\0') && (*ptr != '\r') &&
+                                     (j < 8))
                               {
-                                 ptr++;
+                                 bcdb[i].ITIME[j] = *ptr;
+                                 ptr++; j++;
                               }
+                              bcdb[i].ITIME[j] = '\0';
 
                               if (*ptr == ';')
                               {
@@ -400,68 +437,65 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
                                        ptr++; k++;
                                     }
                                     str_number[k] = '\0';
-                                    brcdb[i].rss = (unsigned short)atoi(str_number);
-                                    if (rep_buffer != NULL)
-                                    {
-                                       get_report_data(&brcdb[i],
-                                                       rep_header_end);
-                                    }
-                                    else
-                                    {
-                                       brcdb[i].rt = 0;
-                                       brcdb[i].mimj[0] = '\0';
-                                       brcdb[i].stid = 0;
-                                    }
+                                    bcdb[i].rss = (unsigned short)atoi(str_number);
                                  }
                                  else
                                  {
-                                    brcdb[i].rss = -1;
-                                    brcdb[i].rt = 0;
-                                    brcdb[i].mimj[0] = '\0';
-                                    brcdb[i].stid = 0;
+                                    bcdb[i].rss = -1;
                                  }
                               }
+                              else
+                              {
+                                 bcdb[i].rss = -1;
+                              }
                            }
+                           else
+                           {
+                              bcdb[i].rss = -1;
+                           }
+                        }
+                        else
+                        {
+                           bcdb[i].rss = -1;
                         }
                      }
                      else
                      {
-                        brcdb[i].spec = 0;
-                        brcdb[i].rss = -1;
-                        brcdb[i].rt = 0;
-                        brcdb[i].mimj[0] = '\0';
-                        brcdb[i].stid = 0;
+                        bcdb[i].spec = 0;
+                        bcdb[i].rss = -1;
                      }
                   }
                   else
                   {
-                     brcdb[i].type = 0;
-                     brcdb[i].spec = 0;
-                     brcdb[i].rss = -1;
-                     brcdb[i].rt = 0;
-                     brcdb[i].mimj[0] = '\0';
-                     brcdb[i].stid = 0;
+                     bcdb[i].type = 0;
+                     bcdb[i].spec = 0;
+                     bcdb[i].rss = -1;
                   }
                }
                else
                {
-                  brcdb[i].CCCC[0] = '\0';
-                  brcdb[i].type = 0;
-                  brcdb[i].spec = 0;
-                  brcdb[i].rss = -1;
-                  brcdb[i].rt = 0;
-                  brcdb[i].mimj[0] = '\0';
-                  brcdb[i].stid = 0;
+                  bcdb[i].CCCC[0] = '\0';
+                  bcdb[i].type = 0;
+                  bcdb[i].spec = 0;
+                  bcdb[i].rss = -1;
                }
-            } /* for (i = 0; i < no_of_brc_entries; i++) */
+               while ((*ptr != '\n') && (*ptr != '\0') && (*ptr != '\r'))
+               {
+                  ptr++;
+               }
+               while ((*ptr == '\n') || (*ptr == '\r'))
+               {
+                  ptr++;
+               }
+            } /* for (i = 0; i < no_of_bc_entries; i++) */
 
             if (verbose == YES)
             {
                system_log(INFO_SIGN, NULL, 0,
                           _("Found %d bulletin rules in `%s'."),
-                          no_of_brc_entries, bul_file);
+                          no_of_bc_entries, bul_file);
             }
-         } /* if (no_of_brc_entries > 0) */
+         } /* if (no_of_bc_entries > 0) */
          else
          {
             if (verbose == YES)
@@ -476,13 +510,57 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
          free(buffer);
 
 #ifdef _DEBUG_BUL_REP
-         for (i = 0; i < no_of_brc_entries; i++)
+         if ((p_bul_rep_debug_file = fopen("bul_rep.debug", "w")) == NULL)
          {
-            system_log(DEBUG_SIGN, NULL, 0, "%s;%s;%d;%d;%d;%d;%c%c;%d",
-                       brcdb[i].TTAAii, brcdb[i].CCCC, (int)brcdb[i].type,
-                       (int)brcdb[i].spec, (int)brcdb[i].rss,
-                       (int)brcdb[i].rt, brcdb[i].mimj[0],
-                       brcdb[i].mimj[1], (int)brcdb[i].stid);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could not fopen() bul_rep.debug : %s",
+                       strerror(errno));
+         }
+         else
+         {
+            char *rtl[] =
+                  {
+                     "NOT_DEFINED",
+                     "TEXT",
+                     "ATEXT",
+                     "CLIMAT",
+                     "TAF",
+                     "METAR",
+                     "SPECIAL_01",
+                     "SPECIAL_02",
+                     "SPECIAL_03",
+                     "SPECIAL_66",
+                     "SYNOP",
+                     "SYNOP_SHIP",
+                     "SYNOP_MOBIL",
+                     "UPPER_AIR"
+                  };
+
+            (void)fprintf(p_bul_rep_debug_file,
+                          "pos:TTAAii;CCCC;type;spec;rss;BTIME;ITIME\n");
+            for (i = 0; i < no_of_bc_entries; i++)
+            {
+               (void)fprintf(p_bul_rep_debug_file,
+                             "%d:%s;%s;%d;%d;%d;%s;%s\n",
+                             i, bcdb[i].TTAAii, bcdb[i].CCCC,
+                             (int)bcdb[i].type, (int)bcdb[i].spec,
+                             (int)bcdb[i].rss, bcdb[i].BTIME,
+                             bcdb[i].ITIME);
+            }
+            (void)fprintf(p_bul_rep_debug_file,
+                          "\npos:TT;rt;mimj;stid;rss;wid;BTIME;ITIME\n");
+            for (i = 0; i < no_of_rc_entries; i++)
+            {
+               (void)fprintf(p_bul_rep_debug_file,
+                             "%d:%c%c;%d->%s;%c%c;%d->%s;%d;%s;%s;%s\n",
+                             i, rcdb[i].TT[0], rcdb[i].TT[1],
+                             rcdb[i].rt, rtl[rcdb[i].rt], rcdb[i].mimj[0],
+                             rcdb[i].mimj[1], rcdb[i].stid,
+                             (rcdb[i].stid == 1) ? "IIiii" : "CCCC",
+                             (int)rcdb[i].rss, rcdb[i].wid,
+                             rcdb[i].BTIME, rcdb[i].ITIME);
+            }
+            (void)fclose(p_bul_rep_debug_file);
          }
 #endif
       } /* if (stat_buf.st_mtime != last_read_bul) */
@@ -496,19 +574,55 @@ eval_bul_rep_config(char *bul_file, char *rep_file, int verbose)
 
 /*++++++++++++++++++++++++++ get_report_data() ++++++++++++++++++++++++++*/
 static void
-get_report_data(struct wmo_bul_rep *brcdb, char *rep_header_end)
+get_report_data(char *rep_buf)
 {
-   int  i;
+   int  i,
+        j;
    char *p_start_r,
         str_number[MAX_SHORT_LENGTH];
 
-   p_start_r = rep_header_end;
+   /* First lets just count the number of entries. */
+   p_start_r = rep_buf;
+   no_of_rc_entries = 0;
    while (*p_start_r != '\0')
    {
-      if (((brcdb->TTAAii[0] == '/') || (*p_start_r == brcdb->TTAAii[0])) &&
-          ((brcdb->TTAAii[1] == '/') || (*(p_start_r + 1) == brcdb->TTAAii[1])) &&
-          (*(p_start_r + 1) == ';'))
+      while ((*p_start_r != '\n') && (*p_start_r != '\r') &&
+             (*p_start_r != '\0'))
       {
+         p_start_r++;
+      }
+      while ((*p_start_r == '\n') || (*p_start_r == '\r'))
+      {
+         p_start_r++;
+      }
+      no_of_rc_entries++;
+   }
+
+   if (no_of_rc_entries == 0)
+   {
+      system_log(INFO_SIGN, __FILE__, __LINE__,
+                 "No report specification entries found.");
+      return;
+   }
+
+   free(rcdb);
+   if ((rcdb = malloc((no_of_rc_entries * sizeof(struct wmo_rep_list)))) == NULL)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
+      return;
+   }
+
+   /* Now, lets fill the structure with data. */
+   p_start_r = rep_buf;
+   no_of_rc_entries = 0;
+   while (*p_start_r != '\0')
+   {
+      if ((isupper((int)(*p_start_r))) && (isupper((int)(*(p_start_r + 1)))) &&
+          (*(p_start_r + 2) == ';'))
+      {
+         rcdb[no_of_rc_entries].TT[0] = *p_start_r;
+         rcdb[no_of_rc_entries].TT[1] = *(p_start_r + 1);
          p_start_r += 3;
          i = 0;
          while ((i < (MAX_SHORT_LENGTH - 1)) && (isdigit((int)(*p_start_r))))
@@ -517,219 +631,463 @@ get_report_data(struct wmo_bul_rep *brcdb, char *rep_header_end)
             i++; p_start_r++;
          }
          str_number[i] = '\0';
-         if (atoi(str_number) == brcdb->rss)
+         rcdb[no_of_rc_entries].rss = (short)atoi(str_number);
+         while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                (*p_start_r != '\0') && (*p_start_r != '\r'))
          {
-            while ((*p_start_r != ';') && (*p_start_r != '\n') &&
-                   (*p_start_r != '\0') && (*p_start_r != '\r'))
+            p_start_r++;
+         }
+         if (*p_start_r == ';')
+         {
+            p_start_r++;
+
+            /* TEXT */
+            if ((*p_start_r == 'T') && (*(p_start_r + 1) == 'E') &&
+                (*(p_start_r + 2) == 'X') && (*(p_start_r + 3) == 'T') &&
+                (*(p_start_r + 4) == ';'))
             {
-               p_start_r++;
+               rcdb[no_of_rc_entries].rt = RT_TEXT;
+               p_start_r += 4;
             }
+                 /* ATEXT */
+            else if ((*p_start_r == 'A') && (*(p_start_r + 1) == 'T') &&
+                     (*(p_start_r + 2) == 'E') && (*(p_start_r + 3) == 'X') &&
+                     (*(p_start_r + 4) == 'T') && (*(p_start_r + 5) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_ATEXT;
+                    p_start_r += 5;
+                 }
+                 /* CLIMAT */
+            else if ((*p_start_r == 'C') && (*(p_start_r + 1) == 'L') &&
+                     (*(p_start_r + 2) == 'I') &&
+                     (*(p_start_r + 3) == 'M') &&
+                     (*(p_start_r + 4) == 'A') &&
+                     (*(p_start_r + 5) == 'T') &&
+                     (*(p_start_r + 6) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_CLIMAT;
+                    p_start_r += 6;
+                 }
+                 /* TAF */
+            else if ((*p_start_r == 'T') && (*(p_start_r + 1) == 'A') &&
+                     (*(p_start_r + 2) == 'F') && (*(p_start_r + 3) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_TAF;
+                    p_start_r += 3;
+                 }
+                 /* METAR */
+            else if ((*p_start_r == 'M') && (*(p_start_r + 1) == 'E') &&
+                     (*(p_start_r + 2) == 'T') &&
+                     (*(p_start_r + 3) == 'A') &&
+                     (*(p_start_r + 4) == 'R') &&
+                     (*(p_start_r + 5) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_METAR;
+                    p_start_r += 5;
+                 }
+                 /* SPECIAL 01 */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
+                     (*(p_start_r + 2) == 'E') &&
+                     (*(p_start_r + 3) == 'C') &&
+                     (*(p_start_r + 4) == 'I') &&
+                     (*(p_start_r + 5) == 'A') &&
+                     (*(p_start_r + 6) == 'L') &&
+                     (*(p_start_r + 7) == '-') &&
+                     (*(p_start_r + 8) == '0') &&
+                     (*(p_start_r + 9) == '1') &&
+                     (*(p_start_r + 10) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SPECIAL_01;
+                    p_start_r += 10;
+                 }
+                 /* SPECIAL 02 */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
+                     (*(p_start_r + 2) == 'E') &&
+                     (*(p_start_r + 3) == 'C') &&
+                     (*(p_start_r + 4) == 'I') &&
+                     (*(p_start_r + 5) == 'A') &&
+                     (*(p_start_r + 6) == 'L') &&
+                     (*(p_start_r + 7) == '-') &&
+                     (*(p_start_r + 8) == '0') &&
+                     (*(p_start_r + 9) == '2') &&
+                     (*(p_start_r + 10) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SPECIAL_02;
+                    p_start_r += 10;
+                 }
+                 /* SPECIAL 03 */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
+                     (*(p_start_r + 2) == 'E') &&
+                     (*(p_start_r + 3) == 'C') &&
+                     (*(p_start_r + 4) == 'I') &&
+                     (*(p_start_r + 5) == 'A') &&
+                     (*(p_start_r + 6) == 'L') &&
+                     (*(p_start_r + 7) == '-') &&
+                     (*(p_start_r + 8) == '0') &&
+                     (*(p_start_r + 9) == '3') &&
+                     (*(p_start_r + 10) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SPECIAL_03;
+                    p_start_r += 10;
+                 }
+                 /* SPECIAL 66 */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
+                     (*(p_start_r + 2) == 'E') &&
+                     (*(p_start_r + 3) == 'C') &&
+                     (*(p_start_r + 4) == 'I') &&
+                     (*(p_start_r + 5) == 'A') &&
+                     (*(p_start_r + 6) == 'L') &&
+                     (*(p_start_r + 7) == '-') &&
+                     (*(p_start_r + 8) == '6') &&
+                     (*(p_start_r + 9) == '6') &&
+                     (*(p_start_r + 10) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SPECIAL_66;
+                    p_start_r += 10;
+                 }
+                 /* SYNOP */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'Y') &&
+                     (*(p_start_r + 2) == 'N') &&
+                     (*(p_start_r + 3) == 'O') &&
+                     (*(p_start_r + 4) == 'P') &&
+                     (*(p_start_r + 5) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SYNOP;
+                    p_start_r += 5;
+                 }
+                 /* SYNOP SHIP */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'Y') &&
+                     (*(p_start_r + 2) == 'N') &&
+                     (*(p_start_r + 3) == 'O') &&
+                     (*(p_start_r + 4) == 'P') &&
+                     (*(p_start_r + 5) == '-') &&
+                     (*(p_start_r + 6) == 'S') &&
+                     (*(p_start_r + 7) == 'H') &&
+                     (*(p_start_r + 8) == 'I') &&
+                     (*(p_start_r + 9) == 'P') &&
+                     (*(p_start_r + 10) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SYNOP_SHIP;
+                    p_start_r += 10;
+                 }
+                 /* SYNOP MOBIL */
+            else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'Y') &&
+                     (*(p_start_r + 2) == 'N') &&
+                     (*(p_start_r + 3) == 'O') &&
+                     (*(p_start_r + 4) == 'P') &&
+                     (*(p_start_r + 5) == '-') &&
+                     (*(p_start_r + 6) == 'M') &&
+                     (*(p_start_r + 7) == 'O') &&
+                     (*(p_start_r + 8) == 'B') &&
+                     (*(p_start_r + 9) == 'I') &&
+                     (*(p_start_r + 10) == 'L') &&
+                     (*(p_start_r + 11) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_SYNOP_MOBIL;
+                    p_start_r += 11;
+                 }
+                 /* UPPER AIR */
+            else if ((*p_start_r == 'U') && (*(p_start_r + 1) == 'P') &&
+                     (*(p_start_r + 2) == 'P') &&
+                     (*(p_start_r + 3) == 'E') &&
+                     (*(p_start_r + 4) == 'R') &&
+                     (*(p_start_r + 5) == '-') &&
+                     (*(p_start_r + 6) == 'A') &&
+                     (*(p_start_r + 7) == 'I') &&
+                     (*(p_start_r + 8) == 'R') &&
+                     (*(p_start_r + 9) == ';'))
+                 {
+                    rcdb[no_of_rc_entries].rt = RT_UPPER_AIR;
+                    p_start_r += 9;
+                 }
+                 else
+                 {
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                               "Unable to determine report type for %c%c",
+                               rcdb[no_of_rc_entries].TT[0],
+                               rcdb[no_of_rc_entries].TT[1]);
+                    rcdb[no_of_rc_entries].rt = RT_NOT_DEFINED;
+                    while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                           (*p_start_r != '\0') && (*p_start_r != '\r'))
+                    {
+                       p_start_r++;
+                    }
+                 }
+
             if (*p_start_r == ';')
             {
                p_start_r++;
-               if ((*p_start_r == 'T') && (*(p_start_r + 1) == 'E') &&
-                   (*(p_start_r + 2) == 'X') && (*(p_start_r + 3) == 'T') &&
-                   (*(p_start_r + 4) == ';'))
-               {
-                  brcdb->rt = RT_TEXT;
-                  p_start_r += 4;
-               }
-               else if ((*p_start_r == 'C') && (*(p_start_r + 1) == 'L') &&
-                        (*(p_start_r + 2) == 'I') &&
-                        (*(p_start_r + 3) == 'M') &&
-                        (*(p_start_r + 4) == 'A') &&
-                        (*(p_start_r + 5) == 'T') &&
-                        (*(p_start_r + 6) == ';'))
-                    {
-                       brcdb->rt = RT_CLIMAT;
-                       p_start_r += 6;
-                    }
-               else if ((*p_start_r == 'T') && (*(p_start_r + 1) == 'A') &&
-                        (*(p_start_r + 2) == 'F') && (*(p_start_r + 3) == ';'))
-                    {
-                       brcdb->rt = RT_TAF;
-                       p_start_r += 3;
-                    }
-               else if ((*p_start_r == 'M') && (*(p_start_r + 1) == 'E') &&
-                        (*(p_start_r + 2) == 'T') &&
-                        (*(p_start_r + 3) == 'A') &&
-                        (*(p_start_r + 4) == 'R') &&
-                        (*(p_start_r + 5) == ';'))
-                    {
-                       brcdb->rt = RT_METAR;
-                       p_start_r += 5;
-                    }
-               else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
-                        (*(p_start_r + 2) == 'E') &&
-                        (*(p_start_r + 3) == 'C') &&
-                        (*(p_start_r + 4) == 'I') &&
-                        (*(p_start_r + 5) == 'A') &&
-                        (*(p_start_r + 6) == 'L') &&
-                        (*(p_start_r + 7) == '-') &&
-                        (*(p_start_r + 8) == '0') &&
-                        (*(p_start_r + 9) == '1') &&
-                        (*(p_start_r + 10) == ';'))
-                    {
-                       brcdb->rt = RT_SPECIAL_01;
-                       p_start_r += 10;
-                    }
-               else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
-                        (*(p_start_r + 2) == 'E') &&
-                        (*(p_start_r + 3) == 'C') &&
-                        (*(p_start_r + 4) == 'I') &&
-                        (*(p_start_r + 5) == 'A') &&
-                        (*(p_start_r + 6) == 'L') &&
-                        (*(p_start_r + 7) == '-') &&
-                        (*(p_start_r + 8) == '0') &&
-                        (*(p_start_r + 9) == '2') &&
-                        (*(p_start_r + 10) == ';'))
-                    {
-                       brcdb->rt = RT_SPECIAL_02;
-                       p_start_r += 10;
-                    }
-               else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
-                        (*(p_start_r + 2) == 'E') &&
-                        (*(p_start_r + 3) == 'C') &&
-                        (*(p_start_r + 4) == 'I') &&
-                        (*(p_start_r + 5) == 'A') &&
-                        (*(p_start_r + 6) == 'L') &&
-                        (*(p_start_r + 7) == '-') &&
-                        (*(p_start_r + 8) == '0') &&
-                        (*(p_start_r + 9) == '3') &&
-                        (*(p_start_r + 10) == ';'))
-                    {
-                       brcdb->rt = RT_SPECIAL_03;
-                       p_start_r += 10;
-                    }
-               else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'P') &&
-                        (*(p_start_r + 2) == 'E') &&
-                        (*(p_start_r + 3) == 'C') &&
-                        (*(p_start_r + 4) == 'I') &&
-                        (*(p_start_r + 5) == 'A') &&
-                        (*(p_start_r + 6) == 'L') &&
-                        (*(p_start_r + 7) == '-') &&
-                        (*(p_start_r + 8) == '6') &&
-                        (*(p_start_r + 9) == '6') &&
-                        (*(p_start_r + 10) == ';'))
-                    {
-                       brcdb->rt = RT_SPECIAL_66;
-                       p_start_r += 10;
-                    }
-               else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'Y') &&
-                        (*(p_start_r + 2) == 'N') &&
-                        (*(p_start_r + 3) == 'O') &&
-                        (*(p_start_r + 4) == 'P') &&
-                        (*(p_start_r + 5) == ';'))
-                    {
-                       brcdb->rt = RT_SYNOP;
-                       p_start_r += 5;
-                    }
-               else if ((*p_start_r == 'S') && (*(p_start_r + 1) == 'Y') &&
-                        (*(p_start_r + 2) == 'N') &&
-                        (*(p_start_r + 3) == 'O') &&
-                        (*(p_start_r + 4) == 'P') &&
-                        (*(p_start_r + 5) == '-') &&
-                        (*(p_start_r + 6) == 'S') &&
-                        (*(p_start_r + 7) == 'H') &&
-                        (*(p_start_r + 8) == 'I') &&
-                        (*(p_start_r + 9) == 'P') &&
-                        (*(p_start_r + 10) == ';'))
-                    {
-                       brcdb->rt = RT_SYNOP_SHIP;
-                       p_start_r += 10;
-                    }
-               else if ((*p_start_r == 'U') && (*(p_start_r + 1) == 'P') &&
-                        (*(p_start_r + 2) == 'P') &&
-                        (*(p_start_r + 3) == 'E') &&
-                        (*(p_start_r + 4) == 'R') &&
-                        (*(p_start_r + 5) == '-') &&
-                        (*(p_start_r + 6) == 'A') &&
-                        (*(p_start_r + 7) == 'I') &&
-                        (*(p_start_r + 8) == 'R') &&
-                        (*(p_start_r + 9) == ';'))
-                    {
-                       brcdb->rt = RT_UPPER_AIR;
-                       p_start_r += 9;
-                    }
-                    else
-                    {
-                       brcdb->rt = 0;
-                       while ((*p_start_r != ';') && (*p_start_r != '\n') &&
-                              (*p_start_r != '\0') && (*p_start_r != '\r'))
-                       {
-                          p_start_r++;
-                       }
-                    }
-
                if (*p_start_r == ';')
                {
+                  rcdb[no_of_rc_entries].mimj[0] = '\0';
                   p_start_r++;
-                  brcdb->mimj[0] = *p_start_r;
+                  if (*p_start_r == 'D')
+                  {
+                     rcdb[no_of_rc_entries].stid = STID_IIiii;
+                  }
+                  else if (*p_start_r == 'L')
+                       {
+                          rcdb[no_of_rc_entries].stid = STID_CCCC;
+                       }
+                       else
+                       {
+                          rcdb[no_of_rc_entries].stid = 0;
+                       }
+                  while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                         (*p_start_r != '\0') && (*p_start_r != '\r'))
+                  {
+                     p_start_r++;
+                  }
+                  if (*p_start_r == ';')
+                  {
+                     p_start_r++;
+                     if (isdigit((int)(*p_start_r)))
+                     {
+                        rcdb[no_of_rc_entries].wid[0] = *p_start_r;
+                        rcdb[no_of_rc_entries].wid[1] = '\0';
+                     }
+                     else
+                     {
+                        rcdb[no_of_rc_entries].wid[0] = '\0';
+                     }
+                     while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                            (*p_start_r != '\0') && (*p_start_r != '\r'))
+                     {
+                        p_start_r++;
+                     }
+                     if (*p_start_r == ';')
+                     {
+                        /* Ignore MXSIZ */
+                        p_start_r++;
+                        while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                               (*p_start_r != '\0') && (*p_start_r != '\r'))
+                        {
+                           p_start_r++;
+                        }
+                        if (*p_start_r == ';')
+                        {
+                           p_start_r++;
+
+                           /* Store BTIME. */
+                           j = 0;
+                           while ((*p_start_r != ';') &&
+                                  (*p_start_r != '\n') &&
+                                  (*p_start_r != '\0') &&
+                                  (*p_start_r != '\r') && (j < 5))
+                           {
+                              rcdb[no_of_rc_entries].BTIME[j] = *p_start_r;
+                              p_start_r++; j++;
+                           }
+                           rcdb[no_of_rc_entries].BTIME[j] = '\0';
+                           while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                                  (*p_start_r != '\0') && (*p_start_r != '\r'))
+                           {
+                              p_start_r++;
+                           }
+                           if (*p_start_r == ';')
+                           {
+                              p_start_r++;
+
+                              /* Store ITIME. */
+                              j = 0;
+                              while ((*p_start_r != ';') &&
+                                     (*p_start_r != '\n') &&
+                                     (*p_start_r != '\0') &&
+                                     (*p_start_r != '\r') && (j < 5))
+                              {
+                                 rcdb[no_of_rc_entries].ITIME[j] = *p_start_r;
+                                 p_start_r++; j++;
+                              }
+                              rcdb[no_of_rc_entries].ITIME[j] = '\0';
+                           }
+                           else
+                           {
+                              rcdb[no_of_rc_entries].ITIME[0] = '\0';
+                           }
+                        }
+                        else
+                        {
+                           rcdb[no_of_rc_entries].BTIME[0] = '\0';
+                           rcdb[no_of_rc_entries].ITIME[0] = '\0';
+                        }
+                     }
+                  }
+                  else
+                  {
+                     rcdb[no_of_rc_entries].wid[0] = '\0';
+                     rcdb[no_of_rc_entries].BTIME[0] = '\0';
+                     rcdb[no_of_rc_entries].ITIME[0] = '\0';
+                  }
+               }
+               else
+               {
+                  rcdb[no_of_rc_entries].mimj[0] = *p_start_r;
                   if (*(p_start_r + 1) != ';')
                   {
-                     brcdb->mimj[1] = *(p_start_r + 1);
+                     rcdb[no_of_rc_entries].mimj[1] = *(p_start_r + 1);
                      p_start_r += 2;
+                     while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                            (*p_start_r != '\0') && (*p_start_r != '\r'))
+                     {
+                        p_start_r++;
+                     }
 
                      if (*p_start_r == ';')
                      {
                         p_start_r++;
                         if (*p_start_r == 'D')
                         {
-                           brcdb->stid = STID_IIiii;
+                           rcdb[no_of_rc_entries].stid = STID_IIiii;
                         }
                         else if (*p_start_r == 'L')
                              {
-                                brcdb->stid = STID_CCCC;
+                                rcdb[no_of_rc_entries].stid = STID_CCCC;
                              }
                              else
                              {
-                                brcdb->stid = 0;
-                                return;
+                                rcdb[no_of_rc_entries].stid = 0;
                              }
+                        while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                               (*p_start_r != '\0') && (*p_start_r != '\r'))
+                        {
+                           p_start_r++;
+                        }
+                        if (*p_start_r == ';')
+                        {
+                           p_start_r++;
+                           if (isdigit((int)(*p_start_r)))
+                           {
+                              rcdb[no_of_rc_entries].wid[0] = *p_start_r;
+                              rcdb[no_of_rc_entries].wid[1] = '\0';
+                           }
+                           else
+                           {
+                              rcdb[no_of_rc_entries].wid[0] = '\0';
+                           }
+                           while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                                  (*p_start_r != '\0') && (*p_start_r != '\r'))
+                           {
+                              p_start_r++;
+                           }
+                           if (*p_start_r == ';')
+                           {
+                              /* Ignore MXSIZ */
+                              p_start_r++;
+                              while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                                     (*p_start_r != '\0') && (*p_start_r != '\r'))
+                              {
+                                 p_start_r++;
+                              }
+                              if (*p_start_r == ';')
+                              {
+                                 p_start_r++;
+
+                                 /* Store BTIME. */
+                                 j = 0;
+                                 while ((*p_start_r != ';') &&
+                                        (*p_start_r != '\n') &&
+                                        (*p_start_r != '\0') &&
+                                        (*p_start_r != '\r') && (j < 5))
+                                 {
+                                    rcdb[no_of_rc_entries].BTIME[j] = *p_start_r;
+                                    p_start_r++; j++;
+                                 }
+                                 rcdb[no_of_rc_entries].BTIME[j] = '\0';
+                                 while ((*p_start_r != ';') && (*p_start_r != '\n') &&
+                                        (*p_start_r != '\0') && (*p_start_r != '\r'))
+                                 {
+                                    p_start_r++;
+                                 }
+                                 if (*p_start_r == ';')
+                                 {
+                                    p_start_r++;
+
+                                    /* Store ITIME. */
+                                    j = 0;
+                                    while ((*p_start_r != ';') &&
+                                           (*p_start_r != '\n') &&
+                                           (*p_start_r != '\0') &&
+                                           (*p_start_r != '\r') && (j < 5))
+                                    {
+                                       rcdb[no_of_rc_entries].ITIME[j] = *p_start_r;
+                                       p_start_r++; j++;
+                                    }
+                                    rcdb[no_of_rc_entries].ITIME[j] = '\0';
+                                 }
+                                 else
+                                 {
+                                    rcdb[no_of_rc_entries].ITIME[0] = '\0';
+                                 }
+                              }
+                              else
+                              {
+                                 rcdb[no_of_rc_entries].BTIME[0] = '\0';
+                                 rcdb[no_of_rc_entries].ITIME[0] = '\0';
+                              }
+                           }
+                        }
+                        else
+                        {
+                           rcdb[no_of_rc_entries].stid = 0;
+                           rcdb[no_of_rc_entries].wid[0] = '\0';
+                           rcdb[no_of_rc_entries].BTIME[0] = '\0';
+                           rcdb[no_of_rc_entries].ITIME[0] = '\0';
+                        }
                      }
                      else
                      {
-                        brcdb->stid = 0;
-                        return;
+                        rcdb[no_of_rc_entries].stid = 0;
+                        rcdb[no_of_rc_entries].wid[0] = '\0';
+                        rcdb[no_of_rc_entries].BTIME[0] = '\0';
+                        rcdb[no_of_rc_entries].ITIME[0] = '\0';
                      }
                   }
                   else
                   {
-                     brcdb->mimj[0] = '\0';
-                     brcdb->stid = 0;
-                     return;
+                     rcdb[no_of_rc_entries].mimj[0] = '\0';
+                     rcdb[no_of_rc_entries].stid = 0;
+                     rcdb[no_of_rc_entries].wid[0] = '\0';
+                     rcdb[no_of_rc_entries].BTIME[0] = '\0';
+                     rcdb[no_of_rc_entries].ITIME[0] = '\0';
                   }
-               }
-               else
-               {
-                  brcdb->mimj[0] = '\0';
-                  brcdb->stid = 0;
-                  return;
                }
             }
             else
             {
-               brcdb->rt = 0;
-               brcdb->mimj[0] = '\0';
-               brcdb->stid = 0;
-               return;
+               rcdb[no_of_rc_entries].mimj[0] = '\0';
+               rcdb[no_of_rc_entries].stid = 0;
+               rcdb[no_of_rc_entries].wid[0] = '\0';
+               rcdb[no_of_rc_entries].BTIME[0] = '\0';
+               rcdb[no_of_rc_entries].ITIME[0] = '\0';
             }
          }
+         else
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Unable to determine report type for %c%c",
+                       rcdb[no_of_rc_entries].TT[0],
+                       rcdb[no_of_rc_entries].TT[1]);
+            rcdb[no_of_rc_entries].rt = RT_NOT_DEFINED;
+            rcdb[no_of_rc_entries].mimj[0] = '\0';
+            rcdb[no_of_rc_entries].stid = 0;
+            rcdb[no_of_rc_entries].wid[0] = '\0';
+            rcdb[no_of_rc_entries].BTIME[0] = '\0';
+            rcdb[no_of_rc_entries].ITIME[0] = '\0';
+         }
+         no_of_rc_entries++;
       }
-      while ((*p_start_r != '\n') && (*p_start_r != '\r'))
+
+      /* Lets continue with the next line. */
+      while ((*p_start_r != '\n') && (*p_start_r != '\r') &&
+             (*p_start_r != '\0'))
       {
          p_start_r++;
       }
-      if ((*p_start_r == '\n') || (*p_start_r == '\r'))
+      while ((*p_start_r == '\n') || (*p_start_r == '\r'))
       {
          p_start_r++;
       }
    }
-
-   /* Not found, so initialize with default values. */
-   brcdb->rt = 0;
-   brcdb->mimj[0] = '\0';
-   brcdb->stid = 0;
 
    return;
 }

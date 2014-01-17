@@ -1,6 +1,6 @@
 /*
  *  handle_request.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ handle_request(int  sock_sd,
       exit(INCORRECT);
    }
 
-   if (fsa_attach_passive(NO) < 0)
+   if (fsa_attach_passive(NO, AFDD) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, _("Failed to attach to FSA."));
       exit(INCORRECT);
@@ -181,6 +181,8 @@ handle_request(int  sock_sd,
    (void)fflush(p_data);
 
    p_remote_ip = remote_ip_str;
+
+   init_get_display_data();
 
    /*
     * Handle all request until the remote user has entered QUIT_CMD or
@@ -306,9 +308,9 @@ handle_request(int  sock_sd,
               {
                  (void)fprintf(p_data,
                                "214- The following commands are recognized (* =>'s unimplemented).\r\n\
-   *AFDSTAT *DISC    HELP     ILOG     *INFO    *LDB     LOG      LRF\r\n\
-   NOP      OLOG     *PROC    QUIT     SLOG     STAT     TDLOG    TLOG\r\n\
-   *TRACEF  *TRACEI *TRACEO  SSTAT\r\n\
+   *AFDSTAT *DISC    HELP    HSTAT    ILOG     *INFO    *LDB     LOG\r\n\
+   LRF      NOP      OLOG    *PROC    QUIT     SLOG     STAT     TDLOG\r\n\
+   TLOG     *TRACEF  *TRACEI *TRACEO  SSTAT\r\n\
 214 Direct comments to %s\r\n",
                                   AFD_MAINTAINER);
               }
@@ -374,6 +376,10 @@ handle_request(int  sock_sd,
                       {
                          (void)fprintf(p_data, "%s\r\n", STAT_SYNTAX);
                       }
+                 else if (strcmp(&cmd[5], HSTAT_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", HSTAT_SYNTAX);
+                      }
                  else if (strcmp(&cmd[5], START_STAT_CMDL) == 0)
                       {
                          (void)fprintf(p_data, "%s\r\n", START_STAT_SYNTAX);
@@ -417,7 +423,9 @@ handle_request(int  sock_sd,
                        (strncmp(cmd, TLOG_CMD, TLOG_CMD_LENGTH) == 0) ||
                        (strncmp(cmd, TDLOG_CMD, TDLOG_CMD_LENGTH) == 0))
                    {
-                      char search_file[MAX_PATH_LENGTH];
+                      int  log_number;
+                      char *p_search_file,
+                           search_file[MAX_PATH_LENGTH];
 
                       /*
                        * For now lets just disable the following code.
@@ -430,31 +438,46 @@ handle_request(int  sock_sd,
                        * First lets determine what file we want and then
                        * create the full file name without the number.
                        */
-                      (void)sprintf(search_file, "%s%s/", p_work_dir,
-                                    LOG_DIR);
+#ifdef HAVE_SNPRINTF
+                      p_search_file = search_file + snprintf(search_file,
+                                                             MAX_PATH_LENGTH,
+#else
+                      p_search_file = search_file + sprintf(search_file,
+#endif
+                                    "%s%s/", p_work_dir, LOG_DIR);
                       switch (cmd[0])
                       {
 #ifdef _INPUT_LOG
                          case 'I' : /* Input log. */
-                            (void)strcat(search_file, INPUT_BUFFER_FILE);
+                            (void)my_strncpy(p_search_file, INPUT_BUFFER_FILE,
+                                             MAX_PATH_LENGTH - (p_search_file - search_file));
+                            log_number = AFDD_ILOG_NO;
                             break;
 #endif
 #ifdef _OUTPUT_LOG
                          case 'O' : /* Output log. */
-                            (void)strcat(search_file, OUTPUT_BUFFER_FILE);
+                            (void)my_strncpy(p_search_file, OUTPUT_BUFFER_FILE,
+                                             MAX_PATH_LENGTH - (p_search_file - search_file));
+                            log_number = AFDD_OLOG_NO;
                             break;
 #endif
                          case 'S' : /* System log. */
-                            (void)strcat(search_file, SYSTEM_LOG_NAME);
+                            (void)my_strncpy(p_search_file, SYSTEM_LOG_NAME,
+                                             MAX_PATH_LENGTH - (p_search_file - search_file));
+                            log_number = AFDD_SLOG_NO;
                             break;
                          case 'T' : /* Transfer or transfer debug log */
                             if (cmd[1] == 'D')
                             {
-                               (void)strcat(search_file, TRANS_DB_LOG_NAME);
+                               (void)my_strncpy(p_search_file, TRANS_DB_LOG_NAME,
+                                                MAX_PATH_LENGTH - (p_search_file - search_file));
+                               log_number = AFDD_TDLOG_NO;
                             }
                             else
                             {
-                               (void)strcat(search_file, TRANSFER_LOG_NAME);
+                               (void)my_strncpy(p_search_file, TRANSFER_LOG_NAME,
+                                                MAX_PATH_LENGTH - (p_search_file - search_file));
+                               log_number = AFDD_TLOG_NO;
                             }
                             break;
                          default  : /* Impossible!!! */
@@ -472,11 +495,12 @@ handle_request(int  sock_sd,
                       if (cmd[i] == ' ')
                       {
                          if ((cmd[i + 1] == '-') || (cmd[i + 1] == '+') ||
-                             (cmd[i + 1] == '#'))
+                             (cmd[i + 1] == '#') || (cmd[i + 1] == '%'))
                          {
                             int  k = 0,
                                  lines = EVERYTHING,
                                  show_time = EVERYTHING,
+                                 start_line = NOT_SET,
                                  file_no = DEFAULT_FILE_NO,
                                  faulty = NO;
                             char numeric_str[MAX_INT_LENGTH];
@@ -485,71 +509,65 @@ handle_request(int  sock_sd,
                             {
                                i += k;
                                k = 0;
-                               if (cmd[i + 1 + k] == '*')
+                               while ((cmd[i + 1 + k] != ' ') &&
+                                      (cmd[i + 1 + k] != '\r') &&
+                                      (k < MAX_INT_LENGTH))
                                {
-                                  if (cmd[i + 1] == '#')
+                                  if (isdigit((int)cmd[i + 1 + k]))
                                   {
-                                     file_no = EVERYTHING;
-                                  }
-                               }
-                               else
-                               {
-                                  while ((cmd[i + 1 + k] != ' ') &&
-                                         (cmd[i + 1 + k] != '\r') &&
-                                         (k < MAX_INT_LENGTH))
-                                  {
-                                     if (isdigit((int)cmd[i + 1 + k]))
-                                     {
-                                        numeric_str[k] = cmd[i + 1 + k];
-                                     }
-                                     else
-                                     {
-                                        faulty = YES;
-                                        (void)fprintf(p_data,
-                                                      "500 Expecting numeric value after \'%c\'\r\n",
-                                                      cmd[i + 1]);
-                                        break;
-                                     }
-                                     k++;
-                                  }
-                                  if (k > 0)
-                                  {
-                                     numeric_str[k] = '\0';
-                                     switch (cmd[i + 1])
-                                     {
-                                        case '#' : /* File number. */
-                                           file_no = atoi(numeric_str);
-                                           break;
-                                        case '-' : /* Number of lines. */
-                                           lines = atoi(numeric_str);
-                                           break;
-                                        case '+' : /* Duration of displaying data. */
-                                           show_time = atoi(numeric_str);
-                                           break;
-                                        default  : /* Impossible!!! */
-                                           faulty = YES;
-                                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                      _("Unknown error!"));
-                                           (void)fprintf(p_data,
-                                                         "500 Unknown error. (%s %d)\r\n",
-                                                         __FILE__, __LINE__);
-                                           break;
-                                     }
+                                     numeric_str[k] = cmd[i + 1 + k];
                                   }
                                   else
                                   {
                                      faulty = YES;
                                      (void)fprintf(p_data,
-                                                   "500 No numeric value supplied after \'%c\'\r\n",
+                                                   "500 Expecting numeric value after \'%c\'\r\n",
                                                    cmd[i + 1]);
+                                     break;
                                   }
+                                  k++;
+                               }
+                               if (k > 0)
+                               {
+                                  numeric_str[k] = '\0';
+                                  switch (cmd[i + 1])
+                                  {
+                                     case '#' : /* File number. */
+                                        file_no = atoi(numeric_str);
+                                        break;
+                                     case '-' : /* Number of lines. */
+                                        lines = atoi(numeric_str);
+                                        break;
+                                     case '+' : /* Duration of displaying data. */
+                                        show_time = atoi(numeric_str);
+                                        break;
+                                     case '%' : /* Start at line number. */
+                                        start_line = atoi(numeric_str);
+                                        break;
+                                     default  : /* Impossible!!! */
+                                        faulty = YES;
+                                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                   _("Unknown error!"));
+                                        (void)fprintf(p_data,
+                                                      "500 Unknown error. (%s %d)\r\n",
+                                                      __FILE__, __LINE__);
+                                        break;
+                                  }
+                               }
+                               else
+                               {
+                                  faulty = YES;
+                                  (void)fprintf(p_data,
+                                                "500 No numeric value supplied after \'%c\'\r\n",
+                                                cmd[i + 1]);
                                }
                             } while ((cmd[i + 1 + k] != '\r') && (faulty == NO));
 
                             if (faulty == NO)
                             {
-                               get_display_data(search_file, NULL, lines,
-                                                show_time, file_no);
+                               get_display_data(search_file, log_number, NULL,
+                                                start_line, lines, show_time,
+                                                file_no);
                             }
                          }
                          else if (isascii(cmd[i + 1]))
@@ -570,11 +588,12 @@ handle_request(int  sock_sd,
                                  {
                                     search_string[k] = '\0';
                                     if ((cmd[i + k + 1] == '-') || (cmd[i + k + 1] == '+') ||
-                                        (cmd[i + k + 1] == '#'))
+                                        (cmd[i + k + 1] == '#') || (cmd[i + k + 1] == '%'))
                                     {
                                        int  m = 0,
                                             lines = EVERYTHING,
                                             show_time = EVERYTHING,
+                                            start_line = NOT_SET,
                                             file_no = DEFAULT_FILE_NO,
                                             faulty = NO;
                                        char numeric_str[MAX_INT_LENGTH];
@@ -624,6 +643,9 @@ handle_request(int  sock_sd,
                                                    case '+' : /* Duration of displaying data. */
                                                       show_time = atoi(numeric_str);
                                                       break;
+                                                   case '%' : /* Start at line number. */
+                                                      start_line = atoi(numeric_str);
+                                                      break;
                                                    default  : /* Impossible!!! */
                                                       faulty = YES;
                                                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -647,7 +669,9 @@ handle_request(int  sock_sd,
                                        if (faulty == NO)
                                        {
                                           get_display_data(search_file,
+                                                           log_number,
                                                            search_string,
+                                                           start_line,
                                                            lines,
                                                            show_time,
                                                            file_no);
@@ -672,9 +696,8 @@ handle_request(int  sock_sd,
                       } /* if (cmd[i] == ' ') */
                       else if (cmd[i] == '\r')
                            {
-                              get_display_data(search_file, NULL,
-                                               EVERYTHING,
-                                               EVERYTHING,
+                              get_display_data(search_file, log_number, NULL,
+                                               NOT_SET, EVERYTHING, EVERYTHING,
                                                DEFAULT_FILE_NO);
                            }
                            else
@@ -688,6 +711,10 @@ handle_request(int  sock_sd,
               else if (strncmp(cmd, STAT_CMD, STAT_CMD_LENGTH) == 0)
                    {
                       show_summary_stat(p_data);
+                   }
+              else if (strncmp(cmd, HSTAT_CMD, HSTAT_CMD_LENGTH) == 0)
+                   {
+                      show_host_stat(p_data);
                    }
               else if (strncmp(cmd, START_STAT_CMD, START_STAT_CMD_LENGTH) == 0)
                    {
@@ -707,8 +734,13 @@ handle_request(int  sock_sd,
                    }
               else if (strncmp(cmd, LRF_CMD, LRF_CMD_LENGTH) == 0)
                    {
-                      (void)sprintf(p_work_dir_end, "%s%s",
-                                    ETC_DIR, RENAME_RULE_FILE);
+#ifdef HAVE_SNPRINTF
+                      (void)snprintf(p_work_dir_end,
+                                     MAX_PATH_LENGTH - (p_work_dir_end - p_work_dir),
+#else
+                      (void)sprintf(p_work_dir_end,
+#endif
+                                    "%s%s", ETC_DIR, RENAME_RULE_FILE);
                       display_file(p_data);
                       *p_work_dir_end = '\0';
                    }
@@ -789,7 +821,12 @@ handle_request(int  sock_sd,
                                }
                             }
 #ifdef DEBUG_LOG_CMD
+# ifdef HAVE_SNPRINTF
+                            cmd_buffer_length += snprintf(&cmd_buffer[cmd_buffer_length],
+                                                          (3 + 1 + 2 + 1 + (NO_OF_LOGS * (MAX_INT_LENGTH + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_LONG_LONG_LENGTH + 1))) - cmd_buffer_length,
+# else
                             cmd_buffer_length += sprintf(&cmd_buffer[cmd_buffer_length],
+# endif
 # if SIZEOF_INO_T == 4
 #  if SIZEOF_OFF_T == 4
                                        " L%c %u %ld %ld",
@@ -1181,7 +1218,12 @@ handle_request(int  sock_sd,
                                exit(INCORRECT);
                             }
                          }
-                         p_log_dir = log_dir + sprintf(log_dir, "%s%s/",
+#ifdef HAVE_SNPRINTF
+                         p_log_dir = log_dir + snprintf(log_dir, MAX_PATH_LENGTH,
+#else
+                         p_log_dir = log_dir + sprintf(log_dir,
+#endif
+                                                       "%s%s/",
                                                        p_work_dir, LOG_DIR);
 #ifdef DEBUG_LOG_CMD
                          if (cmd_buffer_length > LOG_CMD_LENGTH)
@@ -1257,6 +1299,9 @@ handle_request(int  sock_sd,
                  _("fclose() error : %s"), strerror(errno));
    }
    p_data = NULL;
+
+   close_get_display_data();
+
    exit(SUCCESS);
 }
 

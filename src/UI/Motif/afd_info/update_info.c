@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -92,7 +92,7 @@ update_info(Widget w)
    XmString    text;
 
    /* Check if FSA changed. */
-   (void)check_fsa(YES);
+   (void)check_fsa(YES, AFD_INFO);
 
    if (prev.protocol != fsa[host_position].protocol)
    {

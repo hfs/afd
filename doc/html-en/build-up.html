@@ -14,9 +14,10 @@ file.
 </p>
 <center><img src="../images/build-up.gif"></center>
 <p>
-The AFD consists mainly of two programs: AMG (Automatic Message Generator)
-and the FD (File Distributor). These two programs communicate over a
-fifo and a directory as shown below:
+The AFD consists mainly of two programs: <a href="amg.html">AMG</a>
+(Automatic Message Generator) and the <a href="fd.html">FD</a>
+(File Distributor). These two programs communicate over a fifo and
+a directory as shown below:
 </p>
 <center><img src="../images/amg-fd.gif"></center>
 <p>
@@ -35,6 +36,11 @@ This setup has the advantage that when a system crash occurs, no
 data is lost. After a crash we can start off from where we left before
 the crash. No data is lost and the worst thing that can happen is that
 a file gets send twice.
+</p>
+<p>
+A step by step description what happens as a file is send via AFD
+can be viewed in <a href="file_going_through_afd.html">What happens when
+a file goes through AFD</a>.
 </p>
 <p>
 The <a href="afd_ctrl.html">afd_ctrl</a> is the user interface, which can
@@ -103,9 +109,9 @@ queued up with this message type.
 <table width="100%">
 <tr>
    <td width="90%"><small><address>
-   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2013 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 14.04.2006
+   Last updated: 24.11.2013
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

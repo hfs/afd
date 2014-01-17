@@ -1,6 +1,6 @@
 /*
  *  show_elog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -117,7 +117,8 @@ int              char_width,
                  special_button_flag,
                  sys_log_fd = STDERR_FILENO;
 unsigned int     ea_toggles_set_1,
-                 ea_toggles_set_2;
+                 ea_toggles_set_2,
+                 ea_toggles_set_3;
 Dimension        button_height;
 XT_PTR_TYPE      toggles_set;
 time_t           start_time_val,
@@ -1253,6 +1254,10 @@ init_show_elog(int *argc, char *argv[])
                       (1 << (EA_CHANGE_INFO - EA_DISABLE_HOST)) |
                       (1 << (EA_ENABLE_CREATE_SOURCE_DIR - EA_DISABLE_HOST)) |
                       (1 << (EA_DISABLE_CREATE_SOURCE_DIR - EA_DISABLE_HOST));
+   ea_toggles_set_3 = (1 << (EA_INFO_TIME_SET - EA_DISABLE_CREATE_SOURCE_DIR)) |
+                      (1 << (EA_INFO_TIME_UNSET - EA_DISABLE_CREATE_SOURCE_DIR)) |
+                      (1 << (EA_EXEC_INFO_ACTION_START - EA_DISABLE_CREATE_SOURCE_DIR)) |
+                      (1 << (EA_EXEC_INFO_ACTION_STOP - EA_DISABLE_CREATE_SOURCE_DIR));
 
    return;
 }
@@ -1269,7 +1274,7 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 

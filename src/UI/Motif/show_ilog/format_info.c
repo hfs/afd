@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,7 +103,7 @@ format_info(char **text, int with_alda_data)
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   max_x = sizeof("File name   : ") - 1 + strlen(id.file_name) + 1;
+   max_x = sizeof("File name   : ") - 1 + strlen((char *)id.file_name) + 1;
    length = max_x;
    count = sizeof("File size   : ") - 1 + strlen(id.file_size) + sizeof(" bytes") - 1 + 1;
    length += count;
@@ -133,7 +133,7 @@ format_info(char **text, int with_alda_data)
       int i,
           j;
 
-      count = sizeof("Directory   : ") - 1 + strlen(id.dir) + 1;
+      count = sizeof("Directory   : ") - 1 + strlen((char *)id.dir) + 1;
       length += count;
       if (count > max_x)
       {

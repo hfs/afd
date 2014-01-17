@@ -1,6 +1,6 @@
 /*
  *  output_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -199,7 +199,12 @@ output_log_ptrs(unsigned int   **ol_retries,
                                sizeof(unsigned short) +
                                sizeof(unsigned short) +
                                MAX_HOSTNAME_LENGTH + 2 + 2 + 2 + 1);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf((char *)(*ol_data + offset + offset + offset + offset + sizeof(unsigned short) + sizeof(unsigned short) + sizeof(unsigned short)),
+                               MAX_HOSTNAME_LENGTH + 2 + 2 + 2 + 1 + MAX_FILENAME_LENGTH + 1 + MAX_FILENAME_LENGTH + 2 + MAX_FILENAME_LENGTH + 1,
+#else
       (void)sprintf((char *)(*ol_data + offset + offset + offset + offset + sizeof(unsigned short) + sizeof(unsigned short) + sizeof(unsigned short)),
+#endif
                     "%-*s 0 %x %x",
                     MAX_HOSTNAME_LENGTH, tr_hostname, host_toggle, protocol);
    }

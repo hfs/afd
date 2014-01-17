@@ -102,7 +102,11 @@ check_file_dir(time_t now)
    time_t      diff_time;
    struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
+   p_file_dir = file_dir + snprintf(file_dir, MAX_PATH_LENGTH, "%s%s%s/",
+#else
    p_file_dir = file_dir + sprintf(file_dir, "%s%s%s/",
+#endif
                                    p_work_dir, AFD_FILE_DIR, OUTGOING_DIR);
    if (stat(file_dir, &stat_buf) == -1)
    {
@@ -162,7 +166,11 @@ check_file_dir(time_t now)
       char fd_cmd_fifo[MAX_PATH_LENGTH];
 
       /* Tell FD to perform a check of its FSA entries. */
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(fd_cmd_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
       (void)sprintf(fd_cmd_fifo, "%s%s%s",
+#endif
                     p_work_dir, FIFO_DIR, FD_CMD_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
       if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_readfd, &fd_cmd_fd) == -1)
@@ -547,7 +555,11 @@ message_in_queue(char *msg_name)
 #endif
       char fd_cmd_fifo[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(fd_cmd_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
       (void)sprintf(fd_cmd_fifo, "%s%s%s",
+#endif
                     p_work_dir, FIFO_DIR, FD_CMD_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
       if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_readfd, &fd_cmd_fd) == -1)
@@ -583,7 +595,11 @@ message_in_queue(char *msg_name)
                        _("close() error : %s"), strerror(errno));
          }
 
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(queue_list_ready_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
          (void)sprintf(queue_list_ready_fifo, "%s%s%s",
+#endif
                        p_work_dir, FIFO_DIR, QUEUE_LIST_READY_FIFO);
 
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -627,7 +643,11 @@ message_in_queue(char *msg_name)
                         char  msg_queue_file[MAX_PATH_LENGTH],
                               *ptr;
 
+#ifdef HAVE_SNPRINTF
+                        (void)snprintf(msg_queue_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
                         (void)sprintf(msg_queue_file, "%s%s%s",
+#endif
                                       p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
                         if ((ptr = map_file(msg_queue_file, &msg_queue_fd,
                                             &msg_queue_size, NULL,
@@ -696,7 +716,11 @@ message_in_queue(char *msg_name)
                   }
 
                   /* Respond to FD so it can continue normal operations. */
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(queue_list_ready_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
                   (void)sprintf(queue_list_ready_fifo, "%s%s%s",
+#endif
                                 p_work_dir, FIFO_DIR, QUEUE_LIST_DONE_FIFO);
 
                   if ((qld_fd = open(queue_list_ready_fifo, O_WRONLY)) == -1)
@@ -751,7 +775,11 @@ message_in_queue(char *msg_name)
                   char  msg_queue_file[MAX_PATH_LENGTH],
                         *ptr;
 
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(msg_queue_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
                   (void)sprintf(msg_queue_file, "%s%s%s",
+#endif
                                 p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
                   if ((ptr = map_file(msg_queue_file, &msg_queue_fd,
                                       &msg_queue_size, NULL,
@@ -915,7 +943,11 @@ add_message_to_queue(char         *dir_name,
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  _("Could not locate job %x"), job_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(missing_file_dir, MAX_PATH_LENGTH, "%s%s%s/%s", p_work_dir,
+#else
       (void)sprintf(missing_file_dir, "%s%s%s/%s", p_work_dir,
+#endif
                     AFD_FILE_DIR, OUTGOING_DIR, dir_name);
 #ifdef _DELETE_LOG
       *dl.input_time = creation_time;
@@ -931,12 +963,22 @@ add_message_to_queue(char         *dir_name,
    {
       char *p_unique_name;
 
+#ifdef HAVE_SNPRINTF
+      p_unique_name = missing_file_dir + snprintf(missing_file_dir, MAX_PATH_LENGTH,
+#else
       p_unique_name = missing_file_dir + sprintf(missing_file_dir,
+#endif
                                                  "%s%s%s",
                                                  p_work_dir, AFD_FILE_DIR,
                                                  OUTGOING_DIR);
       p_unique_name++;
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(p_unique_name,
+                     MAX_PATH_LENGTH - (p_unique_name - missing_file_dir),
+                     "/%s", dir_name);
+#else
       (void)sprintf(p_unique_name, "/%s", dir_name);
+#endif
       if (jd_pos != -1)
       {
          p_fra = &fra[db[pos].fra_pos];

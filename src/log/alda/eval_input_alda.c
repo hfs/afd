@@ -1,6 +1,6 @@
 /*
  *  eval_input_alda.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -214,6 +214,7 @@ DESCR__S_M3
  **           -p <protocol>                Protocol used for transport.
  **   Other parameters
  **           -F <file name>               Footer to add to output.
+ **           -R <x>                       Rotate log x times.
  **           -H <file name>               Header to add to output.
  **           -O <file name>               File where to write output.
  **           -v[v[v]]                     Verbose mode.
@@ -284,6 +285,7 @@ extern unsigned int end_alias_counter,
                     start_id_counter,
                     start_name_counter;
 extern int          gt_lt_sign,
+                    rotate_limit,
                     trace_mode,
                     verbose;
 extern time_t       end_time_end,
@@ -335,6 +337,7 @@ eval_input_alda(int *argc, char *argv[])
    protocols = 0;
    mode = 0;
    output_filename[0] = '\0';
+   rotate_limit = DEFAULT_ROTATE_LIMIT;
    header_filename[0] = '\0';
    footer_filename[0] = '\0';
    verbose = 0;
@@ -837,6 +840,23 @@ eval_input_alda(int *argc, char *argv[])
                {
                   (void)my_strncpy(output_filename, *(argv + 1),
                                    MAX_PATH_LENGTH);
+                  (*argc) -= 2;
+                  argv += 2;
+               }
+               break;
+
+            case 'R' : /* Number of times the log should be rotated. */
+               if ((*argc == 1) || (*(argv + 1)[0] == '-'))
+               {
+                  (void)fprintf(stderr,
+                                "ERROR  : No rotate limit specified for parameter -R.\n");
+                  correct = NO;
+                  (*argc) -= 1;
+                  argv += 1;
+               }
+               else
+               {
+                  rotate_limit = atoi(*(argv + 1));
                   (*argc) -= 2;
                   argv += 2;
                }
@@ -2143,6 +2163,7 @@ usage(char *progname)
    (void)fprintf(stderr, "                                          %s\n", ALDA_MAP_SHEME);
    (void)fprintf(stderr, "    Other parameters\n");
    (void)fprintf(stderr, "            -F <file name>               Footer to add to output.\n");
+   (void)fprintf(stderr, "            -R <x>                       Rotate log x times.\n");
    (void)fprintf(stderr, "            -H <file name>               Header to add to output.\n");
    (void)fprintf(stderr, "            -O <file name>               File where to write output.\n");
    (void)fprintf(stderr, "            -v[v[v]]                     Verbose mode.\n");

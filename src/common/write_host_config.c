@@ -1,7 +1,7 @@
 /*
  *  write_host_config.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,6 +60,8 @@ DESCR__S_M3
  **   08.03.2006 H.Kiehl Added dupcheck on a per host basis.
  **   03.01.2008 H.Kiehl Added warn time.
  **   12.04.2012 H.Kiehl Added check size.
+ **   14.07.2013 H.Kiehl Added transfer timeout, keep connected no fetching
+ **                      and no sending.
  **
  */
 DESCR__E_M3
@@ -247,28 +249,31 @@ DESCR__E_M3
 #                          host. The following bits can be set (again the\n\
 #                          values in bracket are the integer values that can\n\
 #                          be set):\n\
-#                          1 (1)   - FTP passive mode\n\
-#                          2 (2)   - Set FTP idle time to transfer timeout\n\
-#                          3 (4)   - Send STAT command to keep control\n\
-#                                    connection alive.\n\
-#                          4 (8)   - Combine RNFR and RNTO to one command.\n\
-#                          5 (16)  - Do not do a cd, always use absolute path.\n\
-#                          6 (32)  - Do not send TYPE I command.\n\
-#                          7 (64)  - Use extended active or extended passive\n\
-#                                    mode.\n\
-#                          8 (128) - If set bursting is disabled.\n\
-#                          9 (256) - If set FTP passive mode allows to be\n\
-#                                    redirected to another address.\n\
-#                          10(512) - When set it will replace the given scheme\n\
-#                                    with file if the hostname matches local\n\
-#                                    hostname or one in local_interface.list.\n\
-#                          11(1024)- Set TCP keepalive.\n\
-#                          12(2048)- Set sequence locking.\n\
-#                          13(4096)- Enable compression.\n\
-#                          14(8192)- Keep time stamp of source file.\n\
-#                          15(16384)- Sort file names.\n\
-#                          16(32768)- No ageing jobs.\n\
-#                          17(65536)- Check if local and remote size match.\n\
+#                          1 (1)     - FTP passive mode\n\
+#                          2 (2)     - Set FTP idle time to transfer timeout\n\
+#                          3 (4)     - Send STAT command to keep control\n\
+#                                      connection alive.\n\
+#                          4 (8)     - Combine RNFR and RNTO to one command.\n\
+#                          5 (16)    - Do not do a cd, always use absolute path.\n\
+#                          6 (32)    - Do not send TYPE I command.\n\
+#                          7 (64)    - Use extended active or extended passive\n\
+#                                      mode.\n\
+#                          8 (128)   - If set bursting is disabled.\n\
+#                          9 (256)   - If set FTP passive mode allows to be\n\
+#                                      redirected to another address.\n\
+#                          10(512)   - When set it will replace the given scheme\n\
+#                                      with file if the hostname matches local\n\
+#                                      hostname or one in local_interface.list.\n\
+#                          11(1024)  - Set TCP keepalive.\n\
+#                          12(2048)  - Set sequence locking.\n\
+#                          13(4096)  - Enable compression.\n\
+#                          14(8192)  - Keep time stamp of source file.\n\
+#                          15(16384) - Sort file names.\n\
+#                          16(32768) - No ageing jobs.\n\
+#                          17(65536) - Check if local and remote size match.\n\
+#                          18(131072)- Timeout transfer.\n\
+#                          19(262144)- Keep connected no fetching.\n\
+#                          20(524288)- Keep connected no sending.\n\
 #                          DEFAULT: 0\n\
 # Transfer rate limit    - The maximum number of kilobytes that may be\n\
 #                          transfered per second.\n\
@@ -304,6 +309,8 @@ DESCR__E_M3
 #                          24(8388608)    - Delete the file.\n\
 #                          25(16777216)   - Store the duplicate file.\n\
 #                          26(33554432)   - Warn in SYSTEM_LOG.\n\
+#                          31(1073741824) - Timeout is fixed, ie. not\n\
+#                                           cumulative.\n\
 #                          32(2147483648) - Use full recipient as reference\n\
 #                                           instead of alias name.\n\
 #                          DEFAULT: 0\n\
@@ -425,21 +432,21 @@ write_host_config(int              no_of_hosts,
    }
 
    /* Write introduction comment. */
-   length = strlen(HOST_CONFIG_TEXT_PART1);
+   length = sizeof(HOST_CONFIG_TEXT_PART1) - 1;
    if (write(fd, HOST_CONFIG_TEXT_PART1, length) != length)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  _("write() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
-   length = strlen(HOST_CONFIG_TEXT_PART2);
+   length = sizeof(HOST_CONFIG_TEXT_PART2) - 1;
    if (write(fd, HOST_CONFIG_TEXT_PART2, length) != length)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  _("write() error : %s"), strerror(errno));
       exit(INCORRECT);
    }
-   length = strlen(HOST_CONFIG_TEXT_PART3);
+   length = sizeof(HOST_CONFIG_TEXT_PART3) - 1;
    if (write(fd, HOST_CONFIG_TEXT_PART3, length) != length)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -452,7 +459,40 @@ write_host_config(int              no_of_hosts,
    {
       store_real_hostname(tmp_real_hostname[0], p_hl[i].real_hostname[0]);
       store_real_hostname(tmp_real_hostname[1], p_hl[i].real_hostname[1]);
+#ifdef HAVE_SNPRINTF
+      length = snprintf(line_buffer,
+                        MAX_HOSTNAME_LENGTH +
+                        (2 * MAX_REAL_HOSTNAME_LENGTH) +
+                        MAX_TOGGLE_STR_LENGTH +
+                        MAX_PROXY_NAME_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+                        MAX_INT_LENGTH +
+#ifdef WITH_DUP_CHECK
+                        MAX_LONG_LENGTH +
+                        MAX_INT_LENGTH +
+#endif
+                        MAX_INT_LENGTH +
+#ifdef WITH_DUP_CHECK
+                        21 +
+#else
+                        19 +
+#endif
+                        2,
+#else
       length = sprintf(line_buffer,
+#endif
 #ifdef WITH_DUP_CHECK
 # if SIZEOF_TIME_T == 4
                        "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%ld:%d:%u:%u:%d:%d:%u:%u:%ld:%u:%u:%ld\n",

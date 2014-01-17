@@ -1,7 +1,7 @@
 /*
  *  setup_dir_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -64,7 +64,8 @@ extern Widget                   mw[],
                                 hw[],
                                 rw[],
                                 lw[],
-                                lsw[];
+                                lsw[],
+                                oow[];
 extern GC                       letter_gc,
                                 normal_letter_gc,
                                 locked_letter_gc,
@@ -263,6 +264,9 @@ setup_dir_window(char *font_name)
       XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
+
+      /* Set the font for the Other options pulldown. */
+      XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNfontList, fontlist, NULL);
    }
 
    glyph_height       = font_struct->ascent + font_struct->descent;

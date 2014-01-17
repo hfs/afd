@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -252,7 +252,13 @@ search_old_files(time_t current_time)
                               size_t dl_real_size;
 
                               (void)strcpy(dl.file_name, p_dir->d_name);
-                              (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                              (void)snprintf(dl.host_name,
+                                             MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                              (void)sprintf(dl.host_name,
+# endif
+                                            "%-*s %03x",
                                             MAX_HOSTNAME_LENGTH, "-", reason);
                               *dl.file_size = stat_buf.st_size;
                               *dl.dir_id = de[i].dir_id;
@@ -262,7 +268,12 @@ search_old_files(time_t current_time)
                               *dl.unique_number = 0;
                               *dl.file_name_length = strlen(p_dir->d_name);
                               dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                             snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                      MAX_FILENAME_LENGTH + 1,
+# else
                                              sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
 # if SIZEOF_TIME_T == 4
                                                      "%s%c>%ld (%s %d)",
 # else
@@ -322,7 +333,13 @@ search_old_files(time_t current_time)
                         size_t dl_real_size;
 
                         (void)strcpy(dl.file_name, p_dir->d_name);
-                        (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                        (void)snprintf(dl.host_name,
+                                       MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                        (void)sprintf(dl.host_name,
+# endif
+                                      "%-*s %03x",
                                       MAX_HOSTNAME_LENGTH, "-",
                                       DEL_QUEUED_FILE);
                         *dl.file_size = stat_buf.st_size;
@@ -333,7 +350,12 @@ search_old_files(time_t current_time)
                         *dl.unique_number = 0;
                         *dl.file_name_length = strlen(p_dir->d_name);
                         dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                       snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                MAX_FILENAME_LENGTH + 1,
+# else
                                        sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
 # if SIZEOF_TIME_T == 4
                                                "%s%c>%ld (%s %d)",
 # else
@@ -428,7 +450,13 @@ search_old_files(time_t current_time)
                                          size_t dl_real_size;
 
                                          (void)strcpy(dl.file_name, p_dir->d_name);
-                                         (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                                         (void)snprintf(dl.host_name,
+                                                        MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                                         (void)sprintf(dl.host_name,
+# endif
+                                                       "%-*s %03x",
                                                        MAX_HOSTNAME_LENGTH,
                                                        fsa[pos].host_alias,
                                                        DEL_QUEUED_FILE);
@@ -440,7 +468,12 @@ search_old_files(time_t current_time)
                                          *dl.unique_number = 0;
                                          *dl.file_name_length = strlen(p_dir->d_name);
                                          dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                                        snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                                 MAX_FILENAME_LENGTH + 1,
+# else
                                                         sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
 # if SIZEOF_TIME_T == 4
                                                                 "%s%c>%ld (%s %d)",
 # else

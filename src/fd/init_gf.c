@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -97,7 +97,7 @@ init_gf(int argc, char *argv[], int protocol)
         }
    else if (protocol & SFTP_FLAG)
         {
-           db.port = DEFAULT_SSH_PORT;
+           db.port = SSH_PORT_UNSET;
         }
 #ifdef _WITH_WMO_SUPPORT
    else if (protocol & WMO_FLAG)

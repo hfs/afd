@@ -24,6 +24,12 @@
 
 
 CURRENT_SCRIPT_NAME="`basename $0`"
+if [ -d /var/lock/subsys ]
+then
+   SYS_LOCKDIR="/var/lock/subsys"
+else
+   SYS_LOCKDIR="/var/lock"
+fi
 if [ -r @SYSCONFIGDIR@/afd ]
 then
    if [ "$CURRENT_SCRIPT_NAME" = "afdha" ]
@@ -81,12 +87,12 @@ case "$1" in
 	      case $? in
 	         0)
 	            RETVAL=0
-	            touch /var/lock/subsys/afd.$afduser
+	            touch $SYS_LOCKDIR/afd.$afduser
 	            echo "Done"
 	            ;;
-	         6) # AFD is disbled by system admin
+	         6) # AFD is disabled by system admin
 	            RETVAL=0
-	            touch /var/lock/subsys/afd.$afduser
+	            touch $SYS_LOCKDIR/afd.$afduser
 	            echo "Done"
 	            ;;
 	         *)
@@ -102,12 +108,12 @@ case "$1" in
 	         case $? in
 	            0)
 	               RETVAL=0
-	               touch /var/lock/subsys/afd.$afduser-$counter
+	               touch $SYS_LOCKDIR/afd.$afduser-$counter
 	               echo "Done"
 	               ;;
-	            6) # AFD is disbled by system admin
+	            6) # AFD is disabled by system admin
 	               RETVAL=0
-	               touch /var/lock/subsys/afd.$afduser-$counter
+	               touch $SYS_LOCKDIR/afd.$afduser-$counter
 	               echo "Done"
 	               ;;
 	            *)
@@ -118,7 +124,7 @@ case "$1" in
 	      done
 	   fi
 	done
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/afd
+	[ $RETVAL -eq 0 ] && touch $SYS_LOCKDIR/afd
 	;;
   stop)
 	RETVAL=1
@@ -132,17 +138,17 @@ case "$1" in
 	      case $? in
 	         0)
 	            RETVAL=0
-	            rm -f /var/lock/subsys/afd.$afduser
+	            rm -f $SYS_LOCKDIR/afd.$afduser
 	            echo "Done"
 	            ;;
 	         10)
 	            RETVAL=0
-	            rm -f /var/lock/subsys/afd.$afduser
+	            rm -f $SYS_LOCKDIR/afd.$afduser
 	            echo "Is already stopped"
 	            ;;
 	         11)
 	            RETVAL=0
-	            rm -f /var/lock/subsys/afd.$afduser
+	            rm -f $SYS_LOCKDIR/afd.$afduser
 	            echo "Is already stopped"
 	            ;;
 	         *)
@@ -158,17 +164,17 @@ case "$1" in
 	         case $? in
 	            0)
 	               RETVAL=0
-	               rm -f /var/lock/subsys/afd.$afduser-$counter
+	               rm -f $SYS_LOCKDIR/afd.$afduser-$counter
 	               echo "Done"
 	               ;;
 	            10)
 	               RETVAL=0
-	               rm -f /var/lock/subsys/afd.$afduser-$counter
+	               rm -f $SYS_LOCKDIR/afd.$afduser-$counter
 	               echo "Is already stopped"
 	               ;;
 	            11)
 	               RETVAL=0
-	               rm -f /var/lock/subsys/afd.$afduser-$counter
+	               rm -f $SYS_LOCKDIR/afd.$afduser-$counter
 	               echo "Is already stopped"
 	               ;;
 	            *)
@@ -179,7 +185,7 @@ case "$1" in
 	      done
 	   fi
 	done
-	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/afd
+	[ $RETVAL -eq 0 ] && rm -f $SYS_LOCKDIR/afd
 	;;
   reload)
 	RETVAL=0
@@ -231,26 +237,26 @@ case "$1" in
 	   AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	   if [ "$AFD_WORK_DIR_LIST" = "" ]
 	   then
-	      if [ -f /var/lock/subsys/restart_afd.$afduser ]
+	      if [ -f $SYS_LOCKDIR/restart_afd.$afduser ]
 	      then
 	         echo -n "Starting AFD for $afduser : "
 	         su - $afduser -c "afd -a"
 	         case $? in
 	            0)
 	               RETVAL=0
-	               touch /var/lock/subsys/afd.$afduser
+	               touch $SYS_LOCKDIR/afd.$afduser
 	               echo "Done"
 	               ;;
-	            6) # AFD is disbled by system admin
+	            6) # AFD is disabled by system admin
 	               RETVAL=0
-	               touch /var/lock/subsys/afd.$afduser
+	               touch $SYS_LOCKDIR/afd.$afduser
 	               echo "Done"
 	               ;;
 	            *)
 	               echo "Failed"
 	               ;;
 	         esac
-	         rm -f /var/lock/subsys/restart_afd.$afduser
+	         rm -f $SYS_LOCKDIR/restart_afd.$afduser
 	      else
 	         su - $afduser -c "afd -S"
 	         if [ $? -eq 0 ]
@@ -260,12 +266,12 @@ case "$1" in
 	            case $? in
 	               0)
 	                  RETVAL=0
-	                  touch /var/lock/subsys/afd.$afduser
+	                  touch $SYS_LOCKDIR/afd.$afduser
 	                  echo "Done"
 	                  ;;
-	               6) # AFD is disbled by system admin
+	               6) # AFD is disabled by system admin
 	                  RETVAL=0
-	                  touch /var/lock/subsys/afd.$afduser
+	                  touch $SYS_LOCKDIR/afd.$afduser
 	                  echo "Done"
 	                  ;;
 	               *)
@@ -278,26 +284,26 @@ case "$1" in
 	      counter=0
 	      for afddir in $AFD_WORK_DIR_LIST
 	      do
-	         if [ -f /var/lock/subsys/restart_afd.$afduser-$counter ]
+	         if [ -f $SYS_LOCKDIR/restart_afd.$afduser-$counter ]
 	         then
 	            echo -n "Starting AFD for $afduser in $afddir : "
 	            su - $afduser -c "afd -w $afddir -a"
 	            case $? in
 	               0)
 	                  RETVAL=0
-	                  touch /var/lock/subsys/afd.$afduser-$counter
+	                  touch $SYS_LOCKDIR/afd.$afduser-$counter
 	                  echo "Done"
 	                  ;;
-	               6) # AFD is disbled by system admin
+	               6) # AFD is disabled by system admin
 	                  RETVAL=0
-	                  touch /var/lock/subsys/afd.$afduser-$counter
+	                  touch $SYS_LOCKDIR/afd.$afduser-$counter
 	                  echo "Done"
 	                  ;;
 	               *)
 	                  echo "Failed"
 	                  ;;
 	            esac
-	            rm -f /var/lock/subsys/restart_afd.$afduser-$counter
+	            rm -f $SYS_LOCKDIR/restart_afd.$afduser-$counter
 	         else
 	            su - $afduser -c "afd -w $afddir -S"
 	            if [ $? -eq 0 ]
@@ -307,12 +313,12 @@ case "$1" in
 	               case $? in
 	                  0)
 	                     RETVAL=0
-	                     touch /var/lock/subsys/afd.$afduser-$counter
+	                     touch $SYS_LOCKDIR/afd.$afduser-$counter
 	                     echo "Done"
 	                     ;;
-	                  6) # AFD is disbled by system admin
+	                  6) # AFD is disabled by system admin
 	                     RETVAL=0
-	                     touch /var/lock/subsys/afd.$afduser-$counter
+	                     touch $SYS_LOCKDIR/afd.$afduser-$counter
 	                     echo "Done"
 	                     ;;
 	                  *)
@@ -338,44 +344,44 @@ case "$1" in
 	      AFD_WORK_DIR_LIST=`su - $afduser -c 'echo MULTIAFDDIRS:$MULTI_AFD_DIRS' | grep "^MULTIAFDDIRS:" | cut -d: -f2`
 	      if [ "$AFD_WORK_DIR_LIST" = "" ]
 	      then
-	         if [ -f /var/lock/subsys/restart_afd.$afduser ]
+	         if [ -f $SYS_LOCKDIR/restart_afd.$afduser ]
 	         then
 	            echo -n "Starting AFD for $afduser : "
 	            su - $afduser -c "afd -a"
 	            if [ $? -eq 0 ]
 	            then
 	               RETVAL=0
-	               touch /var/lock/subsys/afd.$afduser
+	               touch $SYS_LOCKDIR/afd.$afduser
 	               echo "Done"
 	            else
 	               echo "Failed"
 	            fi
-	            rm -f /var/lock/subsys/restart_afd.$afduser
+	            rm -f $SYS_LOCKDIR/restart_afd.$afduser
 	         fi
 	      else
 	         counter=0
 	         for afddir in $AFD_WORK_DIR_LIST
 	         do
-	            if [ -f /var/lock/subsys/restart_afd.$afduser-$counter ]
+	            if [ -f $SYS_LOCKDIR/restart_afd.$afduser-$counter ]
 	            then
 	               echo -n "Starting AFD for $afduser in $afddir : "
 	               su - $afduser -c "afd -w $afddir -a"
 	               if [ $? -eq 0 ]
 	               then
 	                  RETVAL=0
-	                  touch /var/lock/subsys/afd.$afduser-$counter
+	                  touch $SYS_LOCKDIR/afd.$afduser-$counter
 	                  echo "Done"
 	               else
 	                  echo "Failed"
 	               fi
-	               rm -f /var/lock/subsys/restart_afd.$afduser-$counter
+	               rm -f $SYS_LOCKDIR/restart_afd.$afduser-$counter
 	            fi
 	            counter=`expr "$counter" + 1`
 	         done
 	      fi
 	   done
 	fi
-	rm -f /var/lock/subsys/afd.restart
+	rm -f $SYS_LOCKDIR/afd.restart
 	;;
   status|monitor)
 	NOT_RUNNING=""

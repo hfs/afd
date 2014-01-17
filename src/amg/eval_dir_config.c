@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -135,8 +135,6 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-#define LOCALE_DIR 0
-#define REMOTE_DIR 1
 
 /* External global variables. */
 #ifdef _DEBUG
@@ -262,6 +260,9 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                                               /* we supply it so we fool  */
                                               /* the function to do syntax*/
                                               /* checking on the URL.     */
+#ifdef HAVE_HW_CRC32
+                         have_hw_crc32,
+#endif
                          ret,                 /* Return value.            */
                          t_dgc = 0,           /* Total number of          */
                                               /* destination groups found.*/
@@ -285,10 +286,6 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                                               /* for us.                  */
                          *ptr,                /* Main pointer that walks  */
                                               /* through buffer.          */
-                         last_char,           /* Storage for last         */
-                                              /* character in directory   */
-                                              /* name. If that is a /     */
-                                              /* spaces are ignored.      */
                          *tmp_ptr = NULL,     /* */
                          *search_ptr = NULL,  /* Pointer used in          */
                                               /* conjunction with the     */
@@ -402,6 +399,9 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
    {
       dcl = ot_dcl;
    }
+#endif 
+#ifdef HAVE_HW_CRC32
+   have_hw_crc32 = detect_cpu_crc32();
 #endif
 
    /* Initialise variables. */
@@ -419,7 +419,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
       if (onetime == NO)
       {
 #endif
-         system_log(DEBUG_SIGN, NULL, 0, "Reading %s",
+         system_log(INFO_SIGN, NULL, 0, "Reading %s",
                     dcl[dcd].dir_config_file);
 #ifdef WITH_ONETIME
       }
@@ -431,7 +431,7 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
 #endif
 
       /* Read database file and store it into memory. */
-      if ((read_file_no_cr(dcl[dcd].dir_config_file, &database) == INCORRECT) ||
+      if ((read_file_no_cr(dcl[dcd].dir_config_file, &database, __FILE__, __LINE__) == INCORRECT) ||
           (database[0] == '\0'))
       {
          if (database[0] == '\0')
@@ -521,11 +521,9 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
 
          /* Store directory name. */
          i = 0;
-         dir->option[0] = '\0';
-         last_char = '\0';
          while ((*ptr != '\n') && (*ptr != '\0') && (i < (MAX_PATH_LENGTH - 2)))
          {
-            if ((*ptr == '\\') && (*(ptr + 1) == '#'))
+            if ((*ptr == '\\') && ((*(ptr + 1) == '#') || (*(ptr + 1) == ' ')))
             {
                dir->location[i] = *(ptr + 1);
                i++;
@@ -533,92 +531,18 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
             }
             else
             {
-               if (((*ptr == ' ') || (*ptr == '\t')) && (last_char != '/'))
+               if (*ptr == '#')
                {
-                  if (last_char == '\0')
+                  while ((*ptr != '\n') && (*ptr != '\0'))
                   {
-                     char *p_last_char = ptr;
+                     ptr++;
+                  }
 
-                     while ((*p_last_char != '\n') && (*p_last_char != '\0') &&
-                            (*p_last_char != '#'))
-                     {
-                        if (*p_last_char == '\\')
-                        {
-                           p_last_char++;
-                        }
-                        p_last_char++;
-                     }
-                     if (*p_last_char == '#')
-                     {
-                        p_last_char--;
-                        while ((p_last_char > ptr) &&
-                               ((*p_last_char == ' ') ||
-                                (*p_last_char == '\t')))
-                        {
-                           p_last_char--;
-                        }
-                        last_char = *p_last_char;
-                     }
-                     else
-                     {
-                        last_char = *(p_last_char - 1);
-                     }
-                  }
-                  if (last_char == '/')
+                  /* Lets remove all spaces behind the directory name. */
+                  while ((i > 0) && ((dir->location[i - 1] == ' ') ||
+                                     (dir->location[i - 1] == '\t')))
                   {
-                     dir->location[i] = *ptr;
-                     i++; ptr++;
-                  }
-                  else
-                  {
-                     tmp_ptr = ptr;
-                     while ((*tmp_ptr == ' ') || (*tmp_ptr == '\t'))
-                     {
-                        tmp_ptr++;
-                     }
-                     switch (*tmp_ptr)
-                     {
-                        case '#' :  /* Found comment. */
-                           while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
-                           {
-                              tmp_ptr++;
-                           }
-                           ptr = tmp_ptr;
-                           continue;
-                        case '\0':  /* Found end for this entry. */
-                           ptr = tmp_ptr;
-                           continue;
-                        case '\n':  /* End of line reached. */
-                           ptr = tmp_ptr;
-                           continue;
-                        default  :  /* Option goes on. */
-                           ptr = tmp_ptr;
-                           break;
-                     }
-                  }
-               }
-               if ((i > 0) && (last_char != '/') &&
-                   (((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')) &&
-                     ((i < 2) || (*(ptr - 2) != '\\'))))
-               {
-                  int ii = 0;
-
-                  while ((*ptr != '\n') && (*ptr != '\0') &&
-                         (ii < MAX_DIR_OPTION_LENGTH))
-                  {
-                     CHECK_SPACE();
-                     if ((ii > 0) &&
-                         ((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')))
-                     {
-                        dir->option[ii] = ' ';
-                        ii++;
-                     }
-                     dir->option[ii] = *ptr;
-                     ii++; ptr++;
-                  }
-                  if (ii > 0)
-                  {
-                     dir->option[ii] = '\0';
+                     i--;
                   }
                }
                else
@@ -846,12 +770,22 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                             (void)strcpy(dir->location, prev_user_dir);
                             dir->location_length = strlen(dir->location) + 1;
                          }
-                         else
-                         {
-                            (void)sprintf(dir->location, "%s/%s",
-                                          prev_user_dir, directory);
-                            dir->location_length = optimise_dir(dir->location);
-                         }
+                         else if (directory[0] == '/')
+                              {
+                                 (void)strcpy(dir->location, directory);
+                                 dir->location_length = optimise_dir(dir->location);
+                              }
+                              else
+                              {
+#ifdef HAVE_SNPRINTF
+                                 (void)snprintf(dir->location, MAX_PATH_LENGTH,
+#else
+                                 (void)sprintf(dir->location,
+#endif
+                                               "%s/%s",
+                                               prev_user_dir, directory);
+                                 dir->location_length = optimise_dir(dir->location);
+                              }
                       }
                  else if (dir->scheme & HTTP_FLAG)
                       {
@@ -882,6 +816,33 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                          t_hostname(dir->real_hostname, dir->host_alias);
                          (void)strcpy(dir->url, dir->location);
                          (void)strcpy(dir->orig_dir_name, dir->url);
+                         if (create_remote_dir(NULL, user, dir->real_hostname,
+                                               directory, dir->location,
+                                               &dir->location_length) == INCORRECT)
+                         {
+                            continue;
+                         }
+                      }
+                 else if (dir->scheme & EXEC_FLAG)
+                      {
+                         unsigned int crc_val;
+
+                         dir->type = REMOTE_DIR;
+                         dir->protocol = EXEC;
+                         t_hostname(dir->real_hostname, dir->host_alias);
+                         (void)strcpy(dir->url, dir->location);
+                         (void)strcpy(dir->orig_dir_name, dir->url);
+#ifdef HAVE_HW_CRC32
+                         crc_val = get_str_checksum_crc32c(directory, have_hw_crc32);
+#else
+                         crc_val = get_str_checksum_crc32c(directory);
+#endif
+#ifdef HAVE_SNPRINTF
+                         (void)snprintf(directory, MAX_RECIPIENT_LENGTH,
+#else
+                         (void)sprintf(directory,
+#endif
+                                       "%x", crc_val);
                          if (create_remote_dir(NULL, user, dir->real_hostname,
                                                directory, dir->location,
                                                &dir->location_length) == INCORRECT)
@@ -1109,7 +1070,11 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                if (dir->file[dir->fgc].file_group_name[0] == '\0')
                {
                   /* Create a unique file group name. */
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(dir->file[dir->fgc].file_group_name, MAX_GROUP_NAME_LENGTH,
+#else
                   (void)sprintf(dir->file[dir->fgc].file_group_name,
+#endif
                                 "FILE_%d", unique_file_counter);
                   unique_file_counter++;
                }
@@ -1117,7 +1082,11 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
             else /* No file group name defined. */
             {
                /* Create a unique file group name. */
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(dir->file[dir->fgc].file_group_name, MAX_GROUP_NAME_LENGTH,
+#else
                (void)sprintf(dir->file[dir->fgc].file_group_name,
+#endif
                              "FILE_%d", unique_file_counter);
                unique_file_counter++;
             }
@@ -1314,9 +1283,15 @@ eval_dir_config(off_t db_size, unsigned int *warn_counter)
                else /* No destination group name defined. */
                {
                   /* Create a unique destination group name. */
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(dir->file[dir->fgc].\
+                                 dest[dir->file[dir->fgc].dgc].dest_group_name,
+                                 MAX_GROUP_NAME_LENGTH,
+#else
                   (void)sprintf(dir->file[dir->fgc].\
-                                dest[dir->file[dir->fgc].dgc].\
-                                dest_group_name, "DEST_%d", unique_dest_counter);
+                                dest[dir->file[dir->fgc].dgc].dest_group_name,
+#endif
+                                "DEST_%d", unique_dest_counter);
                   unique_dest_counter++;
                }
                ptr++;
@@ -1677,8 +1652,9 @@ check_dummy_line:
                            ptr++;
                         }
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Option at line %d longer then %d, ignoring this option.",
+                                   "Option at line %d in %s longer then %d, ignoring this option.",
                                    count_new_lines(database, ptr),
+                                   dcl[dcd].dir_config_file,
                                    MAX_OPTION_LENGTH);
                         if (warn_counter != NULL)
                         {
@@ -1704,9 +1680,10 @@ check_dummy_line:
                            else
                            {
                               system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Removing option `%s' at line %d",
+                                         "Removing option `%s' at line %d in %s",
                                          dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].options[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc],
-                                         count_new_lines(database, ptr));
+                                         count_new_lines(database, ptr),
+                                         dcl[dcd].dir_config_file);
                               if (warn_counter != NULL)
                               {
                                  (*warn_counter)++;
@@ -1731,8 +1708,9 @@ check_dummy_line:
                   if (dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc >= MAX_NO_OPTIONS)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Exceeded the number of total options (max = %d) at line %d. Ignoring.",
-                                MAX_NO_OPTIONS, count_new_lines(database, ptr));
+                                "Exceeded the number of total options (max = %d) at line %d in %s. Ignoring.",
+                                MAX_NO_OPTIONS, count_new_lines(database, ptr),
+                                dcl[dcd].dir_config_file);
                      if (warn_counter != NULL)
                      {
                         (*warn_counter)++;
@@ -1898,7 +1876,11 @@ check_dummy_line:
                   dd[no_of_local_dirs].in_dc_flag = 0;
                   if (dir->alias[0] == '\0')
                   {
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(dir->alias, MAX_DIR_ALIAS_LENGTH + 1, "%x",
+#else
                      (void)sprintf(dir->alias, "%x",
+#endif
                                    dnb[dd[no_of_local_dirs].dir_pos].dir_id);
                   }
                   else
@@ -1910,7 +1892,12 @@ check_dummy_line:
                      {
                         if (CHECK_STRCMP(dir->alias, dd[j].dir_alias) == 0)
                         {
-                           (void)sprintf(dir->alias, "%x",
+#ifdef HAVE_SNPRINTF
+                           (void)snprintf(dir->alias, MAX_DIR_ALIAS_LENGTH + 1,
+#else
+                           (void)sprintf(dir->alias,
+#endif
+                                         "%x",
                                          dnb[dd[no_of_local_dirs].dir_pos].dir_id);
                            gotcha = YES;
                            system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -1974,8 +1961,7 @@ check_dummy_line:
                   dir->dir_config_id = dcl[dcd].dc_id;
 
                   /* Evaluate the directory options. */
-                  eval_dir_options(no_of_local_dirs, dir->dir_options,
-                                   dir->option);
+                  eval_dir_options(no_of_local_dirs, dir->dir_options);
 
                   /* Now lets check if this directory does exist and if we */
                   /* do have enough permissions to work in this directory. */
@@ -2230,6 +2216,10 @@ check_dummy_line:
          {
             system_log(DEBUG_SIGN, NULL, 0,
                        "Removing unused host %s.", hl[i].host_alias);
+
+            /* Remove any nnn counter files for this host. */
+            remove_nnn_files(get_str_checksum(hl[i].host_alias));
+
             if ((no_of_hosts > 1) && ((i + 1) < no_of_hosts))
             {
                size_t move_size = (no_of_hosts - (i + 1)) * sizeof(struct host_list);
@@ -2659,10 +2649,18 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
    if ((file_no == 0) && (dest_no == 0))
    {
       p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, MAX_PATH_LENGTH, "%s", dir->location) + 1;
+#else
       ptr += sprintf(ptr, "%s", dir->location) + 1;
+#endif
 
       p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, MAX_DIR_ALIAS_LENGTH + 1, "%s", dir->alias) + 1;
+#else
       ptr += sprintf(ptr, "%s", dir->alias) + 1;
+#endif
    }
    else
    {
@@ -2672,7 +2670,11 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
 
    /* Insert file masks. */
    p_ptr[job_no].ptr[NO_OF_FILES_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+   ptr += snprintf(ptr, MAX_INT_LENGTH, "%d", dir->file[file_no].fc) + 1;
+#else
    ptr += sprintf(ptr, "%d", dir->file[file_no].fc) + 1;
+#endif
    p_ptr[job_no].ptr[FILE_PTR_POS] = ptr - p_offset;
    if (dest_no == 0)
    {
@@ -2718,8 +2720,12 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
                               p_loption[k], loption_length[k]) == 0)
             {
                /* Save the local option in shared memory region. */
-               ptr += sprintf(ptr, "%s", dir->file[file_no].
-                              dest[dest_no].options[i]) + 1;
+#ifdef HAVE_SNPRINTF
+               ptr += snprintf(ptr, MAX_OPTION_LENGTH, "%s",
+#else
+               ptr += sprintf(ptr, "%s",
+#endif
+                              dir->file[file_no].dest[dest_no].options[i]) + 1;
                options++;
                options_flag |= loptions_flag[k];
 
@@ -2739,7 +2745,11 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
       if (options > 0)
       {
          ptr++;
+#ifdef HAVE_SNPRINTF
+         offset = snprintf(buffer, MAX_INT_LENGTH, "%d", options) + 1;
+#else
          offset = sprintf(buffer, "%d", options) + 1;
+#endif
 
          /* Now move local options 'offset' bytes forward so we can */
          /* store the no. of local options before the actual data.  */
@@ -2754,7 +2764,11 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
 
          /* Insert local options flag. */
          p_ptr[job_no].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+         ptr += snprintf(ptr, MAX_INT_HEX_LENGTH, "%x", options_flag) + 1;
+#else
          ptr += sprintf(ptr, "%x", options_flag) + 1;
+#endif
       }
       else
       {
@@ -2768,14 +2782,23 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
 
       /* Insert standard options. */
       p_ptr[job_no].ptr[NO_STD_OPTIONS_PTR_POS] = ptr - p_offset;
-      ptr += sprintf(ptr, "%d", dir->file[file_no].dest[dest_no].oc) + 1;
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, MAX_INT_LENGTH, "%d",
+#else
+      ptr += sprintf(ptr, "%d",
+#endif
+                     dir->file[file_no].dest[dest_no].oc) + 1;
       p_ptr[job_no].ptr[STD_OPTIONS_PTR_POS] = ptr - p_offset;
 
       if (dir->file[file_no].dest[dest_no].oc > 0)
       {
          for (i = 0; i < dir->file[file_no].dest[dest_no].oc; i++)
          {
+#ifdef HAVE_SNPRINTF
+            ptr += snprintf(ptr, MAX_OPTION_LENGTH, "%s\n",
+#else
             ptr += sprintf(ptr, "%s\n",
+#endif
                            dir->file[file_no].dest[dest_no].options[i]);
          }
          *(ptr - 1) = '\0';
@@ -2811,19 +2834,38 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
 
    /* Insert recipient. */
    p_ptr[job_no].ptr[RECIPIENT_PTR_POS] = ptr - p_offset;
-   ptr += sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].rec[0].recipient) + 1;
+#ifdef HAVE_SNPRINTF
+   ptr += snprintf(ptr, MAX_RECIPIENT_LENGTH + 1, "%s",
+#else
+   ptr += sprintf(ptr, "%s",
+#endif
+                  dir->file[file_no].dest[dest_no].rec[0].recipient) + 1;
 
    /* Insert scheme. */
    p_ptr[job_no].ptr[SCHEME_PTR_POS] = ptr - p_offset;
-   ptr += sprintf(ptr, "%u", dir->file[file_no].dest[dest_no].rec[0].scheme) + 1;
+#ifdef HAVE_SNPRINTF
+   ptr += snprintf(ptr, MAX_INT_LENGTH, "%u",
+#else
+   ptr += sprintf(ptr, "%u",
+#endif
+                  dir->file[file_no].dest[dest_no].rec[0].scheme) + 1;
 
    /* Insert host alias. */
    p_ptr[job_no].ptr[HOST_ALIAS_PTR_POS] = ptr - p_offset;
-   ptr += sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].rec[0].host_alias) + 1;
+#ifdef HAVE_SNPRINTF
+   ptr += snprintf(ptr, MAX_HOSTNAME_LENGTH + 1, "%s",
+#else
+   ptr += sprintf(ptr, "%s",
+#endif
+                  dir->file[file_no].dest[dest_no].rec[0].host_alias) + 1;
 
    /* Insert DIR_CONFIG ID. */
    p_ptr[job_no].ptr[DIR_CONFIG_ID_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+   ptr += snprintf(ptr, MAX_INT_HEX_LENGTH, "%x", dir->dir_config_id) + 1;
+#else
    ptr += sprintf(ptr, "%x", dir->dir_config_id) + 1;
+#endif
 
    /* Increase job number. */
    job_no++;
@@ -2859,13 +2901,25 @@ copy_job(int file_no, int dest_no, struct dir_group *dir)
 
       (void)memcpy(&p_ptr[job_no], &p_ptr[job_no - i], sizeof(struct p_array));
       p_ptr[job_no].ptr[RECIPIENT_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, MAX_RECIPIENT_LENGTH + 1, "%s",
+#else
       ptr += sprintf(ptr, "%s",
+#endif
                      dir->file[file_no].dest[dest_no].rec[i].recipient) + 1;
       p_ptr[job_no].ptr[SCHEME_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, MAX_INT_LENGTH, "%u",
+#else
       ptr += sprintf(ptr, "%u",
+#endif
                      dir->file[file_no].dest[dest_no].rec[i].scheme) + 1;
       p_ptr[job_no].ptr[HOST_ALIAS_PTR_POS] = ptr - p_offset;
+#ifdef HAVE_SNPRINTF
+      ptr += snprintf(ptr, MAX_HOSTNAME_LENGTH + 1, "%s",
+#else
       ptr += sprintf(ptr, "%s",
+#endif
                      dir->file[file_no].dest[dest_no].rec[i].host_alias) + 1;
 
       /* Increase job number. */
@@ -3060,14 +3114,23 @@ copy_to_file(void)
 #ifdef WITH_ONETIME
      if (onetime == YES)
      {
-         ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file, "%s%s%s.%u",
-                                           p_work_dir, AFD_MSG_DIR,
+# ifdef HAVE_SNPRINTF
+         ptr = tmp_amg_data_file + snprintf(tmp_amg_data_file, MAX_PATH_LENGTH,
+# else
+         ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file,
+# endif
+                                           "%s%s%s.%u", p_work_dir, AFD_MSG_DIR,
                                            AMG_ONETIME_DATA_FILE, onetime_jid);
      }
      else
      {
 #endif
-         ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file, "%s%s%s",
+#ifdef HAVE_SNPRINTF
+         ptr = tmp_amg_data_file + snprintf(tmp_amg_data_file, MAX_PATH_LENGTH,
+#else
+         ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file,
+#endif
+                                           "%s%s%s",
                                            p_work_dir, FIFO_DIR, AMG_DATA_FILE);
 #ifdef WITH_ONETIME
      }

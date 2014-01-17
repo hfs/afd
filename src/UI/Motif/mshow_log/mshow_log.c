@@ -473,8 +473,6 @@ main(int argc, char *argv[])
       argcount++;
       XtSetArg(args[argcount], XmNlabelString,      label);
       argcount++;
-      XtSetArg(args[argcount], XmNfontList,         fontlist);
-      argcount++;
       XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
       argcount++;
       XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
@@ -485,6 +483,11 @@ main(int argc, char *argv[])
                                          args, argcount);
       XtManageChild(option_menu_w);
       XmStringFree(label);
+
+      argcount = 0;
+      XtSetArg(args[argcount], XmNfontList,         fontlist);
+      argcount++;
+      XtSetValues(XmOptionLabelGadget(option_menu_w), args, argcount);
 
       /* Add all possible buttons. */
       argcount = 0;
@@ -652,8 +655,6 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNlabelString,      label);
    argcount++;
-   XtSetArg(args[argcount], XmNfontList,         fontlist);
-   argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
@@ -664,6 +665,11 @@ main(int argc, char *argv[])
                                       args, argcount);
    XtManageChild(option_menu_w);
    XmStringFree(label);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNfontList,         fontlist);
+   argcount++;
+   XtSetValues(XmOptionLabelGadget(option_menu_w), args, argcount);
 
    /* Add all possible buttons. */
    for (i = 0; i < (max_log_number + 1); i++)
@@ -1106,7 +1112,7 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 

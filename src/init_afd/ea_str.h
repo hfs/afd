@@ -83,6 +83,10 @@ static const char *eastr[] = /* Event action string. */
                      "Changed information",             /* 58 */
                      "Enable create source dir",        /* 59 */
                      "Disable create source dir",       /* 60 */
+                     "Info time set",                   /* 61 */
+                     "Info time unset",                 /* 62 */
+                     "Exec info action start",          /* 63 */
+                     "Exec info action stop",           /* 64 */
                   };
 
 /* NOTE: If the maximum length changes, don't forget to change */

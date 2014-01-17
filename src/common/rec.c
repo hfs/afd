@@ -1,6 +1,6 @@
 /*
  *  rec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,9 +50,6 @@ DESCR__E_M3
 #include <stdio.h>                    /* vsprintf(), sprintf()           */
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), strftime(), localtime() */
-#if defined (TM_IN_SYS_TIME) && defined (_OLD_REC)
-# include <sys/time.h>
-#endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #include <errno.h>
@@ -66,15 +63,9 @@ rec(int fd, char *sign, char *fmt, ...)
    time_t    tvalue;
    char      buf[MAX_LINE_LENGTH + 1];
    va_list   ap;
-#ifndef _OLD_REC
    struct tm *p_ts;
-#endif
 
    tvalue = time(NULL);
-#ifdef _OLD_REC
-   length = strftime(buf, MAX_LINE_LENGTH, "%d %X ", localtime(&tvalue));
-   length += sprintf(&buf[length], "%s ", sign);
-#else
    p_ts    = localtime(&tvalue);
    buf[0]  = (p_ts->tm_mday / 10) + '0';
    buf[1]  = (p_ts->tm_mday % 10) + '0';
@@ -93,7 +84,6 @@ rec(int fd, char *sign, char *fmt, ...)
    buf[14] = sign[2];
    buf[15] = ' ';
    length = 16;
-#endif
 
    va_start(ap, fmt);
 #ifdef HAVE_VSNPRINTF

@@ -1,6 +1,6 @@
 /*
  *  mapper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -113,7 +113,7 @@ main(int argc, char *argv[])
                   *shmptr,
                   strtype[2],
                   strsize[15],
-                  strshmid[15],
+                  strshmid[16],
                   filename[MAX_PATH_LENGTH],
                   fifoname[MAX_PATH_LENGTH],
                   work_dir[MAX_PATH_LENGTH],
@@ -304,7 +304,11 @@ main(int argc, char *argv[])
                              (void)fprintf(stderr, "MAPPER    : Filesize (%d) to large, changed to %d\n", size, MAX_ALLOWED_SHM_SIZE);
                              size = MAX_ALLOWED_SHM_SIZE - MAX_PATH_LENGTH;
                           }
+#ifdef HAVE_SNPRINTF
+                          (void)snprintf(strsize, 15, "%d", size);
+#else
                           (void)sprintf(strsize, "%d", size);
+#endif
 
                           /* Prepare shared memory region */
                           if ((shmid = shmget(IPC_PRIVATE, (size + MAX_PATH_LENGTH), SHM_MODE)) < 0)
@@ -321,7 +325,12 @@ main(int argc, char *argv[])
                           }
 
                           /* Write filename into the attached area */
-                          (void)sprintf(shmptr, "%s\n", filename);
+#ifdef HAVE_SNPRINTF
+                          (void)snprintf(shmptr, size + MAX_PATH_LENGTH,
+#else
+                          (void)sprintf(shmptr,
+#endif
+                                        "%s\n", filename);
 
                           /* Add region to table */
                           if (count == MAX_MAPPED_REGIONS)
@@ -378,7 +387,11 @@ main(int argc, char *argv[])
                        }
 
                        /* return shmid to calling process */
+#ifdef HAVE_SNPRINTF
+                       (void)snprintf(strshmid, 15, "%d\n", shmid);
+#else
                        (void)sprintf(strshmid, "%d\n", shmid);
+#endif
                        shmid_length = strlen((char *) strshmid);
                        if (write(write_fd, strshmid, shmid_length) != shmid_length)
                        {

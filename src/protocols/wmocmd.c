@@ -1,6 +1,6 @@
 /*
  *  wmocmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -75,6 +75,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "wmodefs.h"
 #include "fddefs.h"           /* struct job                              */
+#include "commondefs.h"
 
 
 /* External global variables. */
@@ -106,8 +107,8 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
 #ifdef FTX
    struct linger   l;
 #endif
-#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
    int             reply;
+#if defined (HAVE_GETADDRINFO) && defined (HAVE_GAI_STRERROR)
    char            str_port[MAX_INT_LENGTH];
    struct addrinfo hints,
                    *result,
@@ -118,7 +119,11 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
    hints.ai_socktype = SOCK_STREAM;
 /* ???   hints.ai_flags = AI_CANONNAME; */
 
+# ifdef HAVE_SNPRINTF
+   (void)snprintf(str_port, MAX_INT_LENGTH, "%d", port);
+# else
    (void)sprintf(str_port, "%d", port);
+# endif
    reply = getaddrinfo(hostname, str_port, &hints, &result);
    if (reply != 0)
    {
@@ -140,7 +145,12 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
                                rp->ai_protocol)) == -1)
       {
 # ifdef WITH_TRACE
-         length = sprintf(line, _("socket() error : %s"), strerror(errno));
+#  ifdef HAVE_SNPRINTF
+         length = snprintf(line, MAX_RET_MSG_LENGTH,
+#  else
+         length = sprintf(line,
+#  endif
+                          _("socket() error : %s"), strerror(errno));
          trace_log(NULL, 0, C_TRACE, line, length, NULL);
 # endif
          continue;
@@ -180,15 +190,31 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       }
 # endif
 
-      if (connect(wmo_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      reply = connect_with_timeout(wmo_fd, rp->ai_addr, rp->ai_addrlen);
+      if (reply == INCORRECT)
       {
+         if (errno != 0)
+         {
 # ifdef WITH_TRACE
-         length = sprintf(line, _("connect() error : %s"), strerror(errno));
-         trace_log(NULL, 0, C_TRACE, line, length, NULL);
+#  ifdef HAVE_SNPRINTF
+            length = snprintf(line, MAX_RET_MSG_LENGTH,
+#  else
+            length = sprintf(line,
+#  endif
+                             _("connect() error : %s"), strerror(errno));
+            trace_log(NULL, 0, C_TRACE, line, length, NULL);
 # endif
+         }
          (void)close(wmo_fd);
          continue;
       }
+      else if (reply == PERMANENT_INCORRECT)
+           {
+              (void)close(wmo_fd);
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                       _("Failed to connect() to %s"), hostname);
+              return(INCORRECT);
+           }
 
       break; /* Success */
    }
@@ -196,8 +222,17 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
    /* Ensure that we succeeded in finding an address. */
    if (rp == NULL)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
-                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      if (errno)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("Failed to connect() to %s : %s"),
+                   hostname, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                   _("Failed to connect() to %s"), hostname);
+      }
       return(INCORRECT);
    }
 
@@ -283,7 +318,8 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
    }
 # endif
 
-   while (connect(wmo_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
+   while ((reply = connect_with_timeout(wmo_fd, (struct sockaddr *) &sin,
+                                        sizeof(sin))) == INCORRECT)
    {
       loop_counter++;
 
@@ -310,28 +346,37 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
       }
       else
       {
-# ifdef ETIMEDOUT
-         if (errno == ETIMEDOUT)
+         if (errno)
          {
-            timeout_flag = ON;
-         }
+# ifdef ETIMEDOUT
+            if (errno == ETIMEDOUT)
+            {
+               timeout_flag = ON;
+            }
 #  ifdef ECONNREFUSED
-         else if (errno == ECONNREFUSED)
-              {
-                 timeout_flag = CON_REFUSED;
-              }
+            else if (errno == ECONNREFUSED)
+                 {
+                    timeout_flag = CON_REFUSED;
+                 }
 #  endif
 # else
 #  ifdef ECONNREFUSED
-         if (errno == ECONNREFUSED)
-         {
-            timeout_flag = CON_REFUSED;
-         }
+            if (errno == ECONNREFUSED)
+            {
+               timeout_flag = CON_REFUSED;
+            }
 #  endif
 # endif
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
-                   _("Failed to connect() to %s, have tried %d times : %s"),
-                   hostname, loop_counter, strerror(errno));
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("Failed to connect() to %s, have tried %d times : %s"),
+                      hostname, loop_counter, strerror(errno));
+         }
+         else
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                      _("Failed to connect() to %s, have tried %d times"),
+                      hostname, loop_counter);
+         }
          (void)close(wmo_fd);
          wmo_fd = -1;
          return(INCORRECT);
@@ -349,15 +394,33 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
          return(INCORRECT);
       }
    }
+   if (reply == PERMANENT_INCORRECT)
+   {
+      (void)close(wmo_fd);
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "wmo_connect", NULL,
+                _("Failed to connect() to %s"), hostname);
+      wmo_fd = -1;
+      return(INCORRECT);
+   }
 # ifdef WITH_TRACE
    if (loop_counter)
    {
-      length = sprintf(line, _("Connected to %s after %d tries"),
+# ifdef HAVE_SNPRINTF
+      length = snprintf(line, MAX_RET_MSG_LENGTH
+# else
+      length = sprintf(line,
+# endif
+                       _("Connected to %s after %d tries"),
                        hostname, loop_counter);
    }
    else
    {
-      length = sprintf(line, _("Connected to %s"), hostname);
+# ifdef HAVE_SNPRINTF
+      length = snprintf(line, MAX_RET_MSG_LENGTH,
+# else
+      length = sprintf(line,
+# endif
+                       _("Connected to %s"), hostname);
    }
    trace_log(NULL, 0, C_TRACE, line, length, NULL);
 # endif
@@ -450,7 +513,7 @@ wmo_check_reply(void)
    int  n = 0;
    char buffer[10];
 
-   if ((n = readn(wmo_fd, buffer, 10)) == 10)
+   if ((n = readn(wmo_fd, buffer, 10, transfer_timeout)) == 10)
    {
       if ((buffer[0] == '0') && (buffer[1] == '0') &&
           (buffer[2] == '0') && (buffer[3] == '0') &&
@@ -482,11 +545,18 @@ wmo_check_reply(void)
             if (*ptr < ' ')
             {
                /* Yuck! Not printable. */
+# ifdef HAVE_SNPRINTF
+               line_length += snprintf(&line[line_length],
+                                       10 + 40 - line_length,
+# else
+               line_length += sprintf(&line[line_length],
+# endif
 #ifdef _SHOW_HEX
-               line_length += sprintf(&line[line_length], "<%x>", (int)*ptr);
+                                      "<%x>",
 #else
-               line_length += sprintf(&line[line_length], "<%d>", (int)*ptr);
+                                      "<%d>",
 #endif
+                                      (int)*ptr);
             }
             else
             {

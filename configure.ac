@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.59])
-AC_INIT([afd], [1.4.5-4], [Holger.Kiehl@dwd.de])
+AC_INIT([afd], [1.4.6-1], [Holger.Kiehl@dwd.de])
 AC_CONFIG_SRCDIR(src/init_afd/afd.c)
 AC_CONFIG_AUX_DIR(ac-tools)
 dnl# AC_PREFIX_DEFAULT("/usr/local/afd")
@@ -8,6 +8,7 @@ dnl# [no-dependencies dist-bzip2]
 AM_INIT_AUTOMAKE([dist-bzip2])
 AM_CONFIG_HEADER(config.h:ac-tools/config.h.in)
 AC_GNU_SOURCE
+AM_SILENT_RULES([yes])
 
 REQUIRES=""
 BUILD_REQUIRES=""
@@ -76,6 +77,11 @@ AC_ARG_ENABLE(sse42,
    [  --disable-sse42                 disable SSE4.2 optimizations],
    [ac_cv_allow_sse42="no"],
    [ac_cv_allow_sse42="yes"])
+
+AC_ARG_ENABLE(inotify,
+   [  --disable-inotify               disable inotify support],
+   [ac_cv_allow_inotify="no"],
+   [ac_cv_allow_inotify="yes"])
 
 AC_ARG_ENABLE(new_motif_name,
    [  --disable-new_motif_name        when motif is required sets package name to openmotif],
@@ -493,6 +499,50 @@ case $enable_distro_rpm in
 esac                         
 AC_SUBST(DISTRO_STYLE_RPMS)
 
+dnl
+dnl *** some numeric configurable values
+dnl
+AC_ARG_WITH(max-no-of-parallel-jobs,
+            AS_HELP_STRING([--with-max-no-of-parallel-jobs=N],
+                           [max number of parallel transfers per host (default=5)]),
+            , with_max_no_of_parallel_jobs=5)
+AC_DEFINE_UNQUOTED([MAX_NO_PARALLEL_JOBS], [$with_max_no_of_parallel_jobs], [
+  The value of MAX_NO_PARALLEL_JOBS determines the number of parallel
+  transfers per host. The default is 5, which should be enough in most
+  cases. However, on some long distance lines or lines with high latencies
+  it might be necessary to increase this value.])
+AC_ARG_WITH(default-no-of-parallel-jobs,
+            AS_HELP_STRING([--with-default-no-of-parallel-jobs=N],
+                           [default number of parallel transfers per host (default=2)]),
+            , with_def_no_of_parallel_jobs=2)
+AC_DEFINE_UNQUOTED([DEFAULT_NO_PARALLEL_JOBS], [$with_def_no_of_parallel_jobs], [
+  The value of DEFAULT_NO_PARALLEL_JOBS determines the default number of
+  parallel transfers per host. The default is 2.])
+AC_ARG_WITH(default-archive-unit,
+            AS_HELP_STRING([--with-default-archive-unit=N],
+                           [default archive unit in seconds (default=86400)]),
+            , with_default_archive_unit=86400)
+AC_DEFINE_UNQUOTED([DEFAULT_ARCHIVE_UNIT], [$with_default_archive_unit], [
+  The value of DEFAULT_ARCHIVE_UNIT determines the default archive unit
+  in seconds. Best is to leave this at it default for one day (86400 seconds).])
+
+AC_ARG_WITH(max-hostname-length,
+            AS_HELP_STRING([--with-max-hostname-length=N],
+                           [maximum host alias name length (default=8)]),
+            , with_max_hostname_length=8)
+AC_DEFINE_UNQUOTED([MAX_HOSTNAME_LENGTH], [$with_max_hostname_length], [
+  The value of MAX_HOSTNAME_LENGTH determines how long the host alias
+  name length in the afd_ctrl dialog may be.])
+AC_ARG_WITH(max-dir-alias-length,
+            AS_HELP_STRING([--with-max-dir-alias-length=N],
+                           [maximum directory alias name length (default=10)]),
+            , with_max_dir_alias_length=10)
+AC_DEFINE_UNQUOTED([MAX_DIR_ALIAS_LENGTH], [$with_max_dir_alias_length], [
+  The value of MAX_DIR_ALIAS_LENGTH determines how long the directory alias
+  name length in the dir_ctrl dialog may be.])
+
+
+
 dnl **** check where init/rc directory is, taken from heartbeat
 AC_MSG_CHECKING(which init (rc) directory to use)
 INITDIR=""
@@ -693,9 +743,9 @@ if test "${compiler_security}" = "true"
 then
    if test "x${GCC}" = "xyes"
    then
-      AX_CHECK_COMPILER_FLAGS("-fstack-protector", [SECURITY_FLAG="${SECURITY_FLAG} -fstack-protector"], [SECURITY_FLAG="${SECURITY_FLAG}"])
-      AX_CHECK_COMPILER_FLAGS("-pie", [SECURITY_FLAG="${SECURITY_FLAG} -pie"], [SECURITY_FLAG="${SECURITY_FLAG}"])
-      AX_CHECK_COMPILER_FLAGS("-fPIC", [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+      AX_CHECK_COMPILE_FLAG("-fstack-protector", [SECURITY_FLAG="${SECURITY_FLAG} -fstack-protector"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+      AX_CHECK_COMPILE_FLAG("-pie", [SECURITY_FLAG="${SECURITY_FLAG} -pie"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+      AX_CHECK_COMPILE_FLAG("-fPIC", [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
    fi
 fi
 
@@ -720,14 +770,14 @@ else
    then
       if test "${use_fortify}" = "true"
       then
-         AX_CHECK_COMPILER_FLAGS("-D_FORTIFY_SOURCE=2", [SECURITY_FLAG="-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG=""])
+         AX_CHECK_COMPILE_FLAG("-D_FORTIFY_SOURCE=2", [SECURITY_FLAG="-D_FORTIFY_SOURCE=2"], [SECURITY_FLAG=""])
       fi
    fi
 fi
 
 if test "x${GCC}" = "xyes"
 then
-   AX_CHECK_COMPILER_FLAGS("-fPIC", [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
+   AX_CHECK_COMPILE_FLAG("-fPIC", [SECURITY_FLAG="${SECURITY_FLAG} -fPIC"], [SECURITY_FLAG="${SECURITY_FLAG}"])
 fi
 
 if test "${compiler_optimizations}" = "true" || test "${compiler_debug}" = "true"
@@ -750,9 +800,9 @@ if test "$ac_cv_allow_sse42" = "yes"
 then
    if test "x${GCC}" = "xyes"
    then
-      AX_CHECK_COMPILER_FLAGS("-msse4.2",
-                              [CRCFLAGS="-msse4.2"],
-                              [CRCFLAGS=""])
+      AX_CHECK_COMPILE_FLAG("-msse4.2",
+                            [CRCFLAGS="-msse4.2"],
+                            [CRCFLAGS=""])
       if test "x$CRCFLAGS" != "x"
       then
          SAVE_CFLAGS="$CFLAGS"
@@ -760,8 +810,9 @@ then
 
          AC_MSG_CHECKING([whether the compiler has the __get_cpuid intrinsic])
          AC_TRY_COMPILE([#include <cpuid.h>],
-                        [unsigned int eax, ebx, ecx, edx;
-                         __get_cpuid(1, &eax, &ebx, &ecx, &edx); return 0;],
+                        [unsigned int eax, ebx, ecx, edx, i;
+                         __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+                         i = ecx & bit_SSE4_2; return 0;],
                          HAVE_GET_CPUID=yes, HAVE_GET_CPUID=no)
          if test "x$HAVE_GET_CPUID" = "xyes"
          then
@@ -813,10 +864,8 @@ then
    AC_SYS_LARGEFILE
 fi
 
-dnl EXTRA_SOCKET_LIBS=""
-dnl AC_CHECK_LIB(socket, socket, EXTRA_SOCKET_LIBS="-lsocket ")
-dnl AC_CHECK_LIB(nsl, gethostbyname, EXTRA_SOCKET_LIBS="$EXTRA_SOCKET_LIBS -lnsl ")
-dnl AC_SUBST(EXTRA_SOCKET_LIBS)
+AC_CHECK_LIB(m, sin, [AFD_MATH_LIB="-lm"], [AFD_MATH_LIB=""],)
+AC_SUBST(AFD_MATH_LIB)
 ETR_SOCKET_NSL
 
 if test "x${with_ssl}" = "xyes"
@@ -1034,8 +1083,6 @@ then
    AC_SUBST(AFD_MOTIF_LIBS)
    AC_SUBST(AFD_XAW_INCLUDES)
    AC_SUBST(AFD_XAW_LIBS)
-   AC_CHECK_LIB(m, sin, [AFD_MATH_LIB="-lm"], [AFD_MATH_LIB=""],)
-   AC_SUBST(AFD_MATH_LIB)
 else
    AM_CONDITIONAL(WITH_XPM, false)
    compile_with_motif=false
@@ -1189,6 +1236,7 @@ AC_CHECK_SIZEOF(time_t)
 AC_CHECK_SIZEOF(nlink_t)
 AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(ssize_t)
+AC_CHECK_SIZEOF(suseconds_t)
 AC_CHECK_SIZEOF(ino_t)
 AC_CHECK_SIZEOF(uid_t)
 AC_CHECK_SIZEOF(short)
@@ -1240,6 +1288,15 @@ else
    AFD_UTIL_LIB=""
 fi
 AC_SUBST(AFD_UTIL_LIB)
+if test "x$ac_cv_allow_inotify" = "xyes"
+then
+   AC_CHECK_FUNC([inotify_init],
+                 [AM_CONDITIONAL(WITH_INOTIFY_SUPPORT, true)
+                  AC_DEFINE([WITH_INOTIFY], [], [With inotify support])],
+                 [AM_CONDITIONAL(WITH_INOTIFY_SUPPORT, false)])
+else
+   AM_CONDITIONAL(WITH_INOTIFY_SUPPORT, false)
+fi
 AC_CHECK_FUNC([eaccess],
               [AM_CONDITIONAL(HAVE_EACCESS, true)
                AC_DEFINE([HAVE_EACCESS], [], [With eaccess support])],
@@ -1317,6 +1374,10 @@ doc/html-en/Makefile
 doc/images/Makefile
 doc/man/Makefile
 doc/txt/Makefile
+doc/etc/Makefile
+doc/etc/AFD_CONFIG.sample
+doc/etc/MON_CONFIG.sample
+doc/etc/afd.users.sample
 scripts/Makefile
 scripts/afd
 scripts/afdmon
@@ -1328,10 +1389,6 @@ scripts/rafdd_cmd
 scripts/rafdd_cmd_ssh
 scripts/rmon_ctrl
 scripts/rmon_ctrl_ssh
-etc/Makefile
-etc/AFD_CONFIG.sample
-etc/MON_CONFIG.sample
-etc/afd.users.sample
 afd.spec])
 AC_OUTPUT
 
@@ -1339,33 +1396,38 @@ AC_OUTPUT
 echo ""
 echo "                          Configuration"
 echo ""
-echo "      Source code location           : ${srcdir}"
-echo "      Install path bin + sbin        : ${prefix}/bin ${prefix}/sbin"
-echo "      Install path doc               : ${docdir}"
-echo "      Install path man               : ${mandir}"
-echo "      AFD Version                    : ${VERSION}"
-echo "      Compiler                       : ${CC}"
-echo "      Compiler flags                 : ${CFLAGS}"
-echo "      GUI                            : ${GUIS_STRING}"
+echo "    Source code location             : ${srcdir}"
+echo "    Install path bin + sbin          : ${prefix}/bin ${prefix}/sbin"
+echo "    Install path doc                 : ${docdir}"
+echo "    Install path man                 : ${mandir}"
+echo "    AFD Version                      : ${VERSION}"
+echo "    Compiler                         : ${CC}"
+echo "    Compiler flags                   : ${CFLAGS}"
+echo "    GUI                              : ${GUIS_STRING}"
 if test "x${ac_cv_with_afdbench_settings}" = "xyes"
 then
-   echo "      Settings for afdbench enabled  : yes"
+   echo "    Settings for afdbench enabled    : yes"
 fi
 if test "x${with_ssl}" = "xyes"
 then
-   echo "      With TLS/SSL support           : yes"
+   echo "    With TLS/SSL support             : yes"
 else
-   echo "      With TLS/SSL support           : no"
+   echo "    With TLS/SSL support             : no"
 fi
-echo "      Logs                           : ${ac_cv_input_log}${ac_cv_distribution_log}${ac_cv_output_log}${ac_cv_delete_log}${ac_cv_production_log}${ac_cv_alda_cache}"
-echo "      Error queue support            : ${ac_cv_error_queue}"
-echo "      With AFD monitor               : ${ac_cv_afd_mon}"
-echo "      With duplicate check support   : ${ac_cv_dupcheck_support}"
-echo "      Protocols supported            : ${ac_cv_ftp_support}${ac_cv_sftp_support}${ac_cv_smtp_support}${ac_cv_http_support}${ac_cv_wmo_support}${ac_cv_loc_support}${ac_cv_fd_exec_support}${ac_cv_scp_support}"
-echo "      With server support            : ${ac_cv_server_support}"
-echo "      With largefile support         : ${ac_cv_largefile}"
-echo "      Some binaries with setuid flag : ${ac_cv_setuid_progs}"
-echo "      Automatically create configs   : ${ac_cv_auto_create_config}"
-echo "      Enable Distro-style RPMs       : ${enable_distro_rpm}"
+echo "    Logs                             : ${ac_cv_input_log}${ac_cv_distribution_log}${ac_cv_output_log}${ac_cv_delete_log}${ac_cv_production_log}${ac_cv_alda_cache}"
+echo "    Error queue support              : ${ac_cv_error_queue}"
+echo "    With AFD monitor                 : ${ac_cv_afd_mon}"
+echo "    With duplicate check support     : ${ac_cv_dupcheck_support}"
+echo "    Protocols supported              : ${ac_cv_ftp_support}${ac_cv_sftp_support}${ac_cv_smtp_support}${ac_cv_http_support}${ac_cv_wmo_support}${ac_cv_loc_support}${ac_cv_fd_exec_support}${ac_cv_scp_support}"
+echo "    With server support              : ${ac_cv_server_support}"
+echo "    With largefile support           : ${ac_cv_largefile}"
+echo "    With inotify support             : ${ac_cv_allow_inotify}"
+echo "    Max number of parallel transfers : ${with_max_no_of_parallel_jobs}"
+echo "    Def number of parallel transfers : ${with_def_no_of_parallel_jobs}"
+echo "    Maximum host alias name length   : ${with_max_hostname_length}"
+echo "    Max directory alias name length  : ${with_max_dir_alias_length}"
+echo "    Some binaries with setuid flag   : ${ac_cv_setuid_progs}"
+echo "    Automatically create configs     : ${ac_cv_auto_create_config}"
+echo "    Enable Distro-style RPMs         : ${enable_distro_rpm}"
 echo ""
 echo "------------- type make to compile -------------"

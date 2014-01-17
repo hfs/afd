@@ -1,6 +1,6 @@
 /*
  *  sf_wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2014 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -87,7 +87,8 @@ DESCR__E_M1
 
 /* Global variables. */
 unsigned int               special_flag = 0;
-int                        counter_fd = -1,     /* NOT USED. */
+int                        amg_flag = NO,
+                           counter_fd = -1,     /* NOT USED. */
                            event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,     /* NOT USED. */
@@ -111,8 +112,8 @@ int                        counter_fd = -1,     /* NOT USED. */
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO,
-                           timeout_flag;
+                           timeout_flag,
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -719,7 +720,8 @@ main(int argc, char *argv[])
                if ((ret = wmo_check_reply()) == INCORRECT)
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                            "Failed to receive reply from port %d.", db.port);
+                            "Failed to receive reply from port %d for file %s.",
+                            db.port, p_file_name_buffer);
                   wmo_quit();
                   exit(eval_timeout(CHECK_REPLY_ERROR));
                }
@@ -1221,7 +1223,7 @@ sf_wmo_exit(void)
                                burst_2_counter);
               }
 #endif /* _WITH_BURST_2 */
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x", buffer, db.job_id);
       }
       reset_fsa((struct job *)&db, exitflag, 0, 0);
    }

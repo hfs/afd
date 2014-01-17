@@ -1,6 +1,6 @@
 /*
  *  trans_db_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -153,11 +153,18 @@ main(int argc, char *argv[])
 
    get_log_number(&log_number, (max_trans_db_log_files - 1),
                   TRANS_DB_LOG_NAME, TRANS_DB_LOG_NAME_LENGTH, NULL);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(current_log_file, MAX_PATH_LENGTH, "%s%s/%s0",
+#else
    (void)sprintf(current_log_file, "%s%s/%s0",
+#endif
                  p_work_dir, LOG_DIR, TRANS_DB_LOG_NAME);
-   p_end = log_file;
-   p_end += sprintf(log_file, "%s%s/%s",
-                    p_work_dir, LOG_DIR, TRANS_DB_LOG_NAME);
+#ifdef HAVE_SNPRINTF
+   p_end = log_file + snprintf(log_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   p_end = log_file + sprintf(log_file, "%s%s/%s",
+#endif
+                              p_work_dir, LOG_DIR, TRANS_DB_LOG_NAME);
 
    /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)

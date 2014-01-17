@@ -1,6 +1,6 @@
 /*
  *  show_dlog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -113,13 +113,13 @@ struct info_data
           int                count;   /* Counts number of dbe entries. */
           int                offset;  /* If this is zero then we have  */
                                       /* the old log style.            */
-          char               dir[MAX_PATH_LENGTH];
+          unsigned char      dir[MAX_PATH_LENGTH];
           char               dir_id_str[MAX_DIR_ALIAS_LENGTH + 1];
-          char               file_name[MAX_FILENAME_LENGTH];
+          unsigned char      file_name[MAX_FILENAME_LENGTH];
           char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char               proc_user[MAX_PROC_USER_LENGTH + 1];
-          char               reason_str[MAX_DELETE_REASON_LENGTH + 1];
-          char               extra_reason[MAX_PATH_LENGTH + 1];
+          unsigned char      reason_str[MAX_DELETE_REASON_LENGTH + 1];
+          unsigned char      extra_reason[MAX_PATH_LENGTH + 1];
           struct dir_options d_o;
           struct db_entry    *dbe;
        };
@@ -200,6 +200,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int, off_t),
             format_input_info(char **),
             format_output_info(char **),
             get_info(int),
+            get_info_free(void),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),

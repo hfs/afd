@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -209,7 +209,6 @@ check_fra_fd(void)
          {
             register int k;
             int          dirs_to_remove = 0,
-                         gotcha,
                          pos;
 
             for (i = 0; i < no_of_retrieves; i++)
@@ -221,9 +220,13 @@ check_fra_fd(void)
 
                   if ((ord[i].stupid_mode != YES) && (ord[i].remove == NO))
                   {
-                     (void)sprintf(fullname, "%s%s%s%s/%s", p_work_dir,
-                                   AFD_FILE_DIR, INCOMING_DIR, LS_DATA_DIR,
-                                   ord[i].dir_alias);
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s%s/%s",
+#else
+                     (void)sprintf(fullname, "%s%s%s%s/%s",
+#endif
+                                   p_work_dir, AFD_FILE_DIR, INCOMING_DIR,
+                                   LS_DATA_DIR, ord[i].dir_alias);
                      if (unlink(fullname) == -1)
                      {
                         if (errno != ENOENT)
@@ -429,33 +432,6 @@ check_fra_fd(void)
                      }
                   }
                } /* for (i = 0; i < no_of_retrieves; i++) */
-            }
-
-            /* Lets check if all queued flags in FRA are accounted for. */
-            for (i = 0; i < no_of_dirs; i++)
-            {
-               if ((fra[i].queued > 0) && (fra[i].host_alias[0] != '\0'))
-               {
-                  gotcha = NO;
-                  for (j = 0; j < no_remote_queued; j++)
-                  {
-                     for (k = 0; k < fsa[fra[i].fsa_pos].allowed_transfers; k++)
-                     {
-                        if (fsa[fra[i].fsa_pos].job_status[k].proc_id == qb[rql[j].qb_pos].pid)
-                        {
-                           gotcha = YES;
-                           break;
-                        }
-                     }
-                  }
-                  if (gotcha == NO)
-                  {
-                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                "Queued flag for `%s' is set but there is no job in the queue. Correcting.",
-                                fra[i].dir_alias);
-                     fra[i].queued = 0;
-                  }
-               }
             }
          }
          if (rql != NULL)

@@ -1,6 +1,6 @@
 /*
  *  get_max_log_values.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,10 +68,14 @@ get_max_log_values(int   *max_log_file_number,
    char *buffer,
         config_file[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(config_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
    (void)sprintf(config_file, "%s%s%s",
+#endif
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_OFF_T_LENGTH];
 
@@ -102,6 +106,16 @@ get_max_log_values(int   *max_log_file_number,
             if ((*max_log_file_size = (off_t)strtoul(value, NULL, 10)) != ULONG_MAX)
 #endif
             {
+               if (*max_log_file_size < 1024)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             _("Incorrect value (%d, must be more then 1024) set in AFD_CONFIG for %s. Setting to default %d."),
+                             *max_log_file_number, max_number_def, default_number);
+                  *max_log_file_size = default_size;
+               }
+            }
+            else
+            {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
                           _("Value to large for %s, setting default size %ld"),
@@ -110,16 +124,6 @@ get_max_log_values(int   *max_log_file_number,
 #endif
                           max_size_def, (pri_off_t)default_size);
                *max_log_file_size = default_size;
-            }
-            else
-            {
-               if (*max_log_file_size < 1024)
-               {
-                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             _("Incorrect value (%d, must be more then 1024) set in AFD_CONFIG for %s. Setting to default %d."),
-                             *max_log_file_number, max_number_def, default_number);
-                  *max_log_file_size = default_size;
-               }
             }
          }
       }

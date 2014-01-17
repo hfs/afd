@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2009 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ else
    EXTRA_DUPCHECK =
 endif
 
-INCLUDES                     = -I.. -I../init_afd -I../amg -I../fd\
+AM_CPPFLAGS                  = -I.. -I../init_afd -I../amg -I../fd\
                                -I../statistics -I../log
 bin_PROGRAMS                 = afdcmd afdcfg afd_hex_print afd_status\
                                fsa_edit fsa_view fra_edit fra_view\
@@ -88,7 +88,7 @@ file_mask_list_spy_LDADD     = ../common/libafd.a
 fsa_edit_SOURCES             = fsa_edit.c
 fsa_edit_LDADD               = ../common/libafd.a
 fsa_view_SOURCES             = fsa_view.c
-fsa_view_LDADD               = ../common/libafd.a
+fsa_view_LDADD               = ../common/libafd.a @AFD_MATH_LIB@
 fra_version_SOURCES          = fra_version.c
 fra_version_LDADD            = ../common/libafd.a
 fra_edit_SOURCES             = fra_edit.c

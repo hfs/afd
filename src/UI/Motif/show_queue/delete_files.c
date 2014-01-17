@@ -1,6 +1,6 @@
 /*
  *  delete_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -217,7 +217,7 @@ delete_files(int no_selected, int *select_list)
       }
 
       /* Map to the FSA. */
-      if ((i = fsa_attach()) == INCORRECT)
+      if ((i = fsa_attach(SHOW_QUEUE)) == INCORRECT)
       {
          if (i == INCORRECT_VERSION)
          {
@@ -434,7 +434,7 @@ delete_files(int no_selected, int *select_list)
          int    prog_name_length;
          size_t dl_real_size;
 
-         (void)strcpy(dl.file_name, qfl[select_list[i] - 1].file_name);
+         (void)strcpy(dl.file_name, (char *)qfl[select_list[i] - 1].file_name);
          if (qfl[select_list[i] - 1].hostname[0] == '\0')
          {
             (void)sprintf(dl.host_name, "%-*s %03x",
@@ -452,7 +452,7 @@ delete_files(int no_selected, int *select_list)
          *dl.input_time = 0L;
          *dl.split_job_counter = 0;
          *dl.unique_number = 0;
-         *dl.file_name_length = strlen(qfl[select_list[i] - 1].file_name);
+         *dl.file_name_length = strlen((char *)qfl[select_list[i] - 1].file_name);
          prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                     "%s %s", SHOW_QUEUE, user);
          dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
@@ -602,7 +602,7 @@ delete_files(int no_selected, int *select_list)
 #endif
                         }
 #ifdef _DELETE_LOG
-                        (void)strcpy(dl.file_name, qfl[qtb[i].qfl_pos[j]].file_name);
+                        (void)strcpy(dl.file_name, (char *)qfl[qtb[i].qfl_pos[j]].file_name);
                         if (qfl[qtb[i].qfl_pos[j]].hostname[0] == '\0')
                         {
                            (void)sprintf(dl.host_name, "%-*s %03x",
@@ -619,7 +619,7 @@ delete_files(int no_selected, int *select_list)
                         *dl.job_id = qfl[qtb[i].qfl_pos[j]].job_id;
                         extract_cus(qtb[i].msg_name, dl.input_time,
                                     dl.split_job_counter, dl.unique_number);
-                        *dl.file_name_length = strlen(qfl[qtb[i].qfl_pos[j]].file_name);
+                        *dl.file_name_length = strlen((char *)qfl[qtb[i].qfl_pos[j]].file_name);
                         prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                    "%s %s", SHOW_QUEUE, user);
                         dl_real_size = *dl.file_name_length + dl.size + prog_name_length;

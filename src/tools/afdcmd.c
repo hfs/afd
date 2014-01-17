@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1067,7 +1067,7 @@ main(int argc, char *argv[])
        (options & TRACE_OPTION) || (options & FULL_TRACE_OPTION) ||
        (options & ENABLE_DELETE_DATA) || (options & DISABLE_DELETE_DATA))
    {
-      if ((i = fsa_attach()) < 0)
+      if ((i = fsa_attach(AFD_CMD)) < 0)
       {
          if (i == INCORRECT_VERSION)
          {

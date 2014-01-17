@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -113,9 +113,6 @@ int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
                            dnb_fd,
                            data_length, /* The size of data for one job. */
                            default_delete_files_flag = 0,
-#ifdef WITH_INOTIFY
-                           default_inotify_flag = DEFAULT_INOTIFY_FLAG,
-#endif
                            default_old_file_time = -1,
                            event_log_fd = STDERR_FILENO,
                            max_process_per_dir = MAX_PROCESS_PER_DIR,
@@ -138,10 +135,10 @@ int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
                            stop_flag = 0,
                            amg_flag = YES;
 unsigned int               max_copied_files = MAX_COPIED_FILES;
-pid_t                      dc_pid;      /* dir_check pid                 */
 #ifdef WITH_INOTIFY
-pid_t                      ic_pid;      /* inotify_check pid             */
+unsigned int               default_inotify_flag = DEFAULT_INOTIFY_FLAG;
 #endif
+pid_t                      dc_pid;      /* dir_check pid                 */
 off_t                      fra_size,
                            fsa_size,
                            max_copied_file_size = MAX_COPIED_FILE_SIZE * MAX_COPIED_FILE_SIZE_UNIT;
@@ -487,7 +484,7 @@ main(int argc, char *argv[])
                            &default_warn_time, &create_source_dir);
 
       /* Lets check and see if create_source_dir was set via afdcfg. */
-      if (fsa_attach_passive(YES) == SUCCESS)
+      if (fsa_attach_passive(YES, AMG) == SUCCESS)
       {
          if (*(unsigned char *)((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_CREATE_SOURCE_DIR)
          {
@@ -552,7 +549,7 @@ main(int argc, char *argv[])
          /*
           * Try get the host information from the current FSA.
           */
-         if (fsa_attach_passive(YES) == SUCCESS)
+         if (fsa_attach_passive(YES, AMG) == SUCCESS)
          {
             size_t new_size = ((no_of_hosts / HOST_BUF_SIZE) + 1) *
                               HOST_BUF_SIZE * sizeof(struct host_list);
@@ -603,6 +600,14 @@ main(int argc, char *argv[])
                if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
                {
                   hl[i].host_status |= HOST_NOT_IN_DIR_CONFIG;
+               }
+               if (fsa[i].special_flag & KEEP_CON_NO_SEND)
+               {
+                  hl[i].protocol_options |= KEEP_CON_NO_SEND_2;
+               }
+               if (fsa[i].special_flag & KEEP_CON_NO_FETCH)
+               {
+                  hl[i].protocol_options |= KEEP_CON_NO_FETCH_2;
                }
                if (fsa[i].host_status & STOP_TRANSFER_STAT)
                {
@@ -740,14 +745,6 @@ main(int argc, char *argv[])
       {
          *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
       }
-#ifdef WITH_INOTIFY
-      ic_pid = make_process_amg(work_dir, IC_PROC_NAME, rescan_time,
-                                max_no_proc);
-      if (pid_list != NULL)
-      {
-         *(pid_t *)(pid_list + ((DC_NO + 2) * sizeof(pid_t))) = ic_pid;
-      }
-#endif
    }
    else
    {
@@ -843,11 +840,7 @@ main(int argc, char *argv[])
             {
                int j;
 
-#ifdef WITH_INOTIFY
-               if (com(STOP, DC_FIFOS) == INCORRECT)
-#else
                if (com(STOP) == INCORRECT)
-#endif
                {
                   system_log(INFO_SIGN, NULL, 0,
                              _("Giving it another try ..."));
@@ -868,33 +861,6 @@ main(int argc, char *argv[])
                   }
                }
             }
-#ifdef WITH_INOTIFY
-            if (ic_pid > 0)
-            {
-               int j;
-
-               if (com(STOP, IC_FIFOS) == INCORRECT)
-               {
-                  system_log(INFO_SIGN, NULL, 0,
-                             _("Giving it another try ..."));
-                  (void)com(STOP);
-               }
-
-               /* Wait for the child to terminate. */
-               for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
-               {
-                  if (waitpid(ic_pid, NULL, WNOHANG) == ic_pid)
-                  {
-                     ic_pid = NOT_RUNNING;
-                     break;
-                  }
-                  else
-                  {
-                     (void)sleep(1);
-                  }
-               }
-            }
-#endif
 
             stop_flag = 1;
 
@@ -933,7 +899,7 @@ main(int argc, char *argv[])
                     {
                        case HOST_CONFIG_UPDATE :
                           /* HOST_CONFIG updated by edit_hc. */
-                          if (fsa_attach() == INCORRECT)
+                          if (fsa_attach(AMG) == INCORRECT)
                           {
                              system_log(FATAL_SIGN, __FILE__, __LINE__,
                                         _("Could not attach to FSA!"));
@@ -1038,7 +1004,11 @@ main(int argc, char *argv[])
                                 (void)memcpy(&ret_pid, &fifo_buffer[count],
                                              SIZEOF_PID_T);
                                 count += (SIZEOF_PID_T - 1);
+#ifdef HAVE_SNPRINTF
+                                (void)snprintf(db_update_reply_fifo, MAX_PATH_LENGTH,
+#else
                                 (void)sprintf(db_update_reply_fifo,
+#endif
 #if SIZEOF_PID_T == 4
                                               "%s%s%s%d",
 #else
@@ -1166,7 +1136,11 @@ main(int argc, char *argv[])
                                 (void)memcpy(&ret_pid, &fifo_buffer[count],
                                              SIZEOF_PID_T);
                                 count += (SIZEOF_PID_T - 1);
+#ifdef HAVE_SNPRINTF
+                                (void)snprintf(db_update_reply_fifo, MAX_PATH_LENGTH,
+#else
                                 (void)sprintf(db_update_reply_fifo,
+#endif
 #if SIZEOF_PID_T == 4
                                               "%s%s%s%d",
 #else
@@ -1429,10 +1403,14 @@ get_afd_config_value(int          *rescan_time,
    char *buffer,
         config_file[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(config_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
    (void)sprintf(config_file, "%s%s%s",
+#endif
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       size_t length,
              max_length;
@@ -1503,7 +1481,7 @@ get_afd_config_value(int          *rescan_time,
                          value, MAX_INT_LENGTH) != NULL)
       {
          *default_inotify_flag = (unsigned int)atoi(value);
-         if (*default_inotify_flag > (INOTIFY_RENAME_FLAG|INOTIFY_CLOSE_FLAG))
+         if (*default_inotify_flag > (INOTIFY_RENAME_FLAG | INOTIFY_CLOSE_FLAG | INOTIFY_CREATE_FLAG))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        _("Incorrect value (%u) set in AFD_CONFIG for %s. Setting to default %u."),
@@ -1780,7 +1758,11 @@ get_afd_config_value(int          *rescan_time,
                   char tmp_config_file[MAX_PATH_LENGTH];
 
                   (void)strcpy(tmp_config_file, config_file);
+#ifdef HAVE_SNPRINTF
+                  length = snprintf(config_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
                   length = sprintf(config_file, "%s%s/%s",
+#endif
                                    p_work_dir, ETC_DIR, tmp_config_file) + 1;
                }
             }
@@ -1800,7 +1782,11 @@ get_afd_config_value(int          *rescan_time,
       }
       else
       {
+#ifdef HAVE_SNPRINTF
+         length = snprintf(config_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
          length = sprintf(config_file, "%s%s%s",
+#endif
                           p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE) + 1;
          no_of_dir_configs = 1;
          if ((dc_dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
@@ -1825,7 +1811,11 @@ get_afd_config_value(int          *rescan_time,
    {
       size_t length;
 
+#ifdef HAVE_SNPRINTF
+      length = snprintf(config_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
       length = sprintf(config_file, "%s%s%s",
+#endif
                        p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE) + 1;
       no_of_dir_configs = 1;
       if ((dc_dcl = malloc(sizeof(struct dir_config_buf))) == NULL)
@@ -1859,7 +1849,12 @@ notify_dir_check(void)
 #endif
    char fifo_name[MAX_PATH_LENGTH];
 
-   (void)sprintf(fifo_name, "%s%s%s", p_work_dir, FIFO_DIR, IP_FIN_FIFO);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fifo_name, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(fifo_name, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, IP_FIN_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (open_fifo_rw(fifo_name, &readfd, &fd) == -1)
 #else
@@ -1934,7 +1929,12 @@ amg_exit(void)
    {
       char counter_file[MAX_PATH_LENGTH];
 
-      (void)sprintf(counter_file, "%s%s%s", p_work_dir, FIFO_DIR, COUNTER_FILE);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(counter_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
+      (void)sprintf(counter_file, "%s%s%s",
+#endif
+                    p_work_dir, FIFO_DIR, COUNTER_FILE);
       (void)unlink(counter_file);
    }
 

@@ -1,6 +1,6 @@
 /*
  *  show_job_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,12 @@ show_job_list(FILE *p_data)
    int  fd;
    char fullname[MAX_PATH_LENGTH];
 
-   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(fullname, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -111,7 +116,11 @@ show_job_list(FILE *p_data)
                ptr += AFD_WORD_OFFSET;
                jd = (struct job_id_data *)ptr;
 
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
                (void)sprintf(fullname, "%s%s%s",
+#endif
                              p_work_dir, FIFO_DIR, CURRENT_MSG_LIST_FILE);
                if ((cml_fd = open(fullname, O_RDONLY)) == -1)
                {
@@ -185,7 +194,12 @@ show_job_list(FILE *p_data)
                                                      jd[j].priority,
                                                      jd[j].recipient);
 #else
+# ifdef HAVE_SNPRINTF
+                                       m = snprintf((char *)buffer,
+                                                    3 + MAX_INT_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_HEX_LENGTH + 2 + MAX_RECIPIENT_LENGTH + 2,
+# else
                                        m = sprintf((char *)buffer,
+# endif
                                                    "Jl %d %x %x %x %c",
                                                    i, jd[j].job_id,
                                                    jd[j].dir_id,
@@ -229,7 +243,12 @@ show_job_list(FILE *p_data)
                                     (void)fprintf(p_data,
                                                   "JL %d 0 0 none 0 0\r\n", i);
 #else
+# ifdef HAVE_SNPRINTF
+                                    m = snprintf((char *)buffer,
+                                                 3 + MAX_INT_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_HEX_LENGTH + MAX_INT_HEX_LENGTH + 2 + MAX_RECIPIENT_LENGTH + 2,
+# else
                                     m = sprintf((char *)buffer,
+# endif
                                                 "Jl %d 0 0 0 0 none\r\n", i);
                                     (void)strcpy((char *)&buffer[m],
                                                  jd[j].recipient);
@@ -298,7 +317,11 @@ show_job_list(FILE *p_data)
                if (munmap_emu((void *)((char *)jd - AFD_WORD_OFFSET)) == -1)
 #endif
                {
+# ifdef HAVE_SNPRINTF
+                  (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+# else
                   (void)sprintf(fullname, "%s%s%s",
+# endif
                                 p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
                   system_log(WARN_SIGN, __FILE__, __LINE__,
                              _("Failed to munmap() `%s' : %s"),
@@ -308,7 +331,11 @@ show_job_list(FILE *p_data)
          }
          else
          {
+# ifdef HAVE_SNPRINTF
+            (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+# else
             (void)sprintf(fullname, "%s%s%s",
+# endif
                           p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
                        _("Hmmm, `%s' is less then %d bytes long."),

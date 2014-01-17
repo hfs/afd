@@ -1,7 +1,7 @@
 /*
  *  create_remote_dir.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,7 +85,12 @@ create_remote_dir(char *url,
    {
       if (directory[0] == '/')
       {
-         *remote_dir_length = sprintf(remote_dir, "%s%s%s/%s@%s%s", p_work_dir,
+#ifdef HAVE_SNPRINTF
+         *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+         *remote_dir_length = sprintf(remote_dir,
+#endif
+                                      "%s%s%s/%s@%s%s", p_work_dir,
                                       AFD_FILE_DIR, INCOMING_DIR, user,
                                       host_alias, directory) + 1;
       }
@@ -93,13 +98,23 @@ create_remote_dir(char *url,
            {
               if (user[0] == '\0')
               {
-                 *remote_dir_length = sprintf(remote_dir, "%s%s%s/@%s",
+#ifdef HAVE_SNPRINTF
+                 *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                 *remote_dir_length = sprintf(remote_dir,
+#endif
+                                              "%s%s%s/@%s",
                                               p_work_dir, AFD_FILE_DIR,
                                               INCOMING_DIR, host_alias) + 1;
               }
               else
               {
-                 *remote_dir_length = sprintf(remote_dir, "%s%s%s/%s@%s/%s",
+#ifdef HAVE_SNPRINTF
+                 *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                 *remote_dir_length = sprintf(remote_dir,
+#endif
+                                              "%s%s%s/%s@%s/%s",
                                               p_work_dir, AFD_FILE_DIR,
                                               INCOMING_DIR, user, host_alias,
                                               user) + 1;
@@ -109,14 +124,24 @@ create_remote_dir(char *url,
            {
               if (user[0] == '\0')
               {
-                 *remote_dir_length = sprintf(remote_dir, "%s%s%s/@%s/%s",
+#ifdef HAVE_SNPRINTF
+                 *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                 *remote_dir_length = sprintf(remote_dir,
+#endif
+                                              "%s%s%s/@%s/%s",
                                               p_work_dir, AFD_FILE_DIR,
                                               INCOMING_DIR, host_alias,
                                               directory) + 1;
               }
               else
               {
-                 *remote_dir_length = sprintf(remote_dir, "%s%s%s/%s@%s/%s/%s",
+#ifdef HAVE_SNPRINTF
+                 *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                 *remote_dir_length = sprintf(remote_dir,
+#endif
+                                              "%s%s%s/%s@%s/%s/%s",
                                               p_work_dir, AFD_FILE_DIR,
                                               INCOMING_DIR, user, host_alias,
                                               user, directory) + 1;
@@ -148,7 +173,12 @@ create_remote_dir(char *url,
       {
          if (directory[0] == '/')
          {
-            *remote_dir_length = sprintf(remote_dir, "%s%s%s/%s@%s%s",
+#ifdef HAVE_SNPRINTF
+            *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+            *remote_dir_length = sprintf(remote_dir,
+#endif
+                                         "%s%s%s/%s@%s%s",
                                          p_work_dir, AFD_FILE_DIR,
                                          INCOMING_DIR, user, host_alias,
                                          directory) + 1;
@@ -157,13 +187,23 @@ create_remote_dir(char *url,
               {
                  if (user[0] == '\0')
                  {
-                    *remote_dir_length = sprintf(remote_dir, "%s%s%s/@%s",
+#ifdef HAVE_SNPRINTF
+                    *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                    *remote_dir_length = sprintf(remote_dir,
+#endif
+                                                 "%s%s%s/@%s",
                                                  p_work_dir, AFD_FILE_DIR,
                                                  INCOMING_DIR, host_alias) + 1;
                  }
                  else
                  {
-                    *remote_dir_length = sprintf(remote_dir, "%s%s%s/%s@%s/%s",
+#ifdef HAVE_SNPRINTF
+                    *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                    *remote_dir_length = sprintf(remote_dir,
+#endif
+                                                 "%s%s%s/%s@%s/%s",
                                                  p_work_dir, AFD_FILE_DIR,
                                                  INCOMING_DIR, user, host_alias,
                                                  user) + 1;
@@ -173,14 +213,23 @@ create_remote_dir(char *url,
               {
                  if (user[0] == '\0')
                  {
-                    *remote_dir_length = sprintf(remote_dir, "%s%s%s/@%s/%s",
+#ifdef HAVE_SNPRINTF
+                    *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
+                    *remote_dir_length = sprintf(remote_dir,
+#endif
+                                                 "%s%s%s/@%s/%s",
                                                  p_work_dir, AFD_FILE_DIR,
                                                  INCOMING_DIR, host_alias,
                                                  directory) + 1;
                  }
                  else
                  {
+#ifdef HAVE_SNPRINTF
+                    *remote_dir_length = snprintf(remote_dir, MAX_PATH_LENGTH,
+#else
                     *remote_dir_length = sprintf(remote_dir,
+#endif
                                                  "%s%s%s/%s@%s/%s/%s",
                                                  p_work_dir, AFD_FILE_DIR,
                                                  INCOMING_DIR, user,

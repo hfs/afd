@@ -1,6 +1,6 @@
 /*
  *  httpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -127,7 +127,7 @@ extern long                      transfer_timeout;
 static int                       http_fd;
 #ifdef WITH_SSL
 static sigjmp_buf                env_alrm;
-static SSL_CTX                   *ssl_ctx;
+static SSL_CTX                   *ssl_ctx = NULL;
 #endif
 static struct timeval            timeout;
 static struct http_message_reply hmr;
@@ -135,9 +135,10 @@ static struct http_message_reply hmr;
 /* Local function prototypes. */
 static int                       basic_authentication(void),
                                  check_connection(void),
+                                 flush_read(void),
                                  get_http_reply(int *),
                                  read_msg(int *, int);
-static void                      flush_read(void),
+static void                      read_last_chunk(void),
 #ifdef WITH_SSL
                                  sig_handler(int),
 #endif
@@ -181,7 +182,11 @@ http_connect(char *hostname,
    hints.ai_socktype = SOCK_STREAM;
 /* ???   hints.ai_flags = AI_CANONNAME; */
 
+# ifdef HAVE_SNPRINTF
+   (void)snprintf(str_port, MAX_INT_LENGTH, "%d", port);
+# else
    (void)sprintf(str_port, "%d", port);
+# endif
    reply = getaddrinfo(p_hostname, str_port, &hints, &result);
    if (reply != 0)
    {
@@ -203,7 +208,12 @@ http_connect(char *hostname,
                                rp->ai_protocol)) == -1)
       {
 # ifdef WITH_TRACE
-         length = sprintf(msg_str, _("socket() error : %s"), strerror(errno));
+#  ifdef HAVE_SNPRINTF
+         length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#  else
+         length = sprintf(msg_str,
+#  endif
+                          _("socket() error : %s"), strerror(errno));
          trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
          continue;
@@ -261,15 +271,32 @@ http_connect(char *hostname,
       }
 # endif
 
-      if (connect(http_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      reply = connect_with_timeout(http_fd, rp->ai_addr, rp->ai_addrlen);
+      if (reply == INCORRECT)
       {
+         if (errno != 0)
+         {
 # ifdef WITH_TRACE
-         length = sprintf(msg_str, _("connect() error : %s"), strerror(errno));
-         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+#  ifdef HAVE_SNPRINTF
+            length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#  else
+            length = sprintf(msg_str,
+#  endif
+                             _("connect() error : %s"), strerror(errno));
+            trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
+         }
          (void)close(http_fd);
          continue;
       }
+      else if (reply == PERMANENT_INCORRECT)
+           {
+              (void)close(http_fd);
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                        _("Failed to connect() to %s at port %d"),
+                        hostname, port);
+              return(INCORRECT);
+           }
 
       break; /* Success */
    }
@@ -277,8 +304,18 @@ http_connect(char *hostname,
    /* Ensure that we succeeded in finding an address. */
    if (rp == NULL)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
-                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      if (errno)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("Failed to connect() to %s at port %d : %s"),
+                   hostname, port, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("Failed to connect() to %s at port %d"),
+                   hostname, port);
+      }
       return(INCORRECT);
    }
 
@@ -379,8 +416,7 @@ http_connect(char *hostname,
 # ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    if (timeout_flag != OFF)
    {
-      int reply = 1;
-
+      reply = 1;
       if (setsockopt(http_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
                      sizeof(reply)) < 0)
       {
@@ -400,30 +436,39 @@ http_connect(char *hostname,
    }
 # endif
 
-   if (connect(http_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
+   if (connect_with_timeout(http_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-# ifdef ETIMEDOUT
-      if (errno == ETIMEDOUT)
+      if (errno)
       {
-         timeout_flag = ON;
-      }
+# ifdef ETIMEDOUT
+         if (errno == ETIMEDOUT)
+         {
+            timeout_flag = ON;
+         }
 #  ifdef ECONNREFUSED
-      else if (errno == ECONNREFUSED)
-           {
-              timeout_flag = CON_REFUSED;
-           }
+         else if (errno == ECONNREFUSED)
+              {
+                 timeout_flag = CON_REFUSED;
+              }
 #  endif
 # else
 #  ifdef ECONNREFUSED
-      if (errno == ECONNREFUSED)
-      {
-         timeout_flag = CON_REFUSED;
-      }
+         if (errno == ECONNREFUSED)
+         {
+            timeout_flag = CON_REFUSED;
+         }
 #  endif
 # endif
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
-                _("Failed to connect() to %s : %s"),
-                p_hostname, strerror(errno));
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("Failed to connect() to %s at port %d : %s"),
+                   p_hostname, port, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "http_connect", NULL,
+                   _("Failed to connect() to %s at port %d"),
+                   p_hostname, port);
+      }
       (void)close(http_fd);
       http_fd = -1;
       return(INCORRECT);
@@ -432,11 +477,23 @@ http_connect(char *hostname,
 #ifdef WITH_TRACE
    if (http_proxy[0] == '\0')
    {
-      length = sprintf(msg_str, "Connected to %s", p_hostname);
+# ifdef HAVE_SNPRINTF
+      length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+# else
+      length = sprintf(msg_str,
+# endif
+                       "Connected to %s at port %d",
+                       p_hostname, port);
    }
    else
    {
-      length = sprintf(msg_str, "Connected to HTTP proxy %s", p_hostname);
+# ifdef HAVE_SNPRINTF
+      length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+# else
+      length = sprintf(msg_str,
+# endif
+                       "Connected to HTTP proxy %s at port %d",
+                       p_hostname, port);
    }
    trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 #endif
@@ -465,10 +522,13 @@ http_connect(char *hostname,
 #ifdef WITH_SSL
    if ((ssl == YES) || (ssl == BOTH))
    {
-      int  reply;
       char *p_env,
            *p_env1;
 
+      if (ssl_ctx != NULL)
+      {
+         SSL_CTX_free(ssl_ctx);
+      }
       hmr.ssl = YES;
       SSLeay_add_ssl_algorithms();
       ssl_ctx=(SSL_CTX *)SSL_CTX_new(SSLv23_client_method());
@@ -534,31 +594,40 @@ http_connect(char *hostname,
       {
          char *ptr;
 
-         ptr = ssl_error_msg("SSL_connect", ssl_con, reply, msg_str);
+         ptr = ssl_error_msg("SSL_connect", ssl_con, NULL, reply, msg_str);
          reply = SSL_get_verify_result(ssl_con);
          if (reply == X509_V_ERR_CRL_SIGNATURE_FAILURE)
          {
-            (void)strcpy(ptr,
-                         _(" | Verify result: The signature of the certificate is invalid!"));
+            (void)my_strncpy(ptr,
+                             _(" | Verify result: The signature of the certificate is invalid!"),
+                             MAX_RET_MSG_LENGTH - (ptr - msg_str));
          }
          else if (reply == X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD)
               {
-                  (void)strcpy(ptr,
-                               _(" | Verify result: The CRL nextUpdate field contains an invalid time."));
+                  (void)my_strncpy(ptr,
+                                   _(" | Verify result: The CRL nextUpdate field contains an invalid time."),
+                                   MAX_RET_MSG_LENGTH - (ptr - msg_str));
               }
          else if (reply == X509_V_ERR_CRL_HAS_EXPIRED)
               {
-                  (void)strcpy(ptr,
-                               _(" | Verify result: The CRL has expired."));
+                  (void)my_strncpy(ptr,
+                                   _(" | Verify result: The CRL has expired."),
+                                   MAX_RET_MSG_LENGTH - (ptr - msg_str));
               }
          else if (reply == X509_V_ERR_CERT_REVOKED)
               {
-                 (void)strcpy(ptr,
-                              _(" | Verify result: Certificate revoked."));
+                 (void)my_strncpy(ptr,
+                                  _(" | Verify result: Certificate revoked."),
+                                   MAX_RET_MSG_LENGTH - (ptr - msg_str));
               }
          else if (reply > X509_V_OK)
               {
-                 (void)sprintf(ptr, _(" | Verify result: %d"), reply);
+# ifdef HAVE_SNPRINTF
+                 (void)snprintf(ptr, MAX_RET_MSG_LENGTH - (ptr - msg_str),
+# else
+                 (void)sprintf(ptr,
+# endif
+                               _(" | Verify result: %d"), reply);
               }
          reply = INCORRECT;
       }
@@ -573,15 +642,20 @@ http_connect(char *hostname,
          ssl_cipher = SSL_get_current_cipher(ssl_con);
          SSL_CIPHER_get_bits(ssl_cipher, &ssl_bits);
          length = strlen(msg_str);        
-         (void)sprintf(&msg_str[length], "  <%s, cipher %s, %d bits>",
+# ifdef HAVE_SNPRINTF
+         (void)snprintf(&msg_str[length], MAX_RET_MSG_LENGTH - length,
+# else
+         (void)sprintf(&msg_str[length],
+# endif
+                       "  <%s, cipher %s, %d bits>",
                        ssl_version, SSL_CIPHER_get_name(ssl_cipher),
                        ssl_bits);
          reply = SUCCESS;
       }
-#ifdef WITH_SSL_READ_AHEAD
+# ifdef WITH_SSL_READ_AHEAD
       /* This is not set because I could not detect any advantage using this. */
       SSL_set_read_ahead(ssl_con, 1);
-#endif
+# endif
 
       return(reply);
    }
@@ -671,11 +745,21 @@ http_get(char  *host,
       {
          if (*path == '/')
          {
-            (void)sprintf(resource, "%s%s", path, filename);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+            (void)sprintf(resource,
+#endif
+                          "%s%s", path, filename);
          }
          else
          {
-            (void)sprintf(resource, "/%s%s", path, filename);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+            (void)sprintf(resource,
+#endif
+                          "/%s%s", path, filename);
          }
       }
       else
@@ -685,11 +769,21 @@ http_get(char  *host,
          {
             if (*path == '/')
             {
-               (void)sprintf(resource, "https://%s%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "https://%s%s%s", host, path, filename);
             }
             else
             {
-               (void)sprintf(resource, "https://%s/%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "https://%s/%s%s", host, path, filename);
             }
          }
          else
@@ -697,11 +791,21 @@ http_get(char  *host,
 #endif
             if (*path == '/')
             {
-               (void)sprintf(resource, "http://%s%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s%s%s", host, path, filename);
             }
             else
             {
-               (void)sprintf(resource, "http://%s/%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s/%s%s", host, path, filename);
             }
 #ifdef WITH_SSL
          }
@@ -716,21 +820,33 @@ retry_get_range:
       {
          if (*content_length == 0)
          {
-#if SIZEOF_OFF_T == 4
-            (void)sprintf(range, "Range: bytes=%ld-\r\n", (pri_off_t)offset);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(range,
+                           13 + MAX_OFF_T_LENGTH + 1 + MAX_OFF_T_LENGTH + 3,
 #else
-            (void)sprintf(range, "Range: bytes=%lld-\r\n", (pri_off_t)offset);
+            (void)sprintf(range,
 #endif
+#if SIZEOF_OFF_T == 4
+                          "Range: bytes=%ld-\r\n",
+#else
+                          "Range: bytes=%lld-\r\n",
+#endif
+                          (pri_off_t)offset);
          }
          else
          {
-#if SIZEOF_OFF_T == 4
-            (void)sprintf(range, "Range: bytes=%ld-%ld\r\n",
-                          (pri_off_t)offset, (pri_off_t)*content_length);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(range,
+                           13 + MAX_OFF_T_LENGTH + 1 + MAX_OFF_T_LENGTH + 3,
 #else
-            (void)sprintf(range, "Range: bytes=%lld-%lld\r\n",
-                          (pri_off_t)offset, (pri_off_t)*content_length);
+            (void)sprintf(range,
 #endif
+#if SIZEOF_OFF_T == 4
+                          "Range: bytes=%ld-%ld\r\n",
+#else
+                          "Range: bytes=%lld-%lld\r\n",
+#endif
+                          (pri_off_t)offset, (pri_off_t)*content_length);
          }
       }
 retry_get:
@@ -740,7 +856,7 @@ retry_get:
                            (hmr.authorization == NULL) ? "" : hmr.authorization,
                            host)) == SUCCESS)
       {
-         hmr.content_length = 0;
+         hmr.content_length = -1;
          if (((reply = get_http_reply(&hmr.bytes_buffered)) == 200) ||
              (reply == 204)) /* No content. */
          {
@@ -760,7 +876,7 @@ retry_get:
                }
             }
             if ((*content_length != hmr.content_length) &&
-                (hmr.content_length != 0))
+                (hmr.content_length > 0))
             {
                *content_length = hmr.content_length;
             }
@@ -768,7 +884,10 @@ retry_get:
          else if ((reply == 403) || /* Forbidden */
                   (reply == 404))   /* Not Found */
               {
-                 flush_read();
+                 if ((flush_read() == NO) && (hmr.chunked == YES))
+                 {
+                    read_last_chunk();
+                 }
                  hmr.bytes_buffered = 0;
                  hmr.bytes_read = 0;
               }
@@ -854,39 +973,13 @@ http_put_response(void)
 {
    int reply;
 
-   hmr.retries = 0;
+   hmr.retries = -1; /* -1 so we do not do a reconnect in get_http_reply()! */
    hmr.date = -1;
    hmr.content_length = 0;
 retry_put_response:
    if (((reply = get_http_reply(NULL)) == 201) || (reply == 204) ||
        (reply == 200))
    {
-      int total_read = 0,
-          read_length;
-
-      while (hmr.content_length > total_read)
-      {
-         if ((reply = read_msg(&read_length, 0)) <= 0)
-         {
-            if (reply == 0)
-            {
-               trans_log(ERROR_SIGN,  __FILE__, __LINE__, "http_put_response", NULL,
-                         _("Remote hang up. (%d %d)"),
-                         hmr.content_length, total_read);
-               timeout_flag = NEITHER;
-            }
-            else
-            {
-               trans_log(DEBUG_SIGN,  __FILE__, __LINE__, "http_put_response", NULL,
-                         "(%d %d)", hmr.content_length, total_read);
-            }
-            return(INCORRECT);
-         }
-         else
-         {
-            total_read += read_length + 1; /* + 1 is the newline! */
-         }
-      }
       reply = SUCCESS;
    }
    else if (reply == 401) /* Unauthorized */
@@ -944,11 +1037,21 @@ http_del(char *host, char *path, char *filename)
       {
          if (*path == '/')
          {
-            (void)sprintf(resource, "%s%s", path, filename);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+            (void)sprintf(resource,
+#endif
+                          "%s%s", path, filename);
          }
          else
          {
-            (void)sprintf(resource, "/%s%s", path, filename);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+            (void)sprintf(resource,
+#endif
+                          "/%s%s", path, filename);
          }
       }
       else
@@ -958,11 +1061,21 @@ http_del(char *host, char *path, char *filename)
          {
             if (*path == '/')
             {
-               (void)sprintf(resource, "https://%s%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "https://%s%s%s", host, path, filename);
             }
             else
             {
-               (void)sprintf(resource, "https://%s/%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "https://%s/%s%s", host, path, filename);
             }
          }
          else
@@ -970,11 +1083,21 @@ http_del(char *host, char *path, char *filename)
 #endif
             if (*path == '/')
             {
-               (void)sprintf(resource, "http://%s%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s%s%s", host, path, filename);
             }
             else
             {
-               (void)sprintf(resource, "http://%s/%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s/%s%s", host, path, filename);
             }
 #ifdef WITH_SSL
          }
@@ -1058,11 +1181,21 @@ http_options(char *host, char *path)
          {
             if (*path == '/')
             {
-               (void)sprintf(resource, "https://%s%s", host, path);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "https://%s%s", host, path);
             }
             else
             {
-               (void)sprintf(resource, "https://%s/%s", host, path);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "https://%s/%s", host, path);
             }
          }
          else
@@ -1070,11 +1203,21 @@ http_options(char *host, char *path)
 #endif
             if (*path == '/')
             {
-               (void)sprintf(resource, "http://%s%s", host, path);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s%s", host, path);
             }
             else
             {
-               (void)sprintf(resource, "http://%s/%s", host, path);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s/%s", host, path);
             }
 #ifdef WITH_SSL
          }
@@ -1091,6 +1234,10 @@ retry_options:
          if ((reply = get_http_reply(&hmr.bytes_buffered)) == 200)
          {
             reply = SUCCESS;
+            if (hmr.chunked == YES)
+            {
+               read_last_chunk();
+            }
          }
          else if (reply == 401) /* Unauthorized */
               {
@@ -1117,9 +1264,10 @@ retry_options:
               }
          else if (reply == 403) /* Forbidden */
               {
-                 flush_read();
+                 (void)flush_read();
                  hmr.bytes_buffered = 0;
                  hmr.bytes_read = 0;
+                 (void)check_connection();
                  reply = SUCCESS;
               }
          else if (reply == CONNECTION_REOPENED)
@@ -1130,6 +1278,7 @@ retry_options:
               {
                  hmr.bytes_buffered = 0;
                  hmr.bytes_read = 0;
+                 (void)check_connection();
               }
       }
    }
@@ -1173,11 +1322,21 @@ http_head(char   *host,
       {
          if (*path == '/')
          {
-            (void)sprintf(resource, "%s%s", path, filename);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+            (void)nprintf(resource,
+#endif
+                          "%s%s", path, filename);
          }
          else
          {
-            (void)sprintf(resource, "/%s%s", path, filename);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+            (void)sprintf(resource,
+#endif
+                          "/%s%s", path, filename);
          }
       }
       else
@@ -1187,11 +1346,21 @@ http_head(char   *host,
          {
             if (*path == '/')
             {
-               (void)sprintf(resource, "https://%s%s%s", host, path, filename);
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+# else
+               (void)sprintf(resource,
+# endif
+                             "https://%s%s%s", host, path, filename);
             }
             else
             {
-               (void)sprintf(resource, "https://%s/%s%s", host, path, filename);
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+# else
+               (void)sprintf(resource,
+# endif
+                             "https://%s/%s%s", host, path, filename);
             }
          }
          else
@@ -1199,11 +1368,21 @@ http_head(char   *host,
 #endif
             if (*path == '/')
             {
-               (void)sprintf(resource, "http://%s%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH,
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s%s%s", host, path, filename);
             }
             else
             {
-               (void)sprintf(resource, "http://%s/%s%s", host, path, filename);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(resource, MAX_RECIPIENT_LENGTH, 
+#else
+               (void)sprintf(resource,
+#endif
+                             "http://%s/%s%s", host, path, filename);
             }
 #ifdef WITH_SSL
          }
@@ -1291,7 +1470,12 @@ basic_authentication(void)
     * and passwd:  <user>:<passwd>
     * And then encode this to using base-64 encoding.
     */
-   length = sprintf(userpasswd, "%s:%s", hmr.user, hmr.passwd);
+#ifdef HAVE_SNPRINTF
+   length = snprintf(userpasswd, MAX_USER_NAME_LENGTH + MAX_USER_NAME_LENGTH,
+#else
+   length = sprintf(userpasswd,
+#endif
+                    "%s:%s", hmr.user, hmr.passwd);
    free(hmr.authorization);
    if ((hmr.authorization = malloc(21 + length + (length / 3) + 2 + 1)) == NULL)
    {
@@ -2503,14 +2687,23 @@ read_msg(int *read_length, int offset)
 /* form, that we do not need. We must however read the complete message, */
 /* otherwise the command/reponce sequence will get mixed up.             */
 /*-----------------------------------------------------------------------*/
-static void
+static int
 flush_read(void)
 {
-   int   hunk_size,
-         bytes_buffered;
-   off_t total_read = 0;
+   int   bytes_buffered,
+         hunk_size;
+   off_t content_length,
+         total_read = 0;
    char  buffer[2048];
 
+   if (hmr.content_length == -1)
+   {
+      content_length = hmr.bytes_buffered;
+   }
+   else
+   {
+      content_length = hmr.content_length;
+   }
 #ifdef WITH_TRACE
    trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
 # if SIZEOF_OFF_T == 4
@@ -2518,11 +2711,11 @@ flush_read(void)
 # else
              "Flush reading %lld bytes (bufferd bytes = %d).",
 # endif
-             (pri_off_t)hmr.content_length, hmr.bytes_buffered);
+             (pri_off_t)content_length, hmr.bytes_buffered);
 #endif
-   while (total_read != hmr.content_length)
+   while (total_read != content_length)
    {
-      hunk_size = hmr.content_length - total_read;
+      hunk_size = content_length - total_read;
       if (hunk_size > 2048)
       {
          hunk_size = 2048;
@@ -2542,7 +2735,7 @@ flush_read(void)
 # endif
                    bytes_buffered, (pri_off_t)total_read);
 #endif
-         return;
+         return(NO);
       }
       total_read += bytes_buffered;
    }
@@ -2554,6 +2747,45 @@ flush_read(void)
              "Flushed %lld bytes.", (pri_off_t)total_read);
 # endif
 #endif
+
+   if ((bytes_buffered > 4) && (buffer[bytes_buffered - 1] == 10) &&
+       (buffer[bytes_buffered - 2] == 13) &&
+       (buffer[bytes_buffered - 3] == 10) &&
+       (buffer[bytes_buffered - 4] == 13) &&
+       (buffer[bytes_buffered - 5] == 48))
+  {
+     return(YES);
+  }
+  else
+  {
+     return(NO);
+  }
+}
+
+
+/*-------------------------- read_last_chunk() --------------------------*/
+static void
+read_last_chunk(void)
+{
+   int  bytes_read;
+   char buffer[5];
+
+   if ((bytes_read = http_read(buffer, 5)) <= 0)
+   {
+#ifdef WITH_TRACE
+      trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+                "read_last_chunk(): No good read %d (%d).",
+                bytes_read, hmr.bytes_buffered);
+#endif
+   }
+   else
+   {
+#ifdef WITH_TRACE
+      trace_log(__FILE__, __LINE__, R_TRACE, NULL, 0,
+                "read_last_chunk(): Flushed %d bytes (%d).",
+                bytes_read, hmr.bytes_buffered);
+#endif
+   }
 
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  rm_job.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2010 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,7 +114,7 @@ main(int argc, char *argv[])
    }
 
    /* Attach to FSA and the AFD Status Area. */
-   if ((fd = fsa_attach()) < 0)
+   if ((fd = fsa_attach("rm_job")) < 0)
    {
       if (fd == INCORRECT_VERSION)
       {

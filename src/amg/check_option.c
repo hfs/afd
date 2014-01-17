@@ -1,6 +1,6 @@
 /*
  *  check_option.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>      /* sprintf()                                     */
+#include <stdio.h>
 #include <string.h>     /* strncmp()                                     */
 #include <ctype.h>      /* isascii()                                     */
 #include <unistd.h>     /* access()                                      */
@@ -279,7 +279,12 @@ check_option(char *option)
                    (*(ptr + 7) == 'r') && (*(ptr + 8) == 'y') &&
                    (*(ptr + 9) == '_') && (*(ptr + 10) == 'o') &&
                    (*(ptr + 11) == 'n') && (*(ptr + 12) == 'l') &&
-                   (*(ptr + 13) == 'y') && (*(ptr + 14) == '\0')))
+                   (*(ptr + 13) == 'y') && (*(ptr + 14) == '\0'))
+#ifdef WITH_DUP_CHECK
+                   || (CHECK_STRNCMP(ptr, DUPCHECK_ID, DUPCHECK_ID_LENGTH) == 0))
+#else
+                   )
+#endif
               {
                  /* OK */;
               }
@@ -669,15 +674,15 @@ check_option(char *option)
                  ((*ptr == 'M') && (*(ptr + 1) == 'S') && (*(ptr + 2) == 'S')) ||
                  ((*ptr == 'D') && (*(ptr + 1) == 'W') && (*(ptr + 2) == 'D')) ||
                  ((*ptr == 'W') && (*(ptr + 1) == 'M') && (*(ptr + 2) == 'O'))) &&
-                ((*(ptr + 3) == ' ') || (*(ptr + 3) == '\t') || (*(ptr + 3) == '\0'))) ||
+                ((*(ptr + 3) == ' ') || (*(ptr + 3) == '+') || (*(ptr + 3) == '\t') || (*(ptr + 3) == '\0'))) ||
                ((*ptr == 'A') && (*(ptr + 1) == 'S') && (*(ptr + 2) == 'C') &&
                 (*(ptr + 3) == 'I') && (*(ptr + 4) == 'I') &&
-                ((*(ptr + 5) == ' ') || (*(ptr + 5) == '\t') || (*(ptr + 5) == '\0'))) ||
+                ((*(ptr + 5) == ' ') || (*(ptr + 5) == '+') || (*(ptr + 5) == '\t') || (*(ptr + 5) == '\0'))) ||
                ((*ptr == 'W') && (*(ptr + 1) == 'M') && (*(ptr + 2) == 'O') &&
                 (*(ptr + 3) == '+') && (*(ptr + 4) == 'D') &&
                 (*(ptr + 5) == 'U') && (*(ptr + 6) == 'M') &&
                 (*(ptr + 7) == 'M') && (*(ptr + 8) == 'Y') &&
-                ((*(ptr + 9) == ' ') || (*(ptr + 9) == '\t') || (*(ptr + 9) == '\0'))))
+                ((*(ptr + 9) == ' ') || (*(ptr + 9) == '+') || (*(ptr + 9) == '\t') || (*(ptr + 9) == '\0'))))
            {
               /* OK */;
            }
@@ -707,16 +712,16 @@ check_option(char *option)
                 (*(ptr + 3) == 'e') && (*(ptr + 4) == 't') &&
                 (*(ptr + 5) == 'x') &&
                 ((*(ptr + 6) == '\0') || (*(ptr + 6) == ' ') ||
-                 (*(ptr + 6) == '\t'))) ||
+                 (*(ptr + 6) == '\t') || (*(ptr + 6) == '+'))) ||
                ((*ptr == 's') && (*(ptr + 1) == 'o') && (*(ptr + 2) == 'h') &&
                 (*(ptr + 3) == 'e') && (*(ptr + 4) == 't') &&
                 (*(ptr + 5) == 'x') && (*(ptr + 6) == 'w') &&
                 (*(ptr + 7) == 'm') && (*(ptr + 8) == 'o') &&
                 ((*(ptr + 9) == '\0') || (*(ptr + 9) == ' ') ||
-                 (*(ptr + 9) == '\t'))) ||
+                 (*(ptr + 9) == '\t') || (*(ptr + 9) == '+'))) ||
                ((*ptr == 'w') && (*(ptr + 1) == 'm') && (*(ptr + 2) == 'o') &&
                 ((*(ptr + 3) == '\0') || (*(ptr + 3) == ' ') ||
-                 (*(ptr + 3) == '\t'))) ||
+                 (*(ptr + 3) == '\t') || (*(ptr + 3) == '+'))) ||
                ((*ptr == 's') && (*(ptr + 1) == 'o') && (*(ptr + 2) == 'h') &&
                 (*(ptr + 3) == 'e') && (*(ptr + 4) == 't') &&
                 (*(ptr + 5) == 'x') && (*(ptr + 6) == '2') &&
@@ -724,7 +729,7 @@ check_option(char *option)
                 (*(ptr + 9) == 'o') &&
                 ((*(ptr + 10) == '0') || (*(ptr + 10) == '1')) &&
                 ((*(ptr + 11) == '\0') || (*(ptr + 11) == ' ') ||
-                 (*(ptr + 11) == '\t'))) ||
+                 (*(ptr + 11) == '\t') || (*(ptr + 11) == '+'))) ||
                ((*ptr == 'm') && (*(ptr + 1) == 'r') && (*(ptr + 2) == 'z') &&
                 (*(ptr + 3) == '2') && (*(ptr + 4) == 'w') &&
                 (*(ptr + 5) == 'm') && (*(ptr + 6) == 'o') &&
@@ -790,12 +795,16 @@ check_option(char *option)
               {
                  switch (*(ptr + 1))
                  {
+                    case 'a' :
+                    case 'A' :
                     case 'b' :
                     case 'B' :
                     case 'c' :
                     case 'C' :
                     case 'd' :
                     case 'D' :
+                    case 'e' :
+                    case 'E' :
                     case 'f' :
                     case 'F' :
                     case 'H' :
@@ -859,7 +868,11 @@ check_option(char *option)
                   (*(ptr + 3) == 'C')) ||
                  ((*ptr == 'G') && (*(ptr + 1) == 'R') && (*(ptr + 2) == 'I') &&
                   (*(ptr + 3) == 'B'))) &&
-                ((*(ptr + 4) == ' ') || (*(ptr + 4) == '\t') || (*(ptr + 4) == '\0'))))
+                ((*(ptr + 4) == ' ') || (*(ptr + 4) == '\t') || (*(ptr + 4) == '\0'))) ||
+               ((*ptr == 'W') && (*(ptr + 1) == 'M') && (*(ptr + 2) == 'O') &&
+                (*(ptr + 3) == '+') && (*(ptr + 4) == 'C') &&
+                (*(ptr + 5) == 'H') && (*(ptr + 6) == 'K') &&
+                ((*(ptr + 7) == ' ') || (*(ptr + 7) == '\t') || (*(ptr + 7) == '\0'))))
            {
               /* OK */;
            }
@@ -1458,6 +1471,8 @@ check_option(char *option)
              (*(option + MIRROR_DIR_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, SHOW_ALL_GROUP_MEMBERS_ID, SHOW_ALL_GROUP_MEMBERS_ID_LENGTH) == 0) &&
              (*(option + SHOW_ALL_GROUP_MEMBERS_ID_LENGTH) == '\0')) ||
+            ((CHECK_STRNCMP(option, MATCH_REMOTE_SIZE_ID, MATCH_REMOTE_SIZE_ID_LENGTH) == 0) &&
+             (*(option + MATCH_REMOTE_SIZE_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, ENCODE_ANSI_ID, ENCODE_ANSI_ID_LENGTH) == 0) &&
              (*(option + ENCODE_ANSI_ID_LENGTH) == '\0')) ||
             ((CHECK_STRNCMP(option, ACTIVE_FTP_MODE, ACTIVE_FTP_MODE_LENGTH) == 0) &&
@@ -1544,7 +1559,8 @@ check_option(char *option)
 #endif
         else
         {
-           system_log(WARN_SIGN, __FILE__, __LINE__, "Unknown option.");
+           system_log(WARN_SIGN, __FILE__, __LINE__, "Unknown option `%s'",
+                      option);
            return(INCORRECT);
         }
 

@@ -1,6 +1,6 @@
 /*
  *  eval_host_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -143,7 +143,7 @@ eval_host_config(int              *hosts_found,
    }
 
    /* Read the contents of the HOST_CONFIG file into a buffer. */
-   if (read_file_no_cr(host_config_file, &hostbase) == INCORRECT)
+   if (read_file_no_cr(host_config_file, &hostbase, __FILE__, __LINE__) == INCORRECT)
    {
       exit(INCORRECT);
    }
@@ -1396,7 +1396,7 @@ eval_host_config(int              *hosts_found,
          {
             if (fsa == NULL)
             {
-               if (fsa_attach() != INCORRECT)
+               if (fsa_attach("eval_host_config") != INCORRECT)
                {
                   for (i = 0; i < no_of_hosts; i++)
                   {

@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2012 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -43,11 +43,11 @@ else
    EXTRA_LOC_PROG        = sf_loc
 endif
 if WITH_FD_EXEC_SUPPORT
-   EXEC_PROG             = sf_exec
+   EXEC_PROG             = gf_exec sf_exec
    EXTRA_EXEC_PROG       =
 else
    EXEC_PROG             =
-   EXTRA_EXEC_PROG       = sf_exec
+   EXTRA_EXEC_PROG       = gf_exec sf_exec
 endif
 if WITH_FTP_SUPPORT
    FTP_PROG              = gf_ftp gf_ftp_trace sf_ftp sf_ftp_trace
@@ -100,7 +100,7 @@ else
 endif
 
 noinst_HEADERS        = fddefs.h
-INCLUDES              = -I.. -I../init_afd -I../amg -I../log -I../misc\
+AM_CPPFLAGS           = -I.. -I../init_afd -I../amg -I../log -I../misc\
                         -I../protocols
 bin_PROGRAMS          = fd $(EXEC_PROG) $(FTP_PROG) $(SMTP_PROG) $(SCP_PROG)\
                         $(SFTP_PROG) $(WMO_PROG) $(AFD_MAP_PROG) $(LOC_PROG)\
@@ -388,13 +388,28 @@ sf_exec_SOURCES       = append.c\
                         $(TRANS_EXEC_PTRS)\
                         trans_log.c\
                         update_tfc.c
-sf_exec_LDADD         = @EXTRA_SOCKET_LIBS@ ../common/libafd.a
+sf_exec_LDADD         = ../common/libafd.a
+gf_exec_SOURCES       = eval_input_gf.c\
+                        eval_recipient.c\
+                        fsa_attach_pos.c\
+                        get_group_list.c\
+                        gf_exec.c\
+                        gsf_check_fra.c\
+                        gsf_check_fsa.c\
+                        init_gf.c\
+                        reset_fsa.c\
+                        reset_values.c\
+                        send_proc_fin.c\
+                        trans_db_log.c\
+                        trans_log.c
+gf_exec_LDADD         = ../common/libafd.a
 gf_ftp_SOURCES        = attach_ls_data.c\
                         eval_input_gf.c\
                         eval_recipient.c\
                         fsa_attach_pos.c\
                         get_group_list.c\
                         get_remote_file_names_ftp.c\
+                        get_remote_file_names_ftp_mlst.c\
                         gf_ftp.c\
                         gsf_check_fra.c\
                         gsf_check_fsa.c\

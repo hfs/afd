@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -311,6 +311,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
 
          /* Get the information. */
          get_info(pos);
+         get_info_free();
 
          if (event->xbutton.button == Button2)
          {

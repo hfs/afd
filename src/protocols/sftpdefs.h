@@ -1,6 +1,6 @@
 /*
  *  sftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -237,6 +237,7 @@ struct sftp_connect_data
 /* Function prototypes. */
 extern unsigned int sftp_version(void);
 extern int          sftp_cd(char *, int, mode_t, char *),
+                    sftp_chmod(char *, mode_t),
                     sftp_close_dir(void),
                     sftp_close_file(void),
                     sftp_connect(char *, int, unsigned char, int, char *,

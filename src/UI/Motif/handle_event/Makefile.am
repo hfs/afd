@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2007, 2008 Holger Kiehl
+## Copyright (C) 2007 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = handle_event.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+AM_CPPFLAGS          = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
                        -I../common -I../mafd_ctrl -I../../../init_afd
 bin_PROGRAMS         = handle_event
 handle_event_SOURCES = callbacks.c\

@@ -1362,7 +1362,7 @@ insert_file(char         *queue_dir,
                         (void)strcpy(qfl[total_no_files].hostname, hostname);
                         (void)strcpy(qfl[total_no_files].dir_alias,
                                      fra[fra_pos].dir_alias);
-                        (void)strcpy(qfl[total_no_files].file_name,
+                        (void)strcpy((char *)qfl[total_no_files].file_name,
                                      dirp->d_name);
                         (void)strcpy(qfl[total_no_files].msg_name, msg_name);
                         if (files_to_send > 0)

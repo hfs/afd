@@ -1,6 +1,6 @@
 /*
  *  sf_map.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2014 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -69,7 +69,8 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables. */
-int                        counter_fd = -1,    /* NOT USED */
+int                        amg_flag = NO,
+                           counter_fd = -1,    /* NOT USED */
                            event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,    /* NOT USED */
@@ -93,7 +94,7 @@ int                        counter_fd = -1,    /* NOT USED */
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO;
+                           *unique_counter;
 long                       transfer_timeout; /* Not used [init_sf()]    */
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;

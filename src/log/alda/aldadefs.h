@@ -48,6 +48,7 @@
 #define MAX_OUTPUT_LINE_LENGTH              4096
 #define MAX_FORMAT_ORIENTATION_LENGTH       (1 + 1 + 1 + MAX_INT_LENGTH + 1 + MAX_INT_LENGTH + 2 + 1 + 1)
 #define DEFAULT_MAX_DIFF_TIME               3600L
+#define DEFAULT_ROTATE_LIMIT                7
 
 #define DEFAULT_BASE_CHAR                   'd'
 

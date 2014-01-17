@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,8 @@ extern Widget                     fw[],
                                   rw[],
                                   tw[],
                                   line_window_w,
-                                  lsw[];
+                                  lsw[],
+                                  oow[];
 extern Window                     line_window;
 extern Pixmap                     label_pixmap,
                                   line_pixmap;
@@ -114,6 +115,7 @@ extern unsigned long              color_pool[];
 extern char                       fake_user[],
                                   font_name[],
                                   line_style,
+                                  other_options,
                                   profile[],
                                   *p_work_dir,
                                   user[],
@@ -354,24 +356,27 @@ dir_input(Widget      w,
                       }
                       else
                       {
-                         if (connect_data[select_no].inverse == ON)
+                         if ((other_options & FORCE_SHIFT_SELECT) == 0)
                          {
-                            connect_data[select_no].inverse = OFF;
-                            no_selected--;
-                         }
-                         else if (connect_data[select_no].inverse == STATIC)
-                              {
-                                 connect_data[select_no].inverse = OFF;
-                                 no_selected_static--;
-                              }
-                              else
-                              {
-                                 connect_data[select_no].inverse = ON;
-                                 no_selected++;
-                              }
+                            if (connect_data[select_no].inverse == ON)
+                            {
+                               connect_data[select_no].inverse = OFF;
+                               no_selected--;
+                            }
+                            else if (connect_data[select_no].inverse == STATIC)
+                                 {
+                                    connect_data[select_no].inverse = OFF;
+                                    no_selected_static--;
+                                 }
+                                 else
+                                 {
+                                    connect_data[select_no].inverse = ON;
+                                    no_selected++;
+                                 }
 
-                         draw_dir_line_status(select_no, 1);
-                         XFlush(display);
+                            draw_dir_line_status(select_no, 1);
+                            XFlush(display);
+                         }
                       }
 
                  last_motion_pos = select_no;
@@ -907,7 +912,7 @@ dir_popup_cb(Widget    w,
 
    if (sel_typ == T_LOG_SEL)
    {
-      if ((k = fsa_attach()) < 0)
+      if ((k = fsa_attach(DIR_CTRL)) < 0)
       {
          if (k == INCORRECT_VERSION)
          {
@@ -960,7 +965,7 @@ dir_popup_cb(Widget    w,
                else
                {
                   if (xrec(QUESTION_DIALOG,
-                           "Are you shure that you want to stop %s",
+                           "Are you sure that you want to stop %s",
                            fra[i].dir_alias) == YES)
                   {
                      fra[i].dir_flag ^= DIR_STOPPED;
@@ -1044,7 +1049,7 @@ dir_popup_cb(Widget    w,
                else
                {
                   if (xrec(QUESTION_DIALOG,
-                           "Are you shure that you want to disable %s\nThis directory will then not be monitored.",
+                           "Are you sure that you want to disable %s\nThis directory will then not be monitored.",
                            fra[i].dir_alias) == YES)
                   {
                      fra[i].dir_flag ^= DIR_DISABLED;
@@ -1653,6 +1658,59 @@ change_dir_style_cb(Widget    w,
       redraw_all();
       XFlush(display);
    }
+
+   return;
+}
+
+
+/*######################## change_dir_other_cb() ########################*/
+void
+change_dir_other_cb(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
+
+   switch (item_no)
+   {
+      case FORCE_SHIFT_SELECT_W :
+         if (other_options & FORCE_SHIFT_SELECT)
+         {
+            other_options &= ~FORCE_SHIFT_SELECT;
+            XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, False, NULL);
+         }
+         else
+         {
+            other_options |= FORCE_SHIFT_SELECT;
+            XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, True, NULL);
+         }
+         break;
+
+      default  :
+#if SIZEOF_LONG == 4
+         (void)xrec(WARN_DIALOG, "Impossible other selection (%d).", item_no);
+#else
+         (void)xrec(WARN_DIALOG, "Impossible other selection (%ld).", item_no);
+#endif
+         return;
+   }
+
+#ifdef _DEBUG
+   switch (item_no)
+   {
+      case FORCE_SHIFT_SELECT_W :
+         if (other_options & FORCE_SHIFT_SELECT)
+         {
+            (void)fprintf(stderr, "Adding force shift select.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing force shift select.\n");
+         }
+         break;
+
+      default : /* IMPOSSIBLE !!! */
+         break;
+   }
+#endif
 
    return;
 }

@@ -411,7 +411,7 @@ main(int argc, char *argv[])
    else
    {
       int                 j,
-                          no_of_dir_names;
+                          no_of_dir_names = 0;
       off_t               dnb_size;
       struct dir_name_buf *dnb;
 
@@ -662,7 +662,12 @@ main(int argc, char *argv[])
       unsigned char tmp_passwd[MAX_USER_NAME_LENGTH],
                     *uptr;
 
-      (void)scanf("%79s", tmp_passwd);
+      if (scanf("%79s", tmp_passwd) == EOF)
+      {
+         (void)fprintf(stderr, "ERROR   : scanf() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
       uptr = tmp_passwd;
       while ((*uptr != '\0') && (i < (MAX_USER_NAME_LENGTH - 1)))
       {
@@ -748,6 +753,11 @@ main(int argc, char *argv[])
          (void)fprintf(stderr, "ERROR   : signal() error : %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
+      }
+      if (fclose(input) == EOF)
+      {
+         (void)fprintf(stderr, "WARNING : fclose() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
       }
    }
    (void)fprintf(stdout, "\n");

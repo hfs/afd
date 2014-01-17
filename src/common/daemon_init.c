@@ -1,6 +1,6 @@
 /*
  *  daemon_init.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ DESCR__E_M3
 extern char *p_work_dir;
 
 /*
- * NOTE: Only define _CLOSE_STDIN if you are absolutly shure you do
+ * NOTE: Only define _CLOSE_STDIN if you are absolutly sure you do
  *       not need stdin. There are always some application (eg. IDL)
  *       that need stdin when called with the exec option.
  */
@@ -80,7 +80,12 @@ daemon_init(char *process)
            _exit(0); /* Parent process exits. */
         }
 
-   setsid();
+   if (setsid() == (pid_t)-1)
+   {
+      (void)fprintf(stderr, _("setsid() error : %s (%s %d)\n"),
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
 
    if ((pid = fork()) < 0)
    {
@@ -109,14 +114,22 @@ daemon_init(char *process)
                   daemon_log[MAX_PATH_LENGTH];
       struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(daemon_log, MAX_PATH_LENGTH, "%s%s", p_work_dir, LOG_DIR);
+#else
       (void)sprintf(daemon_log, "%s%s", p_work_dir, LOG_DIR);
+#endif
       if (check_dir(daemon_log, R_OK | W_OK | X_OK) < 0)
       {
          (void)fprintf(stderr, _("Failed to create directory `%s' (%s %d)\n"),
                        daemon_log, __FILE__, __LINE__);
          exit(INCORRECT);
       }
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(daemon_log, MAX_PATH_LENGTH, "%s%s/DAEMON_LOG.%s",
+#else
       (void)sprintf(daemon_log, "%s%s/DAEMON_LOG.%s",
+#endif
                     p_work_dir, LOG_DIR, process);
       if (stat(daemon_log, &stat_buf) == -1)
       {
@@ -190,11 +203,21 @@ daemon_init(char *process)
     */
    if (p_work_dir != NULL)
    {
-      chdir(p_work_dir);
+      if (chdir(p_work_dir) == -1)
+      {
+         (void)fprintf(stderr,
+                       "Failed to change directory to `%s' : %s (%s %d)\n",
+                       p_work_dir, strerror(errno), __FILE__, __LINE__);
+      }
    }
    else
    {
-      chdir("/");
+      if (chdir("/") == -1)
+      {
+         (void)fprintf(stderr,
+                       "Failed to change directory to `/' : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+      }
    }
    umask(0);
 

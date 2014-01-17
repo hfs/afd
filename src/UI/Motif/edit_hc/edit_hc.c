@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -86,6 +86,7 @@ DESCR__S_M1
  **   07.04.2009 H.Kiehl Added warn time.
  **   19.04.2009 H.Kiehl Added compression for protocol options.
  **   24.11.2012 H.Kiehl Added support for selecting CRC type.
+ **   13.01.2014 H.Kiehl Added support for makeing dupcheck timeout fixed.
  **
  */
 DESCR__E_M1
@@ -95,7 +96,8 @@ DESCR__E_M1
 #include <stdlib.h>              /* malloc(), free()                     */
 #include <ctype.h>               /* isdigit()                            */
 #include <signal.h>              /* signal()                             */
-#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>            /* umask()                              */
 #include <fcntl.h>               /* O_RDWR                               */
 #include <unistd.h>              /* STDERR_FILENO                        */
 #include <errno.h>
@@ -153,6 +155,7 @@ Widget                     active_mode_w,
                            dc_store_w,
                            dc_timeout_label_w,
                            dc_timeout_w,
+                           dc_timeout_fixed_w,
                            dc_type_w,
                            dc_warn_w,
                            dc_crc_label_w,
@@ -1549,6 +1552,20 @@ main(int argc, char *argv[])
    XtAddCallback(dc_timeout_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)DC_TIMEOUT);
 
+   dc_timeout_fixed_w = XtVaCreateManagedWidget("Fixed",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             dc_timeout_w,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(dc_timeout_fixed_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)DC_TIMEOUT_FIXED_CHANGED);
+
    dc_ref_label_w = XtVaCreateManagedWidget("Reference :",
                             xmLabelGadgetClass,  box_w,
                             XmNfontList,         fontlist,
@@ -1556,7 +1573,7 @@ main(int argc, char *argv[])
                             XmNtopAttachment,    XmATTACH_WIDGET,
                             XmNtopWidget,        h_separator_top_w,
                             XmNleftAttachment,   XmATTACH_WIDGET,
-                            XmNleftWidget,       dc_timeout_w,
+                            XmNleftWidget,       dc_timeout_fixed_w,
                             XmNleftOffset,       10,
                             XmNbottomAttachment, XmATTACH_FORM,
                             NULL);
@@ -2308,7 +2325,7 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
     * Attach to the FSA and get the number of host
     * and the fsa_id of the FSA.
     */
-   if ((ret = fsa_attach()) < 0)
+   if ((ret = fsa_attach(EDIT_HC)) < 0)
    {
       if (ret == INCORRECT_VERSION)
       {
@@ -2367,6 +2384,12 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+   /*
+    * Since we might create a new FSA via change_alias_order(), we need
+    * the correct umask in place.
+    */
+   umask(0);
 
    return;
 }

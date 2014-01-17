@@ -1,6 +1,6 @@
 /*
  *  show_amg_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -99,7 +99,12 @@ main(int argc, char *argv[])
                     argv[1], strerror(errno));
       exit(1);
    }
-   (void)sprintf(amg_data_file, "%s%s%s", p_work_dir, FIFO_DIR, AMG_DATA_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(amg_data_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(amg_data_file, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, AMG_DATA_FILE);
    if ((fd = open(amg_data_file, O_RDWR)) == -1)
    {
       (void)fprintf(stderr, "Failed to open() %s : %s\n",

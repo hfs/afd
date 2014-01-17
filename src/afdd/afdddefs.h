@@ -1,6 +1,6 @@
 /*
  *  afdddefs - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,6 +23,8 @@
 
 #include "../log/logdefs.h" /* MAX_LOG_NAME_LENGTH */
 
+#define NOT_SET                  -1
+#define DEFAULT_FILE_NO          0
 #define HUNK_MAX                 4096
 #define MAX_LOG_DATA_BUFFER      131072 /* 128KB */
 /********************************************************************/
@@ -82,6 +84,9 @@
 #define STAT_CMD              "STAT"
 #define STAT_CMD_LENGTH       (sizeof(STAT_CMD) - 1)
 #define STAT_CMDL             "STAT\r\n"
+#define HSTAT_CMD             "HSTAT"
+#define HSTAT_CMD_LENGTH      (sizeof(HSTAT_CMD) - 1)
+#define HSTAT_CMDL            "HSTAT\r\n"
 #define START_STAT_CMD        "SSTAT"
 #define START_STAT_CMD_LENGTH (sizeof(START_STAT_CMD) - 1)
 #define START_STAT_CMDL       "SSTAT\r\n"
@@ -107,14 +112,15 @@
 #define TRACEI_SYNTAX         "214 Syntax: TRACEI [<sp> <file name>] (trace input)"
 #define TRACEO_SYNTAX         "214 Syntax: TRACEO [<sp> <file name>] (trace output)"
 #define TRACEF_SYNTAX         "214 Syntax: TRACEF [<sp> <file name>] (trace input)"
-#define ILOG_SYNTAX           "214 Syntax: ILOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] (input log)"
-#define OLOG_SYNTAX           "214 Syntax: OLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] (output log)"
-#define SLOG_SYNTAX           "214 Syntax: SLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] (system log)"
-#define TLOG_SYNTAX           "214 Syntax: TLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] (transfer log)"
-#define TDLOG_SYNTAX          "214 Syntax: TDLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] (transfer debug log)"
+#define ILOG_SYNTAX           "214 Syntax: ILOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] [<sp> #<log number>] (input log)"
+#define OLOG_SYNTAX           "214 Syntax: OLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] [<sp> #<log number>] (output log)"
+#define SLOG_SYNTAX           "214 Syntax: SLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] [<sp> #<log number>] (system log)"
+#define TLOG_SYNTAX           "214 Syntax: TLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] [<sp> #<log number>] (transfer log)"
+#define TDLOG_SYNTAX          "214 Syntax: TDLOG [<sp> <search string>] [<sp> -<lines>] [<sp> +<duration>] [<sp> #<log number>] (transfer debug log)"
 #define PROC_SYNTAX           "214 Syntax: PROC (shows all process of the AFD)"
 #define DISC_SYNTAX           "214 Syntax: DISC (shows disk usage)"
 #define STAT_SYNTAX           "214 Syntax: STAT [<sp> <host name>] [<sp> -H | -D | -Y [<sp> n]]"
+#define HSTAT_SYNTAX          "214 Syntax: HSTAT (shows all host statistics and status)"
 #define START_STAT_SYNTAX     "214 Syntax: SSTAT (start summary status of AFD)"
 #define LDB_SYNTAX            "214 Syntax: LDB (list AMG database)"
 #define LRF_SYNTAX            "214 Syntax: LRF (list rename file)"
@@ -337,14 +343,30 @@ struct logdata
           unsigned int flag;
        };
 
+/* Structure to hold open file descriptors. */
+#define AFDD_ILOG_NO             0
+#define AFDD_OLOG_NO             1
+#define AFDD_SLOG_NO             2
+#define AFDD_TLOG_NO             3
+#define AFDD_TDLOG_NO            4
+#define MAX_AFDD_LOG_FILES       5
+struct fd_cache
+       {
+          ino_t st_ino;
+          int   fd;
+       };
+
 /* Function prototypes. */
-extern int  get_display_data(char *, char *, int, int, int);
+extern int  get_display_data(char *, int, char *, int, int, int, int);
 extern long check_logs(time_t);
 extern void check_changes(FILE *),
+            close_get_display_data(void),
             display_file(FILE *),
             handle_request(int, int, int, char *),
+            init_get_display_data(void),
             show_dir_list(FILE *),
             show_host_list(FILE *),
+            show_host_stat(FILE *),
             show_job_list(FILE *),
             show_summary_stat(FILE *);
 

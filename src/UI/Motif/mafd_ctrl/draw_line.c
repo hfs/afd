@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,6 +63,7 @@ DESCR__S_M3
  **   21.06.2007 H.Kiehl Split second LED in two halfs to show the
  **                      transfer direction.
  **   16.02.2008 H.Kiehl For drawing areas, draw to offline pixmap as well.
+ **   25.08.2013 H.Kiehl Added compact process status.
  **
  */
 DESCR__E_M3
@@ -436,7 +437,7 @@ draw_line_status(int pos, signed char delta)
          draw_led(pos, 1, x + led_width + LED_SPACING, y);
       }
 
-      if (line_style & SHOW_JOBS)
+      if ((line_style & SHOW_JOBS) || (line_style & SHOW_JOBS_COMPACT))
       {
          int i;
 
@@ -444,6 +445,16 @@ draw_line_status(int pos, signed char delta)
          for (i = 0; i < fsa[pos].allowed_transfers; i++)
          {
             draw_proc_stat(pos, i, x, y);
+         }
+         if (line_style & SHOW_JOBS_COMPACT)
+         {
+            int proc_width = (i / 3) * bar_thickness_3;
+
+            if (i % 3)          
+            {
+               proc_width += bar_thickness_3;
+            }
+            draw_detailed_selection(pos, proc_width);
          }
       }
 
@@ -599,14 +610,14 @@ draw_blank_line(int pos)
       XFillRectangle(display, line_pixmap, default_bg_gc, x, y,
                      line_length[column], line_height);
    }
-   else
-   {
-      locate_xy_short(connect_data[pos].short_pos, &x, &y);
-      XFillRectangle(display, short_line_window, default_bg_gc, x, y,
-                     short_line_length, line_height);
-      XFillRectangle(display, short_line_pixmap, default_bg_gc, x, y,
-                     short_line_length, line_height);
-   }
+   else if (connect_data[pos].short_pos > -1)
+        {
+           locate_xy_short(connect_data[pos].short_pos, &x, &y);
+           XFillRectangle(display, short_line_window, default_bg_gc, x, y,
+                          short_line_length, line_height);
+           XFillRectangle(display, short_line_pixmap, default_bg_gc, x, y,
+                          short_line_length, line_height);
+        }
 
    return;
 }
@@ -1229,69 +1240,142 @@ draw_queue_counter(nlink_t queue_counter)
 void
 draw_proc_stat(int pos, int job_no, int x, int y)
 {
-   int       offset;
-   char      string[3];
    XGCValues gc_values;
 
-   offset = job_no * (button_width + BUTTON_SPACING);
-
-   string[2] = '\0';
-   if (connect_data[pos].no_of_files[job_no] > -1)
+   if (job_no >= fsa[pos].allowed_transfers)
    {
-      int num = connect_data[pos].no_of_files[job_no] % 100;
-
-      string[0] = ((num / 10) % 10) + '0';
-      string[1] = (num % 10) + '0';
-   }
-   else
-   {
-      string[0] = '0';
-      string[1] = '0';
-   }
-
-   /* Change color of letters when background color is to dark. */
-   if ((connect_data[pos].connect_status[job_no] == FTP_ACTIVE) ||
-       (connect_data[pos].connect_status[job_no] == SFTP_RETRIEVE_ACTIVE) ||
-#ifdef _WITH_SCP_SUPPORT
-       (connect_data[pos].connect_status[job_no] == SCP_ACTIVE) ||
-#endif
-       (connect_data[pos].connect_status[job_no] == HTTP_RETRIEVE_ACTIVE) ||
-       (connect_data[pos].connect_status[job_no] == CONNECTING))
-   {
-      gc_values.foreground = color_pool[WHITE];
-   }
-   else
-   {
-      gc_values.foreground = color_pool[FG];
-   }
-
-   gc_values.background = color_pool[(int)connect_data[pos].connect_status[job_no]];
-   XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
-   XDrawImageString(display, line_window, color_letter_gc,
-                    x + x_offset_proc + offset,
-                    y + text_offset + SPACE_ABOVE_LINE,
-                    string,
-                    2);
-   XDrawImageString(display, line_pixmap, color_letter_gc,
-                    x + x_offset_proc + offset,
-                    y + text_offset + SPACE_ABOVE_LINE,
-                    string,
-                    2);
-
-   if (connect_data[pos].detailed_selection[job_no] == YES)
-   {
-      gc_values.foreground = color_pool[DEBUG_MODE];
+      if (connect_data[pos].inverse == OFF)
+      {
+         gc_values.foreground = color_pool[DEFAULT_BG];
+      }
+      else if (connect_data[pos].inverse == ON)
+           {
+              gc_values.foreground = color_pool[BLACK];
+           }
+           else
+           {
+              gc_values.foreground = color_pool[LOCKED_INVERSE];
+           }
       XChangeGC(display, color_gc, GCForeground, &gc_values);
-      XDrawRectangle(display, line_window, color_gc,
-                     x + x_offset_proc + offset - 1,
-                     y + SPACE_ABOVE_LINE - 1,
-                     button_width + 1,
-                     glyph_height + 1);
-      XDrawRectangle(display, line_pixmap, color_gc,
-                     x + x_offset_proc + offset - 1,
-                     y + SPACE_ABOVE_LINE - 1,
-                     button_width + 1,
-                     glyph_height + 1);
+
+      if (line_style & SHOW_JOBS_COMPACT)
+      {
+         int x_offset,
+             y_offset;
+
+         x_offset = x + x_offset_proc + ((job_no / 3) * bar_thickness_3);
+         y_offset = y + SPACE_ABOVE_LINE + ((job_no % 3) * bar_thickness_3);
+         XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+         XDrawRectangle(display, line_window, default_bg_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+         XFillRectangle(display, line_pixmap, color_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+         XDrawRectangle(display, line_pixmap, default_bg_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+      }
+      else
+      {
+         int offset = job_no * (button_width + BUTTON_SPACING);
+
+         XFillRectangle(display, line_window, color_gc,
+                        x + x_offset_proc + offset - 1,
+                        y + SPACE_ABOVE_LINE - 1,
+                        button_width + 2,
+                        glyph_height + 2);
+         XFillRectangle(display, line_pixmap, color_gc,
+                        x + x_offset_proc + offset - 1,
+                        y + SPACE_ABOVE_LINE - 1,
+                        button_width + 2,
+                        glyph_height + 2);
+      }
+   }
+   else
+   {
+      if (line_style & SHOW_JOBS_COMPACT)
+      {
+         int x_offset,
+             y_offset;
+
+         x_offset = x + x_offset_proc + ((job_no / 3) * bar_thickness_3);
+         y_offset = y + SPACE_ABOVE_LINE + ((job_no % 3) * bar_thickness_3);
+         gc_values.foreground = color_pool[(int)connect_data[pos].connect_status[job_no]];
+         XChangeGC(display, color_gc, GCForeground, &gc_values);
+         XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+         XDrawRectangle(display, line_window, default_bg_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+         XFillRectangle(display, line_pixmap, color_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+         XDrawRectangle(display, line_pixmap, default_bg_gc, x_offset, y_offset,
+                        bar_thickness_3, bar_thickness_3);
+      }
+      else
+      {
+         int  offset;
+         char string[3];
+
+         offset = job_no * (button_width + BUTTON_SPACING);
+
+         string[2] = '\0';
+         if (connect_data[pos].no_of_files[job_no] > -1)
+         {
+            int num = connect_data[pos].no_of_files[job_no] % 100;
+
+            string[0] = ((num / 10) % 10) + '0';
+            string[1] = (num % 10) + '0';
+         }
+         else
+         {
+            string[0] = '0';
+            string[1] = '0';
+         }
+
+         /* Change color of letters when background color is to dark. */
+         if ((connect_data[pos].connect_status[job_no] == FTP_ACTIVE) ||
+             (connect_data[pos].connect_status[job_no] == SFTP_RETRIEVE_ACTIVE) ||
+#ifdef _WITH_SCP_SUPPORT
+             (connect_data[pos].connect_status[job_no] == SCP_ACTIVE) ||
+#endif
+             (connect_data[pos].connect_status[job_no] == HTTP_RETRIEVE_ACTIVE) ||
+             (connect_data[pos].connect_status[job_no] == CONNECTING))
+         {
+            gc_values.foreground = color_pool[WHITE];
+         }
+         else
+         {
+            gc_values.foreground = color_pool[FG];
+         }
+
+         gc_values.background = color_pool[(int)connect_data[pos].connect_status[job_no]];
+         XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
+         XDrawImageString(display, line_window, color_letter_gc,
+                          x + x_offset_proc + offset,
+                          y + text_offset + SPACE_ABOVE_LINE,
+                          string,
+                          2);
+         XDrawImageString(display, line_pixmap, color_letter_gc,
+                          x + x_offset_proc + offset,
+                          y + text_offset + SPACE_ABOVE_LINE,
+                          string,
+                          2);
+
+         if (connect_data[pos].detailed_selection[job_no] == YES)
+         {
+            gc_values.foreground = color_pool[DEBUG_MODE];
+            XChangeGC(display, color_gc, GCForeground, &gc_values);
+            XDrawRectangle(display, line_window, color_gc,
+                           x + x_offset_proc + offset - 1,
+                           y + SPACE_ABOVE_LINE - 1,
+                           button_width + 1,
+                           glyph_height + 1);
+            XDrawRectangle(display, line_pixmap, color_gc,
+                           x + x_offset_proc + offset - 1,
+                           y + SPACE_ABOVE_LINE - 1,
+                           button_width + 1,
+                           glyph_height + 1);
+         }
+      }
    }
 
    return;
@@ -1302,10 +1386,20 @@ draw_proc_stat(int pos, int job_no, int x, int y)
 void
 draw_detailed_selection(int pos, int job_no)
 {
-   int       x, y, offset;
+   int       x, y, offset, proc_width;
    XGCValues gc_values;
 
-   offset = job_no * (button_width + BUTTON_SPACING);
+   if (line_style & SHOW_JOBS_COMPACT)
+   {
+      offset = 0;
+      proc_width = job_no;
+      job_no = 0;
+   }
+   else
+   {
+      offset = job_no * (button_width + BUTTON_SPACING);
+      proc_width = button_width;
+   }
 
    if (connect_data[pos].detailed_selection[job_no] == YES)
    {
@@ -1331,12 +1425,12 @@ draw_detailed_selection(int pos, int job_no)
    XDrawRectangle(display, line_window, color_gc,
                   x + x_offset_proc + offset - 1,
                   y + SPACE_ABOVE_LINE - 1,
-                  button_width + 1,
+                  proc_width + 1,
                   glyph_height + 1);
    XDrawRectangle(display, line_pixmap, color_gc,
                   x + x_offset_proc + offset - 1,
                   y + SPACE_ABOVE_LINE - 1,
-                  button_width + 1,
+                  proc_width + 1,
                   glyph_height + 1);
 
    return;

@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2008 - 2010 Holger Kiehl
+## Copyright (C) 2008 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -74,9 +74,9 @@ EXTRA_DIST                       = $(EXTRA_CHECK_INPUT_LINE)\
                                    $(EXTRA_SEEK_ALDA_CACHE_POSITION)
 noinst_HEADERS                   = aldadefs.h ot_str.h
 if WITH_AFD_MON
-   INCLUDES                      = -I.. -I../.. -I../../init_afd -I../../afd_mon
+   AM_CPPFLAGS                   = -I.. -I../.. -I../../init_afd -I../../afd_mon
 else
-   INCLUDES                      = -I.. -I../.. -I../../init_afd
+   AM_CPPFLAGS                   = -I.. -I../.. -I../../init_afd
 endif
 bin_PROGRAMS                     = alda aldad
 EXTRA_PROGRAMS                   = check_alda_cache

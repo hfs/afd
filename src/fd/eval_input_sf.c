@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -371,7 +371,7 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                  case 'r' : /* This is a resend from archive. */
                                     p_db->resend = YES;
                                     break;
-                                 case 'o' : /* This is an old/erro job. */
+                                 case 'o' : /* This is an old/error job. */
                                     p_db->special_flag |= OLD_ERROR_JOB;
                                     if (((i + 1) < argc) &&
                                         (argv[i + 1][0] != '-'))
@@ -478,7 +478,11 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                         {
                            char fullname[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+                           (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s/%s",
+#else
                            (void)sprintf(fullname, "%s%s/%s",
+#endif
                                          p_work_dir, AFD_MSG_DIR,
                                          p_db->msg_name);
                            if (eval_message(fullname, p_db) < 0)

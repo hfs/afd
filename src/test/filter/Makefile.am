@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
-INCLUDES             = -I../.. -I../../init_afd
+AM_CPPFLAGS          = -I../.. -I../../init_afd
 CLEANFILES           = gmon.out core core.*
 EXTRA_PROGRAMS       = tfilter tfilter1 tfilter2 tfilter3
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)

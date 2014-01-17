@@ -1,6 +1,6 @@
 /*
  *  readn.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   readn - reads a definite number of bytes from a file descriptor
  **
  ** SYNOPSIS
- **   ssize_t readn(int fd, void *buf, int nbyte)
+ **   ssize_t readn(int fd, void *buf, int nbyte, long transfer_timeout)
  **
  ** DESCRIPTION
  **   The function readn() tries to read nbyte from the file descriptor
@@ -53,13 +53,10 @@ DESCR__E_M3
 #include <unistd.h>                   /* read()                          */
 #include <errno.h>
 
-/* External global variables. */
-extern long transfer_timeout;
-
 
 /*############################## readn() ################################*/
 ssize_t
-readn(int fd, void *buf, int nbyte)
+readn(int fd, void *buf, int nbyte, long transfer_timeout)
 {
    int            status,
                   nleft,

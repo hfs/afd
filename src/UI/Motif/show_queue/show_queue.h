@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,20 +74,20 @@
 /* Structure that holds a list of files that where found. */
 struct queued_file_list
        {
-          double       msg_number;
-          off_t        size;
-          time_t       mtime;
-          int          pos;
-          int          dir_id_pos;
-          int          queue_tmp_buf_pos;
-          unsigned int job_id;
-          unsigned int dir_id;
-          char         *file_name;
-          char         msg_name[MAX_MSG_NAME_LENGTH]; /* NOT used anymore. */
-          char         hostname[MAX_HOSTNAME_LENGTH + 1];
-          char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
-          char         priority;
-          char         queue_type; /* SHOW_INPUT, SHOW_OUTPUT,              */
+          double        msg_number;
+          off_t         size;
+          time_t        mtime;
+          int           pos;
+          int           dir_id_pos;
+          int           queue_tmp_buf_pos;
+          unsigned int  job_id;
+          unsigned int  dir_id;
+          unsigned char *file_name;
+          char          msg_name[MAX_MSG_NAME_LENGTH]; /* NOT used anymore. */
+          char          hostname[MAX_HOSTNAME_LENGTH + 1];
+          char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char          priority;
+          char          queue_type;/* SHOW_INPUT, SHOW_OUTPUT,              */
                                    /* SHOW_UNSENT_INPUT, SHOW_UNSENT_OUTPUT,*/
                                    /* SHOW_RETRIEVES, SHOW_PENDING_RETRIEVES*/
        };
