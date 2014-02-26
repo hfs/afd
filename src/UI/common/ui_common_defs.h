@@ -1,6 +1,6 @@
 /*
  *  ui_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -115,12 +115,18 @@
 #define SHOW_JOBS                        8
 #define SHOW_CHARACTERS                  16
 #define SHOW_BARS                        32
+#define SHOW_JOBS_COMPACT                64
+
+/* Bits to indicate what other options are set. */
+#define DEFAULT_OTHER_OPTIONS            0
+#define FORCE_SHIFT_SELECT               1
 
 /* Definitions for the Setup pulldown. */
 #define FONT_W                           0
 #define ROWS_W                           1
 #define STYLE_W                          2
-#define SAVE_W                           3
+#define OTHER_W                          3
+#define SAVE_W                           4
 
 /* Definitions for the Help pulldown. */
 #define ABOUT_W                          0
@@ -213,6 +219,7 @@
 #define FONT_ID                          "Default font:"
 #define ROW_ID                           "Number of rows:"
 #define STYLE_ID                         "Line style:"
+#define OTHER_ID                         "Other options:"
 #define HOSTNAME_DISPLAY_LENGTH_ID       "Hostname display length:"
 #define FILENAME_DISPLAY_LENGTH_ID       "Filename display length:"
 #define NO_OF_HISTORY_LENGTH_ID          "History log length:"
@@ -394,6 +401,18 @@ struct view_process_list
           char **filter;
           char **args;
           int  no_of_filters;
+       };
+
+#define MAX_VIEW_ALIAS_NAME_LENGTH        8
+struct view_modes
+       {
+          char alias[MAX_VIEW_ALIAS_NAME_LENGTH + 1];
+          char **args;
+          char *cmd;
+          char *p_cmd;
+          char *progname;
+          int  argcounter;
+          char with_show_cmd;
        };
 
 #define HEX_CHAR_TO_INT(hex_char)   \
@@ -1071,6 +1090,7 @@ extern void   check_window_ids(char *),
               read_setup(char *, char *, int *, int *, int *, char **, int),
               remove_window_id(pid_t, char *),
               view_data(char *, char *),
+              view_data_no_filter(char *, char *, int),
               write_window_id(Window, pid_t, char *),
               write_setup(int, int, int, char **, int, int);
 

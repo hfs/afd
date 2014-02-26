@@ -1,6 +1,6 @@
 /*
  *  check_burst_2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -269,29 +269,60 @@ check_burst_2(char         *file_path,
                {
                   if (*total_append_count == 1)
                   {
-                     (void)strcpy(&msg_str[length], " [APPEND]");
+                     /* Write " [APPEND]" */
+                     msg_str[length] = ' ';
+                     msg_str[length + 1] = '[';
+                     msg_str[length + 2] = 'A';
+                     msg_str[length + 3] = 'P';
+                     msg_str[length + 4] = 'P';
+                     msg_str[length + 5] = 'E';
+                     msg_str[length + 6] = 'N';
+                     msg_str[length + 7] = 'D';
+                     msg_str[length + 8] = ']';
+                     msg_str[length + 9] = '\0';
                      length += 9;
                      *total_append_count = 0;
                   }
                   else if (*total_append_count > 1)
                        {
-                          length += sprintf(&msg_str[length], " [APPEND * %u]",
+# ifdef HAVE_SNPRINTF
+                          length += snprintf(&msg_str[length],
+                                             MAX_PATH_LENGTH - length,
+# else
+                          length += sprintf(&msg_str[length],
+# endif
+                                            " [APPEND * %u]",
                                             *total_append_count);
                           *total_append_count = 0;
                        }
                }
                if ((burst_2_counter - 1) == 1)
                {
-                  (void)strcpy(&msg_str[length], " [BURST]");
+                  /* Write " [BURST]" */
+                  msg_str[length] = ' ';
+                  msg_str[length + 1] = '[';
+                  msg_str[length + 2] = 'B';
+                  msg_str[length + 3] = 'U';
+                  msg_str[length + 4] = 'R';
+                  msg_str[length + 5] = 'S';
+                  msg_str[length + 6] = 'T';
+                  msg_str[length + 7] = ']';
+                  msg_str[length + 8] = '\0';
                   burst_2_counter = 1;
                }
                else if ((burst_2_counter - 1) > 1)
                     {
-                       (void)sprintf(&msg_str[length], " [BURST * %u]",
-                                     (burst_2_counter - 1));
+# ifdef HAVE_SNPRINTF
+                       (void)snprintf(&msg_str[length],
+                                      MAX_PATH_LENGTH - length,
+# else
+                       (void)sprintf(&msg_str[length],
+# endif
+                                     " [BURST * %u]", (burst_2_counter - 1));
                        burst_2_counter = 1;
                     }
-               trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", msg_str);
+               trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                         msg_str, db.job_id);
             }
 #endif
             (void)alarm(alarm_sleep_time);
@@ -622,6 +653,8 @@ check_burst_2(char         *file_path,
 #ifdef WITH_DUP_CHECK
                p_new_db->dup_check_flag         = fsa->dup_check_flag;
                p_new_db->dup_check_timeout      = fsa->dup_check_timeout;
+               p_new_db->trans_dup_check_flag   = 0;
+               p_new_db->trans_dup_check_timeout = 0L;
 #endif
 #ifdef WITH_SSL
                p_new_db->auth                   = NO;
@@ -633,12 +666,12 @@ check_burst_2(char         *file_path,
                }
                else if (db.protocol & SFTP_FLAG)
                     {
-                       p_new_db->port = DEFAULT_SSH_PORT;
+                       p_new_db->port = SSH_PORT_UNSET;
                     }
 #ifdef _WITH_SCP_SUPPORT
                else if (db.protocol & SCP_FLAG)
                     {
-                       p_new_db->port = DEFAULT_SSH_PORT;
+                       p_new_db->port = SSH_PORT_UNSET;
                        p_new_db->chmod = FILE_MODE;
                     }
 #endif
@@ -661,7 +694,11 @@ check_burst_2(char         *file_path,
                   p_new_db->special_flag |= SEQUENCE_LOCKING;
                }
                (void)strcpy(p_new_db->lock_notation, DOT_NOTATION);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(msg_name, MAX_PATH_LENGTH, "%s%s/%x",
+#else
                (void)sprintf(msg_name, "%s%s/%x",
+#endif
                              p_work_dir, AFD_MSG_DIR, db.job_id);
                if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & ENABLE_CREATE_TARGET_DIR)
                {

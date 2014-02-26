@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -146,7 +146,12 @@ init_msg_buffer(void)
                         AFD_WORD_OFFSET;
       char   fullname[MAX_PATH_LENGTH];
 
-      (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_CACHE_FILE);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
+      (void)sprintf(fullname, "%s%s%s",
+#endif
+                    p_work_dir, FIFO_DIR, MSG_CACHE_FILE);
       if ((ptr = attach_buf(fullname, &mdb_fd, &new_size, "FD",
                             FILE_MODE, NO)) == (caddr_t) -1)
       {
@@ -165,7 +170,12 @@ init_msg_buffer(void)
                         AFD_WORD_OFFSET;
       char   fullname[MAX_PATH_LENGTH];
 
-      (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
+      (void)sprintf(fullname, "%s%s%s",
+#endif
+                    p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
       if ((ptr = attach_buf(fullname, &qb_fd, &new_size, "FD",
                             FILE_MODE, NO)) == (caddr_t) -1)
       {
@@ -179,8 +189,12 @@ init_msg_buffer(void)
    }
 
    /* Attach to job_id_data structure, so we can remove any old data. */
-   (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
-                 JOB_ID_DATA_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(job_id_data_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(job_id_data_file, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
 stat_again:
    if ((jd_fd = coe_open(job_id_data_file, O_RDWR)) == -1)
    {
@@ -663,7 +677,13 @@ stat_again:
 
             if (remove_flag == YES)
             {
-               (void)sprintf(p_msg_dir, "%x", mdb[i].job_id);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(p_msg_dir,
+                              MAX_PATH_LENGTH - (p_msg_dir - msg_dir),
+#else
+               (void)sprintf(p_msg_dir,
+#endif
+                             "%x", mdb[i].job_id);
                if (list_job_to_remove(i, jd_fd, jd, mdb[i].job_id) == SUCCESS)
                {
                   i--;
@@ -707,7 +727,12 @@ stat_again:
              *p_alternate_file_name;
 
       p_alternate_file_name = alternate_file_name +
-                              sprintf(alternate_file_name, "%s%s%s",
+#ifdef HAVE_SNPRINTF
+                              snprintf(alternate_file_name, MAX_PATH_LENGTH,
+#else
+                              sprintf(alternate_file_name,
+#endif
+                                      "%s%s%s",
                                       p_work_dir, FIFO_DIR, ALTERNATE_FILE);
       system_log(INFO_SIGN, NULL, 0,
                  "Removed %d old message(s).", removed_messages);
@@ -715,9 +740,20 @@ stat_again:
       /* Show which messages have been removed. */
       for (i = 0; i < removed_messages; i++)
       {
-         (void)sprintf(p_alternate_file_name, "%x", rml[i]);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(p_alternate_file_name,
+                        MAX_PATH_LENGTH - (p_alternate_file_name - alternate_file_name),
+#else
+         (void)sprintf(p_alternate_file_name,
+#endif
+                       "%x", rml[i]);
          (void)unlink(alternate_file_name);
-         length += sprintf(&buffer[length], "%x ", rml[i]);
+#ifdef HAVE_SNPRINTF
+         length += snprintf(&buffer[length], 80 - length,
+#else
+         length += sprintf(&buffer[length],
+#endif
+                           "%x ", rml[i]);
          if (length > 51)
          {
             system_log(DEBUG_SIGN, NULL, 0, "%s", buffer);
@@ -1138,11 +1174,19 @@ list_job_to_remove(int                cache_pos,
 #ifdef WITH_DUP_CHECK
             char dup_dir[MAX_PATH_LENGTH];
 
+# ifdef HAVE_SNPRINTF
+            (void)snprintf(dup_dir, MAX_PATH_LENGTH, "%s%s%s/%u",
+# else
             (void)sprintf(dup_dir, "%s%s%s/%u",
+# endif
                           p_work_dir, AFD_FILE_DIR, STORE_DIR,
                           dnb[dir_id_pos].dir_id);
             (void)rmdir(dup_dir);
+# ifdef HAVE_SNPRINTF
+            (void)snprintf(dup_dir, MAX_PATH_LENGTH, "%s%s%s/%u",
+# else
             (void)sprintf(dup_dir, "%s%s%s/%u",
+# endif
                           p_work_dir, AFD_FILE_DIR, CRC_DIR,
                           dnb[dir_id_pos].dir_id);
             (void)unlink(dup_dir);
@@ -1273,7 +1317,12 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
       char          dup_dir[MAX_PATH_LENGTH],
                     *p_dup_dir;
 
-      p_dup_dir = dup_dir + sprintf(dup_dir, "%s%s", p_work_dir, AFD_FILE_DIR);
+# ifdef HAVE_SNPRINTF
+      p_dup_dir = dup_dir + snprintf(dup_dir, MAX_PATH_LENGTH, "%s%s",
+# else
+      p_dup_dir = dup_dir + sprintf(dup_dir, "%s%s",
+# endif
+                                    p_work_dir, AFD_FILE_DIR);
 #endif
 
 #ifdef LOCK_DEBUG
@@ -1375,9 +1424,19 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
       for (i = 0; i < removed_jobs; i++)
       {
 #ifdef WITH_DUP_CHECK
-         (void)sprintf(p_dup_dir, "%s/%u", STORE_DIR, jd[rjl[i]].job_id);
+# ifdef HAVE_SNPRINTF
+         (void)snprintf(p_dup_dir, MAX_PATH_LENGTH - (p_dup_dir - dup_dir),
+# else
+         (void)sprintf(p_dup_dir,
+# endif
+                       "%s/%u", STORE_DIR, jd[rjl[i]].job_id);
          (void)rmdir(dup_dir);
-         (void)sprintf(p_dup_dir, "%s/%u", CRC_DIR, jd[rjl[i]].job_id);
+# ifdef HAVE_SNPRINTF
+         (void)snprintf(p_dup_dir, MAX_PATH_LENGTH - (p_dup_dir - dup_dir),
+# else
+         (void)sprintf(p_dup_dir,
+# endif
+                       "%s/%u", CRC_DIR, jd[rjl[i]].job_id);
          (void)unlink(dup_dir);
 #endif
          rpl[pwb_to_remove][0] = '\0';

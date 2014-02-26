@@ -1,6 +1,6 @@
 /*
  *  setup_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,7 @@ DESCR__S_M3
  **   22.12.2001 H.Kiehl Added variable column length.
  **   26.12.2001 H.Kiehl Allow for more changes in line style.
  **   13.03.2003 H.Kiehl Added history log in button bar.
+ **   25.08.2013 H.Kiehl Added compact process status.
  **
  */
 DESCR__E_M3
@@ -69,6 +70,8 @@ extern Widget                     mw[],
                                   rw[],
                                   lw[],
                                   lsw[],
+                                  ptw[],
+                                  oow[],
                                   pw[];
 extern GC                         letter_gc,
                                   normal_letter_gc,
@@ -355,6 +358,7 @@ setup_window(char *font_name, int redraw_mainmenu)
          XtVaSetValues(sw[FONT_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[ROWS_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[STYLE_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(sw[OTHER_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[SAVE_W], XmNfontList, fontlist, NULL);
 
          /* Set the font for the Help pulldown. */
@@ -387,8 +391,14 @@ setup_window(char *font_name, int redraw_mainmenu)
          /* Set the font for the Line Style pulldown. */
          XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(ptw[0], XmNfontList, fontlist, NULL);
+         XtVaSetValues(ptw[1], XmNfontList, fontlist, NULL);
+         XtVaSetValues(ptw[2], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_3_W], XmNfontList, fontlist, NULL);
+
+         /* Set the font for the Other options pulldown. */
+         XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNfontList, fontlist, NULL);
       }
    }
 
@@ -502,10 +512,24 @@ setup_window(char *font_name, int redraw_mainmenu)
                            (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
       x_offset_characters = x_offset_bars = max_line_length;
    }
-   else
-   {
-      x_offset_proc = 0;
-   }
+   else if (line_style & SHOW_JOBS_COMPACT)
+        {
+           if (MAX_NO_PARALLEL_JOBS % 3)
+           {
+              max_line_length += (((MAX_NO_PARALLEL_JOBS / 3) + 1) * bar_thickness_3) +
+                                 BUTTON_SPACING;
+           }
+           else
+           {
+              max_line_length += ((MAX_NO_PARALLEL_JOBS / 3) * bar_thickness_3) +
+                                 BUTTON_SPACING;
+           }
+           x_offset_characters = x_offset_bars = max_line_length;
+        }
+        else
+        {
+           x_offset_proc = 0;
+        }
    if (line_style & SHOW_CHARACTERS)
    {
       max_line_length += (17 * glyph_width) + DEFAULT_FRAME_SPACE;

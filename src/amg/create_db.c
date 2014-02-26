@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -451,7 +451,18 @@ create_db(void)
 #endif
    if (stat_buf.st_dev != ldv)
    {
-      not_in_same_file_system++;
+#ifdef MULTI_FS_SUPPORT
+      if (check_extra_filesystem(stat_buf.st_dev, &de[0].afd_file_dir) == YES)
+      {
+         de[0].flag |= IN_EXTRA_FILESYSTEM;
+      }
+      else
+      {
+#endif
+         not_in_same_file_system++;
+#ifdef MULTI_FS_SUPPORT
+      }
+#endif
    }
    else
    {
@@ -573,7 +584,19 @@ create_db(void)
 #endif
          if (stat_buf.st_dev != ldv)
          {
-            not_in_same_file_system++;
+#ifdef MULTI_FS_SUPPORT
+            if (check_extra_filesystem(stat_buf.st_dev,
+                                       &de[dir_counter].afd_file_dir) == YES)
+            {
+               de[dir_counter].flag |= IN_EXTRA_FILESYSTEM;
+            }
+            else
+            {
+#endif
+               not_in_same_file_system++;
+#ifdef MULTI_FS_SUPPORT
+            }
+#endif
          }
          else
          {

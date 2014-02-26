@@ -143,6 +143,6 @@ get_dir_id_position(struct fileretrieve_status *fra,
       }
    }
 
-   /* Host not found in struct. */
+   /* Directory ID not found in struct. */
    return(INCORRECT);
 }

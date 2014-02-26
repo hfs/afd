@@ -1,6 +1,6 @@
 /*
  *  change_alias_order.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -179,7 +179,11 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    /*
     * Create a new FSA with the new ordering of the host aliases.
     */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(new_fsa_stat, MAX_PATH_LENGTH, "%s%s%s.%d",
+#else
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
+#endif
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, current_fsa_id);
 
    /* Now map the new FSA region to a file. */
@@ -263,8 +267,13 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                 */
                (void)memset(&new_fsa[i], 0, sizeof(struct filetransfer_status));
                (void)memcpy(new_fsa[i].host_alias, hl[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
-               (void)sprintf(new_fsa[i].host_dsp_name, "%-*s",
-                             MAX_HOSTNAME_LENGTH, hl[i].host_alias);
+               new_fsa[i].host_id = get_str_checksum(new_fsa[i].host_alias);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(new_fsa[i].host_dsp_name, MAX_HOSTNAME_LENGTH + 2,
+#else
+               (void)sprintf(new_fsa[i].host_dsp_name,
+#endif
+                             "%-*s", MAX_HOSTNAME_LENGTH, hl[i].host_alias);
                new_fsa[i].toggle_pos = strlen(new_fsa[i].host_alias);
                (void)memcpy(new_fsa[i].real_hostname[0], hl[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
                (void)memcpy(new_fsa[i].real_hostname[1], hl[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
@@ -411,7 +420,11 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    }
 
    /* Remove the old FSA file. */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(new_fsa_stat, MAX_PATH_LENGTH, "%s%s%s.%d",
+#else
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
+#endif
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, current_fsa_id - 1);
    if (unlink(new_fsa_stat) < 0)
    {

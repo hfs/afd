@@ -1,6 +1,6 @@
 /*
  *  get_log_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,12 +88,17 @@ get_log_number(int  *log_number,
    /* Initialise log directory. */
    if (alias_name == NULL)
    {
-      (void)strcpy(log_dir, p_work_dir);
+      (void)my_strncpy(log_dir, p_work_dir, MAX_PATH_LENGTH - LOG_DIR_LENGTH);
       (void)strcat(log_dir, LOG_DIR);
    }
    else
    {
-      (void)sprintf(log_dir, "%s%s/%s", p_work_dir, RLOG_DIR, alias_name);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(log_dir, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+      (void)sprintf(log_dir, "%s%s/%s",
+#endif
+                    p_work_dir, RLOG_DIR, alias_name);
    }
    if ((dp = opendir(log_dir)) == NULL)
    {
@@ -112,7 +117,12 @@ get_log_number(int  *log_number,
 
       if (strncmp(p_dir->d_name, log_name, log_name_length) == 0)
       {
-         (void)sprintf(fullname, "%s/%s", log_dir, p_dir->d_name);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+         (void)sprintf(fullname, "%s/%s",
+#endif
+                       log_dir, p_dir->d_name);
          if (stat(fullname, &stat_buf) < 0)
          {
             if (errno != ENOENT)

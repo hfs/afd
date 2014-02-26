@@ -1,6 +1,6 @@
 /*
  *  gf_sftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,10 +73,14 @@ int                        event_log_fd = STDERR_FILENO,
                            fra_id,
                            fsa_fd = -1,
                            fsa_id,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs = 0,
                            no_of_hosts = 0,
-                           *p_no_of_hosts = NULL,
                            *no_of_listed_files,
+                           *p_no_of_hosts = NULL,
+                           prev_no_of_files_done = 0,
                            rl_fd = -1,
                            trans_db_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
@@ -87,6 +91,7 @@ int                        event_log_fd = STDERR_FILENO,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag;
 off_t                      file_size_to_retrieve_shown = 0;
+u_off_t                    prev_file_size_done = 0;
 #ifdef HAVE_MMAP
 off_t                      fra_size,
                            fsa_size;
@@ -120,6 +125,7 @@ main(int argc, char *argv[])
                     files_to_retrieve,
                     more_files_in_list,
                     status;
+   unsigned int     loop_counter;
    off_t            file_size_retrieved = 0,
                     file_size_to_retrieve;
    clock_t          clktck;
@@ -214,9 +220,18 @@ main(int argc, char *argv[])
 
    if (fsa->debug > NORMAL_MODE)
    {
-      trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                   "Trying to do a SFTP connect to %s at port %d.",
-                   db.hostname, db.port);
+      if (db.port == SSH_PORT_UNSET)
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Trying to do a SFTP connect to %s at port configured by the SSH client.",
+                      db.hostname);
+      }
+      else
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Trying to do a SFTP connect to %s at port %d.",
+                      db.hostname, db.port);
+      }
    }
 
    /* Connect to remote SFTP-server. */
@@ -228,9 +243,18 @@ main(int argc, char *argv[])
 #endif
                               db.password, fsa->debug)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                "SFTP as user `%s' connection to `%s' at port %d failed (%d).",
-                db.user, db.hostname, db.port, status);
+      if (db.port == SSH_PORT_UNSET)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   "SFTP as user `%s' connection to `%s' at port configured by the SSH client failed (%d).",
+                   db.user, db.hostname, status);
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   "SFTP as user `%s' connection to `%s' at port %d failed (%d).",
+                   db.user, db.hostname, db.port, status);
+      }
       exit(eval_timeout(CONNECT_ERROR));
    }
    else
@@ -238,8 +262,8 @@ main(int argc, char *argv[])
       if (fsa->debug > NORMAL_MODE)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                      "Connected to port %d. Agreed on SFTP version %u.",
-                      db.port, sftp_version());
+                      "Agreed on SFTP version %u.",
+                      sftp_version());
       }
    }
 
@@ -281,12 +305,14 @@ main(int argc, char *argv[])
       db.keep_connected = 0;
    }
    more_files_in_list = NO;
+   loop_counter = 0;
    do
    {
       if ((files_to_retrieve = get_remote_file_names_sftp(&file_size_to_retrieve,
                                                           &more_files_in_list)) > 0)
       {
-         int         fd,
+         int         diff_no_of_files_done,
+                     fd,
                      i,
                      local_file_length;
          off_t       bytes_done;
@@ -696,7 +722,7 @@ main(int argc, char *argv[])
                          */
                         if ((bytes_done + offset) != rl[i].size)
                         {
-                           trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                           trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
 #if SIZEOF_OFF_T == 4
                                      "File size of file %s changed from %ld to %ld when it was retrieved.",
 #else
@@ -919,7 +945,7 @@ main(int argc, char *argv[])
                      if ((rl[i].size != -1) &&
                          ((bytes_done + offset) != rl[i].size))
                      {
-                        trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                        trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
 #if SIZEOF_OFF_T == 4
                                   "File size of file %s changed from %ld to %ld when it was retrieved.",
 #else
@@ -967,6 +993,19 @@ main(int argc, char *argv[])
                }
             } /* if (rl[i].retrieved == NO) */
          } /* for (i = 0; i < *no_of_listed_files; i++) */
+
+         diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                                 prev_no_of_files_done;
+         if (diff_no_of_files_done > 0)
+         {
+            u_off_t diff_file_size_done;
+
+            diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                                  prev_file_size_done;
+            WHAT_DONE("retrieved", diff_file_size_done, diff_no_of_files_done);
+            prev_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done;
+            prev_file_size_done = fsa->job_status[(int)db.job_no].file_size_done;
+         }
 
          reset_values(files_retrieved, file_size_retrieved,
                       files_to_retrieve, file_size_to_retrieve,
@@ -1096,7 +1135,14 @@ main(int argc, char *argv[])
                             fsa->host_alias);
                }
            }
+      loop_counter++;
+      if (loop_counter == 0)
+      {
+         loop_counter = 2;
+      }
    } while (((*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & DISABLE_RETRIEVE) == 0) &&
+            (((fsa->protocol_options & DISABLE_BURSTING) == 0) ||
+             (loop_counter == 1)) &&
             ((more_files_in_list == YES) ||
              ((db.keep_connected > 0) && (sftp_timeup() == SUCCESS))));
 
@@ -1118,8 +1164,17 @@ gf_sftp_exit(void)
 {
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      WHAT_DONE("retrieved", fsa->job_status[(int)db.job_no].file_size_done,
-                fsa->job_status[(int)db.job_no].no_of_files_done);
+      int     diff_no_of_files_done;
+      u_off_t diff_file_size_done;
+
+      diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                              prev_no_of_files_done;
+      diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                            prev_file_size_done;
+      if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
+      {
+         WHAT_DONE("retrieved", diff_file_size_done, diff_no_of_files_done);
+      }
       reset_fsa((struct job *)&db, exitflag, files_to_retrieve_shown,
                 file_size_to_retrieve_shown);
    }
@@ -1197,8 +1252,9 @@ sftp_timeup(void)
    }
    if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
-      int    status;
-      time_t sleeptime = 0;
+      int          status;
+      unsigned int error_mask;
+      time_t       sleeptime = 0;
 
       if (fsa->protocol_options & STAT_KEEPALIVE)
       {
@@ -1246,6 +1302,27 @@ sftp_timeup(void)
             sleeptime = timeup - now;
          }
       } while (timeup > now);
+
+      /*
+       * We always need to make sure that the directory we scan is
+       * kept up to date in case it contains time information.
+       */
+      if ((error_mask = url_evaluate(fra[db.fra_pos].url, NULL, NULL, NULL,
+                                     NULL,
+#ifdef WITH_SSH_FINGERPRINT
+                                     NULL, NULL,
+#endif
+                                     NULL, NO, NULL, NULL, db.target_dir,
+                                     NULL, &now, NULL, NULL, NULL)) != 0)
+      {                                                                  
+         char error_msg[MAX_URL_ERROR_MSG];
+
+         url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Incorrect url `%s'. Error is: %s.",
+                    fra[db.fra_pos].url, error_msg);
+         return(INCORRECT);
+      }
    }
 
    return(SUCCESS);

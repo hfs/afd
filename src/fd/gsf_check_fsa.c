@@ -1,6 +1,6 @@
 /*
  *  gsf_check_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,7 @@ gsf_check_fsa(struct job *p_db)
       if ((p_no_of_hosts != NULL) && (*p_no_of_hosts == STALE))
       {
          fsa_detach_pos(p_db->fsa_pos);
-         if (fsa_attach() == SUCCESS)
+         if (fsa_attach("sf/gf_xxx") == SUCCESS)
          {
             p_db->fsa_pos = get_host_position(fsa, p_db->host_alias, no_of_hosts);
             (void)fsa_detach(NO);
@@ -81,10 +81,10 @@ gsf_check_fsa(struct job *p_db)
             {
                if ((ret = fsa_attach_pos(p_db->fsa_pos)) != SUCCESS)
                {
-                  p_db->fsa_pos = INCORRECT;
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to attach to FSA position %d (%d).",
                              p_db->fsa_pos, ret);
+                  p_db->fsa_pos = INCORRECT;
                   ret = NEITHER;
                }
                else

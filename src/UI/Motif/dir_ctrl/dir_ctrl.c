@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -116,12 +116,13 @@ Widget                     appshell,
                            mw[4],                /* Main menu */
                            dw[NO_DIR_MENU],      /* Directory menu */
                            vw[NO_DIR_VIEW_MENU], /* View menu */
-                           sw[4],                /* Setup menu */
+                           sw[5],                /* Setup menu */
                            hw[3],                /* Help menu */
                            fw[NO_OF_FONTS],      /* Select font */
                            rw[NO_OF_ROWS],       /* Select rows */
                            lw[4],                /* AFD load */
                            lsw[3],               /* Select line style */
+                           oow[1],               /* Other options */
                            transviewshell = NULL;
 Window                     label_window,
                            line_window;
@@ -172,6 +173,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            *p_work_dir,
                            afd_active_file[MAX_PATH_LENGTH],
                            line_style,
+                           other_options,
                            fake_user[MAX_FULL_USER_ID_LENGTH],
                            font_name[20],
                            blink_flag,
@@ -190,6 +192,7 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 static void                dir_ctrl_exit(void),
                            create_pullright_font(Widget),
                            create_pullright_load(Widget),
+                           create_pullright_other(Widget),
                            create_pullright_row(Widget),
                            create_pullright_style(Widget),
                            eval_permissions(char *),
@@ -376,13 +379,18 @@ main(int argc, char *argv[])
    if (no_input == False)
    {
       XtAddEventHandler(line_window_w,
-                        EnterWindowMask | KeyPressMask | ButtonPressMask | Button1MotionMask,
+                        EnterWindowMask | KeyPressMask | ButtonPressMask |
+                        Button1MotionMask,
                         False, (XtEventHandler)dir_input, NULL);
 
       /* Set toggle button for font|row. */
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
       XtVaSetValues(rw[current_row], XmNset, True, NULL);
       XtVaSetValues(lsw[current_style], XmNset, True, NULL);
+      if (other_options & FORCE_SHIFT_SELECT)
+      {
+         XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, True, NULL);
+      }
 
       /* Setup popup menu. */
       init_popup_menu(line_window_w);
@@ -658,6 +666,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    /*
     * Read setup file of this user.
     */
+   other_options = DEFAULT_OTHER_OPTIONS;
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    read_setup(DIR_CTRL, profile, NULL, NULL, NULL, NULL, 0);
@@ -776,7 +785,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             pullright_font,
             pullright_load,
             pullright_row,
-            pullright_line_style;
+            pullright_line_style,
+            pullright_other_options;
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_FORM);
@@ -1072,6 +1082,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                               "pullright_row", NULL, 0);
    pullright_line_style = XmCreateSimplePulldownMenu(setup_pull_down_w,
                                               "pullright_line_style", NULL, 0);
+   pullright_other_options = XmCreateSimplePulldownMenu(setup_pull_down_w,
+                                              "pullright_other_options", NULL, 0);
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
@@ -1098,6 +1110,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            XmNsubMenuId,               pullright_line_style,
                            NULL);
    create_pullright_style(pullright_line_style);
+   sw[OTHER_W] = XtVaCreateManagedWidget("Other options",
+                           xmCascadeButtonWidgetClass, setup_pull_down_w,
+                           XmNfontList,                fontlist,
+                           XmNsubMenuId,               pullright_other_options,
+                           NULL);
+   create_pullright_other(pullright_other_options);
    XtVaCreateManagedWidget("Separator",
                            xmSeparatorWidgetClass, setup_pull_down_w,
                            NULL);
@@ -1455,6 +1473,31 @@ create_pullright_style(Widget pullright_line_style)
    XtAddCallback(lsw[STYLE_2_W], XmNvalueChangedCallback, change_dir_style_cb,
                  (XtPointer)2);
    XtManageChild(lsw[STYLE_2_W]);
+   XmStringFree(x_string);
+
+   return;
+}
+
+
+/*------------------------ create_pullright_other() ---------------------*/
+static void
+create_pullright_other(Widget pullright_other_options)
+{
+   XmString x_string;
+   Arg      args[3];
+   Cardinal argcount;
+
+   /* Create pullright for "Other". */
+   argcount = 0;
+   x_string = XmStringCreateLocalized("Force shift select");
+   XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+   oow[FORCE_SHIFT_SELECT_W] = XmCreateToggleButton(pullright_other_options,
+                                            "other_0", args, argcount);
+   XtAddCallback(oow[FORCE_SHIFT_SELECT_W], XmNvalueChangedCallback,
+                 change_dir_other_cb, (XtPointer)FORCE_SHIFT_SELECT_W);
+   XtManageChild(oow[FORCE_SHIFT_SELECT_W]);
    XmStringFree(x_string);
 
    return;

@@ -1,6 +1,6 @@
 /*
  *  show_ilog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,8 +96,8 @@ struct info_data
           unsigned int       dir_id;
           int                unique_number;
           int                count;       /* Counts number of dbe entries. */
-          char               dir[MAX_PATH_LENGTH];
-          char               file_name[MAX_FILENAME_LENGTH];
+          unsigned char      dir[MAX_PATH_LENGTH];
+          unsigned char      file_name[MAX_FILENAME_LENGTH];
           char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
           struct dir_options d_o;
           struct db_entry    *dbe;
@@ -203,6 +203,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
             eval_alda_data(char *),
             format_info(char **, int),
             get_info(int),
+            get_info_free(void),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),

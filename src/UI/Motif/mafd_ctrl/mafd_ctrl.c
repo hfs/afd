@@ -1,6 +1,6 @@
 /*
  *  mafd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -125,13 +125,15 @@ Widget                     mw[5],          /* Main menu */
                            ow[13],         /* Host menu */
                            vw[12],         /* View menu */
                            cw[8],          /* Control menu */
-                           sw[4],          /* Setup menu */
+                           sw[5],          /* Setup menu */
                            hw[3],          /* Help menu */
                            fw[NO_OF_FONTS],/* Select font */
                            rw[NO_OF_ROWS], /* Select rows */
                            tw[2],          /* Test (ping, traceroute) */
                            lw[4],          /* AFD load */
                            lsw[4],         /* Line style */
+                           ptw[3],         /* Process type. */
+                           oow[1],         /* Other options */
                            pw[13],         /* Popup menu */
                            dprw[3],        /* Debug pull right */
                            appshell,
@@ -246,6 +248,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            afd_active_file[MAX_PATH_LENGTH],
                            *db_update_reply_fifo = NULL,
                            line_style,
+                           other_options,
                            fake_user[MAX_FULL_USER_ID_LENGTH],
                            font_name[20],
                            *info_data = NULL,
@@ -276,6 +279,7 @@ static void                mafd_ctrl_exit(void),
                            create_pullright_debug(Widget),
                            create_pullright_font(Widget),
                            create_pullright_load(Widget),
+                           create_pullright_other(Widget),
                            create_pullright_row(Widget),
                            create_pullright_style(Widget),
                            create_pullright_test(Widget),
@@ -528,7 +532,9 @@ main(int argc, char *argv[])
 
    if (no_input == False)
    {
-      XtAddEventHandler(line_window_w, EnterWindowMask | KeyPressMask | ButtonPressMask | Button1MotionMask,
+      XtAddEventHandler(line_window_w,
+                        EnterWindowMask | KeyPressMask | ButtonPressMask |
+                        Button1MotionMask,
                         False, (XtEventHandler)input, NULL);
       XtAddEventHandler(short_line_window_w,
                         ButtonPressMask | ButtonReleaseMask | Button1MotionMask,
@@ -543,8 +549,22 @@ main(int argc, char *argv[])
       }
       if (line_style & SHOW_JOBS)
       {
-         XtVaSetValues(lsw[JOBS_STYLE_W], XmNset, True, NULL);
+         XtVaSetValues(ptw[0], XmNset, True, NULL);
+         XtVaSetValues(ptw[1], XmNset, False, NULL);
+         XtVaSetValues(ptw[2], XmNset, False, NULL);
       }
+      else if (line_style & SHOW_JOBS_COMPACT)
+           {
+              XtVaSetValues(ptw[0], XmNset, False, NULL);
+              XtVaSetValues(ptw[1], XmNset, True, NULL);
+              XtVaSetValues(ptw[2], XmNset, False, NULL);
+           }
+           else
+           {
+              XtVaSetValues(ptw[0], XmNset, False, NULL);
+              XtVaSetValues(ptw[1], XmNset, False, NULL);
+              XtVaSetValues(ptw[2], XmNset, True, NULL);
+           }
       if (line_style & SHOW_CHARACTERS)
       {
          XtVaSetValues(lsw[CHARACTERS_STYLE_W], XmNset, True, NULL);
@@ -552,6 +572,10 @@ main(int argc, char *argv[])
       if (line_style & SHOW_BARS)
       {
          XtVaSetValues(lsw[BARS_STYLE_W], XmNset, True, NULL);
+      }
+      if (other_options & FORCE_SHIFT_SELECT)
+      {
+         XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, True, NULL);
       }
 
       /* Setup popup menu. */
@@ -838,7 +862,7 @@ init_mafd_ctrl(int *argc, char *argv[], char *window_title)
     * Attach to the FSA and get the number of host
     * and the fsa_id of the FSA.
     */
-   if ((i = fsa_attach()) < 0)
+   if ((i = fsa_attach("mafd_ctrl")) < 0)
    {
       if (i == INCORRECT_VERSION)
       {
@@ -951,6 +975,7 @@ init_mafd_ctrl(int *argc, char *argv[], char *window_title)
    /*
     * Read setup file of this user.
     */
+   other_options = DEFAULT_OTHER_OPTIONS;
    line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
@@ -1143,7 +1168,7 @@ init_mafd_ctrl(int *argc, char *argv[], char *window_title)
           stale_short_lines = NO;
 
       /*
-       * We must first make shure that all hosts in our short host list
+       * We must first make sure that all hosts in our short host list
        * are still in the FSA. It could be that they have been removed.
        * In that case we must remove those hosts from the list.
        */
@@ -1328,7 +1353,7 @@ init_mafd_ctrl(int *argc, char *argv[], char *window_title)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       int  str_length;
       char value[MAX_PATH_LENGTH];
@@ -1388,7 +1413,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             pullright_font,
             pullright_load,
             pullright_row,
-            pullright_line_style;
+            pullright_line_style,
+            pullright_other_options;
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_FORM);
@@ -1900,6 +1926,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                               "pullright_row", NULL, 0);
    pullright_line_style = XmCreateSimplePulldownMenu(pull_down_w,
                                               "pullright_line_style", NULL, 0);
+   pullright_other_options = XmCreateSimplePulldownMenu(pull_down_w,
+                                              "pullright_other_options", NULL, 0);
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
@@ -1926,6 +1954,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            XmNsubMenuId,               pullright_line_style,
                            NULL);
    create_pullright_style(pullright_line_style);
+   sw[OTHER_W] = XtVaCreateManagedWidget("Other options",
+                           xmCascadeButtonWidgetClass, pull_down_w,
+                           XmNfontList,                fontlist,
+                           XmNsubMenuId,               pullright_other_options,
+                           NULL);
+   create_pullright_other(pullright_other_options);
    XtVaCreateManagedWidget("Separator",
                            xmSeparatorWidgetClass, pull_down_w,
                            NULL);
@@ -2034,7 +2068,7 @@ init_popup_menu(Widget w)
       }
       if (acp.ctrl_queue_transfer != NO_PERMISSION)
       {
-         pw[3] = XtVaCreateManagedWidget("Handle event",
+         pw[3] = XtVaCreateManagedWidget("Start/Stop host",
                                  xmPushButtonWidgetClass, popupmenu,
                                  XmNfontList,             fontlist,
                                  NULL);
@@ -2363,6 +2397,7 @@ create_pullright_style(Widget pullright_line_style)
    XmString x_string;
    Arg      args[3];
    Cardinal argcount;
+   Widget   pullright_proc_style;
 
    /* Create pullright for "Line style". */
    argcount = 0;
@@ -2377,16 +2412,43 @@ create_pullright_style(Widget pullright_line_style)
    XtManageChild(lsw[LEDS_STYLE_W]);
    XmStringFree(x_string);
 
+   /* Create another pullright for process. */
+   pullright_proc_style = XmCreateSimplePulldownMenu(pullright_line_style,
+                                          "pullright_proc_style", NULL, 0);
+   lsw[JOBS_STYLE_W] = XtVaCreateManagedWidget("Process",
+                         xmCascadeButtonWidgetClass, pullright_line_style,
+                         XmNfontList,                fontlist,
+                         XmNsubMenuId,               pullright_proc_style,
+                         NULL);
+
    argcount = 0;
-   x_string = XmStringCreateLocalized("Process");
+   x_string = XmStringCreateLocalized("Normal");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
    XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-   lsw[JOBS_STYLE_W] = XmCreateToggleButton(pullright_line_style, "style_1",
-                                            args, argcount);
-   XtAddCallback(lsw[JOBS_STYLE_W], XmNvalueChangedCallback, change_style_cb,
-                 (XtPointer)JOBS_STYLE_W);
-   XtManageChild(lsw[JOBS_STYLE_W]);
+   ptw[0] = XmCreateToggleButton(pullright_proc_style, "p_s_normal", args, argcount);
+   XtAddCallback(ptw[0], XmNvalueChangedCallback, change_style_cb, (XtPointer)JOB_STYLE_NORMAL);
+   XtManageChild(ptw[0]);
+   XmStringFree(x_string);
+
+   argcount = 0;
+   x_string = XmStringCreateLocalized("Compact");
+   XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+   ptw[1] = XmCreateToggleButton(pullright_proc_style, "p_s_compact", args, argcount);
+   XtAddCallback(ptw[1], XmNvalueChangedCallback, change_style_cb, (XtPointer)JOB_STYLE_COMPACT);
+   XtManageChild(ptw[1]);
+   XmStringFree(x_string);
+
+   argcount = 0;
+   x_string = XmStringCreateLocalized("None");
+   XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+   ptw[2] = XmCreateToggleButton(pullright_proc_style, "p_s_none", args, argcount);
+   XtAddCallback(ptw[2], XmNvalueChangedCallback, change_style_cb, (XtPointer)JOB_STYLE_NONE);
+   XtManageChild(ptw[2]);
    XmStringFree(x_string);
 
    argcount = 0;
@@ -2411,6 +2473,31 @@ create_pullright_style(Widget pullright_line_style)
    XtAddCallback(lsw[BARS_STYLE_W], XmNvalueChangedCallback, change_style_cb,
                  (XtPointer)BARS_STYLE_W);
    XtManageChild(lsw[BARS_STYLE_W]);
+   XmStringFree(x_string);
+
+   return;
+}
+
+
+/*------------------------ create_pullright_other() ---------------------*/
+static void
+create_pullright_other(Widget pullright_other_options)
+{
+   XmString x_string;
+   Arg      args[3];
+   Cardinal argcount;
+
+   /* Create pullright for "Other". */
+   argcount = 0;
+   x_string = XmStringCreateLocalized("Force shift select");
+   XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+   oow[FORCE_SHIFT_SELECT_W] = XmCreateToggleButton(pullright_other_options,
+                                            "other_0", args, argcount);
+   XtAddCallback(oow[FORCE_SHIFT_SELECT_W], XmNvalueChangedCallback,
+                 change_other_cb, (XtPointer)FORCE_SHIFT_SELECT_W);
+   XtManageChild(oow[FORCE_SHIFT_SELECT_W]);
    XmStringFree(x_string);
 
    return;

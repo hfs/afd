@@ -1,6 +1,6 @@
 /*
  *  get_display_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,19 +58,24 @@ DESCR__E_M3
 #include "afdddefs.h"
 
 /* External global variables. */
-extern int  cmd_sd;
-extern FILE *p_data;
+extern int             cmd_sd;
+extern FILE            *p_data;
+
+/* Local global variables. */
+static struct fd_cache fc[MAX_AFDD_LOG_FILES];
 
 
 /*########################## get_display_data() #########################*/
 int
 get_display_data(char *search_file,
+                 int  log_number,
                  char *search_string,
+                 int  start_line,
 		 int  no_of_lines,
 		 int  show_time,
 		 int  file_no)
 {
-   int         from_fd,
+   int         from_fd = -1,
 	       length;
    size_t      hunk,
                left;
@@ -79,27 +84,71 @@ get_display_data(char *search_file,
 
    /* Open source file. */
    length = strlen(search_file);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(&search_file[length], MAX_PATH_LENGTH - length, "%d", file_no);
+#else
    (void)sprintf(&search_file[length], "%d", file_no);
-   if ((from_fd = open(search_file, O_RDONLY)) < 0)
+#endif
+
+   if (start_line != NOT_SET)
    {
-      (void)fprintf(p_data, "500 Failed to open() %s : %s (%s %d)\r\n",
+      if (stat(search_file, &stat_buf) != 0)
+      {
+         (void)fprintf(p_data, "500 Failed to stat() %s : %s (%s %d)\r\n",
                        search_file, strerror(errno), __FILE__, __LINE__);
-      return(INCORRECT);
+         return(INCORRECT);
+      }
+      if (stat_buf.st_ino == fc[log_number].st_ino)
+      {
+         from_fd = fc[log_number].fd;
+      }
+      else
+      {
+         if (fc[log_number].fd != -1)
+         {
+            if (close(fc[log_number].fd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() log file %d : %s",
+                          log_number, strerror(errno));
+            }
+            fc[log_number].fd = -1;
+            fc[log_number].st_ino = 0;
+         }
+      }
    }
 
-   if (fstat(from_fd, &stat_buf) != 0)
+   if (from_fd == -1)
    {
-      (void)fprintf(p_data, "500 Failed to fstat() %s : %s (%s %d)\r\n",
-                    search_file, strerror(errno), __FILE__, __LINE__);
-      (void)close(from_fd);
-      return(INCORRECT);
+      if ((from_fd = open(search_file, O_RDONLY)) < 0)
+      {
+         (void)fprintf(p_data, "500 Failed to open() %s : %s (%s %d)\r\n",
+                       search_file, strerror(errno), __FILE__, __LINE__);
+         return(INCORRECT);
+      }
+
+      if (start_line != NOT_SET)
+      {
+         fc[log_number].fd = from_fd;
+         fc[log_number].st_ino = stat_buf.st_ino;
+      }
+      else
+      {
+         if (fstat(from_fd, &stat_buf) != 0)
+         {
+            (void)fprintf(p_data, "500 Failed to fstat() %s : %s (%s %d)\r\n",
+                          search_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(from_fd);
+            return(INCORRECT);
+         }
+         else if (stat_buf.st_size == 0)
+              {
+                 (void)fprintf(p_data, "500 File %s is empty.\r\n", search_file);
+                 (void)close(from_fd);
+                 return(SUCCESS);
+              }
+      }
    }
-   else if (stat_buf.st_size == 0)
-        {
-           (void)fprintf(p_data, "500 File %s is empty.\r\n", search_file);
-           (void)close(from_fd);
-           return(SUCCESS);
-        }
 
    left = hunk = stat_buf.st_size;
 
@@ -154,4 +203,45 @@ get_display_data(char *search_file,
    }
 
    return(SUCCESS);
+}
+
+
+/*######################## init_get_display_data() ######################*/
+void
+init_get_display_data(void)
+{
+   int i;
+
+   for (i = 0; i < MAX_AFDD_LOG_FILES; i++)
+   {
+      fc[i].fd = -1;
+      fc[i].st_ino = 0;
+   }
+
+   return;
+}
+
+
+/*####################### close_get_display_data() ######################*/
+void
+close_get_display_data(void)
+{
+   int i;
+
+   for (i = 0; i < MAX_AFDD_LOG_FILES; i++)
+   {
+      if (fc[i].fd != -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "Failed to close() log file %d : %s",
+                    i, strerror(errno));
+      }
+      else
+      {
+         fc[i].fd = -1;
+      }
+      fc[i].st_ino = 0;
+   }
+
+   return;
 }

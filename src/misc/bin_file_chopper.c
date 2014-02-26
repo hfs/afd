@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -231,8 +231,21 @@ bin_file_chopper(char         *bin_file,
    }
 
    /* Get directory where files are to be stored. */
+   i = strlen(bin_file);
+   if (i > (MAX_PATH_LENGTH - 1))
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Buffer to store file name is to small (%d < %d).",
+                 MAX_PATH_LENGTH, i);
+#ifdef HAVE_MMAP
+      (void)munmap(p_file, stat_buf.st_size);
+#else
+      (void)munmap_emu(p_file);
+#endif
+      return(INCORRECT);
+   }
    (void)strcpy(new_file, bin_file);
-   p_new_file = new_file + strlen(new_file);
+   p_new_file = new_file + i;
    while ((*p_new_file != '/') && (p_new_file != new_file))
    {
       p_new_file--;
@@ -446,7 +459,12 @@ bin_file_chopper(char         *bin_file,
             p_end = p_new_file + strlen(p_new_file);
             while (eaccess(new_file, F_OK) == 0)
             {
-               (void)sprintf(p_end, ";%d", local_counter);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(p_end, MAX_PATH_LENGTH - (p_end - new_file),
+#else
+               (void)sprintf(p_end,
+#endif
+                             ";%d", local_counter);
                local_counter++;
             }
          }
@@ -494,7 +512,13 @@ bin_file_chopper(char         *bin_file,
                                  "%Y%m%d%H%M%S", gmtime(&tvalue));
                date_str[length] = '\0';
             }
-            (void)sprintf(p_new_file, "%s_%s_%s_%x", bul_format[i],
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(p_new_file,
+                           MAX_PATH_LENGTH - (p_new_file - new_file),
+#else
+            (void)sprintf(p_new_file,
+#endif
+                          "%s_%s_%s_%x", bul_format[i],
                           originator, date_str, *counter);
          }
 
@@ -749,6 +773,17 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
             ((char *)&data_length)[2] = *(ptr + 2);
             ((char *)&data_length)[3] = *(ptr + 3);
          }
+         if (data_length > total_length)
+         {
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+#if SIZEOF_OFF_T == 4
+                        "Given length %ld is larger then the rest of the file %ld.",
+#else
+                        "Given length %lld is larger then the rest of the file %lld.",
+#endif
+                        (pri_off_t)data_length, (pri_off_t)total_length);
+            data_length = total_length;
+         }
          if (data_length > 99999991)
          {
             (void)strcpy(length_indicator, "9999999900\01\015\015\012");
@@ -758,8 +793,12 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
          }
          else
          {
-            (void)sprintf(length_indicator, "%08u00\01\015\015\012",
-                          data_length + 4 + 4);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(length_indicator, 15,
+#else
+            (void)sprintf(length_indicator,
+#endif
+                          "%08u00\01\015\015\012", data_length + 4 + 4);
          }
          if (write(to_fd, length_indicator, 14) != 14)
          {
@@ -939,10 +978,15 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
             }
             else
             {
-#if SIZEOF_OFF_T == 4
-               (void)sprintf(length_indicator, "%08ld00",
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(length_indicator, 15,
 #else
-               (void)sprintf(length_indicator, "%08lld00",
+               (void)sprintf(length_indicator,
+#endif
+#if SIZEOF_OFF_T == 4
+                             "%08ld00",
+#else
+                             "%08lld00",
 #endif
                              (pri_off_t)(data_length + 8));
             }

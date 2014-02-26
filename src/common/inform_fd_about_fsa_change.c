@@ -1,7 +1,7 @@
 /*
  *  inform_fd_about_fsa_change.c - Part of AFD, an automatic file
  *                                 distribution program.
- *  Copyright (c) 2002 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,12 @@ inform_fd_about_fsa_change(void)
       char        cmd_fifo[MAX_PATH_LENGTH];
       struct stat stat_buf;
 
-      (void)sprintf(cmd_fifo, "%s%s%s", p_work_dir, FIFO_DIR, FD_CMD_FIFO);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(cmd_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
+      (void)sprintf(cmd_fifo, "%s%s%s",
+#endif
+                    p_work_dir, FIFO_DIR, FD_CMD_FIFO);
       if ((stat(cmd_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
       {
          if (make_fifo(cmd_fifo) < 0)

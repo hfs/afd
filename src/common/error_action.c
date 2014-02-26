@@ -1,6 +1,6 @@
 /*
  *  error_action.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ DESCR__S_M3
  **   23.11.2007 H.Kiehl Added warn and error action for directories.
  **   06.01.2008 H.Kiehl Added warn action for host and a default action.
  **   04.05.2009 H.Kiehl Added success actions.
+ **   24.06.2013 H.Kiehl Added info actions.
  **
  */
 DESCR__E_M3
@@ -72,7 +73,12 @@ error_action(char *alias_name, char *action, int type)
 
    if (type == HOST_ERROR_ACTION)
    {
-      p_alias_name = fullname + sprintf(fullname, "%s%s%s%s%s/",
+#ifdef HAVE_SNPRINTF
+      p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+      p_alias_name = fullname + sprintf(fullname,
+#endif
+                                        "%s%s%s%s%s/",
                                         p_work_dir, ETC_DIR, ACTION_DIR,
                                         ACTION_TARGET_DIR, ACTION_ERROR_DIR);
       event_class = EC_HOST;
@@ -93,9 +99,13 @@ error_action(char *alias_name, char *action, int type)
    }
    else if (type == DIR_ERROR_ACTION)
         {
-           p_alias_name = fullname + sprintf(fullname, "%s%s%s%s%s/",
-                                             p_work_dir, ETC_DIR, ACTION_DIR,
-                                             ACTION_SOURCE_DIR,
+#ifdef HAVE_SNPRINTF
+           p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+           p_alias_name = fullname + sprintf(fullname,
+#endif
+                                             "%s%s%s%s%s/", p_work_dir, ETC_DIR,
+                                             ACTION_DIR, ACTION_SOURCE_DIR,
                                              ACTION_ERROR_DIR);
            event_class = EC_DIR;
            if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'a') &&
@@ -116,7 +126,12 @@ error_action(char *alias_name, char *action, int type)
         }
    else if (type == HOST_WARN_ACTION)
         {
-           p_alias_name = fullname + sprintf(fullname, "%s%s%s%s%s/",
+#ifdef HAVE_SNPRINTF
+           p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+           p_alias_name = fullname + sprintf(fullname,
+#endif
+                                             "%s%s%s%s%s/",
                                              p_work_dir, ETC_DIR, ACTION_DIR,
                                              ACTION_TARGET_DIR, ACTION_WARN_DIR);
            event_class = EC_HOST;
@@ -136,9 +151,43 @@ error_action(char *alias_name, char *action, int type)
                    event_action = 0;
                 }
         }
+#ifdef NEW_FRA
+   else if (type == DIR_INFO_ACTION)
+        {
+#ifdef HAVE_SNPRINTF
+           p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+           p_alias_name = fullname + sprintf(fullname,
+#endif
+                                             "%s%s%s%s%s/",
+                                             p_work_dir, ETC_DIR, ACTION_DIR,
+                                             ACTION_SOURCE_DIR, ACTION_INFO_DIR);
+           event_class = EC_DIR;
+           if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'a') &&
+               (action[3] == 'r') && (action[4] == 't') && (action[5] == '\0'))
+           {
+              event_action = EA_EXEC_INFO_ACTION_START;
+           }
+           else if ((action[0] == 's') && (action[1] == 't') &&
+                    (action[2] == 'o') && (action[3] == 'p') &&
+                    (action[4] == '\0'))
+                {
+                   event_action = EA_EXEC_INFO_ACTION_STOP;
+                }
+                else
+                {
+                   event_action = 0;
+                }
+        }
+#endif
    else if (type == DIR_WARN_ACTION)
         {
-           p_alias_name = fullname + sprintf(fullname, "%s%s%s%s%s/",
+#ifdef HAVE_SNPRINTF
+           p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+           p_alias_name = fullname + sprintf(fullname,
+#endif
+                                             "%s%s%s%s%s/",
                                              p_work_dir, ETC_DIR, ACTION_DIR,
                                              ACTION_SOURCE_DIR, ACTION_WARN_DIR);
            event_class = EC_DIR;
@@ -160,9 +209,13 @@ error_action(char *alias_name, char *action, int type)
         }
    else if (type == HOST_SUCCESS_ACTION)
         {
-           p_alias_name = fullname + sprintf(fullname, "%s%s%s%s%s/",
-                                             p_work_dir, ETC_DIR, ACTION_DIR,
-                                             ACTION_TARGET_DIR,
+#ifdef HAVE_SNPRINTF
+           p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+           p_alias_name = fullname + sprintf(fullname,
+#endif
+                                             "%s%s%s%s%s/", p_work_dir, ETC_DIR,
+                                             ACTION_DIR, ACTION_TARGET_DIR,
                                              ACTION_SUCCESS_DIR);
            event_class = EC_HOST;
            if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'a') &&
@@ -183,7 +236,12 @@ error_action(char *alias_name, char *action, int type)
         }
    else if (type == DIR_SUCCESS_ACTION)
         {
-           p_alias_name = fullname + sprintf(fullname, "%s%s%s%s%s/",
+#ifdef HAVE_SNPRINTF
+           p_alias_name = fullname + snprintf(fullname, MAX_PATH_LENGTH,
+#else
+           p_alias_name = fullname + sprintf(fullname,
+#endif
+                                             "%s%s%s%s%s/",
                                              p_work_dir, ETC_DIR, ACTION_DIR,
                                              ACTION_SOURCE_DIR,
                                              ACTION_SUCCESS_DIR);
@@ -286,17 +344,27 @@ error_action(char *alias_name, char *action, int type)
       }
       if (WIFEXITED(status))
       {
-         (void)sprintf(reason_str, "%d", WEXITSTATUS(status));
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(reason_str, 38 + MAX_INT_LENGTH + 1, "%d",
+#else
+         (void)sprintf(reason_str, "%d",
+#endif
+                       WEXITSTATUS(status));
       }
       else if (WIFSIGNALED(status))
            {
+#ifdef HAVE_SNPRINTF
+              (void)snprintf(reason_str, 38 + MAX_INT_LENGTH + 1,
+#else
               (void)sprintf(reason_str,
+#endif
                             _("Abnormal termination caused by signal %d"),
                             WTERMSIG(status));
            }
            else
            {
-              (void)strcpy(reason_str, _("Unable to determine return code"));
+              (void)my_strncpy(reason_str, _("Unable to determine return code"),
+                               38 + MAX_INT_LENGTH + 1);
            }
 
       if (event_action)

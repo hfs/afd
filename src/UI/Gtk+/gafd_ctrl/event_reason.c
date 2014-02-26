@@ -251,7 +251,7 @@ get_event_reason(char *reason_str, char *host_alias)
    (void)sprintf(log_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(log_file, F_OK) == 0) &&
-       (read_file_no_cr(log_file, &src) != INCORRECT))
+       (read_file_no_cr(log_file, &src, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_INT_LENGTH + 1];
 

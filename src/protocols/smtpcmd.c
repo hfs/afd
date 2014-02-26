@@ -1,6 +1,6 @@
 /*
  *  smtpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -132,6 +132,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 #include "smtpdefs.h"
+#include "commondefs.h"
 
 
 /* External global variables. */
@@ -177,7 +178,11 @@ smtp_connect(char *hostname, int port, int sockbuf_size)
    hints.ai_socktype = SOCK_STREAM;
 /* ???   hints.ai_flags = AI_CANONNAME; */
 
+# ifdef HAVE_SNPRINTF
+   (void)snprintf(str_port, MAX_INT_LENGTH, "%d", port);
+# else
    (void)sprintf(str_port, "%d", port);
+# endif
    reply = getaddrinfo(hostname, str_port, &hints, &result);
    if (reply != 0)
    {
@@ -199,7 +204,12 @@ smtp_connect(char *hostname, int port, int sockbuf_size)
                                rp->ai_protocol)) == -1)
       {
 # ifdef WITH_TRACE
-         length = sprintf(msg_str, _("socket() error : %s"), strerror(errno));
+#  ifdef HAVE_SNPRINTF
+         length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#  else
+         length = sprintf(msg_str,
+#  endif
+                          _("socket() error : %s"), strerror(errno));
          trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
          continue;
@@ -239,15 +249,31 @@ smtp_connect(char *hostname, int port, int sockbuf_size)
       }
 # endif
 
-      if (connect(smtp_fd, rp->ai_addr, rp->ai_addrlen) == -1)
+      reply = connect_with_timeout(smtp_fd, rp->ai_addr, rp->ai_addrlen);
+      if (reply == INCORRECT)
       {
+         if (errno)
+         {
 # ifdef WITH_TRACE
-         length = sprintf(msg_str, _("connect() error : %s"), strerror(errno));
-         trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+#  ifdef HAVE_SNPRINTF
+            length = snprintf(msg_str, MAX_RET_MSG_LENGTH,
+#  else
+            length = sprintf(msg_str,
+#  endif
+                             _("connect() error : %s"), strerror(errno));
+            trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 # endif
+         }
          (void)close(smtp_fd);
          continue;
       }
+      else if (reply == PERMANENT_INCORRECT)
+           {
+              (void)close(smtp_fd);
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                        _("Failed to connect() to %s"), hostname);
+              return(INCORRECT);
+           }
 
       break; /* Success */
    }
@@ -255,8 +281,17 @@ smtp_connect(char *hostname, int port, int sockbuf_size)
    /* Ensure that we succeeded in finding an address. */
    if (rp == NULL)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
-                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+      if (errno)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("Failed to connect() to %s : %s"),
+                   hostname, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("Failed to connect() to %s"), hostname);
+      }
       return(INCORRECT);
    }
 
@@ -350,35 +385,48 @@ smtp_connect(char *hostname, int port, int sockbuf_size)
    }
 # endif
 
-   if (connect(smtp_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
+   if (connect_with_timeout(smtp_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-# ifdef ETIMEDOUT
-      if (errno == ETIMEDOUT)
+      if (errno)
       {
-         timeout_flag = ON;
-      }
+# ifdef ETIMEDOUT
+         if (errno == ETIMEDOUT)
+         {
+            timeout_flag = ON;
+         }
 #  ifdef ECONNREFUSED
-      else if (errno == ECONNREFUSED)
-           {
-              timeout_flag = CON_REFUSED;
-           }
+         else if (errno == ECONNREFUSED)
+              {
+                 timeout_flag = CON_REFUSED;
+              }
 #  endif
 # else
 #  ifdef ECONNREFUSED
-      if (errno == ECONNREFUSED)
-      {
-         timeout_flag = CON_REFUSED;
-      }
+         if (errno == ECONNREFUSED)
+         {
+            timeout_flag = CON_REFUSED;
+         }
 #  endif
 # endif
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
-                _("Failed to connect() to %s : %s"), hostname, strerror(errno));
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("Failed to connect() to %s : %s"),
+                   hostname, strerror(errno));
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "smtp_connect", NULL,
+                   _("Failed to connect() to %s"), hostname);
+      }
       (void)close(smtp_fd);
       return(INCORRECT);
    }
 #endif
 #ifdef WITH_TRACE
+# ifdef HAVE_SNPRINTF
+   length = snprintf(msg_str, MAX_RET_MSG_LENGTH, _("Connected to %s"), hostname);
+# else
    length = sprintf(msg_str, _("Connected to %s"), hostname);
+# endif
    trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
 #endif
 
@@ -527,7 +575,13 @@ smtp_auth(unsigned char auth_type, char *user, char *passwd)
          }
          else
          {
-            length = sprintf(userpasswd, "%s:%s", user, passwd);
+# ifdef HAVE_SNPRINTF
+            length = snprintf(userpasswd,
+                              MAX_USER_NAME_LENGTH + MAX_USER_NAME_LENGTH,
+# else
+            length = sprintf(userpasswd,
+# endif
+                             "%s:%s", user, passwd);
             src_ptr = userpasswd;
          }
          while (length > 2)

@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -99,6 +99,8 @@ extern XtInputId                  db_update_cmd_id;
 extern Widget                     fw[],
                                   rw[],
                                   lsw[],
+                                  ptw[],
+                                  oow[],
                                   appshell,
                                   line_window_w,
                                   transviewshell;
@@ -122,10 +124,12 @@ extern GC                         letter_gc,
                                   black_line_gc,
                                   white_line_gc,
                                   led_gc;
-extern int                        button_width,
+extern int                        bar_thickness_3,
+                                  button_width,
                                   depth,
                                   fsa_fd,
                                   ft_exposure_short_line,
+                                  ft_exposure_tv_line,
                                   filename_display_length,
                                   hostname_display_length,
                                   line_height,
@@ -164,6 +168,7 @@ extern char                       *db_update_reply_fifo,
                                   line_style,
                                   fake_user[],
                                   font_name[],
+                                  other_options,
                                   *ping_cmd,
                                   *ptr_ping_cmd,
                                   *traceroute_cmd,
@@ -202,7 +207,9 @@ static int                        in_ec_area(int, XEvent *),
                                   insert_dir_ids_input(int),
                                   to_long(int, int, int),
                                   to_short(int, int, int);
-static void                       cleanup_did_data(void),
+static void                       add_tv_line(Widget, int, int),
+                                  cleanup_did_data(void),
+                                  handle_tv_line(Widget, int, int),
                                   insert_dir_ids_recieve(int),
                                   read_reply(XtPointer, int *, XtInputId *),
                                   redraw_long(int),
@@ -473,24 +480,27 @@ input(Widget w, XtPointer client_data, XEvent *event)
                       {
                          destroy_event_reason();
                          destroy_error_history();
-                         if (connect_data[pos].inverse == ON)
+                         if ((other_options & FORCE_SHIFT_SELECT) == 0)
                          {
-                            connect_data[pos].inverse = OFF;
-                            no_selected--;
-                         }
-                         else if (connect_data[pos].inverse == STATIC)
-                              {
-                                 connect_data[pos].inverse = OFF;
-                                 no_selected_static--;
-                              }
-                              else
-                              {
-                                 connect_data[pos].inverse = ON;
-                                 no_selected++;
-                              }
+                            if (connect_data[pos].inverse == ON)
+                            {
+                               connect_data[pos].inverse = OFF;
+                               no_selected--;
+                            }
+                            else if (connect_data[pos].inverse == STATIC)
+                                 {
+                                    connect_data[pos].inverse = OFF;
+                                    no_selected_static--;
+                                 }
+                                 else
+                                 {
+                                    connect_data[pos].inverse = ON;
+                                    no_selected++;
+                                 }
 
-                         draw_line_status(pos, 1);
-                         XFlush(display);
+                            draw_line_status(pos, 1);
+                            XFlush(display);
+                         }
                       }
 
                  last_motion_pos = select_no;
@@ -557,7 +567,8 @@ input(Widget w, XtPointer client_data, XEvent *event)
 
    if ((acp.view_jobs != NO_PERMISSION) &&
        ((event->xbutton.button == 2) || (event->xbutton.button == 3)) &&
-       (event->xkey.state & ControlMask))
+       (event->xkey.state & ControlMask) &&
+       ((line_style & SHOW_JOBS) || (line_style & SHOW_JOBS_COMPACT)))
    {
       int column = 0,
           dummy_length = event->xbutton.x;
@@ -590,208 +601,58 @@ input(Widget w, XtPointer client_data, XEvent *event)
             x_pos = 0;
          }
 
-         /* See if this is a proc_stat area. */
-         if ((x_pos > min_length) &&
-             (x_pos < (min_length + (fsa[pos].allowed_transfers * (button_width + BUTTON_SPACING)) - BUTTON_SPACING)))
+         if (line_style & SHOW_JOBS)
          {
-            int job_no;
-
-            x_pos -= min_length;
-            for (job_no = 0; job_no < fsa[pos].allowed_transfers; job_no++)
+            /* See if this is a proc_stat area. */
+            if ((x_pos > min_length) &&
+                (x_pos < (min_length + (fsa[pos].allowed_transfers * (button_width + BUTTON_SPACING)) - BUTTON_SPACING)))
             {
-               x_pos -= button_width;
-               if (x_pos <= 0)
+               int job_no;
+
+               x_pos -= min_length;
+               for (job_no = 0; job_no < fsa[pos].allowed_transfers; job_no++)
                {
-                  if (connect_data[pos].detailed_selection[job_no] == YES)
+                  x_pos -= button_width;
+                  if (x_pos <= 0)
                   {
-                     connect_data[pos].detailed_selection[job_no] = NO;
-                     no_of_jobs_selected--;
-                     if (no_of_jobs_selected == 0)
-                     {
-                        XtRemoveTimeOut(interval_id_tv);
-                        if (jd != NULL)
-                        {
-                           free(jd);
-                           jd = NULL;
-                        }
-                        if (transviewshell != (Widget)NULL)
-                        {
-                           XtPopdown(transviewshell);
-                        }
-                        tv_window = OFF;
-                     }
-                     else
-                     {
-                        int i, j, tmp_tv_no_of_rows;
-
-                        /* Remove detailed selection. */
-                        for (i = 0; i < (no_of_jobs_selected + 1); i++)
-                        {
-                           if ((jd[i].job_no == job_no) &&
-                               (CHECK_STRCMP(jd[i].hostname, connect_data[pos].hostname) == 0))
-                           {
-                              if (i != no_of_jobs_selected)
-                              {
-                                 size_t move_size = (no_of_jobs_selected - i) * sizeof(struct job_data);
-
-                                 (void)memmove(&jd[i], &jd[i + 1], move_size);
-                              }
-                              break;
-                           }
-                        }
-
-                        for (j = i; j < no_of_jobs_selected; j++)
-                        {
-                           draw_detailed_line(j);
-                        }
-
-                        tmp_tv_no_of_rows = tv_no_of_rows;
-                        if (resize_tv_window() == YES)
-                        {
-                           for (i = (tmp_tv_no_of_rows - 1); i < no_of_jobs_selected; i++)
-                           {
-                              draw_detailed_line(i);
-                           }
-                        }
-
-                        draw_tv_blank_line(j);
-                        XFlush(display);
-                     }
+                     handle_tv_line(w, pos, job_no);
+                     draw_detailed_selection(pos, job_no);
+                     break;
                   }
-                  else
+                  x_pos -= BUTTON_SPACING;
+                  if (x_pos < 0)
                   {
-                     no_of_jobs_selected++;
-                     connect_data[pos].detailed_selection[job_no] = YES;
-                     if (no_of_jobs_selected == 1)
-                     {
-                        size_t new_size = 5 * sizeof(struct job_data);
-
-                        current_jd_size = new_size;
-                        if ((jd = malloc(new_size)) == NULL)
-                        {
-                           (void)xrec(FATAL_DIALOG,
-                                      "malloc() error [%d] : %s [%d] (%s %d)",
-                                      new_size, strerror(errno),
-                                      errno, __FILE__, __LINE__);
-                           return;
-                        }
-
-                        /* Fill job_data structure. */
-                        init_jd_structure(&jd[0], pos, job_no);
-
-                        if ((transviewshell == (Widget)NULL) ||
-                            (XtIsRealized(transviewshell) == False) ||
-                            (XtIsSensitive(transviewshell) != True))
-                        {
-                           create_tv_window();
-                        }
-                        else
-                        {
-                           draw_detailed_line(0);
-                           interval_id_tv = XtAppAddTimeOut(app,
-                                                            STARTING_REDRAW_TIME,
-                                                            (XtTimerCallbackProc)check_tv_status,
-                                                            w);
-                        }
-                        XtPopup(transviewshell, XtGrabNone);
-                        tv_window = ON;
-                     }
-                     else
-                     {
-                        int i,
-                            fsa_pos = -1;
-
-                        if ((no_of_jobs_selected % 5) == 0)
-                        {
-                           size_t new_size = ((no_of_jobs_selected / 5) + 1) *
-                                             5 * sizeof(struct job_data);
-
-                           if (current_jd_size < new_size)
-                           {
-                              struct job_data *tmp_jd;
-
-                              current_jd_size = new_size;
-                              if ((tmp_jd = realloc(jd, new_size)) == NULL)
-                              {
-                                 int tmp_errno = errno;
-
-                                 free(jd);
-                                 (void)xrec(FATAL_DIALOG,
-                                            "realloc() error [%d] : %s [%d] (%s %d)",
-                                            new_size, strerror(tmp_errno),
-                                            tmp_errno, __FILE__, __LINE__);
-                                 return;
-                              }
-                              jd = tmp_jd;
-                           }
-                        }
-
-                        /*
-                         * Add new detailed selection to list. First
-                         * determine where this one is to be inserted.
-                         */
-                        for (i = 0; i < (no_of_jobs_selected - 1); i++)
-                        {
-                           if (CHECK_STRCMP(jd[i].hostname,
-                                            connect_data[pos].hostname) == 0)
-                           {
-                              if (jd[i].job_no > job_no)
-                              {
-                                 fsa_pos = i;
-                                 break;
-                              }
-                              else
-                              {
-                                 fsa_pos = i + 1;
-                              }
-                           }
-                           else if (fsa_pos != -1)
-                                {
-                                   break;
-                                }
-                           else if (pos < jd[i].fsa_no)
-                                {
-                                   fsa_pos = i;
-                                }
-                        }
-                        if (fsa_pos == -1)
-                        {
-                           fsa_pos = no_of_jobs_selected - 1;
-                        }
-                        else if (fsa_pos != (no_of_jobs_selected - 1))
-                             {
-                                size_t move_size = (no_of_jobs_selected - fsa_pos) * sizeof(struct job_data);
-
-                                (void)memmove(&jd[fsa_pos + 1], &jd[fsa_pos], move_size);
-                             }
-
-                        /* Fill job_data structure. */
-                        init_jd_structure(&jd[fsa_pos], pos, job_no);
-
-                        if ((resize_tv_window() == YES) &&
-                            (tv_no_of_columns > 1))
-                        {
-                           fsa_pos = tv_no_of_rows - 1;
-                        }
-                        for (i = fsa_pos; i < no_of_jobs_selected; i++)
-                        {
-                           draw_detailed_line(i);
-                        }
-
-                        XFlush(display);
-                     }
+                     break;
                   }
-                  draw_detailed_selection(pos, job_no);
-                  break;
-               }
-               x_pos -= BUTTON_SPACING;
-               if (x_pos < 0)
-               {
-                  break;
                }
             }
          }
+         else if (line_style & SHOW_JOBS_COMPACT)
+              {
+                 int proc_width;
+
+                 if (fsa[pos].allowed_transfers % 3)
+                 {
+                    proc_width = ((fsa[pos].allowed_transfers / 3) + 1) * bar_thickness_3;
+                 }
+                 else
+                 {
+                    proc_width = (fsa[pos].allowed_transfers / 3) * bar_thickness_3;
+                 }
+                 if ((x_pos > min_length) &&
+                     (x_pos < (min_length + proc_width)))
+                 {
+                    int job_no;
+
+                    for (job_no = 0; job_no < fsa[pos].allowed_transfers; job_no++)
+                    {
+                       handle_tv_line(w, pos, job_no);
+                    }
+                    draw_detailed_selection(pos, proc_width);
+                 }
+              }
       }
+
       return;
    }
 
@@ -815,6 +676,206 @@ input(Widget w, XtPointer client_data, XEvent *event)
       if ((select_no < no_of_long_lines) && (select_no > -1))
       {
          (void)to_short(-1, select_no, YES);
+      }
+   }
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++ handle_tv_line() +++++++++++++++++++++++++++*/
+static void
+handle_tv_line(Widget w, int pos, int job_no)
+{
+   if (connect_data[pos].detailed_selection[job_no] == YES)
+   {
+      connect_data[pos].detailed_selection[job_no] = NO;
+      no_of_jobs_selected--;
+      if (no_of_jobs_selected == 0)
+      {
+         XtRemoveTimeOut(interval_id_tv);
+         if (jd != NULL)
+         {
+            free(jd);
+            jd = NULL;
+         }
+         if (transviewshell != (Widget)NULL)
+         {
+            XtPopdown(transviewshell);
+         }
+         tv_window = OFF;
+      }
+      else
+      {
+         int i, j, tmp_tv_no_of_rows;
+
+         /* Remove detailed selection. */
+         for (i = 0; i < (no_of_jobs_selected + 1); i++)
+         {
+            if ((jd[i].job_no == job_no) &&
+                (CHECK_STRCMP(jd[i].hostname, connect_data[pos].hostname) == 0))
+            {
+               if (i != no_of_jobs_selected)
+               {
+                  size_t move_size = (no_of_jobs_selected - i) * sizeof(struct job_data);
+
+                  (void)memmove(&jd[i], &jd[i + 1], move_size);
+               }
+               break;
+            }
+         }
+
+         for (j = i; j < no_of_jobs_selected; j++)
+         {
+            draw_detailed_line(j);
+         }
+
+         tmp_tv_no_of_rows = tv_no_of_rows;
+         if (resize_tv_window() == YES)
+         {
+            for (i = (tmp_tv_no_of_rows - 1); i < no_of_jobs_selected; i++)
+            {
+               draw_detailed_line(i);
+            }
+         }
+
+         draw_tv_blank_line(j);
+         XFlush(display);
+      }
+   }
+   else
+   {
+      add_tv_line(w, pos, job_no);
+   }
+
+   return;
+}
+
+
+/*----------------------------- add_tv_line() --------------------------*/
+static void
+add_tv_line(Widget w, int pos, int job_no)
+{
+   no_of_jobs_selected++;
+   connect_data[pos].detailed_selection[job_no] = YES;
+   if (no_of_jobs_selected == 1)
+   {
+      size_t new_size = 5 * sizeof(struct job_data);
+
+      current_jd_size = new_size;
+      if ((jd = malloc(new_size)) == NULL)
+      {
+         (void)xrec(FATAL_DIALOG,
+                    "malloc() error [%d] : %s [%d] (%s %d)",
+                    new_size, strerror(errno),
+                    errno, __FILE__, __LINE__);
+         return;
+      }
+
+      /* Fill job_data structure. */
+      init_jd_structure(&jd[0], pos, job_no);
+
+      if ((transviewshell == (Widget)NULL) ||
+          (XtIsRealized(transviewshell) == False) ||
+          (XtIsSensitive(transviewshell) != True))
+      {
+         create_tv_window();
+      }
+      else
+      {
+         draw_detailed_line(0);
+         interval_id_tv = XtAppAddTimeOut(app,
+                                          STARTING_REDRAW_TIME,
+                                          (XtTimerCallbackProc)check_tv_status,
+                                          w);
+      }
+      XtPopup(transviewshell, XtGrabNone);
+      tv_window = ON;
+   }
+   else
+   {
+      int i,
+          fsa_pos = -1;
+
+      if ((no_of_jobs_selected % 5) == 0)
+      {
+         size_t new_size = ((no_of_jobs_selected / 5) + 1) *
+                           5 * sizeof(struct job_data);
+
+         if (current_jd_size < new_size)
+         {
+            struct job_data *tmp_jd;
+
+            current_jd_size = new_size;
+            if ((tmp_jd = realloc(jd, new_size)) == NULL)
+            {
+               (void)xrec(FATAL_DIALOG,
+                          "realloc() error [%d] : %s [%d] (%s %d)",
+                          new_size, strerror(errno),
+                          errno, __FILE__, __LINE__);
+               free(jd);
+               jd = NULL;
+               return;
+            }
+            jd = tmp_jd;
+         }
+      }
+
+      /*
+       * Add new detailed selection to list. First
+       * determine where this one is to be inserted.
+       */
+      for (i = 0; i < (no_of_jobs_selected - 1); i++)
+      {
+         if (CHECK_STRCMP(jd[i].hostname,
+                          connect_data[pos].hostname) == 0)
+         {
+            if (jd[i].job_no > job_no)
+            {
+               fsa_pos = i;
+               break;
+            }
+            else
+            {
+               fsa_pos = i + 1;
+            }
+         }
+         else if (fsa_pos != -1)
+              {
+                 break;
+              }
+         else if (pos < jd[i].fsa_no)
+              {
+                 fsa_pos = i;
+              }
+      }
+      if (fsa_pos == -1)
+      {
+         fsa_pos = no_of_jobs_selected - 1;
+      }
+      else if (fsa_pos != (no_of_jobs_selected - 1))
+           {
+              size_t move_size = (no_of_jobs_selected - fsa_pos) * sizeof(struct job_data);
+
+              (void)memmove(&jd[fsa_pos + 1], &jd[fsa_pos], move_size);
+           }
+
+      /* Fill job_data structure. */
+      init_jd_structure(&jd[fsa_pos], pos, job_no);
+
+      if ((resize_tv_window() == YES) &&
+          (tv_no_of_columns > 1))
+      {
+         fsa_pos = tv_no_of_rows - 1;
+      }
+      if (ft_exposure_tv_line == 1)
+      {
+         for (i = fsa_pos; i < no_of_jobs_selected; i++)
+         {
+            draw_detailed_line(i);
+         }
+
+         XFlush(display);
       }
    }
 
@@ -1041,24 +1102,27 @@ short_input(Widget w, XtPointer client_data, XEvent *event)
                          else
                          {
                             destroy_event_reason();
-                            if (connect_data[pos].inverse == ON)
+                            if ((other_options & FORCE_SHIFT_SELECT) == 0)
                             {
-                               connect_data[pos].inverse = OFF;
-                               no_selected--;
-                            }
-                            else if (connect_data[pos].inverse == STATIC)
-                                 {
-                                    connect_data[pos].inverse = OFF;
-                                    no_selected_static--;
-                                 }
-                                 else
-                                 {
-                                    connect_data[pos].inverse = ON;
-                                    no_selected++;
-                                 }
+                               if (connect_data[pos].inverse == ON)
+                               {
+                                  connect_data[pos].inverse = OFF;
+                                  no_selected--;
+                               }
+                               else if (connect_data[pos].inverse == STATIC)
+                                    {
+                                       connect_data[pos].inverse = OFF;
+                                       no_selected_static--;
+                                    }
+                                    else
+                                    {
+                                       connect_data[pos].inverse = ON;
+                                       no_selected++;
+                                    }
 
-                            draw_line_status(pos, 1);
-                            XFlush(display);
+                               draw_line_status(pos, 1);
+                               XFlush(display);
+                            }
                          }
 
                     last_motion_pos = select_no;
@@ -1991,6 +2055,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             case QUEUE_TRANS_SEL :
                if (ehc == NO)
                {
+                  int have_asked_question = NO;
+
                   if (check_host_permissions(fsa[i].host_alias,
                                              acp.ctrl_queue_transfer_list,
                                              acp.ctrl_queue_transfer) == SUCCESS)
@@ -2018,20 +2084,33 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      }
                      else
                      {
-                        config_log(EC_HOST, ET_MAN, EA_STOP_QUEUE,
-                                   fsa[i].host_alias, "Start/Stop host");
+                        if (xrec(QUESTION_DIALOG,
+                                 "Are you sure that you want to stop %s?",
+                                 fsa[i].host_dsp_name) == YES)
+                        {
+                           config_log(EC_HOST, ET_MAN, EA_STOP_QUEUE,
+                                      fsa[i].host_alias, "Start/Stop host");
 #ifdef LOCK_DEBUG
-                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+                           lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
 #else
-                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+                           lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
 #endif
-                        fsa[i].host_status ^= PAUSE_QUEUE_STAT;
+                           fsa[i].host_status ^= PAUSE_QUEUE_STAT;
 #ifdef LOCK_DEBUG
-                        unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+                           unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
 #else
-                        unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+                           unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
 #endif
-                        hl[i].host_status |= PAUSE_QUEUE_STAT;
+                           hl[i].host_status |= PAUSE_QUEUE_STAT;
+
+                           have_asked_question = YES;
+                        }
+                        else
+                        {
+                           free(args);
+                           FREE_RT_ARRAY(hosts)
+                           return;
+                        }
                      }
 
                      /* Now start/stop transfer. */
@@ -2102,39 +2181,51 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      }
                      else
                      {
-#ifdef LOCK_DEBUG
-                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
-#else
-                        lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
-#endif
-                        fsa[i].host_status ^= STOP_TRANSFER_STAT;
-#ifdef LOCK_DEBUG
-                        unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
-#else
-                        unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
-#endif
-                        if (fsa[i].active_transfers > 0)
+                        if ((have_asked_question == YES) ||
+                            (xrec(QUESTION_DIALOG,
+                                  "Are you sure that you want to stop %s?",
+                                  fsa[i].host_dsp_name) == YES))
                         {
-                           int m;
-
-                           for (m = 0; m < fsa[i].allowed_transfers; m++)
+#ifdef LOCK_DEBUG
+                           lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                           lock_region_w(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                           fsa[i].host_status ^= STOP_TRANSFER_STAT;
+#ifdef LOCK_DEBUG
+                           unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS), __FILE__, __LINE__);
+#else
+                           unlock_region(fsa_fd, (AFD_WORD_OFFSET + (i * sizeof(struct filetransfer_status)) + LOCK_HS));
+#endif
+                           if (fsa[i].active_transfers > 0)
                            {
-                              if (fsa[i].job_status[m].proc_id > 0)
+                              int m;
+
+                              for (m = 0; m < fsa[i].allowed_transfers; m++)
                               {
-                                 if ((kill(fsa[i].job_status[m].proc_id, SIGINT) == -1) &&
-                                     (errno != ESRCH))
+                                 if (fsa[i].job_status[m].proc_id > 0)
                                  {
-                                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                               "Failed to kill process %d : %s",
-                                               fsa[i].job_status[m].proc_id,
-                                               strerror(errno));
+                                    if ((kill(fsa[i].job_status[m].proc_id, SIGINT) == -1) &&
+                                        (errno != ESRCH))
+                                    {
+                                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                  "Failed to kill process %d : %s",
+                                                  fsa[i].job_status[m].proc_id,
+                                                  strerror(errno));
+                                    }
                                  }
                               }
                            }
+                           config_log(EC_HOST, ET_MAN, EA_STOP_TRANSFER,
+                                      fsa[i].host_alias, "Start/Stop host");
+                           hl[i].host_status |= STOP_TRANSFER_STAT;
                         }
-                        config_log(EC_HOST, ET_MAN, EA_STOP_TRANSFER,
-                                   fsa[i].host_alias, "Start/Stop host");
-                        hl[i].host_status |= STOP_TRANSFER_STAT;
+                        else
+                        {
+                           free(args);
+                           FREE_RT_ARRAY(hosts)
+                           return;
+                        }
                      }
                      change_host_config = YES;
                   }
@@ -2164,7 +2255,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      else
                      {
                         if (xrec(QUESTION_DIALOG,
-                                 "Are you shure that you want to disable %s?\nAll jobs for this host will be lost.",
+                                 "Are you sure that you want to disable %s?\nAll jobs for this host will be lost.",
                                  fsa[i].host_dsp_name) == YES)
                         {
                            int    fd;
@@ -2914,7 +3005,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          if (p_afd_status->amg == ON)
          {
             if (xrec(QUESTION_DIALOG,
-                     "Are you shure that you want to stop %s?", AMG) == YES)
+                     "Are you sure that you want to stop %s?", AMG) == YES)
             {
                int  afd_cmd_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -3008,7 +3099,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          if (p_afd_status->fd == ON)
          {
             if (xrec(QUESTION_DIALOG,
-                     "Are you shure that you want to stop %s?\nNOTE: No more files will be distributed!!!", FD) == YES)
+                     "Are you sure that you want to stop %s?\nNOTE: No more files will be distributed!!!", FD) == YES)
             {
                int  afd_cmd_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -3289,7 +3380,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
       case SHUTDOWN_AFD_SEL : /* Shutdown AFD. */
          if (xrec(QUESTION_DIALOG,
-                  "Are you shure that you want to do a shutdown?") == YES)
+                  "Are you sure that you want to do a shutdown?") == YES)
          {
             char *args[7],
                  progname[4];
@@ -3726,17 +3817,43 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
 
-      case JOBS_STYLE_W :
-         if (line_style & SHOW_JOBS)
+      case JOB_STYLE_NORMAL :
+         line_style &= ~SHOW_JOBS_COMPACT;
+         line_style |= SHOW_JOBS;
+         XtVaSetValues(ptw[0], XmNset, True, NULL);
+         XtVaSetValues(ptw[1], XmNset, False, NULL);
+         XtVaSetValues(ptw[2], XmNset, False, NULL);
+         break;
+
+      case JOB_STYLE_COMPACT :
+         line_style |= SHOW_JOBS_COMPACT;
+         line_style &= ~SHOW_JOBS;
+         XtVaSetValues(ptw[0], XmNset, False, NULL);
+         XtVaSetValues(ptw[1], XmNset, True, NULL);
+         XtVaSetValues(ptw[2], XmNset, False, NULL);
+         if (no_of_jobs_selected > 0)
          {
-            line_style &= ~SHOW_JOBS;
-            XtVaSetValues(lsw[JOBS_STYLE_W], XmNset, False, NULL);
+            int i, j;
+
+            for (i = 0; i < no_of_jobs_selected; i++)
+            {
+               for (j = 0; j < connect_data[jd[i].fsa_no].allowed_transfers; j++)
+               {
+                  if (connect_data[jd[i].fsa_no].detailed_selection[j] != YES)
+                  {
+                     add_tv_line(w, jd[i].fsa_no, j);
+                  }
+               }
+            }
          }
-         else
-         {
-            line_style |= SHOW_JOBS;
-            XtVaSetValues(lsw[JOBS_STYLE_W], XmNset, True, NULL);
-         }
+         break;
+
+      case JOB_STYLE_NONE :
+         line_style &= ~SHOW_JOBS_COMPACT;
+         line_style &= ~SHOW_JOBS;
+         XtVaSetValues(ptw[0], XmNset, False, NULL);
+         XtVaSetValues(ptw[1], XmNset, False, NULL);
+         XtVaSetValues(ptw[2], XmNset, True, NULL);
          break;
 
       case CHARACTERS_STYLE_W :
@@ -3767,64 +3884,12 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
       default  :
 #if SIZEOF_LONG == 4
-         (void)xrec(WARN_DIALOG, "Impossible row selection (%d).", item_no);
+         (void)xrec(WARN_DIALOG, "Impossible style selection (%d).", item_no);
 #else
-         (void)xrec(WARN_DIALOG, "Impossible row selection (%ld).", item_no);
+         (void)xrec(WARN_DIALOG, "Impossible style selection (%ld).", item_no);
 #endif
          return;
    }
-
-#ifdef _DEBUG
-   switch (item_no)
-   {
-      case LEDS_STYLE_W :
-         if (line_style & SHOW_LEDS)
-         {
-            (void)fprintf(stderr, "Adding LED's.\n");
-         }
-         else
-         {
-            (void)fprintf(stderr, "Removing LED's.\n");
-         }
-         break;
-
-      case JOBS_STYLE_W :
-         if (line_style & SHOW_JOBS)
-         {
-            (void)fprintf(stderr, "Adding Job's.\n");
-         }
-         else
-         {
-            (void)fprintf(stderr, "Removing Job's.\n");
-         }
-         break;
-
-      case CHARACTERS_STYLE_W :
-         if (line_style & SHOW_CHARACTERS)
-         {
-            (void)fprintf(stderr, "Adding Character's.\n");
-         }
-         else
-         {
-            (void)fprintf(stderr, "Removing Character's.\n");
-         }
-         break;
-
-      case BARS_STYLE_W :
-         if (line_style & SHOW_BARS)
-         {
-            (void)fprintf(stderr, "Adding Bar's.\n");
-         }
-         else
-         {
-            (void)fprintf(stderr, "Removing Bar's.\n");
-         }
-         break;
-
-      default : /* IMPOSSIBLE !!! */
-         break;
-   }
-#endif
 
    setup_window(font_name, NO);
 
@@ -3858,6 +3923,59 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
    {
       XFlush(display);
    }
+
+   return;
+}
+
+
+/*########################## change_other_cb() ##########################*/
+void
+change_other_cb(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
+
+   switch (item_no)
+   {
+      case FORCE_SHIFT_SELECT_W :
+         if (other_options & FORCE_SHIFT_SELECT)
+         {
+            other_options &= ~FORCE_SHIFT_SELECT;
+            XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, False, NULL);
+         }
+         else
+         {
+            other_options |= FORCE_SHIFT_SELECT;
+            XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNset, True, NULL);
+         }
+         break;
+
+      default  :
+#if SIZEOF_LONG == 4
+         (void)xrec(WARN_DIALOG, "Impossible other selection (%d).", item_no);
+#else
+         (void)xrec(WARN_DIALOG, "Impossible other selection (%ld).", item_no);
+#endif
+         return;
+   }
+
+#ifdef _DEBUG
+   switch (item_no)
+   {
+      case FORCE_SHIFT_SELECT_W :
+         if (other_options & FORCE_SHIFT_SELECT)
+         {
+            (void)fprintf(stderr, "Adding force shift select.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing force shift select.\n");
+         }
+         break;
+
+      default : /* IMPOSSIBLE !!! */
+         break;
+   }
+#endif
 
    return;
 }

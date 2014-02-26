@@ -101,22 +101,26 @@ void
 check_log(Widget w)
 {
 #ifdef _SLOW_COUNTER
-   static int old_line_counter = 0;
+   static int    old_line_counter = 0;
 #endif
-   int        locked = 0,
-              lock_counter = 1,
-              cursor_counter = 1;
-   char       line[MAX_LINE_LENGTH + 1],
-              str_line[MAX_LINE_COUNTER_DIGITS + 1];
+   static size_t incomplete_line_length = 0;
+   static char   *incomplete_line = NULL;
+   int           locked = 0,
+                 lock_counter = 1,
+                 cursor_counter = 1;
+   char          str_line[MAX_LINE_COUNTER_DIGITS + 1];
 
    if (p_log_file != NULL)
    {
-      int          length,
-                   max_lines = 0;
+      int          max_lines = 0;
+      size_t       length,
+                   line_length = MAX_LINE_LENGTH + 1;
       unsigned int chars_buffered = 0;
-      char         *line_buffer;
+      char         *line = NULL,
+                   *line_buffer;
 
-      if ((line_buffer = malloc(MAX_LINE_LENGTH * MAX_LINES_IN_ONE_GO)) == NULL)
+      if (((line_buffer = malloc(MAX_LINE_LENGTH * MAX_LINES_IN_ONE_GO)) == NULL) ||
+          ((line = malloc(MAX_LINE_LENGTH + 1)) == NULL))
       {
          (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
@@ -126,108 +130,205 @@ check_log(Widget w)
       {
          int i;
 
-         while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
+#ifdef HAVE_GETLINE
+         while ((length = getline(&line, &line_length, p_log_file)) != -1)
+#else
+         while (fgets(line, line_length, p_log_file) != NULL)
+#endif
          {
+#ifndef HAVE_GETLINE
             length = strlen(line);
-            total_length += length;
-            if ((log_type_flag == TRANSFER_LOG_TYPE) ||
-                (log_type_flag == TRANS_DB_LOG_TYPE))
+#endif
+            if ((length > 0) && (line[length - 1] == '\n'))
             {
-               if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
-                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
-                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
-                    (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
-                    (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
-                    (toggles_set_parallel_jobs != 0))))
+               if (incomplete_line != NULL)
                {
-                  continue;
+                  char *tmp_buffer = NULL;
+
+                  if ((tmp_buffer = malloc(length + 1)) == NULL)
+                  {
+                     (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
+                                strerror(errno), __FILE__, __LINE__);
+                     return;
+                  }
+                  memcpy(tmp_buffer, line, length + 1);
+                  if ((line = realloc(line, (line_length + incomplete_line_length))) == NULL)
+                  {
+                     (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
+                                strerror(errno), __FILE__, __LINE__);
+                     return;
+                  }
+                  line_length += incomplete_line_length;
+                  memcpy(line, incomplete_line, incomplete_line_length);
+                  free(incomplete_line);
+                  incomplete_line = NULL;
+                  memcpy(&line[incomplete_line_length], tmp_buffer, length + 1);
+                  free(tmp_buffer);
+                  length += incomplete_line_length;
+                  incomplete_line_length = 0;
+               }
+               total_length += length;
+               if ((log_type_flag == TRANSFER_LOG_TYPE) ||
+                   (log_type_flag == TRANS_DB_LOG_TYPE))
+               {
+                  if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
+                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                       (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
+                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
+                       (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
+                       (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
+                       (toggles_set_parallel_jobs != 0))))
+                  {
+                     continue;
+                  }
+               }
+               else
+               {
+                  if ((length > LOG_SIGN_POSITION) &&
+                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                       (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
+                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                       (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
+                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
+                  {
+                     continue;
+                  }
+               }
+
+               for (i = 0; i < no_of_hosts; i++)
+               {
+                  if (log_filter(hosts[i], &line[16]) == 0)
+                  {
+                     memcpy(&line_buffer[chars_buffered], line, length);
+                     chars_buffered += length;
+                     line_counter++;
+                     max_lines++;
+
+                     break;
+                  }
+               }
+               if (max_lines >= MAX_LINES_IN_ONE_GO)
+               {
+                  max_lines = 0;
+                  display_data(w, &lock_counter, &cursor_counter, &locked,
+                               &chars_buffered, line_buffer);
                }
             }
             else
             {
-               if ((length > LOG_SIGN_POSITION) &&
-                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                    (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
-                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
-                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
+               if ((incomplete_line = realloc(incomplete_line,
+                                              (incomplete_line_length + length))) == NULL)
                {
-                  continue;
+                  (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  return;
                }
-            }
-
-            for (i = 0; i < no_of_hosts; i++)
-            {
-               if (log_filter(hosts[i], &line[16]) == 0)
-               {
-                  memcpy(&line_buffer[chars_buffered], line, length);
-                  chars_buffered += length;
-                  line_counter++;
-                  max_lines++;
-
-                  break;
-               }
-            }
-            if (max_lines >= MAX_LINES_IN_ONE_GO)
-            {
-               max_lines = 0;
-               display_data(w, &lock_counter, &cursor_counter, &locked,
-                            &chars_buffered, line_buffer);
+               (void)memcpy(&incomplete_line[incomplete_line_length],
+                            line, length);
+               incomplete_line_length += length;
             }
          }
       }
       else /* We are searching for ALL hosts. */
       {
-         while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
+
+#ifdef HAVE_GETLINE
+         while ((length = getline(&line, &line_length, p_log_file)) != -1)
+#else
+         while (fgets(line, line_length, p_log_file) != NULL)
+#endif
          {
+#ifndef HAVE_GETLINE
             length = strlen(line);
-            total_length += length;
-            if ((log_type_flag == TRANSFER_LOG_TYPE) ||
-                (log_type_flag == TRANS_DB_LOG_TYPE))
+#endif
+            if ((length > 0) && (line[length - 1] == '\n'))
             {
-               if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
-                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
-                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
-                    (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
-                    (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
-                    (toggles_set_parallel_jobs != 0))))
+               if (incomplete_line != NULL)
                {
-                  continue;
+                  char *tmp_buffer = NULL;
+
+                  if ((tmp_buffer = malloc(length + 1)) == NULL)
+                  {
+                     (void)xrec(FATAL_DIALOG, "malloc() error : %s (%s %d)",
+                                strerror(errno), __FILE__, __LINE__);
+                     return;
+                  }
+                  memcpy(tmp_buffer, line, length + 1);
+                  if ((line = realloc(line, (line_length + incomplete_line_length))) == NULL)
+                  {
+                     (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
+                                strerror(errno), __FILE__, __LINE__);
+                     return;
+                  }
+                  line_length += incomplete_line_length;
+                  memcpy(line, incomplete_line, incomplete_line_length);
+                  free(incomplete_line);
+                  incomplete_line = NULL;
+                  memcpy(&line[incomplete_line_length], tmp_buffer, length + 1);
+                  free(tmp_buffer);
+                  length += incomplete_line_length;
+                  incomplete_line_length = 0;
+               }
+               total_length += length;
+               if ((log_type_flag == TRANSFER_LOG_TYPE) ||
+                   (log_type_flag == TRANS_DB_LOG_TYPE))
+               {
+                  if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
+                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                       (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
+                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
+                       (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
+                       (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
+                       (toggles_set_parallel_jobs != 0))))
+                  {
+                     continue;
+                  }
+               }
+               else
+               {
+                  if ((length > LOG_SIGN_POSITION) &&
+                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                       (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
+                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                       (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
+                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
+                  {
+                     continue;
+                  }
+               }
+               memcpy(&line_buffer[chars_buffered], line, length);
+               chars_buffered += length;
+               line_counter++;
+               max_lines++;
+               if (max_lines >= MAX_LINES_IN_ONE_GO)
+               {
+                  max_lines = 0;
+                  display_data(w, &lock_counter, &cursor_counter, &locked,
+                               &chars_buffered, line_buffer);
                }
             }
             else
             {
-               if ((length > LOG_SIGN_POSITION) &&
-                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                    (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
-                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
-                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
+               if ((incomplete_line = realloc(incomplete_line,
+                                              (incomplete_line_length + length))) == NULL)
                {
-                  continue;
+                  (void)xrec(FATAL_DIALOG, "realloc() error : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  return;
                }
-            }
-            memcpy(&line_buffer[chars_buffered], line, length);
-            chars_buffered += length;
-            line_counter++;
-            max_lines++;
-            if (max_lines >= MAX_LINES_IN_ONE_GO)
-            {
-               max_lines = 0;
-               display_data(w, &lock_counter, &cursor_counter, &locked,
-                            &chars_buffered, line_buffer);
+               (void)memcpy(&incomplete_line[incomplete_line_length],
+                            line, length);
+               incomplete_line_length += length;
             }
          }
       }
@@ -241,6 +342,7 @@ check_log(Widget w)
       /* Required for implementations (BSD) with sticky EOF. */
       clearerr(p_log_file);
 
+      free(line);
       free(line_buffer);
    }
 

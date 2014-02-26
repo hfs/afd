@@ -1,6 +1,6 @@
 /*
  *  ftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,6 +60,17 @@
 #ifdef WITH_SSL
 # define ENCRYPT_DATA                    16
 #endif
+#define MLSD_CMD                         32
+
+/* FTP options available. */
+#define FTP_OPTION_FEAT                  1
+#define FTP_OPTION_MDTM                  2
+#define FTP_OPTION_SIZE                  4
+#define FTP_OPTION_MLST                  8
+#define FTP_OPTION_MLST_MODIFY           16
+#define FTP_OPTION_MLST_SIZE             32
+#define FTP_OPTION_MLST_TYPE             64
+#define FTP_OPTION_MLST_PERM             128
 
 /* Function prototypes. */
 extern int  ftp_account(char *),
@@ -77,10 +88,11 @@ extern int  ftp_account(char *),
             ftp_ssl_auth(void),
             ftp_ssl_init(char),
 #endif
-            ftp_data(char *, off_t, int, int, int),
+            ftp_data(char *, off_t, int, int, int, int, char *, char *),
             ftp_date(char *, time_t *),
             ftp_dele(char *),
             ftp_exec(char *, char *),
+            ftp_feat(unsigned int *),
             ftp_get_reply(void),
             ftp_idle(int),
             ftp_keepalive(void),

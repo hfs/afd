@@ -1,6 +1,6 @@
 /*
  *  sf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2014 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -80,8 +80,7 @@ DESCR__S_M1
 DESCR__E_M1
 
 #include <stdio.h>                     /* fprintf(), sprintf()           */
-#include <string.h>                    /* strcpy(), strcat(), strcmp(),  */
-                                       /* strerror()                     */
+#include <string.h>                    /* strcpy(), strcat(), strerror() */
 #include <stdlib.h>                    /* malloc(), free(), abort()      */
 #include <ctype.h>                     /* isdigit()                      */
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
@@ -106,9 +105,12 @@ DESCR__E_M1
 # include "eumetsat_header_defs.h"
 #endif
 
+
 /* Global variables. */
 unsigned int               special_flag = 0;
-int                        event_log_fd = STDERR_FILENO,
+int                        amg_flag = NO,
+                           counter_fd = -1,
+                           event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
 #ifdef HAVE_HW_CRC32
@@ -130,8 +132,8 @@ int                        event_log_fd = STDERR_FILENO,
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO,
-                           timeout_flag;
+                           timeout_flag,
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -200,8 +202,7 @@ static void                sf_ftp_exit(void),
 int
 main(int argc, char *argv[])
 {
-   int              counter_fd = -1,
-                    current_toggle,
+   int              current_toggle,
                     exit_status = TRANSFER_SUCCESS,
                     j,
                     fd,
@@ -211,8 +212,7 @@ main(int argc, char *argv[])
                     status,
                     bytes_buffered,
                     append_file_number = -1,
-                    blocksize,
-                    *unique_counter;
+                    blocksize;
    off_t            no_of_bytes;
    clock_t          clktck;
    time_t           end_transfer_time_file,
@@ -222,7 +222,8 @@ main(int argc, char *argv[])
                     *p_file_mtime_buffer;
 #ifdef _WITH_BURST_2
    int              cb2_ret,
-                    disconnect = NO;
+                    disconnect = NO,
+                    reconnected = NO;
    unsigned int     values_changed = 0;
 #endif
 #ifdef _OUTPUT_LOG
@@ -516,7 +517,8 @@ main(int argc, char *argv[])
             {
                if ((disconnect == YES) ||
                    ((burst_2_counter > 0) &&
-                    ((status == 500) || (status == 503) || (status == 530))))
+                    ((status == 331) || (status == 500) || (status == 503) ||
+                     (status == 530))))
                {
                   /*
                    * Aaargghh..., we need to logout again! The server is
@@ -608,6 +610,7 @@ main(int argc, char *argv[])
                    */
                   values_changed |= TYPE_CHANGED;
                   disconnect = YES;
+                  reconnected = YES;
                }
                else
                {
@@ -808,14 +811,28 @@ main(int argc, char *argv[])
           * directory is not the absolute path.
           */
          if ((burst_2_counter > 0) && (db.target_dir[0] != '/') &&
-             ((fsa->protocol_options & FTP_FAST_CD) == 0) && (disconnect == NO))
+             ((fsa->protocol_options & FTP_FAST_CD) == 0) && (reconnected == NO))
          {
             if ((status = ftp_cd("", NO, "", NULL)) != SUCCESS)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                         "Failed to change to home directory (%d).", status);
-               (void)ftp_quit();
-               exit(eval_timeout(CHDIR_ERROR));
+               if ((timeout_flag != ON) && (status == 550))
+               {
+                  /*
+                   * Some FTP servers do not know the command: CWD ~
+                   * So lets exit here without error and login again.
+                   */
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                            "Failed to change to home directory (%d).", status);
+                  (void)ftp_quit();
+                  exit(STILL_FILES_TO_SEND);
+               }
+               else
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                            "Failed to change to home directory (%d).", status);
+                  (void)ftp_quit();
+                  exit(eval_timeout(CHDIR_ERROR));
+               }
             }
             else
             {
@@ -825,6 +842,10 @@ main(int argc, char *argv[])
                                "Changed to home directory.");
                }
             }
+         }
+         if (reconnected == YES)
+         {
+            reconnected = NO;
          }
 #endif /* _WITH_BURST_2 */
          /* Change directory if necessary. */
@@ -948,7 +969,7 @@ main(int argc, char *argv[])
          /* Create lock file on remote host. */
          msg_str[0] = '\0';
          if ((status = ftp_data(db.lock_file_name, 0, db.mode_flag,
-                                DATA_WRITE, 0)) != SUCCESS)
+                                DATA_WRITE, 0, NO, NULL, NULL)) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to send lock file `%s' (%d).",
@@ -1154,7 +1175,13 @@ main(int argc, char *argv[])
                         delete_log_ptrs(&dl);
                      }
                      (void)strcpy(dl.file_name, p_file_name_buffer);
-                     (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                     (void)snprintf(dl.host_name,
+                                    MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                     (void)sprintf(dl.host_name,
+# endif
+                                   "%-*s %03x",
                                    MAX_HOSTNAME_LENGTH, fsa->host_alias,
                                    FILE_CURRENTLY_TRANSMITTED);
                      *dl.file_size = *p_file_size_buffer;
@@ -1165,7 +1192,12 @@ main(int argc, char *argv[])
                      *dl.unique_number = db.unique_number;
                      *dl.file_name_length = strlen(p_file_name_buffer);
                      dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                    snprintf((dl.file_name + *dl.file_name_length + 1),
+                                             MAX_FILENAME_LENGTH + 1,
+# else
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                             "%s%c(%s %d)",
                                             SEND_FILE_FTP, SEPARATOR_CHAR,
                                             __FILE__, __LINE__);
@@ -1250,18 +1282,161 @@ main(int argc, char *argv[])
          (void)strcpy(p_final_filename, p_file_name_buffer);
          (void)strcpy(p_fullname, p_file_name_buffer);
 
-         /* Send file in dot notation? */
-         if ((db.lock == DOT) || (db.lock == DOT_VMS))
+         if (db.trans_rename_rule[0] != '\0')
          {
-            (void)strcpy(p_initial_filename, db.lock_notation);
-            (void)strcat(p_initial_filename, p_final_filename);
+            register int k;
+            char         tmp_initial_filename[MAX_PATH_LENGTH];
+
+            tmp_initial_filename[0] = '\0';
+            for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
+            {
+               if (pmatch(rule[db.trans_rule_pos].filter[k],
+                          p_file_name_buffer, NULL) == 0)
+               {
+                  change_name(p_file_name_buffer,
+                              rule[db.trans_rule_pos].filter[k],
+                              rule[db.trans_rule_pos].rename_to[k],
+                              tmp_initial_filename, MAX_PATH_LENGTH,
+                              &counter_fd, &unique_counter, db.job_id);
+                  break;
+               }
+            }
+            if (tmp_initial_filename[0] == '\0')
+            {
+               char *p_initial_filename_offset = p_initial_filename;
+
+               if ((db.lock == DOT) || (db.lock == DOT_VMS))
+               {
+                  if ((db.lock_notation[0] == '.') &&
+                      (db.lock_notation[1] == '\0'))
+                  {
+                     *p_initial_filename = '.';
+                     p_initial_filename_offset++;
+                  }
+                  else
+                  {
+                     k = strlen(db.lock_notation);
+                     (void)my_strncpy(p_initial_filename, db.lock_notation, k);
+                     p_initial_filename_offset += k;
+                  }
+               }
+               (void)my_strncpy(p_initial_filename_offset, p_file_name_buffer,
+                                (MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH) - (p_initial_filename_offset - initial_filename));
+               (void)my_strncpy(p_remote_filename, p_file_name_buffer,
+                                (MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH) - (p_remote_filename - remote_filename));
+            }
+            else
+            {
+               if ((db.lock == DOT) || (db.lock == DOT_VMS))
+               {
+                  /*
+                   * Check if we have a path in the name. If that is
+                   * the case, we must get to the filename, so that in
+                   * case we lock in any form, we only rename the file
+                   * name.
+                   */
+                  k = 0;
+                  while (tmp_initial_filename[k] != '\0')
+                  {
+                     if (tmp_initial_filename[k] == '/')
+                     {
+                        break;
+                     }
+                     k++;
+                  }
+                  if (tmp_initial_filename[k] == '/')
+                  {
+                     char *p_last_dir_sign = &tmp_initial_filename[k];
+
+                     k++;
+                     while (tmp_initial_filename[k] != '\0')
+                     {
+                        if (tmp_initial_filename[k] == '/')
+                        {
+                           p_last_dir_sign = &tmp_initial_filename[k];
+                        }
+                        k++;
+                     }
+                     p_last_dir_sign++;
+                     k = p_last_dir_sign - tmp_initial_filename;
+                     (void)memcpy(p_initial_filename, tmp_initial_filename, k);
+                     if ((db.lock_notation[0] == '.') &&
+                         (db.lock_notation[1] == '\0'))
+                     {
+                        *(p_initial_filename + k) = '.';
+                        (void)strcpy(p_initial_filename + k + 1,
+                                     p_last_dir_sign);
+                     }
+                     else
+                     {
+                        (void)strcpy(p_initial_filename + k, db.lock_notation);
+                        (void)strcat(p_initial_filename, p_last_dir_sign);
+                     }
+                  }
+                  else
+                  {
+                     if ((db.lock_notation[0] == '.') &&
+                         (db.lock_notation[1] == '\0'))
+                     {
+                        *p_initial_filename = '.';
+                        (void)strcpy(p_initial_filename + 1,
+                                     tmp_initial_filename);
+                     }
+                     else
+                     {
+                        (void)strcpy(p_initial_filename, db.lock_notation);
+                        (void)strcat(p_initial_filename, tmp_initial_filename);
+                     }
+                  }
+               }
+               else
+               {
+                  (void)strcpy(p_initial_filename, tmp_initial_filename);
+               }
+               (void)my_strncpy(p_remote_filename, tmp_initial_filename,
+                                (MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH) - (p_remote_filename - remote_filename));
+            }
+            if ((db.lock != DOT) && (db.lock != DOT_VMS) &&
+                (db.lock == POSTFIX))
+            {
+               (void)strcat(p_initial_filename, db.lock_notation);
+            }
          }
          else
          {
-            (void)strcpy(p_initial_filename, p_final_filename);
-            if (db.lock == POSTFIX)
+            /* Send file in dot notation? */
+            if ((db.lock == DOT) || (db.lock == DOT_VMS))
             {
-               (void)strcat(p_initial_filename, db.lock_notation);
+               if ((db.lock_notation[0] == '.') && (db.lock_notation[1] == '\0'))
+               {
+                  *p_initial_filename = '.';
+                  (void)strcpy(p_initial_filename + 1, p_file_name_buffer);
+               }
+               else
+               {
+                  (void)strcpy(p_initial_filename, db.lock_notation);
+                  (void)strcat(p_initial_filename, p_file_name_buffer);
+               }
+            }
+            else
+            {
+               (void)strcpy(p_initial_filename, p_file_name_buffer);
+               if (db.lock == POSTFIX)
+               {
+                  (void)strcat(p_initial_filename, db.lock_notation);
+               }
+            }
+            if ((db.lock == DOT) || (db.lock == POSTFIX) ||
+                (db.lock == DOT_VMS) ||
+                (db.special_flag & SEQUENCE_LOCKING) ||
+                (db.special_flag & UNIQUE_LOCKING))
+            {
+               (void)my_strncpy(p_remote_filename, p_final_filename,
+                                (MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH) - (p_remote_filename - remote_filename));
+               if (db.lock == DOT_VMS)
+               {
+                  (void)strcat(p_remote_filename, DOT_NOTATION);
+               }
             }
          }
 
@@ -1270,7 +1445,13 @@ main(int argc, char *argv[])
             char *p_end;
 
             p_end = p_initial_filename + strlen(p_initial_filename);
-            (void)sprintf(p_end, ".%u", (unsigned int)db.unique_number);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(p_end,
+                           MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH - (p_end - initial_filename),
+#else
+            (void)sprintf(p_end,
+#endif
+                          ".%u", (unsigned int)db.unique_number);
          }
 
          if (db.special_flag & SEQUENCE_LOCKING)
@@ -1284,7 +1465,13 @@ main(int argc, char *argv[])
              */
             if ((db.retries > 0) && ((db.special_flag & UNIQUE_LOCKING) == 0))
             {
-               (void)sprintf(p_end, "-%u", db.retries - 1);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(p_end,
+                              MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH - (p_end - initial_filename),
+#else
+               (void)sprintf(p_end,
+#endif
+                             "-%u", db.retries - 1);
                if ((status = ftp_dele(initial_filename)) != SUCCESS)
                {
                   trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, msg_str,
@@ -1300,7 +1487,13 @@ main(int argc, char *argv[])
                   }
                }
             }
-            (void)sprintf(p_end, "-%u", db.retries);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(p_end,
+                           MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH - (p_end - initial_filename),
+#else
+            (void)sprintf(p_end,
+#endif
+                          "-%u", db.retries);
          }
 
          /*
@@ -1488,7 +1681,9 @@ main(int argc, char *argv[])
             msg_str[0] = '\0';
             if ((status = ftp_data(initial_filename, append_offset,
                                    db.mode_flag, DATA_WRITE,
-                                   db.sndbuf_size)) != SUCCESS)
+                                   db.sndbuf_size,
+                                   (db.special_flag & CREATE_TARGET_DIR) ? YES : NO,
+                                   db.dir_mode_str, created_path)) != SUCCESS)
             {
                if ((db.rename_file_busy != '\0') && (timeout_flag != ON) &&
                    (msg_str[0] != '\0') &&
@@ -1502,7 +1697,7 @@ main(int argc, char *argv[])
                   msg_str[0] = '\0';
                   if ((status = ftp_data(initial_filename, 0,
                                          db.mode_flag, DATA_WRITE,
-                                         db.sndbuf_size)) != SUCCESS)
+                                         db.sndbuf_size, NO, NULL, NULL)) != SUCCESS)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                                "Failed to open remote file `%s' (%d).",
@@ -1538,6 +1733,12 @@ main(int argc, char *argv[])
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
                                "Open remote file `%s'.", initial_filename);
+               }
+               if ((created_path != NULL) && (created_path[0] != '\0'))
+               {
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Created directory `%s'.", created_path);
+                  created_path[0] = '\0';
                }
             }
 #ifdef WITH_SSL
@@ -2293,7 +2494,8 @@ main(int argc, char *argv[])
          }
 
          /* See if we need to do a size check. */
-         if (fsa->protocol_options & CHECK_SIZE)
+         if ((fsa->protocol_options & CHECK_SIZE) ||
+             (db.special_flag & MATCH_REMOTE_SIZE))
          {
             off_t remote_size = -1;
 
@@ -2430,7 +2632,8 @@ main(int argc, char *argv[])
                (void)ftp_quit();
                exit(FILE_SIZE_MATCH_ERROR);
             }
-         } /* if (fsa->protocol_options & CHECK_SIZE) */
+         } /* if ((fsa->protocol_options & CHECK_SIZE) || */
+           /*     (db.special_flag & MATCH_REMOTE_SIZE))  */
 
          /* If we used dot notation, don't forget to rename. */
          if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
@@ -2438,33 +2641,6 @@ main(int argc, char *argv[])
              (db.special_flag & UNIQUE_LOCKING) ||
              (db.trans_rename_rule[0] != '\0'))
          {
-            *p_remote_filename = '\0';
-            if (db.lock == DOT_VMS)
-            {
-               (void)strcat(p_final_filename, DOT_NOTATION);
-            }
-            if (db.trans_rename_rule[0] != '\0')
-            {
-               register int k;
-
-               for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
-               {
-                  if (pmatch(rule[db.trans_rule_pos].filter[k],
-                             p_final_filename, NULL) == 0)
-                  {
-                     change_name(p_final_filename,
-                                 rule[db.trans_rule_pos].filter[k],
-                                 rule[db.trans_rule_pos].rename_to[k],
-                                 p_remote_filename, &counter_fd,
-                                 &unique_counter, db.job_id);
-                     break;
-                  }
-               }
-            }
-            if (*p_remote_filename == '\0')
-            {
-               (void)strcpy(p_remote_filename, p_final_filename);
-            }
             if ((status = ftp_move(initial_filename,
                                    remote_filename,
                                    fsa->protocol_options & FTP_FAST_MOVE,
@@ -2515,13 +2691,18 @@ main(int argc, char *argv[])
                  ready_file_buffer[MAX_PATH_LENGTH + 25];
 
             /* Generate the name for the ready file. */
-            (void)sprintf(ready_file_name, "%s_rdy", final_filename);
+# ifdef HAVE_SNPRINTF
+            (void)snprintf(ready_file_name, MAX_FILENAME_LENGTH,
+# else
+            (void)sprintf(ready_file_name,
+# endif
+                          "%s_rdy", final_filename);
 
             /* Open ready file on remote site. */
             msg_str[0] = '\0';
             if ((status = ftp_data(ready_file_name, append_offset,
                                    db.mode_flag, DATA_WRITE,
-                                   db.sndbuf_size)) != SUCCESS)
+                                   db.sndbuf_size, NO, NULL, NULL)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          "Failed to open remote ready file `%s' (%d).",
@@ -2568,7 +2749,11 @@ main(int argc, char *argv[])
             {
                file_type = 'B';
             }
+# ifdef HAVE_SNPRINTF
+            rdy_length = snprintf(ready_file_buffer, MAX_PATH_LENGTH + 25,
+# else
             rdy_length = sprintf(ready_file_buffer,
+# endif
                                  "%s %c U\n$$end_of_ready_file\n",
                                  p_initial_filename, file_type);
 
@@ -2775,7 +2960,12 @@ main(int argc, char *argv[])
                   }
                   else
                   {
+# ifdef HAVE_SNPRINTF
+                     *ol_file_name_length = (unsigned short)snprintf(ol_file_name + db.unl,
+                                                                     MAX_FILENAME_LENGTH,
+# else
                      *ol_file_name_length = (unsigned short)sprintf(ol_file_name + db.unl,
+# endif
                                                                     "%s%c%s",
                                                                     p_file_name_buffer,
                                                                     SEPARATOR_CHAR,
@@ -2820,7 +3010,12 @@ main(int argc, char *argv[])
                   }
                   else
                   {
+# ifdef HAVE_SNPRINTF
+                     *ol_file_name_length = (unsigned short)snprintf(ol_file_name + db.unl,
+                                                                     MAX_FILENAME_LENGTH,
+# else
                      *ol_file_name_length = (unsigned short)sprintf(ol_file_name + db.unl,
+# endif
                                                                     "%s%c%s",
                                                                     p_file_name_buffer,
                                                                     SEPARATOR_CHAR,
@@ -2884,7 +3079,12 @@ try_again_unlink:
                }
                else
                {
+# ifdef HAVE_SNPRINTF
+                  *ol_file_name_length = (unsigned short)snprintf(ol_file_name + db.unl,
+                                                                  MAX_FILENAME_LENGTH,
+# else
                   *ol_file_name_length = (unsigned short)sprintf(ol_file_name + db.unl,
+# endif
                                                                  "%s%c%s",
                                                                  p_file_name_buffer,
                                                                  SEPARATOR_CHAR,
@@ -2931,8 +3131,12 @@ try_again_unlink:
             /*
              * Wake up FD!
              */
-            (void)sprintf(fd_wake_up_fifo, "%s%s%s", p_work_dir,
-                          FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(fd_wake_up_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
+            (void)sprintf(fd_wake_up_fifo, "%s%s%s",
+#endif
+                          p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
             if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
 #else
@@ -3221,37 +3425,68 @@ sf_ftp_exit(void)
 #ifdef _WITH_BURST_2
          if (total_append_count == 1)
          {
-            (void)strcpy(&buffer[length], " [APPEND]");
+            /* Write " [APPEND]" */
+            buffer[length] = ' '; buffer[length + 1] = '[';
+            buffer[length + 2] = 'A'; buffer[length + 3] = 'P';
+            buffer[length + 4] = 'P'; buffer[length + 5] = 'E';
+            buffer[length + 6] = 'N'; buffer[length + 7] = 'D';
+            buffer[length + 8] = ']'; buffer[length + 9] = '\0';
             length += 9;
          }
          else if (total_append_count > 1)
               {
-                 length += sprintf(&buffer[length], " [APPEND * %u]",
-                                   total_append_count);
+# ifdef HAVE_SNPRINTF
+                 length += snprintf(&buffer[length],
+                                    MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 21 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1 - length,
+# else
+                 length += sprintf(&buffer[length],
+# endif
+                                   " [APPEND * %u]", total_append_count);
               }
          if (burst_2_counter == 1)
          {
-            (void)strcpy(&buffer[length], " [BURST]");
+            /* Write " [BURST]" */
+            buffer[length] = ' '; buffer[length + 1] = '[';
+            buffer[length + 2] = 'B'; buffer[length + 3] = 'U';
+            buffer[length + 4] = 'R'; buffer[length + 5] = 'S';
+            buffer[length + 6] = 'T'; buffer[length + 7] = ']';
+            buffer[length + 8] = '\0';
+            length += 8;
          }
          else if (burst_2_counter > 1)
               {
-                 (void)sprintf(&buffer[length], " [BURST * %u]",
-                               burst_2_counter);
+# ifdef HAVE_SNPRINTF
+                 length += snprintf(&buffer[length],
+                                    MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 21 + MAX_INT_LENGTH + 11 + MAX_INT_LENGTH + 1 - length,
+
+# else
+                 length += sprintf(&buffer[length],
+# endif
+                                   " [BURST * %u]", burst_2_counter);
            }
 #else
          if (append_count == 1)
          {
-            (void)strcat(buffer, " [APPEND]");
+            /* Write " [APPEND]" */
+            buffer[length] = ' '; buffer[length + 1] = '[';
+            buffer[length + 2] = 'A'; buffer[length + 3] = 'P';
+            buffer[length + 4] = 'P'; buffer[length + 5] = 'E';
+            buffer[length + 6] = 'N'; buffer[length + 7] = 'D';
+            buffer[length + 8] = ']'; buffer[length + 9] = '\0';
          }
          else if (append_count > 1)
               {
-                 char tmp_buffer[13 + MAX_INT_LENGTH];
-
-                 (void)sprintf(tmp_buffer, " [APPEND * %d]", append_count);
-                 (void)strcat(buffer, tmp_buffer);
+# ifdef HAVE_SNPRINTF
+                 (void)snprintf(&buffer[length],
+                                MAX_INT_LENGTH + 5 + MAX_OFF_T_LENGTH + 16 + MAX_INT_LENGTH + 21 + MAX_INT_LENGTH + 1 - length,
+# else
+                 (void)sprintf(&buffer[length],
+# endif
+                               " [APPEND * %d]", append_count);
               }
 #endif
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                   buffer, db.job_id);
       }
 
       if ((fsa->job_status[(int)db.job_no].file_name_in_use[0] != '\0') &&

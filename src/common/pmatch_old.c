@@ -1,6 +1,6 @@
 /*
  *  pmatch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -384,11 +384,18 @@ expand_filter(char *orig_filter, time_t check_time)
                                       "%B", localtime(&time_buf));
                      break;
                   case 'U': /* Unix time. */
-#if SIZEOF_TIME_T == 4
-                     wptr += sprintf(wptr, "%ld", (pri_time_t)time_buf);
+#ifdef HAVE_SNPRINTF
+                     wptr += snprintf(wptr,
+                                      MAX_FILENAME_LENGTH - (wptr - tmp_filter),
 #else
-                     wptr += sprintf(wptr, "%lld", (pri_time_t)time_buf);
+                     wptr += sprintf(wptr,
 #endif
+#if SIZEOF_TIME_T == 4
+                                     "%ld",
+#else
+                                     "%lld",
+#endif
+                                     (pri_time_t)time_buf);
                      break;
                   default :
                      *wptr = '%';
@@ -485,7 +492,13 @@ expand_filter(char *orig_filter, time_t check_time)
 
                        if ((p_hostname = getenv("HOSTNAME")) != NULL)
                        {
-                          wptr += sprintf(wptr, "%s", p_hostname);
+#ifdef HAVE_SNPRINTF
+                          wptr += snprintf(wptr,
+                                           MAX_FILENAME_LENGTH - (wptr - tmp_filter),
+#else
+                          wptr += sprintf(wptr,
+#endif
+                                          "%s", p_hostname);
                        }
                        else
                        {

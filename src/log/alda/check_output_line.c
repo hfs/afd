@@ -331,7 +331,7 @@ check_output_line(char         *line,
                               olog.send_start_time = olog.output_time - (time_t)olog.transmission_time;
                               ptr += i + 1;
 
-                              if (olog.current_toggle != - 1)
+                              if (olog.current_toggle != -1)
                               {
                                  /* Store number of retries. */
                                  i = 0;
@@ -409,8 +409,7 @@ check_output_line(char         *line,
                                     {
                                        *(ptr + i) = '\0';
                                        olog.job_creation_time = (time_t)str2timet(ptr, NULL, 16);
-                                       if ((olog.job_creation_time >= start_time_start) &&
-                                           ((prev_log_time == 0) || (olog.job_creation_time == prev_log_time)) &&
+                                       if (((prev_log_time == 0) || (olog.job_creation_time == prev_log_time)) &&
                                            ((start_time_end == 0) || (olog.job_creation_time < start_time_end)))
                                        {
                                           ptr += i + 1;

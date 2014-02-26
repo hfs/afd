@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -111,7 +111,9 @@ DESCR__E_M1
 
 /* Global variables. */
 unsigned int               special_flag = 0;
-int                        event_log_fd = STDERR_FILENO,
+int                        amg_flag = NO,
+                           counter_fd = -1,
+                           event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete, /* NOT USED. */
 #ifdef HAVE_HW_CRC32
@@ -135,8 +137,8 @@ int                        event_log_fd = STDERR_FILENO,
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO,
-                           timeout_flag;
+                           timeout_flag,
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -201,7 +203,7 @@ static void                sf_smtp_exit(void),
 int
 main(int argc, char *argv[])
 {
-   int              counter_fd = -1,
+   int              buffer_size = 0,
                     current_toggle,
                     exit_status = TRANSFER_SUCCESS,
                     fd,
@@ -230,7 +232,7 @@ main(int argc, char *argv[])
                     local_user[MAX_FILENAME_LENGTH],
                     multipart_boundary[MAX_FILENAME_LENGTH],
                     remote_user[MAX_FILENAME_LENGTH],
-                    *buffer,
+                    *buffer = NULL,
                     *buffer_ptr,
                     *encode_buffer = NULL,
                     final_filename[MAX_FILENAME_LENGTH],
@@ -336,7 +338,8 @@ main(int argc, char *argv[])
 
    if (db.smtp_server[0] == '\0')
    {
-      (void)strcpy(db.smtp_server, SMTP_HOST_NAME);
+      (void)my_strncpy(db.smtp_server, SMTP_HOST_NAME,
+                       MAX_REAL_HOSTNAME_LENGTH);
       current_toggle = HOST_ONE;
    }
    else
@@ -347,18 +350,24 @@ main(int argc, char *argv[])
          {
             if (fsa->host_toggle == HOST_ONE)
             {
-               (void)strcpy(db.smtp_server, fsa->real_hostname[HOST_TWO - 1]);
+               (void)my_strncpy(db.smtp_server,
+                                fsa->real_hostname[HOST_TWO - 1],
+                                MAX_REAL_HOSTNAME_LENGTH);
                current_toggle = HOST_TWO;
             }
             else
             {
-               (void)strcpy(db.smtp_server, fsa->real_hostname[HOST_ONE - 1]);
+               (void)my_strncpy(db.smtp_server,
+                                fsa->real_hostname[HOST_ONE - 1],
+                                MAX_REAL_HOSTNAME_LENGTH);
                current_toggle = HOST_ONE;
             }
          }
          else
          {
-            (void)strcpy(db.smtp_server, fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+            (void)my_strncpy(db.smtp_server,
+                             fsa->real_hostname[(int)(fsa->host_toggle - 1)],
+                             MAX_REAL_HOSTNAME_LENGTH);
             current_toggle = (int)fsa->host_toggle;
          }
       }
@@ -406,17 +415,20 @@ main(int argc, char *argv[])
       {
          if (fsa->host_toggle == HOST_ONE)
          {
-            (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
+            (void)my_strncpy(db.hostname, fsa->real_hostname[HOST_TWO - 1],
+                             MAX_REAL_HOSTNAME_LENGTH);
          }
          else
          {
-            (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
+            (void)my_strncpy(db.hostname, fsa->real_hostname[HOST_ONE - 1],
+                             MAX_REAL_HOSTNAME_LENGTH);
          }
       }
       else
       {
-         (void)strcpy(db.hostname,
-                      fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+         (void)my_strncpy(db.hostname,
+                          fsa->real_hostname[(int)(fsa->host_toggle - 1)],
+                          MAX_REAL_HOSTNAME_LENGTH);
       }
    }
    remote_user[0] = '\0';
@@ -583,7 +595,7 @@ main(int argc, char *argv[])
       /* Prepare local and remote user name. */
       if (db.from != NULL)
       {
-         (void)strcpy(local_user, db.from);
+         (void)my_strncpy(local_user, db.from, MAX_FILENAME_LENGTH);
       }
       else
       {
@@ -605,16 +617,20 @@ main(int argc, char *argv[])
          {
             if (fsa->host_toggle == HOST_ONE)
             {
-               (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
+               (void)my_strncpy(db.hostname, fsa->real_hostname[HOST_TWO - 1],
+                                MAX_REAL_HOSTNAME_LENGTH);
             }
             else
             {
-               (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
+               (void)my_strncpy(db.hostname, fsa->real_hostname[HOST_ONE - 1],
+                                MAX_REAL_HOSTNAME_LENGTH);
             }
          }
          else
          {
-            (void)strcpy(db.hostname, fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+            (void)my_strncpy(db.hostname,
+                             fsa->real_hostname[(int)(fsa->host_toggle - 1)],
+                             MAX_REAL_HOSTNAME_LENGTH);
          }
       }
       if (((db.special_flag & FILE_NAME_IS_USER) == 0) &&
@@ -636,6 +652,7 @@ main(int argc, char *argv[])
                        blocksize + 2 + 1, strerror(errno));
             exit(ALLOC_ERROR);
          }
+         buffer_size = blocksize + 2 + 1;
 #ifdef _WITH_BURST_2
       }
 #endif
@@ -698,8 +715,9 @@ main(int argc, char *argv[])
                      change_name(p_file_name_buffer,
                                  rule[db.mail_header_rule_pos].filter[k],
                                  rule[db.mail_header_rule_pos].rename_to[k],
-                                 ptr, &counter_fd,
-                                 &unique_counter, db.job_id);
+                                 ptr,
+                                 MAX_PATH_LENGTH - (ptr - mail_header_file),
+                                 &counter_fd, &unique_counter, db.job_id);
                      break;
                   }
                }
@@ -718,7 +736,8 @@ main(int argc, char *argv[])
                /*
                 * Try read user specified mail header file for this host.
                 */
-               (void)strcpy(mail_header_file, db.special_ptr);
+               (void)my_strncpy(mail_header_file, db.special_ptr,
+                                MAX_PATH_LENGTH);
             }
          }
 
@@ -850,15 +869,16 @@ main(int argc, char *argv[])
                         change_name(p_file_name_buffer,
                                     rule[db.user_rule_pos].filter[k],
                                     rule[db.user_rule_pos].rename_to[k],
-                                    db.user, &counter_fd, &unique_counter,
-                                    db.job_id);
+                                    db.user, MAX_USER_NAME_LENGTH,
+                                    &counter_fd, &unique_counter, db.job_id);
                         break;
                      }
                   }
                }
                else
                {
-                  (void)strcpy(db.user, p_file_name_buffer);
+                  (void)my_strncpy(db.user, p_file_name_buffer,
+                                   MAX_USER_NAME_LENGTH);
                }
                (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
             }
@@ -877,15 +897,17 @@ main(int argc, char *argv[])
                              change_name(p_file_name_buffer,
                                          rule[db.user_rule_pos].filter[k],
                                          rule[db.user_rule_pos].rename_to[k],
-                                         remote_user, &counter_fd,
-                                         &unique_counter, db.job_id);
+                                         remote_user, MAX_FILENAME_LENGTH,
+                                         &counter_fd, &unique_counter,
+                                         db.job_id);
                              break;
                           }
                        }
                     }
                     else
                     {
-                       (void)strcpy(remote_user, p_file_name_buffer);
+                       (void)my_strncpy(remote_user, p_file_name_buffer,
+                                        MAX_FILENAME_LENGTH);
                     }
                     k = 0;
                     ptr = remote_user;
@@ -1099,7 +1121,8 @@ main(int argc, char *argv[])
          } /* if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0)) */
 
          /* Get the the name of the file we want to send next. */
-         (void)strcpy(final_filename, p_file_name_buffer);
+         (void)my_strncpy(final_filename, p_file_name_buffer,
+                          MAX_FILENAME_LENGTH);
          (void)sprintf(fullname, "%s/%s", file_path, p_file_name_buffer);
 
          /* Open local file. */
@@ -1136,8 +1159,8 @@ main(int argc, char *argv[])
          if (gsf_check_fsa(p_db) != NEITHER)
          {
             fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
-            (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
-                         final_filename);
+            (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
+                             final_filename, MAX_FILENAME_LENGTH);
          }
 
          /* Read (local) and write (remote) file */
@@ -1225,14 +1248,15 @@ main(int argc, char *argv[])
                            change_name(final_filename,
                                        rule[db.subject_rule_pos].filter[k],
                                        rule[db.subject_rule_pos].rename_to[k],
-                                       new_filename, &counter_fd,
-                                       &unique_counter, db.job_id);
+                                       new_filename, MAX_FILENAME_LENGTH,
+                                       &counter_fd, &unique_counter, db.job_id);
                            break;
                         }
                      }
                      if (new_filename[0] == '\0')
                      {
-                        (void)strcpy(new_filename, final_filename);
+                        (void)my_strncpy(new_filename, final_filename,
+                                         MAX_FILENAME_LENGTH);
                      }
                      if ((length + strlen(new_filename) + 2) < blocksize)
                      {
@@ -1249,7 +1273,7 @@ main(int argc, char *argv[])
                      {
                         if (db.subject_rename_rule[0] == '\0')
                         {
-                           if ((length + 2 + strlen(p_tmp_file_name_buffer) + 2) < blocksize)
+                           if ((length + 2 + strlen(p_tmp_file_name_buffer) + 2) < MY_MIN(blocksize, MAX_SMTP_SUBJECT_LENGTH))
                            {
                               length += sprintf(&buffer[length], ", %s",
                                                 p_tmp_file_name_buffer);
@@ -1273,14 +1297,16 @@ main(int argc, char *argv[])
                                  change_name(p_tmp_file_name_buffer,
                                              rule[db.subject_rule_pos].filter[k],
                                              rule[db.subject_rule_pos].rename_to[k],
-                                             new_filename, &counter_fd,
-                                             &unique_counter, db.job_id);
+                                             new_filename, MAX_FILENAME_LENGTH,
+                                             &counter_fd, &unique_counter,
+                                             db.job_id);
                                  break;
                               }
                            }
                            if (new_filename[0] == '\0')
                            {
-                              (void)strcpy(new_filename, p_tmp_file_name_buffer);
+                              (void)my_strncpy(new_filename, p_tmp_file_name_buffer,
+                                               MAX_FILENAME_LENGTH);
                            }
                            if ((length + 2 + strlen(new_filename) + 2) < blocksize)
                            {
@@ -1353,6 +1379,18 @@ main(int argc, char *argv[])
                      length = sprintf(buffer, "To: %s", db.group_list[0]);
                      for (k = 1; k < db.no_listed; k++)
                      {
+                        if ((length + MAX_RECIPIENT_LENGTH) > buffer_size)
+                        {
+                           buffer_size += MAX_RECIPIENT_LENGTH;
+                           if ((buffer = realloc(buffer, buffer_size)) == NULL)
+                           {
+                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                        "Failed to realloc() %d bytes : %s",
+                                        buffer_size, strerror(errno));
+                              (void)smtp_quit();
+                              exit(eval_timeout(ALLOC_ERROR));
+                           }
+                        }
                         length += sprintf(buffer + length, ", %s",
                                           db.group_list[k]);
                      }
@@ -1403,14 +1441,15 @@ main(int argc, char *argv[])
                            change_name(final_filename,
                                        rule[db.trans_rule_pos].filter[k],
                                        rule[db.trans_rule_pos].rename_to[k],
-                                       new_filename, &counter_fd,
-                                       &unique_counter, db.job_id);
+                                       new_filename, MAX_FILENAME_LENGTH,
+                                       &counter_fd, &unique_counter, db.job_id);
                            break;
                         }
                      }
                      if (new_filename[0] == '\0')
                      {
-                        (void)strcpy(new_filename, final_filename);
+                        (void)my_strncpy(new_filename, final_filename,
+                                         MAX_FILENAME_LENGTH);
                      }
                      get_content_type(new_filename, content_type);
                      length = sprintf(encode_buffer,
@@ -1532,14 +1571,15 @@ main(int argc, char *argv[])
                            change_name(final_filename,
                                        rule[db.trans_rule_pos].filter[k],
                                        rule[db.trans_rule_pos].rename_to[k],
-                                       new_filename, &counter_fd,
-                                       &unique_counter, db.job_id);
+                                       new_filename, MAX_FILENAME_LENGTH,
+                                       &counter_fd, &unique_counter, db.job_id);
                            break;
                         }
                      }
                      if (new_filename[0] == '\0')
                      {
-                        (void)strcpy(new_filename, final_filename);
+                        (void)my_strncpy(new_filename, final_filename,
+                                         MAX_FILENAME_LENGTH);
                      }
                      get_content_type(new_filename, content_type);
                      length = sprintf(encode_buffer,
@@ -1616,14 +1656,15 @@ main(int argc, char *argv[])
                      change_name(final_filename,
                                  rule[db.trans_rule_pos].filter[k],
                                  rule[db.trans_rule_pos].rename_to[k],
-                                 new_filename, &counter_fd,
-                                 &unique_counter, db.job_id);
+                                 new_filename, MAX_FILENAME_LENGTH,
+                                 &counter_fd, &unique_counter, db.job_id);
                      break;
                   }
                }
                if (new_filename[0] == '\0')
                {
-                  (void)strcpy(new_filename, final_filename);
+                  (void)my_strncpy(new_filename, final_filename,
+                                   MAX_FILENAME_LENGTH);
                }
                get_content_type(new_filename, content_type);
                if (files_send == 0)
@@ -2519,7 +2560,11 @@ sf_smtp_exit(void)
 #ifdef _WITH_BURST_2
          if (burst_2_counter == 1)
          {
-            (void)strcpy(&buffer[length], " [BURST]");
+            buffer[length] = ' '; buffer[length + 1] = '[';
+            buffer[length + 2] = 'B'; buffer[length + 3] = 'U';
+            buffer[length + 4] = 'R'; buffer[length + 5] = 'S';
+            buffer[length + 6] = 'T'; buffer[length + 7] = ']';
+            buffer[length + 8] = '\0';
          }
          else if (burst_2_counter > 1)
               {
@@ -2527,7 +2572,8 @@ sf_smtp_exit(void)
                                burst_2_counter);
               }
 #endif
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                   buffer, db.job_id);
       }
       reset_fsa((struct job *)&db, exitflag, 0, 0);
    }

@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,7 +24,10 @@
 #include "motif_common_defs.h"
 
 #define DEFAULT_NO_OF_ROWS             50
+#define DEFAULT_OTHER_OPTIONS          0
 #define BAR_LENGTH_MODIFIER            7
+
+#define FORCE_SHIFT_SELECT_W           0
 
 /* Redraw times for dir_ctrl. */
 #define STARTING_DIR_REDRAW_TIME       150
@@ -173,6 +176,7 @@ struct dir_control_perm
 signed char dir_window_size(int *, int *),
             resize_dir_window(void);
 void        change_dir_font_cb(Widget, XtPointer, XtPointer),
+            change_dir_other_cb(Widget, XtPointer, XtPointer),
             change_dir_rows_cb(Widget, XtPointer, XtPointer),
             change_dir_style_cb(Widget, XtPointer, XtPointer),
             check_dir_status(Widget),

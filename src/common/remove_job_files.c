@@ -1,6 +1,6 @@
 /*
  *  remove_job_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -158,14 +158,24 @@ remove_job_files(char *del_dir, int fsa_pos, off_t sf_lock_offset)
                (void)strcpy(dl.file_name, p_dir->d_name);
                if (fsa_pos > -1)
                {
-                  (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                  (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                  (void)sprintf(dl.host_name,
+# endif
+                                "%-*s %03x",
                                 MAX_HOSTNAME_LENGTH,
                                 p_fsa->host_alias,
                                 reason);
                }
                else
                {
-                  (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                  (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                  (void)sprintf(dl.host_name,
+# endif
+                                "%-*s %03x",
                                 MAX_HOSTNAME_LENGTH,
                                 "-",
                                 reason);
@@ -177,7 +187,12 @@ remove_job_files(char *del_dir, int fsa_pos, off_t sf_lock_offset)
                /*       are set before this function is called!         */
                *dl.file_name_length = strlen(p_dir->d_name);
                dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                              snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+# else
                               sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                       "%s%c(%s %d)",
                                       proc, SEPARATOR_CHAR, __FILE__, __LINE__);
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)

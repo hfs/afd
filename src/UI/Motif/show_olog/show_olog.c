@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -131,10 +131,13 @@ int                        amg_flag = NO,
                            no_of_search_hosts,
                            no_of_search_dirs,
                            no_of_search_dirids,
+                           no_of_view_modes,
                            *search_dir_length = NULL,
                            special_button_flag,
                            sum_line_length,
-                           sys_log_fd = STDERR_FILENO;
+                           sys_log_fd = STDERR_FILENO,
+                           view_archived_only = NO,
+                           view_mode;
 unsigned int               all_list_items = 0,
                            *search_dirid = NULL;
 XT_PTR_TYPE                toggles_set = 0;
@@ -157,13 +160,12 @@ struct item_list           *il = NULL;
 struct sol_perm            perm;
 struct fileretrieve_status *fra;
 struct apps_list           *apps_list;
+struct view_modes          *vm;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes. */
 static void                eval_permissions(char *),
-#ifdef HAVE_SETPRIORITY
                            get_afd_config_value(void),
-#endif
                            init_show_olog(int *, char **),
                            show_olog_exit(void),
                            sig_bus(int),
@@ -176,6 +178,7 @@ static void                eval_permissions(char *),
 int
 main(int argc, char *argv[])
 {
+   XT_PTR_TYPE     i;
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH],
                    *radio_label[] = {"Short", "Med", "Long"};
@@ -209,19 +212,22 @@ main(int argc, char *argv[])
                    currenttime_w,
                    entertime_w,
                    label_w,
-                   lr_togglebox_w,
                    mainform_w,
+                   option_menu_w,
+                   pane_w,
                    radio_w,
                    radiobox_w,
                    rowcol_w,
                    separator_w,
                    timebox_w,
-                   toggle_w;
+                   toggle_w,
+                   xx_togglebox_w;
    Arg             args[MAXARGS];
    Cardinal        argcount;
    XmFontListEntry entry;
    XFontStruct     *font_struct;
    XmFontType      dummy;
+   XmString        label;
    uid_t           euid, /* Effective user ID. */
                    ruid; /* Real user ID. */
 
@@ -230,9 +236,7 @@ main(int argc, char *argv[])
    /* Initialise global values. */
    p_work_dir = work_dir;
    init_show_olog(&argc, argv);
-#ifdef HAVE_SETPRIORITY
    get_afd_config_value();
-#endif
 
    (void)strcpy(window_title, "Output Log ");
    if (get_afd_name(&window_title[11]) == INCORRECT)
@@ -675,13 +679,13 @@ main(int argc, char *argv[])
 /* Let user select the distribution type: FTP, MAIL and/or FILE. Default */
 /* is FTP, MAIL and FILE.                                                */
 /*-----------------------------------------------------------------------*/
-   label_w = XtVaCreateManagedWidget("Protocol :",
+   label_w = XtVaCreateManagedWidget("Protocol",
                            xmLabelGadgetClass,  selectionbox_w,
                            XmNfontList,         fontlist,
                            XmNalignment,        XmALIGNMENT_END,
                            XmNtopAttachment,    XmATTACH_FORM,
                            XmNleftAttachment,   XmATTACH_FORM,
-                           XmNleftOffset,       10,
+                           XmNleftOffset,       4,
                            XmNbottomAttachment, XmATTACH_FORM,
                            NULL);
    togglebox_w = XtVaCreateWidget("togglebox",
@@ -890,14 +894,124 @@ main(int argc, char *argv[])
 /* format. Default is short, since this is the fastest form.             */
 /*-----------------------------------------------------------------------*/
 
+   /* Only archived toggle box */
+   xx_togglebox_w = XtVaCreateWidget("oa_togglebox",
+                                xmRowColumnWidgetClass, selectionbox_w,
+                                XmNorientation,      XmHORIZONTAL,
+                                XmNpacking,          XmPACK_TIGHT,
+                                XmNnumColumns,       1,
+                                XmNtopAttachment,    XmATTACH_FORM,
+                                XmNleftAttachment,   XmATTACH_FORM,
+                                XmNbottomAttachment, XmATTACH_FORM,
+                                XmNresizable,        False,
+                                NULL);
+
+   toggle_w = XtVaCreateManagedWidget("Only archived",
+                                xmToggleButtonGadgetClass, xx_togglebox_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    False,
+                                NULL);
+   XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)only_archived_toggle, NULL);
+   XtManageChild(xx_togglebox_w);
+
+   /* Vertical Separator */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       xx_togglebox_w);
+   argcount++;
+   separator_w = XmCreateSeparator(selectionbox_w, "separator", args, argcount);
+   XtManageChild(separator_w);
+
+   /* Option menu for view mode. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   xx_togglebox_w = XmCreateForm(selectionbox_w, "option_box", args, argcount);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNfontList,         fontlist);
+   argcount++;
+   pane_w = XmCreatePulldownMenu(xx_togglebox_w, "pane", args, argcount);
+
+   label = XmStringCreateLocalized("View mode");
+   argcount = 0;
+   XtSetArg(args[argcount], XmNsubMenuId,        pane_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNlabelString,      label);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomOffset,     -2);
+   argcount++;
+   option_menu_w = XmCreateOptionMenu(xx_togglebox_w, "view_mode_selection",
+                                      args, argcount);
+   XtManageChild(option_menu_w);
+   XmStringFree(label);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNfontList,         fontlist);
+   argcount++;
+   XtSetValues(XmOptionLabelGadget(option_menu_w), args, argcount);
+
+   /* Add all possible view mode buttons. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNfontList, fontlist);
+   argcount++;
+   button_w = XtCreateManagedWidget("Auto", xmPushButtonWidgetClass,
+                                    pane_w, args, argcount);
+   XtAddCallback(button_w, XmNactivateCallback, set_view_mode, (XtPointer)0);
+
+   /* Add all other buttons from AFD_CONFIG. */
+   for (i = 0; i < no_of_view_modes; i++)
+   {
+      button_w = XtCreateManagedWidget(vm[i].alias, xmPushButtonWidgetClass,
+                                       pane_w, args, argcount);
+      XtAddCallback(button_w, XmNactivateCallback, set_view_mode,
+                    (XtPointer)(i + 1));
+   }
+
+   view_mode = 0; /* Default to 'auto'. */
+   XtManageChild(xx_togglebox_w);
+
+   /* Vertical Separator */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       xx_togglebox_w);
+   argcount++;
+   separator_w = XmCreateSeparator(selectionbox_w, "separator", args, argcount);
+   XtManageChild(separator_w);
+
    /* Label radiobox_w */
    label_w = XtVaCreateManagedWidget("File name length :",
                            xmLabelGadgetClass,  selectionbox_w,
                            XmNfontList,         fontlist,
                            XmNalignment,        XmALIGNMENT_END,
                            XmNtopAttachment,    XmATTACH_FORM,
-                           XmNleftAttachment,   XmATTACH_FORM,
-                           XmNleftOffset,       10,
+                           XmNleftAttachment,   XmATTACH_WIDGET,
+                           XmNleftWidget,       separator_w,
                            XmNbottomAttachment, XmATTACH_FORM,
                            NULL);
    argcount = 0;
@@ -946,7 +1060,7 @@ main(int argc, char *argv[])
 /* Let user select the if the file name we are searching for is local or */
 /* remote. Default is local.                                             */
 /*-----------------------------------------------------------------------*/
-   lr_togglebox_w = XtVaCreateWidget("lr_togglebox",
+   xx_togglebox_w = XtVaCreateWidget("lr_togglebox",
                                 xmRowColumnWidgetClass, selectionbox_w,
                                 XmNorientation,      XmHORIZONTAL,
                                 XmNpacking,          XmPACK_TIGHT,
@@ -958,14 +1072,14 @@ main(int argc, char *argv[])
                                 NULL);
 
    toggle_w = XtVaCreateManagedWidget("Local ",
-                                xmToggleButtonGadgetClass, lr_togglebox_w,
+                                xmToggleButtonGadgetClass, xx_togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    False,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)file_name_toggle, NULL);
    file_name_toggle_set = LOCAL_FILENAME;
-   XtManageChild(lr_togglebox_w);
+   XtManageChild(xx_togglebox_w);
    XtManageChild(selectionbox_w);
 
 
@@ -1945,7 +2059,6 @@ init_show_olog(int *argc, char *argv[])
 }
 
 
-#ifdef HAVE_SETPRIORITY
 /*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
 static void
 get_afd_config_value(void)
@@ -1956,10 +2069,13 @@ get_afd_config_value(void)
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
-      char value[MAX_INT_LENGTH];
+      char *ptr,
+           value[MAX_INT_LENGTH],
+           view_data_prog_def[VIEW_DATA_NO_FILTER_PROG_DEF_LENGTH + 2];;
 
+#ifdef HAVE_SETPRIORITY
       if (get_definition(buffer, SHOW_LOG_PRIORITY_DEF,
                          value, MAX_INT_LENGTH) != NULL)
       {
@@ -1970,12 +2086,260 @@ get_afd_config_value(void)
                        atoi(value), strerror(errno));
          }
       }
+#endif
+
+      view_data_prog_def[0] = '\n';
+      (void)strcpy(&view_data_prog_def[1], VIEW_DATA_NO_FILTER_PROG_DEF);
+      no_of_view_modes = 0;
+      ptr = buffer;
+      do
+      {
+         if ((ptr = posi(ptr, view_data_prog_def)) != NULL)
+         {
+            int  i;
+            char *p_start;
+
+            if ((vm = realloc(vm, ((no_of_view_modes + 1) * sizeof(struct view_modes)))) == NULL)
+            {
+               (void)fprintf(stderr, "realloc() error : %s (%s %d)\n",
+                             strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+
+            while ((*ptr == ' ') || (*ptr == '\t'))
+            {
+               ptr++;
+            }
+
+            /* First get the alias name. */
+            i = 0;
+            while ((*ptr != ' ') && (*ptr != '\t') &&
+                   (*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0') &&
+                   (i < MAX_VIEW_ALIAS_NAME_LENGTH))
+            {
+               vm[no_of_view_modes].alias[i] = *ptr;
+               ptr++; i++;
+            }
+            vm[no_of_view_modes].alias[i] = '\0';
+            while ((*ptr != ' ') && (*ptr != '\t') &&
+                   (*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+
+            while ((*ptr == ' ') || (*ptr == '\t'))
+            {
+               ptr++;
+            }
+
+            /* Check if we wish to add show_cmd (--with-show_cmd). */
+            if ((*ptr == '-') && (*(ptr + 1) == '-') &&
+                (*(ptr + 2) == 'w') && (*(ptr + 3) == 'i') &&
+                (*(ptr + 4) == 't') && (*(ptr + 5) == 'h') &&
+                (*(ptr + 6) == '-') && (*(ptr + 7) == 's') &&
+                (*(ptr + 8) == 'h') && (*(ptr + 9) == 'o') &&
+                (*(ptr + 10) == 'w') && (*(ptr + 11) == '_') &&
+                (*(ptr + 12) == 'c') && (*(ptr + 13) == 'm') &&
+                (*(ptr + 14) == 'd') &&
+                ((*(ptr + 15) == ' ') || (*(ptr + 15) == '\t')))
+            {
+               vm[no_of_view_modes].with_show_cmd = YES;
+               ptr += 15;
+               while ((*ptr == ' ') || (*ptr == '\t'))
+               {
+                  ptr++;
+               }
+            }
+            else
+            {
+               vm[no_of_view_modes].with_show_cmd = NO;
+            }
+
+            p_start = ptr;
+            vm[no_of_view_modes].argcounter = 0;
+            if (*ptr == '"')
+            {
+               ptr++;
+               p_start = ptr;
+               while ((*ptr != '"') && (*ptr != '\n') && (*ptr != '\r') &&
+                      (*ptr != '\0'))
+               {
+                  if ((*ptr == ' ') || (*ptr == '\t'))
+                  {
+                     vm[no_of_view_modes].argcounter++;
+                  }
+                  ptr++;
+               }
+               if (*ptr == '"')
+               {
+                  *ptr = ' ';
+               }
+            }
+            else
+            {
+               while ((*ptr != '\n') && (*ptr != '\r') && (*ptr != '\0'))
+               {
+                  ptr++;
+               }
+            }
+            if (ptr != p_start)
+            {
+               int length = ptr - p_start;
+
+               if ((vm[no_of_view_modes].cmd = malloc(length + 1)) == NULL)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to malloc() %d bytes : %s (%s %d)\n",
+                                (length + length), strerror(errno),
+                                __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+               (void)memcpy(vm[no_of_view_modes].cmd, p_start, length);
+               vm[no_of_view_modes].cmd[length] = '\0';
+               if (vm[no_of_view_modes].with_show_cmd == YES)
+               {
+                  char *p_arg;
+
+                  length += SHOW_CMD_LENGTH + 1 + WORK_DIR_ID_LENGTH + 1 +
+                            strlen(p_work_dir) + 1 + 2 + 1 + 2 + 1 +
+                            strlen(font_name) + 1 + 4 + MAX_PATH_LENGTH;
+
+                  if ((vm[no_of_view_modes].progname = malloc(length + 1)) == NULL)
+                  {
+                     (void)fprintf(stderr,
+                                   "Failed to malloc() %d bytes : %s (%s %d)\n",
+                                   length + 1, strerror(errno),
+                                   __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
+                  vm[no_of_view_modes].p_cmd = vm[no_of_view_modes].progname +
+                                               sprintf(vm[no_of_view_modes].progname,
+                                                       "%s %s %s -b -f %s \"",
+                                                       SHOW_CMD, WORK_DIR_ID,
+                                                       p_work_dir, font_name);
+                  if ((vm[no_of_view_modes].args = malloc(8 * sizeof(char *))) == NULL)
+                  {
+                     (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                   strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
+                  vm[no_of_view_modes].args[0] = vm[no_of_view_modes].progname;
+                  p_arg = vm[no_of_view_modes].progname;
+                  p_arg += SHOW_CMD_LENGTH;  
+                  *p_arg = '\0';
+                  p_arg++;
+                  vm[no_of_view_modes].args[1] = p_arg;
+                  p_arg += WORK_DIR_ID_LENGTH;
+                  *p_arg = '\0';             
+                  p_arg++;
+                  vm[no_of_view_modes].args[2] = p_arg;
+                  while (*p_arg != ' ')      
+                  {
+                     p_arg++;
+                  }
+                  *p_arg = '\0';
+                  p_arg++;
+                  vm[no_of_view_modes].args[3] = p_arg;
+                  p_arg += 2;
+                  *p_arg = '\0';
+                  p_arg++;
+                  vm[no_of_view_modes].args[4] = p_arg;
+                  p_arg += 2;
+                  *p_arg = '\0';
+                  p_arg++;
+                  vm[no_of_view_modes].args[5] = p_arg;
+                  while (*p_arg != ' ')      
+                  {
+                     p_arg++;
+                  }
+                  *p_arg = '\0';   
+                  p_arg++;
+                  vm[no_of_view_modes].args[6] = p_arg;
+                  vm[no_of_view_modes].args[7] = NULL;
+                  vm[no_of_view_modes].argcounter = 7;
+               }
+               else
+               {
+                  vm[no_of_view_modes].p_cmd = NULL;
+                  if ((vm[no_of_view_modes].progname = malloc(length + 1)) == NULL)
+                  {
+                     (void)fprintf(stderr,
+                                   "Failed to malloc() %d bytes : %s (%s %d)\n",
+                                   length + 1, strerror(errno),
+                                   __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
+                  (void)strncpy(vm[no_of_view_modes].progname, p_start, length);
+                  vm[no_of_view_modes].progname[length] = '\0';
+
+                  if (vm[no_of_view_modes].argcounter > 0)
+                  {
+                     int  filename_set = NO;
+                     char *p_arg;
+
+                     if ((vm[no_of_view_modes].args = malloc((vm[no_of_view_modes].argcounter + 3) * sizeof(char *))) == NULL)
+                     {
+                        (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                      strerror(errno), __FILE__, __LINE__);
+                        exit(INCORRECT);
+                     }
+                     vm[no_of_view_modes].args[0] = vm[no_of_view_modes].progname;
+                     p_arg = vm[no_of_view_modes].progname;
+                     for (i = 1; i < (vm[no_of_view_modes].argcounter + 1); i++)
+                     {
+                        while ((*p_arg != ' ') && (*p_arg != '\t'))
+                        {
+                           p_arg++;
+                        }
+                        *p_arg = '\0';
+                        p_arg++;
+                        vm[no_of_view_modes].args[i] = p_arg;
+                     }
+                     while ((*p_arg != ' ') && (*p_arg != '\t') &&
+                            (*p_arg != '\n') && (*p_arg != '\r') &&
+                            (*p_arg != '\0'))
+                     {
+                        p_arg++;
+                     }
+                     if (*p_arg != '\0')
+                     {
+                        *p_arg = '\0';
+                     }
+                     if (filename_set == NO)
+                     {
+                        vm[no_of_view_modes].args[i] = NULL;
+                        i += 1;
+                     }
+                     vm[no_of_view_modes].args[i] = NULL;
+                  }
+                  else
+                  {
+                     if ((vm[no_of_view_modes].args = malloc(3 * sizeof(char *))) == NULL)
+                     {
+                        (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                      strerror(errno), __FILE__, __LINE__);
+                        exit(INCORRECT);
+                     }
+                     vm[no_of_view_modes].args[0] = vm[no_of_view_modes].progname;
+                     vm[no_of_view_modes].args[1] = NULL;
+                     vm[no_of_view_modes].args[2] = NULL;
+                     vm[no_of_view_modes].argcounter = 2;
+                  }
+               }
+               no_of_view_modes++;
+            }
+         }
+      } while (ptr != NULL);
+
       free(buffer);
+   }
+   else
+   {
+      no_of_view_modes = 0;
    }
 
    return;
 }
-#endif
 
 
 /*------------------------------- usage() -------------------------------*/

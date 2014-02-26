@@ -1,6 +1,6 @@
 /*
  *  mmap_emu.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1994 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1994 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,13 +79,23 @@ mmap_emu(caddr_t addr,
             strshmid[15],
             buf[BUFSIZE];
 
-#if SIZEOF_PID_T == 4
-   (void)sprintf(fifoname, "%s%s/shmid.%d.fifo",
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fifoname, MAX_PATH_LENGTH,
 #else
-   (void)sprintf(fifoname, "%s%s/shmid.%lld.fifo",
+   (void)sprintf(fifoname,
+#endif
+#if SIZEOF_PID_T == 4
+                 "%s%s/shmid.%d.fifo",
+#else
+                 "%s%s/shmid.%lld.fifo",
 #endif
                  p_work_dir, FIFO_DIR, (pri_pid_t)getpid());
-   (void)sprintf(request_fifo, "%s%s%s", p_work_dir, FIFO_DIR, REQUEST_FIFO);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(request_fifo, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(request_fifo, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, REQUEST_FIFO);
    if (mkfifo(fifoname, FILE_MODE) < 0)
    {
       return((caddr_t) -1);
@@ -111,7 +121,11 @@ mmap_emu(caddr_t addr,
       return((caddr_t) -1);
    }
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(buf, BUFSIZE, "1\t%s\t%d\t%s\n", filename, len, fifoname);
+#else
    (void)sprintf(buf, "1\t%s\t%d\t%s\n", filename, len, fifoname);
+#endif
 #ifdef _MMAP_EMU_DEBUG
    (void)fprintf(stderr,"MMAP_EMU  : %s", buf);
 #endif

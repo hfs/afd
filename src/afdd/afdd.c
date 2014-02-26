@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -131,7 +131,6 @@ main(int argc, char *argv[])
    my_socklen_t       peer_addrlen;
    char               *ptr,
                       port_no[MAX_INT_LENGTH],
-                      reply[256],
                       work_dir[MAX_PATH_LENGTH];
    fd_set             rset;
    struct servent     *p_service;
@@ -333,7 +332,11 @@ main(int argc, char *argv[])
       {
          ports_tried++;
          port++;
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(port_no, MAX_INT_LENGTH, "%d", port);
+#else
          (void)sprintf(port_no, "%d", port);
+#endif
          if ((errno != EADDRINUSE) || (ports_tried > 100))
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -444,18 +447,33 @@ main(int argc, char *argv[])
 
          if (no_of_connections >= max_afdd_connections)
          {
+            char reply[73 + MAX_INT_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+            length = snprintf(reply, 73 + MAX_INT_LENGTH,
+#else
             length = sprintf(reply,
+#endif
                              "421 Service not available. There are currently to many connections (%d).\r\n",
                              no_of_connections);
-            (void)write(new_sockfd, reply, length);
+            if (write(new_sockfd, reply, length) != length)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to write() reply to socket: %s",
+                          strerror(errno));
+            }
             (void)close(new_sockfd);
          }
          else
          {
             if ((pos = get_free_connection()) < 0)
             {
-               length = sprintf(reply, "421 Service not available.\r\n");
-               (void)write(new_sockfd, reply, length);
+               if (write(new_sockfd, "421 Service not available.\r\n", 28) != 28)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to write() `421 Service not available' to socket: %s",
+                             strerror(errno));
+               }
                (void)close(new_sockfd);
             }
             else
@@ -551,10 +569,14 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
 {
    char *buffer;
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(afd_config_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
    (void)sprintf(afd_config_file, "%s%s%s",
+#endif
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(afd_config_file, F_OK) == 0) &&
-       (read_file_no_cr(afd_config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(afd_config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char *ptr = buffer,
            tmp_trusted_ip[MAX_IP_LENGTH + 1],

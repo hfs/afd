@@ -1,6 +1,6 @@
 /*
  *  view_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,8 @@ extern Widget           appshell, /* CHECK_INTERRUPT() */
                         special_button_w,
                         statusbox_w;
 extern int              no_of_log_files,
-                        special_button_flag;
+                        special_button_flag,
+                        view_mode;
 extern char             *p_work_dir;
 extern struct item_list *il;
 extern struct info_data id;
@@ -176,7 +177,14 @@ view_files(int no_selected, int *select_list)
             }
             else
             {
-               view_data(archive_dir, p_file_name);
+               if (view_mode == 0) /* Auto */
+               {
+                  view_data(archive_dir, p_file_name);
+               }
+               else
+               {
+                  view_data_no_filter(archive_dir, p_file_name, view_mode - 1);
+               }
                vl[i].status = DONE;
                no_done++;
                select_done_list[select_done] = select_list[i];

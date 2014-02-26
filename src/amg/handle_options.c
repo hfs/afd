@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,6 +78,9 @@ DESCR__S_M3
  **                             indicator used in conjunction with the MSS.
  **                    WMO    - Bulletins with 8 byte ASCII length indicator
  **                             and 2 byte type indicator.
+ **                    WMO+CHK- Same as WMO with the difference that it
+ **                             searches for the end ETX if the supplied
+ **                             length is not correct.
  **                    ASCII  - Normal ASCII bulletins where SOH and ETX
  **                             are start and end of one bulletin.
  **                    BINARY - Normal binary bulletin, where just the
@@ -154,6 +157,7 @@ DESCR__S_M3
  **   08.03.2008 H.Kiehl Added -s to exec option.
  **   18.01.2011 H.Kiehl Added lchmod option, to do local chmod.
  **   17.03.2012 H.Kiehl Added %T time modifier for assembling file names.
+ **   15.02.2013 H.Kiehl Added extract option WMO+CHK.
  **
  */
 DESCR__E_M3
@@ -175,6 +179,9 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
+#define DEFAULT_FIELD_WIDTH      8
+
+
 /* External global variables. */
 extern time_t                     default_exec_timeout;
 extern int                        fra_fd,
@@ -194,7 +201,10 @@ extern off_t                      *file_size_pool;
 # endif
 extern char                       *file_name_buffer;
 #endif
-extern char                       *p_work_dir;
+extern char                       *bul_file,
+                                  *p_work_dir,
+                                  *rep_file;
+extern struct wmo_bul_list        *bcdb;
 extern struct rule                *rule;
 extern struct instant_db          *db;
 extern struct fileretrieve_status *fra,
@@ -214,11 +224,11 @@ static char                       *p_file_name;
 static void                       prepare_rename_ow(int, char **),
                                   rename_ow(int, int, char *, off_t *,
 #ifdef _DELETE_LOG
-                                            time_t, unsigned int,
-                                            unsigned int, int,
+                                            time_t, unsigned int, unsigned int,
 #endif
-                                            char *, char *, char *, char *),
-                                  create_assembled_name(char *, char *),
+                                            int, char *, char *, char *, char *),
+                                  create_assembled_name(char *, char *,
+                                                        unsigned int),
                                   delete_all_files(char *,
 #ifdef _DELETE_LOG
                                                    int, int, time_t,
@@ -303,7 +313,8 @@ handle_options(int          position,
          if (no_of_rule_headers == 0)
          {
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                        "You want to do renaming, but there is no valid file with rules for renaming. Ignoring this option.");
+                        "You want to do renaming, but there is no valid file with rules for renaming. Ignoring this option. #%x",
+                        db[position].job_id);
          }
          else
          {
@@ -318,7 +329,8 @@ handle_options(int          position,
             if (*p_rule == '\0')
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "No rule specified for renaming. Ignoring this option.");
+                           "No rule specified for renaming. Ignoring this option. #%x",
+                           db[position].job_id);
             }
             else
             {
@@ -327,8 +339,8 @@ handle_options(int          position,
                if ((rule_pos = get_rule(p_rule, no_of_rule_headers)) < 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                              "Could NOT find rule `%s'. Ignoring this option.",
-                              p_rule);
+                              "Could NOT find rule `%s'. Ignoring this option. #%x",
+                              p_rule, db[position].job_id);
                }
                else
                {
@@ -416,8 +428,8 @@ handle_options(int          position,
                               change_name(p_file_name,
                                           rule[rule_pos].filter[k],
                                           rule[rule_pos].rename_to[k],
-                                          changed_name, &counter_fd,
-                                          &unique_counter,
+                                          changed_name, MAX_FILENAME_LENGTH,
+                                          &counter_fd, &unique_counter,
                                           db[position].job_id);
                               (void)strcpy(ptr, p_file_name);
                               (void)strcpy(p_newname, changed_name);
@@ -436,9 +448,9 @@ handle_options(int          position,
                                         new_name_buffer, file_size,
 #ifdef _DELETE_LOG
                                         creation_time, unique_number,
-                                        split_job_counter, position,
+                                        split_job_counter,
 #endif
-                                        newname, p_newname, fullname,
+                                        position, newname, p_newname, fullname,
                                         p_file_name);
                               break;
                            }
@@ -521,7 +533,12 @@ handle_options(int          position,
             else
             {
                p_del_orig_file = del_orig_file +
-                                 sprintf(del_orig_file, "%s/", file_path);
+#ifdef HAVE_SNPRINTF
+                                 snprintf(del_orig_file, MAX_PATH_LENGTH, "%s/",
+#else
+                                 sprintf(del_orig_file, "%s/",
+#endif
+                                 file_path);
             }
             delete_original_file = YES;
          }
@@ -551,8 +568,12 @@ handle_options(int          position,
                      else
                      {
                         p_del_orig_file = del_orig_file +
-                                          sprintf(del_orig_file, "%s/",
-                                                  file_path);
+#ifdef HAVE_SNPRINTF
+                                          snprintf(del_orig_file, MAX_PATH_LENGTH,
+#else
+                                          sprintf(del_orig_file,
+#endif
+                                                  "%s/", file_path);
                      }
                   }
                   delete_original_file = YES;
@@ -593,7 +614,8 @@ handle_options(int          position,
                                 p_command++;
                              }
                              receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                         "exec timeout value to long.");
+                                         "exec timeout value to long. #%x",
+                                         db[position].job_id);
                           }
                        }
                     }
@@ -619,7 +641,11 @@ handle_options(int          position,
                           else
                           {
                              p_save_orig_file = save_orig_file +
+#ifdef HAVE_SNPRINTF
+                                                snprintf(save_orig_file, MAX_PATH_LENGTH,
+#else
                                                 sprintf(save_orig_file,
+#endif
 #if SIZEOF_TIME_T == 4
                                                         "%s%s%s/%lx_%x_%x/",
 #else
@@ -641,8 +667,12 @@ handle_options(int          position,
                                 else
                                 {
                                    p_del_orig_file = del_orig_file +
-                                                     sprintf(del_orig_file, "%s/",
-                                                             file_path);
+#ifdef HAVE_SNPRINTF
+                                                     snprintf(del_orig_file, MAX_PATH_LENGTH,
+#else
+                                                     sprintf(del_orig_file,
+#endif
+                                                             "%s/", file_path);
                                 }
                              }
                           }
@@ -653,7 +683,8 @@ handle_options(int          position,
                     else
                     {
                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                   "Unknown exec option -%c", *(p_command + 2));
+                                   "Unknown exec option -%c #%x",
+                                   *(p_command + 2), db[position].job_id);
                        break;
                     }
             }
@@ -672,7 +703,8 @@ handle_options(int          position,
          if (*p_command == '\0')
          {
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                        "No command specified for executing. Ignoring this option.");
+                        "No command specified for executing. Ignoring this option. #%x",
+                        db[position].job_id);
          }
          else
          {
@@ -744,8 +776,8 @@ handle_options(int          position,
             if (ii >= MAX_EXEC_FILE_SUBSTITUTION)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "To many %%s in exec option. Can oly handle %d.",
-                           MAX_EXEC_FILE_SUBSTITUTION);
+                           "To many %%s in exec option. Can only handle %d. #%x",
+                           MAX_EXEC_FILE_SUBSTITUTION, db[position].job_id);
             }
             tmp_option[k] = '\0';
             p_command = tmp_option;
@@ -771,8 +803,12 @@ handle_options(int          position,
                   insert_list[ii] = &tmp_option[k];
                   tmp_char = *insert_list[0];
                   *insert_list[0] = '\0';
-                  length_start = sprintf(command_str, "cd %s && %s",
-                                         file_path, p_command);
+#ifdef HAVE_SNPRINTF
+                  length_start = snprintf(command_str, 1024,
+#else
+                  length_start = sprintf(command_str,
+#endif
+                                         "cd %s && %s", file_path, p_command);
                   *insert_list[0] = tmp_char;
 
                   if ((lock_one_job_only == YES) && (lock_all_jobs == NO))
@@ -802,13 +838,23 @@ handle_options(int          position,
                         *insert_list[k] = '\0';
                         if (mask_file_name == YES)
                         {
+#ifdef HAVE_SNPRINTF
+                           length += snprintf(command_str + length_start + length,
+                                              1024 - (length_start + length),
+#else
                            length += sprintf(command_str + length_start + length,
+#endif
                                              "\"%s\"%s", p_file_name,
                                              insert_list[k - 1] + 2);
                         }
                         else
                         {
+#ifdef HAVE_SNPRINTF
+                           length += snprintf(command_str + length_start + length,
+                                              1024 - (length_start + length),
+#else
                            length += sprintf(command_str + length_start + length,
+#endif
                                              "%s%s", p_file_name,
                                              insert_list[k - 1] + 2);
                         }
@@ -833,8 +879,8 @@ handle_options(int          position,
                                          YES)) != 0) /* ie != SUCCESS */
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to execute command %s [Return code = %d]",
-                                    command_str, ret);
+                                    "Failed to execute command %s [Return code = %d] #%x",
+                                    command_str, ret, db[position].job_id);
                         if ((return_str != NULL) && (return_str[0] != '\0'))
                         {
                            char *end_ptr = return_str,
@@ -896,9 +942,10 @@ handle_options(int          position,
                               if (rename(del_orig_file, save_orig_file) == -1)
                               {
                                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                             "Failed to rename() %s to %s : %s",
+                                             "Failed to rename() %s to %s : %s #%x",
                                              del_orig_file, save_orig_file,
-                                             strerror(errno));
+                                             strerror(errno),
+                                             db[position].job_id);
                               }
                               else
                               {
@@ -906,7 +953,13 @@ handle_options(int          position,
                                  size_t dl_real_size;
 
                                  (void)strcpy(dl.file_name, p_file_name);
-                                 (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                                 (void)snprintf(dl.host_name,
+                                                MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                                 (void)sprintf(dl.host_name,
+# endif
+                                               "%-*s %03x",
                                                MAX_HOSTNAME_LENGTH,
                                                db[position].host_alias,
                                                EXEC_FAILED_STORED);
@@ -918,7 +971,12 @@ handle_options(int          position,
                                  *dl.unique_number = unique_number;
                                  *dl.file_name_length = strlen(p_file_name);
                                  dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                                snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                         MAX_FILENAME_LENGTH + 1,
+# else
                                                 sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                         "%s%creturn code = %d (%s)",
                                                         DIR_CHECK, SEPARATOR_CHAR,
                                                         ret, save_orig_file);
@@ -937,9 +995,10 @@ handle_options(int          position,
                               if (copy_file(del_orig_file, save_orig_file, NULL) != SUCCESS)
                               {
                                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                             "Failed to copy_file() %s to %s : %s",
+                                             "Failed to copy_file() %s to %s : %s #%x",
                                              del_orig_file, save_orig_file,
-                                             strerror(errno));
+                                             strerror(errno),
+                                             db[position].job_id);
                               }
                            }
                         }
@@ -950,8 +1009,9 @@ handle_options(int          position,
                         if ((unlink(del_orig_file) == -1) && (errno != ENOENT))
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to unlink() `%s' : %s",
-                                       del_orig_file, strerror(errno));
+                                       "Failed to unlink() `%s' : %s #%x",
+                                       del_orig_file, strerror(errno),
+                                       db[position].job_id);
                         }
 #ifdef _DELETE_LOG
                         else
@@ -961,7 +1021,12 @@ handle_options(int          position,
                               size_t dl_real_size;
 
                               (void)strcpy(dl.file_name, p_file_name);
-                              (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                              (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                              (void)sprintf(dl.host_name,
+# endif
+                                            "%-*s %03x",
                                             MAX_HOSTNAME_LENGTH,
                                             db[position].host_alias,
                                             EXEC_FAILED_DEL);
@@ -973,7 +1038,12 @@ handle_options(int          position,
                               *dl.unique_number = unique_number;
                               *dl.file_name_length = strlen(p_file_name);
                               dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                             snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                      MAX_FILENAME_LENGTH + 1,
+# else
                                              sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                      "%s%creturn code = %d (%s %d)",
                                                      DIR_CHECK, SEPARATOR_CHAR,
                                                      ret, __FILE__, __LINE__);
@@ -1043,7 +1113,12 @@ handle_options(int          position,
             {
                int ret;
 
-               (void)sprintf(command_str, "cd %s && %s", file_path, p_command);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(command_str, 1024, "cd %s && %s",
+#else
+               (void)sprintf(command_str, "cd %s && %s",
+#endif
+                             file_path, p_command);
 
                if ((lock_one_job_only == YES) && (lock_all_jobs == NO))
                {
@@ -1064,8 +1139,8 @@ handle_options(int          position,
                                    "", exec_timeout, YES, YES)) != 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                              "Failed to execute command %s [Return code = %d]",
-                              command_str, ret);
+                              "Failed to execute command %s [Return code = %d] #%x",
+                              command_str, ret, db[position].job_id);
                   if ((return_str != NULL) && (return_str[0] != '\0'))
                   {
                      char *end_ptr = return_str,
@@ -1115,8 +1190,9 @@ handle_options(int          position,
                          (errno != EEXIST))
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Failed to mkdir() %s : %s",
-                                   save_orig_file, strerror(errno));
+                                   "Failed to mkdir() %s : %s #%x",
+                                   save_orig_file, strerror(errno),
+                                   db[position].job_id);
                         free(save_orig_file);
                         save_orig_file = p_save_orig_file = NULL;
                         on_error_save = NO;
@@ -1148,15 +1224,16 @@ handle_options(int          position,
                         if (do_rename == YES)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to rename() `%s' to `%s' : %s",
+                                       "Failed to rename() `%s' to `%s' : %s #%x",
                                        del_orig_file, save_orig_file,
-                                       strerror(errno));
+                                       strerror(errno), db[position].job_id);
                         }
                         else
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to unlink() `%s' : %s",
-                                       del_orig_file, strerror(errno));
+                                       "Failed to unlink() `%s' : %s #%x",
+                                       del_orig_file, strerror(errno),
+                                       db[position].job_id);
                         }
                      }
 #ifdef _DELETE_LOG
@@ -1167,7 +1244,12 @@ handle_options(int          position,
                            size_t dl_real_size;
 
                            (void)strcpy(dl.file_name, p_file_name);
-                           (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                           (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                           (void)sprintf(dl.host_name,
+# endif
+                                         "%-*s %03x",
                                          MAX_HOSTNAME_LENGTH,
                                          db[position].host_alias,
                                          (do_rename == NO) ? EXEC_FAILED_DEL : EXEC_FAILED_STORED);
@@ -1181,7 +1263,12 @@ handle_options(int          position,
                            if (do_rename == NO)
                            {
                               dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                             snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                      MAX_FILENAME_LENGTH + 1,
+# else
                                              sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                      "%s%creturn code = %d (%s %d)",
                                                      DIR_CHECK, SEPARATOR_CHAR,
                                                      ret, __FILE__, __LINE__);
@@ -1189,7 +1276,12 @@ handle_options(int          position,
                            else
                            {
                               dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                             snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                      MAX_FILENAME_LENGTH + 1,
+# else
                                              sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                      "%s%creturn code = %d (%s)",
                                                      DIR_CHECK, SEPARATOR_CHAR,
                                                      ret, save_orig_file);
@@ -1392,10 +1484,9 @@ handle_options(int          position,
 
                   rename_ow(overwrite, file_counter, new_name_buffer, file_size,
 #ifdef _DELETE_LOG
-                            creation_time, unique_number,
-                            split_job_counter, position,
+                            creation_time, unique_number, split_job_counter,
 #endif
-                            newname, p_newname, fullname, p_file_name);
+                            position, newname, p_newname, fullname, p_file_name);
                }
                p_file_name += MAX_FILENAME_LENGTH;
             }
@@ -1493,10 +1584,9 @@ handle_options(int          position,
 
                   rename_ow(overwrite, file_counter, new_name_buffer, file_size,
 #ifdef _DELETE_LOG
-                            creation_time, unique_number,
-                            split_job_counter, position,
+                            creation_time, unique_number, split_job_counter,
 #endif
-                            newname, p_newname, fullname, p_file_name);
+                            position, newname, p_newname, fullname, p_file_name);
                }
                p_file_name += MAX_FILENAME_LENGTH;
             }
@@ -1551,11 +1641,14 @@ handle_options(int          position,
          ptr = fullname + strlen(fullname);
          *ptr++ = '/';
 
+#ifdef _WITH_PTHREAD
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
+#endif
          prepare_rename_ow(file_counter, &new_name_buffer);
 
 #ifdef _WITH_PTHREAD
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
+         if (file_counter > 0)
          {
 #endif
             for (j = 0; j < file_counter; j++)
@@ -1567,10 +1660,10 @@ handle_options(int          position,
 
                rename_ow(YES, file_counter, new_name_buffer, file_size,
 #ifdef _DELETE_LOG
-                         creation_time, unique_number,
-                         split_job_counter, position,
+                         creation_time, unique_number, split_job_counter,
 #endif
-                         newname, p_prefix_newname, fullname, p_file_name);
+                         position, newname, p_prefix_newname, fullname,
+                         p_file_name);
                p_file_name += MAX_FILENAME_LENGTH;
             }
             *files_to_send = cleanup_rename_ow(file_counter,
@@ -1623,11 +1716,15 @@ handle_options(int          position,
          *ptr++ = '/';
          length = strlen(p_prefix);
 
+#ifdef _WITH_PTHREAD
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
+#endif
+
          prepare_rename_ow(file_counter, &new_name_buffer);
 
 #ifdef _WITH_PTHREAD
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
+         if (file_counter > 0)
          {
 #endif
             for (j = 0; j < file_counter; j++)
@@ -1641,10 +1738,9 @@ handle_options(int          position,
 
                   rename_ow(YES, file_counter, new_name_buffer, file_size,
 #ifdef _DELETE_LOG
-                            creation_time, unique_number,
-                            split_job_counter, position,
+                            creation_time, unique_number, split_job_counter,
 #endif
-                            newname, p_newname, fullname, p_file_name);
+                            position, newname, p_newname, fullname, p_file_name);
                }
                p_file_name += MAX_FILENAME_LENGTH;
             }
@@ -1728,8 +1824,9 @@ handle_options(int          position,
                   default :
                      error_flag = YES;
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c%c",
-                                LCHMOD_ID, ptr, ptr + 1, ptr + 2, ptr + 3);
+                                "Incorrect parameter for %s option %c%c%c%c #%x",
+                                LCHMOD_ID, ptr, ptr + 1, ptr + 2, ptr + 3,
+                                db[position].job_id);
                      break;
                }
                ptr++;
@@ -1764,14 +1861,16 @@ handle_options(int          position,
                   if (n == 4)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c%c",
-                                LCHMOD_ID, ptr - 1, ptr, ptr + 1, ptr + 2);
+                                "Incorrect parameter for %s option %c%c%c%c #%x",
+                                LCHMOD_ID, ptr - 1, ptr, ptr + 1, ptr + 2,
+                                db[position].job_id);
                   }
                   else
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c",
-                                LCHMOD_ID, ptr, ptr + 1, ptr + 2);
+                                "Incorrect parameter for %s option %c%c%c #%x",
+                                LCHMOD_ID, ptr, ptr + 1, ptr + 2,
+                                db[position].job_id);
                   }
                   break;
             }
@@ -1806,14 +1905,16 @@ handle_options(int          position,
                   if (n == 4)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c%c",
-                                LCHMOD_ID, ptr - 2, ptr - 1, ptr, ptr + 1);
+                                "Incorrect parameter for %s option %c%c%c%c #%x",
+                                LCHMOD_ID, ptr - 2, ptr - 1, ptr, ptr + 1,
+                                db[position].job_id);
                   }
                   else
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c",
-                                LCHMOD_ID, ptr - 1, ptr, ptr + 1);
+                                "Incorrect parameter for %s option %c%c%c #%x",
+                                LCHMOD_ID, ptr - 1, ptr, ptr + 1,
+                                db[position].job_id);
                   }
                   break;
             }
@@ -1848,14 +1949,15 @@ handle_options(int          position,
                   if (n == 4)
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c%c",
+                                "Incorrect parameter for %s option %c%c%c%c #%x",
                                 LCHMOD_ID, ptr - 3, ptr - 2, ptr - 1, ptr);
                   }
                   else
                   {
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Incorrect parameter for %s option %c%c%c",
-                                LCHMOD_ID, ptr - 2, ptr - 1, ptr);
+                                "Incorrect parameter for %s option %c%c%c #%x",
+                                LCHMOD_ID, ptr - 2, ptr - 1, ptr,
+                                db[position].job_id);
                   }
                   break;
             }
@@ -1877,8 +1979,9 @@ handle_options(int          position,
                      if (chmod(fullname, mode) == -1)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to chmod() %s to %s : %s",
-                                    p_file_name, chmod_str, strerror(errno));
+                                    "Failed to chmod() %s to %s : %s #%x",
+                                    p_file_name, chmod_str, strerror(errno),
+                                    db[position].job_id);
                      }
 
                      p_file_name += MAX_FILENAME_LENGTH;
@@ -1894,14 +1997,14 @@ handle_options(int          position,
             if (n < 3)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Mode specified for %s option to short, must be 3 or 4 digits long (n=%d).",
-                          LCHMOD_ID, n);
+                          "Mode specified for %s option to short, must be 3 or 4 digits long (n=%d). #%x",
+                          LCHMOD_ID, n, db[position].job_id);
             }
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Mode specified for %s option to long, may only be 3 or 4 digits.",
-                          LCHMOD_ID);
+                          "Mode specified for %s option to long, may only be 3 or 4 digits. #%x",
+                          LCHMOD_ID, db[position].job_id);
             }
          }
          NEXT(options);
@@ -1927,11 +2030,15 @@ handle_options(int          position,
          ptr = fullname + strlen(fullname);
          *ptr++ = '/';
 
+#ifdef _WITH_PTHREAD
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
+#endif
+
          prepare_rename_ow(file_counter, &new_name_buffer);
 
 #ifdef _WITH_PTHREAD
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
+         if (file_counter > 0)
          {
 #endif
             for (j = 0; j < file_counter; j++)
@@ -1947,10 +2054,9 @@ handle_options(int          position,
 
                rename_ow(YES, file_counter, new_name_buffer, file_size,
 #ifdef _DELETE_LOG
-                         creation_time, unique_number,
-                         split_job_counter, position,
+                         creation_time, unique_number, split_job_counter,
 #endif
-                         newname, p_newname, fullname, p_file_name);
+                         position, newname, p_newname, fullname, p_file_name);
                p_file_name += MAX_FILENAME_LENGTH;
             }
             *files_to_send = cleanup_rename_ow(file_counter,
@@ -1992,11 +2098,15 @@ handle_options(int          position,
          ptr = fullname + strlen(fullname);
          *ptr++ = '/';
 
+#ifdef _WITH_PTHREAD
+         file_counter = get_file_names(file_path, &file_name_buffer,
+                                       &p_file_name);
+#endif
+
          prepare_rename_ow(file_counter, &new_name_buffer);
 
 #ifdef _WITH_PTHREAD
-         if ((file_counter = get_file_names(file_path, &file_name_buffer,
-                                            &p_file_name)) > 0)
+         if (file_counter > 0)
          {
 #endif
             for (j = 0; j < file_counter; j++)
@@ -2012,10 +2122,9 @@ handle_options(int          position,
 
                rename_ow(YES, file_counter, new_name_buffer, file_size,
 #ifdef _DELETE_LOG
-                         creation_time, unique_number,
-                         split_job_counter, position,
+                         creation_time, unique_number, split_job_counter,
 #endif
-                         newname, p_newname, fullname, p_file_name);
+                         position, newname, p_newname, fullname, p_file_name);
                p_file_name += MAX_FILENAME_LENGTH;
             }
             *files_to_send = cleanup_rename_ow(file_counter,
@@ -2066,7 +2175,12 @@ handle_options(int          position,
              */
             for (j = 0; j < file_counter; j++)
             {
-               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+               (void)sprintf(fullname, "%s/%s",
+#endif
+                             file_path, p_file_name);
 
                buffer = NULL;
                if ((length = (int)read_file(fullname, &buffer)) != INCORRECT)
@@ -2078,13 +2192,18 @@ handle_options(int          position,
                   {
                      char error_name[MAX_PATH_LENGTH];
 
-                     (void)sprintf(error_name, "%s%s/error/%s", p_work_dir,
-                                   AFD_FILE_DIR, p_file_name);
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(error_name, MAX_PATH_LENGTH, "%s%s/error/%s",
+#else
+                     (void)sprintf(error_name, "%s%s/error/%s",
+#endif
+                                   p_work_dir, AFD_FILE_DIR, p_file_name);
                      if (rename(fullname, error_name) == -1)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to rename file `%s' to `%s' : %s",
-                                    fullname, error_name, strerror(errno));
+                                    "Failed to rename file `%s' to `%s' : %s #%x",
+                                    fullname, error_name, strerror(errno),
+                                    db[position].job_id);
                      }
                      else
                      {
@@ -2104,13 +2223,15 @@ handle_options(int          position,
 # endif
                         {
                            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to open() `%s' : %s",
-                                       fullname, strerror(errno));
+                                       "Failed to open() `%s' : %s #%x",
+                                       fullname, strerror(errno),
+                                       db[position].job_id);
                            if ((unlink(fullname) == -1) && (errno != ENOENT))
                            {
                               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                          "Failed to unlink() `%s' : %s",
-                                          p_file_name, strerror(errno));
+                                          "Failed to unlink() `%s' : %s #%x",
+                                          p_file_name, strerror(errno),
+                                          db[position].job_id);
                            }
                            else
                            {
@@ -2122,13 +2243,15 @@ handle_options(int          position,
                            if (write(fd, wmo_buffer, length) != length)
                            {
                               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                          "Failed to write() to `%s' : %s",
-                                          p_file_name, strerror(errno));
+                                          "Failed to write() to `%s' : %s #%x",
+                                          p_file_name, strerror(errno),
+                                          db[position].job_id);
                               if ((unlink(fullname) == -1) && (errno != ENOENT))
                               {
                                  receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                             "Failed to unlink() `%s' : %s",
-                                             p_file_name, strerror(errno));
+                                             "Failed to unlink() `%s' : %s #%x",
+                                             p_file_name, strerror(errno),
+                                             db[position].job_id);
                               }
                               else
                               {
@@ -2181,13 +2304,18 @@ handle_options(int          position,
                {
                   char error_name[MAX_PATH_LENGTH];
 
-                  (void)sprintf(error_name, "%s%s/%s", p_work_dir,
-                                AFD_FILE_DIR, p_file_name);
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(error_name, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+                  (void)sprintf(error_name, "%s%s/%s",
+#endif
+                                p_work_dir, AFD_FILE_DIR, p_file_name);
                   if (rename(fullname, error_name) == -1)
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Failed to rename file `%s' to `%s' : %s",
-                                 fullname, error_name, strerror(errno));
+                                 "Failed to rename file `%s' to `%s' : %s #%x",
+                                 fullname, error_name, strerror(errno),
+                                 db[position].job_id);
                   }
                   else
                   {
@@ -2261,7 +2389,12 @@ handle_options(int          position,
              */
             for (j = 0; j < file_counter; j++)
             {
-               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+               (void)sprintf(fullname, "%s/%s",
+#endif
+                             file_path, p_file_name);
                if (fax_format == 0)
                {
                   size = tiff2gts(file_path, p_file_name);
@@ -2277,8 +2410,9 @@ handle_options(int          position,
                      if (errno != ENOENT)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to unlink() file `%s' : %s",
-                                    fullname, strerror(errno));
+                                    "Failed to unlink() file `%s' : %s #%x",
+                                    fullname, strerror(errno),
+                                    db[position].job_id);
                      }
                   }
                   else
@@ -2288,7 +2422,8 @@ handle_options(int          position,
 #endif
 
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Removing corrupt file `%s'", p_file_name);
+                                 "Removing corrupt file `%s' #%x",
+                                 p_file_name, db[position].job_id);
                      recount_files_var = YES;
 #ifdef _PRODUCTION_LOG
                      production_log(creation_time, 1, 0, unique_number,
@@ -2301,7 +2436,12 @@ handle_options(int          position,
 #endif
 #ifdef _DELETE_LOG
                      (void)strcpy(dl.file_name, p_file_name);
-                     (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                     (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                     (void)sprintf(dl.host_name,
+# endif
+                                   "%-*s %03x",
                                    MAX_HOSTNAME_LENGTH, db[position].host_alias,
                                    CONVERSION_FAILED);
                      *dl.file_size = file_size_pool[j];
@@ -2312,7 +2452,12 @@ handle_options(int          position,
                      *dl.unique_number = unique_number;
                      *dl.file_name_length = strlen(p_file_name);
                      dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                    snprintf((dl.file_name + *dl.file_name_length + 1),
+                                             MAX_FILENAME_LENGTH + 1,
+# else
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                             "%s", DIR_CHECK);
                      if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                      {
@@ -2387,7 +2532,12 @@ handle_options(int          position,
              */
             for (j = 0; j < file_counter; j++)
             {
-               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+               (void)sprintf(fullname, "%s/%s",
+#endif
+                             file_path, p_file_name);
 #ifdef _PRODUCTION_LOG
                (void)strcpy(orig_file_name, p_file_name);
 #endif
@@ -2398,14 +2548,16 @@ handle_options(int          position,
                      if (errno != ENOENT)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to unlink() file `%s' : %s",
-                                    fullname, strerror(errno));
+                                    "Failed to unlink() file `%s' : %s #%x",
+                                    fullname, strerror(errno),
+                                    db[position].job_id);
                      }
                   }
                   else
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Removing corrupt file `%s'", p_file_name);
+                                 "Removing corrupt file `%s' #%x",
+                                 p_file_name, db[position].job_id);
                      recount_files_var = YES;
 #ifdef _PRODUCTION_LOG
                      production_log(creation_time, 1, 0, unique_number,
@@ -2511,7 +2663,12 @@ handle_options(int          position,
              */
             for (j = 0; j < file_counter; j++)
             {
-               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+               (void)sprintf(fullname, "%s/%s",
+#endif
+                             file_path, p_file_name);
                size = 0;
                (void)convert_grib2wmo(fullname, &size, p_cccc);
                if (size == 0)
@@ -2521,14 +2678,16 @@ handle_options(int          position,
                      if (errno != ENOENT)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "Failed to unlink() file `%s' : %s",
-                                    fullname, strerror(errno));
+                                    "Failed to unlink() file `%s' : %s #%x",
+                                    fullname, strerror(errno),
+                                    db[position].job_id);
                      }
                   }
                   else
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Unable to convert, removed file `%s'", p_file_name);
+                                 "Unable to convert, removed file `%s' #%x",
+                                 p_file_name, db[position].job_id);
                      recount_files_var = YES;
 #ifdef _PRODUCTION_LOG
                      production_log(creation_time, 1, 0, unique_number,
@@ -2602,6 +2761,20 @@ handle_options(int          position,
             {
                switch (*(p_extract_id + 1))
                {
+                  case 'a' : /* Add additional information to file name. */
+                     if ((extract_options & EXTRACT_ADD_ADDITIONAL_INFO) == 0)
+                     {
+                        extract_options |= EXTRACT_ADD_ADDITIONAL_INFO;
+                     }
+                     break;
+
+                  case 'A' : /* Do not add additional information to file name. */
+                     if (extract_options & EXTRACT_ADD_ADDITIONAL_INFO)
+                     {
+                        extract_options ^= EXTRACT_ADD_ADDITIONAL_INFO;
+                     }
+                     break;
+
                   case 'b' : /* Extract reports. */
                      if ((extract_options & EXTRACT_REPORTS) == 0)
                      {
@@ -2641,6 +2814,20 @@ handle_options(int          position,
                      if (extract_options & EXTRACT_ADD_FULL_DATE)
                      {
                         extract_options ^= EXTRACT_ADD_FULL_DATE;
+                     }
+                     break;
+
+                  case 'e' : /* Use external rules to decode bulletins. */
+                     if ((extract_options & USE_EXTERNAL_MSG_RULES) == 0)
+                     {
+                        extract_options |= USE_EXTERNAL_MSG_RULES;
+                     }
+                     break;
+
+                  case 'E' : /* Use external rules to decode bulletins. */
+                     if (extract_options & USE_EXTERNAL_MSG_RULES)
+                     {
+                        extract_options ^= USE_EXTERNAL_MSG_RULES;
                      }
                      break;
 
@@ -2720,7 +2907,9 @@ handle_options(int          position,
 
                   default  : /* Unknown. */
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "Unknown extract option -%c", *(p_extract_id + 1));
+                                 "Unknown extract option -%c #%x",
+                                 *(p_extract_id + 1),
+                                 db[position].job_id);
                      break;
                }
                p_extract_id += 2;
@@ -2782,13 +2971,12 @@ handle_options(int          position,
               }
          else if ((*p_extract_id == 'W') && (*(p_extract_id + 1) == 'M') &&
                   (*(p_extract_id + 2) == 'O') && (*(p_extract_id + 3) == '+') &&
-                  (*(p_extract_id + 4) == 'D') && (*(p_extract_id + 5) == 'U') && 
-                  (*(p_extract_id + 6) == 'M') && (*(p_extract_id + 7) == 'M') && 
-                  (*(p_extract_id + 8) == 'Y') &&
-                  ((*(p_extract_id + 9) == ' ') || (*(p_extract_id + 9) == '\0')))
+                  (*(p_extract_id + 4) == 'C') && (*(p_extract_id + 5) == 'H') && 
+                  (*(p_extract_id + 6) == 'K') &&
+                  ((*(p_extract_id + 7) == ' ') || (*(p_extract_id + 7) == '\0')))
               {
-                 extract_typ = WMO_WITH_DUMMY_MESSAGE;
-                 p_extract_id += 9;
+                 extract_typ = WMO_STANDARD_CHK;
+                 p_extract_id += 7;
               }
          else if ((*p_extract_id == 'A') && (*(p_extract_id + 1) == 'S') &&
                   (*(p_extract_id + 2) == 'C') &&
@@ -2826,8 +3014,8 @@ handle_options(int          position,
               else
               {
                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                             "Unknown extract ID (%s) in DIR_CONFIG file.",
-                             p_extract_id);
+                             "Unknown extract ID (%s) in DIR_CONFIG file. #%x",
+                             p_extract_id, db[position].job_id);
                  NEXT(options);
                  continue;
               }
@@ -2859,7 +3047,12 @@ handle_options(int          position,
             {
                for (j = 0; j < file_counter; j++)
                {
-                  (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+                  (void)sprintf(fullname, "%s/%s",
+#endif
+                                file_path, p_file_name);
                   if (bin_file_chopper(fullname, files_to_send, file_size,
                                        p_filter,
 #ifdef _PRODUCTION_LOG
@@ -2873,16 +3066,17 @@ handle_options(int          position,
 #endif
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "An error occurred when extracting bulletins from file `%s', deleting file!",
-                                 fullname);
+                                 "An error occurred when extracting bulletins from file `%s', deleting file! #%x",
+                                 fullname, db[position].job_id);
 
                      if (unlink(fullname) == -1)
                      {
                         if (errno != ENOENT)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to unlink() file `%s' : %s",
-                                       fullname, strerror(errno));
+                                       "Failed to unlink() file `%s' : %s #%x",
+                                       fullname, strerror(errno),
+                                       db[position].job_id);
                         }
                      }
                      else
@@ -2892,8 +3086,9 @@ handle_options(int          position,
                         if (stat(fullname, &stat_buf) == -1)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Can't access file `%s' : %s",
-                                       fullname, strerror(errno));
+                                       "Can't access file `%s' : %s #%x",
+                                       fullname, strerror(errno),
+                                       db[position].job_id);
                         }
                         else
                         {
@@ -2909,7 +3104,12 @@ handle_options(int          position,
             {
                for (j = 0; j < file_counter; j++)
                {
-                  (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+                  (void)sprintf(fullname, "%s/%s",
+#endif
+                                file_path, p_file_name);
                   if (extract(p_file_name, file_path, p_filter,
 #ifdef _PRODUCTION_LOG
                               creation_time, unique_number, split_job_counter,
@@ -2920,16 +3120,17 @@ handle_options(int          position,
                               files_to_send, file_size) < 0)
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                 "An error occurred when extracting bulletins from file `%s', deleting file!",
-                                 fullname);
+                                 "An error occurred when extracting bulletins from file `%s', deleting file! #%x",
+                                 fullname, db[position].job_id);
 
                      if (unlink(fullname) == -1)
                      {
                         if (errno != ENOENT)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Failed to unlink() file `%s' : %s",
-                                       fullname, strerror(errno));
+                                       "Failed to unlink() file `%s' : %s #%x",
+                                       fullname, strerror(errno),
+                                       db[position].job_id);
                         }
                      }
                      else
@@ -2939,8 +3140,9 @@ handle_options(int          position,
                         if (stat(fullname, &stat_buf) == -1)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                       "Can't access file `%s' : %s",
-                                       fullname, strerror(errno));
+                                       "Can't access file `%s' : %s #%x",
+                                       fullname, strerror(errno),
+                                       db[position].job_id);
                         }
                         else
                         {
@@ -2976,9 +3178,10 @@ handle_options(int          position,
 #ifdef _WITH_PTHREAD
          int  file_counter = 0,
 #else
-         int file_counter = *files_to_send,
+         int  file_counter = *files_to_send,
 #endif
-              assemble_typ;
+              assemble_typ,
+              nnn_length = 0;
          char *p_assemble_id,
               assembled_name[MAX_FILENAME_LENGTH];
 
@@ -2990,21 +3193,25 @@ handle_options(int          position,
              (*(p_assemble_id + 2) == 'X'))
          {
             assemble_typ = TWO_BYTE;
+            p_assemble_id += 3;
          }
          else if ((*p_assemble_id == 'L') && (*(p_assemble_id + 1) == 'B') &&
                   (*(p_assemble_id + 2) == 'F'))
               {
                  assemble_typ = FOUR_BYTE_LBF;
+                 p_assemble_id += 3;
               }
          else if ((*p_assemble_id == 'H') && (*(p_assemble_id + 1) == 'B') &&
                   (*(p_assemble_id + 2) == 'F'))
               {
                  assemble_typ = FOUR_BYTE_HBF;
+                 p_assemble_id += 3;
               }
          else if ((*p_assemble_id == 'D') && (*(p_assemble_id + 1) == 'W') &&
                   (*(p_assemble_id + 2) == 'D'))
               {
                  assemble_typ = FOUR_BYTE_DWD;
+                 p_assemble_id += 3;
               }
          else if ((*p_assemble_id == 'A') && (*(p_assemble_id + 1) == 'S') &&
                   (*(p_assemble_id + 2) == 'C') &&
@@ -3012,25 +3219,46 @@ handle_options(int          position,
                   (*(p_assemble_id + 4) == 'I'))
               {
                  assemble_typ = ASCII_STANDARD;
+                 p_assemble_id += 5;
               }
          else if ((*p_assemble_id == 'M') && (*(p_assemble_id + 1) == 'S') &&
                   (*(p_assemble_id + 2) == 'S'))
               {
                  assemble_typ = FOUR_BYTE_MSS;
+                 p_assemble_id += 3;
+              }
+         else if ((*p_assemble_id == 'W') && (*(p_assemble_id + 1) == 'M') &&
+                  (*(p_assemble_id + 2) == 'O') && (*(p_assemble_id + 3) == '+') &&
+                  (*(p_assemble_id + 4) == 'D') && (*(p_assemble_id + 5) == 'U') && 
+                  (*(p_assemble_id + 6) == 'M') && (*(p_assemble_id + 7) == 'M') && 
+                  (*(p_assemble_id + 8) == 'Y'))
+              {
+                 assemble_typ = WMO_WITH_DUMMY_MESSAGE;
+                 p_assemble_id += 9;
               }
          else if ((*p_assemble_id == 'W') && (*(p_assemble_id + 1) == 'M') &&
                   (*(p_assemble_id + 2) == 'O'))
               {
                  assemble_typ = WMO_STANDARD;
+                 p_assemble_id += 3;
               }
               else
               {
                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                             "Unknown assemble ID (%s) in DIR_CONFIG file.",
-                             p_assemble_id);
+                             "Unknown assemble ID (%s) in DIR_CONFIG file. #%x",
+                             p_assemble_id, db[position].job_id);
                  NEXT(options);
                  continue;
               }
+
+         if (*p_assemble_id == '+')
+         {
+            p_assemble_id++;
+            while ((*p_assemble_id == 'n') && (nnn_length < MAX_INT_LENGTH))
+            {
+               nnn_length++; p_assemble_id++;
+            }
+         }
 
          /*
           * Now we need to get the rule for creating the file name of
@@ -3052,22 +3280,24 @@ handle_options(int          position,
                int  ii = 0;
                char assemble_rule[MAX_FILENAME_LENGTH];
 
-               while ((*p_assemble_id != '\0') && (*p_assemble_id != ' ') &&
-                      (*p_assemble_id != '\t'))
+               while ((ii < MAX_FILENAME_LENGTH) && (*p_assemble_id != '\0') &&
+                      (*p_assemble_id != ' ') && (*p_assemble_id != '\t'))
                {
                   assemble_rule[ii] = *p_assemble_id;
                   p_assemble_id++; ii++;
                }
                assemble_rule[ii] = '\0';
 
-               create_assembled_name(assembled_name, assemble_rule);
+               create_assembled_name(assembled_name, assemble_rule,
+                                     db[position].job_id);
             }
          }
          else
          {
             (void)strcpy(assembled_name, "no_file_name");
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                        "No file name set for assemble option in DIR_CONFIG file, set to <no_file_name>.");
+                        "No file name set for assemble option in DIR_CONFIG file, set to <no_file_name>. #%x",
+                        db[position].job_id);
          }
 
 #ifdef _WITH_PTHREAD
@@ -3079,13 +3309,20 @@ handle_options(int          position,
 #ifdef _PRODUCTION_LOG
             size = *file_size;
 #endif
-            (void)sprintf(fullname, "%s/%s", file_path, assembled_name);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s",
+#else
+            (void)sprintf(fullname, "%s/%s",
+#endif
+                          file_path, assembled_name);
             if (assemble(file_path, p_file_name, file_counter,
                          fullname, assemble_typ, unique_number,
+                         nnn_length, db[position].host_id,
                          files_to_send, file_size) < 0)
             {
                receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                           "An error occurred when assembling bulletins!");
+                           "An error occurred when assembling bulletins! #%x",
+                           db[position].job_id);
             }
             else
             {
@@ -3138,6 +3375,7 @@ handle_options(int          position,
          if (file_counter > 0)
          {
             int  convert_type,
+                 nnn_length = 0,
                  ret;
             char *p_convert_id;
 
@@ -3145,6 +3383,7 @@ handle_options(int          position,
             p_option = options;
 #endif
             p_convert_id = options + CONVERT_ID_LENGTH + 1;
+            /* sohetx2wmo0 */
             if ((*p_convert_id == 's') && (*(p_convert_id + 1) == 'o') &&
                 (*(p_convert_id + 2) == 'h') && (*(p_convert_id + 3) == 'e') &&
                 (*(p_convert_id + 4) == 't') && (*(p_convert_id + 5) == 'x') &&
@@ -3153,7 +3392,17 @@ handle_options(int          position,
                 (*(p_convert_id + 10) == '0'))
             {
                convert_type = SOHETX2WMO0;
+               if (*(p_convert_id + 11) == '+')
+               {
+                  ret = 12;
+                  while ((*(p_convert_id + ret) == 'n') &&
+                         (nnn_length < MAX_INT_LENGTH))
+                  {
+                     ret++; nnn_length++;
+                  }
+               }
             }
+                 /* sohetx2wmo1 */
             else if ((*p_convert_id == 's') && (*(p_convert_id + 1) == 'o') &&
                      (*(p_convert_id + 2) == 'h') &&
                      (*(p_convert_id + 3) == 'e') &&
@@ -3166,7 +3415,17 @@ handle_options(int          position,
                      (*(p_convert_id + 10) == '1'))
                  {
                     convert_type = SOHETX2WMO1;
+                    if (*(p_convert_id + 11) == '+')
+                    {
+                       ret = 12;
+                       while ((*(p_convert_id + ret) == 'n') &&
+                              (nnn_length < MAX_INT_LENGTH))
+                       {
+                          ret++; nnn_length++;
+                       }
+                    }
                  }
+                 /* sohetx */
             else if ((*p_convert_id == 's') && (*(p_convert_id + 1) == 'o') &&
                      (*(p_convert_id + 2) == 'h') &&
                      (*(p_convert_id + 3) == 'e') &&
@@ -3175,7 +3434,17 @@ handle_options(int          position,
                      (*(p_convert_id + 6) == '\0'))
                  {
                     convert_type = SOHETX;
+                    if (*(p_convert_id + 7) == '+')
+                    {
+                       ret = 8;
+                       while ((*(p_convert_id + ret) == 'n') &&
+                              (nnn_length < MAX_INT_LENGTH))
+                       {
+                          ret++; nnn_length++;
+                       }
+                    }
                  }
+                 /* sohetxwmo */
             else if ((*p_convert_id == 's') && (*(p_convert_id + 1) == 'o') &&
                      (*(p_convert_id + 2) == 'h') &&
                      (*(p_convert_id + 3) == 'e') &&
@@ -3186,12 +3455,32 @@ handle_options(int          position,
                      (*(p_convert_id + 8) == 'o'))
                  {
                     convert_type = SOHETXWMO;
+                    if (*(p_convert_id + 9) == '+')
+                    {
+                       ret = 10;
+                       while ((*(p_convert_id + ret) == 'n') &&
+                              (nnn_length < MAX_INT_LENGTH))
+                       {
+                          ret++; nnn_length++;
+                       }
+                    }
                  }
+                 /* wmo */
             else if ((*p_convert_id == 'w') && (*(p_convert_id + 1) == 'm') &&
                      (*(p_convert_id + 2) == 'o'))
                  {
                     convert_type = ONLY_WMO;
+                    if (*(p_convert_id + 3) == '+')
+                    {
+                       ret = 4;
+                       while ((*(p_convert_id + ret) == 'n') &&
+                              (nnn_length < MAX_INT_LENGTH))
+                       {
+                          ret++; nnn_length++;
+                       }
+                    }
                  }
+                 /* mrz2wmo */
             else if ((*p_convert_id == 'm') && (*(p_convert_id + 1) == 'r') &&
                      (*(p_convert_id + 2) == 'z') &&
                      (*(p_convert_id + 3) == '2') &&
@@ -3201,6 +3490,7 @@ handle_options(int          position,
                  {
                     convert_type = MRZ2WMO;
                  }
+                 /* iso8859_2ascii */
             else if ((*p_convert_id == 'i') && (*(p_convert_id + 1) == 's') &&
                      (*(p_convert_id + 2) == 'o') &&
                      (*(p_convert_id + 3) == '8') &&
@@ -3217,6 +3507,7 @@ handle_options(int          position,
                  {
                     convert_type = ISO8859_2ASCII;
                  }
+                 /* dos2unix */
             else if ((*p_convert_id == 'd') && (*(p_convert_id + 1) == 'o') &&
                      (*(p_convert_id + 2) == 's') &&
                      (*(p_convert_id + 3) == '2') &&
@@ -3227,6 +3518,7 @@ handle_options(int          position,
                  {
                     convert_type = DOS2UNIX;
                  }
+                 /* unix2dos */
             else if ((*p_convert_id == 'u') && (*(p_convert_id + 1) == 'n') &&
                      (*(p_convert_id + 2) == 'i') &&
                      (*(p_convert_id + 3) == 'x') &&
@@ -3237,6 +3529,7 @@ handle_options(int          position,
                  {
                     convert_type = UNIX2DOS;
                  }
+                 /* lf2crcrlf */
             else if ((*p_convert_id == 'l') && (*(p_convert_id + 1) == 'f') &&
                      (*(p_convert_id + 2) == '2') &&
                      (*(p_convert_id + 3) == 'c') &&
@@ -3248,6 +3541,7 @@ handle_options(int          position,
                  {
                     convert_type = LF2CRCRLF;
                  }
+                 /* crcrlf2lf */
             else if ((*p_convert_id == 'c') && (*(p_convert_id + 1) == 'r') &&
                      (*(p_convert_id + 2) == 'c') &&
                      (*(p_convert_id + 3) == 'r') &&
@@ -3262,8 +3556,8 @@ handle_options(int          position,
                  else
                  {
                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                "Unknown convert ID (%s) in DIR_CONFIG file.",
-                                p_convert_id);
+                                "Unknown convert ID (%s) in DIR_CONFIG file. #%x",
+                                p_convert_id, db[position].job_id);
                     NEXT(options);
                     continue;
                  }
@@ -3272,11 +3566,13 @@ handle_options(int          position,
 #ifdef _PRODUCTION_LOG
                size = *file_size;
 #endif
-               ret = convert(file_path, p_file_name, convert_type, file_size);
+               ret = convert(file_path, p_file_name, convert_type, nnn_length,
+                             db[position].host_id, file_size);
                if (ret < 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                              "Unable to convert file %s", p_file_name);
+                              "Unable to convert file %s #%x",
+                              p_file_name, db[position].job_id);
                }
 #ifdef _PRODUCTION_LOG
                production_log(creation_time, 1, 1, unique_number,
@@ -3329,8 +3625,8 @@ handle_options(int          position,
                if ((wmo2ascii(file_path, p_file_name, &size)) < 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                              "wmo2ascii(): Removing corrupt file `%s'",
-                              p_file_name);
+                              "wmo2ascii(): Removing corrupt file `%s' #%x",
+                              p_file_name, db[position].job_id);
                   recount_files_var = YES;
 #ifdef _PRODUCTION_LOG
                   production_log(creation_time, 1, 0, unique_number,
@@ -3398,8 +3694,8 @@ rename_ow(int          overwrite,
           time_t       creation_time,
           unsigned int unique_number,
           unsigned int split_job_counter,
-          int          position,
 #endif
+          int          position,
           char         *newname,
           char         *p_newname,
           char         *oldname,
@@ -3436,7 +3732,12 @@ rename_ow(int          overwrite,
             {
                p_end = p_newname + strlen(p_newname);
             }
-            (void)sprintf(p_end, "-%d", dup_count);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(p_end, MAX_PATH_LENGTH - (p_end - newname),
+#else
+            (void)sprintf(p_end,
+#endif
+                          "-%d", dup_count);
             dup_count++;
          }
       }
@@ -3444,8 +3745,8 @@ rename_ow(int          overwrite,
       if ((dup_count >= 1000) && (gotcha == YES))
       {
          receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to add a unique number to filename (%s) to avoid rename overwritting a source file because we retried 1000 times.",
-                     p_newname);
+                     "Failed to add a unique number to filename (%s) to avoid rename overwritting a source file because we retried 1000 times. #%x",
+                     p_newname, db[position].job_id);
          *p_new_name_buffer = '\0';
          rename_overwrite = YES;
       }
@@ -3494,8 +3795,8 @@ rename_ow(int          overwrite,
    if (rename(oldname, newname) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to rename() `%s' to `%s' : %s",
-                  oldname, newname, strerror(errno));
+                  "Failed to rename() `%s' to `%s' : %s #%x",
+                  oldname, newname, strerror(errno), db[position].job_id);
    }
    else
    {
@@ -3508,7 +3809,12 @@ rename_ow(int          overwrite,
          *file_size -= rename_overwrite_size;
 #ifdef _DELETE_LOG
          (void)strcpy(dl.file_name, p_newname);
-         (void)sprintf(dl.host_name, "%-*s %03x", MAX_HOSTNAME_LENGTH,
+# ifdef HAVE_SNPRINTF
+         (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1, "%-*s %03x",
+# else
+         (void)sprintf(dl.host_name, "%-*s %03x",
+# endif
+                       MAX_HOSTNAME_LENGTH,
                        db[position].host_alias, RENAME_OVERWRITE);
          *dl.file_size = rename_overwrite_size;
          *dl.job_id = db[position].job_id;
@@ -3518,7 +3824,12 @@ rename_ow(int          overwrite,
          *dl.unique_number = unique_number;
          *dl.file_name_length = strlen(p_newname);
          dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                        snprintf((dl.file_name + *dl.file_name_length + 1),
+                                 MAX_FILENAME_LENGTH + 1,
+# else
                         sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                 "%s", DIR_CHECK);
          if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
          {
@@ -3578,8 +3889,8 @@ cleanup_rename_ow(int          file_counter,
    char *p_file_name,
         *p_new_name;
 
-#ifdef _PRODUCTION_LOG
    p_new_name = *new_name_buffer;
+#ifdef _PRODUCTION_LOG
    p_file_name = file_name_buffer;
    for (i = 0; i < file_counter; i++)
    {
@@ -3843,8 +4154,14 @@ delete_all_files(char *file_path,
                      size_t dl_real_size;
 
                      (void)strcpy(dl.file_name, p_dir->d_name);
-                     (void)sprintf(dl.host_name, "%-*s %03x",
-                                   MAX_HOSTNAME_LENGTH, db[position].host_alias,
+# ifdef HAVE_SNPRINTF
+                     (void)snprintf(dl.host_name,
+                                    MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                     (void)sprintf(dl.host_name,
+# endif
+                                   "%-*s %03x", MAX_HOSTNAME_LENGTH,
+                                   db[position].host_alias,
                                    (p_save_file == NULL) ? EXEC_FAILED_DEL : EXEC_FAILED_STORED);
                      *dl.file_size = stat_buf.st_size;
                      *dl.job_id = db[position].job_id;
@@ -3856,7 +4173,12 @@ delete_all_files(char *file_path,
                      if (p_save_file == NULL)
                      {
                         dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                       snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                MAX_FILENAME_LENGTH + 1,
+# else
                                        sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                "%s%creturn code = %d (%s %d)",
                                                DIR_CHECK, SEPARATOR_CHAR, ret,
                                                __FILE__, __LINE__);
@@ -3864,7 +4186,12 @@ delete_all_files(char *file_path,
                      else
                      {
                         dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                       snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                MAX_FILENAME_LENGTH + 1,
+# else
                                        sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                "%s%creturn code = %d (%s)",
                                                DIR_CHECK, SEPARATOR_CHAR, ret,
                                                save_orig_file);
@@ -4474,8 +4801,10 @@ get_file_names(char *file_path, char **file_name_buffer, char **p_file_name)
 
 /*++++++++++++++++++++++++ create_assembled_name() ++++++++++++++++++++++*/
 static void
-create_assembled_name(char *name, char *rule)
+create_assembled_name(char *name, char *rule, unsigned int job_id)
 {
+   int    *nnn_counter,
+          nnn_counter_fd = -1;
    time_t time_modifier = 0;
    char   *p_name = name,
           *p_rule = rule,
@@ -4493,10 +4822,159 @@ create_assembled_name(char *name, char *rule)
          p_rule++;
          switch (*p_rule)
          {
+            case '0' : /* Field width for the %n parameter. */
+            case '1' :
+            case '2' :
+            case '3' :
+            case '4' :
+            case '5' :
+            case '6' :
+            case '7' :
+            case '8' :
+            case '9' :
+               {
+                  int  field_width,
+                       i = 1;
+                  char str_number[MAX_INT_LENGTH + 1];
+
+                  str_number[0] = *p_rule;
+                  p_rule++;
+                  while ((i < MAX_INT_LENGTH) && (isdigit((int)(*p_rule))))
+                  {
+                     str_number[i] = *p_rule;
+                     p_rule++; i++;
+                  }
+                  str_number[i] = '\0';
+                  field_width = atoi(str_number);
+                  if (field_width > MAX_INT_LENGTH)
+                  {
+                     field_width = MAX_INT_LENGTH - 1;
+                  }
+                  if (*p_rule == 'd')
+                  {
+                     if (nnn_counter_fd == -1)
+                     {
+                        char nnn_counter_file[MAX_FILENAME_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+                        (void)snprintf(nnn_counter_file, MAX_FILENAME_LENGTH, "%s.%x",
+#else
+                        (void)sprintf(nnn_counter_file, "%s.%x",
+#endif
+                                      NNN_ASSEMBLE_FILE, job_id);
+
+                        /* Open counter file. */
+                        if ((nnn_counter_fd = open_counter_file(nnn_counter_file,
+                                                                &nnn_counter)) == -1)
+                        {
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      _("Failed to open counter file %s"),
+                                      nnn_counter_file);
+                        }
+                     }
+                     if (nnn_counter_fd != -1)
+                     {
+                        int add_length;
+
+                        (void)next_counter(nnn_counter_fd, nnn_counter,
+                                           my_power(10, field_width) - 1);
+#ifdef HAVE_SNPRINTF
+                        add_length = snprintf(p_name, MAX_FILENAME_LENGTH - (p_name - name),
+#else
+                        add_length = sprintf(p_name,
+#endif
+                                             "%0*d", field_width, *nnn_counter);
+                        p_name += add_length;
+                     }
+                     p_rule++;
+                  }
+                  else if (*p_rule == 'x')
+                       {
+                          if (nnn_counter_fd == -1)
+                          {
+                             char nnn_counter_file[MAX_FILENAME_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+                             (void)snprintf(nnn_counter_file, MAX_FILENAME_LENGTH, "%s.%x",
+#else
+                             (void)sprintf(nnn_counter_file, "%s.%x",
+#endif
+                                           NNN_ASSEMBLE_FILE, job_id);
+
+                             /* Open counter file. */
+                             if ((nnn_counter_fd = open_counter_file(nnn_counter_file,
+                                                                     &nnn_counter)) == -1)
+                             {
+                                system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                           _("Failed to open counter file %s"),
+                                           nnn_counter_file);
+                             }
+                          }
+                          if (nnn_counter_fd != -1)
+                          {
+                             int add_length;
+
+                             (void)next_counter(nnn_counter_fd, nnn_counter,
+                                                my_power(10, field_width) - 1);
+#ifdef HAVE_SNPRINTF
+                             add_length = snprintf(p_name, MAX_FILENAME_LENGTH - (p_name - name),
+#else
+                             add_length = sprintf(p_name,
+#endif
+                                                  "%0*x",
+                                                  field_width, *nnn_counter);
+                             p_name += add_length;
+                          }
+                          p_rule++;
+                       }
+               }
+               break;
+
+            case 'd' : /* Generate an n digit decimal counter. */
+               if (nnn_counter_fd == -1)
+               {
+                  char nnn_counter_file[MAX_FILENAME_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(nnn_counter_file, MAX_FILENAME_LENGTH, "%s.%x",
+#else
+                  (void)sprintf(nnn_counter_file, "%s.%x",
+#endif
+                                NNN_ASSEMBLE_FILE, job_id);
+
+                  /* Open counter file. */
+                  if ((nnn_counter_fd = open_counter_file(nnn_counter_file,
+                                                          &nnn_counter)) == -1)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                _("Failed to open counter file %s"),
+                                nnn_counter_file);
+                  }
+               }
+               if (nnn_counter_fd != -1)
+               {
+                  int add_length;
+
+                  (void)next_counter(nnn_counter_fd, nnn_counter,
+                                     my_power(10, DEFAULT_FIELD_WIDTH) - 1);
+#ifdef HAVE_SNPRINTF
+                  add_length = snprintf(p_name, MAX_FILENAME_LENGTH - (p_name - name),
+#else
+                  add_length = sprintf(p_name,
+#endif
+                                       "%0*d",
+                                       DEFAULT_FIELD_WIDTH, *nnn_counter);
+                  p_name += add_length;
+               }
+               p_rule++;
+
+               break;
+
             case 'n' : /* Generate a 4 character unique number. */
                if (counter_fd == -1)
                {
-                  if ((counter_fd = open_counter_file(COUNTER_FILE, &unique_counter)) == -1)
+                  if ((counter_fd = open_counter_file(COUNTER_FILE,
+                                                      &unique_counter)) == -1)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 "Failed to open unique counter file.");
@@ -4504,9 +4982,15 @@ create_assembled_name(char *name, char *rule)
                   }
                }
                next_counter(counter_fd, unique_counter, MAX_MSG_PER_SEC);
-               (void)sprintf(p_name, "%04x", *unique_counter);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(p_name, MAX_FILENAME_LENGTH - (p_name - name),
+#else
+               (void)sprintf(p_name,
+#endif
+                             "%04x", *unique_counter);
                p_name += 4;
                p_rule++;
+
                break;
 
             case 'T' : /* Get time modifier. */
@@ -4588,6 +5072,10 @@ create_assembled_name(char *name, char *rule)
                   system_log(WARN_SIGN, __FILE__, __LINE__,
                              "Time option without any parameter for option assemble `%s'",
                              rule);
+                  if (nnn_counter_fd != -1)
+                  {
+                     close_counter_file(nnn_counter_fd, &nnn_counter);
+                  }
                   return;
                }
                else
@@ -4621,85 +5109,90 @@ create_assembled_name(char *name, char *rule)
                   switch (*p_rule)
                   {
                      case 'a' : /* Short day eg. Tue. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%a",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%a",
                                      gmtime(&current_time));
                         break;
 
                      case 'A' : /* Long day eg. Tuesday. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%A",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%A",
                                      gmtime(&current_time));
                         break;
 
                      case 'b' : /* Short month eg. Jan. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%b",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%b",
                                      gmtime(&current_time));
                         break;
 
                      case 'B' : /* Long month eg. January. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%B",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%B",
                                      gmtime(&current_time));
                         break;
 
                      case 'd' : /* Day of month (01 - 31). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%d",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%d",
                                      gmtime(&current_time));
                         break;
 
                      case 'j' : /* Day of year (001 - 366). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%j",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%j",
                                      gmtime(&current_time));
                         break;
 
                      case 'y' : /* Year (01 - 99). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%y",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%y",
                                      gmtime(&current_time));
                         break;
 
                      case 'Y' : /* Year eg. 1999. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%Y",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%Y",
                                      gmtime(&current_time));
                         break;
 
                      case 'm' : /* Month (01 - 12). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%m",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%m",
                                      gmtime(&current_time));
                         break;
 
                      case 'R' : /* Sunday week number [00,53]. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%R",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%R",
                                      gmtime(&current_time));
                         break;
 
                      case 'w' : /* Weekday [0=Sunday,6]. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%w",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%w",
                                      gmtime(&current_time));
                         break;
 
                      case 'W' : /* Monday week number [00,53]. */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%W",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%W",
                                      gmtime(&current_time));
                         break;
 
                      case 'H' : /* Hour (00 - 23). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%H",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%H",
                                      gmtime(&current_time));
                         break;
 
                      case 'M' : /* Minute (00 - 59). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%M",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%M",
                                      gmtime(&current_time));
                         break;
 
                      case 'S' : /* Second (00 - 60). */
-                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%S",
+                        n = strftime(p_name, MAX_FILENAME_LENGTH - (p_name - name), "%S",
                                      gmtime(&current_time));
                         break;
 
                      case 'U' : /* Unix time. */
-#if SIZEOF_TIME_T == 4
-                        n = sprintf(p_name, "%ld",
+#ifdef HAVE_SNPRINTF
+                        n = snprintf(p_name, MAX_FILENAME_LENGTH - (p_name - name),
 #else
-                        n = sprintf(p_name, "%lld",
+                        n = sprintf(p_name,
+#endif
+#if SIZEOF_TIME_T == 4
+                                    "%ld",
+#else
+                                    "%lld",
 #endif
                                     (pri_time_t)current_time);
                         break;
@@ -4709,6 +5202,10 @@ create_assembled_name(char *name, char *rule)
                         system_log(WARN_SIGN, __FILE__, __LINE__,
                                    "Unknown parameter %c for timeformat for option assemble `%s'",
                                    *p_rule, rule);
+                        if (nnn_counter_fd != -1)
+                        {
+                           close_counter_file(nnn_counter_fd, &nnn_counter);
+                        }
                         return;
                   }
                   p_name += n;
@@ -4717,17 +5214,66 @@ create_assembled_name(char *name, char *rule)
 
                break;
 
+            case 'x' : /* Generate an n digit hexadecimal counter. */
+               if (nnn_counter_fd == -1)
+               {
+                  char nnn_counter_file[MAX_FILENAME_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(nnn_counter_file, MAX_FILENAME_LENGTH, "%s.%x",
+#else
+                  (void)sprintf(nnn_counter_file, "%s.%x",
+#endif
+                                NNN_ASSEMBLE_FILE, job_id);
+
+                  /* Open counter file. */
+                  if ((nnn_counter_fd = open_counter_file(nnn_counter_file,
+                                                          &nnn_counter)) == -1)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                _("Failed to open counter file %s"),
+                                nnn_counter_file);
+                  }
+               }
+               if (nnn_counter_fd != -1)
+               {
+                  int add_length;
+
+                  (void)next_counter(nnn_counter_fd, nnn_counter,
+                                     my_power(10, DEFAULT_FIELD_WIDTH) - 1);
+#ifdef HAVE_SNPRINTF
+                  add_length = snprintf(p_name, MAX_FILENAME_LENGTH - (p_name - name),
+#else
+                  add_length = sprintf(p_name,
+#endif
+                                       "%0*x",
+                                       DEFAULT_FIELD_WIDTH, *nnn_counter);
+                  p_name += add_length;
+               }
+               p_rule++;
+
+               break;
+
             default  : /* Unknown. */
                name[0] = '\0';
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "Unknown format in rule `%s' for option assemble.",
                           rule);
+               if (nnn_counter_fd != -1)
+               {
+                  close_counter_file(nnn_counter_fd, &nnn_counter);
+               }
                return;
          }
       }
    } while (*p_rule != '\0');
 
    *p_name = '\0';
+
+   if (nnn_counter_fd != -1)
+   {
+      close_counter_file(nnn_counter_fd, &nnn_counter);
+   }
 
    return;
 }

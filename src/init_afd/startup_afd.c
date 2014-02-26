@@ -1,6 +1,6 @@
 /*
  *  startup_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,8 @@ DESCR__S_M3
  **   31.03.2007 H.Kiehl Created
  **   23.10.2011 H.Kiehl Automatically initialize database if binary do
  **                      not match.
+ **   23.11.2013 H.Kiehl Catch case when the init_afd terminates with
+ **                      an error.
  **
  */
 DESCR__E_M3
@@ -46,8 +48,10 @@ DESCR__E_M3
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>
 #include <stdlib.h>           /* exit()                                  */
+#include <time.h>             /* time()                                  */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>         /* waitpid()                               */
 #include <sys/time.h>         /* struct timeval                          */
 #include <fcntl.h>            /* O_RDWR, O_WRONLY, etc                   */
 #include <unistd.h>           /* select(), unlink()                      */
@@ -66,13 +70,18 @@ int
 startup_afd(void)
 {
    int            gotcha = NO,
-                  readfd,
                   old_value_list[MAX_CHANGEABLE_VARS],
+                  proc_status,
+                  readfd,
+                  return_code,
+                  status,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                   writefd,
 #endif
-                  status;
+                  wait_time;
    fd_set         rset;
+   pid_t          child_pid;
+   time_t         start_time;
    char           buffer[2],
                   probe_only_fifo[MAX_PATH_LENGTH];
    struct timeval timeout;
@@ -117,7 +126,7 @@ startup_afd(void)
    }
 
    /* Start AFD. */
-   switch (fork())
+   switch (child_pid = fork())
    {
       case -1 : /* Could not generate process. */
          (void)fprintf(stderr,
@@ -168,59 +177,79 @@ startup_afd(void)
    /* Now lets wait for the AFD to have finished creating */
    /* FSA (Filetransfer Status Area).                     */
    FD_ZERO(&rset);
-   FD_SET(readfd, &rset);
-   timeout.tv_usec = 0;
-   timeout.tv_sec = 30L;
+   start_time = time(NULL);
 
-   /* Wait for message x seconds and then continue. */
-   status = select(readfd + 1, &rset, NULL, NULL, &timeout);
-
-   if (status == 0)
+   return_code = 1; /* The rturn code of daemon_init() can only be 0. */
+   while (gotcha == NO)
    {
-      /* No answer from the other AFD. Lets assume it */
-      /* not able to startup properly.                */
-      (void)fprintf(stderr, _("%s does not reply. (%s %d)\n"),
-                    AFD, __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   else if (FD_ISSET(readfd, &rset))
-        {
-           int n;
+      if ((return_code == 1) && (waitpid(child_pid, &proc_status, WNOHANG) > 0))
+      {
+         if (WIFEXITED(proc_status))
+         {
+            return_code = WEXITSTATUS(proc_status);
+         }
+      }
 
-           if ((n = read(readfd, buffer, 1)) > 0)
+      FD_SET(readfd, &rset);
+      timeout.tv_usec = 50000L;
+      timeout.tv_sec = 0L;
+
+      /* Wait for message x seconds and then continue. */
+      status = select(readfd + 1, &rset, NULL, NULL, &timeout);
+
+      if (status == 0)
+      {
+         wait_time = time(NULL) - start_time;
+         if ((wait_time >= 30L) ||
+             ((return_code != 1) && (gotcha == NO) &&
+              (wait_time >= 4L)))
+         {
+            /* No answer from the other AFD. Lets assume it */
+            /* not able to startup properly.                */
+            (void)fprintf(stderr, _("%s does not reply. (%s %d)\n"),
+                          AFD, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      else if (FD_ISSET(readfd, &rset))
            {
-              if (buffer[0] == ACKN)
+              int n;
+
+              if ((n = read(readfd, buffer, 1)) > 0)
               {
-                 gotcha = YES;
+                 if (buffer[0] == ACKN)
+                 {
+                    gotcha = YES;
+                 }
+                 else
+                 {
+                    (void)fprintf(stderr,
+                                  _("Reading garbage from fifo `%s'. (%s %d)\n"),
+                                  probe_only_fifo,  __FILE__, __LINE__);
+                    exit(INCORRECT);
+                 }
               }
-              else
-              {
-                 (void)fprintf(stderr,
-                               _("Reading garbage from fifo `%s'. (%s %d)\n"),
-                               probe_only_fifo,  __FILE__, __LINE__);
-                 exit(INCORRECT);
-              }
+              else if (n < 0)
+                   {
+                      (void)fprintf(stderr, _("read() error : %s (%s %d)\n"),
+                                    strerror(errno),  __FILE__, __LINE__);
+                      exit(INCORRECT);
+                   }
            }
-           else if (n < 0)
+           else if (status < 0)
                 {
-                   (void)fprintf(stderr, _("read() error : %s (%s %d)\n"),
+                   (void)fprintf(stderr, _("select() error : %s (%s %d)\n"),
                                  strerror(errno),  __FILE__, __LINE__);
                    exit(INCORRECT);
                 }
-        }
-        else if (status < 0)
-             {
-                (void)fprintf(stderr, _("select() error : %s (%s %d)\n"),
-                              strerror(errno),  __FILE__, __LINE__);
-                exit(INCORRECT);
-             }
-             else
-             {
-                (void)fprintf(stderr,
-                              _("Unknown condition. Maybe you can tell what's going on here. (%s %d)\n"),
-                              __FILE__, __LINE__);
-                exit(INCORRECT);
-             }
+                else
+                {
+                   (void)fprintf(stderr,
+                                 _("Unknown condition. Maybe you can tell what's going on here. (%s %d)\n"),
+                                 __FILE__, __LINE__);
+                   exit(INCORRECT);
+                }
+   }
 
    (void)close(readfd);
 #ifdef WITHOUT_FIFO_RW_SUPPORT

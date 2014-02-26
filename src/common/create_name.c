@@ -1,6 +1,6 @@
 /*
  *  create_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,6 +35,7 @@ DESCR__S_M3
  **                   int            *unique_number,
  **                   char           *msg_name, - Storage for the message
  **                                               name
+ **                   int            max_msg_name_length,
  **                   int            counter_fd)
  **
  ** DESCRIPTION
@@ -103,6 +104,7 @@ create_name(char           *p_path,     /* Path where the new directory  */
             unsigned int   *split_job_counter,
             int            *unique_number,
             char           *msg_name,   /* Storage to return msg name.   */
+            int            max_msg_name_length,
             int            counter_fd)
 {
    long dirs_left = 10000L;
@@ -128,10 +130,15 @@ create_name(char           *p_path,     /* Path where the new directory  */
    {
       if (priority == NO_PRIORITY)
       {
-#if SIZEOF_TIME_T == 4
-         (void)sprintf(msg_name, "%lx_%x_%x_%x",
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(msg_name, max_msg_name_length,
 #else
-         (void)sprintf(msg_name, "%llx_%x_%x_%x",
+         (void)sprintf(msg_name,
+#endif
+#if SIZEOF_TIME_T == 4
+                       "%lx_%x_%x_%x",
+#else
+                       "%llx_%x_%x_%x",
 #endif
                        (pri_time_t)time_val, *unique_number,
                        *split_job_counter, id); /* NOTE: dir ID is inserted here! */
@@ -145,15 +152,20 @@ create_name(char           *p_path,     /* Path where the new directory  */
             *msg_name = '\0';
             return(INCORRECT);
          }
-#if SIZEOF_TIME_T == 4
-         (void)sprintf(msg_name, "%x/%x/%lx_%x_%x",
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(msg_name, max_msg_name_length,
 #else
-         (void)sprintf(msg_name, "%x/%x/%llx_%x_%x",
+         (void)sprintf(msg_name,
+#endif
+#if SIZEOF_TIME_T == 4
+                       "%x/%x/%lx_%x_%x",
+#else
+                       "%x/%x/%llx_%x_%x",
 #endif
                        id, dir_no, (pri_time_t)time_val, *unique_number,
                        *split_job_counter);
       }
-      (void)strcpy(ptr, msg_name);
+      (void)my_strncpy(ptr, msg_name, MAX_PATH_LENGTH - (ptr - tmpname));
       if (mkdir(tmpname, DIR_MODE) == -1)
       {
          if ((errno == EMLINK) || (errno == ENOSPC))

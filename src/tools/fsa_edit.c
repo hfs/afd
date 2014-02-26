@@ -1,6 +1,6 @@
 /*
  *  fsa_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -118,7 +118,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ret = fsa_attach()) < 0)
+   if ((ret = fsa_attach("fsa_edit")) < 0)
    {
       if (ret == INCORRECT_VERSION)
       {
@@ -161,20 +161,44 @@ main(int argc, char *argv[])
       {
          case 0   : break;
          case '1' : (void)fprintf(stderr, _("\n\n     Enter value [1] : "));
-                    (void)scanf("%u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].total_file_counter = (int)value;
                     break;
          case '2' : (void)fprintf(stderr, _("\n\n     Enter value [2] : "));
-                    (void)scanf("%u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].total_file_size = value;
                     break;
          case '3' : (void)fprintf(stderr, _("\n\n     Enter value [3] : "));
-                    (void)scanf("%u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].error_counter = value;
                     break;
          case '4' : (void)fprintf(stderr, _("\n\n     Enter value [4] (0 - %d): "),
                                   fsa[position].allowed_transfers);
-                    (void)scanf("%u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     if (value <= fsa[position].allowed_transfers)
                     {
                        fsa[position].connections = value;
@@ -259,15 +283,33 @@ main(int argc, char *argv[])
 #endif
                     break;
          case '6' : (void)fprintf(stderr, _("\n\n     Enter value [6] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].max_errors = value;
                     break;
          case '7' : (void)fprintf(stderr, _("\n\n     Enter value [7] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].block_size = value;
                     break;
          case '8' : (void)fprintf(stderr, _("\n\n     Enter value [8] (1 - %d): "), MAX_NO_PARALLEL_JOBS);
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     if ((value > 0) && (value <= MAX_NO_PARALLEL_JOBS))
                     {
                        fsa[position].allowed_transfers = value;
@@ -279,14 +321,32 @@ main(int argc, char *argv[])
                     }
                     break;
          case '9' : (void)fprintf(stderr, _("\n\n     Enter value [9] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].transfer_timeout = value;
                     break;
          case 'a' : (void)fprintf(stderr, _("\n\n     Enter hostname  : "));
-                    (void)scanf("%39s", fsa[position].real_hostname[0]);
+                    if (scanf("%39s", fsa[position].real_hostname[0]) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     break;
          case 'b' : (void)fprintf(stderr, _("\n\nEnter hostdisplayname: "));
-                    (void)scanf("%7s", fsa[position].host_dsp_name);
+                    if (scanf("%7s", fsa[position].host_dsp_name) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     break;
          case 'c' : 
 #ifdef LOCK_DEBUG
@@ -302,7 +362,13 @@ main(int argc, char *argv[])
 #endif
                     break;
          case 'd' : (void)fprintf(stderr, _("\n\n     Enter value [d] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     if (value > MAX_NO_PARALLEL_JOBS)
                     {
                        (void)printf(_("The value must be between 0 and %d!\n"), MAX_NO_PARALLEL_JOBS);
@@ -315,15 +381,33 @@ main(int argc, char *argv[])
                     break;
          case 'e' : (void)fprintf(stderr, _("\n\n     Enter value [e] : "));
                     file_name[0] = '\0';
-                    (void)scanf("%256s", file_name);
+                    if (scanf("%256s", file_name) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     (void)strcpy(fsa[position].job_status[0].file_name_in_use, file_name);
                     break;
          case 'f' : (void)fprintf(stderr, _("\n\n     Enter value [f] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].jobs_queued = value;
                     break;
          case 'g' : (void)fprintf(stderr, _("\n\n     Enter value [g] : "));
-                    (void)scanf("%11u", &value);
+                    if (scanf("%11u", &value) == EOF)
+                    {
+                       (void)fprintf(stderr,
+                                     _("ERROR   : scanf() error, failed to read input : %s (%s %d)\n"),
+                                     strerror(errno), __FILE__, __LINE__);
+                       exit(INCORRECT);
+                    }
                     fsa[position].transfer_rate_limit = value;
                     break;
          case 'h' : if ((fsa[position].auto_toggle == ON) &&

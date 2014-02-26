@@ -1,6 +1,6 @@
 /*
  *  gts2tiff.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -686,7 +686,7 @@ static int
 evaluate_wmo_stuff(char *buf, size_t size)
 {
    char *ptr,
-        search_str[4];
+        search_str[3];
 #ifdef _WITH_FILE_INFO
    char *bh_start,
         *bh_end;
@@ -694,7 +694,6 @@ evaluate_wmo_stuff(char *buf, size_t size)
 
    search_str[0] = search_str[1] = 13;
    search_str[2] = 10;
-   search_str[3] = '\0';
 
    if ((ptr = lposi(buf, search_str, 3)) != NULL)
    {
@@ -706,6 +705,8 @@ evaluate_wmo_stuff(char *buf, size_t size)
       }
       if ((ptr = lposi(ptr, search_str, 3)) != NULL)
       {
+         char *tmp_ptr;
+
 #ifdef _WITH_FILE_INFO
          bh_start = ptr - 1;
 #endif
@@ -715,11 +716,12 @@ evaluate_wmo_stuff(char *buf, size_t size)
                         _("This file does not seem to have a valid WMO header."));
             return(INCORRECT);
          }
-         if ((ptr = lposi(ptr, search_str, 3)) == NULL)
+         if ((tmp_ptr = lposi(ptr, search_str, 3)) != NULL)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        _("Failed to find third <CR><CR><LF>."));
-            return(INCORRECT);
+            ptr = tmp_ptr;
+
+            /* In case it is NULL, just assume counter is missing */
+            /* and continue.                                      */
          }
          if ((ptr + 8 - buf) > size)
          {

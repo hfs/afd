@@ -1,6 +1,6 @@
 /*
  *  get_group_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2002 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,15 +63,25 @@ get_group_list(char *user, struct job *p_db)
    char  *buffer = NULL,
          group_file[MAX_PATH_LENGTH];
 
-   (void)sprintf(group_file, "%s%s%s", p_work_dir, ETC_DIR, GROUP_FILE);
-   if (((file_size = read_file_no_cr(group_file, &buffer)) != INCORRECT) &&
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(group_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(group_file, "%s%s%s",
+#endif
+                 p_work_dir, ETC_DIR, GROUP_FILE);
+   if (((file_size = read_file_no_cr(group_file, &buffer, __FILE__, __LINE__)) != INCORRECT) &&
        (file_size > 0))
    {
       int  length;
       char group_id[MAX_USER_NAME_LENGTH + 2 + 1],
            *ptr;
 
-      length = sprintf(group_id, "[%s]", user);
+#ifdef HAVE_SNPRINTF
+      length = snprintf(group_id, MAX_USER_NAME_LENGTH + 2 + 1,
+#else
+      length = sprintf(group_id,
+#endif
+                       "[%s]", user);
       if ((ptr = lposi(buffer, group_id, length)) == NULL)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,

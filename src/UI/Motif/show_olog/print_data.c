@@ -87,8 +87,8 @@ extern time_t       start_time_val,
 extern FILE         *fp;
 
 /* Local function prototypes. */
-static void        write_header(int, char *),
-                   write_summary(int, char *);
+static void         write_header(int, char *),
+                    write_summary(int, char *);
 
 
 /*######################### print_data_button() #########################*/

@@ -1,6 +1,6 @@
 /*
  *  handle_error_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2006 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -115,7 +115,12 @@ attach_error_queue(void)
            *ptr;
 
       eq_size = (ERROR_QUE_BUF_SIZE * sizeof(struct error_queue)) + AFD_WORD_OFFSET;
-      (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, ERROR_QUEUE_FILE);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(fullname, MAX_PATH_LENGTH, "%s%s%s",
+#else
+      (void)sprintf(fullname, "%s%s%s",
+#endif
+                    p_work_dir, FIFO_DIR, ERROR_QUEUE_FILE);
       if ((ptr = attach_buf(fullname, &eq_fd, &eq_size, NULL,
                             FILE_MODE, NO)) == (caddr_t) -1)
       {

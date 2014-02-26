@@ -733,7 +733,7 @@ format_input_info(char **text, int pos)
                p_file = p_file_list;
                for (j = 0; j < no_of_file_masks; j++)
                {
-                  if (sfilter(p_file, qfl[pos].file_name, 0) == 0)
+                  if (sfilter(p_file, (char *)qfl[pos].file_name, 0) == 0)
                   {
                      gotcha = YES;
                      break;

@@ -166,7 +166,9 @@
 /*-----------------------------------------------------------------------*
  * The default number of parallel jobs per host.
  *-----------------------------------------------------------------------*/
-#define DEFAULT_NO_PARALLEL_JOBS 2
+#ifndef DEFAULT_NO_PARALLEL_JOBS
+# define DEFAULT_NO_PARALLEL_JOBS 2
+#endif
 
 /*-----------------------------------------------------------------------*
  * The default file and directory creation modes.
@@ -199,14 +201,18 @@
  * 'afd_ctrl'.
  * DEFAULT: 8
  *-----------------------------------------------------------------------*/
-#define MAX_HOSTNAME_LENGTH 8
+#ifndef MAX_HOSTNAME_LENGTH
+# define MAX_HOSTNAME_LENGTH 8
+#endif
 
 /*-----------------------------------------------------------------------*
  * The maximum directory alias name length that is displayed by
  * 'dir_ctrl'. Note: this value may NOT be less then 10!
  * DEFAULT: 10
  *-----------------------------------------------------------------------*/
-#define MAX_DIR_ALIAS_LENGTH 10
+#ifndef MAX_DIR_ALIAS_LENGTH
+# define MAX_DIR_ALIAS_LENGTH 10
+#endif
 
 /*-----------------------------------------------------------------------*
  * The following definitions are for logging input, output and debug
@@ -444,12 +450,12 @@
  * MAX_DEFAULT_CONNECTIONS      - default when no value is set in
  *                                AFD_CONFIG file (default 50).
  * MAX_CONFIGURABLE_CONNECTIONS - the maximum configurable value in
- *                                AFD_CONFIG file (default 512). If
+ *                                AFD_CONFIG file (default 1024). If
  *                                a higher value is specified it will
  *                                default to MAX_DEFAULT_CONNECTIONS.
  *-----------------------------------------------------------------------*/
 #define MAX_DEFAULT_CONNECTIONS      50
-#define MAX_CONFIGURABLE_CONNECTIONS 512
+#define MAX_CONFIGURABLE_CONNECTIONS 1024
 
 /*-----------------------------------------------------------------------*
  * If the number of messages queued is very large and most messages

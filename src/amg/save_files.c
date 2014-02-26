@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -65,6 +65,10 @@ DESCR__S_M3
  **                      log in DELETE_LOG the files we failed to save.
  **   28.03.2012 H.Kiehl Handle cross link errors in case we use
  **                      mount with bind option in linux.
+ **   26.05.2013 H.Kiehl When pool is a different file system and we
+ **                      copy files, we must check for files we will
+ **                      overwrite, otherwise files_queued and
+ **                      bytes_in_queue will be wrong.
  **
  */
 DESCR__E_M3
@@ -162,8 +166,12 @@ save_files(char                   *src_path,
 
                      (void)memcpy(dl.file_name, file_name_pool[i],
                                   (size_t)(file_length_pool[i] + 1));
-                     (void)sprintf(dl.host_name, "%-*s %03x",
-                                   MAX_HOSTNAME_LENGTH,
+# ifdef HAVE_SNPRINTF
+                     (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                     (void)sprintf(dl.host_name,
+# endif
+                                   "%-*s %03x", MAX_HOSTNAME_LENGTH,
                                    p_db->host_alias, MKDIR_QUEUE_ERROR);
                      *dl.file_size = file_size_pool[i];
                      *dl.dir_id = p_de->dir_id;
@@ -173,7 +181,12 @@ save_files(char                   *src_path,
                      *dl.unique_number = 0;
                      *dl.file_name_length = file_length_pool[i];
                      dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                    snprintf((dl.file_name + *dl.file_name_length + 1),
+                                             MAX_FILENAME_LENGTH + 1,
+# else
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                             "%s%c%s (%s %d)",
                                             DIR_CHECK, SEPARATOR_CHAR,
                                             strerror(tmp_errno),
@@ -247,7 +260,12 @@ save_files(char                   *src_path,
 
                (void)memcpy(dl.file_name, file_name_pool[i],
                             (size_t)(file_length_pool[i] + 1));
-               (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+               (void)sprintf(dl.host_name,
+# endif
+                             "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, p_db->host_alias, AGE_INPUT);
                *dl.file_size = file_size_pool[i];
                *dl.dir_id = p_de->dir_id;
@@ -257,7 +275,12 @@ save_files(char                   *src_path,
                *dl.unique_number = 0;
                *dl.file_name_length = file_length_pool[i];
                dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                              snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+# else
                               sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                       "%s%c>%d (%s %d)",
                                       DIR_CHECK, SEPARATOR_CHAR,
                                       diff_time, __FILE__, __LINE__);
@@ -412,6 +435,12 @@ save_files(char                   *src_path,
                }
                else
                {
+                  if ((time_job == NO) &&
+                      (stat(dest_path, &stat_buf) == 0))
+                  {
+                     files_deleted++;
+                     file_size_deleted += stat_buf.st_size;
+                  }
 cross_link_error:
                   if ((retstat = copy_file(src_path, dest_path, NULL)) < 0)
                   {
@@ -484,7 +513,7 @@ cross_link_error:
 #endif
          if ((fra[p_de->fra_pos].dir_flag & FILES_IN_QUEUE) == 0)
          {
-            fra[p_de->fra_pos].dir_flag ^= FILES_IN_QUEUE;
+            fra[p_de->fra_pos].dir_flag |= FILES_IN_QUEUE;
          }
          fra[p_de->fra_pos].files_queued += files_changed;
          fra[p_de->fra_pos].bytes_in_queue += size_changed;

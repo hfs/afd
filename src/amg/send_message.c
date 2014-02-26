@@ -1,6 +1,6 @@
 /*
  *  send_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -185,9 +185,13 @@ send_message(char          *outgoing_file_dir,
 # endif
 # ifdef _DELETE_LOG
             (void)strcpy(dl.file_name, p_file_name);
-            (void)sprintf(dl.host_name, "%-*s %03x",
-                          MAX_HOSTNAME_LENGTH, db[position].host_alias,
-                          DELETE_OPTION);
+#  ifdef HAVE_SNPRINTF
+            (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+#  else
+            (void)sprintf(dl.host_name,
+#  endif
+                          "%-*s %03x", MAX_HOSTNAME_LENGTH,
+                          db[position].host_alias, DELETE_OPTION);
             gotcha = NO;
             for (j = 0; j < files_moved; j++)
             {
@@ -210,7 +214,12 @@ send_message(char          *outgoing_file_dir,
             *dl.split_job_counter = split_job_counter;
             *dl.unique_number = unique_number;
             dl_real_size = *dl.file_name_length + dl.size +
+#  ifdef HAVE_SNPRINTF
+                           snprintf((dl.file_name + *dl.file_name_length + 1),
+                                    MAX_FILENAME_LENGTH + 1,
+#  else
                            sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                    "%s%c(%s %d)",
                                    DIR_CHECK, SEPARATOR_CHAR,
                                    __FILE__, __LINE__);

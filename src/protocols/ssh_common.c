@@ -1,6 +1,6 @@
 /*
  *  ssh_common.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -228,7 +228,7 @@ ssh_exec(char          *host,
          {
             if ((*child_pid = fork()) == 0)  /* Child process. */
             {
-               char *args[20],
+               char *args[21],
                     dummy,
                     str_protocol[1 + 3 + 1],
                     str_port[MAX_INT_LENGTH];
@@ -272,13 +272,22 @@ ssh_exec(char          *host,
                {
                   args[argcount] = str_protocol;
                   argcount++;
-                  (void)sprintf(str_protocol, "-%d", (int)ssh_protocol);
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(str_protocol, 1 + 3 + 1,
+#else
+                  (void)sprintf(str_protocol,
+#endif
+                                "-%d", (int)ssh_protocol);
                }
                if (compression == YES)
                {
                   args[argcount] = "-C";
                   argcount++;
                }
+#ifdef WITH_TRACE
+               args[argcount] = "-oLogLevel debug";
+               argcount++;
+#endif
                args[argcount] = "-oForwardX11 no";
                argcount++;
                args[argcount] = "-oForwardAgent no";
@@ -289,11 +298,18 @@ ssh_exec(char          *host,
                args[argcount] = "-oFallBackToRsh no";
                argcount++;
 #endif
-               args[argcount] = "-p";
-               argcount++;
-               args[argcount] = str_port;
-               argcount++;
-               (void)sprintf(str_port, "%d", port);
+               if (port != SSH_PORT_UNSET)
+               {
+                  args[argcount] = "-p";
+                  argcount++;
+                  args[argcount] = str_port;
+                  argcount++;
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(str_port, MAX_INT_LENGTH, "%d", port);
+#else
+                  (void)sprintf(str_port, "%d", port);
+#endif
+               }
                if (subsystem != NULL)
                {
                   args[argcount] = "-e";
@@ -336,7 +352,12 @@ ssh_exec(char          *host,
                length = 0;
                for (i = 0; i < (argcount - 1); i++)
                {
-                  length += sprintf(&buffer[length], "%s ", args[i]);
+# ifdef HAVE_SNPRINTF
+                  length += snprintf(&buffer[length], MAX_PATH_LENGTH,
+# else
+                  length += sprintf(&buffer[length],
+# endif
+                                    "%s ", args[i]);
                }
 
                trace_log(NULL, 0, C_TRACE, buffer, length, NULL);
@@ -1117,7 +1138,12 @@ remove_from_knownhosts(char *hostname)
       int  fd;
       char fullname[MAX_PATH_LENGTH];
 
-      (void)sprintf(fullname, "%s/.ssh/known_hosts", pwd->pw_dir);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(fullname, MAX_PATH_LENGTH,
+#else
+      (void)sprintf(fullname,
+#endif
+                    "%s/.ssh/known_hosts", pwd->pw_dir);
 
       if ((fd = lock_file(fullname, ON)) < 0)
       {

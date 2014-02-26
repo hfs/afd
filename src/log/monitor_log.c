@@ -1,6 +1,6 @@
 /*
  *  monitor_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -212,11 +212,18 @@ main(int argc, char *argv[])
                   MON_LOG_NAME,
                   MON_LOG_NAME_LENGTH,
                   NULL);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(current_log_file, MAX_PATH_LENGTH, "%s%s/%s0",
+#else
    (void)sprintf(current_log_file, "%s%s/%s0",
+#endif
                  work_dir, LOG_DIR, MON_LOG_NAME);
-   p_end = log_file;
-   p_end += sprintf(log_file, "%s%s/%s",
-                    work_dir, LOG_DIR, MON_LOG_NAME);
+#ifdef HAVE_SNPRINTF
+   p_end = log_file + snprintf(log_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   p_end = log_file + sprintf(log_file, "%s%s/%s",
+#endif
+                              work_dir, LOG_DIR, MON_LOG_NAME);
 
    /* Calculate time when we have to start a new file. */
    next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +

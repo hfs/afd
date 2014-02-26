@@ -1,6 +1,6 @@
 /*
  *  config_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>                   /* strcpy(), strcat()              */
+#include <string.h>                   /* strcpy(), strcat(), strerror()  */
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #include <sys/types.h>
@@ -196,7 +196,11 @@ config_log(unsigned int event_class,
 #endif
    if (sys_log_fd != STDOUT_FILENO)
    {
-      (void)write(sys_log_fd, buf, length);
+      if (write(sys_log_fd, buf, length) != length)
+      {
+         (void)fprintf(stderr, "write() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+      }
    }
 
    buf[pos2 + (length - pos2 - 2)] = '\0';

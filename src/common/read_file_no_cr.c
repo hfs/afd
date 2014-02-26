@@ -1,6 +1,6 @@
 /*
  *  read_file_no_cr.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008, 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **                     and remove any CR
  **
  ** SYNOPSIS
- **   off_t read_file_no_cr(char *filename, char **buffer)
+ **   off_t read_file_no_cr(char *filename, char **buffer, char *sfile, int sline)
  **
  ** DESCRIPTION
  **   The function reads the contents of the file filename into a
@@ -61,7 +61,7 @@ DESCR__E_M3
 
 /*########################## read_file_no_cr() ##########################*/
 off_t
-read_file_no_cr(char *filename, char **buffer)
+read_file_no_cr(char *filename, char **buffer, char *sfile, int sline)
 {
    int         fd;
    off_t       bytes_buffered;
@@ -79,7 +79,8 @@ read_file_no_cr(char *filename, char **buffer)
    if ((fd = open(filename, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 _("Could not open() `%s' : %s"), filename, strerror(errno));
+                 _("Could not open() `%s' : %s [%s %d]"),
+                 filename, strerror(errno), sfile, sline);
       return(INCORRECT);
    }
 
@@ -87,7 +88,8 @@ read_file_no_cr(char *filename, char **buffer)
    if (fstat(fd, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 _("Could not fstat() `%s' : %s"), filename, strerror(errno));
+                 _("Could not fstat() `%s' : %s [%s %d]"),
+                 filename, strerror(errno), sfile, sline);
       (void)close(fd);
       return(INCORRECT);
    }
@@ -96,7 +98,8 @@ read_file_no_cr(char *filename, char **buffer)
    if ((*buffer = malloc(stat_buf.st_size + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 _("Could not malloc() memory : %s"), strerror(errno));
+                 _("Could not malloc() memory : %s [%s %d]"),
+                 strerror(errno), sfile, sline);
       (void)close(fd);
       return(INCORRECT);
    }
@@ -104,7 +107,8 @@ read_file_no_cr(char *filename, char **buffer)
    if ((fp = fdopen(fd, "r")) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 _("Could not fdopen() `%s' : %s"), filename, strerror(errno));
+                 _("Could not fdopen() `%s' : %s [%s %d]"),
+                 filename, strerror(errno), sfile, sline);
       free(*buffer);
       *buffer = NULL;
       return(INCORRECT);
@@ -143,7 +147,8 @@ read_file_no_cr(char *filename, char **buffer)
    if (fclose(fp) == EOF)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 _("fclose() error : %s"), strerror(errno));
+                 _("fclose() error : %s [%s %d]"),
+                 strerror(errno), sfile, sline);
    }
 
    return(bytes_buffered);

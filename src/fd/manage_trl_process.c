@@ -1,6 +1,6 @@
 /*
  *  manage_trl_process.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,12 @@ init_trl_data(void)
                     length, strerror(length));
          return;
       }
-      (void)sprintf(trl_filename, "%s%s/%s", p_work_dir, ETC_DIR, TRL_FILENAME);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(trl_filename, length, "%s%s/%s",
+#else
+      (void)sprintf(trl_filename, "%s%s/%s",
+#endif
+                    p_work_dir, ETC_DIR, TRL_FILENAME);
    }
    if (no_of_trl_groups != 0)
    {
@@ -454,12 +459,20 @@ init_trl_data(void)
          for (i = 0; i < no_of_trl_groups; i++)
          {
             system_log(DEBUG_SIGN, NULL, 0, "[%s]", trlg[i].group_name);
+# ifdef HAVE_SNPRINTF
+            length = snprintf(buffer, 1024, "%s=%s",
+# else
             length = sprintf(buffer, "%s=%s",
+# endif
                              TRL_MEMBER_ID, fsa[trlg[i].fsa_pos[0]].host_alias);
             for (j = 1; j < trlg[i].no_of_hosts; j++)
             {
-               length += sprintf(buffer + length, ",%s",
-                                 fsa[trlg[i].fsa_pos[j]].host_alias);
+# ifdef HAVE_SNPRINTF
+               length += snprintf(buffer + length, 1024 - length,
+# else
+               length += sprintf(buffer + length,
+# endif
+                                 ",%s", fsa[trlg[i].fsa_pos[j]].host_alias);
             }
             system_log(DEBUG_SIGN, NULL, 0, "%s", buffer);
             system_log(DEBUG_SIGN, NULL, 0, "%s=%lld",
@@ -490,7 +503,12 @@ check_trl_file(void)
                     length, strerror(length));
          return;
       }
-      (void)sprintf(trl_filename, "%s%s/%s", p_work_dir, ETC_DIR, TRL_FILENAME);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(trl_filename, length, "%s%s/%s",
+#else
+      (void)sprintf(trl_filename, "%s%s/%s",
+#endif
+                    p_work_dir, ETC_DIR, TRL_FILENAME);
    }
    if (stat(trl_filename, &stat_buf) == -1)
    {

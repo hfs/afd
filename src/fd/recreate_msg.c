@@ -1,6 +1,6 @@
 /*
  *  recreate_msg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,8 +69,12 @@ recreate_msg(unsigned int job_id)
    struct stat        stat_buf;
    struct job_id_data *jd;
 
-   (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
-                 JOB_ID_DATA_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(job_id_data_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(job_id_data_file, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, JOB_ID_DATA_FILE);
    if ((jd_fd = open(job_id_data_file, O_RDWR)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,

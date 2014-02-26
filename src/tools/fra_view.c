@@ -1,6 +1,6 @@
 /*
  *  fra_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -242,9 +242,9 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "Warn time            : %lld\n", (pri_time_t)fra[i].warn_time);
 #endif
          (void)fprintf(stdout, "Keep connected       : %u\n", fra[i].keep_connected);
-         if (fra[i].ignore_size == 0)
+         if (fra[i].ignore_size == -1)
          {
-            (void)fprintf(stdout, "Ignore size          : 0\n");
+            (void)fprintf(stdout, "Ignore size          : -1\n");
          }
          else
          {
@@ -357,11 +357,11 @@ main(int argc, char *argv[])
               }
          if (fra[i].dir_flag == 0)
          {
-            (void)fprintf(stdout, "Directory flag(  0)  : None\n");
+            (void)fprintf(stdout, "Directory flag(    0): None\n");
          }
          else
          {
-            (void)fprintf(stdout, "Directory flag(%3d)  : ", fra[i].dir_flag);
+            (void)fprintf(stdout, "Directory flag(%5d): ", fra[i].dir_flag);
             if (fra[i].dir_flag & MAX_COPIED)
             {
                (void)fprintf(stdout, "MAX_COPIED ");
@@ -419,6 +419,10 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "DIR_STOPPED");
             }
 #ifdef WITH_INOTIFY
+            if (fra[i].dir_flag & INOTIFY_NEEDS_SCAN)
+            {
+               (void)fprintf(stdout, "INOTIFY_NEEDS_SCAN ");
+            }
             if (fra[i].dir_flag & INOTIFY_RENAME)
             {
                (void)fprintf(stdout, "INOTIFY_RENAME ");
@@ -427,14 +431,28 @@ main(int argc, char *argv[])
             {
                (void)fprintf(stdout, "INOTIFY_CLOSE ");
             }
+            if (fra[i].dir_flag & INOTIFY_CREATE)
+            {
+               (void)fprintf(stdout, "INOTIFY_CREATE ");
+            }
 #endif
             if (fra[i].dir_flag & ALL_DISABLED)
             {
-               (void)fprintf(stdout, "ALL_DISABLED");
+               (void)fprintf(stdout, "ALL_DISABLED ");
             }
             if (fra[i].dir_flag & CREATE_R_SRC_DIR)
             {
                (void)fprintf(stdout, "CREATE_R_SRC_DIR ");
+            }
+#ifdef NEW_FRA
+            if (fra[i].dir_flag & INFO_TIME_REACHED)
+            {
+               (void)fprintf(stdout, "INFO_TIME_REACHED ");
+            }
+#endif
+            if (fra[i].dir_flag & DO_NOT_PARALLELIZE)
+            {
+               (void)fprintf(stdout, "DO_NOT_PARALLELIZE ");
             }
             (void)fprintf(stdout, "\n");
          }
@@ -490,6 +508,10 @@ main(int argc, char *argv[])
             if (fra[i].in_dc_flag & KEEP_CONNECTED_IDC)
             {
                (void)fprintf(stdout, "KEEP_CONNECTED");
+            }
+            if (fra[i].in_dc_flag & MAX_PROCESS_IDC)
+            {
+               (void)fprintf(stdout, "MAX_PROCESS");
             }
             (void)fprintf(stdout, "\n");
          }
@@ -639,8 +661,15 @@ main(int argc, char *argv[])
             }
             if (fra[i].delete_files_flag & UNKNOWN_FILES)
             {
-               (void)fprintf(stdout, "Unknown file time (h): %d\n",
-                             fra[i].unknown_file_time / 3600);
+               if (fra[i].unknown_file_time == -2)
+               {
+                  (void)fprintf(stdout, "Unknown file time (h): Immediately\n");
+               }
+               else
+               {
+                  (void)fprintf(stdout, "Unknown file time (h): %d\n",
+                                fra[i].unknown_file_time / 3600);
+               }
             }
             if (fra[i].delete_files_flag & QUEUED_FILES)
             {
@@ -688,11 +717,27 @@ main(int argc, char *argv[])
 
             (void)fprintf(stdout, "Time option          : %d\n",
                           (int)fra[i].no_of_time_entries);
-            (void)fprintf(stdout, "Next check time      : %s",
-                          ctime(&fra[i].next_check_time));
-            for (j = 0; j < fra[i].no_of_time_entries; j++)
+
+#if SIZEOF_TIME_T == 4
+            if (fra[i].next_check_time == LONG_MAX)
+#else
+# ifdef LLONG_MAX
+            if (fra[i].next_check_time == LLONG_MAX)
+# else
+            if (fra[i].next_check_time == LONG_MAX)
+# endif
+#endif
             {
-               show_time_entry(&fra[i].te[j]);
+               (void)fprintf(stdout, "Next check time      : <external>\n");
+            }
+            else
+            {
+               (void)fprintf(stdout, "Next check time      : %s",
+                             ctime(&fra[i].next_check_time));
+               for (j = 0; j < fra[i].no_of_time_entries; j++)
+               {
+                  show_time_entry(&fra[i].te[j]);
+               }
             }
          }
          show_time_entry(&fra[i].ate);

@@ -1,6 +1,6 @@
 /*
  *  get_afd_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -67,7 +67,12 @@ get_afd_name(char *afd_name)
         n;
    char afd_file_name[MAX_PATH_LENGTH];
 
-   (void)sprintf(afd_file_name, "%s%s/%s", p_work_dir, ETC_DIR, AFD_NAME);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(afd_file_name, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   (void)sprintf(afd_file_name, "%s%s/%s",
+#endif
+                 p_work_dir, ETC_DIR, AFD_NAME);
 
    if ((fd = open(afd_file_name, O_RDONLY)) < 0)
    {

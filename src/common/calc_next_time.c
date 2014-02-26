@@ -1,6 +1,6 @@
 /*
  *  calc_next_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -117,6 +117,18 @@ calc_next_time(struct bd_time_entry *te,
              i;
    struct tm *bd_time;     /* Broken-down time */
 
+   if (te->month == TIME_EXTERNAL)
+   {
+#if SIZEOF_TIME_T == 4
+      return(LONG_MAX);
+#else
+# ifdef LLONG_MAX
+      return(LLONG_MAX);
+# else
+      return(LONG_MAX);
+# endif
+#endif
+   }
    current_time += 60;
    bd_time = localtime(&current_time);
 

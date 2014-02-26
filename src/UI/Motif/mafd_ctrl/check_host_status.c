@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,6 +44,7 @@ DESCR__S_M3
  **   26.12.2001 H.Kiehl Allow for more changes in line style.
  **   21.06.2007 H.Kiehl Split second LED in two halfs to show the
  **                      transfer direction.
+ **   25.08.2013 H.Kiehl Added compact process status.
  **
  */
 DESCR__E_M3
@@ -82,6 +83,7 @@ extern int                        no_of_hosts,
                                   glyph_width,
                                   led_width,
                                   bar_thickness_2,
+                                  bar_thickness_3,
                                   *line_length,
                                   max_line_length,
                                   no_selected,
@@ -147,7 +149,7 @@ check_host_status(Widget w)
     * See if a host has been added or removed from the FSA.
     * If it changed resize the window.
     */
-   if (check_fsa(NO) == YES)
+   if (check_fsa(NO, "mafd_ctrl") == YES)
    {
       int         nll = 0,    /* Number of long lines. */
                   nsl = 0;    /* Number of short lines. */
@@ -355,7 +357,6 @@ check_host_status(Widget w)
                   new_connect_data[i].long_pos--;
                }
             }
-            no_of_long_lines++;
          }
       }
 
@@ -367,14 +368,6 @@ check_host_status(Widget w)
       {
          if (check_fsa_data(connect_data[i].host_id) == INCORRECT)
          {
-            if (connect_data[i].long_pos == -1)
-            {
-               no_of_short_lines--;
-            }
-            else
-            {
-               no_of_long_lines--;
-            }
             if (connect_data[i].inverse == ON)
             {
                /* Host has been deleted. */
@@ -401,6 +394,8 @@ check_host_status(Widget w)
             nll++;
          }
       }
+      no_of_short_lines = nsl;
+      no_of_long_lines = nll;
 
       if ((tmp_connect_data = realloc(connect_data, new_size)) == NULL)
       {
@@ -430,11 +425,17 @@ check_host_status(Widget w)
 
       /* When no. of channels have been reduced, then delete */
       /* removed channels from end of list.                  */
-      if (no_of_columns > 1)
+      if ((no_of_columns > 1) && (redraw_everything == NO))
       {
-         for (i = prev_no_of_hosts; i > no_of_hosts; i--)
+         int max_no_of_lines;
+
+         max_no_of_lines = no_of_columns * no_of_rows;
+         if (max_no_of_lines > no_of_long_lines)
          {
-            draw_blank_line(i - 1);
+            for (i = max_no_of_lines; i > no_of_hosts; i--)
+            {
+               draw_long_blank_line(i - 1);
+            }
          }
       }
 
@@ -550,7 +551,7 @@ check_host_status(Widget w)
 
       /* Make sure changes are drawn!!! */
       flush = YES;
-   } /* if (check_fsa(NO) == YES) */
+   } /* if (check_fsa(NO, "mafd_ctrl") == YES) */
 
    if ((line_style & SHOW_CHARACTERS) || (line_style & SHOW_BARS))
    {
@@ -582,7 +583,8 @@ check_host_status(Widget w)
    {
       x = y = -1;
 
-      if ((connect_data[i].short_pos == -1) && (line_style & SHOW_JOBS))
+      if ((connect_data[i].short_pos == -1) &&
+          ((line_style & SHOW_JOBS) || (line_style & SHOW_JOBS_COMPACT)))
       {
          if (connect_data[i].allowed_transfers != fsa[i].allowed_transfers)
          {
@@ -605,7 +607,23 @@ check_host_status(Widget w)
                }
                row_counter++;
             }
-            column_length = max_line_length - (((MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs) * (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
+            if (line_style & SHOW_JOBS_COMPACT)
+            {
+               int p_jobs_less = MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs;
+
+               if (((max_no_parallel_jobs % 3) == 0) && (MAX_NO_PARALLEL_JOBS % 3))
+               {
+                  column_length = max_line_length - (((p_jobs_less / 3) + 1) * bar_thickness_3);
+               }
+               else
+               {
+                  column_length = max_line_length - ((p_jobs_less / 3) * bar_thickness_3);
+               }
+            }
+            else
+            {
+               column_length = max_line_length - (((MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs) * (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
+            }
             if (line_length[column] != column_length)
             {
                /*
@@ -628,36 +646,9 @@ check_host_status(Widget w)
                }
                else
                {
-                  int       offset;
-                  XGCValues gc_values;
-
                   for (j = fsa[i].allowed_transfers; j < connect_data[i].allowed_transfers; j++)
                   {
-                     offset = j * (button_width + BUTTON_SPACING);
-
-                     if (connect_data[i].inverse == OFF)
-                     {
-                        gc_values.foreground = color_pool[DEFAULT_BG];
-                     }
-                     else if (connect_data[i].inverse == ON)
-                          {
-                             gc_values.foreground = color_pool[BLACK];
-                          }
-                          else
-                          {
-                             gc_values.foreground = color_pool[LOCKED_INVERSE];
-                          }
-                     XChangeGC(display, color_gc, GCForeground, &gc_values);
-                     XFillRectangle(display, line_window, color_gc,
-                                    x + x_offset_proc + offset - 1,
-                                    y + SPACE_ABOVE_LINE - 1,
-                                    button_width + 2,
-                                    glyph_height + 2);
-                     XFillRectangle(display, line_pixmap, color_gc,
-                                    x + x_offset_proc + offset - 1,
-                                    y + SPACE_ABOVE_LINE - 1,
-                                    button_width + 2,
-                                    glyph_height + 2);
+                     draw_proc_stat(i, j, x, y);
 
                      /* Update detailed selection. */
                      if ((no_of_jobs_selected > 0) &&
@@ -741,12 +732,15 @@ check_host_status(Widget w)
                  {
                     connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
 
-                    locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+                    if (line_style & SHOW_JOBS)
+                    {
+                       locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
 
-                    /* Draw changed process file counter button. */
-                    draw_proc_stat(i, j, x, y);
+                       /* Draw changed process file counter button. */
+                       draw_proc_stat(i, j, x, y);
 
-                    flush = YES;
+                       flush = YES;
+                    }
                  }
          }
       }

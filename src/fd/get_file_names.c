@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,8 +66,10 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* Global variables. */
-extern int                        files_to_delete,
-                                  fsa_fd;
+extern int                        counter_fd,
+                                  files_to_delete,
+                                  fsa_fd,
+                                  *unique_counter;
 #ifdef HAVE_HW_CRC32
 extern int                        have_hw_crc32;
 #endif
@@ -97,6 +99,9 @@ extern char                       *p_work_dir,
                                   *file_name_buffer;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
+#ifdef WITH_DUP_CHECK
+extern struct rule                *rule;
+#endif
 #ifdef _DELETE_LOG
 extern struct delete_log          dl;
 #endif
@@ -301,9 +306,10 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       /* Sure it is a normal file? */
       if (S_ISREG(stat_buf.st_mode))
       {
-         /* Don't send files older then age_limit! */
 #ifdef WITH_DUP_CHECK
          int is_duplicate = NO;
+#endif
+         int remove_file = NO;
 
          if (now < stat_buf.st_mtime)
          {
@@ -313,44 +319,83 @@ get_file_names(char *file_path, off_t *file_size_to_send)
          {
             diff_time = now - stat_buf.st_mtime;
          }
-# ifdef DEBUG_DUP_CHECK
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-#  if SIZEOF_TIME_T == 4
-                    "fullname=%s crc_id=%x timeout=%ld flag=%u",
-#  else
-                    "fullname=%s crc_id=%x timeout=%lld flag=%u",
-#  endif
-                    fullname, db.crc_id, (pri_time_t)db.dup_check_timeout,
-                    db.dup_check_flag);
-# endif
-         if (((db.age_limit > 0) &&
-              ((fsa->host_status & DO_NOT_DELETE_DATA) == 0) &&
-              (diff_time > db.age_limit)) ||
-             ((db.dup_check_timeout > 0) &&
-              ((db.special_flag & OLD_ERROR_JOB) == 0) &&
-              (((is_duplicate = isdup(fullname, stat_buf.st_size, db.crc_id,
-                                      db.dup_check_timeout,
-                                      db.dup_check_flag,
-                                      NO,
-# ifdef HAVE_HW_CRC32
-                                      have_hw_crc32,
-# endif
-                                      YES, YES)) == YES) &&
-               ((db.dup_check_flag & DC_DELETE) ||
-                (db.dup_check_flag & DC_STORE)))))
-#else
-         if (now < stat_buf.st_mtime)
-         {
-            diff_time = 0L;
-         }
-         else
-         {
-            diff_time = now - stat_buf.st_mtime;
-         }
+
+         /* Don't send files older then age_limit! */
          if ((db.age_limit > 0) &&
              ((fsa->host_status & DO_NOT_DELETE_DATA) == 0) &&
              (diff_time > db.age_limit))
+         {
+            remove_file = YES;
+         }
+         else
+         {
+#ifdef WITH_DUP_CHECK
+            if (((db.age_limit > 0) &&
+                 ((fsa->host_status & DO_NOT_DELETE_DATA) == 0) &&
+                 (diff_time > db.age_limit)) ||
+                ((db.dup_check_timeout > 0) &&
+                 ((db.special_flag & OLD_ERROR_JOB) == 0) &&
+                 (((is_duplicate = isdup(fullname, p_dir->d_name,
+                                         stat_buf.st_size,
+                                         db.crc_id,
+                                         db.dup_check_timeout,
+                                         db.dup_check_flag,
+                                         NO,
+# ifdef HAVE_HW_CRC32
+                                         have_hw_crc32,
+# endif
+                                         YES, YES)) == YES) &&
+                  ((db.dup_check_flag & DC_DELETE) ||
+                   (db.dup_check_flag & DC_STORE)))))
+             {
+                remove_file = YES;
+             }
+             else
+             {
+                if ((db.trans_dup_check_timeout > 0) &&
+                    ((db.special_flag & OLD_ERROR_JOB) == 0))
+                {
+                   register int k;
+                   char         tmp_filename[MAX_PATH_LENGTH];
+
+                   tmp_filename[0] = '\0';
+                   for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
+                   {
+                      if (pmatch(rule[db.trans_rule_pos].filter[k],
+                                 p_dir->d_name, NULL) == 0)
+                      {
+                         change_name(p_dir->d_name,
+                                     rule[db.trans_rule_pos].filter[k],
+                                     rule[db.trans_rule_pos].rename_to[k],
+                                     tmp_filename, MAX_PATH_LENGTH,
+                                     &counter_fd, &unique_counter, db.job_id);
+                         break;
+                      }
+                   }
+                   if (tmp_filename[0] != '\0')
+                   {
+                      if (((is_duplicate = isdup(fullname, tmp_filename,
+                                                 stat_buf.st_size,
+                                                 db.crc_id,
+                                                 db.trans_dup_check_timeout,
+                                                 db.trans_dup_check_flag,
+                                                 NO,
+# ifdef HAVE_HW_CRC32
+                                                 have_hw_crc32,
+# endif
+                                                 YES, YES)) == YES) &&
+                          ((db.trans_dup_check_flag & DC_DELETE) ||
+                           (db.trans_dup_check_flag & DC_STORE)))
+                      {
+                         remove_file = YES;
+                      }
+                   }
+                }
+             }
 #endif
+         }
+
+         if (remove_file == YES)
          {
             char file_to_remove[MAX_FILENAME_LENGTH];
 
@@ -398,7 +443,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                     save_dir[MAX_PATH_LENGTH];
 
                p_end = save_dir +
+# ifdef HAVE_SNPRINTF
+                       snprintf(save_dir, MAX_PATH_LENGTH, "%s%s%s/%x/",
+# else
                        sprintf(save_dir, "%s%s%s/%x/",
+# endif
                                p_work_dir, AFD_FILE_DIR, STORE_DIR, db.job_id);
                if ((mkdir(save_dir, DIR_MODE) == -1) && (errno != EEXIST))
                {
@@ -728,11 +777,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       {
          trans_log(INFO_SIGN, NULL, 0, NULL, NULL,
 # if SIZEOF_OFF_T == 4
-                   "Deleted %d duplicate file(s) (%ld bytes).",
+                   "Deleted %d duplicate file(s) (%ld bytes). #%x",
 # else
-                   "Deleted %d duplicate file(s) (%lld bytes).",
+                   "Deleted %d duplicate file(s) (%lld bytes). #%x",
 # endif
-                   dup_counter, (pri_off_t)dup_counter_size);
+                   dup_counter, (pri_off_t)dup_counter_size, db.job_id);
       }
       if ((files_not_send - dup_counter) > 0)
       {
@@ -951,7 +1000,11 @@ log_data(char        *d_name,
       delete_log_ptrs(&dl);
    }
    (void)strcpy(dl.file_name, d_name);
+#  ifdef HAVE_SNPRINTF
+   (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1, "%-*s %03x",
+#  else
    (void)sprintf(dl.host_name, "%-*s %03x",
+#  endif
                  MAX_HOSTNAME_LENGTH, fsa->host_alias,
 #  ifdef WITH_DUP_CHECK
                                 (is_duplicate == YES) ? DUP_OUTPUT : AGE_OUTPUT);
@@ -983,10 +1036,16 @@ log_data(char        *d_name,
          diff_time = now - stat_buf->st_mtime;
       }
 #  endif
-#  if SIZEOF_TIME_T == 4
-      (void)sprintf(str_diff_time, "%c>%ld [now=%ld file_mtime=%ld] (%s %d)",
+#  ifdef HAVE_SNPRINTF
+      (void)snprintf(str_diff_time,
+                     2 + MAX_LONG_LENGTH + 6 + MAX_LONG_LENGTH + 12 + MAX_LONG_LENGTH + 30 + 1,
 #  else
-      (void)sprintf(str_diff_time, "%c>%lld [now=%lld file_mtime=%lld] (%s %d)",
+      (void)sprintf(str_diff_time,
+#  endif
+#  if SIZEOF_TIME_T == 4
+                    "%c>%ld [now=%ld file_mtime=%ld] (%s %d)",
+#  else
+                    "%c>%lld [now=%lld file_mtime=%lld] (%s %d)",
 #  endif
                     SEPARATOR_CHAR, (pri_time_t)diff_time,
                     (pri_time_t)now, (pri_time_t)stat_buf->st_mtime,
@@ -1015,27 +1074,47 @@ log_data(char        *d_name,
                           db.restart_file[append_file_number]);
          }
       }
+#  ifdef HAVE_SNPRINTF
+      prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                  MAX_FILENAME_LENGTH + 1,
+#  else
       prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                  "%s%s",
                                  SEND_FILE_FTP, str_diff_time);
    }
    else if (db.protocol & LOC_FLAG)
         {
+#  ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#  else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                       "%s%s",
                                       SEND_FILE_LOC,
                                       str_diff_time);
         }
    else if (db.protocol & EXEC_FLAG)
         {
+#  ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#  else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                       "%s%s",
                                       SEND_FILE_EXEC,
                                       str_diff_time);
         }
    else if (db.protocol & HTTP_FLAG)
         {
+#  ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#  else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                       "%s%s",
                                       SEND_FILE_HTTP,
                                       str_diff_time);
@@ -1061,7 +1140,12 @@ log_data(char        *d_name,
                                db.restart_file[append_file_number]);
               }
            }
+#  ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#  else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                       "%s%s",
                                       SEND_FILE_SFTP,
                                       str_diff_time);
@@ -1069,7 +1153,12 @@ log_data(char        *d_name,
 #  ifdef _WITH_SCP_SUPPORT
    else if (db.protocol & SCP_FLAG)
         {
+#   ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#   else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#   endif
                                       "%s%s",
                                       SEND_FILE_SCP,
                                       str_diff_time);
@@ -1078,7 +1167,12 @@ log_data(char        *d_name,
 #  ifdef _WITH_WMO_SUPPORT
    else if (db.protocol & WMO_FLAG)
         {
+#   ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#   else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#   endif
                                       "%s%s",
                                       SEND_FILE_WMO,
                                       str_diff_time);
@@ -1087,7 +1181,12 @@ log_data(char        *d_name,
 #  ifdef _WITH_MAP_SUPPORT
    else if (db.protocol & MAP_FLAG)
         {
+#   ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#   else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#   endif
                                       "%s%s",
                                       SEND_FILE_MAP,
                                       str_diff_time);
@@ -1095,14 +1194,24 @@ log_data(char        *d_name,
 #  endif
    else if (db.protocol & SMTP_FLAG)
         {
+#  ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#  else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                       "%s%s",
                                       SEND_FILE_SMTP,
                                       str_diff_time);
         }
         else
         {
+#  ifdef HAVE_SNPRINTF
+           prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                       MAX_FILENAME_LENGTH + 1,
+#  else
            prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                       "sf_???%s", str_diff_time);
         }
 

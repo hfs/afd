@@ -138,7 +138,7 @@ main(int argc, char *argv[])
 
                old_st_mtime = stat_buf.st_mtime;
                if ((eaccess(afd_config_file, F_OK) == 0) &&
-                   (read_file_no_cr(afd_config_file, &buffer) != INCORRECT))
+                   (read_file_no_cr(afd_config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
                {
                   int  gotcha;
                   char *ptr = buffer;
@@ -296,9 +296,7 @@ make_process(char *parameters)
             cmd[10 + work_dir_length] = 'C';
             cmd[11 + work_dir_length] = ' ';
             (void)strcpy(&cmd[12 + work_dir_length], parameters);
-#ifdef _DEBUG
             system_log(DEBUG_SIGN, NULL, 0, "aldad: %s", cmd);
-#endif
             (void)execl("/bin/sh", "sh", "-c", cmd, (char *)0);
          }
          exit(SUCCESS);

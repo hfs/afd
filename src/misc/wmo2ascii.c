@@ -1,6 +1,6 @@
 /*
  *  wmo2ascii.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,11 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
    char from[MAX_PATH_LENGTH];
 
    *filesize = 0;
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(from, MAX_PATH_LENGTH, "%s/%s", file_path, p_file_name);
+#else
    (void)sprintf(from, "%s/%s", file_path, p_file_name);
+#endif
    if ((from_fd = open(from, O_RDONLY)) == -1)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
@@ -101,7 +105,11 @@ wmo2ascii(char *file_path, char *p_file_name, off_t *filesize)
             int  to_fd;
             char to[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(to, MAX_PATH_LENGTH, "%s/.wmo2ascii", file_path);
+#else
             (void)sprintf(to, "%s/.wmo2ascii", file_path);
+#endif
             if ((to_fd = open(to, O_WRONLY | O_CREAT | O_TRUNC,
                               stat_buf.st_mode)) == -1)
             {

@@ -1,6 +1,6 @@
 /*
  *  check_host_alias.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2008 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,35 +79,35 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
    if ((search_host_alias_counter != 0) || (search_host_id_counter != 0) ||
        (search_host_name_counter != 0))
    {
+      int i,
+          ret;
+
+      if (search_host_alias_counter != 0)
+      {
+         for (i = 0; i < search_host_alias_counter; i++)
+         {
+            if ((ret = pmatch(search_host_alias[i], host_alias, NULL)) == 0)
+            {
+               return(SUCCESS);
+            }
+            else if (ret == 1)
+                 {
+                    /*
+                     * This alias is definitly not wanted,
+                     * so no need to check the other filters.
+                     */
+                    i = search_host_alias_counter;
+                 }
+         }
+      }
+
       if (mode & ALDA_LOCAL_MODE)
       {
-         int i,
-             ret;
-
-         if (search_host_alias_counter != 0)
-         {
-            for (i = 0; i < search_host_alias_counter; i++)
-            {
-               if ((ret = pmatch(search_host_alias[i], host_alias, NULL)) == 0)
-               {
-                  return(SUCCESS);
-               }
-               else if (ret == 1)
-                    {
-                       /*
-                        * This alias is definitly not wanted,
-                        * so no need to check the other filters.
-                        */
-                       i = search_host_alias_counter;
-                    }
-            }
-         }
-
          if (search_host_id_counter != 0)
          {
             if (fsa_fd == -1)
             {
-               if (fsa_attach_passive(NO) != SUCCESS)
+               if (fsa_attach_passive(NO, ALDA_CMD) != SUCCESS)
                {
                   (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
                                 __FILE__, __LINE__);
@@ -137,7 +137,7 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
          {
             if (fsa_fd == -1)
             {
-               if (fsa_attach_passive(NO) != SUCCESS)
+               if (fsa_attach_passive(NO, ALDA_CMD) != SUCCESS)
                {
                   (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
                                 __FILE__, __LINE__);
@@ -211,9 +211,6 @@ check_host_alias(char *host_alias, char *real_hostname, int current_toggle)
 #ifdef WITH_AFD_MON
       else
       {
-         int i,
-             ret;
-
          if (start_alias_counter != 0)
          {
             for (i = 0; i < start_alias_counter; i++)

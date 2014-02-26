@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -202,7 +202,12 @@ create_fsa(void)
    {
       /* Attach to old region. */
       ptr = old_fsa_stat + strlen(old_fsa_stat);
-      (void)sprintf(ptr, ".%d", old_fsa_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(ptr, MAX_PATH_LENGTH - (ptr - old_fsa_stat),
+#else
+      (void)sprintf(ptr,
+#endif
+                    ".%d", old_fsa_id);
 
       /* Get the size of the old FSA file. */
       if (stat(old_fsa_stat, &stat_buf) < 0)
@@ -350,7 +355,11 @@ create_fsa(void)
    {
       fsa_id = 0;
    }
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(new_fsa_stat, MAX_PATH_LENGTH, "%s%s%s.%d",
+#else
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
+#endif
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, fsa_id);
 
    /* Now map the new FSA region to a file. */
@@ -420,6 +429,8 @@ create_fsa(void)
    size = MAX_NO_PARALLEL_JOBS * sizeof(struct status);
    if (old_fsa_id < 0)
    {
+      struct system_data sd;
+
       /*
        * There is NO old FSA.
        */
@@ -461,6 +472,14 @@ create_fsa(void)
          if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
          {
             fsa[i].special_flag |= HOST_DISABLED;
+         }
+         if (hl[i].protocol_options & KEEP_CON_NO_SEND_2)
+         {
+            fsa[i].special_flag |= KEEP_CON_NO_SEND;
+         }
+         if (hl[i].protocol_options & KEEP_CON_NO_FETCH_2)
+         {
+            fsa[i].special_flag |= KEEP_CON_NO_FETCH;
          }
          if (hl[i].host_status & HOST_TWO_FLAG)
          {
@@ -567,6 +586,14 @@ create_fsa(void)
             fsa[i].job_status[k].proc_id = -1;
          }
       } /* for (i = 0; i < no_of_hosts; i++) */
+
+      /* Copy configuration information from the old FSA when this */
+      /* is stored in system_data file.                            */
+      if (get_system_data(&sd) == SUCCESS)
+      {
+         ptr = (char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
+         *ptr = sd.fsa_feature_flag;
+      }
    }
    else /* There is an old database file. */
    {
@@ -874,6 +901,22 @@ create_fsa(void)
          {
             fsa[i].special_flag &= ~HOST_DISABLED;
          }
+         if (hl[i].protocol_options & KEEP_CON_NO_SEND_2)
+         {
+            fsa[i].special_flag |= KEEP_CON_NO_SEND;
+         }
+         else
+         {
+            fsa[i].special_flag &= ~KEEP_CON_NO_SEND;
+         }
+         if (hl[i].protocol_options & KEEP_CON_NO_FETCH_2)
+         {
+            fsa[i].special_flag |= KEEP_CON_NO_FETCH;
+         }
+         else
+         {
+            fsa[i].special_flag &= ~KEEP_CON_NO_FETCH;
+         }
          if (hl[i].host_status & STOP_TRANSFER_STAT)
          {
             fsa[i].host_status |= STOP_TRANSFER_STAT;
@@ -1098,6 +1141,14 @@ create_fsa(void)
                      if (fsa[j].special_flag & HOST_DISABLED)
                      {
                         hl[j].host_status |= HOST_CONFIG_HOST_DISABLED;
+                     }
+                     if (fsa[j].special_flag & KEEP_CON_NO_SEND)
+                     {
+                        hl[j].protocol_options |= KEEP_CON_NO_SEND_2;
+                     }
+                     if (fsa[j].special_flag & KEEP_CON_NO_FETCH)
+                     {
+                        hl[j].protocol_options |= KEEP_CON_NO_FETCH_2;
                      }
                      if ((fsa[j].special_flag & HOST_IN_DIR_CONFIG) == 0)
                      {

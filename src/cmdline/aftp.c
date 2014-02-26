@@ -1,6 +1,6 @@
 /*
  *  aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -635,7 +635,9 @@ main(int argc, char *argv[])
                }
             }
             if (((status = ftp_data(rl[i].file_name, offset, db.ftp_mode,
-                                    DATA_READ, db.rcvbuf_size)) != SUCCESS) &&
+                                    DATA_READ, db.rcvbuf_size,
+                                    db.create_target_dir, db.dir_mode_str,
+                                    created_path)) != SUCCESS) &&
                 (status != -550))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
@@ -659,6 +661,12 @@ main(int argc, char *argv[])
                   trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                             _("Opened data connection for file %s."),
                             rl[i].file_name);
+               }
+               if ((created_path != NULL) && (created_path[0] != '\0'))
+               {
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Created directory `%s'.", created_path);
+                  created_path[0] = '\0';
                }
 #ifdef WITH_SSL
                if (db.auth == BOTH)         
@@ -717,8 +725,8 @@ main(int argc, char *argv[])
                      }
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                ((sigpipe_flag == ON) && (status != EPIPE)) ? msg_str : NULL,
-                               _("Failed to read from remote file %s"),
-                               rl[i].file_name);
+                               _("Failed to read from remote file %s (%d)"),
+                               rl[i].file_name, status);
                      if (status == EPIPE)
                      {
                         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, NULL,
@@ -1131,7 +1139,9 @@ main(int argc, char *argv[])
 
          /* Open file on remote site. */
          if ((status = ftp_data(initial_filename, append_offset,
-                                db.ftp_mode, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
+                                db.ftp_mode, DATA_WRITE, db.sndbuf_size,
+                                db.create_target_dir, db.dir_mode_str,
+                                created_path)) != SUCCESS)
          {
             WHAT_DONE("send", file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
@@ -1146,6 +1156,12 @@ main(int argc, char *argv[])
             {
                trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, msg_str,
                          _("Open remote file %s"), initial_filename);
+            }
+            if ((created_path != NULL) && (created_path[0] != '\0'))
+            {
+               trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                         "Created directory `%s'.", created_path);
+               created_path[0] = '\0';
             }
          }
 #ifdef WITH_SSL
@@ -1601,7 +1617,8 @@ main(int argc, char *argv[])
 
             /* Open ready file on remote site */
             if ((status = ftp_data(ready_file_name, append_offset,
-                                   db.ftp_mode, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
+                                   db.ftp_mode, DATA_WRITE, db.sndbuf_size,
+                                   NO, NULL, NULL)) != SUCCESS)
             {
                WHAT_DONE("send", file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,

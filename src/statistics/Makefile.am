@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2007 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 MAINTAINERCLEANFILES    = Makefile.in
 CLEANFILES              = gmon.out core core.*
 noinst_HEADERS          = statdefs.h
-INCLUDES                = -I.. -I../init_afd
+AM_CPPFLAGS             = -I.. -I../init_afd
 bin_PROGRAMS            = afd_stat show_stat show_istat show_bench_stat
 afd_stat_SOURCES        = afd_stat.c\
                           eval_input_as.c\

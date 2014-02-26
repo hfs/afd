@@ -1,6 +1,6 @@
 /*
  *  remove_time_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void remove_time_dir(char         *host_name,
+ **                        int          warn_delete,
  **                        unsigned int job_id,
  **                        unsigned int dir_id,
  **                        int          reason,
@@ -42,6 +43,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   14.05.1999 H.Kiehl Created
+ **   07.05.2013 H.Kiehl Added warn_delete parameter to warn user that
+ **                      files have been removed.
  **
  */
 DESCR__E_M3
@@ -68,13 +71,14 @@ extern struct delete_log dl;
 void
 #ifdef _DELETE_LOG
 remove_time_dir(char         *host_name,
+                int          warn_delete,
                 unsigned int job_id,
                 unsigned int dir_id,
                 int          reason,
                 char         *cfile,
                 int          cfile_pos)
 #else
-remove_time_dir(char *host_name, unsigned int job_id)
+remove_time_dir(char *host_name, int warn_delete, unsigned int job_id)
 #endif
 {
 #ifdef _CHECK_TIME_DIR_DEBUG
@@ -127,16 +131,21 @@ remove_time_dir(char *host_name, unsigned int job_id)
             }
             else
             {
-#ifdef _DELETE_LOG
+# ifdef _DELETE_LOG
                int    prog_name_length;
                size_t dl_real_size;
-#endif
+# endif
 
                number_deleted++;
                file_size_deleted += stat_buf.st_size;
-#ifdef _DELETE_LOG
+# ifdef _DELETE_LOG
                (void)strcpy(dl.file_name, p_dir->d_name);
-               (void)sprintf(dl.host_name, "%-*s %03x",
+#  ifdef HAVE_SNPRINTF
+               (void)snprintf(dl.host_name, MAX_HOSTNAME_LENGTH + 4 + 1,
+#  else
+               (void)sprintf(dl.host_name,
+#  endif
+                             "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, host_name, reason);
                *dl.file_size = stat_buf.st_size;
                *dl.job_id = job_id;
@@ -145,7 +154,12 @@ remove_time_dir(char *host_name, unsigned int job_id)
                *dl.split_job_counter = 0;
                *dl.unique_number = 0;
                *dl.file_name_length = strlen(p_dir->d_name);
+#  ifdef HAVE_SNPRINTF
+               prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                           MAX_FILENAME_LENGTH + 1,
+#  else
                prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+#  endif
                                           "%s%c(%s %d)",
                                           DIR_CHECK, SEPARATOR_CHAR,
                                           cfile, cfile_pos);
@@ -155,10 +169,21 @@ remove_time_dir(char *host_name, unsigned int job_id)
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "write() error : %s", strerror(errno));
                }
-#endif
+# endif
             }
          }
          errno = 0;
+      }
+
+      if ((number_deleted > 0) && (warn_delete == YES))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+# if SIZEOF_OFF_T == 4
+                    "Deleted %d files %ld bytes from changed time job for %s", 
+# else
+                    "Deleted %d files %lld bytes from changed time job for %s", 
+# endif
+                    number_deleted, (pri_off_t)file_size_deleted, host_name);
       }
 
       *(ptr - 1) = '\0';

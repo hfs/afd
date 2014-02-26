@@ -73,7 +73,6 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>           /* sprintf()                                */
 #include <string.h>          /* strcmp(), strcpy(), strlen(), strerror() */
 #include <stdlib.h>          /* free()                                   */
 #include <sys/types.h>

@@ -1,6 +1,6 @@
 /*
  *  rename_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,11 +61,11 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>                 /* sprintf()                          */
+#include <stdio.h>                 /* rename()                           */
 #include <string.h>                /* strcpy(), strlen(), strerror()     */
 #include <stdlib.h>                /* exit()                             */
 #include <sys/types.h>
-#include <unistd.h>                /* link()                             */
+#include <unistd.h>                /* link(), sleep()                    */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -111,7 +111,7 @@ rename_files(char                   *src_file_path,
          /* Create a new message name and directory. */
          if (create_name(dest_file_path, p_db->priority, current_time,
                          p_db->job_id, split_job_counter, &unique_number,
-                         unique_name, -1) < 0)
+                         unique_name, MAX_FILENAME_LENGTH - 1, -1) < 0)
          {
             if (errno == ENOSPC)
             {
@@ -126,7 +126,7 @@ rename_files(char                   *src_file_path,
                   if (create_name(dest_file_path, p_db->priority,
                                   current_time, p_db->job_id,
                                   split_job_counter, &unique_number,
-                                  unique_name, -1) < 0)
+                                  unique_name, MAX_FILENAME_LENGTH - 1, -1) < 0)
                   {
                      if (errno != ENOSPC)
                      {

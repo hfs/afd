@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -140,6 +140,265 @@
 #define NO_SWITCHING             0
 #define AUTO_SWITCHING           1
 #define USER_SWITCHING           2
+
+
+#define PRINT_SIZE_STR(value, str)\
+   {\
+      (str)[3] = ' ';\
+      (str)[6] = '\0';\
+      if ((value) < KILOBYTE)\
+      {\
+         if ((value) < 1000)\
+         {\
+            (str)[4] = 'B';\
+            (str)[5] = ' ';\
+            if ((value) < 10)\
+            {\
+               (str)[0] = ' ';\
+               (str)[1] = ' ';\
+               (str)[2] = (value) + '0';\
+            }\
+            else if ((value) < 100)\
+                 {\
+                    (str)[0] = ' ';\
+                    (str)[1] = ((value) / 10) + '0';\
+                    (str)[2] = ((value) % 10) + '0';\
+                 }\
+                 else\
+                 {\
+                    (str)[0] = ((value) / 100) + '0';\
+                    (str)[1] = (((value) / 10) % 10) + '0';\
+                    (str)[2] = ((value) % 10) + '0';\
+                 }\
+         }\
+         else\
+         {\
+            (str)[0] = '0';\
+            (str)[1] = '.';\
+            (str)[2] = '9';\
+            (str)[3] = ' ';\
+            (str)[4] = 'K';\
+            (str)[5] = 'B';\
+         }\
+      }\
+      else if ((value) < MEGABYTE)\
+           {\
+              if ((value) < 1000000)\
+              {\
+                 int num = (value) / KILOBYTE;\
+\
+                 (str)[4] = 'K';\
+                 (str)[5] = 'B';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / KILOBYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = ' ';\
+                 (str)[4] = 'M';\
+                 (str)[5] = 'B';\
+              }\
+           }\
+      else if ((value) < GIGABYTE)\
+           {\
+              if ((value) < 1000000000)\
+              {\
+                 int num = (value) / MEGABYTE;\
+\
+                 (str)[4] = 'M';\
+                 (str)[5] = 'B';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / MEGABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = ' ';\
+                 (str)[4] = 'G';\
+                 (str)[5] = 'B';\
+              }\
+           }\
+      else if ((value) < TERABYTE)\
+           {\
+              if ((value) < 1000000000000LL)\
+              {\
+                 int num = (value) / GIGABYTE;\
+\
+                 (str)[4] = 'G';\
+                 (str)[5] = 'B';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / GIGABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = ' ';\
+                 (str)[4] = 'T';\
+                 (str)[5] = 'B';\
+              }\
+           }\
+      else if ((value) < PETABYTE)\
+           {\
+              if ((value) < 1000000000000000LL)\
+              {\
+                 int num = (value) / TERABYTE;\
+\
+                 (str)[4] = 'T';\
+                 (str)[5] = 'B';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / TERABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = ' ';\
+                 (str)[4] = 'P';\
+                 (str)[5] = 'B';\
+              }\
+           }\
+      else if ((value) < EXABYTE)\
+           {\
+              if ((value) < 1000000000000000000LL)\
+              {\
+                 int num = (value) / PETABYTE;\
+\
+                 (str)[4] = 'P';\
+                 (str)[5] = 'B';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / PETABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = ' ';\
+                 (str)[4] = 'E';\
+                 (str)[5] = 'B';\
+              }\
+           }\
+           else\
+           {\
+              int num = (value) / EXABYTE;\
+\
+              (str)[4] = 'E';\
+              (str)[5] = 'B';\
+              if (num < 10)\
+              {\
+                 (str)[0] = num + '0';\
+                 (str)[1] = '.';\
+                 num = (value) / EXABYTE;\
+                 (str)[2] = (num % 10) + '0';\
+              }\
+              else if (num < 100)\
+                   {\
+                      (str)[0] = ' ';\
+                      (str)[1] = (num / 10) + '0';\
+                      (str)[2] = (num % 10) + '0';\
+                   }\
+                   else\
+                   {\
+                      (str)[0] = ((num / 100) % 10) + '0';\
+                      (str)[1] = ((num / 10) % 10) + '0';\
+                      (str)[2] = (num % 10) + '0';\
+                   }\
+           }\
+   }
+
 
 /* Structure to hold all host alias names and their real names. */
 struct afd_host_list
@@ -459,26 +718,27 @@ struct process_list
        };
 
 /* Function prototypes. */
-int   attach_afd_mon_status(void),
-      check_mon(long),
-      detach_afd_mon_status(void),
-      evaluate_message(int *),
-      handle_log_data(int, int),
-      init_fifos_mon(void),
-      read_msg(void),
-      send_log_cmd(int, char *, int *),
-      tcp_connect(char *, int, int),
-      tcp_quit(void);
-pid_t start_process(char *, int);
-char  *convert_msa(int, char *, off_t *, int, unsigned char, unsigned char);
-void  create_msa(void),
-      eval_afd_mon_db(struct mon_list **),
-      mon_log(char *, char *, int, time_t, char *, char *, ...),
-      shutdown_mon(int, char *),
-      start_all(void),
-      start_log_process(int, unsigned int),
-      stop_log_process(int),
-      stop_process(int, int),
-      write_afd_log(int, int, unsigned int, unsigned int, char *);
+extern int   attach_afd_mon_status(void),
+             check_mon(long),
+             detach_afd_mon_status(void),
+             evaluate_message(int *),
+             handle_log_data(int, int),
+             init_fifos_mon(void),
+             read_msg(void),
+             send_log_cmd(int, char *, int *),
+             tcp_connect(char *, int, int),
+             tcp_quit(void);
+extern pid_t start_process(char *, int);
+extern char  *convert_msa(int, char *, off_t *, int, unsigned char,
+             unsigned char);
+extern void  create_msa(void),
+             eval_afd_mon_db(struct mon_list **),
+             mon_log(char *, char *, int, time_t, char *, char *, ...),
+             shutdown_mon(int, char *),
+             start_all(void),
+             start_log_process(int, unsigned int),
+             stop_log_process(int),
+             stop_process(int, int),
+             write_afd_log(int, int, unsigned int, unsigned int, char *);
 
 #endif /* __mondefs_h */

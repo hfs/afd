@@ -126,6 +126,16 @@ MIN_NICE_VALUE                   19
 #RENAME_RULE_NAME                /home/afd/AFD_RENAME_RULES
 
 ##########################################################################
+# Bulletin specification file name, where AFD reads all data needed to   #
+# extract reports from a bulletin. This is always needed together with   #
+# the report specification file name. Currently these files must be      #
+# located in $AFD_WORK_DIR/etc.                                          #
+# Default: None                                                          #
+##########################################################################
+#BUL_RULE_FILE_NAME               msp.csv
+#REP_RULE_FILE_NAME               rep.csv
+
+##########################################################################
 # Maximum number of times that the process inst_job may fork itself.     #
 # Default: 20                                                            #
 ##########################################################################
@@ -237,6 +247,13 @@ MAX_CONNECTIONS                  80
 #CREATE_SOURCE_DIR                YES
 
 ##########################################################################
+# The permission of the source directories that found in the DIR_CONFIG  #
+# and created by AMG if they are not there.                              #
+# Default: 775                                                           #
+##########################################################################
+#CREATE_SOURCE_DIR_MODE           775
+
+##########################################################################
 # If this is set to YES and the target directory does not exist it will  #
 # be created automatically, unless the option do not create target dir   #
 # is set If it is set to NO it will not create the target directory.     #
@@ -312,6 +329,7 @@ MAX_CONNECTIONS                  80
 ##########################################################################
 # When AMG has collected MAX_COPIED_FILES, it will try to continue to    #
 # copy from this directory until it reaches ONE_DIR_COPY_TIMEOUT timeout.#
+# The unit is seconds.                                                   #
 # Default: 10                                                            #
 ##########################################################################
 ONE_DIR_COPY_TIMEOUT             10
@@ -326,13 +344,6 @@ ONE_DIR_COPY_TIMEOUT             10
 # Default: 0                                                             #
 ##########################################################################
 #FULL_SCAN_TIMEOUT                0
-
-##########################################################################
-# The permission of the source directories that found in the DIR_CONFIG  #
-# and created by AMG if they are not there.                              #
-# Default: 775                                                           #
-##########################################################################
-#CREATE_SOURCE_DIR_MODE           775
 
 ##########################################################################
 # The number of old logfiles that AFD keeps before they are deleted.     #
@@ -407,9 +418,12 @@ TRACEROUTE_CMD                   @TRACEROUTE_CMD@
 ##########################################################################
 # Program to view data of show_olog and show_queue dialog. May be        #
 # used multiple times. Note that the order matters, it goes from top to  #
-# bottom and the first pattern that matches will be taken. Command       #
-# syntax is as follows:                                                  #
-#   VIEW_DATA_PROG <progname> <pattern>                                  #
+# bottom and the first pattern that matches will be taken. The optional  #
+# parameter --with-show_cmd can be used for programs that just write to  #
+# STDOUT and/or STDERR. Command syntax is as follows:                    #
+#                                                                        #
+#   VIEW_DATA_PROG [--with-show_cmd] <progname> <pattern>                #
+#                                                                        #
 # <progname> is the program name of the program to be called. If         #
 #            parameters are to be added, put this in ". The filename to  #
 #            be shown can be added with %s.                              #
@@ -419,6 +433,21 @@ TRACEROUTE_CMD                   @TRACEROUTE_CMD@
 ##########################################################################
 #VIEW_DATA_PROG display *.jpg|*.png
 #VIEW_DATA_PROG xv *.tif
+
+##########################################################################
+# In dialog show_olog it is possible to set the view mode. The default   #
+# is set to an internal program showing the content of the file in hex   #
+# view. With VIEW_DATA_NO_FILTER_PROG one can specify another program.   #
+# It is possible to specify multiple VIEW_DATA_NO_FILTER_PROG programs.  #
+# Note the first value is always the alias name of the program name that #
+# is shown in show_olog. This may only be 8 characters long. With the    #
+# option --with-show_cmd one can show the output of programs that just   #
+# write to STDOUT and/or STDERR.                                         #
+##########################################################################
+#VIEW_DATA_NO_FILTER_PROG    XV   /usr/bin/xv
+#VIEW_DATA_NO_FILTER_PROG    Xpdf xpdf
+#VIEW_DATA_NO_FILTER_PROG    od --with-show_cmd "od -A x -t x1z -v"
+#VIEW_DATA_NO_FILTER_PROG    bufr --with-show_cmd "bufrtool -d -t ~/afd/usr/tables_v2 -i %s -o - "
 
 ##########################################################################
 # The FAKE_USER option allows the administrator to allow certain users   #

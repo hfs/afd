@@ -1,6 +1,6 @@
 /*
  *  url.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2008 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2008 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -75,6 +75,9 @@ DESCR__S_M3
  **   17.01.2010 H.Kiehl Handle case when no port number is specified.
  **   04.11.2011 H.Kiehl Handle case when the server= part is to long.
  **   27.11.2011 H.Kiehl Added scheme exec.
+ **   07.02.2013 H.Kiehl Added %e configuration parameter to allow one
+ **                      to execute a command to determine part or the
+ **                      full directory name.
  **
  */
 DESCR__E_M3
@@ -85,6 +88,8 @@ DESCR__E_M3
 #include <ctype.h>      /* tolower(), isxdigit(), isdigit()              */
 #include <time.h>       /* strftime(), localtime(), time()               */
 #include <unistd.h>     /* gethostname()                                 */
+
+#define EXEC_PATH_TIMEOUT        10 /* in seconds */
 
 #define URL_GET_SCHEME           1
 #define URL_GET_USER             2
@@ -1280,6 +1285,7 @@ url_evaluate(char          *url,
                               }
                               else
                               {
+                                 /* %t - insert date/time. */
                                  if ((*ptr == '%') && (*(ptr + 1) == 't'))
                                  {
                                     int    number;
@@ -1315,84 +1321,90 @@ url_evaluate(char          *url,
                                     {
                                        case 'a': /* short day of the week 'Tue' */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%a", localtime(&time_buf));
                                           break;
                                        case 'b': /* short month 'Jan' */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%b", localtime(&time_buf));
                                           break;
                                        case 'j': /* day of year [001,366] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%j", localtime(&time_buf));
                                           break;
                                        case 'd': /* day of month [01,31] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%d", localtime(&time_buf));
                                           break;
                                        case 'M': /* minute [00,59] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%M", localtime(&time_buf));
                                           break;
                                        case 'm': /* month [01,12] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%m", localtime(&time_buf));
                                           break;
                                        case 'R': /* Sunday week number [00,53]. */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%U", localtime(&time_buf));
                                           break;
                                        case 'w': /* Weekday [0=Sunday,6]. */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%w", localtime(&time_buf));
                                           break;
                                        case 'W': /* Monday week number [00,53]. */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%W", localtime(&time_buf));
                                           break;
                                        case 'y': /* year 2 chars [01,99] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%y", localtime(&time_buf));
                                           break;
                                        case 'H': /* hour [00,23] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%H", localtime(&time_buf));
                                           break;
                                        case 'S': /* second [00,59] */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%S", localtime(&time_buf));
                                           break;
                                        case 'Y': /* year 4 chars 2002 */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%Y", localtime(&time_buf));
                                           break;
                                        case 'A': /* long day of the week 'Tuesday' */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%A", localtime(&time_buf));
                                           break;
                                        case 'B': /* month 'January' */
                                           number = strftime(&path[i],
-                                                            MAX_PATH_LENGTH - i,
+                                                            MAX_RECIPIENT_LENGTH - i,
                                                             "%B", localtime(&time_buf));
                                           break;
                                        case 'U': /* Unix time. */
-#if SIZEOF_TIME_T == 4
-                                          number = sprintf(&path[i], "%ld",
+#ifdef HAVE_SNPRINTF
+                                          number = snprintf(&path[i],
+                                                             MAX_RECIPIENT_LENGTH - i,
 #else
-                                          number = sprintf(&path[i], "%lld",
+                                          number = sprintf(&path[i],
+#endif
+#if SIZEOF_TIME_T == 4
+                                                           "%ld",
+#else
+                                                           "%lld",
 #endif
                                                            (pri_time_t)time_buf);
                                           break;
@@ -1406,6 +1418,7 @@ url_evaluate(char          *url,
                                     i += number;
                                     ptr += 3;
                                  }
+                                      /* %T - time modifier. */
                                  else if ((*ptr == '%') && (*(ptr + 1) == 'T'))
                                       {
                                          int  j,
@@ -1480,6 +1493,7 @@ url_evaluate(char          *url,
                                             time_modifier = time_modifier * time_unit;
                                          }
                                       }
+                                      /* %h - add current hostname. */
                                  else if ((*ptr == '%') && (*(ptr + 1) == 'h'))
                                       {
                                          char hostname[60];
@@ -1490,8 +1504,13 @@ url_evaluate(char          *url,
 
                                             if ((p_hostname = getenv("HOSTNAME")) != NULL)
                                             {
-                                               i += sprintf(&path[i], "%s",
-                                                            p_hostname);
+#ifdef HAVE_SNPRINTF
+                                               i += snprintf(&path[i],
+                                                             MAX_RECIPIENT_LENGTH - i,
+#else
+                                               i += sprintf(&path[i],
+#endif
+                                                            "%s", p_hostname);
                                             }
                                             else
                                             {
@@ -1502,9 +1521,90 @@ url_evaluate(char          *url,
                                          }
                                          else
                                          {
-                                            i += sprintf(&path[i], "%s", hostname);
+#ifdef HAVE_SNPRINTF
+                                            i += snprintf(&path[i],
+                                                          MAX_RECIPIENT_LENGTH - i,
+#else
+                                            i += sprintf(&path[i],
+#endif
+                                                         "%s", hostname);
                                          }
                                          ptr += 2;
+                                      }
+                                      /* %e - execute command to get path. */
+                                 else if ((*ptr == '%') && (*(ptr + 1) == 'e') &&
+                                          (*(ptr + 2) == '`'))
+                                      {
+                                         int  ii = 0;
+                                         char cmd[MAX_RECIPIENT_LENGTH + 1];
+
+                                         while ((ii < MAX_RECIPIENT_LENGTH) &&
+                                                (*(ptr + 3 + ii) != '`') &&
+                                                (*(ptr + 3 + ii) != '\0'))
+                                         {
+                                            cmd[ii] = *(ptr + 3 + ii);
+                                            ii++;
+                                         }
+                                         if (*(ptr + 3 + ii) == '`')
+                                         {
+                                            int  ret;
+                                            char *return_str = NULL;
+
+                                            cmd[ii] = '\0';
+
+                                            /* do it */
+                                            if ((ret = exec_cmd(cmd,
+                                                                &return_str,
+                                                                -1, NULL, 0,
+#ifdef HAVE_SETPRIORITY
+                                                                NO_PRIORITY,
+#endif
+                                                                NULL,
+                                                                EXEC_PATH_TIMEOUT,
+                                                                YES, YES)) != 0)
+                                            {
+                                               url_error |= EXEC_CMD_ERROR;
+                                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                          "exec command `%s' failed and returned %d",
+                                                          cmd, ret);
+                                            }
+                                            else
+                                            {
+                                               if (return_str == NULL)
+                                               {
+                                                  url_error |= EXEC_NO_RETURN;
+                                               }
+                                               else
+                                               {
+                                                  int length;
+
+                                                  if ((length = strlen(return_str)) > 0)
+                                                  {
+                                                     if (return_str[length - 1] == '\n')
+                                                     {
+                                                        return_str[length - 1] = '\0';
+                                                     }
+                                                     (void)my_strncpy(&path[i],
+                                                                      return_str,
+                                                                      MAX_RECIPIENT_LENGTH - i);
+                                                     i += (length - 1);
+                                                  }
+
+                                                  /* Away with the terminating ` */
+                                                  ii++;
+                                               }
+                                            }
+                                         }
+                                         else if (*(ptr + 3 + ii) == '\0')
+                                              {
+                                                 url_error |= EXEC_NOT_TERMINATED;
+                                              }
+                                              else
+                                              {
+                                                 url_error |= EXEC_CMD_TO_LONG;
+                                              }
+
+                                         ptr += (3 + ii);
                                       }
                                  else if (*ptr == '+')
                                       {
@@ -2329,7 +2429,11 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          length = 0;
          if ((error_str_length > 14) && (error_mask & UNKNOWN_SCHEME))
          {
+#ifdef HAVE_SNPRINTF
+            length = snprintf(error_str, error_str_length, "unknown scheme");
+#else
             length = sprintf(error_str, "unknown scheme");
+#endif
             error_str_length -= length;
          }
          if ((error_str_length > (35 + MAX_INT_LENGTH)) &&
@@ -2337,13 +2441,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", user name may only be %d bytes long",
                                  MAX_USER_NAME_LENGTH);
             }
             else
             {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
                length = sprintf(error_str,
+#endif
                                 "user name may only be %d bytes long",
                                 MAX_USER_NAME_LENGTH);
             }
@@ -2353,11 +2465,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
-               length += sprintf(&error_str[length], ", unknown SMTP authentication");
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
+               length += sprintf(&error_str[length],
+#endif
+                                 ", unknown SMTP authentication");
             }
             else
             {
-               length = sprintf(error_str, "unknown SMTP authentication");
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "unknown SMTP authentication");
             }
             error_str_length -= length;
          }
@@ -2366,11 +2488,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
-               length += sprintf(&error_str[length], ", unknown key type");
+# ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+# else
+               length += sprintf(&error_str[length],
+# endif
+                                 ", unknown key type");
             }
             else
             {
-               length = sprintf(error_str, "unknown key type");
+# ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+# else
+               length = sprintf(error_str,
+# endif
+                                "unknown key type");
             }
             error_str_length -= length;
          }
@@ -2378,11 +2510,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
-               length += sprintf(&error_str[length], ", invalid fingerprint");
+# ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+# else
+               length += sprintf(&error_str[length],
+# endif
+                                 ", invalid fingerprint");
             }
             else
             {
-               length = sprintf(error_str, "invalid fingerprint");
+# ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+# else
+               length = sprintf(error_str,
+# endif
+                                "invalid fingerprint");
             }
             error_str_length -= length;
          }
@@ -2390,12 +2532,20 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+# ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+# else
                length += sprintf(&error_str[length],
+# endif
                                  ", only known parameter after user is fingerprint");
             }
             else
             {
+# ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+# else
                length = sprintf(error_str,
+# endif
                                 "only known parameter after user is fingerprint");
             }
             error_str_length -= length;
@@ -2406,13 +2556,22 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", password may only be %d bytes long",
                                  MAX_USER_NAME_LENGTH);
             }
             else
             {
-               length = sprintf(error_str, "password may only be %d bytes long",
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "password may only be %d bytes long",
                                 MAX_USER_NAME_LENGTH);
             }
             error_str_length -= length;
@@ -2422,13 +2581,22 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", hostname may only be %d bytes long",
                                  MAX_REAL_HOSTNAME_LENGTH);
             }
             else
             {
-               length = sprintf(error_str, "hostname may only be %d bytes long",
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "hostname may only be %d bytes long",
                                 MAX_REAL_HOSTNAME_LENGTH);
             }
             error_str_length -= length;
@@ -2438,13 +2606,22 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", port number may only be %d bytes long",
                                  MAX_INT_LENGTH);
             }
             else
             {
-               length = sprintf(error_str, "port number may only be %d bytes long",
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "port number may only be %d bytes long",
                                 MAX_INT_LENGTH);
             }
             error_str_length -= length;
@@ -2454,13 +2631,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", time modifier in path may only be %d bytes long",
                                  MAX_INT_LENGTH);
             }
             else
             {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
                length = sprintf(error_str,
+#endif
                                 "time modifier in path may only be %d bytes long",
                                 MAX_INT_LENGTH);
             }
@@ -2471,12 +2656,20 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", time modifier in path is missing");
             }
             else
             {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
                length = sprintf(error_str,
+#endif
                                 "time modifier in path is missing");
             }
             error_str_length -= length;
@@ -2486,13 +2679,22 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", recipient may only be %d bytes long",
                                  MAX_RECIPIENT_LENGTH);
             }
             else
             {
-               length = sprintf(error_str, "path may only be %d bytes long",
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "path may only be %d bytes long",
                                 MAX_RECIPIENT_LENGTH);
             }
             error_str_length -= length;
@@ -2501,11 +2703,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
-               length += sprintf(&error_str[length], ", unknown transfer type");
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
+               length += sprintf(&error_str[length],
+#endif
+                                 ", unknown transfer type");
             }
             else
             {
-               length = sprintf(error_str, "unknown transfer type");
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "unknown transfer type");
             }
             error_str_length -= length;
          }
@@ -2514,13 +2726,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", protocol version may only be %d bytes long",
                                  MAX_INT_LENGTH);
             }
             else
             {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
                length = sprintf(error_str,
+#endif
                                 "protocol version may only be %d bytes long",
                                 MAX_INT_LENGTH);
             }
@@ -2530,12 +2750,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", no protocol version supplied");
             }
             else
             {
-               length = sprintf(error_str, "no protocol version supplied");
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "no protocol version supplied");
             }
             error_str_length -= length;
          }
@@ -2543,12 +2772,21 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", no port number supplied");
             }
             else
             {
-               length = sprintf(error_str, "no port number supplied");
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "no port number supplied");
             }
             error_str_length -= length;
          }
@@ -2557,14 +2795,114 @@ url_get_error(int error_mask, char *error_str, int error_str_length)
          {
             if (length)
             {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
                length += sprintf(&error_str[length],
+#endif
                                  ", server name may only be %d bytes long",
                                  MAX_REAL_HOSTNAME_LENGTH);
             }
             else
             {
-               length = sprintf(error_str, "server name may only be %d bytes long",
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "server name may only be %d bytes long",
                                 MAX_REAL_HOSTNAME_LENGTH);
+            }
+            error_str_length -= length;
+         }
+         if ((error_str_length > 29) && (error_mask & EXEC_CMD_ERROR))
+         {
+            if (length)
+            {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
+               length += sprintf(&error_str[length],
+#endif
+                                 ", execution of command failed");
+            }
+            else
+            {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "execution of command failed");
+            }
+            error_str_length -= length;
+         }
+         if ((error_str_length > 25) && (error_mask & EXEC_NO_RETURN))
+         {
+            if (length)
+            {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
+               length += sprintf(&error_str[length],
+#endif
+                                 ", execution returned NULL");
+            }
+            else
+            {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "execution returned NULL");
+            }
+            error_str_length -= length;
+         }
+         if ((error_str_length > 43) && (error_mask & EXEC_NOT_TERMINATED))
+         {
+            if (length)
+            {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
+               length += sprintf(&error_str[length],
+#endif
+                                 ", exec command (%%e) not terminated with a `");
+            }
+            else
+            {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "exec command (%%e) not terminated with a `");
+            }
+            error_str_length -= length;
+         }
+         if ((error_str_length > (43 + MAX_INT_LENGTH)) &&
+             (error_mask & EXEC_CMD_TO_LONG))
+         {
+            if (length)
+            {
+#ifdef HAVE_SNPRINTF
+               length += snprintf(&error_str[length], error_str_length - length,
+#else
+               length += sprintf(&error_str[length],
+#endif
+                                 ", exec command (%%e) to long, may only be %d bytes long",
+                                 MAX_RECIPIENT_LENGTH);
+            }
+            else
+            {
+#ifdef HAVE_SNPRINTF
+               length = snprintf(error_str, error_str_length,
+#else
+               length = sprintf(error_str,
+#endif
+                                "exec command (%%e) to long, may only be %d bytes long",
+                                MAX_RECIPIENT_LENGTH);
             }
             error_str_length -= length;
          }

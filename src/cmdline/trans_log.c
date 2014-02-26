@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>                   /* memcpy()                        */
+#include <string.h>                   /* memcpy(), strerror()            */
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #ifdef TM_IN_SYS_TIME
@@ -226,7 +226,11 @@ trans_log(char *sign,
       } while (*end_ptr != '\0');
       buf[header_length] = tmp_char;
    }
-   (void)write(transfer_log_fd, buf, length);
+   if (write(transfer_log_fd, buf, length) != length)
+   {
+      (void)fprintf(stderr, "Failed to write() buffer : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
    errno = tmp_errno;
 
    return;

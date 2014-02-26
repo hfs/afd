@@ -1,6 +1,6 @@
 /*
  *  fsa_attach_pos.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,7 +88,11 @@ fsa_attach_pos(int pos)
    char fsa_stat_file[MAX_PATH_LENGTH];
 
    /* Get absolute path of FSA_ID_FILE. */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(fsa_stat_file, MAX_PATH_LENGTH, "%s%s%s.%d",
+#else
    (void)sprintf(fsa_stat_file, "%s%s%s.%d",
+#endif
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, fsa_id);
    if ((fsa_fd = open(fsa_stat_file, O_RDWR)) == -1)
    {
@@ -102,7 +106,11 @@ fsa_attach_pos(int pos)
       {
          int fd;
 
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(fsa_stat_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
          (void)sprintf(fsa_stat_file, "%s%s%s",
+#endif
                        p_work_dir, FIFO_DIR, FSA_ID_FILE);
          if ((fd = open(fsa_stat_file, O_RDWR)) == -1)
          {
@@ -151,7 +159,11 @@ fsa_attach_pos(int pos)
                }
                else
                {
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(fsa_stat_file, MAX_PATH_LENGTH, "%s%s%s.%d",
+#else
                   (void)sprintf(fsa_stat_file, "%s%s%s.%d",
+#endif
                                 p_work_dir, FIFO_DIR, FSA_STAT_FILE, fsa_id);
                   if ((fsa_fd = open(fsa_stat_file, O_RDWR)) == -1)
                   {

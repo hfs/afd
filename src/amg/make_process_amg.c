@@ -1,6 +1,6 @@
 /*
  *  make_process_amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2008 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -74,9 +74,15 @@ make_process_amg(char *work_dir,
          nd_str[MAX_INT_LENGTH];
 
    /* First convert int's into a char string. */
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(rt_str, MAX_INT_LENGTH, "%d", rescan_time);
+   (void)snprintf(mp_str, MAX_INT_LENGTH, "%d", max_process);
+   (void)snprintf(nd_str, MAX_INT_LENGTH, "%d", no_of_local_dirs);
+#else
    (void)sprintf(rt_str, "%d", rescan_time);
    (void)sprintf(mp_str, "%d", max_process);
    (void)sprintf(nd_str, "%d", no_of_local_dirs);
+#endif
 
    switch (proc_id = fork())
    {

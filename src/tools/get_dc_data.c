@@ -1,6 +1,6 @@
 /*
  *  get_dc_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -252,7 +252,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
    }
 
-   if ((ret = fsa_attach_passive(NO)) < 0)
+   if ((ret = fsa_attach_passive(NO, GET_DC_DATA)) < 0)
    {
       if (ret == INCORRECT_VERSION)
       {
@@ -542,8 +542,11 @@ get_dc_data(char *host_name, char *dir_alias, unsigned int dir_id)
    }
    else
    {
-      (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
-                    file, strerror(errno), __FILE__, __LINE__);
+      if (errno != ENOENT)
+      {
+         (void)fprintf(stderr, _("Failed to open() `%s' : %s (%s %d)\n"),
+                       file, strerror(errno), __FILE__, __LINE__);
+      }
    }
 
    /* Map to DIR_CONFIG name database. */

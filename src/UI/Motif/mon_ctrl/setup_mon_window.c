@@ -1,7 +1,7 @@
 /*
  *  setup_mon_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -66,6 +66,7 @@ extern Widget                  mw[],
                                hlw[],
                                lw[],
                                lsw[],
+                               oow[],
                                pw[];
 extern GC                      letter_gc,
                                normal_letter_gc,
@@ -322,7 +323,8 @@ setup_mon_window(char *font_name)
       XtVaSetValues(sw[ROWS_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[STYLE_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[HISTORY_W], XmNfontList, fontlist, NULL);
-      XtVaSetValues(sw[SAVE_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(sw[MON_OTHER_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(sw[MON_SAVE_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the Help pulldown. */
 #ifdef _WITH_HELP_PULLDOWN
@@ -352,6 +354,15 @@ setup_mon_window(char *font_name)
       XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
+
+      /* Set the font for the history pulldown. */
+      for (i = 0; i < NO_OF_HISTORY_LOGS; i++)
+      {
+         XtVaSetValues(hlw[i], XmNfontList, fontlist, NULL);
+      }
+
+      /* Set the font for the Other options pulldown. */
+      XtVaSetValues(oow[FORCE_SHIFT_SELECT_W], XmNfontList, fontlist, NULL);
    }
 
    glyph_height       = font_struct->ascent + font_struct->descent;

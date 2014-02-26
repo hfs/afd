@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void continues_toggle(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void only_archived_toggle(Widget w, XtPointer client_data, XtPointer call_data)
  **   void toggled(Widget w, XtPointer client_data, XtPointer call_data)
  **   void file_name_toggle(Widget w, XtPointer client_data, XtPointer call_data)
  **   void radio_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -39,8 +40,9 @@ DESCR__S_M3
  **   void close_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void save_input(Widget w, XtPointer client_data, XtPointer call_data)
  **   void scrollbar_moved(Widget w, XtPointer client_data, XtPointer call_data)
- **   void view_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void set_sensitive(void)
+ **   void set_view_mode(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void view_button(Widget w, XtPointer client_data, XtPointer call_data)
  **
  ** DESCRIPTION
  **   The function toggled() is used to set the bits in the global
@@ -140,7 +142,9 @@ extern int              continues_toggle_set,
                         special_button_flag,
                         sum_line_length,
                         no_of_log_files,
-                        char_width;
+                        char_width,
+                        view_archived_only,
+                        view_mode;
 extern unsigned int     all_list_items,
                         *search_dirid;
 extern XT_PTR_TYPE      toggles_set;
@@ -190,6 +194,22 @@ continues_toggle(Widget w, XtPointer client_data, XtPointer call_data)
    else
    {
       continues_toggle_set = NO;
+   }
+   return;
+}
+
+
+/*######################## only_archived_toggle() #######################*/
+void
+only_archived_toggle(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   if (view_archived_only == NO)
+   {
+      view_archived_only = YES;
+   }
+   else
+   {
+      view_archived_only = NO;
    }
    return;
 }
@@ -493,6 +513,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
 
          /* Get the information. */
          get_info(pos);
+         get_info_free();
 
          /* Format information in a human readable text. */
          format_info(&text);
@@ -626,6 +647,35 @@ set_sensitive(void)
       XtSetSensitive(send_button_w, True);
    }
    XtSetSensitive(print_button_w, True);
+
+   return;
+}
+
+
+/*########################### set_view_mode() ###########################*/
+void
+set_view_mode(Widget w, XtPointer client_data, XtPointer call_data)
+{
+#if SIZEOF_LONG == 4
+   view_mode = (int)client_data;
+#else
+   union uintlong
+         {
+            unsigned int ival[2];
+            long         lval;
+         } uil;
+   int   byte_order = 1;
+
+   uil.lval = (long)client_data;
+   if (*(char *)&byte_order == 1)
+   {
+      view_mode = uil.ival[0];
+   }
+   else
+   {
+      view_mode = uil.ival[1];
+   }
+#endif
 
    return;
 }

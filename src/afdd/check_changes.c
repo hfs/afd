@@ -1,6 +1,6 @@
 /*
  *  check_changes.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ check_changes(FILE *p_data)
    register int        i;
    time_t              now;
 
-   if (check_fsa(YES) == YES)
+   if (check_fsa(YES, AFDD) == YES)
    {
       int loop_counter = 0,
           status;
@@ -93,7 +93,7 @@ retry_check:
          old_error_history = NULL;
       }
 
-      if (check_fsa(YES) == YES)
+      if (check_fsa(YES, AFDD) == YES)
       {
          loop_counter++;
          if (loop_counter < 10)
@@ -169,7 +169,7 @@ retry_check:
 
             old_st_mtime = stat_buf.st_mtime;
             if ((eaccess(afd_config_file, F_OK) == 0) &&
-                (read_file_no_cr(afd_config_file, &buffer) != INCORRECT))
+                (read_file_no_cr(afd_config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
             {
                int  max_connections = 0;
                char value[MAX_INT_LENGTH];

@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void get_info(int item)
+ **   void get_info_free(void)
  **   int  get_sum_data(int    item,
  **                     time_t *date,
  **                     double *file_size,
@@ -49,6 +50,7 @@ DESCR__S_M3
  **   14.01.1998 H.Kiehl Support for remote file name.
  **   31.12.2003 H.Kiehl Read file masks from separate file.
  **   05.11.2012 H.Kiehl Handle mail ID's.
+ **   29.08.2013 H.Kiehl Added get_info_free().
  **
  */
 DESCR__E_M3
@@ -74,6 +76,9 @@ extern struct info_data       id;
 /* Local variables. */
 static int                    *no_of_dc_ids,
                               *no_of_job_ids;
+static off_t                  dcl_size,
+                              dnb_size,
+                              jd_size;
 static struct job_id_data     *jd = NULL;
 static struct dir_name_buf    *dnb = NULL;
 static struct dir_config_list *dcl = NULL;
@@ -142,6 +147,7 @@ get_info(int item)
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
+         jd_size = stat_buf.st_size;
          (void)close(fd);
       }
       else
@@ -182,6 +188,7 @@ get_info(int item)
          }
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
+         dnb_size = stat_buf.st_size;
          (void)close(fd);
       }
       else
@@ -230,6 +237,7 @@ get_info(int item)
          no_of_dc_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          dcl = (struct dir_config_list *)ptr;
+         dcl_size = stat_buf.st_size;
          (void)close(fd);
       }
       else
@@ -249,7 +257,7 @@ get_info(int item)
       {
          if (item == GOT_JOB_ID_DIR_ONLY)
          {
-            (void)strcpy(id.dir, dnb[jd[i].dir_id_pos].dir_name);
+            (void)strcpy((char *)id.dir, dnb[jd[i].dir_id_pos].dir_name);
             id.dir_id = jd[i].dir_id;
             (void)sprintf(id.dir_id_str, "%x", id.dir_id);
          }
@@ -348,6 +356,51 @@ get_info(int item)
               }
 
          return;
+      }
+   }
+
+   return;
+}
+
+
+/*############################ get_info_free() ##########################*/
+void
+get_info_free(void)
+{
+   if (jd != NULL)
+   {
+      if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         jd = NULL;
+      }
+   }
+   if (dnb != NULL)
+   {
+      if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         dnb = NULL;
+      }
+   }
+   if (dcl != NULL)
+   {
+      if (munmap(((char *)dcl - AFD_WORD_OFFSET), dcl_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         dcl = NULL;
       }
    }
 
@@ -783,7 +836,7 @@ get_job_data(struct job_id_data *p_jd)
       }
    }
 
-   (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
+   (void)strcpy((char *)id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.dir_id = p_jd->dir_id;
    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
    get_dir_options(id.dir_id, &id.d_o);

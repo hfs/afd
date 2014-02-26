@@ -1,6 +1,6 @@
 /*
  *  isdup.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,13 +25,25 @@ DESCR__S_M3
  **   isdup - checks for duplicates
  **
  ** SYNOPSIS
- **   int  isdup(char *fullname, off_t size, unsigned int id, time_t timeout,
- **              int flag, int rm_flag, int have_hw_crc32, int stay_attached,
- **              int lock)
+ **   int  isdup(char         *fullname,
+ **              char         *filename,
+ **              off_t        size,
+ **              unsigned int id,
+ **              time_t       timeout,
+ **              int          flag,
+ **              int          rm_flag,
+ **              int          have_hw_crc32,
+ **              int          stay_attached,
+ **              int          lock)
  **   void isdup_detach(void)
  **
  ** DESCRIPTION
- **   The function isdup() checks if this file is a duplicate.
+ **   The function isdup() checks if this file is a duplicate. The
+ **   variable fullname is the filename with the full path. If the
+ **   filename is part of the CRC it will cut it out from fullname,
+ **   unless filename is not NULL. In that case it will take what
+ **   is in filename. This allows one to perform a check before the
+ **   file is being renamed.
  **
  ** RETURN VALUES
  **   isdup() returns YES if the file is duplicate, otherwise NO is
@@ -49,6 +61,13 @@ DESCR__S_M3
  **   21.11.2012 H.Kiehl Added option to disable locking.
  **   23.11.2012 H.Kiehl Included support for another CRC-32 algoritm
  **                      which also supports SSE4.2 on some CPU's.
+ **   01.02.2013 H.Kiehl Added support to make timeout being fixed, ie.
+ **                      is not cumulative.
+ **   03.01.2014 H.Kiehl Since attach_buf() can take a while set variable
+ **                      current_time after this function call.
+ **   12.01.2014 H.Kiehl Added optional parameter filename, so it is
+ **                      possible to do a check on a filename before
+ **                      it is renamed.
  **
  */
 DESCR__E_M3
@@ -74,6 +93,7 @@ static struct crc_buf *cdb = NULL;
 /*############################### isdup() ###############################*/
 int
 isdup(char         *fullname,
+      char         *filename,
       off_t        size,
       unsigned int id,
       time_t       timeout,
@@ -88,7 +108,6 @@ isdup(char         *fullname,
    int          dup,
                 i;
    unsigned int crc;
-   time_t       current_time;
    char         crcfile[MAX_PATH_LENGTH],
                 *ptr;
 
@@ -96,117 +115,147 @@ isdup(char         *fullname,
    {
       char *p_end;
 
-      p_end = ptr = fullname + strlen(fullname);
-      while ((*ptr != '/') && (ptr != fullname))
+      if (filename == NULL)
       {
-         ptr--;
-      }
-      if (*ptr == '/')
-      {
+         p_end = ptr = fullname + strlen(fullname);
+         while ((*ptr != '/') && (ptr != fullname))
+         {
+            ptr--;
+         }
+         if (*ptr != '/')
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       _("Unable to find filename in `%s'."), fullname);
+            return(NO);
+         }
          ptr++;
-         if (flag & DC_CRC32C)
-         {
-            crc = get_checksum_crc32c(INITIAL_CRC, ptr,
-#ifdef HAVE_HW_CRC32
-                                      (p_end - ptr), have_hw_crc32);
-#else
-                                      (p_end - ptr));
-#endif
-         }
-         else
-         {
-            crc = get_checksum(INITIAL_CRC, ptr, (p_end - ptr));
-         }
       }
       else
       {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    _("Unable to find filename in `%s'."), fullname);
-         return(NO);
+         ptr = filename;
+         p_end = filename  + strlen(filename);
+      }
+
+      if (flag & DC_CRC32C)
+      {
+         crc = get_checksum_crc32c(INITIAL_CRC, ptr,
+#ifdef HAVE_HW_CRC32
+                                   (p_end - ptr), have_hw_crc32);
+#else
+                                   (p_end - ptr));
+#endif
+      }
+      else
+      {
+         crc = get_checksum(INITIAL_CRC, ptr, (p_end - ptr));
       }
    }
    else if (flag & DC_FILENAME_AND_SIZE)
         {
            char filename_size[MAX_FILENAME_LENGTH + 1 + MAX_OFF_T_LENGTH + 1];
 
-           ptr = fullname + strlen(fullname);
-           while ((*ptr != '/') && (ptr != fullname))
+           if (filename == NULL)
            {
-              ptr--;
-           }
-           if (*ptr == '/')
-           {
+              ptr = fullname + strlen(fullname);
+              while ((*ptr != '/') && (ptr != fullname))
+              {
+                 ptr--;
+              }
+              if (*ptr != '/')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            _("Unable to find filename in `%s'."), fullname);
+                 return(NO);
+              }
               ptr++;
-              i = 0;
-              while ((*ptr != '\0') && (i < MAX_FILENAME_LENGTH))
-              {
-                 filename_size[i] = *ptr;
-                 i++; ptr++;
-              }
-              filename_size[i++] = ' ';
-              (void)memcpy(&filename_size[i], &size, sizeof(off_t));
-              if (flag & DC_CRC32C)
-              {
-                 crc = get_checksum_crc32c(INITIAL_CRC, filename_size,
-#ifdef HAVE_HW_CRC32
-                                           i + sizeof(off_t), have_hw_crc32);
-#else
-                                           i + sizeof(off_t));
-#endif
-              }
-              else
-              {
-                 crc = get_checksum(INITIAL_CRC, filename_size,
-                                    i + sizeof(off_t));
-              }
            }
            else
            {
-              system_log(WARN_SIGN, __FILE__, __LINE__,
-                         _("Unable to find filename in `%s'."), fullname);
-              return(NO);
+              ptr = filename;
+           }
+
+           i = 0;
+           while ((*ptr != '\0') && (i < MAX_FILENAME_LENGTH))
+           {
+              filename_size[i] = *ptr;
+              i++; ptr++;
+           }
+           filename_size[i++] = ' ';
+           (void)memcpy(&filename_size[i], &size, sizeof(off_t));
+           if (flag & DC_CRC32C)
+           {
+              crc = get_checksum_crc32c(INITIAL_CRC, filename_size,
+#ifdef HAVE_HW_CRC32
+                                        i + sizeof(off_t), have_hw_crc32);
+#else
+                                        i + sizeof(off_t));
+#endif
+           }
+           else
+           {
+              crc = get_checksum(INITIAL_CRC, filename_size,
+                                 i + sizeof(off_t));
            }
         }
    else if (flag & DC_NAME_NO_SUFFIX)
         {
            char *p_end;
 
-           p_end = ptr = fullname + strlen(fullname);
-           while ((*ptr != '.') && (*ptr != '/') && (ptr != fullname))
+           if (filename == NULL)
            {
-              ptr--;
-           }
-           if (*ptr == '.')
-           {
-              p_end = ptr;
-           }
-           while ((*ptr != '/') && (ptr != fullname))
-           {
-              ptr--;
-           }
-           if (*ptr == '/')
-           {
+              p_end = ptr = fullname + strlen(fullname);
+              while ((*ptr != '.') && (*ptr != '/') && (ptr != fullname))
+              {
+                 ptr--;
+              }
+              if (*ptr == '.')
+              {
+                 p_end = ptr;
+              }
+              while ((*ptr != '/') && (ptr != fullname))
+              {
+                 ptr--;
+              }
+              if (*ptr != '/')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            _("Unable to find filename in `%s'."), fullname);
+                 return(NO);
+              }
               ptr++;
-              if (flag & DC_CRC32C)
-              {
-                 crc = get_checksum_crc32c(INITIAL_CRC, ptr,
-#ifdef HAVE_HW_CRC32
-                                           (p_end - ptr), have_hw_crc32);
-#else
-                                           (p_end - ptr));
-#endif
-              }
-              else
-              {
-                 crc = get_checksum(INITIAL_CRC, ptr, (p_end - ptr));
-              }
            }
            else
            {
-              system_log(WARN_SIGN, __FILE__, __LINE__,
-                         _("Unable to find filename in `%s'."), fullname);
-              return(NO);
+              p_end = ptr = filename  + strlen(filename);
+              while ((*ptr != '.') && (ptr != filename))
+              {
+                 ptr--;
+              }
+              if (*ptr == '.')
+              {
+                 p_end = ptr;
+                 ptr = filename;
+              }
            }
+
+           if (flag & DC_CRC32C)
+           {
+              crc = get_checksum_crc32c(INITIAL_CRC, ptr,
+#ifdef HAVE_HW_CRC32
+                                        (p_end - ptr), have_hw_crc32);
+#else
+                                        (p_end - ptr));
+#endif
+           }
+           else
+           {
+              crc = get_checksum(INITIAL_CRC, ptr, (p_end - ptr));
+           }
+#ifdef DEBUG_ISDUP
+           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                      "id=%x crc=%x ptr=%s size=%d timeout=%lld flag=%d lock=%d stay_attached=%d",
+                      id, crc, ptr, (p_end - ptr), timeout, flag, lock, stay_attached);
+#endif
         }
    else if (flag & DC_FILE_CONTENT)
         {
@@ -252,76 +301,85 @@ isdup(char         *fullname,
         }
    else if (flag & DC_FILE_CONT_NAME)
         {
-           char *p_end;
+           int  fd,
+                ret;
+           char buffer[4096],
+                *p_end;
 
-           p_end = ptr = fullname + strlen(fullname);
-           while ((*ptr != '/') && (ptr != fullname))
+           if (filename == NULL)
            {
-              ptr--;
-           }
-           if (*ptr == '/')
-           {
-              int  fd,
-                   ret;
-              char buffer[4096];
-
+              p_end = ptr = fullname + strlen(fullname);
+              while ((*ptr != '/') && (ptr != fullname))
+              {
+                 ptr--;
+              }
+              if (*ptr != '/')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            _("Unable to find filename in `%s'."), fullname);
+                 return(NO);
+              }
               ptr++;
-              (void)memcpy(buffer, ptr, (p_end - ptr));
-
-              if ((fd = open(fullname, O_RDONLY)) == -1)
-              {
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            _("Failed to open() `%s' : %s"),
-                            fullname, strerror(errno));
-                 return(NO);
-              }
-
-              if (flag & DC_CRC32C)
-              {
-                 ret = get_file_checksum_crc32c(fd, buffer, 4096, (p_end - ptr),
-#ifdef HAVE_HW_CRC32
-                                                &crc, have_hw_crc32);
-#else
-                                                &crc);
-#endif
-              }
-              else
-              {
-                 ret = get_file_checksum(fd, buffer, 4096, (p_end - ptr), &crc);
-              }
-              if (ret != SUCCESS)
-              {
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            _("Failed to determine checksum for `%s'."),
-                            fullname);
-                 (void)close(fd);
-                 return(NO);
-              }
-
-              if (close(fd) == -1)
-              {
-                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            _("Failed to close() `%s' : %s"),
-                            fullname, strerror(errno));
-              }
            }
            else
            {
+              ptr = filename;
+              p_end = filename  + strlen(filename);
+           }
+
+           if ((fd = open(fullname, O_RDONLY)) == -1)
+           {
               system_log(WARN_SIGN, __FILE__, __LINE__,
-                         _("Unable to find filename in `%s'."), fullname);
+                         _("Failed to open() `%s' : %s"),
+                         fullname, strerror(errno));
               return(NO);
+           }
+           (void)memcpy(buffer, ptr, (p_end - ptr));
+
+           if (flag & DC_CRC32C)
+           {
+              ret = get_file_checksum_crc32c(fd, buffer, 4096, (p_end - ptr),
+#ifdef HAVE_HW_CRC32
+                                             &crc, have_hw_crc32);
+#else
+                                             &crc);
+#endif
+           }
+           else
+           {
+              ret = get_file_checksum(fd, buffer, 4096, (p_end - ptr), &crc);
+           }
+           if (ret != SUCCESS)
+           {
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         _("Failed to determine checksum for `%s'."),
+                         fullname);
+              (void)close(fd);
+              return(NO);
+           }
+
+           if (close(fd) == -1)
+           {
+              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                         _("Failed to close() `%s' : %s"),
+                         fullname, strerror(errno));
            }
         }
 
-   current_time = time(NULL);
    if ((stay_attached == NO) || (cdb == NULL))
    {
       size_t new_size;
+      time_t current_time;
 
       /*
        * Map to checksum file of this job. If it does not exist create it.
        */
-      (void)sprintf(crcfile, "%s%s%s/%x", p_work_dir, AFD_FILE_DIR, CRC_DIR, id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(crcfile, MAX_PATH_LENGTH, "%s%s%s/%x",
+#else
+      (void)sprintf(crcfile, "%s%s%s/%x",
+#endif
+                    p_work_dir, AFD_FILE_DIR, CRC_DIR, id);
       new_size = (CRC_STEP_SIZE * sizeof(struct crc_buf)) + AFD_WORD_OFFSET;
       if ((ptr = attach_buf(crcfile, &cdb_fd, &new_size,
                             (lock == YES) ? "isdup()" : NULL,
@@ -334,6 +392,7 @@ isdup(char         *fullname,
       no_of_crcs = (int *)ptr;
 
       /* Check that time has sane value (it's not initialized). */
+      current_time = time(NULL);
       if ((*(time_t *)(ptr + SIZEOF_INT + 4) < 100000) ||
           (*(time_t *)(ptr + SIZEOF_INT + 4) > (current_time - DUPCHECK_MIN_CHECK_TIME)))
       {
@@ -346,21 +405,24 @@ isdup(char         *fullname,
 #ifdef THIS_DOES_NOT_WORK
    else if (lock == YES)
         {
-#ifdef LOCK_DEBUG
+# ifdef LOCK_DEBUG
            lock_region_w(cdb_fd, 0, __FILE__, __LINE__);
-#else
+# else
            lock_region_w(cdb_fd, 0);
-#endif
+# endif
         }
 #endif /* THIS_DOES_NOT_WORK */
    dup = NO;
 
    if (rm_flag != YES)
    {
+      time_t current_time;
+
       /*
        * At certain intervalls always check if the crc values we have
        * stored have not timed out. If so remove them from the list.
        */
+      current_time = time(NULL);
       if (current_time > *(time_t *)((char *)cdb + SIZEOF_INT + 4))
       {
          time_t dupcheck_check_time;
@@ -382,13 +444,30 @@ isdup(char         *fullname,
          {
             if (cdb[i].timeout <= current_time)
             {
-               int end_pos = i;
+               int end_pos = i + 1;
 
                while ((++end_pos <= *no_of_crcs) &&
                       (cdb[end_pos - 1].timeout <= current_time))
                {
                   /* Nothing to be done. */;
                }
+#ifdef DEBUG_ISDUP
+               /* if (id == 4009092405) */
+               {
+                  int j;
+
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "no_of_crcs=%d deleting=%d => %d current_time=%lld",
+                             *no_of_crcs, end_pos - 1 - i, (*no_of_crcs) - (end_pos - 1 - i),
+                             current_time);
+                  for (j = i; j < (end_pos - 1); j++)
+                  {
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Removing: crc=%x timeout=%lld flag=%u",
+                                cdb[j].crc, cdb[j].timeout, cdb[j].flag);
+                  }
+               }
+#endif
                if (end_pos <= *no_of_crcs)
                {
                   size_t move_size = (*no_of_crcs - (end_pos - 1)) *
@@ -407,6 +486,7 @@ isdup(char         *fullname,
 
       if (timeout > 0L)
       {
+         current_time = time(NULL);
          for (i = 0; i < *no_of_crcs; i++)
          {
             if ((crc == cdb[i].crc) && (flag == cdb[i].flag))
@@ -419,7 +499,10 @@ isdup(char         *fullname,
                {
                   dup = NEITHER;
                }
-               cdb[i].timeout = current_time + timeout;
+               if ((flag & TIMEOUT_IS_FIXED) == 0)
+               {
+                  cdb[i].timeout = current_time + timeout;
+               }
                break;
             }
          }
@@ -449,7 +532,7 @@ isdup(char         *fullname,
          }
          cdb[*no_of_crcs].crc = crc;
          cdb[*no_of_crcs].flag = flag;
-         cdb[*no_of_crcs].timeout = current_time + timeout;
+         cdb[*no_of_crcs].timeout = time(NULL) + timeout;
          (*no_of_crcs)++;
       }
       else if (dup == NEITHER)
@@ -489,11 +572,11 @@ isdup(char         *fullname,
 #ifdef THIS_DOES_NOT_WORK
    else if (lock == YES)
         {
-#ifdef LOCK_DEBUG
+# ifdef LOCK_DEBUG
            unlock_region(cdb_fd, 0, __FILE__, __LINE__);
-#else                                                                   
+# else                                                                   
            unlock_region(cdb_fd, 0);
-#endif
+# endif
         }
 #endif /* THIS_DOES_NOT_WORK */
 

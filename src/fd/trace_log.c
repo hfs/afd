@@ -1,6 +1,6 @@
 /*
  *  trace_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ DESCR__S_M3
  **     W_TRACE         - ASCII write trace
  **     R_TRACE         - ASCII read trace
  **     C_TRACE         - ASCII command trace
+ **     LIST_R_TRACE    - ASCII listing read trace
  **     BIN_CMD_W_TRACE - binary command write trace (hex)
  **     BIN_CMD_R_TRACE - binary command read trace (hex)
  **     BIN_W_TRACE     - binary write trace (hex)
@@ -56,6 +57,7 @@ DESCR__S_M3
  **   25.12.2003 H.Kiehl Created
  **   08.02.2006 H.Kiehl Added binary commad tracing.
  **   07.04.2006 H.Kiehl Added ASCII command flag C_TRACE.
+ **   03.05.2013 H.Kiehl Added ASCII list read LIST_R_TRACE.
  **
  */
 DESCR__E_M3
@@ -102,7 +104,8 @@ trace_log(char *file,
    if ((((type == BIN_R_TRACE) || (type == BIN_W_TRACE)) &&
         (fsa->debug == FULL_TRACE_MODE)) ||
        (((type == R_TRACE) || (type == W_TRACE) || (type == C_TRACE) ||
-         (type == BIN_CMD_R_TRACE) || (type == BIN_CMD_W_TRACE)) &&
+         (type == BIN_CMD_R_TRACE) || (type == BIN_CMD_W_TRACE) ||
+         (type == LIST_R_TRACE)) &&
         (fsa->debug > DEBUG_MODE)))
    {
       if ((trans_db_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
@@ -171,7 +174,8 @@ trace_log(char *file,
          buf[14] = '>';
          buf[15] = ' ';
 
-         while (*ptr != '\0')
+         while (((length - HOSTNAME_OFFSET) < MAX_HOSTNAME_LENGTH) &&
+                (*ptr != '\0'))
          {
             buf[length] = *ptr;
             ptr++; length++;
@@ -191,16 +195,17 @@ trace_log(char *file,
          buf[length + 1] = '-';
          switch (type)
          {
-            case BIN_R_TRACE :
+            case BIN_R_TRACE     :
             case BIN_CMD_R_TRACE :
-            case R_TRACE     :
+            case R_TRACE         :
+            case LIST_R_TRACE    :
                buf[length] = '<';
                buf[length + 2] = 'R';
                break;
 
-            case BIN_W_TRACE :
+            case BIN_W_TRACE     :
             case BIN_CMD_W_TRACE :
-            case W_TRACE     :
+            case W_TRACE         :
                buf[length] = 'W';
                buf[length + 2] = '>';
                break;
@@ -232,37 +237,121 @@ trace_log(char *file,
                int bytes_done = 0,
                    wpos = header_length;
 
-               while (bytes_done < buffer_length)
+               if (type == LIST_R_TRACE)
                {
-                  if (((unsigned char)buffer[bytes_done] < ' ') ||
-                      ((unsigned char)buffer[bytes_done] > '~'))
+                  static int  bytes_in_buffer = 0;
+                  static char list_buffer[MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1];
+
+                  if (bytes_in_buffer > 0)
                   {
-                     buf[wpos] = '<';
-                     if ((unsigned char)buffer[bytes_done] > 15)
+                     (void)memcpy(buf, list_buffer, bytes_in_buffer);
+                     wpos = bytes_in_buffer;
+                     bytes_in_buffer = 0;
+                  }
+                  while ((bytes_done < buffer_length) &&
+                         (wpos < (MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1 - 5)))
+                  {
+                     while ((bytes_done < buffer_length) &&
+                            (buffer[bytes_done] != '\r') &&
+                            (buffer[bytes_done] != '\n') &&
+                            (wpos < (MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1 - 5)))
                      {
-                        buf[wpos + 1] = hex[((unsigned char)buffer[bytes_done]) >> 4];
-                        buf[wpos + 2] = hex[((unsigned char)buffer[bytes_done]) & 0x0F];
+                        if (((unsigned char)buffer[bytes_done] < ' ') ||
+                            ((unsigned char)buffer[bytes_done] > '~'))
+                        {
+                           buf[wpos] = '<';
+                           if ((unsigned char)buffer[bytes_done] > 15)
+                           {
+                              buf[wpos + 1] = hex[((unsigned char)buffer[bytes_done]) >> 4];
+                              buf[wpos + 2] = hex[((unsigned char)buffer[bytes_done]) & 0x0F];
+                           }
+                           else
+                           {
+                              buf[wpos + 1] = '0'; 
+                              buf[wpos + 2] = hex[(unsigned char)buffer[bytes_done]];
+                           }
+                           buf[wpos + 3] = '>';
+                           wpos += 4;
+                        }
+                        else
+                        {
+                           buf[wpos] = buffer[bytes_done];
+                           wpos++;
+                        }
+                        bytes_done++;
+                     }
+                     if ((buffer[bytes_done] == '\r') ||
+                         (buffer[bytes_done] == '\n'))
+                     {
+                        if (wpos > header_length)
+                        {
+                           buf[wpos] = '\n';
+                           if (write(trans_db_log_fd, buf, (wpos + 1)) != (wpos + 1))
+                           {
+                              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                         "write() error : %s", strerror(errno));
+                           }
+                        }
+                        while ((buffer[bytes_done] == '\r') ||
+                               (buffer[bytes_done] == '\n'))
+                        {
+                           bytes_done++;
+                        }
+                        wpos = header_length;
                      }
                      else
                      {
-                        buf[wpos + 1] = '0'; 
-                        buf[wpos + 2] = hex[(unsigned char)buffer[bytes_done]];
+                        int offset;
+
+                        if (wpos > (MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1))
+                        {
+                           offset = wpos - (MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1);
+                        }
+                        else
+                        {
+                           offset = 0;
+                        }
+                        (void)memcpy(list_buffer, &buf[offset],
+                                     (wpos - offset));
+                        bytes_in_buffer = wpos - offset;
                      }
-                     buf[wpos + 3] = '>';
-                     wpos += 4;
                   }
-                  else
-                  {
-                     buf[wpos] = buffer[bytes_done];
-                     wpos++;
-                  }
-                  bytes_done++;
                }
-               buf[wpos] = '\n';
-               if (write(trans_db_log_fd, buf, (wpos + 1)) != (wpos + 1))
+               else
                {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "write() error : %s", strerror(errno));
+                  while ((bytes_done < buffer_length) &&
+                         (wpos < (MAX_LINE_LENGTH + MAX_LINE_LENGTH + 1 - 5)))
+                  {
+                     if (((unsigned char)buffer[bytes_done] < ' ') ||
+                         ((unsigned char)buffer[bytes_done] > '~'))
+                     {
+                        buf[wpos] = '<';
+                        if ((unsigned char)buffer[bytes_done] > 15)
+                        {
+                           buf[wpos + 1] = hex[((unsigned char)buffer[bytes_done]) >> 4];
+                           buf[wpos + 2] = hex[((unsigned char)buffer[bytes_done]) & 0x0F];
+                        }
+                        else
+                        {
+                           buf[wpos + 1] = '0'; 
+                           buf[wpos + 2] = hex[(unsigned char)buffer[bytes_done]];
+                        }
+                        buf[wpos + 3] = '>';
+                        wpos += 4;
+                     }
+                     else
+                     {
+                        buf[wpos] = buffer[bytes_done];
+                        wpos++;
+                     }
+                     bytes_done++;
+                  }
+                  buf[wpos] = '\n';
+                  if (write(trans_db_log_fd, buf, (wpos + 1)) != (wpos + 1))
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "write() error : %s", strerror(errno));
+                  }
                }
             }
          }

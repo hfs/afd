@@ -1,6 +1,6 @@
 /*
  *  mafd_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 
 #define MAX_STRING_LENGTH               20
 #define DEFAULT_NO_OF_ROWS              50
+#define DEFAULT_OTHER_OPTIONS           0
 #define TV_STARTING_REDRAW_TIME         100
 #define MIN_TV_REDRAW_TIME              200
 #define MAX_TV_REDRAW_TIME              800
@@ -140,6 +141,12 @@
 #define JOBS_STYLE_W                    1
 #define CHARACTERS_STYLE_W              2
 #define BARS_STYLE_W                    3
+
+#define JOB_STYLE_NORMAL                4
+#define JOB_STYLE_COMPACT               5
+#define JOB_STYLE_NONE                  6
+
+#define FORCE_SHIFT_SELECT_W            0
 
 #define QUEUE_COUNTER_CHARS             4
 
@@ -289,6 +296,7 @@ struct job_data
 /* Function Prototypes. */
 extern void        calc_but_coord(int),
                    change_font_cb(Widget, XtPointer, XtPointer),
+                   change_other_cb(Widget, XtPointer, XtPointer),
                    change_rows_cb(Widget, XtPointer, XtPointer),
                    change_style_cb(Widget, XtPointer, XtPointer),
                    check_host_status(Widget),

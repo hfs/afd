@@ -1,11 +1,16 @@
 
 #include "afddefs.h"
 #include <stdio.h>
+#include <unistd.h>
 
 // char *url_strings = "mailto://hafen@schleswiger-stadtwerke.de;server=mailhub.dwd.de";
 // char *url_strings = "wmo://afd_ftp:dwd@davidmss:10100;type=a";
 // char *url_strings = "ftp://anonymous:dwd.de@uni-goet/ftproot;type=a";
-char *url_strings = "mailto://mailhub;server=mailhub.dwd.de";
+
+int        sys_log_fd = STDERR_FILENO;
+char       *p_work_dir,
+           *url_strings = "mailto://mailhub;server=mailhub.dwd.de";
+const char *sys_log_name = SYSTEM_LOG_FIFO;
 
 int
 main(int argc, char *argv[])
@@ -24,10 +29,12 @@ main(int argc, char *argv[])
                  hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
                  path[MAX_RECIPIENT_LENGTH + 1],
                  transfer_type,
-                 server[MAX_REAL_HOSTNAME_LENGTH + 1];
+                 server[MAX_REAL_HOSTNAME_LENGTH + 1],
+                 work_dir[MAX_PATH_LENGTH];
    unsigned char protocol_version,
                  smtp_auth;
 
+   p_work_dir = work_dir;
    if (argc == 1)
    {
       p_url = url_strings;
@@ -41,7 +48,7 @@ main(int argc, char *argv[])
 #ifdef WITH_SSH_FINGERPRINT
                       fingerprint, &key_type,
 #endif
-                      password, hostname, &port, path, NULL,
+                      password, YES, hostname, &port, path, NULL, NULL,
                       &transfer_type, &protocol_version, server);
 
    (void)printf("url: %s\n", p_url);

@@ -1,6 +1,6 @@
 /*
  *  handle_info_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,9 +75,6 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 
-/* Globale variable for readn() */
-long        transfer_timeout = DEFAULT_TRANSFER_TIMEOUT;
-
 /* External global variables. */
 extern char *info_data,
             *p_work_dir;
@@ -138,7 +135,8 @@ write_info_file(Widget w, char *alias_name, char *central_info_filename)
                   (void)close(fd);
                   return;
                }
-               if (readn(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+               if (readn(fd, buffer, stat_buf.st_size,
+                         DEFAULT_TRANSFER_TIMEOUT) != stat_buf.st_size)
                {
                   (void)xrec(ERROR_DIALOG,
                              "Failed to read file to memory : %s (%s %d)",

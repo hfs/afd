@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void get_info(int item)
+ **   void get_info_free(void)
  **   int  get_sum_data(int    item,
  **                     time_t *date,
  **                     double *file_size)
@@ -44,6 +45,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.02.1998 H.Kiehl Created
+ **   29.08.2013 H.Kiehl Added get_info_free().
  **
  */
 DESCR__E_M3
@@ -75,6 +77,8 @@ extern struct info_data    id;
 /* Local variables. */
 static int                 *no_of_dir_names,
                            *no_of_job_ids;
+static off_t               dnb_size,
+                           jd_size;
 static struct job_id_data  *jd = NULL;
 static struct dir_name_buf *dnb = NULL;
 
@@ -143,6 +147,7 @@ get_info(int item)
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
+         jd_size = stat_buf.st_size;
          (void)close(jd_fd);
       }
       else
@@ -184,6 +189,7 @@ get_info(int item)
          no_of_dir_names = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
+         dnb_size = stat_buf.st_size;
          (void)close(dnb_fd);
       }
       else
@@ -203,7 +209,7 @@ get_info(int item)
          {
             if (id.dir_id == dnb[i].dir_id)
             {
-               (void)strcpy(id.dir, dnb[i].dir_name);
+               (void)strcpy((char *)id.dir, dnb[i].dir_name);
                (void)sprintf(id.dir_id_str, "%x", id.dir_id);
                break;
             }
@@ -215,7 +221,7 @@ get_info(int item)
               {
                  if (id.job_id == jd[i].job_id)
                  {
-                    (void)strcpy(id.dir, dnb[jd[i].dir_id_pos].dir_name);
+                    (void)strcpy((char *)id.dir, dnb[jd[i].dir_id_pos].dir_name);
                     id.dir_id = jd[i].dir_id;
                     (void)sprintf(id.dir_id_str, "%x", id.dir_id);
                     break;
@@ -252,6 +258,39 @@ get_info(int item)
                  }
               }
            }
+   }
+
+   return;
+}
+
+
+/*############################ get_info_free() ##########################*/
+void
+get_info_free(void)
+{
+   if (jd != NULL)
+   {
+      if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         jd = NULL;
+      }
+   }
+   if (dnb != NULL)
+   {
+      if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         dnb = NULL;
+      }
    }
 
    return;
@@ -429,7 +468,7 @@ get_all(int item)
       ptr += 4;
 
       /* Get delete reason string. */
-      (void)strcpy(id.reason_str, drstr[id.delete_reason_no]);
+      (void)strcpy((char *)id.reason_str, drstr[id.delete_reason_no]);
 
       i = 0;
       while ((*ptr != SEPARATOR_CHAR) && (i < MAX_FILENAME_LENGTH))
@@ -501,7 +540,7 @@ get_all(int item)
       ptr += i;
       if (i == MAX_INT_HEX_LENGTH)
       {
-         while ((*ptr != SEPARATOR_CHAR) || (*ptr != '\n'))
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
          {
             ptr++;
          }
@@ -535,7 +574,7 @@ get_all(int item)
             ptr += i;
             if (i == MAX_INT_HEX_LENGTH)
             {
-               while ((*ptr != SEPARATOR_CHAR) || (*ptr != '\n'))
+               while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
                {
                   ptr++;
                }
@@ -560,6 +599,16 @@ get_all(int item)
             id.job_id = 0;
             id.dir_id = tmp_id;
          }
+      }
+
+      /* Ignore unique ID. */
+      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
+      {
+         ptr++;
+      }
+      if (*ptr == SEPARATOR_CHAR)
+      {
+         ptr++;
       }
 
       /* Get the process/user. */
@@ -617,7 +666,7 @@ get_job_data(struct job_id_data *p_jd)
       return;
    }
 
-   (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
+   (void)strcpy((char *)id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.dir_id = p_jd->dir_id;
    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
    get_dir_options(id.dir_id, &id.d_o);
@@ -688,7 +737,7 @@ get_dir_data(int dir_pos)
    int           gotcha,
                  ret;
 
-   (void)strcpy(id.dir, dnb[dir_pos].dir_name);
+   (void)strcpy((char *)id.dir, dnb[dir_pos].dir_name);
    (void)sprintf(id.dir_id_str, "%x", id.dir_id);
    get_dir_options(id.dir_id, &id.d_o);
 
@@ -746,7 +795,7 @@ get_dir_data(int dir_pos)
                   gotcha = NO;
                   for (k = 0; k < id.dbe[id.count].no_of_files; k++)
                   {
-                     if ((ret = pmatch(p_file, id.file_name, NULL)) == 0)
+                     if ((ret = pmatch(p_file, (char *)id.file_name, NULL)) == 0)
                      {
                         gotcha = YES;
                         break;

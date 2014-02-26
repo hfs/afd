@@ -1,6 +1,6 @@
 /*
  *  gf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,10 +76,14 @@ int                        event_log_fd = STDERR_FILENO,
                            fra_id,
                            fsa_fd = -1,
                            fsa_id,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs = 0,
                            no_of_hosts = 0,
-                           *p_no_of_hosts = NULL,
                            *no_of_listed_files,
+                           *p_no_of_hosts = NULL,
+                           prev_no_of_files_done = 0,
                            rl_fd = -1,
                            trans_db_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
@@ -90,6 +94,7 @@ int                        event_log_fd = STDERR_FILENO,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag;
 off_t                      file_size_to_retrieve_shown = 0;
+u_off_t                    prev_file_size_done = 0;
 #ifdef HAVE_MMAP
 off_t                      fra_size,
                            fsa_size;
@@ -122,6 +127,10 @@ main(int argc, char *argv[])
                     files_to_retrieve,
                     more_files_in_list,
                     status;
+   unsigned int     ftp_options,
+                    loop_counter;
+   char             *created_path = NULL,
+                    str_mode[5];
    off_t            file_size_retrieved = 0,
                     file_size_to_retrieve;
    clock_t          clktck;
@@ -267,6 +276,18 @@ main(int argc, char *argv[])
             trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Connected.");
          }
       }
+      if (fra[db.fra_pos].dir_flag & CREATE_R_SRC_DIR)
+      {
+         if ((created_path = malloc(MAX_PATH_LENGTH)) == NULL)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "malloc() error : %s", strerror(errno));
+         }
+         else
+         {
+            created_path[0] = '\0';
+         }
+      }
    }
 
 #ifdef WITH_SSL
@@ -368,6 +389,20 @@ main(int argc, char *argv[])
    }
 #endif
 
+   if ((status = ftp_feat(&ftp_options)) != SUCCESS)
+   {
+      trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                "FEAT command failed.");
+   }
+   else
+   {
+      if (fsa->debug > NORMAL_MODE)
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Supported options : %d", ftp_options);
+      }
+   }
+
    if (db.transfer_mode != 'N')
    {
       /* Set transfer mode. */
@@ -392,8 +427,6 @@ main(int argc, char *argv[])
    /* Change directory if necessary. */
    if (db.target_dir[0] != '\0')
    {
-      char str_mode[5];
-
 #ifdef NEW_FRA
       if ((fra[db.fra_pos].dir_flag & CREATE_R_SRC_DIR) &&
           (fra[db.fra_pos].dir_mode != 0))
@@ -410,7 +443,7 @@ main(int argc, char *argv[])
 #endif
       if ((status = ftp_cd(db.target_dir,
                            (fra[db.fra_pos].dir_flag & CREATE_R_SRC_DIR) ? YES : NO,
-                           str_mode, NULL)) != SUCCESS)
+                           str_mode, created_path)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                    "Failed to change directory to %s (%d).",
@@ -425,8 +458,18 @@ main(int argc, char *argv[])
             trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
                          "Changed directory to %s.", db.target_dir);
          }
+         if ((created_path != NULL) && (created_path[0] != '\0'))
+         {
+            trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                      "Created directory `%s'.", created_path);
+            created_path[0] = '\0';
+         }
       }
    } /* if (db.target_dir[0] != '\0') */
+   else
+   {
+      str_mode[0] = '\0';
+   }
 
    fsa->job_status[(int)db.job_no].connect_status = FTP_RETRIEVE_ACTIVE;
    if (db.special_flag & DISTRIBUTED_HELPER_JOB)
@@ -438,12 +481,25 @@ main(int argc, char *argv[])
       db.keep_connected = 0;
    }
    more_files_in_list = NO;
+   loop_counter = 0;
    do
    {
-      if ((files_to_retrieve = get_remote_file_names_ftp(&file_size_to_retrieve,
-                                                         &more_files_in_list)) > 0)
+      if ((ftp_options & FTP_OPTION_MLST_MODIFY) &&
+          (ftp_options & FTP_OPTION_MLST_SIZE) &&
+          (ftp_options & FTP_OPTION_MLST_TYPE))
       {
-         int         fd,
+         files_to_retrieve = get_remote_file_names_ftp_mlst(&file_size_to_retrieve,
+                                                            &more_files_in_list);
+      }
+      else
+      {
+         files_to_retrieve = get_remote_file_names_ftp(&file_size_to_retrieve,
+                                                       &more_files_in_list);
+      }
+      if (files_to_retrieve > 0)
+      {
+         int         diff_no_of_files_done,
+                     fd,
                      i,
                      local_file_length;
          off_t       bytes_done;
@@ -454,7 +510,8 @@ main(int argc, char *argv[])
                      *p_local_tmp_file;
          struct stat stat_buf;
 
-         if (more_files_in_list == YES)
+         if ((more_files_in_list == YES) &&
+             ((fra[db.fra_pos].dir_flag & DO_NOT_PARALLELIZE) == 0))
          {
             /* Tell fd that he may start some more helper jobs that */
             /* help fetching files.                                 */
@@ -568,7 +625,9 @@ main(int argc, char *argv[])
                   offset = 0;
                }
                if (((status = ftp_data(rl[i].file_name, offset, db.mode_flag,
-                                       DATA_READ, db.rcvbuf_size)) != SUCCESS) &&
+                                       DATA_READ, db.rcvbuf_size,
+                                       (fra[db.fra_pos].dir_flag & CREATE_R_SRC_DIR) ? YES : NO,
+                                       str_mode, created_path)) != SUCCESS) &&
                    (status != 550))
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
@@ -676,6 +735,12 @@ main(int argc, char *argv[])
                                   "Opened data connection for file %s.",
                                   rl[i].file_name);
                   }
+                  if ((created_path != NULL) && (created_path[0] != '\0'))
+                  {
+                     trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
+                               "Created directory `%s'.", created_path);
+                     created_path[0] = '\0';
+                  }
 #ifdef WITH_SSL
                   if (db.auth == BOTH)
                   {
@@ -770,8 +835,8 @@ main(int argc, char *argv[])
                         }
                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                   (status == EPIPE) ? msg_str : NULL,
-                                  "Failed to read from remote file %s",
-                                  rl[i].file_name);
+                                  "Failed to read from remote file %s (%d)",
+                                  rl[i].file_name, status);
                         reset_values(files_retrieved, file_size_retrieved,
                                      files_to_retrieve, file_size_to_retrieve,
                                      (struct job *)&db);
@@ -965,7 +1030,7 @@ main(int argc, char *argv[])
                          */
                         if ((bytes_done + offset) != rl[i].size)
                         {
-                           trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                           trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
 #if SIZEOF_OFF_T == 4
                                      "File size of file %s changed from %ld to %ld when it was retrieved.",
 #else
@@ -1188,7 +1253,7 @@ main(int argc, char *argv[])
                      if ((rl[i].size != -1) &&
                          ((bytes_done + offset) != rl[i].size))
                      {
-                        trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                        trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
 #if SIZEOF_OFF_T == 4
                                   "File size of file %s changed from %ld to %ld when it was retrieved.",
 #else
@@ -1230,6 +1295,19 @@ main(int argc, char *argv[])
                file_size_retrieved += bytes_done;
             } /* if (rl[i].retrieved == NO) */
          } /* for (i = 0; i < *no_of_listed_files; i++) */
+
+         diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                                 prev_no_of_files_done;
+         if (diff_no_of_files_done > 0)
+         {
+            u_off_t diff_file_size_done;
+
+            diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                                  prev_file_size_done;
+            WHAT_DONE("retrieved", diff_file_size_done, diff_no_of_files_done);
+            prev_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done;
+            prev_file_size_done = fsa->job_status[(int)db.job_no].file_size_done;
+         }
 
          reset_values(files_retrieved, file_size_retrieved,
                       files_to_retrieve, file_size_to_retrieve,
@@ -1359,7 +1437,15 @@ main(int argc, char *argv[])
                            fsa->host_alias);
               }
            }
+
+      loop_counter++;
+      if (loop_counter == 0)
+      {
+         loop_counter = 2;
+      }
    } while (((*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & DISABLE_RETRIEVE) == 0) &&
+            (((fsa->protocol_options & DISABLE_BURSTING) == 0) ||
+             (loop_counter == 1)) &&
             ((more_files_in_list == YES) ||
              ((db.keep_connected > 0) && (ftp_timeup() == SUCCESS))));
 
@@ -1388,8 +1474,17 @@ gf_ftp_exit(void)
 {
    if ((fsa != NULL) && (db.fsa_pos >= 0))
    {
-      WHAT_DONE("retrieved", fsa->job_status[(int)db.job_no].file_size_done,
-                fsa->job_status[(int)db.job_no].no_of_files_done);
+      int     diff_no_of_files_done;
+      u_off_t diff_file_size_done;
+
+      diff_no_of_files_done = fsa->job_status[(int)db.job_no].no_of_files_done -
+                              prev_no_of_files_done;
+      diff_file_size_done = fsa->job_status[(int)db.job_no].file_size_done -
+                            prev_file_size_done;
+      if ((diff_file_size_done > 0) || (diff_no_of_files_done > 0))
+      {
+         WHAT_DONE("retrieved", diff_file_size_done, diff_no_of_files_done);
+      }
       reset_fsa((struct job *)&db, exitflag, files_to_retrieve_shown,
                 file_size_to_retrieve_shown);
    }
@@ -1467,8 +1562,9 @@ ftp_timeup(void)
    }
    if (gsf_check_fsa((struct job *)&db) != NEITHER)
    {
-      int    status;
-      time_t sleeptime = 0;
+      int          status;
+      unsigned int error_mask;
+      time_t       sleeptime = 0;
 
       if (fsa->protocol_options & STAT_KEEPALIVE)
       {
@@ -1516,6 +1612,27 @@ ftp_timeup(void)
             sleeptime = timeup - now;
          }
       } while (timeup > now);
+
+      /*
+       * We always need to make sure that the directory we scan is
+       * kept up to date in case it contains time information.
+       */
+      if ((error_mask = url_evaluate(fra[db.fra_pos].url, NULL, NULL, NULL,
+                                     NULL,
+#ifdef WITH_SSH_FINGERPRINT
+                                     NULL, NULL,
+#endif
+                                     NULL, NO, NULL, NULL, db.target_dir,
+                                     NULL, &now, NULL, NULL, NULL)) != 0)
+      {                                                                  
+         char error_msg[MAX_URL_ERROR_MSG];
+
+         url_get_error(error_mask, error_msg, MAX_URL_ERROR_MSG);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Incorrect url `%s'. Error is: %s.",
+                    fra[db.fra_pos].url, error_msg);
+         return(INCORRECT);
+      }
    }
 
    return(SUCCESS);

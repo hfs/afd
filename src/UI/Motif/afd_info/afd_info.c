@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -912,7 +912,7 @@ init_afd_info(int *argc, char *argv[])
    get_user(user, fake_user, user_offset);
 
    /* Attach to the FSA. */
-   if ((user_offset = fsa_attach_passive(NO)) < 0)
+   if ((user_offset = fsa_attach_passive(NO, AFD_INFO)) < 0)
    {
       if (user_offset == INCORRECT_VERSION)
       {

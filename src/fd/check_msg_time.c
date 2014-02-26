@@ -1,7 +1,7 @@
 /*
  *  check_msg_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,7 +62,12 @@ check_msg_time(void)
 
    for (i = 0; i < *no_msg_cached; i++)
    {
-      (void)sprintf(p_msg_dir, "%x", mdb[i].job_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(p_msg_dir, MAX_PATH_LENGTH - (p_msg_dir - msg_dir),
+#else
+      (void)sprintf(p_msg_dir,
+#endif
+                    "%x", mdb[i].job_id);
       if (stat(msg_dir, &stat_buf) != -1)
       {
          if (stat_buf.st_mtime > mdb[i].msg_time)

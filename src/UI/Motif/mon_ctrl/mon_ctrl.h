@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2008 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@
 
 #define BAR_LENGTH_MODIFIER            7
 #define DEFAULT_NO_OF_ROWS             50
+#define DEFAULT_OTHER_OPTIONS          0
+#define FORCE_SHIFT_SELECT_W           0
 
 /* Definitions for the menu bar items. */
 #define MON_W                          0
@@ -81,7 +83,9 @@
 /*         x_common_defs.h 100 onwards.                */
 
 /* Definitions for the Setup pulldown. */
-#define HISTORY_W                      4
+#define HISTORY_W                      3
+#define MON_OTHER_W                    4
+#define MON_SAVE_W                     5
 
 /* History length definitions. */
 #define HIS_0                          "0"
@@ -219,6 +223,7 @@ signed char mon_window_size(int *, int *),
 void        calc_mon_but_coord(int),
             change_mon_history_cb(Widget, XtPointer, XtPointer),
             change_mon_font_cb(Widget, XtPointer, XtPointer),
+            change_mon_other_cb(Widget, XtPointer, XtPointer),
             change_mon_rows_cb(Widget, XtPointer, XtPointer),
             change_mon_style_cb(Widget, XtPointer, XtPointer),
             check_afd_status(Widget),

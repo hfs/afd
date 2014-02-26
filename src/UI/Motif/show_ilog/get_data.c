@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -217,7 +217,7 @@ static void   check_log_updates(Widget),
               if (no_of_search_dirs > 0)                                    \
               {                                                             \
                  get_info(GOT_JOB_ID_DIR_ONLY);                             \
-                 count = strlen(id.dir);                                    \
+                 count = strlen((char *)id.dir);                            \
                  id.dir[count] = SEPARATOR_CHAR;                            \
                  id.dir[count + 1] = '\0';                                  \
               }                                                             \
@@ -236,7 +236,7 @@ static void   check_log_updates(Widget),
                  {                                                          \
                     if (search_dir_filter[kk] == YES)                       \
                     {                                                       \
-                       if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                       if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)\
                        {                                                    \
                           gotcha = YES;                                     \
                           break;                                            \
@@ -246,7 +246,7 @@ static void   check_log_updates(Widget),
                     {                                                       \
                        if (search_dir_length[kk] == count)                  \
                        {                                                    \
-                          if (strncmp(search_dir[kk], id.dir, count) == 0)  \
+                          if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)\
                           {                                                 \
                              gotcha = YES;                                  \
                              break;                                         \
@@ -714,6 +714,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
         }
 
    /* Free all memory we have allocated. */
+   get_info_free();
 #ifdef HAVE_MMAP
    if (munmap(src, stat_buf.st_size) < 0)
    {
@@ -847,6 +848,7 @@ check_log_updates(Widget w)
                             __FILE__, __LINE__);
               }
 
+         get_info_free();
          free(ptr_start);
          log_offset = stat_buf.st_size;
          XmListSetBottomPos(listbox_w, 0);
@@ -1072,7 +1074,7 @@ no_criteria(register char *ptr,
          INSERT_TIME();
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1160,7 +1162,7 @@ no_criteria(register char *ptr,
             if (no_of_search_dirs > 0)
             {
                get_info(GOT_JOB_ID_DIR_ONLY);
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
             }
@@ -1179,7 +1181,7 @@ no_criteria(register char *ptr,
                {
                   if (search_dir_filter[kk] == YES)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -1189,7 +1191,7 @@ no_criteria(register char *ptr,
                   {
                      if (search_dir_length[kk] == count)
                      {
-                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                         {
                            gotcha = YES;
                            break;
@@ -1311,7 +1313,7 @@ file_name_only(register char *ptr,
             j = 0;
             while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
             {
-               if (*ptr < ' ')
+               if ((unsigned char)(*ptr) < ' ')
                {
                   *(p_file_name + j) = '?';
                   unprintable_chars++;
@@ -1562,7 +1564,7 @@ file_size_only(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1759,7 +1761,7 @@ file_name_and_size(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -1887,7 +1889,7 @@ recipient_only(register char *ptr,
          ptr += LOG_DATE_LENGTH + 1;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -2042,14 +2044,14 @@ recipient_only(register char *ptr,
             }
             if ((gotcha == NO) && (no_of_search_dirs > 0))
             {
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
                   if (search_dir_filter[kk] == YES)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -2059,7 +2061,7 @@ recipient_only(register char *ptr,
                   {
                      if (search_dir_length[kk] == count)
                      {
-                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                         {
                            gotcha = YES;
                            break;
@@ -2178,7 +2180,7 @@ file_name_and_recipient(register char *ptr,
             j = 0;
             while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
             {
-               if (*ptr < ' ')
+               if ((unsigned char)(*ptr) < ' ')
                {
                   *(p_file_name + j) = '?';
                   unprintable_chars++;
@@ -2338,14 +2340,14 @@ file_name_and_recipient(register char *ptr,
             }
             if ((gotcha == NO) || (no_of_search_dirs > 0))
             {
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
                   if (search_dir_filter[kk] == YES)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -2355,7 +2357,7 @@ file_name_and_recipient(register char *ptr,
                   {
                      if (search_dir_length[kk] == count)
                      {
-                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                         {
                            gotcha = YES;
                            break;
@@ -2565,7 +2567,7 @@ file_size_and_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -2680,14 +2682,14 @@ file_size_and_recipient(register char *ptr,
             }
             if ((gotcha == NO) && (no_of_search_dirs > 0))
             {
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
                   if (search_dir_filter[kk] == YES)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -2697,7 +2699,7 @@ file_size_and_recipient(register char *ptr,
                   {
                      if (search_dir_length[kk] == count)
                      {
-                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                         {
                            gotcha = YES;
                            break;
@@ -2812,7 +2814,7 @@ file_name_size_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                id.file_name[j] = '?';
             }
@@ -2825,7 +2827,7 @@ file_name_size_recipient(register char *ptr,
          id.file_name[j] = ' ';
          id.file_name[j + 1] = '\0';
 
-         if (sfilter(search_file_name, id.file_name, ' ') != 0)
+         if (sfilter(search_file_name, (char *)id.file_name, ' ') != 0)
          {
             IGNORE_ENTRY();
          }
@@ -2901,7 +2903,7 @@ file_name_size_recipient(register char *ptr,
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
-            if (*ptr < ' ')
+            if ((unsigned char)(*ptr) < ' ')
             {
                *(p_file_name + j) = '?';
                unprintable_chars++;
@@ -3015,14 +3017,14 @@ file_name_size_recipient(register char *ptr,
             }
             if ((gotcha == NO) && (no_of_search_dirs > 0))
             {
-               count = strlen(id.dir);
+               count = strlen((char *)id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
                for (kk = 0; kk < no_of_search_dirs; kk++)
                {
                   if (search_dir_filter[kk] == YES)
                   {
-                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     if (sfilter(search_dir[kk], (char *)id.dir, SEPARATOR_CHAR) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -3032,7 +3034,7 @@ file_name_size_recipient(register char *ptr,
                   {
                      if (search_dir_length[kk] == count)
                      {
-                        if (strncmp(search_dir[kk], id.dir, count) == 0)
+                        if (strncmp(search_dir[kk], (char *)id.dir, count) == 0)
                         {
                            gotcha = YES;
                            break;

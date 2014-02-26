@@ -1,6 +1,6 @@
 /*
  *  sf_http.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,8 @@ DESCR__E_M1
 
 /* Global variables. */
 unsigned int               special_flag = 0;
-int                        counter_fd = -1,     /* NOT USED */
+int                        amg_flag = NO,
+                           counter_fd = -1,     /* NOT USED */
                            event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,     /* NOT USED */
@@ -106,8 +107,8 @@ int                        counter_fd = -1,     /* NOT USED */
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO,
-                           timeout_flag;
+                           timeout_flag,
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -368,26 +369,6 @@ main(int argc, char *argv[])
       }
    }
 
-   if ((status = http_options(db.hostname, db.target_dir)) != SUCCESS)
-   {
-      trans_log((timeout_flag == ON) ? ERROR_SIGN : INFO_SIGN,
-                __FILE__, __LINE__, NULL, msg_str,
-                "Failed to get options (%d).", status);
-      if (timeout_flag == ON)
-      {
-         http_quit();
-         exit(eval_timeout(OPEN_REMOTE_ERROR));
-      }
-   }
-   else
-   {
-      if (fsa->debug > NORMAL_MODE)
-      {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Got HTTP server options.");
-      }
-   }
-
    /* Inform FSA that we have finished connecting and */
    /* will now start to transfer data.                */
    if (gsf_check_fsa(p_db) != NEITHER)
@@ -507,7 +488,11 @@ main(int argc, char *argv[])
          }
          if ((status = http_put(db.hostname, db.target_dir,
                                 p_file_name_buffer, file_size,
+#ifdef _WITH_BURST_2
+                                ((files_send == 0) && (burst_2_counter == 0)) ? YES : NO)) != SUCCESS)
+#else
                                 (files_send == 0) ? YES : NO)) != SUCCESS)
+#endif
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
                       "Failed to open remote file `%s' (%d).",
@@ -653,7 +638,7 @@ main(int argc, char *argv[])
             length_type_indicator = 0;
          }
 
-         /* Read (local) and write (remote) file. */
+         /* Read local and write remote file. */
          no_of_bytes = 0;
          loops = (length_type_indicator + header_length + *p_file_size_buffer) / blocksize;
          rest = (length_type_indicator + header_length + *p_file_size_buffer) % blocksize;
@@ -847,21 +832,22 @@ main(int argc, char *argv[])
             }
          } /* for (;;) */
 
+         if (fsa->debug > NORMAL_MODE)
+         {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+#if SIZEOF_OFF_T == 4
+                            "Wrote %ld bytes", (pri_off_t)no_of_bytes);
+#else
+                            "Wrote %lld bytes", (pri_off_t)no_of_bytes);
+#endif
+         }
+
 #ifdef _OUTPUT_LOG
          if (db.output_log == YES)
          {
             end_time = times(&tmsdummy);
          }
 #endif
-         if ((status = http_put_response()) != SUCCESS)
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                      "Failed to PUT remote file `%s' (%d).",
-                      p_file_name_buffer, status);
-            http_quit();
-            exit(eval_timeout(OPEN_REMOTE_ERROR));
-         }
-
          /* Close local file. */
          if (close(fd) == -1)
          {
@@ -875,6 +861,15 @@ main(int argc, char *argv[])
              * sf_http() will exit(), there is no point in stopping
              * the transmission.
              */
+         }
+
+         if ((status = http_put_response()) != SUCCESS)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                      "Failed to PUT remote file `%s' (%d).",
+                      p_file_name_buffer, status);
+            http_quit();
+            exit(eval_timeout(OPEN_REMOTE_ERROR));
          }
 
          /* Update FSA, one file transmitted. */
@@ -1343,7 +1338,8 @@ sf_http_exit(void)
                                burst_2_counter);
               }
 #endif /* _WITH_BURST_2 */
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                   buffer, db.job_id);
       }
       reset_fsa((struct job *)&db, exitflag, 0, 0);
    }

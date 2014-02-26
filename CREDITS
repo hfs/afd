@@ -34,6 +34,13 @@ N: Sven Knudsen
 D: Bug fix and other improvements.
 S: Germany
 
+N: Bill Welch
+D: Improvement to SSH code and documentation.
+
+N: Alexander Maul
+D: Bug fix and other improvements.
+S: Germany
+
 
 Many thanks also to the Deutscher Wetterdienst (German Weather Service) at
 Offenbach, who have permitted me to make this work available under the

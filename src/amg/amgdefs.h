@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,6 +89,9 @@
 #define FILE_NAME_STEP_SIZE        20
 #define FILE_BUFFER_STEP_SIZE      50
 #define ORPHANED_PROC_STEP_SIZE     5
+#ifdef WITH_INOTIFY
+# define INOTIFY_FL_STEP_SIZE      80
+#endif
 
 /* Definitions of identifiers in options. */
 #define TIME_NO_COLLECT_ID         "time no collect"
@@ -174,6 +177,11 @@
                                          /* will NOT be stored and will  */
                                          /* be deleted!                  */
 
+#define DATA_MOVED  1
+#define DATA_COPIED 2
+#define LOCALE_DIR  0
+#define REMOTE_DIR  1
+
 /* Definitions for assembling, converting and extracting WMO bulletins/files. */
 #define TWO_BYTE                   1
 #define FOUR_BYTE_LBF              2
@@ -198,6 +206,7 @@
 #define CRCRLF2LF                  21
 #define ISO8859_2ASCII             22
 #define WMO_WITH_DUMMY_MESSAGE     23
+#define WMO_STANDARD_CHK           24
 
 /* Definitions for the different extract options. */
 #define EXTRACT_ADD_SOH_ETX          1
@@ -210,6 +219,7 @@
 #define EXTRACT_ADD_FULL_DATE        128
 #define EXTRACT_ADD_BUL_ORIG_FILE    256
 #define USE_EXTERNAL_MSG_RULES       512
+#define EXTRACT_ADD_ADDITIONAL_INFO  1024
 #define DEFAULT_EXTRACT_OPTIONS      (EXTRACT_ADD_SOH_ETX | EXTRACT_ADD_CRC_CHECKSUM)
 
 #ifdef WITH_ONETIME
@@ -235,9 +245,6 @@
 /* Definitions of the process names that are started */
 /* by the AMG main process.                          */
 #define DC_PROC_NAME               "dir_check"
-#ifdef WITH_INOTIFY
-# define IC_PROC_NAME              "inotify_check"
-#endif
 #ifdef WITH_ONETIME
 # define OT_PROC_NAME              "onetime_check"
 #endif
@@ -265,10 +272,14 @@
                                        /* check in file directory for    */
                                        /* jobs without the corresponding */
                                        /* message.                       */
-
 #define MESSAGE_BUF_STEP_SIZE     500
 
 #define OLD_FILE_SEARCH_INTERVAL 3600  /* Search for old files (1 hour). */
+#ifdef WITH_INOTIFY
+# define DEL_UNK_INOTIFY_FILE_TIME 300L/* Interval at which inotify dirs */
+#endif
+                                       /* will be checked for deleting   */
+                                       /* unknown files.                 */
 #define NO_OF_HOST_DB_PARAMETERS    8
 
 #ifdef _WITH_PTHREAD
@@ -418,6 +429,8 @@ struct dir_data
 #ifndef _WITH_PTHREAD
           unsigned char important_dir;
 #endif
+          unsigned char do_not_parallelize; /* When fetching files       */
+                                            /* disable the parallelization.*/
           unsigned char accept_dot_files;   /* Whether we should pick up */
                                             /* files starting with a     */
                                             /* leading dot. Default is   */
@@ -505,6 +518,17 @@ struct dir_data
                                             /* directory entry.          */
           unsigned int  dir_config_id;      /* To find out from which    */
                                             /* DIR_CONFIG this job comes.*/
+#ifdef WITH_INOTIFY
+          unsigned int  inotify_flag;       /* Which inotify options are */
+                                            /* set:                      */
+                                            /*+----+--------------------+*/
+                                            /*|Bit |      Meaning       |*/
+                                            /*+----+--------------------+*/
+                                            /*|  3 | INOTIFY_CREATE_FLAG|*/
+                                            /*|  2 | INOTIFY_CLOSE_FLAG |*/
+                                            /*|  1 | INOTIFY_RENAME_FLAG|*/
+                                            /*+------+------------------+*/
+#endif
           int           fsa_pos;            /* FSA position, only used   */
                                             /* for retrieving files.     */
           int           dir_pos;            /* Position of this directory*/
@@ -558,7 +582,7 @@ struct instant_db
                                        /* DIR_CONFIG this job comes.     */
           unsigned int  loptions_flag; /* Flag showing which local       */
                                        /* options are set.               */
-          char          str_job_id[MAX_INT_LENGTH];
+          char          str_job_id[MAX_INT_HEX_LENGTH];
           char          *dir;          /* Directory that has to be       */
                                        /* monitored.                     */
           unsigned int  dir_id;        /* Contains the directory ID!!!   */
@@ -658,6 +682,7 @@ struct directory_entry
           char                   *afd_file_dir;/* Full path where files  */
                                              /* are to be stored. (pool  */
                                              /* directory)               */
+          char                   *outgoing_file_dir;
 #endif
        };
 
@@ -700,37 +725,64 @@ struct file_dist_list
        };
 #endif
 
+#ifdef WITH_INOTIFY
+struct inotify_watch_list
+       {
+          int   wd;              /* Watch descriptor.                    */
+          int   de_pos;          /* struct directory_entry position.     */
+          int   no_of_files;     /* Number of file name stored.          */
+          int   cur_fn_length;   /* Current file name length.            */
+          int   alloc_fn_length; /* Allocated mem size for file_name.    */
+          char  *file_name;      /* Chain of file names each terminated  */
+                                 /* by '\0'.                             */
+          short *fnl;            /* File name length list.               */
+       };
+#endif
+
 #define BUL_TYPE_INP   1 /* input (inp)   */
 #define BUL_TYPE_IGN   2 /* ignore (ign)  */
 #define BUL_TYPE_CMP   3 /* compile (cmp) */
 #define BUL_SPEC_DUP   1 /* duplicate check */
-#define RT_TEXT        1 /* TEXT       */
-#define RT_CLIMAT      2 /* CLIMAT     */
-#define RT_TAF         3 /* TAF        */
-#define RT_METAR       4 /* METAR      */
-#define RT_SPECIAL_01  5 /* SPECIAL-01 */
-#define RT_SPECIAL_02  6 /* SPECIAL-02 */
-#define RT_SPECIAL_03  7 /* SPECIAL-03 */
-#define RT_SPECIAL_66  8 /* SPECIAL-66 */
-#define RT_SYNOP       9 /* SYNOP      */
-#define RT_SYNOP_SHIP 10 /* SYNOP-SHIP */
-#define RT_UPPER_AIR  11 /* UPPER-AIR  */
-#define STID_IIiii     1
-#define STID_CCCC      2
-struct wmo_bul_rep
+struct wmo_bul_list
        {
           char          TTAAii[7];
           char          CCCC[5];
+          char          BTIME[9];
+          char          ITIME[9];
           char          type;        /* 1 - input (inp)          */
                                      /* 2 - ignore (ign)         */
                                      /* 3 - compile (cmp)        */
           char          spec;
           short         rss;         /* Report Sub Specification */
                                      /* -1 is no report          */
-          unsigned char rt;          /* Report type.             */
+       };
+#define RT_NOT_DEFINED  0
+#define RT_TEXT         1 /* TEXT        */
+#define RT_CLIMAT       2 /* CLIMAT      */
+#define RT_TAF          3 /* TAF         */
+#define RT_METAR        4 /* METAR       */
+#define RT_SPECIAL_01   5 /* SPECIAL-01  */
+#define RT_SPECIAL_02   6 /* SPECIAL-02  */
+#define RT_SPECIAL_03   7 /* SPECIAL-03  */
+#define RT_SPECIAL_66   8 /* SPECIAL-66  */
+#define RT_SYNOP        9 /* SYNOP       */
+#define RT_SYNOP_SHIP  10 /* SYNOP-SHIP  */
+#define RT_UPPER_AIR   11 /* UPPER-AIR   */
+#define RT_ATEXT       12 /* AIR TEXT    */
+#define RT_SYNOP_MOBIL 13 /* SYNOP-MOBIL */
+#define STID_IIiii      1
+#define STID_CCCC       2
+struct wmo_rep_list
+       {
+          char          TT[2];
+          char          BTIME[6];
+          char          ITIME[6];
           char          mimj[2];
+          char          wid[2];      /* Wind Indicator           */
+          unsigned char rt;          /* Report type.             */
           char          stid;        /* D - IIiii                */
                                      /* L - CCCC                 */
+          short         rss;         /* Report Sub Specification */
        };
 
 /* Function prototypes. */
@@ -738,12 +790,8 @@ extern int    amg_zombie_check(pid_t *, int),
               check_list(struct directory_entry *, char *, struct stat *),
               check_option(char *),
               check_time_str(char *),
-#ifdef WITH_INOTIFY
-              com(char, int),
-#else
               com(char),
-#endif
-              convert(char *, char *, int, off_t *),
+              convert(char *, char *, int, int, unsigned int, off_t *),
 #ifdef _WITH_PTHREAD
               check_files(struct directory_entry *, char *, int, char *,
                           int, int *, time_t, int *, off_t *, char **,
@@ -776,6 +824,11 @@ extern int    amg_zombie_check(pid_t *, int),
                          int, int, char, int),
 # endif
 #endif
+#ifdef WITH_INOTIFY
+              check_inotify_files(struct inotify_watch_list *,
+                                  struct directory_entry *, char *, int *,
+                                  time_t, off_t *),
+#endif
               check_process_list(int),
               create_db(void),
 #ifdef WITH_ONETIME
@@ -783,6 +836,7 @@ extern int    amg_zombie_check(pid_t *, int),
 #else
               eval_dir_config(off_t, unsigned int *),
 #endif
+              get_last_char(char *, off_t),
               handle_options(int, time_t, unsigned int, unsigned int,
                              char *, int *, off_t *),
               in_time(time_t, unsigned int, struct bd_time_entry *),
@@ -811,6 +865,9 @@ extern void   check_file_dir(time_t),
               create_fsa(void),
               create_fra(int),
               create_sa(int),
+#ifdef WITH_INOTIFY
+              del_unknown_inotify_files(time_t),
+#endif
 #ifdef _DISTRIBUTION_LOG
               dis_log(unsigned char, time_t, unsigned int, unsigned int,
                       char *, int, off_t, int, unsigned int **, unsigned char *,
@@ -818,7 +875,7 @@ extern void   check_file_dir(time_t),
 #endif
               enter_time_job(int),
               eval_bul_rep_config(char *, char *, int),
-              eval_dir_options(int, char *, char *),
+              eval_dir_options(int, char *),
               handle_time_jobs(time_t),
               init_dir_check(int, char **, time_t *,
 #ifdef WITH_ONETIME
@@ -826,6 +883,9 @@ extern void   check_file_dir(time_t),
 # ifdef WITHOUT_FIFO_RW_SUPPORT
                              int *,
 # endif
+#endif
+#ifdef WITH_INOTIFY
+                             int *,
 #endif
                              int *, int *, int *),
               init_dis_log(void),
@@ -839,10 +899,10 @@ extern void   check_file_dir(time_t),
               remove_old_ls_data_files(void),
               remove_pool_directory(char *, unsigned int),
 #ifdef _DELETE_LOG
-              remove_time_dir(char *, unsigned int, unsigned int, int, char *,
-                              int),
+              remove_time_dir(char *, int, unsigned int, unsigned int,
+                              int, char *, int),
 #else
-              remove_time_dir(char *, unsigned int),
+              remove_time_dir(char *, int, unsigned int),
 #endif
               rm_removed_files(struct directory_entry *, int, char *),
               search_old_files(time_t),

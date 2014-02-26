@@ -1,6 +1,6 @@
 /*
  *  get_rename_rules.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -104,7 +104,8 @@ get_rename_rules(int verbose)
 
    if (config_file == NULL)
    {
-      if ((config_file = malloc((strlen(p_work_dir) + ETC_DIR_LENGTH + AFD_CONFIG_FILE_LENGTH + 1))) == NULL)
+      count = strlen(p_work_dir) + ETC_DIR_LENGTH + AFD_CONFIG_FILE_LENGTH + 1;
+      if ((config_file = malloc(count)) == NULL)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     _("Failed to malloc() %d bytes : %s"),
@@ -112,7 +113,11 @@ get_rename_rules(int verbose)
                     strerror(errno));
          return;
       }
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(config_file, count, "%s%s%s",
+#else
       (void)sprintf(config_file, "%s%s%s",
+#endif
                     p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    }
    if (stat(config_file, &stat_buf) == -1)
@@ -163,7 +168,7 @@ get_rename_rules(int verbose)
          last_read_times = 0;
 
          if ((eaccess(config_file, F_OK) == 0) &&
-             (read_file_no_cr(config_file, &buffer) != INCORRECT))
+             (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
          {
             int  length;
             char *ptr,
@@ -213,8 +218,12 @@ get_rename_rules(int verbose)
                   {
                      char tmp_value[MAX_PATH_LENGTH];
 
-                     (void)strcpy(tmp_value, value);
+                     (void)my_strncpy(tmp_value, value, MAX_PATH_LENGTH);
+#ifdef HAVE_SNPRINTF
+                     length = snprintf(value, MAX_PATH_LENGTH, "%s%s/%s",
+#else
                      length = sprintf(value, "%s%s/%s",
+#endif
                                       p_work_dir, ETC_DIR, tmp_value) + 1;
                   }
                }
@@ -249,7 +258,8 @@ get_rename_rules(int verbose)
 
    if (no_of_rename_rule_files == 0)
    {
-      if ((rule_file[0] = malloc((strlen(p_work_dir) + ETC_DIR_LENGTH + RENAME_RULE_FILE_LENGTH + 1))) == NULL)
+      count = strlen(p_work_dir) + ETC_DIR_LENGTH + RENAME_RULE_FILE_LENGTH + 1;
+      if ((rule_file[0] = malloc(count)) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     _("Failed to malloc() %d bytes : %s"),
@@ -257,7 +267,12 @@ get_rename_rules(int verbose)
                     strerror(errno));
          return;
       }
-      (void)sprintf(rule_file[0], "%s%s%s", p_work_dir, ETC_DIR, RENAME_RULE_FILE);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(rule_file[0], count, "%s%s%s",
+#else
+      (void)sprintf(rule_file[0], "%s%s%s",
+#endif
+                    p_work_dir, ETC_DIR, RENAME_RULE_FILE);
       no_of_rename_rule_files++;
    }
 
@@ -463,7 +478,8 @@ get_rename_rules(int verbose)
                      search_ptr++;
 
                      /* Ignore any comments. */
-                     if (*search_ptr == '#')
+                     if ((*search_ptr == '#') &&
+                         (search_ptr > ptr) && (*(search_ptr - 1) != '\\'))
                      {
                         while ((*search_ptr != '\n') && (*search_ptr != '\0') &&
                                (*search_ptr != '\r'))
@@ -478,7 +494,8 @@ get_rename_rules(int verbose)
                                (search_ptr < last_ptr))
                         {
                            if ((*search_ptr == '\\') &&
-                               (*(search_ptr + 1) == ' '))
+                               ((*(search_ptr + 1) == ' ') ||
+                                 (*(search_ptr + 1) == '#')))
                            {
                               count++; search_ptr++;
                            }
@@ -559,7 +576,9 @@ get_rename_rules(int verbose)
                                  ptr++;
                               }
                               ptr++;
-                              if (*ptr == '#') /* Ignore any comments. */
+
+                              /* Ignore any comments. */
+                              if ((*ptr == '#') && (*(ptr - 1) != '\\'))
                               {
                                  while ((*ptr != '\n') && (*ptr != '\0') &&
                                         (*ptr != '\r'))
@@ -581,7 +600,8 @@ get_rename_rules(int verbose)
                                         (*end_ptr != '\0'))
                                  {
                                     if ((*end_ptr == '\\') &&
-                                        (*(end_ptr + 1) == ' '))
+                                        ((*(end_ptr + 1) == ' ') ||
+                                         (*(end_ptr + 1) == '#')))
                                     {
                                        end_ptr++;
                                     }
@@ -609,7 +629,8 @@ get_rename_rules(int verbose)
                                            (*end_ptr != '\0'))
                                     {
                                        if ((*end_ptr == '\\') &&
-                                           (*(end_ptr + 1) == ' '))
+                                           ((*(end_ptr + 1) == ' ') ||
+                                            (*(end_ptr + 1) == '#')))
                                        {
                                           end_ptr++;
                                        }
@@ -627,8 +648,8 @@ get_rename_rules(int verbose)
                                               (*end_ptr != '\r'))
                                        {
                                           if ((more_data == NO) &&
-                                              ((*end_ptr != ' ') ||
-                                               (*end_ptr != '\t')))
+                                              (*end_ptr != ' ') &&
+                                              (*end_ptr != '\t'))
                                           {
                                              more_data = YES;
                                           }

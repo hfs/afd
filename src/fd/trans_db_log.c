@@ -1,6 +1,6 @@
 /*
  *  trans_db_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012  Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013  Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -140,7 +140,7 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    length = 16;
 
    ptr = tr_hostname;
-   while (*ptr != '\0')
+   while ((i < MAX_HOSTNAME_LENGTH) && (*ptr != '\0'))
    {
       buf[length + i] = *ptr;
       ptr++; i++;

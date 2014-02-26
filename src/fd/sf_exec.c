@@ -1,6 +1,6 @@
 /*
  *  sf_exec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,7 +72,9 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables. */
-int                        event_log_fd = STDERR_FILENO,
+int                        amg_flag = NO,
+                           counter_fd = -1,
+                           event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
 #ifdef HAVE_HW_CRC32
@@ -98,7 +100,7 @@ int                        event_log_fd = STDERR_FILENO,
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO;
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -367,6 +369,12 @@ main(int argc, char *argv[])
 #endif
                (void)sprintf(command_str, "cd %s && %s",
                              file_path, p_command);
+               if (fsa->debug > NORMAL_MODE)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                               "Executing command `%s' to send file `%s'",
+                               command_str, p_file_name_buffer);
+               }
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
 #ifdef HAVE_SETPRIORITY
@@ -999,7 +1007,7 @@ sf_exec_exit(void)
                                burst_2_counter);
               }
 #endif /* _WITH_BURST_2 */
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x", buffer, db.job_id);
       }
       reset_fsa((struct job *)&db, exitflag, 0, 0);
    }

@@ -1,6 +1,6 @@
 /*
  *  trans_exec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -206,8 +206,12 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                insert_list[ii] = &tmp_option[k];
                tmp_char = *insert_list[0];
                *insert_list[0] = '\0';
-               length_start = sprintf(command_str, "cd %s && %s",
-                                      file_path, p_command);
+#ifdef HAVE_SNPRINTF
+               length_start = snprintf(command_str, 1024,
+#else
+               length_start = sprintf(command_str,
+#endif
+                                      "cd %s && %s", file_path, p_command);
                *insert_list[0] = tmp_char;
 
                fnp = p_file_name_buffer;
@@ -230,13 +234,23 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   *insert_list[k] = '\0';
                   if (mask_file_name == YES)
                   {
+#ifdef HAVE_SNPRINTF
+                     length += snprintf(command_str + length_start + length,
+                                        1024 - (length_start + length),
+#else
                      length += sprintf(command_str + length_start + length,
+#endif
                                        "\"%s\"%s", p_file_name_buffer,
                                        insert_list[k - 1] + 2);
                   }
                   else
                   {
+#ifdef HAVE_SNPRINTF
+                     length += snprintf(command_str + length_start + length,
+                                        1024 - (length_start + length),
+#else
                      length += sprintf(command_str + length_start + length,
+#endif
                                        "%s%s", p_file_name_buffer,
                                        insert_list[k - 1] + 2);
                   }
@@ -286,7 +300,11 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
             {
                int ret;
 
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(command_str, 1024, "cd %s && %s",
+#else
                (void)sprintf(command_str, "cd %s && %s",
+#endif
                              file_path, p_command);
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,

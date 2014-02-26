@@ -1,7 +1,7 @@
 /*
  *  remove_pool_directory.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -108,7 +108,13 @@ remove_pool_directory(char *job_dir, unsigned int dir_id)
                size_t dl_real_size;
 
                (void)strcpy(dl.file_name, p_dir->d_name);
-               (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(dl.host_name,
+                              MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+               (void)sprintf(dl.host_name,
+# endif
+                             "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, "-", DELETE_UNKNOWN_POOL_DIR);
                *dl.file_size = stat_buf.st_size;
                *dl.dir_id = dir_id;
@@ -118,7 +124,12 @@ remove_pool_directory(char *job_dir, unsigned int dir_id)
                *dl.unique_number = 0;
                *dl.file_name_length = strlen(p_dir->d_name);
                *(ptr - 1) = '\0';
+# ifdef HAVE_SNPRINTF
+               prog_name_length = snprintf((dl.file_name + *dl.file_name_length + 1),
+                                           MAX_FILENAME_LENGTH + 1,
+# else
                prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                           "%s%c%s",
                                           AMG, SEPARATOR_CHAR, job_dir);
                *(ptr - 1) = '/';

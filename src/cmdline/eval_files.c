@@ -64,7 +64,7 @@ eval_config_file(char *file_name, struct data *p_db)
    off_t length;
    char  *buffer;
 
-   if ((length = read_file_no_cr(file_name, &buffer)) != INCORRECT)
+   if ((length = read_file_no_cr(file_name, &buffer, __FILE__, __LINE__)) != INCORRECT)
    {
       char *ptr = buffer;
 
@@ -339,7 +339,7 @@ eval_filename_file(char *file_name, struct data *p_db)
    int  ret;
    char *buffer;
 
-   if (read_file_no_cr(file_name, &buffer) == INCORRECT)
+   if (read_file_no_cr(file_name, &buffer, __FILE__, __LINE__) == INCORRECT)
    {
       ret = INCORRECT;
    }

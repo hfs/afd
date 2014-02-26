@@ -1,7 +1,7 @@
 /*
  *  afdconvert.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2013 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,7 +61,8 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   int         type;
+   int         nnn_length = 0,
+               type;
    off_t       file_size;
    struct stat stat_buf;
 
@@ -71,43 +72,134 @@ main(int argc, char *argv[])
                     "Usage: %s <format> <file name to convert>\n", argv[0]);
       exit(1);
    }
-   if (strcmp(argv[1], "sohetx") == 0)
+   /* sohetx */
+   if ((argv[1][0] == 's') && (argv[1][1] == 'o') &&
+       (argv[1][2] == 'h') && (argv[1][3] == 'e') &&
+       (argv[1][3] == 't') && (argv[1][4] == 'x'))
    {
       type = SOHETX;
+      if (argv[1][5] == '+')
+      {
+         int length = 6;
+
+         while (argv[1][length] == 'n')
+         {
+            length++; nnn_length++;
+         }
+      }
    }
-   else if (strcmp(argv[1], "wmo") == 0)
+        /* wmo */
+   else if ((argv[1][0] == 'w') && (argv[1][1] == 'm') &&
+            (argv[1][2] == 'o'))
         {
            type = ONLY_WMO;
+           if (argv[1][3] == '+')
+           {
+              int length = 4;
+
+              while (argv[1][length] == 'n')
+              {
+                 length++; nnn_length++;
+              }
+           }
         }
-   else if (strcmp(argv[1], "sohetxwmo") == 0)
+        /* sohetxwmo */
+   else if ((argv[1][0] == 's') && (argv[1][1] == 'o') &&
+            (argv[1][2] == 'h') && (argv[1][3] == 'e') &&
+            (argv[1][3] == 't') && (argv[1][4] == 'x') &&
+            (argv[1][5] == 'w') && (argv[1][6] == 'm') &&
+            (argv[1][7] == 'o'))
         {
            type = SOHETXWMO;
+           if (argv[1][8] == '+')
+           {
+              int length = 9;
+
+              while (argv[1][length] == 'n')
+              {
+                 length++; nnn_length++;
+              }
+           }
         }
-   else if (strcmp(argv[1], "sohetx2wmo1") == 0)
+        /* sohetx2wmo0 */
+   else if ((argv[1][0] == 's') && (argv[1][1] == 'o') &&
+            (argv[1][2] == 'h') && (argv[1][3] == 'e') &&
+            (argv[1][3] == 't') && (argv[1][4] == 'x') &&
+            (argv[1][5] == '2') && (argv[1][6] == 'w') &&
+            (argv[1][7] == 'm') && (argv[1][8] == 'o') &&
+            (argv[1][9] == '0'))
         {
            type = SOHETX2WMO0;
+           if (argv[1][10] == '+')
+           {
+              int length = 11;
+
+              while (argv[1][length] == 'n')
+              {
+                 length++; nnn_length++;
+              }
+           }
         }
-   else if (strcmp(argv[1], "sohetx2wmo0") == 0)
+        /* sohetx2wmo1 */
+   else if ((argv[1][0] == 's') && (argv[1][1] == 'o') &&
+            (argv[1][2] == 'h') && (argv[1][3] == 'e') &&
+            (argv[1][3] == 't') && (argv[1][4] == 'x') &&
+            (argv[1][5] == '2') && (argv[1][6] == 'w') &&
+            (argv[1][7] == 'm') && (argv[1][8] == 'o') &&
+            (argv[1][9] == '1'))
         {
            type = SOHETX2WMO1;
+           if (argv[1][10] == '+')
+           {
+              int length = 11;
+
+              while (argv[1][length] == 'n')
+              {
+                 length++; nnn_length++;
+              }
+           }
         }
-   else if (strcmp(argv[1], "mrz2wmo") == 0)
+        /* mrz2wmo */
+   else if ((argv[1][0] == 'm') && (argv[1][1] == 'r') &&
+            (argv[1][2] == 'z') && (argv[1][3] == '2') &&
+            (argv[1][3] == 'w') && (argv[1][4] == 'm') &&
+            (argv[1][5] == 'o') && (argv[1][6] == '\0'))
         {
            type = MRZ2WMO;
         }
-   else if (strcmp(argv[1], "unix2dos") == 0)
+        /* unix2dos */
+   else if ((argv[1][0] == 'u') && (argv[1][1] == 'n') &&
+            (argv[1][2] == 'i') && (argv[1][3] == 'x') &&
+            (argv[1][3] == '2') && (argv[1][4] == 'd') &&
+            (argv[1][5] == 'o') && (argv[1][6] == 's') &&
+            (argv[1][7] == '\0'))
         {
            type = UNIX2DOS;
         }
-   else if (strcmp(argv[1], "dos2unix") == 0)
+        /* dos2unix */
+   else if ((argv[1][0] == 'd') && (argv[1][1] == 'o') &&
+            (argv[1][2] == 's') && (argv[1][3] == '2') &&
+            (argv[1][3] == 'u') && (argv[1][4] == 'n') &&
+            (argv[1][5] == 'i') && (argv[1][6] == 'x') &&
+            (argv[1][7] == '\0'))
         {
            type = DOS2UNIX;
         }
-   else if (strcmp(argv[1], "lf2crcrlf") == 0)
+        /* lf2crcrlf */
+   else if ((argv[1][0] == 'l') && (argv[1][1] == 'f') &&
+            (argv[1][2] == '2') && (argv[1][3] == 'c') &&
+            (argv[1][3] == 'r') && (argv[1][4] == 'c') &&
+            (argv[1][5] == 'r') && (argv[1][6] == 'l') &&
+            (argv[1][7] == 'f') && (argv[1][8] == '\0'))
         {
            type = LF2CRCRLF;
         }
-   else if (strcmp(argv[1], "crcrlf2lf") == 0)
+        /* crcrlf2lf */
+   else if ((argv[1][0] == 'c') && (argv[1][1] == 'r') &&
+            (argv[1][2] == 'c') && (argv[1][3] == 'r') &&
+            (argv[1][3] == 'l') && (argv[1][4] == 'f') &&
+            (argv[1][5] == '2') && (argv[1][6] == 'l') &&
+            (argv[1][7] == 'f') && (argv[1][8] == '\0'))
         {
            type = CRCRLF2LF;
         }
@@ -126,7 +218,7 @@ main(int argc, char *argv[])
       return(1);
    }
    file_size = stat_buf.st_size;
-   if (convert(".", argv[2], type, &file_size) != SUCCESS)
+   if (convert(".", argv[2], type, nnn_length, 0U, &file_size) != SUCCESS)
    {
       (void)fprintf(stderr, "Failed to convert %s\n", argv[2]);
       return(1);

@@ -1,6 +1,6 @@
 /*
  *  handle_alias_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2009 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2009 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -86,7 +86,12 @@ get_alias_names(void)
    char          alias_file[MAX_PATH_LENGTH];
    struct stat   stat_buf;
 
-   (void)sprintf(alias_file, "%s%s/%s", p_work_dir, ETC_DIR, ALIAS_NAME_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(alias_file, MAX_PATH_LENGTH, "%s%s/%s",
+#else
+   (void)sprintf(alias_file, "%s%s/%s",
+#endif
+                 p_work_dir, ETC_DIR, ALIAS_NAME_FILE);
    if (stat(alias_file, &stat_buf) == -1)
    {
       if (errno == ENOENT)
@@ -137,7 +142,7 @@ get_alias_names(void)
          last_read = stat_buf.st_mtime;
 
          if (((file_size = read_file_no_cr(alias_file,
-                                           &buffer)) != INCORRECT) &&
+                                           &buffer, __FILE__, __LINE__)) != INCORRECT) &&
              (file_size > 0))
          {
             int data;

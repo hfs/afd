@@ -205,7 +205,7 @@ view_files(int no_selected, int *select_list)
 
       if (fullname[0] != '\0')
       {
-         view_data(fullname, qfl[select_list[i] - 1].file_name);
+         view_data(fullname, (char *)qfl[select_list[i] - 1].file_name);
          no_done++;
          select_done_list[select_done] = select_list[i];
          select_done++;

@@ -1,7 +1,7 @@
 /*
  *  handle_setup_file.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ DESCR__S_M3
  **   25.12.2001 H.Kiehl Ignore display and screen number for file name.
  **   27.03.2004 H.Kiehl Enable user to load a certain profile.
  **   26.04.2008 H.Kiehl Added parameter for hostname display length.
+ **   26.07.2013 H.Kiehl Added other options.
  **
  */
 DESCR__E_M3
@@ -85,6 +86,7 @@ extern int  no_of_rows_set,
             no_of_short_lines;
 extern char font_name[],
             line_style,
+            other_options,
             user[];
 
 /* Local global variables. */
@@ -166,15 +168,6 @@ read_setup(char *file_name,
       }
    }
 
-   if (stat(setup_file, &stat_buf) == -1)
-   {
-      if (errno != ENOENT)
-      {
-         setup_file[0] = '\0';
-      }
-      return;
-   }
-
    euid = geteuid();
    ruid = getuid();
    if (euid != ruid)
@@ -185,6 +178,24 @@ read_setup(char *file_name,
                        ruid, strerror(errno));
       }
    }
+
+   if (stat(setup_file, &stat_buf) == -1)
+   {
+      if (errno != ENOENT)
+      {
+         setup_file[0] = '\0';
+      }
+      if (euid != ruid)
+      {
+         if (seteuid(euid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          euid, strerror(errno));
+         }
+      }
+      return;
+   }
+
    fd = lock_file(setup_file, ON);
    if (euid != ruid)
    {
@@ -287,7 +298,7 @@ read_setup(char *file_name,
                     line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
                  }
          }
-         else if (line_style > (SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS))
+         else if (line_style > (SHOW_LEDS | SHOW_JOBS_COMPACT | SHOW_CHARACTERS | SHOW_BARS))
               {
                  line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
               }
@@ -300,6 +311,30 @@ read_setup(char *file_name,
          {
             line_style = CHARACTERS_AND_BARS;
          }
+      }
+   }
+
+   /* Get the other options. */
+   if ((ptr = posi(buffer, OTHER_ID)) != NULL)
+   {
+      int  i = 0;
+      char tmp_buffer[MAX_INT_LENGTH + 1];
+
+      ptr--;
+      while ((*ptr == ' ') || (*ptr == '\t'))
+      {
+         ptr++;
+      }
+      while ((*ptr != '\n') && (*ptr != '\0') && (i < MAX_INT_LENGTH))
+      {
+         tmp_buffer[i] = *ptr;
+         i++; ptr++;
+      }
+      tmp_buffer[i] = '\0';
+      other_options = atoi(tmp_buffer);
+      if (other_options > FORCE_SHIFT_SELECT)
+      {
+         other_options = DEFAULT_OTHER_OPTIONS;
       }
    }
 
@@ -468,43 +503,52 @@ write_setup(int  hostname_display_length,
       return;
    }
 
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       ruid, strerror(errno));
+      }
+   }
    if (stat(setup_file, &stat_buf) == -1)
    {
       if (errno == ENOENT)
       {
-         euid = geteuid();
-         ruid = getuid();
-         if (euid != ruid)
-         {
-            if (seteuid(ruid) == -1)
-            {
-               (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
-                             ruid, strerror(errno));
-            }
-         }
          fd = open(setup_file, (O_WRONLY | O_CREAT | O_TRUNC),
                    (S_IRUSR | S_IWUSR));
-         if (euid != ruid)
-         {
-            if (seteuid(euid) == -1)
-            {
-               (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
-                             euid, strerror(errno));
-            }
-         }
          if (fd < 0)
          {
             (void)xrec(ERROR_DIALOG,
                        "Failed to open() setup file %s : %s (%s %d)",
                        setup_file, strerror(errno), __FILE__, __LINE__);
+            if (euid != ruid)
+            {
+               if (seteuid(euid) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                                euid, strerror(errno));
+               }
+            }
             return;
          }
+      }
+   }
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
       }
    }
 
    buf_length = strlen(FONT_ID) +  1 + strlen(font_name) + 1 +
                 strlen(ROW_ID) + 1 + MAX_INT_LENGTH + 1 +
-                strlen(STYLE_ID) + 1 + MAX_INT_LENGTH + 1;
+                strlen(STYLE_ID) + 1 + MAX_INT_LENGTH + 1 +
+                strlen(OTHER_ID) + 1 + MAX_INT_LENGTH + 1;
    if (hostname_display_length != -1)
    {
       buf_length += strlen(HOSTNAME_DISPLAY_LENGTH_ID) + 1 + MAX_INT_LENGTH + 1;
@@ -563,9 +607,9 @@ write_setup(int  hostname_display_length,
          (void)xrec(ERROR_DIALOG, "Failed to truncate file %s : %s (%s %d)\n",
                     setup_file, strerror(errno), __FILE__, __LINE__);
       }
-      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
+      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
-                       STYLE_ID, line_style);
+                       STYLE_ID, line_style, OTHER_ID, other_options);
       if (hostname_display_length != -1)
       {
          length += sprintf(&buffer[length], "%s %d\n",
@@ -623,9 +667,9 @@ write_setup(int  hostname_display_length,
          (void)xrec(ERROR_DIALOG, "Failed to truncate file %s : %s (%s %d)\n",
                     setup_file, strerror(errno), __FILE__, __LINE__);
       }
-      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
+      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
-                       STYLE_ID, line_style);
+                       STYLE_ID, line_style, OTHER_ID, other_options);
       if (hostname_display_length != -1)
       {
          length += sprintf(&buffer[length], "%s %d\n",

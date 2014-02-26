@@ -2029,7 +2029,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      else
                      {
                         if (xrec(QUESTION_DIALOG,
-                                 "Are you shure that you want to disable %s?\nAll jobs for this host will be lost.",
+                                 "Are you sure that you want to disable %s?\nAll jobs for this host will be lost.",
                                  fsa[i].host_dsp_name) == YES)
                         {
                            int    fd;
@@ -2657,7 +2657,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          if (p_afd_status->amg == ON)
          {
             if (xrec(QUESTION_DIALOG,
-                     "Are you shure that you want to stop %s?", AMG) == YES)
+                     "Are you sure that you want to stop %s?", AMG) == YES)
             {
                int  afd_cmd_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -2751,7 +2751,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          if (p_afd_status->fd == ON)
          {
             if (xrec(QUESTION_DIALOG,
-                     "Are you shure that you want to stop %s?\nNOTE: No more files will be distributed!!!", FD) == YES)
+                     "Are you sure that you want to stop %s?\nNOTE: No more files will be distributed!!!", FD) == YES)
             {
                int  afd_cmd_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -3030,7 +3030,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
       case SHUTDOWN_AFD_SEL : /* Shutdown AFD. */
          if (xrec(QUESTION_DIALOG,
-                  "Are you shure that you want to do a shutdown?") == YES)
+                  "Are you sure that you want to do a shutdown?") == YES)
          {
             char *args[7],
                  progname[4];

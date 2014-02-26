@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2012 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ endif
 
 MAINTAINERCLEANFILES  = Makefile.in
 noinst_HEADERS        = motif_common_defs.h
-INCLUDES              = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
+AM_CPPFLAGS           = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
                         -I../../common -I../mafd_ctrl -I../show_olog
 lib_LIBRARIES         = libmotifafd.a
 libmotifafd_a_SOURCES = check_nummeric.c\

@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void get_info(int item)
+ **   void get_info_free(void)
  **   int  get_sum_data(int    item,
  **                     time_t *date,
  **                     double *file_size)
@@ -46,6 +47,7 @@ DESCR__S_M3
  **   27.05.1997 H.Kiehl Created
  **   11.02.1998 H.Kiehl Adapted to new message format.
  **   22.09.2003 H.Kiehl get_recipient_only() now gets all recipients.
+ **   29.08.2013 H.Kiehl Added get_info_free().
  **
  */
 DESCR__E_M3
@@ -76,6 +78,9 @@ extern struct info_data       id;
 static int                    *no_of_dc_ids,
                               *no_of_dir_names,
                               *no_of_job_ids;
+static off_t                  dcl_size,
+                              dnb_size,
+                              jd_size;
 static struct job_id_data     *jd = NULL;
 static struct dir_name_buf    *dnb = NULL;
 static struct dir_config_list *dcl = NULL;
@@ -157,6 +162,7 @@ get_info(int item)
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
+         jd_size = stat_buf.st_size;
          (void)close(jd_fd);
       }
       else
@@ -202,6 +208,7 @@ get_info(int item)
          no_of_dir_names = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
+         dnb_size = stat_buf.st_size;
          (void)close(dnb_fd);
       }
       else
@@ -255,6 +262,7 @@ get_info(int item)
          no_of_dc_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          dcl = (struct dir_config_list *)ptr;
+         dcl_size = stat_buf.st_size;
          (void)close(jd_fd);
       }
       else
@@ -275,7 +283,7 @@ get_info(int item)
       {
          if (item == GOT_JOB_ID_DIR_ONLY)
          {
-            (void)strcpy(id.dir, dnb[i].dir_name);
+            (void)strcpy((char *)id.dir, dnb[i].dir_name);
          }
          else if (item == GOT_JOB_ID_DIR_AND_RECIPIENT)
               {
@@ -291,6 +299,51 @@ get_info(int item)
    } /* for (i = 0; i < *no_of_dir_names; i++) */
 
    free(current_jid_list);
+   return;
+}
+
+
+/*############################ get_info_free() ##########################*/
+void
+get_info_free(void)
+{
+   if (jd != NULL)
+   {
+      if (munmap(((char *)jd - AFD_WORD_OFFSET), jd_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         jd = NULL;
+      }
+   }
+   if (dnb != NULL)
+   {
+      if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         dnb = NULL;
+      }
+   }
+   if (dcl != NULL)
+   {
+      if (munmap(((char *)dcl - AFD_WORD_OFFSET), dcl_size) < 0)
+      {
+         (void)xrec(WARN_DIALOG, "munmap() error : %s (%s %d)",
+                    strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         dcl = NULL;
+      }
+   }
+
    return;
 }
 
@@ -562,7 +615,7 @@ get_dir_data(int dir_pos)
    int           gotcha,
                  ret;
 
-   (void)strcpy(id.dir, dnb[dir_pos].dir_name);
+   (void)strcpy((char *)id.dir, dnb[dir_pos].dir_name);
 
    get_dir_options(id.dir_id, &id.d_o);
 
@@ -623,7 +676,7 @@ get_dir_data(int dir_pos)
                   gotcha = NO;
                   for (k = 0; k < id.dbe[id.count].no_of_files; k++)
                   {
-                     if ((ret = pmatch(p_file, id.file_name, NULL)) == 0)
+                     if ((ret = pmatch(p_file, (char *)id.file_name, NULL)) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -704,7 +757,7 @@ get_recipient_only(int dir_pos)
                  *p_file,
                  recipient[MAX_RECIPIENT_LENGTH];
 
-   (void)strcpy(id.dir, dnb[dir_pos].dir_name);
+   (void)strcpy((char *)id.dir, dnb[dir_pos].dir_name);
 
    id.count = 0;
    for (i = 0; i < *no_of_job_ids; i++)
@@ -726,7 +779,7 @@ get_recipient_only(int dir_pos)
             p_file = file_mask_buf;
             for (j = 0; j < no_of_file_mask; j++)
             {
-               if ((ret = pmatch(p_file, id.file_name, NULL)) == 0)
+               if ((ret = pmatch(p_file, (char *)id.file_name, NULL)) == 0)
                {
                   gotcha = YES;
                   break;

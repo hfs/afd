@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2014 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -92,6 +92,7 @@ extern Widget                     active_mode_w,
                                   dc_store_w,
                                   dc_timeout_label_w,
                                   dc_timeout_w,
+                                  dc_timeout_fixed_w,
                                   dc_type_w,
                                   dc_warn_w,
                                   dc_crc_label_w,
@@ -656,6 +657,7 @@ edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       ce[cur_pos].dup_check_flag = (DC_FILENAME_ONLY | DC_CRC32 | DC_DELETE);
       XtSetSensitive(dc_timeout_w, True);
       XtSetSensitive(dc_timeout_label_w, True);
+      XtSetSensitive(dc_timeout_fixed_w, True);
       XtSetSensitive(dc_type_w, True);
       XtVaSetValues(dc_filename_w, XmNset, True, NULL);
       XtVaSetValues(dc_namesize_w, XmNset, False, NULL);
@@ -688,6 +690,7 @@ edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       ce[cur_pos].dup_check_flag = 0;
       XtSetSensitive(dc_timeout_w, False);
       XtSetSensitive(dc_timeout_label_w, False);
+      XtSetSensitive(dc_timeout_fixed_w, False);
       XtSetSensitive(dc_type_w, False);
       XtSetSensitive(dc_delete_w, False);
       XtSetSensitive(dc_store_w, False);
@@ -1879,6 +1882,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             ce[cur_pos].dup_check_flag = 0;
             XtSetSensitive(dc_timeout_w, False);
             XtSetSensitive(dc_timeout_label_w, False);
+            XtSetSensitive(dc_timeout_fixed_w, False);
             XtSetSensitive(dc_type_w, False);
             XtSetSensitive(dc_delete_w, False);
             XtSetSensitive(dc_store_w, False);
@@ -1899,6 +1903,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             ce[cur_pos].dup_check_flag = fsa[cur_pos].dup_check_flag;
             XtSetSensitive(dc_timeout_w, True);
             XtSetSensitive(dc_timeout_label_w, True);
+            XtSetSensitive(dc_timeout_fixed_w, True);
             XtSetSensitive(dc_type_w, True);
             XtSetSensitive(dc_delete_w, True);
             XtSetSensitive(dc_store_w, True);
@@ -2034,6 +2039,18 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          {
             XtVaSetValues(dc_crc32_w, XmNset, True, NULL);
             XtVaSetValues(dc_crc32c_w, XmNset, False, NULL);
+         }
+      }
+
+      if ((ce[cur_pos].value_changed2 & DC_TIMEOUT_FIXED_CHANGED) == 0)
+      {
+         if (fsa[cur_pos].dup_check_flag & TIMEOUT_IS_FIXED)
+         {
+            XtVaSetValues(dc_timeout_fixed_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(dc_timeout_fixed_w, XmNset, False, NULL);
          }
       }
 #endif /* WITH_DUP_CHECK */
@@ -2265,7 +2282,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
           msg[MAX_MESSAGE_LENGTH];
 
    /* Ensure that the FSA we are mapped to is up to date. */
-   if (check_fsa(NO) == YES)
+   if (check_fsa(NO, AFDD) == YES)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "%s was using edit_hc while someone changed the DIR_CONFIG!",
@@ -2508,16 +2525,22 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             {
                fsa[i].special_flag &= ~KEEP_CON_NO_FETCH;
                fsa[i].special_flag &= ~KEEP_CON_NO_SEND;
+               fsa[i].protocol_options &= ~KEEP_CON_NO_FETCH_2;
+               fsa[i].protocol_options &= ~KEEP_CON_NO_SEND_2;
             }
             else if (ce[i].special_flag & KEEP_CON_NO_FETCH)
                  {
                     fsa[i].special_flag |= KEEP_CON_NO_FETCH;
                     fsa[i].special_flag &= ~KEEP_CON_NO_SEND;
+                    fsa[i].protocol_options |= KEEP_CON_NO_FETCH_2;
+                    fsa[i].protocol_options &= ~KEEP_CON_NO_SEND_2;
                  }
                  else
                  {
                     fsa[i].special_flag &= ~KEEP_CON_NO_FETCH;
                     fsa[i].special_flag |= KEEP_CON_NO_SEND;
+                    fsa[i].protocol_options &= ~KEEP_CON_NO_FETCH_2;
+                    fsa[i].protocol_options |= KEEP_CON_NO_SEND_2;
                  }
             ce[i].special_flag &= ~KEEP_CON_NO_FETCH;
             ce[i].special_flag &= ~KEEP_CON_NO_SEND;
@@ -2933,6 +2956,13 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
 #endif
             changes++;
          }
+#ifdef WITH_DUP_CHECK
+         if (ce[i].value_changed2 & DC_TIMEOUT_FIXED_CHANGED)
+         {
+            fsa[i].dup_check_flag ^= TIMEOUT_IS_FIXED;
+            changes++;
+         }
+#endif
 
          ce[i].value_changed = 0;
          ce[i].value_changed2 = 0;
@@ -2988,11 +3018,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       else if (changes == 1)
            {
-              (void)sprintf(msg, "Changed alias order and submitted one change to FSA.");
+              (void)strcpy(msg, "Changed alias order and submitted one change to FSA.");
            }
            else
            {
-              (void)sprintf(msg, "Changed alias order in FSA.");
+              (void)strcpy(msg, "Changed alias order in FSA.");
               system_log(CONFIG_SIGN, NULL, 0, "%s (%s)", msg, user);
            }
    }
@@ -3000,7 +3030,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       if (changes == 1)
       {
-         (void)sprintf(msg, "Submitted one change to FSA.");
+         (void)strcpy(msg, "Submitted one change to FSA.");
       }
       else if (changes > 1)
            {
@@ -3008,7 +3038,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
            }
            else
            {
-              (void)sprintf(msg, "No values have been changed!");
+              (void)strcpy(msg, "No values have been changed!");
            }
    }
    event_log(0L, EC_GLOB, ET_MAN, EA_REREAD_HOST_CONFIG, "%s %s", user, msg);

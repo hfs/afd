@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2011 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -64,6 +64,8 @@ DESCR__S_M3
  **                      now free.
  **   11.02.2007 H.Kiehl Added job string when writting to log_fd.
  **   01.11.2011 H.Kiehl Added support for setting scheduling priority.
+ **   01.03.2013 H.Kiehl When we reach the maximum read buffer, tell
+ **                      user the command where that occurs.
  **
  */
 DESCR__E_M3
@@ -403,7 +405,8 @@ exec_cmd(char   *cmd,
                           if (have_warned != YES)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                        _("exec_cmd(): Max read buffer reached! Starting from beginning."));
+                                        _("exec_cmd(): Max read buffer (%d bytes) reached when executing `%s'! Starting from beginning."),
+                                        max_read_buffer, cmd);
                              have_warned = YES;
                           }
                        }

@@ -41,7 +41,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>           /* sprintf()                                */
+#include <stdio.h>
 #include <string.h>          /* strerror()                               */
 #include <unistd.h>          /* write()                                  */
 #include <sys/types.h>

@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -108,6 +108,9 @@ DESCR__S_M1
  **                      directory.
  **   20.10.2011 H.Kiehl Added -T option.
  **   28.11.2012 H.Kiehl Let user choose the level of initialization.
+ **   05.08.2013 H.Kiehl Check correct DIR_CONFIG in case when we specify
+ **                      another one in AFD_CONFIG in function
+ **                      check_database().
  **
  */
 DESCR__E_M1
@@ -1097,18 +1100,56 @@ main(int argc, char *argv[])
 static int
 check_database(void)
 {
+   int  length,
+        ret;
    char db_file[MAX_PATH_LENGTH];
 
-   (void)sprintf(db_file, "%s%s%s",
-                 p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE);
+#ifdef HAVE_SNPRINTF
+   length = snprintf(db_file, MAX_PATH_LENGTH, "%s%s", p_work_dir, ETC_DIR);
+#else
+   length = sprintf(db_file, "%s%s", p_work_dir, ETC_DIR);
+#endif
+   (void)strcpy(&db_file[length], AFD_CONFIG_FILE);
+   if (eaccess(db_file, R_OK) == -1)
+   {
+      (void)strcpy(&db_file[length], DEFAULT_DIR_CONFIG_FILE);
+      ret = eaccess(db_file, R_OK);
+   }
+   else
+   {
+      char *buffer;
+
+      ret = -1;
+      if (read_file_no_cr(db_file, &buffer, __FILE__, __LINE__) != INCORRECT)
+      {
+         char *ptr;
+
+         ptr = buffer;
+         while ((ptr = get_definition(ptr, DIR_CONFIG_NAME_DEF,
+                                      db_file, MAX_PATH_LENGTH)) != NULL)
+         {
+            if ((ret = eaccess(db_file, R_OK)) == 0)
+            {
+               break;
+            }
+         }
+         free(buffer);
+      }
+
+      if (ret == -1)
+      {
+         (void)strcpy(&db_file[length], DEFAULT_DIR_CONFIG_FILE);
+         ret = eaccess(db_file, R_OK);
+      }
+   }
 
 #ifdef WITH_AUTO_CONFIG
-   if (eaccess(db_file, R_OK) == -1)
+   if (ret == -1)
    {
       FILE        *fp;
       struct stat stat_buf;
 
-      (void)sprintf(db_file, "%s%s", p_work_dir, ETC_DIR);
+      db_file[length] = '\0';
       if (stat(db_file, &stat_buf) == -1)
       {
          if (errno == ENOENT)
@@ -1125,7 +1166,12 @@ check_database(void)
             return(-1);
          }
       }
-      (void)sprintf(db_file, "%s %s 2>&1", AFD_AUTO_CONFIG, p_work_dir);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(db_file, MAX_PATH_LENGTH, "%s %s 2>&1",
+#else
+      (void)sprintf(db_file, "%s %s 2>&1",
+#endif
+                    AFD_AUTO_CONFIG, p_work_dir);
       if ((fp = popen(db_file, "r")) == NULL)
       {
          (void)fprintf(stderr, _("Failed to popen() `%s' : %s\n"),
@@ -1150,7 +1196,11 @@ check_database(void)
       {
          (void)fprintf(stderr, _("Failed to pclose() : %s\n"), strerror(errno));
       }
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(db_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
       (void)sprintf(db_file, "%s%s%s",
+#endif
                     p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE);
       return(eaccess(db_file, R_OK));
    }
@@ -1159,7 +1209,7 @@ check_database(void)
       return(0);
    }
 #else
-   return(eaccess(db_file, R_OK));
+   return(ret);
 #endif
 }
 

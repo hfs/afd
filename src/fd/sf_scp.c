@@ -1,6 +1,6 @@
 /*
  *  sf_scp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,8 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables. */
-int                        counter_fd = -1,     /* NOT USED. */
+int                        amg_flag = NO,
+                           counter_fd = -1,     /* NOT USED. */
                            event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,     /* NOT USED. */
@@ -111,8 +112,8 @@ int                        counter_fd = -1,     /* NOT USED. */
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO,
-                           timeout_flag;
+                           timeout_flag,
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -301,8 +302,16 @@ main(int argc, char *argv[])
    /* Connect to remote SSH-server via local SSH-client. */
    if (fsa->debug > NORMAL_MODE)
    {
-      trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                   "Trying to make scp connect at port %d.", db.port);
+      if (db.port == SSH_PORT_UNSET)
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Trying to make scp connect at port configured by the SSH client.");
+      }
+      else
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Trying to make scp connect at port %d.", db.port);
+      }
    }
    if ((status = scp_connect(db.hostname, db.port, db.ssh_protocol,
                              (fsa->protocol_options & ENABLE_COMPRESSION) ? YES : NO,
@@ -312,17 +321,34 @@ main(int argc, char *argv[])
 #endif
                              db.password, db.target_dir)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                "SCP connection to %s at port %d failed (%d).",
-                db.hostname, db.port, status);
+      if (db.port == SSH_PORT_UNSET)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "SCP connection to %s at port configured by the SSH client failed (%d).",
+                   db.hostname, status);
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                   "SCP connection to %s at port %d failed (%d).",
+                   db.hostname, db.port, status);
+      }
       exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
       if (fsa->debug > NORMAL_MODE)
       {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                      "Connected to port %d.", db.port);
+         if (db.port == SSH_PORT_UNSET)
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                         "Connected to port configured by the SSH client.");
+         }
+         else
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                         "Connected to port %d.", db.port);
+         }
       }
    }
 
@@ -534,8 +560,8 @@ main(int argc, char *argv[])
                   if ((status = scp_write(buffer, bytes_buffered)) != SUCCESS)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                               "Failed to write block from file `%s' to remote port %d [%d].",
-                               p_file_name_buffer, db.port, status);
+                               "Failed to write block from file `%s' [%d].",
+                               p_file_name_buffer, status);
                      scp_quit();
                      exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
@@ -1061,7 +1087,7 @@ try_again_unlink:
 
    free(buffer);
 
-   /* Disconnect from remote port. */
+   /* Disconnect from remote host. */
    scp_quit();
    if (fsa->debug > NORMAL_MODE)
    {
@@ -1126,7 +1152,8 @@ sf_scp_exit(void)
                                burst_2_counter);
               }
 #endif /* _WITH_BURST_2 */
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                   buffer, db.job_id);
       }
       reset_fsa((struct job *)&db, exitflag, 0, 0);
    }

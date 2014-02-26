@@ -40,7 +40,6 @@ DESCR__S_M3
  ** HISTORY
  **   10.08.1995 H.Kiehl Created
  **   26.03.1998 H.Kiehl Put this function into a separate file.
- **   24.06.2012 H.Kiehl Added inotify support.
  **
  */
 DESCR__E_M3
@@ -64,11 +63,7 @@ extern char *p_work_dir;
 
 /*################################ com() ################################*/
 int
-#ifdef WITH_INOTIFY
-com(char action, int type)
-#else
 com(char action)
-#endif
 {
    int            write_fd,
                   read_fd,
@@ -85,18 +80,7 @@ com(char action)
    ptr = com_fifo + strlen(com_fifo);
 
    /* Open fifo to send command to job. */
-#ifdef WITH_INOTIFY
-   if (type == DC_FIFOS)
-   {
-#endif
-      (void)strcpy(ptr, DC_CMD_FIFO);
-#ifdef WITH_INOTIFY
-   }
-   else
-   {
-      (void)strcpy(ptr, IC_CMD_FIFO);
-   }
-#endif
+   (void)strcpy(ptr, DC_CMD_FIFO);
    if ((write_fd = open(com_fifo, O_RDWR)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -105,18 +89,7 @@ com(char action)
    }
 
    /* Open fifo to wait for answer from job. */
-#ifdef WITH_INOTIFY
-   if (type == DC_FIFOS)
-   {
-#endif
-      (void)strcpy(ptr, DC_RESP_FIFO);
-#ifdef WITH_INOTIFY
-   }
-   else
-   {
-      (void)strcpy(ptr, IC_RESP_FIFO);
-   }
-#endif
+   (void)strcpy(ptr, DC_RESP_FIFO);
    if ((read_fd = open(com_fifo, (O_RDONLY | O_NONBLOCK))) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,

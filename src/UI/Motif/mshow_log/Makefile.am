@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2008 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = cursor1.h cursor2.h cursormask1.h cursormask2.h\
                        mshow_log.h
-INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
+AM_CPPFLAGS          = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../common\
                        -I../common -I../../../init_afd -I../../../log\
                        -I../mafd_ctrl -I../../../afd_mon
 bin_PROGRAMS         = mshow_log

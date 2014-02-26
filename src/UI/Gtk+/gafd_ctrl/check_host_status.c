@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -147,7 +147,7 @@ check_host_status(Widget w)
     * See if a host has been added or removed from the FSA.
     * If it changed resize the window.
     */
-   if (check_fsa(NO) == YES)
+   if (check_fsa(NO, "gafd_ctrl") == YES)
    {
       int         nll = 0,    /* Number of long lines. */
                   nsl = 0;    /* Number of short lines. */
@@ -550,7 +550,7 @@ check_host_status(Widget w)
 
       /* Make sure changes are drawn!!! */
       flush = YES;
-   } /* if (check_fsa(NO) == YES) */
+   } /* if (check_fsa(NO, "gafd_ctrl") == YES) */
 
    if ((line_style & SHOW_CHARACTERS) || (line_style & SHOW_BARS))
    {

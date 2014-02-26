@@ -1,6 +1,6 @@
 /*
  *  init_sf_burst2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>                     /* sprintf()                      */
+#include <stdio.h>
 #include <string.h>                    /* strcpy(), strcat(), strerror() */
 #include <stdlib.h>                    /* malloc()                       */
 #include <errno.h>
@@ -241,6 +241,8 @@ init_sf_burst2(struct job   *p_new_db,
 #endif
       db.mode_flag         = p_new_db->mode_flag;
 #ifdef WITH_DUP_CHECK
+      db.trans_dup_check_flag    = p_new_db->trans_dup_check_flag;
+      db.trans_dup_check_timeout = p_new_db->trans_dup_check_timeout;
       db.dup_check_flag    = p_new_db->dup_check_flag;
       db.dup_check_timeout = p_new_db->dup_check_timeout;
       db.crc_id            = p_new_db->crc_id;

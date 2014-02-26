@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2012 Holger Kiehl
+## Copyright (C) 2001 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -85,7 +85,7 @@ EXTRA_DIST = $(EXTRA_MAPPER) $(EXTRA_AFD_MON) $(EXTRA_EACCESS)\
              $(EXTRA_HANDLE_ERROR_QUEUE) pmatch_old.c
 
 MAINTAINERCLEANFILES = Makefile.in
-INCLUDES             = -I.. -I../init_afd -I../amg -I../fd -I../misc\
+AM_CPPFLAGS          = -I.. -I../init_afd -I../amg -I../fd -I../misc\
                        -I../afd_mon
 
 lib_LIBRARIES        = libafd.a
@@ -162,6 +162,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        mmap_resize.c\
                        $(AFD_MON_PROGS)\
                        move_file.c\
+                       my_power.c\
                        my_strncpy.c\
                        my_usleep.c\
                        $(OPEN_FIFO_RW)\
@@ -176,6 +177,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        rec_rmdir.c\
                        remove_dir.c\
                        remove_files.c\
+                       remove_nnn_files.c\
                        remove_job_files.c\
                        reshuffel_log_files.c\
                        rlock_region.c\
@@ -185,6 +187,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        set_fl.c\
                        show_fifo_data.c\
                        store_real_hostname.c\
+                       system_data.c\
                        system_log.c\
                        t_hostname.c\
                        typesize_data.c\

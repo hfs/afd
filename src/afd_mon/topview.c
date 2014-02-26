@@ -1,6 +1,6 @@
 /*
  *  topview.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2010 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -41,6 +41,7 @@ DESCR__S_M1
  ** HISTORY
  **   02.02.2000 H.Kiehl Created
  **   13.09.2000 H.Kiehl Addition of top number of transfers.
+ **   26.09.2013 H.Kiehl Show more accurate transfer rate numbers.
  **
  */
 DESCR__E_M1
@@ -55,6 +56,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "mondefs.h"
 #include "version.h"
+
 
 int                    sys_log_fd = STDERR_FILENO,   /* Not used!    */
                        msa_id,
@@ -198,44 +200,12 @@ print_data(int pos, int show)
    }
    else if (show == 1)
         {
+           char size_str[7];
+
            for (j = 0; j < STORAGE_TIME; j++)
            {
-              if (msa[pos].top_tr[j] > EXABYTE)
-              {
-#if SIZEOF_OFF_T == 4
-                 (void)fprintf(stdout, " %4lu EB", msa[pos].top_tr[j] / EXABYTE);
-#else
-                 (void)fprintf(stdout, " %4llu EB", msa[pos].top_tr[j] / EXABYTE);
-#endif
-              }
-              else if (msa[pos].top_tr[j] > PETABYTE)
-                   {
-                      (void)fprintf(stdout, " %4d PB", (int)(msa[pos].top_tr[j] / PETABYTE));
-                   }
-              else if (msa[pos].top_tr[j] > TERABYTE)
-                   {
-                      (void)fprintf(stdout, " %4d TB", (int)(msa[pos].top_tr[j] / TERABYTE));
-                   }
-              else if (msa[pos].top_tr[j] > GIGABYTE)
-                   {
-                      (void)fprintf(stdout, " %4d GB", (int)(msa[pos].top_tr[j] / GIGABYTE));
-                   }
-              else if (msa[pos].top_tr[j] > MEGABYTE)
-                   {
-                      (void)fprintf(stdout, " %4d MB", (int)(msa[pos].top_tr[j] / MEGABYTE));
-                   }
-              else if (msa[pos].top_tr[j] > KILOBYTE)
-                   {
-                      (void)fprintf(stdout, " %4d KB", (int)(msa[pos].top_tr[j] / KILOBYTE));
-                   }
-                   else
-                   {
-#if SIZEOF_OFF_T == 4
-                      (void)fprintf(stdout, " %4lu B ", msa[pos].top_tr[j]);
-#else
-                      (void)fprintf(stdout, " %4llu B ", msa[pos].top_tr[j]);
-#endif
-                   }
+              PRINT_SIZE_STR(msa[pos].top_tr[j], size_str);
+              (void)fprintf(stdout, " %s", size_str);
            }
         }
         else

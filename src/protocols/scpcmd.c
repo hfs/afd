@@ -1,6 +1,6 @@
 /*
  *  scpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -118,7 +118,12 @@ scp_connect(char          *hostname,
    int  status;
    char cmd[MAX_PATH_LENGTH];
 
-   (void)sprintf(cmd, "scp -t %s", (dir[0] == '\0') ? "." : dir);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(cmd, MAX_PATH_LENGTH,
+#else
+   (void)sprintf(cmd,
+#endif
+                 "scp -t %s", (dir[0] == '\0') ? "." : dir);
 
 #ifdef WITH_SSH_FINGERPRINT
 # ifdef WITH_REMOVE_FROM_KNOWNHOSTS
@@ -159,10 +164,15 @@ scp_open_file(char *filename, off_t size, mode_t mode)
    size_t length;
    char   cmd[MAX_PATH_LENGTH];
 
-#if SIZEOF_OFF_T == 4
-   length = sprintf(cmd, "C%04o %ld %s\n",
+#ifdef HAVE_SNPRINTF
+   length = snprintf(cmd, MAX_PATH_LENGTH,
 #else
-   length = sprintf(cmd, "C%04o %lld %s\n",
+   length = sprintf(cmd,
+#endif
+#if SIZEOF_OFF_T == 4
+                    "C%04o %ld %s\n",
+#else
+                    "C%04o %lld %s\n",
 #endif
                     (mode & (S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO)),
                     (pri_off_t)size, filename);

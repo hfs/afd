@@ -1,6 +1,6 @@
 /*
  *  lock_proc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,12 @@ lock_proc(int proc_id, int test_lock)
    struct stat  stat_buf;
    struct flock wlock;
 
-   (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, LOCK_PROC_FILE);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(file, MAX_PATH_LENGTH, "%s%s%s",
+#else
+   (void)sprintf(file, "%s%s%s",
+#endif
+                 p_work_dir, FIFO_DIR, LOCK_PROC_FILE);
 
    /* See if the lock file does already exist. */
    errno = 0;
@@ -151,11 +156,18 @@ lock_proc(int proc_id, int test_lock)
                     _("close() error : %s"), strerror(errno));
       }
       ptr = user_str + strlen(user_str);
-#if SIZEOF_PID_T == 4
-      (void)sprintf(ptr, " [pid=%d]", (pri_pid_t)wlock.l_pid);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(ptr,
+                     MAX_FULL_USER_ID_LENGTH + 6 + MAX_INT_LENGTH + 2 + 1 - (ptr - user_str),
 #else
-      (void)sprintf(ptr, " [pid=%lld]", (pri_pid_t)wlock.l_pid);
+      (void)sprintf(ptr,
 #endif
+#if SIZEOF_PID_T == 4
+                    " [pid=%d]",
+#else
+                    " [pid=%lld]",
+#endif
+                    (pri_pid_t)wlock.l_pid);
 
       return(user_str);
    }
@@ -180,11 +192,18 @@ lock_proc(int proc_id, int test_lock)
             }
             else
             {
-#if SIZEOF_PID_T == 4
-               (void)sprintf(ptr, " [pid=%d]", (pri_pid_t)wlock.l_pid);
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(ptr,
+                              MAX_FULL_USER_ID_LENGTH + 6 + MAX_INT_LENGTH + 2 + 1 - (ptr - user_str),
 #else
-               (void)sprintf(ptr, " [pid=%lld]", (pri_pid_t)wlock.l_pid);
+               (void)sprintf(ptr,
 #endif
+#if SIZEOF_PID_T == 4
+                             " [pid=%d]",
+#else
+                             " [pid=%lld]",
+#endif
+                             (pri_pid_t)wlock.l_pid);
             }
             if (close(fd) == -1)
             {

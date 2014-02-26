@@ -52,6 +52,7 @@ DESCR__S_M3
  **                      option_n
  **         Priority   : 5
  **         Job-ID     : 4f2ac21
+ **         Retries    : 2
  **         Archive dir: hollywood/donald/0/862868443_491
  **         Unique name: 4249397a_4_0
  **
@@ -68,6 +69,7 @@ DESCR__S_M3
  **                      Added directory options.
  **   14.09.2008 H.Kiehl Added output time, directory ID and alias.
  **   29.01.2009 H.Kiehl Resize text buffer when it gets to small.
+ **   23.12.2013 H.Kiehl Added retries.
  **
  */
 DESCR__E_M3
@@ -391,6 +393,17 @@ format_info(char **text)
       max_x = count;
    }
    max_y++;
+
+   if (id.retries > 0)
+   {
+      count = sprintf(*text + length, "\nRetries    : %u", id.retries);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+   }
 
    if (id.mail_id[0] != '\0')
    {

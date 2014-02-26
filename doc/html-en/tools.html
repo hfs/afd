@@ -151,20 +151,20 @@ Rate limit           : 0
 Rate limit per proc  : 0
 MC Rate limit        : 0
 MC Rate limit/proc   : 0
-                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4
---------------------+-----------+-----------+-----------+-----------+-----------
-PID                 |        -1 |        -1 |        -1 |        -1 |        -1
-Connect status      |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT
-Number of files     |         0 |         0 |         0 |         0 |         0
-No. of files done   |         0 |         0 |         0 |         0 |         0
-File size           |         0 |         0 |         0 |         0 |         0
-File size done      |         0 |         0 |         0 |         0 |         0
-Bytes send          |   3100838 |         0 |         0 |         0 |         0
-File name in use    |           |           |           |           |
-File size in use    |         0 |         0 |         0 |         0 |         0
-Filesize in use done|         0 |         0 |         0 |         0 |         0
-Unique name         |           |           |           |           |
-Job ID              |         0 |         0 |         0 |         0 |         0
+                    |   Job 0   |   Job 1   
+--------------------+-----------+-----------
+PID                 |        -1 |        -1 
+Connect status      |DISCONNECT |DISCONNECT 
+Number of files     |         0 |         0 
+No. of files done   |         0 |         0 
+File size           |         0 |         0 
+File size done      |         0 |         0 
+Bytes send          |   3100838 |         0 
+File name in use    |           |           
+File size in use    |         0 |         0 
+Filesize in use done|         0 |         0 
+Unique name         |           |           
+Job ID              |         0 |         0 
 </pre>
 <p>
 Under 'File name in use' will be shown the current file being transmitted.
@@ -587,8 +587,9 @@ user interaction, so it can be used from any shell scripts or programs such as
      -c &lt;config file&gt;                   - Configuration file holding user name,
                                           password and target directory in URL
                                           format.
-     -C                                 - If target directory does not exist create
-                                          it.
+     -C[ &lt;mode&gt;]                        - If target directory does not exist create
+                                          it. The optional mode can be used to
+                                          set the permission of this directory.
      -d &lt;remote directory&gt;              - Directory where file(s) are to be stored.
      -f &lt;filename&gt;                      - File containing a list of filenames
                                           that are to be send.
@@ -748,9 +749,9 @@ user interaction, so it can be used from any shell scripts or programs such as
 <table width="100%">
 <tr>
    <td width="90%"><address><small>
-   Copyright &copy; 2001 - 2012 by H.Kiehl<br>
+   Copyright &copy; 2001 - 2013 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 27.11.2012
+   Last updated: 23.11.2013
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,8 +27,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void eval_dir_options(int  dir_pos,
- **                         char *dir_options,
- **                         char *old_dir_options)
+ **                         char *dir_options)
  **
  ** DESCRIPTION
  **   Reads and evaluates the directory options from one directory
@@ -57,23 +56,15 @@ DESCR__S_M3
  **        max process <value>                   [DEFAULT 10]
  **        max files <value>                     [DEFAULT ?]
  **        max size <value>                      [DEFAULT ?]
+ **        max errors <value>                    [DEFAULT 10]
  **        wait for <file name|pattern>
  **        warn time <value in seconds>
  **        accumulate <value>
  **        accumulate size <value>
+ **        do not parallelize
  **        dupcheck[ <timeout in secs>[ <check type>[ <action>[ <CRC type>]]]]
  **        accept dot files
  **        inotify <value>                       [DEFAULT 0]
- **
- **   For the string old_dir_options it is possible to define the
- **   following values:
- **        <hours> <DIRS*>
- **                 |||||
- **                 ||||+----> important directory
- **                 |||+-----> do not report
- **                 ||+------> report
- **                 |+-------> do not delete
- **                 +--------> delete
  **
  ** RETURN VALUES
  **   None, will just enter the values found into the structure
@@ -101,6 +92,9 @@ DESCR__S_M3
  **   13.11.2006 H.Kiehl Added "keep connected" option.
  **   24.02.2007 H.Kiehl Added inotify support.
  **   28.05.2012 H.Kiehl Added "create source dir" option.
+ **   14.02.2013 H.Kiehl Remove support for old style directory options,
+ **                      directly behind the directory name itself.
+ **   15.12.2013 H.Kiehl Added "max errors" and "do not parallelize" option.
  **
  */
 DESCR__E_M3
@@ -126,6 +120,9 @@ extern int             default_delete_files_flag,
                        default_old_file_time,
                        max_process_per_dir;
 extern unsigned int    max_copied_files;
+#ifdef NEW_FRA
+extern time_t          default_info_time;
+#endif
 extern time_t          default_warn_time;
 extern off_t           max_copied_file_size;
 extern struct dir_data *dd;
@@ -163,21 +160,24 @@ extern struct dir_data *dd;
 #endif
 #define CREATE_SOURCE_DIR_FLAG           134217728
 #define DONT_CREATE_SOURCE_DIR_FLAG      268435456
+#ifdef NEW_FRA
+#define DIR_INFO_TIME_FLAG               536870912
+#endif
+#define MAX_ERRORS_FLAG                  1073741824
+#define DO_NOT_PARALLELIZE_FLAG          2147483648
 
 
 /*########################## eval_dir_options() #########################*/
 void
-eval_dir_options(int  dir_pos,
-                 char *dir_options,
-                 char *old_dir_options)
+eval_dir_options(int  dir_pos, char *dir_options)
 {
-   int  old_file_time,
-        to_many_time_option_warn = YES,
-        used = 0;          /* Used to see whether option has */
+   int          old_file_time,
+                to_many_time_option_warn = YES;
+   unsigned int used = 0;  /* Used to see whether option has */
                            /* already been set.              */
-   char *ptr,
-        *end_ptr = NULL,
-        byte_buf;
+   char         *ptr,
+                *end_ptr = NULL,
+                byte_buf;
 
    /* Set some default directory options. */
    if (default_old_file_time == -1)
@@ -204,7 +204,7 @@ eval_dir_options(int  dir_pos,
    dd[dir_pos].priority = DEFAULT_PRIORITY;
    dd[dir_pos].force_reread = NO;
    dd[dir_pos].gt_lt_sign = 0;
-   dd[dir_pos].ignore_size = 0;
+   dd[dir_pos].ignore_size = -1;
    dd[dir_pos].ignore_file_time = 0;
    dd[dir_pos].max_copied_files = max_copied_files;
    dd[dir_pos].max_copied_file_size = max_copied_file_size;
@@ -219,6 +219,9 @@ eval_dir_options(int  dir_pos,
    dd[dir_pos].do_not_get_dir_list = NO;
    dd[dir_pos].create_source_dir = NO;
    dd[dir_pos].max_errors = 10;
+#ifdef NEW_FRA
+   dd[dir_pos].info_time = default_info_time;
+#endif
    dd[dir_pos].warn_time = default_warn_time;
    dd[dir_pos].keep_connected = DEFAULT_KEEP_CONNECTED_TIME;
 #ifdef WITH_INOTIFY
@@ -227,105 +230,7 @@ eval_dir_options(int  dir_pos,
    dd[dir_pos].dont_create_source_dir = NO;
    dd[dir_pos].create_source_dir = NO;
    dd[dir_pos].dir_mode = 0;
-
-   /*
-    * First evaluate the old directory option so we
-    * so we can later override them with the new options.
-    */
-   if ((*old_dir_options != '\n') && (*old_dir_options != '\0'))
-   {
-      int  length = 0;
-      char number[MAX_INT_LENGTH + 1];
-
-      ptr = old_dir_options;
-      while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
-      {
-         number[length] = *ptr;
-         ptr++; length++;
-      }
-      if ((length > 0) && (length != MAX_INT_LENGTH))
-      {
-         number[length] = '\0';
-         old_file_time = atoi(number) * 3600;
-         while ((*ptr == ' ') || (*ptr == '\t'))
-         {
-            ptr++;
-         }
-         end_ptr = ptr;
-      }
-      else
-      {
-         end_ptr = ptr;
-      }
-      while ((*end_ptr != '\n') && (*end_ptr != '\0'))
-      {
-        switch (*end_ptr)
-        {
-           case 'd' :
-           case 'D' : /* Delete unknown files. */
-              if ((dd[dir_pos].delete_files_flag & UNKNOWN_FILES) == 0)
-              {
-                 dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
-              }
-              dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
-              break;
-
-           case 'i' :
-           case 'I' : /* Do NOT delete unknown files. */
-              dd[dir_pos].delete_files_flag = 0;
-              break;
-
-           case 'r' :
-           case 'R' : /* Report unknown files. */
-              dd[dir_pos].report_unknown_files = YES;
-              dd[dir_pos].in_dc_flag |= REPUKW_FILES_IDC;
-              break;
-
-           case 's' :
-           case 'S' : /* Do NOT report unknown files. */
-              dd[dir_pos].report_unknown_files = NO;
-              dd[dir_pos].in_dc_flag |= DONT_REPUKW_FILES_IDC;
-              break;
-
-           case 'E' : /* Check end character of file. */
-              if ((*(end_ptr + 1) == 'C') && (*(end_ptr + 2) == '='))
-              {
-                 end_ptr += 3;
-                 length = 0;
-                 while ((isdigit((int)(*end_ptr))) &&
-                        (length < MAX_INT_LENGTH))
-                 {
-                    number[length] = *end_ptr;
-                    end_ptr++; length++;
-                 }
-                 if (length != 0)
-                 {
-                    number[length] = '\0';
-                    dd[dir_pos].end_character = atoi(number);
-                 }
-              }
-              break;
-
-#ifndef _WITH_PTHREAD
-           case '*' : /* This is an important directory! */
-              dd[dir_pos].important_dir = YES;
-              break;
-#endif
-
-           case '\t':
-           case ' ' : /* Ignore any spaces. */
-              break;
-
-           default : /* Give a warning about an unknown */
-                     /* character option.               */
-             system_log(WARN_SIGN, __FILE__, __LINE__,
-                        "Unknown option character %c <%d> for directory option for directory %s.",
-                        *end_ptr, (int)*end_ptr, dd[dir_pos].dir_name);
-             break;
-        }
-        end_ptr++;
-      }
-   }
+   dd[dir_pos].do_not_parallelize = NO;
 
    /*
     * Now for the new directory options.
@@ -347,18 +252,30 @@ eval_dir_options(int  dir_pos,
             {
                ptr++;
             }
-            while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+            if ((*ptr == '-') && (*(ptr + 1) == '1'))
             {
-               number[length] = *ptr;
-               ptr++; length++;
-            }
-            if ((length > 0) && (length != MAX_INT_LENGTH))
-            {
-               number[length] = '\0';
-               dd[dir_pos].unknown_file_time = atoi(number) * 3600;
+               dd[dir_pos].unknown_file_time = -2;
+               ptr += 2;
                while ((*ptr == ' ') || (*ptr == '\t'))
                {
                   ptr++;
+               }
+            }
+            else
+            {
+               while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+               {
+                  number[length] = *ptr;
+                  ptr++; length++;
+               }
+               if ((length > 0) && (length != MAX_INT_LENGTH))
+               {
+                  number[length] = '\0';
+                  dd[dir_pos].unknown_file_time = atoi(number) * 3600;
+                  while ((*ptr == ' ') || (*ptr == '\t'))
+                  {
+                     ptr++;
+                  }
                }
             }
          }
@@ -394,7 +311,7 @@ eval_dir_options(int  dir_pos,
               {
                  number[length] = '\0';
                  dd[dir_pos].inotify_flag = (unsigned int)atoi(number);
-                 if (dd[dir_pos].inotify_flag > (INOTIFY_RENAME_FLAG | INOTIFY_CLOSE_FLAG))
+                 if (dd[dir_pos].inotify_flag > (INOTIFY_RENAME_FLAG | INOTIFY_CLOSE_FLAG | INOTIFY_CREATE_FLAG))
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
                               "Incorrect parameter %u for directory option `%s' for directory %s. Resetting to %u.",
@@ -409,6 +326,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              INOTIFY_FLAG_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              INOTIFY_FLAG_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -441,6 +376,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              OLD_FILE_TIME_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              OLD_FILE_TIME_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -504,6 +457,24 @@ eval_dir_options(int  dir_pos,
                     ptr++;
                  }
               }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              END_CHARACTER_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              END_CHARACTER_ID, dd[dir_pos].dir_name);
+                 }
+              }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
@@ -533,6 +504,75 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+                 dd[dir_pos].in_dc_flag |= MAX_PROCESS_IDC;
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              MAX_PROCESS_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              MAX_PROCESS_ID, dd[dir_pos].dir_name);
+                 }
+              }
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+      else if (((used & MAX_ERRORS_FLAG) == 0) &&
+               (strncmp(ptr, MAX_ERRORS_ID, MAX_ERRORS_ID_LENGTH) == 0))
+           {
+              int  length = 0;
+              char number[MAX_INT_LENGTH + 1];
+
+              used |= MAX_ERRORS_FLAG;
+              ptr += MAX_ERRORS_ID_LENGTH;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+              {
+                 number[length] = *ptr;
+                 ptr++; length++;
+              }
+              if ((length > 0) && (length != MAX_INT_LENGTH))
+              {
+                 number[length] = '\0';
+                 dd[dir_pos].max_errors = atoi(number);
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 dd[dir_pos].in_dc_flag |= MAX_ERRORS_IDC;
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              MAX_ERRORS_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              MAX_ERRORS_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -769,6 +809,17 @@ eval_dir_options(int  dir_pos,
 
            }
 #endif
+      else if (((used & DO_NOT_PARALLELIZE_FLAG) == 0) &&
+               (strncmp(ptr, DO_NOT_PARALLELIZE_ID, DO_NOT_PARALLELIZE_ID_LENGTH) == 0))
+           {
+              used |= DO_NOT_PARALLELIZE_FLAG;
+              ptr += DO_NOT_PARALLELIZE_ID_LENGTH;
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+              dd[dir_pos].do_not_parallelize = YES;
+           }
       else if (((used & ACCEPT_DOT_FILES_FLAG) == 0) &&
                (strncmp(ptr, ACCEPT_DOT_FILES_ID, ACCEPT_DOT_FILES_ID_LENGTH) == 0))
            {
@@ -995,6 +1046,73 @@ eval_dir_options(int  dir_pos,
               }
               dd[dir_pos].create_source_dir = YES;
            }
+#ifdef NEW_FRA
+      else if (((used & DIR_INFO_TIME_FLAG) == 0) &&
+               (strncmp(ptr, DIR_INFO_TIME_ID, DIR_INFO_TIME_ID_LENGTH) == 0))
+           {
+              int  length = 0;
+              char number[MAX_LONG_LENGTH + 1];
+
+              used |= DIR_INFO_TIME_FLAG;
+              ptr += DIR_INFO_TIME_ID_LENGTH;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              while ((isdigit((int)(*ptr))) && (length < MAX_LONG_LENGTH))
+              {
+                 number[length] = *ptr;
+                 ptr++; length++;
+              }
+              if ((length > 0) && (length != MAX_LONG_LENGTH))
+              {
+                 number[length] = '\0';
+                 dd[dir_pos].info_time = (time_t)atol(number);
+                 if (dd[dir_pos].info_time < 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_TIME_T == 4
+                               "A value less then 0 for directory option `%s' for directory %s is no possible, setting default %ld.",
+#else
+                               "A value less then 0 for directory option `%s' for directory %s is no possible, setting default %lld.",
+#endif
+                               DIR_INFO_TIME_ID, dd[dir_pos].dir_name,
+                               (pri_time_t)default_info_time);
+                    dd[dir_pos].info_time = default_info_time;
+                 }
+                 else
+                 {
+                    dd[dir_pos].in_dc_flag |= INFO_TIME_IDC;
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              DIR_INFO_TIME_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_LONG_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              DIR_INFO_TIME_ID, dd[dir_pos].dir_name);
+                 }
+              }
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+#endif
       else if (((used & DIR_WARN_TIME_FLAG) == 0) &&
                (strncmp(ptr, DIR_WARN_TIME_ID, DIR_WARN_TIME_ID_LENGTH) == 0))
            {
@@ -1037,6 +1155,24 @@ eval_dir_options(int  dir_pos,
                     ptr++;
                  }
               }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              DIR_WARN_TIME_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_LONG_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              DIR_WARN_TIME_ID, dd[dir_pos].dir_name);
+                 }
+              }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
@@ -1067,6 +1203,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              KEEP_CONNECTED_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              KEEP_CONNECTED_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -1149,6 +1303,24 @@ eval_dir_options(int  dir_pos,
                     ptr++;
                  }
               }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              ACCUMULATE_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              ACCUMULATE_ID, dd[dir_pos].dir_name);
+                 }
+              }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
@@ -1178,6 +1350,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              ACCUMULATE_SIZE_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_OFF_T_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              ACCUMULATE_SIZE_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -1221,7 +1411,10 @@ eval_dir_options(int  dir_pos,
               else if ((*ptr == '=') || (isdigit((int)(*ptr))))
                    {
                       dd[dir_pos].gt_lt_sign |= ISIZE_EQUAL;
-                      ptr++;
+                      if (*ptr == '=')
+                      {
+                         ptr++;
+                      }
                    }
               while ((*ptr == ' ') || (*ptr == '\t'))
               {
@@ -1249,7 +1442,7 @@ eval_dir_options(int  dir_pos,
                  if ((dd[dir_pos].ignore_size = (off_t)strtol(number, NULL, 10)) == LONG_MAX)
 #endif
                  {
-                    dd[dir_pos].ignore_size = 0;
+                    dd[dir_pos].ignore_size = -1;
                     system_log(WARN_SIGN, __FILE__, __LINE__,
                                "Value %s for option <%s> in DIR_CONFIG for directory %s, to large causing overflow. Ignoring.",
                                number, dd[dir_pos].dir_name, IGNORE_SIZE_ID);
@@ -1257,6 +1450,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              IGNORE_SIZE_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_OFF_T_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              IGNORE_SIZE_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -1289,7 +1500,10 @@ eval_dir_options(int  dir_pos,
               else if ((*ptr == '=') || (isdigit((int)(*ptr))))
                    {
                       dd[dir_pos].gt_lt_sign |= IFTIME_EQUAL;
-                      ptr++;
+                      if (*ptr == '=')
+                      {
+                         ptr++;
+                      }
                    }
               while ((*ptr == ' ') || (*ptr == '\t'))
               {
@@ -1307,6 +1521,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              IGNORE_FILE_TIME_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              IGNORE_FILE_TIME_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
@@ -1341,6 +1573,24 @@ eval_dir_options(int  dir_pos,
                     ptr++;
                  }
               }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              MAX_FILES_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_INT_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              MAX_FILES_ID, dd[dir_pos].dir_name);
+                 }
+              }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
@@ -1371,6 +1621,24 @@ eval_dir_options(int  dir_pos,
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
+                 }
+              }
+              else
+              {
+                 if (length > 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Value to long for directory option `%s' for directory %s.",
+                              MAX_SIZE_ID, dd[dir_pos].dir_name);
+                    system_log(WARN_SIGN, NULL, 0,
+                              "May only be %d bytes long.",
+                              MAX_OFF_T_LENGTH);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "No value found or syntax wrong for directory option `%s' for directory %s.",
+                              MAX_SIZE_ID, dd[dir_pos].dir_name);
                  }
               }
               while ((*ptr != '\n') && (*ptr != '\0'))

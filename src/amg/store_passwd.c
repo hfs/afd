@@ -47,7 +47,6 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>           /* sprintf()                                */
 #include <string.h>          /* strcpy(), strerror()                     */
 #include <stdlib.h>          /* realloc()                                */
 #include <sys/types.h>

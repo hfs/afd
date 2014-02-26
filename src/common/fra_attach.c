@@ -1,6 +1,6 @@
 /*
  *  fra_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -113,7 +113,13 @@ fra_attach(void)
       {
          /* Unmap from FRA. */
 #ifdef HAVE_MMAP
-         (void)sprintf(p_fra_stat_file, ".%d", fra_id);
+# ifdef HAVE_SNPRINTF
+         (void)snprintf(p_fra_stat_file,
+                        MAX_PATH_LENGTH - (p_fra_stat_file - fra_stat_file),
+# else
+         (void)sprintf(p_fra_stat_file,
+# endif
+                       ".%d", fra_id);
          if (stat(fra_stat_file, &stat_buf) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -213,7 +219,13 @@ fra_attach(void)
                     fra_id_file, strerror(errno));
       }
 
-      (void)sprintf(p_fra_stat_file, ".%d", fra_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(p_fra_stat_file,
+                     MAX_PATH_LENGTH - (p_fra_stat_file - fra_stat_file),
+#else
+      (void)sprintf(p_fra_stat_file,
+#endif
+                    ".%d", fra_id);
 
       if (fra_fd > 0)
       {
@@ -353,7 +365,13 @@ fra_attach_passive(void)
                  _("Could not close() `%s' : %s"),
                  fra_id_file, strerror(errno));
    }
-   (void)sprintf(p_fra_stat_file, ".%d", fra_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(p_fra_stat_file,
+                     MAX_PATH_LENGTH - (p_fra_stat_file - fra_stat_file),
+#else
+      (void)sprintf(p_fra_stat_file,
+#endif
+                    ".%d", fra_id);
 
    if (fra_fd > 0)
    {

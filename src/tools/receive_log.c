@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,10 +42,11 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>                   /* memcpy()                        */
+#include <string.h>                   /* memcpy(), strerror()            */
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
+#include <errno.h>
 #include "amgdefs.h"
 
 extern int receive_log_fd;
@@ -77,7 +78,11 @@ receive_log(char   *sign,
       length += sprintf(&buf[length], " (%s %d)\n", file, line);
    }
 
-   (void)write(receive_log_fd, buf, length);
+   if (write(receive_log_fd, buf, length) == -1)
+   {
+      (void)fprintf(stderr, "write() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
 
    return;
 }

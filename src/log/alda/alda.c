@@ -1,6 +1,6 @@
 /*
  *  alda.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2007 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,6 +95,7 @@ int                        data_printed,
                            gt_lt_sign,
                            no_of_dirs = 0,
                            no_of_hosts = 0,
+                           rotate_limit,
                            sys_log_fd = STDOUT_FILENO, /* Used by get_afd_path(). */
                            trace_mode,
                            verbose;
@@ -434,142 +435,219 @@ main(int argc, char *argv[])
       if ((mode & ALDA_CONTINUOUS_MODE) ||
           (mode & ALDA_CONTINUOUS_DAEMON_MODE))
       {
-        (void)sleep(1L);
-        if (data_printed == NO)
-        {
-           struct stat stat_buf;
+         (void)sleep(1L);
+         if (data_printed == NO)
+         {
+            int         rotate = NO;
+            struct stat stat_buf;
 
 #ifdef _INPUT_LOG
-           if (input.fp != NULL)
-           {
-              if (fstat(input.fd, &stat_buf) == -1)
-              {
-                 (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
-                               input.log_dir, strerror(errno),
-                               __FILE__, __LINE__);
-              }
-              else
-              {
-                 if (stat_buf.st_ino != input.inode_number)
-                 {
-                    if (fclose(input.fp) == EOF)
-                    {
-                       (void)fprintf(stderr,
-                                     "Failed to fclose() `%s' : %s (%s %d)\n",
-                                     input.log_dir, strerror(errno),
-                                     __FILE__, __LINE__);
-                    }
-                    input.fp = NULL;
-                    input.bytes_read = 0;
-                 }
-              }
-           }
+            if (input.fp != NULL)
+            {
+               if (stat(input.log_dir, &stat_buf) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to stat() `%s' : %s (%s %d)\n",
+                                input.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               else
+               {
+                  if (stat_buf.st_ino != input.inode_number)
+                  {
+                     if (fclose(input.fp) == EOF)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to fclose() `%s' : %s (%s %d)\n",
+                                      input.log_dir, strerror(errno),
+                                      __FILE__, __LINE__);
+                     }
+                     input.fp = NULL;
+                     input.bytes_read = 0;
+                     rotate = YES;
+                  }
+               }
+            }
 #endif
 #ifdef _DISTRIBUTION_LOG
-           if (distribution.fp != NULL)
-           {
-              if (fstat(distribution.fd, &stat_buf) == -1)
-              {
-                 (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
-                               distribution.log_dir, strerror(errno),
-                               __FILE__, __LINE__);
-              }
-              else
-              {
-                 if (stat_buf.st_ino != distribution.inode_number)
-                 {
-                    if (fclose(distribution.fp) == EOF)
-                    {
-                       (void)fprintf(stderr,
-                                     "Failed to fclose() `%s' : %s (%s %d)\n",
-                                     distribution.log_dir, strerror(errno),
-                                     __FILE__, __LINE__);
-                    }
-                    distribution.fp = NULL;
-                    distribution.bytes_read = 0;
-                 }
-              }
-           }
+            if (distribution.fp != NULL)
+            {
+               if (stat(distribution.log_dir, &stat_buf) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to stat() `%s' : %s (%s %d)\n",
+                                distribution.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               else
+               {
+                  if (stat_buf.st_ino != distribution.inode_number)
+                  {
+                     if (fclose(distribution.fp) == EOF)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to fclose() `%s' : %s (%s %d)\n",
+                                      distribution.log_dir, strerror(errno),
+                                      __FILE__, __LINE__);
+                     }
+                     distribution.fp = NULL;
+                     distribution.bytes_read = 0;
+                     rotate = YES;
+                  }
+               }
+            }
 #endif
 #ifdef _PRODUCTION_LOG
-           if (production.fp != NULL)
-           {
-              if (fstat(production.fd, &stat_buf) == -1)
-              {
-                 (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
-                               production.log_dir, strerror(errno),
-                               __FILE__, __LINE__);
-              }
-              else
-              {
-                 if (stat_buf.st_ino != production.inode_number)
-                 {
-                    if (fclose(production.fp) == EOF)
-                    {
-                       (void)fprintf(stderr,
-                                     "Failed to fclose() `%s' : %s (%s %d)\n",
-                                     production.log_dir, strerror(errno),
-                                     __FILE__, __LINE__);
-                    }
-                    production.fp = NULL;
-                    production.bytes_read = 0;
-                 }
-              }
-           }
+            if (production.fp != NULL)
+            {
+               if (stat(production.log_dir, &stat_buf) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to stat() `%s' : %s (%s %d)\n",
+                                production.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               else
+               {
+                  if (stat_buf.st_ino != production.inode_number)
+                  {
+                     if (fclose(production.fp) == EOF)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to fclose() `%s' : %s (%s %d)\n",
+                                      production.log_dir, strerror(errno),
+                                      __FILE__, __LINE__);
+                     }
+                     production.fp = NULL;
+                     production.bytes_read = 0;
+                     rotate = YES;
+                  }
+               }
+            }
 #endif
 #ifdef _OUTPUT_LOG
-           if (output.fp != NULL)
-           {
-              if (fstat(output.fd, &stat_buf) == -1)
-              {
-                 (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
-                               output.log_dir, strerror(errno),
-                               __FILE__, __LINE__);
-              }
-              else
-              {
-                 if (stat_buf.st_ino != output.inode_number)
-                 {
-                    if (fclose(output.fp) == EOF)
-                    {
-                       (void)fprintf(stderr,
-                                     "Failed to fclose() `%s' : %s (%s %d)\n",
-                                     output.log_dir, strerror(errno),
-                                     __FILE__, __LINE__);
-                    }
-                    output.fp = NULL;
-                    output.bytes_read = 0;
-                 }
-              }
-           }
+            if (output.fp != NULL)
+            {
+               if (stat(output.log_dir, &stat_buf) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to stat() `%s' : %s (%s %d)\n",
+                                output.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               else
+               {
+                  if (stat_buf.st_ino != output.inode_number)
+                  {
+                     if (fclose(output.fp) == EOF)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to fclose() `%s' : %s (%s %d)\n",
+                                      output.log_dir, strerror(errno),
+                                      __FILE__, __LINE__);
+                     }
+                     output.fp = NULL;
+                     output.bytes_read = 0;
+                     rotate = YES;
+                  }
+               }
+            }
 #endif
 #ifdef _DELETE_LOG
-           if (delete.fp != NULL)
-           {
-              if (fstat(delete.fd, &stat_buf) == -1)
-              {
-                 (void)fprintf(stderr, "Failed to fstat() `%s' : %s (%s %d)\n",
-                               delete.log_dir, strerror(errno),
-                               __FILE__, __LINE__);
-              }
-              else
-              {
-                 if (stat_buf.st_ino != delete.inode_number)
-                 {
-                    if (fclose(delete.fp) == EOF)
-                    {
-                       (void)fprintf(stderr,
-                                     "Failed to fclose() `%s' : %s (%s %d)\n",
-                                     delete.log_dir, strerror(errno),
-                                     __FILE__, __LINE__);
-                    }
-                    delete.fp = NULL;
-                    delete.bytes_read = 0;
-                 }
-              }
-           }
+            if (delete.fp != NULL)
+            {
+               if (stat(delete.log_dir, &stat_buf) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to stat() `%s' : %s (%s %d)\n",
+                                delete.log_dir, strerror(errno),
+                                __FILE__, __LINE__);
+               }
+               else
+               {
+                  if (stat_buf.st_ino != delete.inode_number)
+                  {
+                     if (fclose(delete.fp) == EOF)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to fclose() `%s' : %s (%s %d)\n",
+                                      delete.log_dir, strerror(errno),
+                                      __FILE__, __LINE__);
+                     }
+                     delete.fp = NULL;
+                     delete.bytes_read = 0;
+                     rotate = YES;
+                  }
+               }
+            }
 #endif
-        }
+
+            if ((rotate == YES) && (output_filename[0] != '\0'))
+            {
+               int  i,
+                    with_rotate_number;
+               char dst[MAX_PATH_LENGTH],
+                    *p_end,
+                    src[MAX_PATH_LENGTH];
+
+               if (fclose(output_fp) == EOF)
+               {
+                  (void)fprintf(stderr,
+                                "Failed to fclose() `%s' : %s (%s %d)\n",
+                                output_filename, strerror(errno),
+                                __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+
+               (void)strcpy(src, output_filename);
+               p_end = src + strlen(output_filename);
+               if (((p_end - 2) > src) && (*(p_end - 2) == '.') &&
+                   (*(p_end - 1) == '0'))
+               {
+                  p_end -= 2;
+                  with_rotate_number = YES;
+               }
+               else
+               {
+                  with_rotate_number = NO;
+               }
+               for (i = (rotate_limit - 1); i > 0; i--)
+               {
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(p_end, MAX_PATH_LENGTH - (p_end - dst),
+#else
+                  (void)sprintf(p_end,
+#endif
+                                ".%d", i);
+                  (void)my_strncpy(dst, src, MAX_PATH_LENGTH);
+                  if ((i == 1) && (with_rotate_number == NO))
+                  {
+                     *p_end = '\0';
+                  }
+                  else
+                  {
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(p_end, MAX_PATH_LENGTH - (p_end - dst),
+#else
+                     (void)sprintf(p_end,
+#endif
+                                   ".%d", i - 1);
+                  }
+
+                  if (rename(src, dst) < 0)
+                  {
+                     if (errno != ENOENT)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to rename() `%s' to `%s' : %s (%s %d)\n",
+                                      src, dst, strerror(errno),
+                                      __FILE__, __LINE__);
+                     }
+                  }
+               }
+               if ((output_fp = fopen(output_filename, "a")) == NULL)
+               {
+                  (void)fprintf(stderr, "Failed to fopen() `%s' : %s (%s %d)\n",
+                                output_filename, strerror(errno), __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+            }
+         }
       }
       else
       {
@@ -619,12 +697,12 @@ search_afd(char *search_afd)
    unsigned int got_data,
                 more_log_data,
                 prev_dir_id,
-                prev_job_id,
-                *p_prev_split_job_counter,
-                *p_prev_unique_number;
-   time_t       prev_log_time,
+                prev_job_id = 0,
+                *p_prev_split_job_counter = NULL,
+                *p_prev_unique_number = NULL;
+   time_t       prev_log_time = 0L,
                 start_search_time;
-   off_t        prev_filename_length;
+   off_t        prev_filename_length = 0;
    char         *p_file_pattern;
 
    log_data_written = 0;
@@ -699,10 +777,15 @@ search_afd(char *search_afd)
             prev_dir_id = 0;
 # endif
             RESET_ULOG_PART();
-            if ((ret = check_distribution_log(search_afd, p_file_pattern,
-                                              prev_filename_length,
-                                              prev_log_time, prev_dir_id,
-                                              p_prev_unique_number)) == GOT_DATA)
+            ret = check_distribution_log(search_afd, p_file_pattern,
+                                         prev_filename_length,
+                                         prev_log_time, prev_dir_id,
+                                         p_prev_unique_number);
+            if (verbose > 3)
+            {
+               (void)fprintf(stdout, "DEBUG 4: check_distribution_log() returned %d\n", ret);
+            }
+            if (ret == GOT_DATA)
             {
                got_data |= SEARCH_DISTRIBUTION_LOG;
                init_time_start = ulog.distribution_time;
@@ -773,6 +856,29 @@ search_afd(char *search_afd)
                           olog.job_id = ulog.job_id_list[dis_counter];
                           olog.output_time = ulog.distribution_time;
                           search_loop = SEARCH_DELETE_LOG;
+                       }
+                  else if (ulog.distribution_type == QUEUE_STOPPED_DIS_TYPE)
+                       {
+                          if (trace_mode == ON)
+                          {
+                             if (ulog.proc_cycles[dis_counter] > 0)
+                             {
+                                search_loop = SEARCH_DISTRIBUTION_LOG | SEARCH_PRODUCTION_LOG | SEARCH_OUTPUT_LOG |
+                                              SEARCH_DELETE_LOG;
+                             }
+                             else
+                             {
+                                search_loop = SEARCH_DISTRIBUTION_LOG | SEARCH_OUTPUT_LOG | SEARCH_DELETE_LOG;
+
+# ifdef _PRODUCTION_LOG
+                                /* We must reset PRODUCTION_LOG data! */
+                                RESET_PLOG();
+# endif
+                             }
+                             RESET_ULOG_PART();
+                             dis_counter = -1;
+                             continue;
+                          }
                        }
                }
             }
@@ -3879,10 +3985,15 @@ check_output_log(char         *search_afd,
 #ifdef HAVE_GETLINE
                output.bytes_read += n;
 #endif
-               if ((ret = check_output_line(output.line, prev_file_name,
-                                            prev_filename_length, prev_log_time,
-                                            prev_job_id, prev_unique_number,
-                                            prev_split_job_counter)) == SUCCESS)
+               ret = check_output_line(output.line, prev_file_name,
+                                       prev_filename_length, prev_log_time,
+                                       prev_job_id, prev_unique_number,
+                                       prev_split_job_counter);
+               if (verbose > 4)
+               {
+                  (void)fprintf(stdout, "DEBUG 5: [OUTPUT] check_output_line() returns %d\n", ret);
+               }
+               if (ret == SUCCESS)
                {
                   if (trace_mode == ON)
                   {

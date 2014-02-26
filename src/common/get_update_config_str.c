@@ -1,7 +1,7 @@
 /*
  *  get_update_config_str.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2007 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2007 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,7 +95,12 @@ get_dc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, _("%s, but %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s, but %u warnings."),
                           NO_CHANGE_IN_DIR_CONFIG_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -111,7 +116,12 @@ get_dc_result_str(char *str,
                *type = INFO_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s.", NO_CHANGE_IN_DIR_CONFIG_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", NO_CHANGE_IN_DIR_CONFIG_STR);
             if (*see_sys_log != YES)
             {
                *see_sys_log = NO;
@@ -132,7 +142,12 @@ get_dc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, _("%s with %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s with %u warnings."),
                           DIR_CONFIG_UPDATED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -148,7 +163,12 @@ get_dc_result_str(char *str,
                *type = INFO_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s.", DIR_CONFIG_UPDATED_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", DIR_CONFIG_UPDATED_STR);
             if (*see_sys_log != YES)
             {
                *see_sys_log = NO;
@@ -169,13 +189,22 @@ get_dc_result_str(char *str,
          }
          if (warn_counter > 0)
          {
-            (void)sprintf(str + length, _("%s with %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s with %u warnings."),
                           DIR_CONFIG_UPDATED_DC_PROBLEMS_STR, warn_counter);
          }
          else
          {
-            (void)sprintf(str + length, "%s.",
-                          DIR_CONFIG_UPDATED_DC_PROBLEMS_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", DIR_CONFIG_UPDATED_DC_PROBLEMS_STR);
          }
          *see_sys_log = YES;
          break;
@@ -191,7 +220,12 @@ get_dc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", DIR_CONFIG_NO_VALID_DATA_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", DIR_CONFIG_NO_VALID_DATA_STR);
          *see_sys_log = YES;
          break;
 
@@ -206,7 +240,12 @@ get_dc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", DIR_CONFIG_EMPTY_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", DIR_CONFIG_EMPTY_STR);
          *see_sys_log = NO;
          break;
 
@@ -221,7 +260,12 @@ get_dc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", DIR_CONFIG_ACCESS_ERROR_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", DIR_CONFIG_ACCESS_ERROR_STR);
          *see_sys_log = YES;
          break;
 
@@ -236,7 +280,12 @@ get_dc_result_str(char *str,
             *type = WARN_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", DIR_CONFIG_NOTHING_DONE_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", DIR_CONFIG_NOTHING_DONE_STR);
          *see_sys_log = YES;
          break;
 
@@ -251,7 +300,12 @@ get_dc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s!", INCORRECT_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s!", INCORRECT_STR);
          *see_sys_log = YES;
          break;
 
@@ -266,7 +320,12 @@ get_dc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", UNKNOWN_ERROR_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", UNKNOWN_ERROR_STR);
          *see_sys_log = YES;
          break;
    }
@@ -299,7 +358,12 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, _("%s, but %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s, but %u warnings."),
                           NO_CHANGE_IN_HOST_CONFIG_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -315,7 +379,12 @@ get_hc_result_str(char *str,
                *type = INFO_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s.", NO_CHANGE_IN_HOST_CONFIG_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", NO_CHANGE_IN_HOST_CONFIG_STR);
             if (*see_sys_log != YES)
             {
                *see_sys_log = NO;
@@ -334,7 +403,12 @@ get_hc_result_str(char *str,
             *type = WARN_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", HOST_CONFIG_RECREATED_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", HOST_CONFIG_RECREATED_STR);
          if (*see_sys_log != YES)
          {
             *see_sys_log = NO;
@@ -354,7 +428,12 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, _("%s with %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s with %u warnings."),
                           HOST_CONFIG_DATA_CHANGED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -370,7 +449,12 @@ get_hc_result_str(char *str,
                *type = INFO_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s.", HOST_CONFIG_DATA_CHANGED_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", HOST_CONFIG_DATA_CHANGED_STR);
             if (*see_sys_log != YES)
             {
                *see_sys_log = NO;
@@ -391,7 +475,12 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, _("%s, but %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s, but %u warnings."),
                           HOST_CONFIG_DATA_ORDER_CHANGED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -407,8 +496,12 @@ get_hc_result_str(char *str,
                *type = INFO_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s.",
-                          HOST_CONFIG_DATA_ORDER_CHANGED_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", HOST_CONFIG_DATA_ORDER_CHANGED_STR);
             if (*see_sys_log != YES)
             {
                *see_sys_log = NO;
@@ -429,7 +522,12 @@ get_hc_result_str(char *str,
                *type = WARN_NO;
                length = 0;
             }
-            (void)sprintf(str + length, _("%s with %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s with %u warnings."),
                           HOST_CONFIG_ORDER_CHANGED_STR, warn_counter);
             *see_sys_log = YES;
          }
@@ -445,7 +543,12 @@ get_hc_result_str(char *str,
                *type = INFO_NO;
                length = 0;
             }
-            (void)sprintf(str + length, "%s.", HOST_CONFIG_ORDER_CHANGED_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", HOST_CONFIG_ORDER_CHANGED_STR);
             if (*see_sys_log != YES)
             {
                *see_sys_log = NO;
@@ -466,13 +569,22 @@ get_hc_result_str(char *str,
          }
          if (warn_counter > 0)
          {
-            (void)sprintf(str + length, _("%s with %u warnings."),
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          _("%s with %u warnings."),
                           HOST_CONFIG_UPDATED_DC_PROBLEMS_STR, warn_counter);
          }
          else
          {
-            (void)sprintf(str + length, "%s.",
-                          HOST_CONFIG_UPDATED_DC_PROBLEMS_STR);
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+            (void)sprintf(str + length,
+#endif
+                          "%s.", HOST_CONFIG_UPDATED_DC_PROBLEMS_STR);
          }
          *see_sys_log = YES;
          break;
@@ -488,7 +600,12 @@ get_hc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s!", INCORRECT_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s!", INCORRECT_STR);
          *see_sys_log = YES;
          break;
 
@@ -503,7 +620,12 @@ get_hc_result_str(char *str,
             *type = ERROR_NO;
             length = 0;
          }
-         (void)sprintf(str + length, "%s.", UNKNOWN_ERROR_STR);
+#ifdef HAVE_SNPRINTF
+         (void)snprintf(str + length, MAX_UPDATE_REPLY_STR_LENGTH - length,
+#else
+         (void)sprintf(str + length,
+#endif
+                       "%s.", UNKNOWN_ERROR_STR);
          *see_sys_log = YES;
          break;
    }

@@ -1,6 +1,6 @@
 /*
  *  sf_sftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2014 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,7 +88,9 @@ DESCR__E_M1
 #endif
 
 /* Global variables. */
-int                        event_log_fd = STDERR_FILENO,
+int                        amg_flag = NO,
+                           counter_fd = -1,
+                           event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
 #ifdef HAVE_HW_CRC32
@@ -110,8 +112,8 @@ int                        event_log_fd = STDERR_FILENO,
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO,
-                           timeout_flag;
+                           timeout_flag,
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -181,7 +183,6 @@ main(int argc, char *argv[])
 {
    int              buffer_offset,
                     current_toggle,
-                    counter_fd = -1,
                     exit_status = TRANSFER_SUCCESS,
                     j,
                     fd,
@@ -198,8 +199,7 @@ main(int argc, char *argv[])
                     last_update_time,
                     *p_file_mtime_buffer;
 #ifdef _WITH_BURST_2
-   int              cb2_ret,
-                    disconnect = NO;
+   int              cb2_ret;
    unsigned int     values_changed = 0;
 #endif
 #ifdef _OUTPUT_LOG
@@ -332,9 +332,18 @@ main(int argc, char *argv[])
    if (fsa->debug > NORMAL_MODE)
    {
       msg_str[0] = '\0';
-      trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                   "Trying to connect to %s at port %d.",
-                   db.hostname, db.port);
+      if (db.port == SSH_PORT_UNSET)
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Trying to connect to %s at port configured by the SSH client.",
+                      db.hostname);
+      }
+      else
+      {
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Trying to connect to %s at port %d.",
+                      db.hostname, db.port);
+      }
    }
 
    /* Connect to remote SFTP-server. */
@@ -346,9 +355,18 @@ main(int argc, char *argv[])
 #endif
                               db.password, fsa->debug)) != SUCCESS)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
-                "SFTP as user `%s' connection to `%s' at port %d failed (%d).",
-                db.user, db.hostname, db.port, status);
+      if (db.port == SSH_PORT_UNSET)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   "SFTP as user `%s' connection to `%s' at port configured by the SSH client failed (%d).",
+                   db.user, db.hostname, status);
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                   "SFTP as user `%s' connection to `%s' at port %d failed (%d).",
+                   db.user, db.hostname, db.port, status);
+      }
       exit(eval_timeout(CONNECT_ERROR));
    }
    else
@@ -356,8 +374,8 @@ main(int argc, char *argv[])
       if (fsa->debug > NORMAL_MODE)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                      "Connected to port %d. Agreed on SFTP version %u.",
-                      db.port, sftp_version());
+                      "Agreed on SFTP version %u.",
+                      sftp_version());
       }
 
       if (db.special_flag & CREATE_TARGET_DIR)
@@ -402,7 +420,7 @@ main(int argc, char *argv[])
           * directory is not the absolute path.
           */
          if ((burst_2_counter > 0) && (db.target_dir[0] != '/') &&
-             ((fsa->protocol_options & FTP_FAST_CD) == 0) && (disconnect == NO))
+             ((fsa->protocol_options & FTP_FAST_CD) == 0))
          {
             if ((status = sftp_cd("", NO, 0, NULL)) != SUCCESS)
             {
@@ -1316,6 +1334,26 @@ main(int argc, char *argv[])
             }
 #endif
 
+            if (db.special_flag & CHANGE_PERMISSION)
+            {
+               if ((status = sftp_chmod(initial_filename, db.chmod)) != SUCCESS)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, msg_str,
+                            "Failed to chmod remote file `%s' to %s (%d)",
+                            initial_filename, db.chmod_str, status);
+                  if (timeout_flag == ON)
+                  {
+                     timeout_flag = OFF;
+                  }
+               }
+               else if (fsa->debug > NORMAL_MODE)
+                    {
+                       trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                                    "Changed mode of remote file `%s' to %s",
+                                    initial_filename, db.chmod_str);
+                    }
+            }
+
             if (fsa->debug > NORMAL_MODE)
             {
                struct stat stat_buf;
@@ -1360,7 +1398,8 @@ main(int argc, char *argv[])
          }
 
          /* See if we need to do a size check. */
-         if (fsa->protocol_options & CHECK_SIZE)
+         if ((fsa->protocol_options & CHECK_SIZE) ||
+             (db.special_flag & MATCH_REMOTE_SIZE))
          {
             struct stat stat_buf;
 
@@ -1387,7 +1426,8 @@ main(int argc, char *argv[])
                sftp_quit();
                exit(FILE_SIZE_MATCH_ERROR);
             }
-         } /* if (fsa->protocol_options & CHECK_SIZE) */
+         } /* if ((fsa->protocol_options & CHECK_SIZE) || */
+           /*     (db.special_flag & MATCH_REMOTE_SIZE))  */
 
          /* If we used dot notation, don't forget to rename. */
          if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
@@ -1412,15 +1452,17 @@ main(int argc, char *argv[])
                      change_name(p_final_filename,
                                  rule[db.trans_rule_pos].filter[k],
                                  rule[db.trans_rule_pos].rename_to[k],
-                                 p_remote_filename, &counter_fd,
-                                 &unique_counter, db.job_id);
+                                 p_remote_filename,
+                                 (MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH) - (p_remote_filename - remote_filename),
+                                 &counter_fd, &unique_counter, db.job_id);
                      break;
                   }
                }
             }
             if (*p_remote_filename == '\0')
             {
-               (void)strcpy(p_remote_filename, p_final_filename);
+               (void)my_strncpy(p_remote_filename, p_final_filename,
+                                (MAX_RECIPIENT_LENGTH + MAX_FILENAME_LENGTH) - (p_remote_filename - remote_filename));
             }
             if ((status = sftp_move(initial_filename,
                                     remote_filename,
@@ -2011,7 +2053,8 @@ sf_sftp_exit(void)
                  (void)strcat(buffer, tmp_buffer);
               }
 #endif
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                   buffer, db.job_id);
       }
 
       if ((fsa->job_status[(int)db.job_no].file_name_in_use[0] != '\0') &&

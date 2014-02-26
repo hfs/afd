@@ -1,6 +1,6 @@
 /*
  *  sf_loc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2014 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -96,7 +96,9 @@ DESCR__E_M1
 #endif
 
 /* Global variables. */
-int                        event_log_fd = STDERR_FILENO,
+int                        amg_flag = NO,
+                           counter_fd = -1,
+                           event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,
 #ifdef HAVE_HW_CRC32
@@ -123,7 +125,7 @@ int                        event_log_fd = STDERR_FILENO,
                            transfer_log_readfd,
 #endif
                            trans_rename_blocked = NO,
-                           amg_flag = NO;
+                           *unique_counter;
 #ifdef _OUTPUT_LOG
 int                        ol_fd = -2;
 # ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -190,12 +192,10 @@ main(int argc, char *argv[])
 #ifdef _WITH_BURST_2
    int              cb2_ret;
 #endif
-   int              counter_fd = -1,
-                    exit_status = TRANSFER_SUCCESS,
+   int              exit_status = TRANSFER_SUCCESS,
                     fd,
                     lfs,                    /* Local file system. */
-                    ret,
-                    *unique_counter;
+                    ret;
    time_t           last_update_time,
                     now,
                     *p_file_mtime_buffer;
@@ -563,8 +563,8 @@ main(int argc, char *argv[])
             if (gsf_check_fsa(p_db) != NEITHER)
             {
                fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
-               (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
-                            p_file_name_buffer);
+               (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
+                                p_file_name_buffer, MAX_FILENAME_LENGTH);
             }
 
             if (db.trans_rename_rule[0] != '\0')
@@ -579,8 +579,9 @@ main(int argc, char *argv[])
                      change_name(p_file_name_buffer,
                                  rule[db.trans_rule_pos].filter[k],
                                  rule[db.trans_rule_pos].rename_to[k],
-                                 p_ff_name, &counter_fd, &unique_counter,
-                                 db.job_id);
+                                 p_ff_name,
+                                 MAX_PATH_LENGTH - (p_ff_name - ff_name),
+                                 &counter_fd, &unique_counter, db.job_id);
                      break;
                   }
                }
@@ -687,10 +688,18 @@ try_link_again:
 
                                          if (link(source_file, p_to_name) == -1)
                                          {
-                                            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                                      "Failed to link file `%s' to `%s' : %s",
-                                                      source_file, p_to_name, strerror(errno));
-                                            exit(MOVE_ERROR);
+                                            if (errno == EXDEV)
+                                            {
+                                               lfs = NO;
+                                               goto cross_link_error;
+                                            }
+                                            else
+                                            {
+                                               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                                         "Failed to link file `%s' to `%s' : %s",
+                                                         source_file, p_to_name, strerror(errno));
+                                               exit(MOVE_ERROR);
+                                            }
                                          }
                                          else
                                          {
@@ -698,13 +707,18 @@ try_link_again:
                                          }
                                       }
                                    }
-                                   else
-                                   {
-                                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
-                                                "Failed to link file `%s' to `%s' : %s",
-                                                source_file, p_to_name, strerror(errno));
-                                      exit(MOVE_ERROR);
-                                   }
+                                   else if (errno == EXDEV)
+                                        {
+                                           lfs = NO;
+                                           goto cross_link_error;
+                                        }
+                                        else
+                                        {
+                                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, NULL,
+                                                     "Failed to link file `%s' to `%s' : %s",
+                                                     source_file, p_to_name, strerror(errno));
+                                           exit(MOVE_ERROR);
+                                        }
                                 }
                              }
                              else if (ret == MKDIR_ERROR)
@@ -823,6 +837,35 @@ cross_link_error:
                   }
                }
             }
+
+            if (db.special_flag & CHANGE_PERMISSION)
+            {
+               if ((db.lock == DOT) || (db.lock == DOT_VMS) ||
+                   (db.special_flag & UNIQUE_LOCKING))
+               {
+                  ptr = if_name;
+               }
+               else
+               {
+                  ptr = ff_name;
+               }
+
+               if (chmod(ptr, db.chmod) == -1)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                            "Failed to chmod() file `%s' : %s",
+                            ptr, strerror(errno));
+               }
+               else
+               {
+                  if (fsa->debug > NORMAL_MODE)
+                  {
+                     trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                                  "Changed permission of file `%s' to %d",
+                                  ptr, db.chmod);
+                  }
+               }
+            } /* if (db.special_flag & CHANGE_PERMISSION) */
 
             if ((db.lock == DOT) || (db.lock == DOT_VMS) ||
                 (db.special_flag & UNIQUE_LOCKING))
@@ -975,25 +1018,6 @@ cross_link_error:
                end_time = times(&tmsdummy);
             }
 #endif
-
-            if (db.special_flag & CHANGE_PERMISSION)
-            {
-               if (chmod(ff_name, db.chmod) == -1)
-               {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
-                            "Failed to chmod() file `%s' : %s",
-                            ff_name, strerror(errno));
-               }
-               else
-               {
-                  if (fsa->debug > NORMAL_MODE)
-                  {
-                     trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                                  "Changed permission of file `%s' to %d",
-                                  ff_name, db.chmod);
-                  }
-               }
-            } /* if (db.special_flag & CHANGE_PERMISSION) */
 
             if (db.special_flag & CHANGE_UID_GID)
             {
@@ -1860,7 +1884,8 @@ sf_loc_exit(void)
                                burst_2_counter);
               }
 #endif /* _WITH_BURST_2 */
-         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s", buffer);
+         trans_log(INFO_SIGN, NULL, 0, NULL, NULL, "%s #%x",
+                   buffer, db.job_id);
       }
       reset_fsa((struct job *)&db, exitflag, 0, 0);
    }

@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -102,8 +102,7 @@ DESCR__E_M1
 #define ACTION_DIR_CHECK_INTERVAL 60
 
 /* Global definitions. */
-int                        *disable_list = NULL,
-                           sys_log_fd = STDERR_FILENO,
+int                        sys_log_fd = STDERR_FILENO,
                            event_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -155,6 +154,7 @@ static void                afd_exit(void),
                            sig_exit(int),
                            sig_bus(int),
                            sig_segv(int),
+                           stuck_transfer_check(time_t),
                            zombie_check(void);
 
 
@@ -237,7 +237,12 @@ main(int argc, char *argv[])
    (void)strcpy(afd_file_dir, work_dir);
    (void)strcat(afd_file_dir, AFD_FILE_DIR);
 
-   p_afd_action_dir = afd_action_dir + sprintf(afd_action_dir, "%s%s%s/",
+#ifdef HAVE_SNPRINTF
+   p_afd_action_dir = afd_action_dir + snprintf(afd_action_dir, MAX_PATH_LENGTH,
+#else
+   p_afd_action_dir = afd_action_dir + sprintf(afd_action_dir,
+#endif
+                                               "%s%s%s/",
                                                p_work_dir, ETC_DIR, ACTION_DIR);
 
    /* Make sure that no other AFD is running in this directory. */
@@ -263,6 +268,7 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stderr, _("ERROR   : lseek() error in `%s' : %s (%s %d)\n"),
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
    char_value = EOF;
@@ -270,6 +276,7 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stderr, _("ERROR   : write() error in `%s' : %s (%s %d)\n"),
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
@@ -282,6 +289,7 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stderr, _("ERROR   : mmap() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
    heartbeat = (unsigned int *)(ptr + afd_active_size - (sizeof(unsigned int) + 1 + 1));
@@ -313,6 +321,7 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stderr, _("Failed to stat() `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
+         (void)unlink(afd_active_file);
          exit(INCORRECT);
       }
       if ((afd_status_fd = coe_open(afd_status_file, O_RDWR | O_CREAT | O_TRUNC,
@@ -324,18 +333,21 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stderr, _("Failed to create `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
+         (void)unlink(afd_active_file);
          exit(INCORRECT);
       }
       if (lseek(afd_status_fd, sizeof(struct afd_status) - 1, SEEK_SET) == -1)
       {
          (void)fprintf(stderr, _("Could not seek() on `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
+         (void)unlink(afd_active_file);
          exit(INCORRECT);
       }
       if (write(afd_status_fd, "", 1) != 1)
       {
          (void)fprintf(stderr, _("write() error : %s (%s %d)\n"),
                        strerror(errno), __FILE__, __LINE__);
+         (void)unlink(afd_active_file);
          exit(INCORRECT);
       }
       old_afd_stat = NO;
@@ -346,6 +358,7 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stderr, _("Failed to create `%s' : %s (%s %d)\n"),
                        afd_status_file, strerror(errno), __FILE__, __LINE__);
+         (void)unlink(afd_active_file);
          exit(INCORRECT);
       }
       old_afd_stat = YES;
@@ -365,18 +378,47 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stderr, _("mmap() error : %s (%s %d)\n"),
                     strerror(errno), __FILE__, __LINE__);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
    p_afd_status = (struct afd_status *)ptr;
    if (old_afd_stat == NO)
    {
+      struct system_data sd;
+
       (void)memset(p_afd_status, 0, sizeof(struct afd_status));
-      (void)memset(p_afd_status->receive_log_history, NO_INFORMATION,
-                   MAX_LOG_HISTORY);
-      (void)memset(p_afd_status->sys_log_history, NO_INFORMATION,
-                   MAX_LOG_HISTORY);
-      (void)memset(p_afd_status->trans_log_history, NO_INFORMATION,
-                   MAX_LOG_HISTORY);
+      if (get_system_data(&sd) == SUCCESS)
+      {
+         p_afd_status->sys_log_ec = sd.sys_log_ec;
+         (void)memcpy(p_afd_status->sys_log_fifo, sd.sys_log_fifo,
+                      LOG_FIFO_SIZE);
+         (void)memcpy(p_afd_status->sys_log_history, sd.sys_log_history,
+                      MAX_LOG_HISTORY);
+         p_afd_status->receive_log_ec = sd.receive_log_ec;
+         (void)memcpy(p_afd_status->receive_log_fifo, sd.receive_log_fifo,
+                      LOG_FIFO_SIZE);
+         (void)memcpy(p_afd_status->receive_log_history, sd.receive_log_history,
+                      MAX_LOG_HISTORY);
+         p_afd_status->trans_log_ec = sd.trans_log_ec;
+         (void)memcpy(p_afd_status->trans_log_fifo, sd.trans_log_fifo,
+                      LOG_FIFO_SIZE);
+         (void)memcpy(p_afd_status->trans_log_history, sd.trans_log_history,
+                      MAX_LOG_HISTORY);
+         p_afd_status->fd_fork_counter = sd.fd_fork_counter;
+         p_afd_status->amg_fork_counter = sd.amg_fork_counter;
+         p_afd_status->burst2_counter = sd.burst2_counter;
+         p_afd_status->max_queue_length = sd.max_queue_length;
+         p_afd_status->dir_scans = sd.dir_scans;
+      }
+      else
+      {
+         (void)memset(p_afd_status->receive_log_history, NO_INFORMATION,
+                      MAX_LOG_HISTORY);
+         (void)memset(p_afd_status->sys_log_history, NO_INFORMATION,
+                      MAX_LOG_HISTORY);
+         (void)memset(p_afd_status->trans_log_history, NO_INFORMATION,
+                      MAX_LOG_HISTORY);
+      }
    }
    else
    {
@@ -696,7 +738,7 @@ main(int argc, char *argv[])
     * for this process.
     */
    p_afd_status->no_of_transfers = 0;
-   if ((i = fsa_attach()) < 0)
+   if ((i = fsa_attach(AFD)) < 0)
    {
       if (i != INCORRECT_VERSION)
       {
@@ -910,7 +952,13 @@ main(int argc, char *argv[])
                char *p_script;
 
                p_script = p_afd_action_dir +
-                          sprintf(p_afd_action_dir, "%s%s/",
+#ifdef HAVE_SNPRINTF
+                          snprintf(p_afd_action_dir,
+                                   MAX_PATH_LENGTH - (p_afd_action_dir - afd_action_dir),
+#else
+                          sprintf(p_afd_action_dir,
+#endif
+                                  "%s%s/",
                                   ACTION_TARGET_DIR, ACTION_SUCCESS_DIR);
                if (stat(afd_action_dir, &stat_buf) == -1)
                {
@@ -995,6 +1043,9 @@ main(int argc, char *argv[])
          /* Check if all jobs are still running. */
          zombie_check();
 
+         /* Check if there are any stuck transfer jobs. */
+         stuck_transfer_check(time(&now));
+
          /*
           * See how many directories there are in file directory,
           * so we can show user the number of jobs in queue.
@@ -1065,8 +1116,7 @@ main(int argc, char *argv[])
           */
          if (fsa != NULL)
          {
-            int host_disabled,
-                jobs_in_queue = 0,
+            int jobs_in_queue = 0,
                 lock_set = NO;
 
             (*heartbeat)++;
@@ -1098,7 +1148,6 @@ main(int argc, char *argv[])
             }
             p_afd_status->jobs_in_queue = jobs_in_queue;
 
-            host_disabled = 0;
             for (i = 0; i < no_of_hosts; i++)
             {
                (*heartbeat)++;
@@ -1279,17 +1328,7 @@ main(int argc, char *argv[])
 #endif
                   lock_set = NO;
                }
-               if ((fsa[i].special_flag & HOST_DISABLED) &&
-                   (disable_list != NULL))
-               {
-                  disable_list[host_disabled] = i;
-                  host_disabled++;
-               }
             } /* for (i = 0; i < no_of_hosts; i++) */
-
-            if ((host_disabled > 0) && (disable_list != NULL))
-            {
-            }
          } /* if (fsa != NULL) */
       }
            /* Did we get a message from the process */
@@ -1604,16 +1643,10 @@ main(int argc, char *argv[])
                                   *proc_table[STAT_NO].status = ON;
 
                                   /* Attach to the FSA */
-                                  if (fsa_attach() < 0)
+                                  if (fsa_attach(AFD) < 0)
                                   {
                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                                _("Failed to attach to FSA."));
-                                  }
-                                  if ((disable_list = malloc(no_of_hosts * sizeof(int))) == NULL)
-                                  {
-                                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                _("malloc() error : %s"),
-                                                strerror(errno));
                                   }
 
                                   /* Start the FD */
@@ -1687,10 +1720,14 @@ get_afd_config_value(int          *afdd_port,
    char *buffer,
         config_file[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(config_file, MAX_PATH_LENGTH, "%s%s%s",
+#else
    (void)sprintf(config_file, "%s%s%s",
+#endif
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
-       (read_file_no_cr(config_file, &buffer) != INCORRECT))
+       (read_file_no_cr(config_file, &buffer, __FILE__, __LINE__) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];
 
@@ -1788,6 +1825,7 @@ get_afd_config_value(int          *afdd_port,
 static void
 check_dirs(char *work_dir)
 {
+   int         tmp_sys_log_fd = sys_log_fd;
    char        new_dir[MAX_PATH_LENGTH],
 #ifdef WITH_ONETIME
                *ptr2,
@@ -1801,14 +1839,17 @@ check_dirs(char *work_dir)
    {
       (void)fprintf(stderr, _("Could not stat() `%s' : %s (%s %d)\n"),
                     work_dir, strerror(errno), __FILE__, __LINE__);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
    if (!S_ISDIR(stat_buf.st_mode))
    {
       (void)fprintf(stderr, _("`%s' is not a directory. (%s %d)\n"),
                     work_dir, __FILE__, __LINE__);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
+   sys_log_fd = STDERR_FILENO;
 
    /* Now lets check if the fifo directory is there. */
    (void)strcpy(new_dir, work_dir);
@@ -1816,6 +1857,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, FIFO_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1823,6 +1866,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_MSG_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1830,6 +1875,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, LOG_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1837,6 +1884,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_ARCHIVE_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1846,6 +1895,8 @@ check_dirs(char *work_dir)
    ptr2 = ptr;
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1854,6 +1905,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, LOG_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1861,6 +1914,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, ETC_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1869,6 +1924,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_LIST_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1876,6 +1933,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_CONFIG_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 #endif
@@ -1887,6 +1946,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_FILE_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1895,6 +1956,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, OUTGOING_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1903,6 +1966,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, STORE_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1910,6 +1975,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, CRC_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 #endif
@@ -1918,6 +1985,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_TMP_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1925,6 +1994,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, AFD_TIME_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1932,6 +2003,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, INCOMING_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1940,6 +2013,8 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, FILE_MASK_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
 
@@ -1947,8 +2022,11 @@ check_dirs(char *work_dir)
    (void)strcpy(ptr, LS_DATA_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
+      (void)fprintf(stderr, "Failed to check directory %s\n", new_dir);
+      (void)unlink(afd_active_file);
       exit(INCORRECT);
    }
+   sys_log_fd = tmp_sys_log_fd;
 
    return;
 }
@@ -2142,15 +2220,25 @@ zombie_check(void)
                     char        core_file[MAX_PATH_LENGTH];
                     struct stat stat_buf;
 
-                    (void)sprintf(core_file, "%s/core", p_work_dir);
+#ifdef HAVE_SNPRINTF
+                    (void)snprintf(core_file, MAX_PATH_LENGTH,
+#else
+                    (void)sprintf(core_file,
+#endif
+                                  "%s/core", p_work_dir);
                     if (stat(core_file, &stat_buf) != -1)
                     {
                        char new_core_file[MAX_PATH_LENGTH];
 
+#ifdef HAVE_SNPRINTF
+                       (void)snprintf(new_core_file, MAX_PATH_LENGTH,
+#else
+                       (void)sprintf(new_core_file,
+#endif
 # if SIZEOF_TIME_T == 4
-                       (void)sprintf(new_core_file, "%s.%s.%ld.%d",
+                                     "%s.%s.%ld.%d",
 # else
-                       (void)sprintf(new_core_file, "%s.%s.%lld.%d",
+                                     "%s.%s.%lld.%d",
 # endif
                                      core_file, proc_table[i].proc_name,
                                      (pri_time_t)time(NULL), no_of_saved_cores);
@@ -2190,6 +2278,72 @@ zombie_check(void)
    return;
 }
 
+
+/*+++++++++++++++++++++++++ stuck_transfer_check() ++++++++++++++++++++++*/
+/*
+ * Description : Checks if any transfer process is stuck. If such a
+ *               process is found a kill signal is send.
+ */
+static void
+stuck_transfer_check(time_t current_time)
+{
+#ifdef THIS_CODE_IS_BROKEN /* We need to remember byte activity! */
+   if ((fsa != NULL) && (current_time > p_afd_status->start_time) &&
+       ((current_time - p_afd_status->start_time) > 600))
+   {
+      int i, j;
+
+      init_afd_check_fsa();
+
+      for (i = 0; i < no_of_hosts; i++)
+      {
+         if ((fsa[i].active_transfers > 0) && (fsa[i].error_counter > 0) &&
+             ((fsa[i].host_status & STOP_TRANSFER_STAT) == 0) &&
+             ((current_time - (fsa[i].last_retry_time + (fsa[i].retry_interval + fsa[i].transfer_timeout + 660))) >= 0))
+         {
+            for (j = 0; j < fsa[i].allowed_transfers; j++)
+            {
+               if (fsa[i].job_status[j].proc_id > 0)
+               {
+                  if (kill(fsa[i].job_status[j].proc_id, SIGINT) < 0)
+                  {
+                     if (errno != ESRCH)
+                     {
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                                   _("<INIT> Failed to send kill signal to possible stuck transfer job to %s (%d) : %s"),
+#else
+                                   _("<INIT> Failed to send kill signal to possible stuck transfer job to %s (%lld) : %s"),
+#endif
+                                   fsa[i].host_alias,
+                                   (pri_pid_t)fsa[i].job_status[j].proc_id,
+                                   strerror(errno));
+                     }
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                                _("<INIT> Send kill signal to possible stuck transfer job to %s (%d)"),
+#else
+                                _("<INIT> Send kill signal to possible stuck transfer job to %s (%lld)"),
+#endif
+                                fsa[i].host_alias,
+                                (pri_pid_t)fsa[i].job_status[j].proc_id);
+
+                      /* Process fd will take care of the zombie. */
+                  }
+               }
+            }
+         }
+      }
+   }
+#endif
+
+   return;
+}
+
+
 /*####################### init_afd_check_fsa() ##########################*/
 static void
 init_afd_check_fsa(void)
@@ -2218,16 +2372,10 @@ init_afd_check_fsa(void)
          }
 #endif
 
-         if (fsa_attach() < 0)
+         if (fsa_attach(AFD) < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        _("Failed to attach to FSA."));
-         }
-         free(disable_list);
-         if ((disable_list = malloc(no_of_hosts * sizeof(int))) == NULL)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       _("malloc() error : %s"), strerror(errno));
          }
       }
    }
@@ -2374,6 +2522,17 @@ afd_exit(void)
 
       /* Unset hostname so no one thinks AFD is still up. */
       p_afd_status->hostname[0] = '\0';
+
+      /*
+       * As the last step store all important values in a machine
+       * indepandant format.
+       */
+      init_afd_check_fsa();
+      (void)fra_attach_passive();
+      write_system_data(p_afd_status,
+                        (int)*((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END),
+                        (int)*((char *)fra - AFD_FEATURE_FLAG_OFFSET_END));
+      fra_detach();
 
 #ifdef HAVE_MMAP
       if (msync((void *)p_afd_status, sizeof(struct afd_status), MS_SYNC) == -1)

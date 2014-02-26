@@ -1,6 +1,6 @@
 /*
  *  create_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -173,7 +173,12 @@ create_fra(int no_of_dirs)
    {
       /* Attach to old region. */
       ptr = old_fra_stat + strlen(old_fra_stat);
-      (void)sprintf(ptr, ".%d", old_fra_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(ptr, MAX_PATH_LENGTH - (ptr - old_fra_stat),
+#else
+      (void)sprintf(ptr,
+#endif
+                    ".%d", old_fra_id);
 
       /* Get the size of the old FSA file. */
       if (stat(old_fra_stat, &stat_buf) < 0)
@@ -300,7 +305,11 @@ create_fra(int no_of_dirs)
    {
       fra_id = 0;
    }
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(new_fra_stat, MAX_PATH_LENGTH, "%s%s%s.%d",
+#else
    (void)sprintf(new_fra_stat, "%s%s%s.%d",
+#endif
                  p_work_dir, FIFO_DIR, FRA_STAT_FILE, fra_id);
 
    /* Now map the new FRA region to a file. */
@@ -367,6 +376,8 @@ create_fra(int no_of_dirs)
    current_time = time(NULL);
    if (old_fra_id < 0)
    {
+      struct system_data sd;
+
       /*
        * There is NO old FRA.
        */
@@ -431,6 +442,10 @@ create_fra(int no_of_dirs)
          {
             fra[i].dir_flag            = ACCEPT_DOT_FILES;
          }
+         if (dd[i].do_not_parallelize == YES)
+         {
+            fra[i].dir_flag |= DO_NOT_PARALLELIZE;
+         }
          if (dd[i].do_not_get_dir_list == YES)
          {
             fra[i].dir_flag |= DONT_GET_DIR_LIST;
@@ -448,6 +463,10 @@ create_fra(int no_of_dirs)
          {
             fra[i].dir_flag |= INOTIFY_CLOSE;
          }
+         if (dd[i].inotify_flag & INOTIFY_CREATE_FLAG)
+         {
+            fra[i].dir_flag |= INOTIFY_CREATE;
+         }
 #endif
          if (fra[i].no_of_time_entries > 0)
          {
@@ -460,6 +479,14 @@ create_fra(int no_of_dirs)
          }
          (void)memset(&fra[i].ate, 0, sizeof(struct bd_time_entry));
       } /* for (i = 0; i < no_of_dirs; i++) */
+
+      /* Copy configuration information from the old FRA when this */
+      /* is stored in system_data file.                            */
+      if (get_system_data(&sd) == SUCCESS)
+      {
+         ptr = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
+         *ptr = sd.fra_feature_flag;
+      }
    }
    else /* There is an old database file. */
    {
@@ -559,6 +586,13 @@ create_fra(int no_of_dirs)
             {
                fra[i].dir_flag ^= ACCEPT_DOT_FILES;
             }
+            if (((fra[i].dir_flag & DO_NOT_PARALLELIZE) &&
+                 (dd[i].do_not_parallelize == NO)) ||
+                (((fra[i].dir_flag & DO_NOT_PARALLELIZE) == 0) &&
+                 (dd[i].do_not_parallelize == YES)))
+            {
+               fra[i].dir_flag ^= DO_NOT_PARALLELIZE;
+            }
             if (((fra[i].dir_flag & DONT_GET_DIR_LIST) &&
                  (dd[i].do_not_get_dir_list == NO)) ||
                 (((fra[i].dir_flag & DONT_GET_DIR_LIST) == 0) &&
@@ -573,6 +607,22 @@ create_fra(int no_of_dirs)
             {
                fra[i].dir_flag ^= CREATE_R_SRC_DIR;
             }
+#ifdef NEW_FRA
+            if ((fra[i].dir_flag & INFO_TIME_REACHED) &&
+                ((fra[i].info_time < 1) ||
+                 ((current_time - fra[i].last_retrieval) < fra[i].info_time)))
+            {
+               fra[i].dir_flag &= ~INFO_TIME_REACHED;
+               SET_DIR_STATUS(fra[i].dir_flag,
+                              current_time,
+                              fra[i].start_event_handle,
+                              fra[i].end_event_handle,
+                              fra[i].dir_status);
+               error_action(fra[i].dir_alias, "stop", DIR_INFO_ACTION);
+               event_log(0L, EC_DIR, ET_AUTO, EA_INFO_TIME_UNSET, "%s",
+                         fra[i].dir_alias);
+            }
+#endif
             if ((fra[i].dir_flag & WARN_TIME_REACHED) &&
                 ((fra[i].warn_time < 1) ||
                  ((current_time - fra[i].last_retrieval) < fra[i].warn_time)))
@@ -591,7 +641,7 @@ create_fra(int no_of_dirs)
             if ((fra[i].dir_flag & INOTIFY_RENAME) &&
                 ((dd[i].inotify_flag & INOTIFY_RENAME_FLAG) == 0))
             {
-               fra[i].dir_flag ^= INOTIFY_RENAME;
+               fra[i].dir_flag &= ~INOTIFY_RENAME;
             }
             else if (((fra[i].dir_flag & INOTIFY_RENAME) == 0) &&
                      (dd[i].inotify_flag & INOTIFY_RENAME_FLAG))
@@ -601,12 +651,22 @@ create_fra(int no_of_dirs)
             if ((fra[i].dir_flag & INOTIFY_CLOSE) &&
                 ((dd[i].inotify_flag & INOTIFY_CLOSE_FLAG) == 0))
             {
-               fra[i].dir_flag ^= INOTIFY_CLOSE;
+               fra[i].dir_flag &= ~INOTIFY_CLOSE;
             }
             else if (((fra[i].dir_flag & INOTIFY_CLOSE) == 0) &&
                      (dd[i].inotify_flag & INOTIFY_CLOSE_FLAG))
                  {
                     fra[i].dir_flag |= INOTIFY_CLOSE;
+                 }
+            if ((fra[i].dir_flag & INOTIFY_CREATE) &&
+                ((dd[i].inotify_flag & INOTIFY_CREATE_FLAG) == 0))
+            {
+               fra[i].dir_flag &= ~INOTIFY_CREATE;
+            }
+            else if (((fra[i].dir_flag & INOTIFY_CREATE) == 0) &&
+                     (dd[i].inotify_flag & INOTIFY_CREATE_FLAG))
+                 {
+                    fra[i].dir_flag |= INOTIFY_CREATE;
                  }
 #endif
             fra[i].queued                 = old_fra[k].queued;
@@ -634,6 +694,10 @@ create_fra(int no_of_dirs)
             {
                fra[i].dir_flag            = ACCEPT_DOT_FILES;
             }
+            if (dd[i].do_not_parallelize == YES)
+            {
+               fra[i].dir_flag |= DO_NOT_PARALLELIZE;
+            }
             if (dd[i].do_not_get_dir_list == YES)
             {
                fra[i].dir_flag |= DONT_GET_DIR_LIST;
@@ -650,6 +714,10 @@ create_fra(int no_of_dirs)
             if (dd[i].inotify_flag & INOTIFY_CLOSE_FLAG)
             {
                fra[i].dir_flag |= INOTIFY_CLOSE;
+            }
+            if (dd[i].inotify_flag & INOTIFY_CREATE_FLAG)
+            {
+               fra[i].dir_flag |= INOTIFY_CREATE;
             }
 #endif
             fra[i].queued                 = 0;

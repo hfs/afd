@@ -1,6 +1,6 @@
 /*
  *  clear_pool_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,7 @@ DESCR__S_M3
  **   14.05.1998 H.Kiehl Created
  **   28.08.2003 H.Kiehl Adapted to CRC-32 directory ID's.
  **   21.01.2009 H.Kiehl No need to open DIR_NAME_FILE twice.
+ **   03.09.2013 H.Kiehl When we move files back report this to system log.
  **
  */
 DESCR__E_M3
@@ -82,7 +83,12 @@ clear_pool_dir(void)
                orig_dir[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   (void)sprintf(pool_dir, "%s%s%s", p_work_dir, AFD_FILE_DIR, AFD_TMP_DIR);
+#ifdef HAVE_SNPRINTF
+   (void)snprintf(pool_dir, MAX_PATH_LENGTH,
+#else
+   (void)sprintf(pool_dir,
+#endif
+                 "%s%s%s", p_work_dir, AFD_FILE_DIR, AFD_TMP_DIR);
 
    if (stat(pool_dir, &stat_buf) == -1)
    {
@@ -294,6 +300,7 @@ move_files_back(char *pool_dir, char *orig_dir)
    }
    else
    {
+      unsigned int  files_moved = 0;
       char          *orig_ptr,
                     *pool_ptr;
       struct dirent *p_dir;
@@ -325,6 +332,10 @@ move_files_back(char *pool_dir, char *orig_dir)
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Failed to move_file() %s to %s : %s",
                        pool_dir, orig_dir, strerror(errno));
+         }
+         else
+         {
+            files_moved++;
          }
          errno = 0;
       }
@@ -363,6 +374,8 @@ move_files_back(char *pool_dir, char *orig_dir)
                        pool_dir, strerror(errno));
          }
       }
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Moved %u files back to %s", files_moved, orig_dir);
    }
 
    return;

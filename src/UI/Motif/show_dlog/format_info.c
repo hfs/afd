@@ -164,7 +164,7 @@ format_output_info(char **text)
       if (id.extra_reason[0] == '>')
       {
          int days,
-             diff_time = atoi(&id.extra_reason[1]),
+             diff_time = atoi((char *)(&id.extra_reason[1])),
              hours,
              min,
              sec;
@@ -516,7 +516,7 @@ format_input_info(char **text)
       if (id.extra_reason[0] == '>')
       {
          int days,
-             diff_time = atoi(&id.extra_reason[1]),
+             diff_time = atoi((char *)(&id.extra_reason[1])),
              hours,
              min,
              sec;

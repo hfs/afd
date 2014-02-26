@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -50,6 +50,8 @@ DESCR__S_M1
  **   16.02.2006 H.Kiehl Added SFTP, ignore_bin, socket send and
  **                      socket receive buffer.
  **   27.03.2006 H.Kiehl Option with long view with full filenames.
+ **   18.10.2013 H.Kiehl Beautified output so it shows the table aligned
+ **                      properly.
  **
  */
 DESCR__E_M1
@@ -62,10 +64,23 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <unistd.h>                      /* STDERR_FILENO                */
 #include <errno.h>
+#include <math.h>
 #include "version.h"
 
 #define SHORT_VIEW    1
 #define LONG_VIEW     2
+
+#define GET_MAX_DIGIT(value)                          \
+        {                                             \
+           if ((value) > 9999999999)                  \
+           {                                          \
+              nr_of_digits = (int)log10((value)) + 1; \
+              if (nr_of_digits > max_digits)          \
+              {                                       \
+                 max_digits = nr_of_digits;           \
+              }                                       \
+           }                                          \
+        }
 
 /* Local functions. */
 static void usage(void);
@@ -142,7 +157,7 @@ main(int argc, char *argv[])
            exit(INCORRECT);
         }
 
-   if ((j = fsa_attach_passive(NO)) < 0)
+   if ((j = fsa_attach_passive(NO, "fsa_view")) < 0)
    {
       if (j == INCORRECT_VERSION)
       {
@@ -382,6 +397,14 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "timeout_transfer ");
       }
+      if (fsa[j].protocol_options & KEEP_CON_NO_SEND_2)
+      {
+         (void)fprintf(stdout, "keep_con_no_send_2 ");
+      }
+      if (fsa[j].protocol_options & KEEP_CON_NO_FETCH_2)
+      {
+         (void)fprintf(stdout, "keep_con_no_fetch_2 ");
+      }
       (void)fprintf(stdout, "\n");
       (void)fprintf(stdout, "Direction            : ");
       if (fsa[j].protocol & SEND_FLAG)
@@ -510,6 +533,10 @@ main(int argc, char *argv[])
               {
                  (void)fprintf(stdout, "UNKNOWN_CRC ");
               }
+         if (fsa[j].dup_check_flag & TIMEOUT_IS_FIXED)
+         {
+            (void)fprintf(stdout, "TIMEOUT_IS_FIXED ");
+         }
          if (fsa[j].dup_check_flag & USE_RECIPIENT_ID)
          {
             (void)fprintf(stdout, "USE_RECIPIENT_ID");
@@ -733,39 +760,106 @@ main(int argc, char *argv[])
 
       if (view_type == SHORT_VIEW)
       {
-         (void)fprintf(stdout, "                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   \n");
-         (void)fprintf(stdout, "--------------------+-----------+-----------+-----------+-----------+-----------\n");
-#if SIZEOF_PID_T == 4
-         (void)fprintf(stdout, "PID                 |%10d |%10d |%10d |%10d |%10d \n",
-#else
-         (void)fprintf(stdout, "PID                 |%10lld |%10lld |%10lld |%10lld |%10lld \n",
-#endif
-                       (pri_pid_t)fsa[j].job_status[0].proc_id,
-                       (pri_pid_t)fsa[j].job_status[1].proc_id,
-                       (pri_pid_t)fsa[j].job_status[2].proc_id,
-                       (pri_pid_t)fsa[j].job_status[3].proc_id,
-                       (pri_pid_t)fsa[j].job_status[4].proc_id);
-         (void)fprintf(stdout, "Connect status      ");
-         for (i = 0; i < MAX_NO_PARALLEL_JOBS; i++)
+         int                        k,
+                                    max_digits = 10,
+                                    nr_of_digits;
+         struct filetransfer_status sfsa;
+
+         /*
+          * Lets get the longest value so we can setup the table as
+          * compact as possible. For this to work we need to keep the
+          * values in FSA constant until we are done. So just copy them
+          * to a new static storage and use that then.
+          */
+         (void)memcpy(&sfsa, &fsa[j], sizeof(struct filetransfer_status));
+         for (i = 0; i < sfsa.allowed_transfers; i++)
          {
-            switch (fsa[j].job_status[i].connect_status)
+            GET_MAX_DIGIT(sfsa.job_status[i].proc_id);
+            GET_MAX_DIGIT(sfsa.job_status[i].no_of_files);
+            GET_MAX_DIGIT(sfsa.job_status[i].no_of_files_done);
+            GET_MAX_DIGIT(sfsa.job_status[i].file_size);
+            GET_MAX_DIGIT(sfsa.job_status[i].file_size_done);
+            GET_MAX_DIGIT(sfsa.job_status[i].bytes_send);
+            GET_MAX_DIGIT(sfsa.job_status[i].file_size_in_use);
+            GET_MAX_DIGIT(sfsa.job_status[i].file_size_in_use_done);
+         }
+         (void)fprintf(stdout, "                    ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            if (i < 10)
+            {
+               k = fprintf(stdout, "| Job %d", i);
+            }
+            else if (i < 100)
+                 {
+                    k = fprintf(stdout, "| Job %d", i);
+                 }
+            else if (i < 1000)
+                 {
+                    k = fprintf(stdout, "| Job %d", i);
+                 }
+            else if (i < 10000)
+                 {
+                    k = fprintf(stdout, "| Job %d", i);
+                 }
+                 else
+                 {
+                    k = fprintf(stdout, "| Job XXXX");
+                 }
+
+            if (k < max_digits)
+            {
+               int m;
+
+               for (m = 0; m < (max_digits - k + 2); m++)
+               {
+                  (void)fprintf(stdout, " ");
+               }
+            }
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "--------------------");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            (void)fprintf(stdout, "+");
+            for (k = 0; k < (max_digits + 1); k++)
+            {
+               (void)fprintf(stdout, "-");
+            }
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "PID                 ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+#if SIZEOF_PID_T == 4
+            (void)fprintf(stdout, "|%*d ", max_digits,
+#else
+            (void)fprintf(stdout, "|%*lld ", max_digits,
+#endif
+                          (pri_pid_t)sfsa.job_status[i].proc_id);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "Connect status      ");
+         for (i = 0; i < fsa[j].allowed_transfers; i++)
+         {
+            switch (sfsa.job_status[i].connect_status)
             {
                case CONNECTING :
-                  if (fsa[j].protocol & LOC_FLAG)
+                  if (sfsa.protocol & LOC_FLAG)
                   {
-                     if ((fsa[j].protocol & FTP_FLAG) ||
-                         (fsa[j].protocol & SFTP_FLAG) ||
-                         (fsa[j].protocol & HTTP_FLAG) ||
+                     if ((sfsa.protocol & FTP_FLAG) ||
+                         (sfsa.protocol & SFTP_FLAG) ||
+                         (sfsa.protocol & HTTP_FLAG) ||
 #ifdef _WITH_MAP_SUPPORT
-                         (fsa[j].protocol & MAP_FLAG) ||
+                         (sfsa.protocol & MAP_FLAG) ||
 #endif
 #ifdef _WITH_SCP_SUPPORT
-                         (fsa[j].protocol & SCP_FLAG) ||
+                         (sfsa.protocol & SCP_FLAG) ||
 #endif
 #ifdef _WITH_WMO_SUPPORT
-                         (fsa[j].protocol & WMO_FLAG) ||
+                         (sfsa.protocol & WMO_FLAG) ||
 #endif
-                         (fsa[j].protocol & SMTP_FLAG))
+                         (sfsa.protocol & SMTP_FLAG))
                      {
                         (void)fprintf(stdout, "|CONNECTING ");
                      }
@@ -871,99 +965,108 @@ main(int argc, char *argv[])
                   (void)fprintf(stdout, "|  Unknown  ");
                   break;
             }
+            if (max_digits > 10)
+            {
+               int m;
+
+               for (m = 0; m < (max_digits - 10); m++)
+               {
+                  (void)fprintf(stdout, " ");
+               }
+            }
          }
          (void)fprintf(stdout, "\n");
-         (void)fprintf(stdout,
-                       "Number of files     |%10d |%10d |%10d |%10d |%10d \n",
-                       fsa[j].job_status[0].no_of_files,
-                       fsa[j].job_status[1].no_of_files,
-                       fsa[j].job_status[2].no_of_files,
-                       fsa[j].job_status[3].no_of_files,
-                       fsa[j].job_status[4].no_of_files);
-         (void)fprintf(stdout,
-                       "No. of files done   |%10d |%10d |%10d |%10d |%10d \n",
-                       fsa[j].job_status[0].no_of_files_done,
-                       fsa[j].job_status[1].no_of_files_done,
-                       fsa[j].job_status[2].no_of_files_done,
-                       fsa[j].job_status[3].no_of_files_done,
-                       fsa[j].job_status[4].no_of_files_done);
-         (void)fprintf(stdout,
+         (void)fprintf(stdout, "Number of files     ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            (void)fprintf(stdout, "|%*d ",
+                          max_digits, sfsa.job_status[i].no_of_files);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "No. of files done   ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            (void)fprintf(stdout, "|%*d ",
+                          max_digits, sfsa.job_status[i].no_of_files_done);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "File size           ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
 #if SIZEOF_OFF_T == 4
-                       "File size           |%10ld |%10ld |%10ld |%10ld |%10ld \n",
+            (void)fprintf(stdout, "|%*d ", max_digits,
 #else
-                       "File size           |%10lld |%10lld |%10lld |%10lld |%10lld \n",
+            (void)fprintf(stdout, "|%*lld ", max_digits,
 #endif
-                       (pri_off_t)fsa[j].job_status[0].file_size,
-                       (pri_off_t)fsa[j].job_status[1].file_size,
-                       (pri_off_t)fsa[j].job_status[2].file_size,
-                       (pri_off_t)fsa[j].job_status[3].file_size,
-                       (pri_off_t)fsa[j].job_status[4].file_size);
-         (void)fprintf(stdout,
+                          (pri_off_t)sfsa.job_status[i].file_size);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "File size done      ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
 #if SIZEOF_OFF_T == 4
-                       "File size done      |%10lu |%10lu |%10lu |%10lu |%10lu \n",
+            (void)fprintf(stdout, "|%*lu ", max_digits,
 #else
-                       "File size done      |%10llu |%10llu |%10llu |%10llu |%10llu \n",
+            (void)fprintf(stdout, "|%*llu ", max_digits,
 #endif
-                       fsa[j].job_status[0].file_size_done,
-                       fsa[j].job_status[1].file_size_done,
-                       fsa[j].job_status[2].file_size_done,
-                       fsa[j].job_status[3].file_size_done,
-                       fsa[j].job_status[4].file_size_done);
-         (void)fprintf(stdout,
+                          sfsa.job_status[i].file_size_done);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "Bytes send          ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
 #if SIZEOF_OFF_T == 4
-                       "Bytes send          |%10lu |%10lu |%10lu |%10lu |%10lu \n",
+            (void)fprintf(stdout, "|%*lu ", max_digits,
 #else
-                       "Bytes send          |%10llu |%10llu |%10llu |%10llu |%10llu \n",
+            (void)fprintf(stdout, "|%*llu ", max_digits,
 #endif
-                       fsa[j].job_status[0].bytes_send,
-                       fsa[j].job_status[1].bytes_send,
-                       fsa[j].job_status[2].bytes_send,
-                       fsa[j].job_status[3].bytes_send,
-                       fsa[j].job_status[4].bytes_send);
-         (void)fprintf(stdout,
-                       "File name in use    |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n",
-                       fsa[j].job_status[0].file_name_in_use,
-                       fsa[j].job_status[1].file_name_in_use,
-                       fsa[j].job_status[2].file_name_in_use,
-                       fsa[j].job_status[3].file_name_in_use,
-                       fsa[j].job_status[4].file_name_in_use);
-         (void)fprintf(stdout,
+                          sfsa.job_status[i].bytes_send);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "File name in use    ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            (void)fprintf(stdout, "|%*.*s", max_digits + 1, max_digits + 1,
+                          sfsa.job_status[i].file_name_in_use);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "File size in use    ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
 #if SIZEOF_OFF_T == 4
-                       "File size in use    |%10ld |%10ld |%10ld |%10ld |%10ld \n",
+            (void)fprintf(stdout, "|%*d ", max_digits,
 #else
-                       "File size in use    |%10lld |%10lld |%10lld |%10lld |%10lld \n",
+            (void)fprintf(stdout, "|%*lld ", max_digits,
 #endif
-                       (pri_off_t)fsa[j].job_status[0].file_size_in_use,
-                       (pri_off_t)fsa[j].job_status[1].file_size_in_use,
-                       (pri_off_t)fsa[j].job_status[2].file_size_in_use,
-                       (pri_off_t)fsa[j].job_status[3].file_size_in_use,
-                       (pri_off_t)fsa[j].job_status[4].file_size_in_use);
-         (void)fprintf(stdout,
+                          (pri_off_t)sfsa.job_status[i].file_size_in_use);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "Filesize in use done");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
 #if SIZEOF_OFF_T == 4
-                       "Filesize in use done|%10ld |%10ld |%10ld |%10ld |%10ld \n",
+            (void)fprintf(stdout, "|%*d ", max_digits,
 #else
-                       "Filesize in use done|%10lld |%10lld |%10lld |%10lld |%10lld \n",
+            (void)fprintf(stdout, "|%*lld ", max_digits,
 #endif
-                       (pri_off_t)fsa[j].job_status[0].file_size_in_use_done,
-                       (pri_off_t)fsa[j].job_status[1].file_size_in_use_done,
-                       (pri_off_t)fsa[j].job_status[2].file_size_in_use_done,
-                       (pri_off_t)fsa[j].job_status[3].file_size_in_use_done,
-                       (pri_off_t)fsa[j].job_status[4].file_size_in_use_done);
+                          (pri_off_t)sfsa.job_status[i].file_size_in_use_done);
+         }
+         (void)fprintf(stdout, "\n");
 #ifdef _WITH_BURST_2
-         (void)fprintf(stdout,
-                       "Unique name         |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n",
-                       fsa[j].job_status[0].unique_name,
-                       fsa[j].job_status[1].unique_name,
-                       fsa[j].job_status[2].unique_name,
-                       fsa[j].job_status[3].unique_name,
-                       fsa[j].job_status[4].unique_name);
-         (void)fprintf(stdout,
-                       "Job ID              |%10x |%10x |%10x |%10x |%10x \n",
-                       (int)fsa[j].job_status[0].job_id,
-                       (int)fsa[j].job_status[1].job_id,
-                       (int)fsa[j].job_status[2].job_id,
-                       (int)fsa[j].job_status[3].job_id,
-                       (int)fsa[j].job_status[4].job_id);
+         (void)fprintf(stdout, "Unique name         ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            (void)fprintf(stdout, "|%*.*s", max_digits + 1, max_digits + 1,
+                          sfsa.job_status[i].unique_name);
+         }
+         (void)fprintf(stdout, "\n");
+         (void)fprintf(stdout, "Job ID              ");
+         for (i = 0; i < sfsa.allowed_transfers; i++)
+         {
+            (void)fprintf(stdout, "|%*x ",
+                          max_digits, (int)sfsa.job_status[i].job_id);
+         }
+         (void)fprintf(stdout, "\n");
 #endif
       }
       else

@@ -1,6 +1,6 @@
 /*
  *  check_logs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -193,14 +193,30 @@ check_logs(time_t now)
             }
             if (chars_buffered > 0)
             {
+#ifdef HAVE_SNPRINTF
+               chars_buffered_log += snprintf(&log_buffer[chars_buffered_log],
+                                              MAX_LOG_DATA_BUFFER - chars_buffered_log,
+#else
                chars_buffered_log += sprintf(&log_buffer[chars_buffered_log],
+#endif
                                              "%s %u %u %u", /* MAX_LOG_COMMAND_LENGTH */
                                              ld[i].log_data_cmd,
                                              ld[i].options,
                                              ld[i].packet_no,
                                              chars_buffered) + 1;
-               (void)memcpy(&log_buffer[chars_buffered_log], line_buffer,
-                            chars_buffered);
+               if (chars_buffered < (MAX_LOG_DATA_BUFFER - chars_buffered_log))
+               {
+                  (void)memcpy(&log_buffer[chars_buffered_log], line_buffer,
+                               chars_buffered);
+               }
+               else
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             _("Log buffer to small (%d < %d)"),
+                             chars_buffered,
+                             MAX_LOG_DATA_BUFFER - chars_buffered_log);
+                  exit(INCORRECT);
+               }
                chars_buffered_log += chars_buffered;
 #ifdef DEBUG_LOG_CMD
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -252,10 +268,16 @@ check_logs(time_t now)
                         else
                         {
                            ld[i].current_log_inode = stat_buf.st_ino;
-#if SIZEOF_INO_T == 4
-                           length = sprintf(buffer, "%s %ld 0\r\n",
+#ifdef HAVE_SNPRINTF
+                           length = snprintf(buffer,
+                                             2 + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 3,
 #else
-                           length = sprintf(buffer, "%s %lld 0\r\n",
+                           length = sprintf(buffer,
+#endif
+#if SIZEOF_INO_T == 4
+                                            "%s %ld 0\r\n",
+#else
+                                            "%s %lld 0\r\n",
 #endif
                                             ld[i].log_inode_cmd,
                                             (pri_ino_t)stat_buf.st_ino);
@@ -290,8 +312,13 @@ check_logs(time_t now)
                   do
                   {
                      ld[i].current_log_no--;
-                     (void)sprintf(p_log_dir, "%s%d",
-                                   ld[i].log_name, ld[i].current_log_no);
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(p_log_dir,
+                                    MAX_PATH_LENGTH - (p_log_dir - log_dir),
+#else
+                     (void)sprintf(p_log_dir,
+#endif
+                                   "%s%d", ld[i].log_name, ld[i].current_log_no);
                      if ((ld[i].fp = fopen(log_dir, "r")) != NULL)
                      {
                         if (fstat(fileno(ld[i].fp), &stat_buf) == -1)
@@ -310,10 +337,16 @@ check_logs(time_t now)
                         else
                         {
                            ld[i].current_log_inode = stat_buf.st_ino;
-#if SIZEOF_INO_T == 4
-                           length = sprintf(buffer, "%s %ld %d\r\n",
+#ifdef HAVE_SNPRINTF
+                           length = snprintf(buffer,
+                                             2 + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 3,
 #else
-                           length = sprintf(buffer, "%s %lld %d\r\n",
+                           length = sprintf(buffer,
+#endif
+#if SIZEOF_INO_T == 4
+                                            "%s %ld %d\r\n",
+#else
+                                            "%s %lld %d\r\n",
 #endif
                                             ld[i].log_inode_cmd,
                                             (pri_ino_t)stat_buf.st_ino,
@@ -571,10 +604,16 @@ get_log_inode(char  *log_dir,
     * we are currently using. Since it will not know the correct
     * log number.
     */
-#if SIZEOF_INO_T == 4
-   length = sprintf(buffer, "%s %ld %d\r\n",
+#ifdef HAVE_SNPRINTF
+   length = snprintf(buffer,
+                     2 + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 1,
 #else
-   length = sprintf(buffer, "%s %lld %d\r\n",
+   length = sprintf(buffer,
+#endif
+#if SIZEOF_INO_T == 4
+                    "%s %ld %d\r\n",
+#else
+                    "%s %lld %d\r\n",
 #endif
                     log_inode_cmd, (pri_ino_t)*inode_in_use, *current_log_no);
    if (log_write(buffer, length) == INCORRECT)

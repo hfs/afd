@@ -1,6 +1,6 @@
 /*
  *  gf_sql.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2011, 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2011 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,6 +69,9 @@ int                        event_log_fd = STDERR_FILENO,
                            fra_id,
                            fsa_fd = -1,
                            fsa_id,
+#ifdef HAVE_HW_CRC32
+                           have_hw_crc32 = NO,
+#endif
                            no_of_dirs = 0,
                            no_of_hosts = 0,
                            *p_no_of_hosts = NULL,
@@ -801,7 +804,7 @@ main(int argc, char *argv[])
                   if ((content_length > 0) &&
                       ((bytes_done + offset) != content_length))
                   {
-                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL, NULL,
+                     trans_log(INFO_SIGN, __FILE__, __LINE__, NULL, NULL,
 #if SIZEOF_OFF_T == 4
                                "File size of file %s changed from %ld to %ld when it was retrieved.",
 #else

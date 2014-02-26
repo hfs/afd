@@ -1,6 +1,6 @@
 /*
  *  convert_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
-#include <stdio.h>                    /* fprintf(), sprintf()            */
+#include <stdio.h>                    /* fprintf()                       */
 #include <string.h>                   /* strcpy(), strcat(), strerror()  */
 #include <stdlib.h>                   /* exit()                          */
 #include <sys/types.h>
@@ -2295,7 +2295,7 @@ convert_fra(int           old_fra_fd,
               new_fra[i].bytes_in_dir           = 0;
               new_fra[i].bytes_in_queue         = 0;
               new_fra[i].ignore_file_time       = 0;
-              new_fra[i].ignore_size            = 0;
+              new_fra[i].ignore_size            = -1;
               new_fra[i].gt_lt_sign             = 0;
               new_fra[i].keep_connected         = DEFAULT_KEEP_CONNECTED_TIME;
 #ifdef WITH_DUP_CHECK
@@ -2463,7 +2463,7 @@ convert_fra(int           old_fra_fd,
               new_fra[i].bytes_in_queue         = old_fra[i].bytes_in_queue;
               new_fra[i].in_dc_flag             = 0;
               new_fra[i].ignore_file_time       = 0;
-              new_fra[i].ignore_size            = 0;
+              new_fra[i].ignore_size            = -1;
               new_fra[i].gt_lt_sign             = 0;
               new_fra[i].keep_connected         = DEFAULT_KEEP_CONNECTED_TIME;
 #ifdef WITH_DUP_CHECK
@@ -3149,7 +3149,7 @@ convert_fra(int           old_fra_fd,
               new_fra[i].bytes_in_dir           = 0;
               new_fra[i].bytes_in_queue         = 0;
               new_fra[i].ignore_file_time       = 0;
-              new_fra[i].ignore_size            = 0;
+              new_fra[i].ignore_size            = -1;
               new_fra[i].gt_lt_sign             = 0;
               new_fra[i].keep_connected         = DEFAULT_KEEP_CONNECTED_TIME;
 #ifdef WITH_DUP_CHECK
@@ -3318,7 +3318,7 @@ convert_fra(int           old_fra_fd,
               new_fra[i].bytes_in_queue         = old_fra[i].bytes_in_queue;
               new_fra[i].in_dc_flag             = 0;
               new_fra[i].ignore_file_time       = 0;
-              new_fra[i].ignore_size            = 0;
+              new_fra[i].ignore_size            = -1;
               new_fra[i].gt_lt_sign             = 0;
               new_fra[i].keep_connected         = DEFAULT_KEEP_CONNECTED_TIME;
 #ifdef WITH_DUP_CHECK

@@ -1,7 +1,7 @@
 /*
  *  check_old_time_jobs.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1999 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,7 @@ check_old_time_jobs(int no_of_jobs)
     */
    if ((dp = opendir(time_dir)) == NULL)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
+      system_log((errno == ENOENT) ? DEBUG_SIGN : WARN_SIGN, __FILE__, __LINE__,
                  _("Failed to opendir() `%s' : %s"), time_dir, strerror(errno));
    }
    else
@@ -178,10 +178,11 @@ check_old_time_jobs(int no_of_jobs)
                             * The only thing we can do now is remove them.
                             */
 #ifdef _DELETE_LOG
-                           remove_time_dir("-", -1, -1, JID_LOOKUP_FAILURE_DEL,
+                           remove_time_dir("-", YES, -1, -1,
+                                           JID_LOOKUP_FAILURE_DEL,
                                            __FILE__, __LINE__);
 #else
-                           remove_time_dir("-", -1);
+                           remove_time_dir("-", YES, -1);
 #endif
                         }
                         else
@@ -265,13 +266,13 @@ check_old_time_jobs(int no_of_jobs)
                                * all files.
                                */
 #ifdef _DELETE_LOG
-                             remove_time_dir(jd[jid_pos].host_alias,
+                             remove_time_dir(jd[jid_pos].host_alias, YES,
                                              jd[jid_pos].job_id,
                                              jd[jid_pos].dir_id,
                                              JID_LOOKUP_FAILURE_DEL,
                                              __FILE__, __LINE__);
 #else
-                             remove_time_dir(jd[jid_pos].host_alias,
+                             remove_time_dir(jd[jid_pos].host_alias, YES,
                                              jd[jid_pos].job_id);
 #endif
                            }
@@ -349,7 +350,12 @@ move_time_dir(unsigned int job_id)
          tmp_ptr++;
          tmp_char = *tmp_ptr;
          *tmp_ptr = '\0';
-         to_dir_ptr = to_dir + sprintf(to_dir, "%s%x", time_dir, job_id);
+#ifdef HAVE_SNPRINTF
+         to_dir_ptr = to_dir + snprintf(to_dir, MAX_PATH_LENGTH,
+#else
+         to_dir_ptr = to_dir + sprintf(to_dir,
+#endif
+                                       "%s%x", time_dir, job_id);
          *tmp_ptr = tmp_char;
       }
       else

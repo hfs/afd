@@ -1,6 +1,6 @@
 /*
  *  convert_grib2wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -203,7 +203,11 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                      {
                         data_length = message_length;
                      }
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(header, 14, "%08u00\01\015\015",
+#else
                      (void)sprintf(header, "%08u00\01\015\015",
+#endif
                                    data_length + 18 + 3 + 8);
                      header[13] = '\012';
                      header[20] = ' ';

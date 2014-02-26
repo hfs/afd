@@ -5,7 +5,7 @@
 # Synopsis      : afd_auto_config [<AFD working directory>]
 # Author        : H.Kiehl
 # Date          : 01.07.2005
-# Modifications : 
+# Modifications : 28.11.2013 H.Kiehl Check AFD_CONFIG for DIR_CONFIG_NAME.
 #
 #
 
@@ -22,7 +22,45 @@ else
    fi
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/DIR_CONFIG ]
+GOTCHA="NO"
+if [ -f $AFD_WORK_DIR/etc/AFD_CONFIG ]
+then
+   grep ^DIR_CONFIG_NAME $AFD_WORK_DIR/etc/AFD_CONFIG > /dev/null
+   if [ $? -eq 0 ]
+   then
+      MY_DIR_CONFIGS="`grep ^DIR_CONFIG_NAME $AFD_WORK_DIR/etc/AFD_CONFIG | tr -s ' ' | cut -d ' ' -f 2`"
+      for i in "$MY_DIR_CONFIGS"
+      do
+         if [ -f "$i" ]
+         then
+            GOTCHA="YES"
+            break
+         fi
+         if [ -f "$AFD_WORK_DIR/$i" ]
+         then
+            GOTCHA="YES"
+            break
+         fi
+         if [ -f "$AFD_WORK_DIR/etc/$i" ]
+         then
+            GOTCHA="YES"
+            break
+         fi
+      done
+   else
+      if [ -f "$AFD_WORK_DIR/etc/DIR_CONFIG" ]
+      then
+         GOTCHA="YES"
+      fi
+   fi
+else
+   if [ -f "$AFD_WORK_DIR/etc/DIR_CONFIG" ]
+   then
+      GOTCHA="YES"
+   fi
+fi
+
+if [ $GOTCHA == "NO" ]
 then
    echo "#" > $AFD_WORK_DIR/etc/DIR_CONFIG
    echo "# Sample DIR_CONFIG for AFD" >> $AFD_WORK_DIR/etc/DIR_CONFIG
@@ -45,57 +83,57 @@ then
    chmod 600 $AFD_WORK_DIR/etc/DIR_CONFIG
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/AFD_CONFIG ]
+if [ ! -f "$AFD_WORK_DIR/etc/AFD_CONFIG" ]
 then
-   if [ -f @prefix@/etc/AFD_CONFIG.sample ]
+   if [ -f @docdir@/etc/AFD_CONFIG.sample ]
    then
-      cp @prefix@/etc/AFD_CONFIG.sample $AFD_WORK_DIR/etc/AFD_CONFIG
+      cp @docdir@/etc/AFD_CONFIG.sample $AFD_WORK_DIR/etc/AFD_CONFIG
       chmod 640 $AFD_WORK_DIR/etc/AFD_CONFIG
    fi
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/INFO-LOOP ]
+if [ ! -f "$AFD_WORK_DIR/etc/INFO-LOOP" ]
 then
-   if [ -f @prefix@/etc/INFO-LOOP.sample ]
+   if [ -f @docdir@/etc/INFO-LOOP.sample ]
    then
-      cp @prefix@/etc/INFO-LOOP.sample $AFD_WORK_DIR/etc/INFO-LOOP
+      cp @docdir@/etc/INFO-LOOP.sample $AFD_WORK_DIR/etc/INFO-LOOP
    fi
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/afd.name ]
+if [ ! -f "$AFD_WORK_DIR/etc/afd.name" ]
 then
-   if [ -f @prefix@/etc/afd.name.sample ]
+   if [ -f @docdir@/etc/afd.name.sample ]
    then
-      if [ ! -f $AFD_WORK_DIR/etc/afd.name.sample ]
+      if [ ! -f "$AFD_WORK_DIR/etc/afd.name.sample" ]
       then
-         cp @prefix@/etc/afd.name.sample $AFD_WORK_DIR/etc
+         cp @docdir@/etc/afd.name.sample $AFD_WORK_DIR/etc
       fi
    fi
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/afd.users ]
+if [ ! -f "$AFD_WORK_DIR/etc/afd.users" ]
 then
-   if [ -f @prefix@/etc/afd.users.sample ]
+   if [ -f @docdir@/etc/afd.users.sample ]
    then
       if [ ! -f $AFD_WORK_DIR/etc/afd.users.sample ]
       then
-         cp @prefix@/etc/afd.users.sample $AFD_WORK_DIR/etc
+         cp @docdir@/etc/afd.users.sample $AFD_WORK_DIR/etc
       fi
    fi
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/host.info ]
+if [ ! -f "$AFD_WORK_DIR/etc/host.info" ]
 then
-   if [ -f @prefix@/etc/host.info.sample ]
+   if [ -f @docdir@/etc/host.info.sample ]
    then
-      cp @prefix@/etc/host.info.sample $AFD_WORK_DIR/etc/host.info
+      cp @docdir@/etc/host.info.sample $AFD_WORK_DIR/etc/host.info
    fi
 fi
 
-if [ ! -f $AFD_WORK_DIR/etc/rename.rule ]
+if [ ! -f "$AFD_WORK_DIR/etc/rename.rule" ]
 then
-   if [ -f @prefix@/etc/rename.rule.sample ]
+   if [ -f @docdir@/etc/rename.rule.sample ]
    then
-      cp @prefix@/etc/rename.rule.sample $AFD_WORK_DIR/etc/rename.rule
+      cp @docdir@/etc/rename.rule.sample $AFD_WORK_DIR/etc/rename.rule
    fi
 fi

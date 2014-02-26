@@ -1,6 +1,6 @@
 /*
  *  get_dir_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -98,9 +98,29 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             if ((fra[i].delete_files_flag & UNKNOWN_FILES) &&
                 (fra[i].in_dc_flag & UNKNOWN_FILES_IDC))
             {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
-                             DEL_UNKNOWN_FILES_ID,
-                             fra[i].unknown_file_time / 3600);
+               if (fra[i].unknown_file_time == -2)
+               {
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                 MAX_OPTION_LENGTH,
+#else
+                  (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                                "%s -1",
+                                DEL_UNKNOWN_FILES_ID);
+               }
+               else
+               {
+#ifdef HAVE_SNPRINTF
+                  (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                 MAX_OPTION_LENGTH,
+#else
+                  (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                                "%s %d",
+                                DEL_UNKNOWN_FILES_ID,
+                                fra[i].unknown_file_time / 3600);
+               }
                d_o->no_of_dir_options++;
                if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
                {
@@ -110,7 +130,13 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             if ((fra[i].delete_files_flag & QUEUED_FILES) &&
                 (fra[i].in_dc_flag & QUEUED_FILES_IDC))
             {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
+#else
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                             "%s %d",
                              DEL_QUEUED_FILES_ID,
                              fra[i].queued_file_time / 3600);
                d_o->no_of_dir_options++;
@@ -122,7 +148,13 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             if ((fra[i].delete_files_flag & OLD_LOCKED_FILES) &&
                 (fra[i].in_dc_flag & OLD_LOCKED_FILES_IDC))
             {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
+#else
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                             "%s %d",
                              DEL_OLD_LOCKED_FILES_ID,
                              fra[i].locked_file_time / 3600);
                d_o->no_of_dir_options++;
@@ -179,13 +211,42 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             }
          }
 #endif
+#ifdef NEW_FRA
+         if ((fra[i].in_dc_flag & INFO_TIME_IDC) &&
+             (fra[i].info_time != DEFAULT_DIR_INFO_TIME))
+         {
+# ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+# else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
+# if SIZEOF_TIME_T == 4
+                          "%s %ld",
+# else
+                          "%s %lld",
+# endif
+                          DIR_INFO_TIME_ID, (pri_time_t)fra[i].info_time);
+            d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
+         }
+#endif
          if ((fra[i].in_dc_flag & WARN_TIME_IDC) &&
              (fra[i].warn_time != DEFAULT_DIR_WARN_TIME))
          {
-#if SIZEOF_TIME_T == 4
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %ld",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
 #else
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+#if SIZEOF_TIME_T == 4
+                          "%s %ld",
+#else
+                          "%s %lld",
 #endif
                           DIR_WARN_TIME_ID, (pri_time_t)fra[i].warn_time);
             d_o->no_of_dir_options++;
@@ -197,15 +258,40 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          if ((fra[i].in_dc_flag & KEEP_CONNECTED_IDC) &&
              (fra[i].keep_connected != DEFAULT_KEEP_CONNECTED_TIME))
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %u",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %u",
                           KEEP_CONNECTED_ID, fra[i].keep_connected);
             d_o->no_of_dir_options++;
          }
 #ifdef WITH_INOTIFY
          if (fra[i].in_dc_flag & INOTIFY_FLAG_IDC)
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %u",
-                          INOTIFY_FLAG_ID, fra[i].inotify_flag);
+            unsigned int flag = 0;
+
+            if (fra[i].dir_flag & INOTIFY_RENAME)
+            {
+               flag += INOTIFY_RENAME_FLAG;
+            }
+            if (fra[i].dir_flag & INOTIFY_CLOSE)
+            {
+               flag += INOTIFY_CLOSE_FLAG;
+            }
+            if (fra[i].dir_flag & INOTIFY_CREATE)
+            {
+               flag += INOTIFY_CREATE_FLAG;
+            }
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %u", INOTIFY_FLAG_ID, flag);
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
             {
@@ -213,10 +299,33 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             }
          }
 #endif
-         if (fra[i].max_process != MAX_PROCESS_PER_DIR)
+         if ((fra[i].in_dc_flag & KEEP_CONNECTED_IDC) &&
+             (fra[i].max_process != MAX_PROCESS_PER_DIR))
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %d",
                           MAX_PROCESS_ID, fra[i].max_process);
+            d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
+         }
+         if (fra[i].in_dc_flag & MAX_ERRORS_IDC)
+         {
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %d",
+                          MAX_ERRORS_ID, fra[i].max_errors);
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
             {
@@ -226,7 +335,13 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          if ((fra[i].max_copied_files != MAX_COPIED_FILES) &&
              (fra[i].in_dc_flag & MAX_CP_FILES_IDC))
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %d",
                           MAX_FILES_ID, fra[i].max_copied_files);
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
@@ -237,10 +352,16 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          if ((fra[i].max_copied_file_size != (MAX_COPIED_FILE_SIZE * 1024)) &&
              (fra[i].in_dc_flag & MAX_CP_FILE_SIZE_IDC))
          {
-#if SIZEOF_OFF_T == 4
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %ld",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
 #else
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+#if SIZEOF_OFF_T == 4
+                          "%s %ld",
+#else
+                          "%s %lld",
 #endif
                          MAX_SIZE_ID,
                          (pri_off_t)(fra[i].max_copied_file_size / 1024));
@@ -250,7 +371,7 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                goto done;
             }
          }
-         if (fra[i].ignore_size != 0)
+         if (fra[i].ignore_size != -1)
          {
             char gt_lt_sign;
 
@@ -268,19 +389,31 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  }
             if (gt_lt_sign == '=')
             {
-#if SIZEOF_OFF_T == 4
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %ld",
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
 #else
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+#if SIZEOF_OFF_T == 4
+                             "%s %ld",
+#else
+                             "%s %lld",
 #endif
                              IGNORE_SIZE_ID, (pri_off_t)fra[i].ignore_size);
             }
             else
             {
-#if SIZEOF_OFF_T == 4
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %c%ld",
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
 #else
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %c%lld",
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+#if SIZEOF_OFF_T == 4
+                             "%s %c%ld",
+#else
+                             "%s %c%lld",
 #endif
                              IGNORE_SIZE_ID, gt_lt_sign,
                              (pri_off_t)fra[i].ignore_size);
@@ -293,13 +426,25 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          }
          if (fra[i].priority != DEFAULT_PRIORITY)
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %c",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %c",
                           PRIORITY_ID, fra[i].priority);
             d_o->no_of_dir_options++;
          }
          if (fra[i].wait_for_filename[0] != '\0')
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %s",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %s",
                           WAIT_FOR_FILENAME_ID, fra[i].wait_for_filename);
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
@@ -309,7 +454,13 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          }
          if (fra[i].accumulate != 0)
          {
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                          "%s %d",
                           ACCUMULATE_ID, fra[i].accumulate);
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
@@ -319,10 +470,16 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          }
          if (fra[i].accumulate_size != 0)
          {
-#if SIZEOF_OFF_T == 4
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %ld",
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
 #else
-            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+#if SIZEOF_OFF_T == 4
+                          "%s %ld",
+#else
+                          "%s %lld",
 #endif
                           ACCUMULATE_SIZE_ID,
                           (pri_off_t)fra[i].accumulate_size);
@@ -378,8 +535,19 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                int  length;
                char str_number[MAX_INT_LENGTH];
 
-               length = sprintf(str_number, "%04o", fra[i].dir_mode);
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %s",
+# ifdef HAVE_SNPRINTF
+               length = snprintf(str_number, "%04o", MAX_INT_LENGTH,
+# else
+               length = sprintf(str_number, "%04o",
+# endif
+                                fra[i].dir_mode);
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
+# else
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
+                             "%s %s",
                              CREATE_SOURCE_DIR_ID, &str_number[length - 4]);
             }
 #endif
@@ -409,6 +577,16 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                goto done;
             }
          }
+         if (fra[i].dir_flag & DO_NOT_PARALLELIZE)
+         {
+            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                         DO_NOT_PARALLELIZE_ID);
+            d_o->no_of_dir_options++;
+            if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
+            {
+               goto done;
+            }
+         }
          if (fra[i].force_reread == YES)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options], "force reread");
@@ -420,7 +598,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
          }
          if (fra[i].end_character != -1)
          {
+#ifdef HAVE_SNPRINTF
+            (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                           MAX_OPTION_LENGTH,
+#else
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
                           "%s %d", END_CHARACTER_ID, fra[i].end_character);
             d_o->no_of_dir_options++;
             if (d_o->no_of_dir_options >= MAX_NO_OPTIONS)
@@ -446,13 +629,24 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  }
             if (gt_lt_sign == '=')
             {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %u",
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
+#else
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                             "%s %u",
                              IGNORE_FILE_TIME_ID, fra[i].ignore_file_time);
             }
             else
             {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %c%u",
-                             IGNORE_FILE_TIME_ID, gt_lt_sign,
+#ifdef HAVE_SNPRINTF
+               (void)snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                              MAX_OPTION_LENGTH,
+#else
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
+#endif
+                             "%s %c%u", IGNORE_FILE_TIME_ID, gt_lt_sign,
                              fra[i].ignore_file_time);
             }
             d_o->no_of_dir_options++;
@@ -472,166 +666,236 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 
             for (j = 0; j < fra[i].no_of_time_entries; j++)
             {
-               length = sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s ",
-                                TIME_ID);
-
-               /* Minute. */
-#ifdef HAVE_LONG_LONG
-               if (fra[i].te[j].minute == ALL_MINUTES)
+#ifdef HAVE_SNPRINTF
+               length = snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                 MAX_OPTION_LENGTH,
 #else
-               full_minute[0] = full_minute[1] = full_minute[2] = full_minute[3] = 0;
-               full_minute[4] = full_minute[5] = full_minute[6] = full_minute[7] = 0;
-               for (ii = 0; ii < 60; ii++)
-               {
-                  bitset(full_minute, ii);
-               }
-               if (memcmp(fra[i].te[j].minute, full_minute, 8) == 0)
+               length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
 #endif
+                                "%s ", TIME_ID);
+
+               if (fra[i].te[j].month == TIME_EXTERNAL)
                {
-                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-                  length += 2;
+                  d_o->aoptions[d_o->no_of_dir_options][length] = 'e';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = 'x';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 2] = 't';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 3] = 'e';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 4] = 'r';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 5] = 'n';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 6] = 'a';
+                  d_o->aoptions[d_o->no_of_dir_options][length + 7] = 'l';
+                  length += 8;
                }
                else
                {
+                  /* Minute. */
+#ifdef HAVE_LONG_LONG
+                  if (fra[i].te[j].minute == ALL_MINUTES)
+#else
+                  full_minute[0] = full_minute[1] = full_minute[2] = full_minute[3] = 0;
+                  full_minute[4] = full_minute[5] = full_minute[6] = full_minute[7] = 0;
                   for (ii = 0; ii < 60; ii++)
                   {
-#ifdef HAVE_LONG_LONG
-                     if (fra[i].te[j].minute & bit_array_long[ii])
-#else
-                     if (bittest(fra[i].te[j].minute, ii) == YES)
+                     bitset(full_minute, ii);
+                  }
+                  if (memcmp(fra[i].te[j].minute, full_minute, 8) == 0)
 #endif
-                     {
-                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             "%d", ii);
-                        }
-                        else
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             ",%d", ii);
-                        }
-                     }
-                  }
-                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-                  length++;
-               }
-
-               /* Hour. */
-               if (fra[i].te[j].hour == ALL_HOURS)
-               {
-                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-                  length += 2;
-               }
-               else
-               {
-                  for (ii = 0; ii < 24; ii++)
                   {
-                     if (fra[i].te[j].hour & bit_array[ii])
-                     {
-                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             "%d", ii);
-                        }
-                        else
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             ",%d", ii);
-                        }
-                     }
+                     d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                     d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                     length += 2;
                   }
-                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-                  length++;
-               }
-
-               /* Day of Month. */
-               if (fra[i].te[j].day_of_month == ALL_DAY_OF_MONTH)
-               {
-                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-                  length += 2;
-               }
-               else
-               {
-                  for (ii = 1; ii < 32; ii++)
+                  else
                   {
-                     if (fra[i].te[j].day_of_month & bit_array[ii - 1])
+                     for (ii = 0; ii < 60; ii++)
                      {
-                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+#ifdef HAVE_LONG_LONG
+                        if (fra[i].te[j].minute & bit_array_long[ii])
+#else
+                        if (bittest(fra[i].te[j].minute, ii) == YES)
+#endif
                         {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             "%d", ii);
-                        }
-                        else
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             ",%d", ii);
+                           if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                "%d", ii);
+                           }
+                           else
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                ",%d", ii);
+                           }
                         }
                      }
+                     d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                     length++;
                   }
-                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-                  length++;
-               }
 
-               /* Month. */
-               if (fra[i].te[j].month == ALL_MONTH)
-               {
-                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-                  length += 2;
-               }
-               else
-               {
-                  for (ii = 1; ii < 13; ii++)
+                  /* Hour. */
+                  if (fra[i].te[j].hour == ALL_HOURS)
                   {
-                     if (fra[i].te[j].month & bit_array[ii - 1])
+                     d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                     d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                     length += 2;
+                  }
+                  else
+                  {
+                     for (ii = 0; ii < 24; ii++)
                      {
-                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        if (fra[i].te[j].hour & bit_array[ii])
                         {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             "%d", ii);
-                        }
-                        else
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             ",%d", ii);
+                           if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                "%d", ii);
+                           }
+                           else
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                ",%d", ii);
+                           }
                         }
                      }
+                     d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                     length++;
                   }
-                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-                  length++;
-               }
 
-               /* Day of Week. */
-               if (fra[i].te[j].day_of_week == ALL_DAY_OF_WEEK)
-               {
-                  d_o->aoptions[d_o->no_of_dir_options][length] = '*';
-                  d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
-                  length += 2;
-               }
-               else
-               {
-                  for (ii = 1; ii < 8; ii++)
+                  /* Day of Month. */
+                  if (fra[i].te[j].day_of_month == ALL_DAY_OF_MONTH)
                   {
-                     if (fra[i].te[j].day_of_week & bit_array[ii - 1])
+                     d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                     d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                     length += 2;
+                  }
+                  else
+                  {
+                     for (ii = 1; ii < 32; ii++)
                      {
-                        if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                        if (fra[i].te[j].day_of_month & bit_array[ii - 1])
                         {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             "%d", ii);
-                        }
-                        else
-                        {
-                           length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                             ",%d", ii);
+                           if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                "%d", ii);
+                           }
+                           else
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                ",%d", ii);
+                           }
                         }
                      }
+                     d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                     length++;
                   }
-                  d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
-                  length++;
+
+                  /* Month. */
+                  if (fra[i].te[j].month == ALL_MONTH)
+                  {
+                     d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                     d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                     length += 2;
+                  }
+                  else
+                  {
+                     for (ii = 1; ii < 13; ii++)
+                     {
+                        if (fra[i].te[j].month & bit_array[ii - 1])
+                        {
+                           if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                "%d", ii);
+                           }
+                           else
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                ",%d", ii);
+                           }
+                        }
+                     }
+                     d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                     length++;
+                  }
+
+                  /* Day of Week. */
+                  if (fra[i].te[j].day_of_week == ALL_DAY_OF_WEEK)
+                  {
+                     d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+                     d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+                     length += 2;
+                  }
+                  else
+                  {
+                     for (ii = 1; ii < 8; ii++)
+                     {
+                        if (fra[i].te[j].day_of_week & bit_array[ii - 1])
+                        {
+                           if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                "%d", ii);
+                           }
+                           else
+                           {
+#ifdef HAVE_SNPRINTF
+                              length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                                 MAX_OPTION_LENGTH - length,
+#else
+                              length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+#endif
+                                                ",%d", ii);
+                           }
+                        }
+                     }
+                     d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+                     length++;
+                  }
                }
                d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
                d_o->no_of_dir_options++;
@@ -648,7 +912,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 
             if (fra[i].dup_check_flag & DC_FILENAME_ONLY)
             {
+# ifdef HAVE_SNPRINTF
+               length = snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                 MAX_OPTION_LENGTH,
+# else
                length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
 # if SIZEOF_TIME_T == 4
                                 "%s %ld %d",
 # else
@@ -660,7 +929,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             }
             else if (fra[i].dup_check_flag & DC_FILENAME_AND_SIZE)
                  {
+# ifdef HAVE_SNPRINTF
+                    length = snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                      MAX_OPTION_LENGTH,
+# else
                     length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
 # if SIZEOF_TIME_T == 4
                                      "%s %ld %d",
 # else
@@ -672,7 +946,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  }
             else if (fra[i].dup_check_flag & DC_NAME_NO_SUFFIX)
                  {
+# ifdef HAVE_SNPRINTF
+                    length = snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                      MAX_OPTION_LENGTH,
+# else
                     length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
 # if SIZEOF_TIME_T == 4
                                      "%s %ld %d",
 # else
@@ -684,7 +963,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  }
             else if (fra[i].dup_check_flag & DC_FILE_CONTENT)
                  {
+# ifdef HAVE_SNPRINTF
+                    length = snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                      MAX_OPTION_LENGTH,
+# else
                     length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
 # if SIZEOF_TIME_T == 4
                                      "%s %ld %d",
 # else
@@ -696,7 +980,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  }
                  else
                  {
+# ifdef HAVE_SNPRINTF
+                    length = snprintf(d_o->aoptions[d_o->no_of_dir_options],
+                                      MAX_OPTION_LENGTH,
+# else
                     length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# endif
 # if SIZEOF_TIME_T == 4
                                      "%s %ld %d",
 # else
@@ -710,12 +999,22 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             {
                if (fra[i].dup_check_flag & DC_WARN)
                {
+# ifdef HAVE_SNPRINTF
+                  length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                     MAX_OPTION_LENGTH - length,
+# else
                   length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                     " %d", DC_DELETE_WARN_BIT);
                }
                else
                {
+# ifdef HAVE_SNPRINTF
+                  length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                     MAX_OPTION_LENGTH - length,
+# else
                   length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                     " %d", DC_DELETE_BIT);
                }
             }
@@ -723,31 +1022,56 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                  {
                     if (fra[i].dup_check_flag & DC_WARN)
                     {
+# ifdef HAVE_SNPRINTF
+                       length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          MAX_OPTION_LENGTH - length,
+# else
                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                          " %d",
                                          DC_STORE_WARN_BIT);
                     }
                     else
                     {
+# ifdef HAVE_SNPRINTF
+                       length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          MAX_OPTION_LENGTH - length,
+# else
                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                          " %d",
                                          DC_STORE_BIT);
                     }
                  }
                  else
                  {
+# ifdef HAVE_SNPRINTF
+                    length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                       MAX_OPTION_LENGTH - length,
+# else
                     length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                       " %d",
                                       DC_WARN_BIT);
                  }
             if (fra[i].dup_check_flag & DC_CRC32C)
             {
+# ifdef HAVE_SNPRINTF
+               length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                  MAX_OPTION_LENGTH - length,
+# else
                length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                  " %d", DC_CRC32C_BIT);
             }
             else
             {
+# ifdef HAVE_SNPRINTF
+               length += snprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                  MAX_OPTION_LENGTH - length,
+# else
                length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+# endif
                                  " %d", DC_CRC32_BIT);
             }
             d_o->aoptions[d_o->no_of_dir_options][length] = '\0';

@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2008 Holger Kiehl
+## Copyright (C) 2008 - 2013 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
-SUBDIRS              = html-en images man txt
+SUBDIRS              = html-en images man txt etc
 DISTDOCS             = Changelog FAQ index.html
 EXTRA_DIST           = $(DISTDOCS) site_logo
 doc_DATA             = $(DISTDOCS)

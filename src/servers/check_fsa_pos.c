@@ -1,6 +1,6 @@
 /*
  *  check_fsa_pos.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ extern struct filetransfer_status *fsa;
 void
 check_fsa_pos(void)
 {
-   if (check_fsa(NO) == YES)
+   if (check_fsa(NO, "servers") == YES)
    {
       if ((fsa_pos = get_host_position(fsa, alias_name, no_of_hosts)) == INCORRECT)
       {

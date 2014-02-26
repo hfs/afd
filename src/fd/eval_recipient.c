@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2013 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -77,6 +77,7 @@ DESCR__S_M3
  **                        get_group_list(), otherwise we loose those values
  **                        during a burst.
  **   24.04.2012 S.Knudsen Scheme ftpS was ignored.
+ **   21.04.2013 H.Kiehl   Handle case when we rename host_alias in message.
  **
  */
 DESCR__E_M3
@@ -87,6 +88,7 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* Global variables. */
+extern int                        no_of_hosts;
 extern struct filetransfer_status *fsa;
 
 
@@ -319,19 +321,65 @@ eval_recipient(char       *recipient,
              ((port == YES) && (p_db->fsa_pos != INCORRECT) &&
               (CHECK_STRCMP(p_db->host_alias, fsa->host_alias))))
          {
-            if (full_msg_path != NULL)
+            /*
+             * Maybe the host alias has been renamed in message. So
+             * lets see if this is the case.
+             */
+            if ((port == NO) && (p_db->fsa_pos != INCORRECT) &&
+                (CHECK_STRCMP(p_db->host_alias, fsa->host_alias)))
             {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "The message %s contains a hostname (%s) that is not in the FSA.",
-                          full_msg_path, p_db->host_alias);
+               fsa_detach_pos(p_db->fsa_pos);
+               if (fsa_attach("sf/gf_xxx") == SUCCESS)
+               {
+                  p_db->fsa_pos = get_host_position(fsa, p_db->host_alias,
+                                                    no_of_hosts);
+                  (void)fsa_detach(NO);
+                  if (p_db->fsa_pos != INCORRECT)
+                  {
+                     if ((port = fsa_attach_pos(p_db->fsa_pos)) != SUCCESS)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "Failed to attach to FSA position %d (%d).",
+                                   p_db->fsa_pos, port);
+                        p_db->fsa_pos = INCORRECT;
+                        port = NEITHER;
+                     }
+                     else
+                     {
+                        p_db->lock_offset = AFD_WORD_OFFSET +
+                                            (p_db->fsa_pos * sizeof(struct filetransfer_status));
+#ifdef WITH_DUP_CHECK
+                        if ((p_db->dup_check_flag & USE_RECIPIENT_ID) == 0)
+                        {
+                           p_db->crc_id = fsa->host_id;
+                        }
+#endif
+                        port = YES;
+                     }
+                  }
+               }
+               else
+               {
+                  p_db->fsa_pos = INCORRECT;
+                  port = NEITHER;
+               }
             }
             else
             {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to locate host %s in the FSA.",
-                          p_db->host_alias);
+               if (full_msg_path != NULL)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "The message %s contains a hostname (%s) that is not in the FSA.",
+                             full_msg_path, p_db->host_alias);
+               }
+               else
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to locate host %s in the FSA.",
+                             p_db->host_alias);
+               }
+               port = INCORRECT;
             }
-            port = INCORRECT;
          }
          else
          {

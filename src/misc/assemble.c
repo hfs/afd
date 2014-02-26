@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,8 @@ DESCR__S_M3
  **                char         *dest_file,
  **                int          type,
  **                unsigned int unique_number,
+ **                int          nnn_length,
+ **                unsigned int job_id,
  **                int          *files_to_send,
  **                off_t        *file_size)
  **
@@ -74,6 +76,7 @@ DESCR__S_M3
  **   16.11.2009 H.Kiehl Fix error if dest_file has same name as one of
  **                      the source files.
  **   06.09.2012 H.Kiehl Added WMO standard with dummy message at end.
+ **   07.08.2013 H.Kiehl Added option to add WMO nnn counter.
  **
  */
 DESCR__E_M3
@@ -89,10 +92,11 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* Local function prototypes. */
-static int  write_length_indicator(int, int, int, int);
+/* Local gloabal variables. */
+static int *counter;
 
-/* #define _WITH_SOH_ETX_CHECK */
+/* Local function prototypes. */
+static int write_length_indicator(int, int, int, int, int, int);
 
 
 /*############################## assemble() #############################*/
@@ -103,14 +107,18 @@ assemble(char         *source_dir,
          char         *dest_file,
          int          type,
          unsigned int unique_number,
+         int          nnn_length,
+         unsigned int job_id,
          int          *files_to_send,
          off_t        *file_size)
 {
    int         buffer_size = 0,
+               counter_fd,
                fd,
                have_sohetx = YES,
                i,
                length,
+               source_length,
                to_fd = -1;
    char        *buffer = NULL,
                *p_dest,
@@ -118,17 +126,44 @@ assemble(char         *source_dir,
                temp_dest_file[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
+   source_length = strlen(source_dir);
+   if (source_length > (MAX_PATH_LENGTH - 1))
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Buffer to store destination file name to small (%d < %d).",
+                 MAX_PATH_LENGTH, source_length);
+      return(INCORRECT);
+   }
+   if (nnn_length > 0)
+   {
+      char counter_file[MAX_FILENAME_LENGTH];
+
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(counter_file, MAX_FILENAME_LENGTH, "%s.%x",
+#else
+      (void)sprintf(counter_file, "%s.%x",
+#endif
+                    NNN_FILE, job_id);
+
+      /* Open counter file. */
+      if ((counter_fd = open_counter_file(counter_file, &counter)) == -1)
+      {
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                     _("Failed to open counter file %s"),
+                     counter_file);
+         return(INCORRECT);
+      }
+   }
    (void)strcpy(temp_dest_file, source_dir);
-   i = strlen(source_dir);
-   p_src = source_dir + i;
-   p_dest = temp_dest_file + i;
+   p_src = source_dir + source_length;
+   p_dest = temp_dest_file + source_length;
    *p_src++ = '/'; *p_dest++ = '/';
    *p_dest = '\0';
    *file_size = 0;
 
    for (i = 0; i < file_counter; i++)
    {
-      (void)strcpy(p_src, p_file_name);
+      (void)my_strncpy(p_src, p_file_name, MAX_PATH_LENGTH - (source_length + 1));
       if ((fd = open(source_dir, O_RDONLY)) == -1)
       {
          receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
@@ -172,6 +207,8 @@ assemble(char         *source_dir,
                }
                else
                {
+                  int offset = 0;
+
                   if (close(fd) == -1)
                   {
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
@@ -181,7 +218,13 @@ assemble(char         *source_dir,
                   {
                      if (*p_dest == '\0')
                      {
-                        (void)sprintf(p_dest, ".%x", unique_number);
+#ifdef HAVE_SNPRINTF
+                        (void)snprintf(p_dest,
+                                       MAX_PATH_LENGTH - (source_length + 1),
+#else
+                        (void)sprintf(p_dest,
+#endif
+                                      ".%x", unique_number);
                      }
                      if ((to_fd = open(temp_dest_file, O_CREAT | O_RDWR,
                                        FILE_MODE)) == -1)
@@ -206,36 +249,28 @@ assemble(char         *source_dir,
                         }
                      }
                   }
-#ifdef _WITH_SOH_ETX_CHECK
-                  if (type != ASCII_STANDARD)
-                  {
-                     int additional_length = 0;
 
-                     if (buffer[0] != 1)
-                     {
-                        additional_length += 4;
-                     }
-                     if (buffer[stat_buf.st_size - 1] != 3)
-                     {
-                        additional_length += 4;
-                     }
+                  if ((buffer[0] == 1) &&
+                      (buffer[stat_buf.st_size - 1] == 3))
+                  {
                      have_sohetx = YES;
-#else
+                     if (nnn_length > 0)
+                     {
+                        offset = 1;
+                     }
+                  }
+                  else
+                  {
+                     have_sohetx = NO;
+                  }
+
                   if (type != ASCII_STANDARD)
                   {
-                     if ((buffer[0] == 1) &&
-                         (buffer[stat_buf.st_size - 1] == 3))
-                     {
-                        have_sohetx = YES;
-                     }
-                     else
-                     {
-                        have_sohetx = NO;
-                     }
-#endif
                      if ((length = write_length_indicator(to_fd,
                                                           type, have_sohetx,
-                                                          stat_buf.st_size)) < 0)
+                                                          stat_buf.st_size,
+                                                          nnn_length,
+                                                          counter_fd)) < 0)
                      {
                         if (length == -1)
                         {
@@ -246,27 +281,35 @@ assemble(char         *source_dir,
                      }
                      *file_size += length;
                   }
-
-#ifdef _WITH_SOH_ETX_CHECK
-                  /* Check for SOH */
-                  if (buffer[0] != 1)
+                  else
                   {
-                     if (write(to_fd, "\001\015\015\012", 4) != 4)
+                     if (nnn_length > 0)
                      {
-                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    _("Failed to write() SOH<CR><CR><LF> : %s"),
-                                    strerror(errno));
-                     }
-                     else
-                     {
-                        *file_size += 4;
+                        char nnn[4 + MAX_INT_LENGTH + 1];
+
+                        (void)next_counter(counter_fd, counter,
+                                           my_power(10, nnn_length) - 1);
+                        if (offset == 1)
+                        {
+                           nnn[0] = 1;
+                        }
+                        length = offset + sprintf(&nnn[offset], "\r\r\n%0*d",
+                                                  nnn_length, *counter);
+                        if (write(to_fd, nnn, length) != length)
+                        {
+                            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                        _("write() error : %s"), strerror(errno));
+                        }
+                        else
+                        {
+                           *file_size += length;
+                        }
                      }
                   }
-#endif
 
                   /* Write data */
-                  if (writen(to_fd, buffer, stat_buf.st_size,
-                             stat_buf.st_blksize) != stat_buf.st_size)
+                  if (writen(to_fd, &buffer[offset], stat_buf.st_size - offset,
+                             stat_buf.st_blksize) != (stat_buf.st_size - offset))
                   {
                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                   _("Failed to writen() data part : %s"),
@@ -280,7 +323,8 @@ assemble(char         *source_dir,
                   {
                      if ((length = write_length_indicator(to_fd,
                                                           type, NO,
-                                                          stat_buf.st_size)) < 0)
+                                                          stat_buf.st_size,
+                                                          0, -1)) < 0)
                      {
                         if (length == -1)
                         {
@@ -294,23 +338,6 @@ assemble(char         *source_dir,
                         *file_size += length;
                      }
                   }
-
-#ifdef _WITH_SOH_ETX_CHECK
-                  /* Check for ETX */
-                  if (buffer[stat_buf.st_size - 1] != 3)
-                  {
-                     if (write(to_fd, "\015\015\012\003", 4) != 4)
-                     {
-                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                                    _("Failed to write() <CR><CR><LF>ETX : %s"),
-                                    strerror(errno));
-                     }
-                     else
-                     {
-                        *file_size += 4;
-                     }
-                  }
-#endif
                } /* read() == successful */
             }
             else
@@ -332,6 +359,11 @@ assemble(char         *source_dir,
       p_file_name += MAX_FILENAME_LENGTH;
    } /* for (i = 0; i < file_counter; i++) */
 
+   if (nnn_length > 0)
+   {
+      close_counter_file(counter_fd, &counter);
+   }
+
    if (to_fd != -1)
    {
       if (type == FOUR_BYTE_DWD)
@@ -349,8 +381,8 @@ assemble(char         *source_dir,
       }
       else if (type == WMO_WITH_DUMMY_MESSAGE)
            {
-              if ((length = write_length_indicator(to_fd,
-                                                   type, have_sohetx, 0)) < 0)
+              if ((length = write_length_indicator(to_fd, type, have_sohetx,
+                                                   0, 0, -1)) < 0)
               {
                  if (length == -1)
                  {
@@ -387,11 +419,21 @@ assemble(char         *source_dir,
 
 /*+++++++++++++++++++++++ write_length_indicator() ++++++++++++++++++++++*/
 static int
-write_length_indicator(int fd, int type, int have_sohetx, int length)
+write_length_indicator(int fd,
+                       int type,
+                       int have_sohetx,
+                       int length,
+                       int nnn_length,
+                       int counter_fd)
 {
    int           byte_order = 1,
                  write_length;
-   unsigned char buffer[10];
+   unsigned char buffer[10 + 4 + MAX_INT_LENGTH];
+
+   if (nnn_length > 0)
+   {
+      length += (nnn_length + 3);
+   }
 
    switch (type)
    {
@@ -480,14 +522,20 @@ write_length_indicator(int fd, int type, int have_sohetx, int length)
       case WMO_WITH_DUMMY_MESSAGE : /* WMO Standard with dummy message at end. */
          if (length > 99999999)
          {
-            (void)strcpy((char *)buffer, "99999999");
+            buffer[0] = buffer[1] = buffer[2] = buffer[3] = buffer[4] = '9';
+            buffer[5] = buffer[6] = buffer[7] = '9';
+            buffer[8] = '\0';
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "Data length (%d) greater then what is possible in WMO header size, inserting maximum possible 99999999.",
                         length);
          }
          else
          {
+#ifdef HAVE_SNPRINTF
+            (void)snprintf((char *)buffer, 10, "%08d", length);
+#else
             (void)sprintf((char *)buffer, "%08d", length);
+#endif
          }
          write_length = 10;
          buffer[8] = '0';
@@ -507,6 +555,19 @@ write_length_indicator(int fd, int type, int have_sohetx, int length)
                      type);
          return(-2);
 
+   }
+
+   if (nnn_length > 0)
+   {
+      (void)next_counter(counter_fd, counter,
+                         my_power(10, nnn_length) - 1);
+      if (have_sohetx == YES)
+      {
+         buffer[write_length] = 1;
+         write_length++;
+      }
+      write_length += sprintf((char *)(&buffer[write_length]), "\r\r\n%0*d",
+                              nnn_length, *counter);
    }
 
    return(write(fd, buffer, write_length));

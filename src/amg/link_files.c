@@ -1,6 +1,6 @@
 /*
  *  link_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -166,7 +166,13 @@ link_files(char                   *src_file_path,
 
                (void)memcpy(dl.file_name, file_name_pool[i],
                             (size_t)(file_length_pool[i] + 1));
-               (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+               (void)snprintf(dl.host_name,
+                              MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+               (void)sprintf(dl.host_name,
+# endif
+                             "%-*s %03x",
                              MAX_HOSTNAME_LENGTH, p_db->host_alias, AGE_INPUT);
                *dl.file_size = file_size_pool[i];
                *dl.dir_id = p_de->dir_id;
@@ -176,7 +182,12 @@ link_files(char                   *src_file_path,
                *dl.unique_number = 0;
                *dl.file_name_length = file_length_pool[i];
                dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                              snprintf((dl.file_name + *dl.file_name_length + 1),
+                                        MAX_FILENAME_LENGTH + 1,
+# else
                               sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
 # if SIZEOF_TIME_T == 4
                                       "%s%c>%ld (%s %d)",
 # else
@@ -218,8 +229,8 @@ link_files(char                   *src_file_path,
                      /* Create a new message name and directory. */
                      if (create_name(dest_file_path, p_db->priority,
                                      current_time, p_db->job_id,
-                                     split_job_counter,
-                                     &unique_number, unique_name, -1) < 0)
+                                     split_job_counter, &unique_number,
+                                     unique_name, MAX_FILENAME_LENGTH - 1, -1) < 0)
                      {
                         if (errno == ENOSPC)
                         {
@@ -233,8 +244,9 @@ link_files(char                   *src_file_path,
                               errno = 0;
                               if (create_name(dest_file_path, p_db->priority,
                                               current_time, p_db->job_id,
-                                              split_job_counter,
-                                              &unique_number, unique_name, -1) < 0)
+                                              split_job_counter, &unique_number,
+                                              unique_name,
+                                              MAX_FILENAME_LENGTH - 1, -1) < 0)
                               {
                                  if (errno != ENOSPC)
                                  {
@@ -290,16 +302,27 @@ link_files(char                   *src_file_path,
                      {
                         p_dest_end--;
                      }
-#if SIZEOF_TIME_T == 4
-                     (void)sprintf(unique_name, "%x/%x/%lx_%x_%x",
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(unique_name, MAX_FILENAME_LENGTH - 1,
 #else
-                     (void)sprintf(unique_name, "%x/%x/%llx_%x_%x",
+                     (void)sprintf(unique_name,
+#endif
+#if SIZEOF_TIME_T == 4
+                                   "%x/%x/%lx_%x_%x",
+#else
+                                   "%x/%x/%llx_%x_%x",
 #endif
                                    p_db->job_id, dir_no,
                                    (pri_time_t)current_time,
                                    unique_number, *split_job_counter);
                      p_dest = p_dest_end +
-                              sprintf(p_dest_end, "/%s/", unique_name);
+#ifdef HAVE_SNPRINTF
+                              snprintf(p_dest_end,
+                                       MAX_PATH_LENGTH - (dest_file_path - p_dest_end),
+#else
+                              sprintf(p_dest_end,
+#endif
+                                      "/%s/", unique_name);
                      if (mkdir(dest_file_path, DIR_MODE) == -1)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -468,7 +491,13 @@ try_copy_file:
 #ifdef _DELETE_LOG
                              (void)memcpy(dl.file_name, file_name_pool[i],
                                           (size_t)(file_length_pool[i] + 1));
-                             (void)sprintf(dl.host_name, "%-*s %03x",
+# ifdef HAVE_SNPRINTF
+                             (void)snprintf(dl.host_name,
+                                            MAX_HOSTNAME_LENGTH + 4 + 1,
+# else
+                             (void)sprintf(dl.host_name,
+# endif
+                                           "%-*s %03x",
                                            MAX_HOSTNAME_LENGTH,
                                            p_db->host_alias,
                                            INTERNAL_LINK_FAILED);
@@ -480,7 +509,12 @@ try_copy_file:
                              *dl.unique_number = 0;
                              *dl.file_name_length = file_length_pool[i];
                              dl_real_size = *dl.file_name_length + dl.size +
+# ifdef HAVE_SNPRINTF
+                                            snprintf((dl.file_name + *dl.file_name_length + 1),
+                                                    MAX_FILENAME_LENGTH + 1,
+# else
                                             sprintf((dl.file_name + *dl.file_name_length + 1),
+# endif
                                                     "%s%c>%s (%s %d)",
                                                     DIR_CHECK, SEPARATOR_CHAR,
                                                     strerror(tmp_errno),

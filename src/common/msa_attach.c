@@ -1,6 +1,6 @@
 /*
  *  msa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2009 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -200,7 +200,13 @@ msa_attach(void)
                     msa_id_file, strerror(errno));
       }
 
-      (void)sprintf(p_msa_stat_file, ".%d", msa_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(p_msa_stat_file,
+                     MAX_PATH_LENGTH - (p_msa_stat_file - msa_stat_file),
+#else
+      (void)sprintf(p_msa_stat_file,
+#endif
+                    ".%d", msa_id);
 
       if (msa_fd > 0)
       {
@@ -388,7 +394,13 @@ msa_attach_passive(void)
                     _("Could not close() `%s' : %s"),
                     msa_id_file, strerror(errno));
       }
-      (void)sprintf(p_msa_stat_file, ".%d", msa_id);
+#ifdef HAVE_SNPRINTF
+      (void)snprintf(p_msa_stat_file,
+                     MAX_PATH_LENGTH - (p_msa_stat_file - msa_stat_file),
+#else
+      (void)sprintf(p_msa_stat_file,
+#endif
+                    ".%d", msa_id);
 
       if (msa_fd > 0)
       {

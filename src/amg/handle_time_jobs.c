@@ -1,6 +1,6 @@
 /*
  *  handle_time_jobs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2012 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2013 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,11 +67,13 @@ extern int                        amg_counter_fd,
                                   *no_of_process,
                                   no_of_time_jobs,
                                   *time_job_list;
-extern char                       outgoing_file_dir[],
-#ifndef _WITH_PTHREAD
-                                  *file_name_buffer,
+#ifndef MULTI_FS_SUPPORT
+extern char                       outgoing_file_dir[];
 #endif
-                                  time_dir[];
+#ifndef _WITH_PTHREAD
+extern char                       *file_name_buffer;
+#endif
+extern char                       time_dir[];
 extern struct dc_proc_list        *dcpl;      /* Dir Check Process List. */
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
@@ -202,7 +204,8 @@ handle_time_dir(int time_job_no)
                                      creation_time,
                                      db[time_job_list[time_job_no]].job_id,
                                      &split_job_counter, &unique_number,
-                                     &unique_name[1], amg_counter_fd) < 0)
+                                     &unique_name[1], MAX_PATH_LENGTH - 1,
+                                     amg_counter_fd) < 0)
                      {
                         if (errno == ENOSPC)
                         {
@@ -224,6 +227,7 @@ handle_time_dir(int time_job_no)
                                               &split_job_counter,
                                               &unique_number,
                                               &unique_name[1],
+                                              MAX_PATH_LENGTH - 1,
                                               amg_counter_fd) < 0)
                               {
                                  if (errno != ENOSPC)
@@ -273,16 +277,27 @@ handle_time_dir(int time_job_no)
                      {
                         p_dest_end--;
                      }
-#if SIZEOF_TIME_T == 4
-                     (void)sprintf(unique_name, "%x/%x/%lx_%x_%x",
+#ifdef HAVE_SNPRINTF
+                     (void)snprintf(unique_name, MAX_PATH_LENGTH,
 #else
-                     (void)sprintf(unique_name, "%x/%x/%llx_%x_%x",
+                     (void)sprintf(unique_name,
+#endif
+#if SIZEOF_TIME_T == 4
+                                   "%x/%x/%lx_%x_%x",
+#else
+                                   "%x/%x/%llx_%x_%x",
 #endif
                                    db[time_job_list[time_job_no]].job_id,
                                    dir_no, (pri_time_t)creation_time,
                                    unique_number, split_job_counter);
                      p_dest = p_dest_end +
-                              sprintf(p_dest_end, "/%s/", unique_name);
+#ifdef HAVE_SNPRINTF
+                              snprintf(p_dest_end,
+                                       MAX_PATH_LENGTH - (p_dest_end - dest_file_path),
+#else
+                              sprintf(p_dest_end,
+#endif
+                                      "/%s/", unique_name);
                      if (mkdir(dest_file_path, DIR_MODE) == -1)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -393,7 +408,8 @@ handle_time_dir(int time_job_no)
                      system_log(WARN_SIGN, __FILE__, __LINE__,
                                 "close() error : %s", strerror(errno));
                   }
-                  send_message(outgoing_file_dir, unique_name, split_job_counter,
+                  send_message(outgoing_file_dir,
+                               unique_name, split_job_counter,
                                unique_number, creation_time,
                                time_job_list[time_job_no], 0,
                                files_moved, file_size_moved, YES);
